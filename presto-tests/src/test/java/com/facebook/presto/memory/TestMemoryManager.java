@@ -95,14 +95,14 @@ public class TestMemoryManager
         }
     }
 
-    @Test(timeOut = 240_000, expectedExceptions = ExecutionException.class, expectedExceptionsMessageRegExp = ".*The cluster is out of memory, and your query was killed. Please try again in a few minutes.")
+    @Test(timeOut = 240_000, expectedExceptions = ExecutionException.class, expectedExceptionsMessageRegExp = ".*Query killed because the cluster is out of memory. Please try again in a few minutes.")
     public void testOutOfMemoryKiller()
             throws Exception
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("task.verbose-stats", "true")
                 .put("query.low-memory-killer.delay", "5s")
-                .put("query.low-memory-killer.enabled", "true")
+                .put("query.low-memory-killer.policy", "total-reservation")
                 .build();
 
         try (DistributedQueryRunner queryRunner = createQueryRunner(TINY_SESSION, properties)) {

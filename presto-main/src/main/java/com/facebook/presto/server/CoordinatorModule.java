@@ -60,6 +60,12 @@ import com.facebook.presto.execution.scheduler.PhasedExecutionPolicy;
 import com.facebook.presto.execution.scheduler.SplitSchedulerStats;
 import com.facebook.presto.memory.ClusterMemoryManager;
 import com.facebook.presto.memory.ForMemoryManager;
+import com.facebook.presto.memory.LowMemoryKiller;
+import com.facebook.presto.memory.MemoryManagerConfig;
+import com.facebook.presto.memory.MemoryManagerConfig.LowMemoryKillerPolicy;
+import com.facebook.presto.memory.NoneLowMemoryKiller;
+import com.facebook.presto.memory.TotalReservationLowMemoryKiller;
+import com.facebook.presto.memory.TotalReservationOnBlockedNodesLowMemoryKiller;
 import com.facebook.presto.operator.ForScheduler;
 import com.facebook.presto.server.protocol.StatementResource;
 import com.facebook.presto.server.remotetask.RemoteTaskStats;
@@ -126,6 +132,7 @@ import static com.facebook.presto.execution.QueryExecution.QueryExecutionFactory
 import static com.facebook.presto.execution.SqlQueryExecution.SqlQueryExecutionFactory;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static io.airlift.concurrent.Threads.threadsNamed;
+import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
 import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
 import static io.airlift.http.server.HttpServerBinder.httpServerBinder;
@@ -187,6 +194,9 @@ public class CoordinatorModule
                     config.setIdleTimeout(new Duration(30, SECONDS));
                     config.setRequestTimeout(new Duration(10, SECONDS));
                 });
+        bindLowMemoryKiller(LowMemoryKillerPolicy.NONE, NoneLowMemoryKiller.class);
+        bindLowMemoryKiller(LowMemoryKillerPolicy.TOTAL_RESERVATION, TotalReservationLowMemoryKiller.class);
+        bindLowMemoryKiller(LowMemoryKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES, TotalReservationOnBlockedNodesLowMemoryKiller.class);
         newExporter(binder).export(ClusterMemoryManager.class).withGeneratedName();
 
         // cluster statistics
@@ -287,6 +297,14 @@ public class CoordinatorModule
 
         taskBinder.addBinding(statement).to(task).in(Scopes.SINGLETON);
         executionBinder.addBinding(statement).to(DataDefinitionExecutionFactory.class).in(Scopes.SINGLETON);
+    }
+
+    private void bindLowMemoryKiller(String name, Class<? extends LowMemoryKiller> clazz)
+    {
+        install(installModuleIf(
+                MemoryManagerConfig.class,
+                config -> name.equals(config.getLowMemoryKillerPolicy()),
+                binder -> binder.bind(LowMemoryKiller.class).to(clazz).in(Scopes.SINGLETON)));
     }
 
     public static class ExecutorCleanup
