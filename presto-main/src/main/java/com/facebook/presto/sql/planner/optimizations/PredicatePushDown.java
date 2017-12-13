@@ -214,8 +214,6 @@ public class PredicatePushDown
         @Override
         public PlanNode visitGroupId(GroupIdNode node, RewriteContext<Expression> context)
         {
-            checkState(!SymbolsExtractor.extractUnique(context.get()).contains(node.getGroupIdSymbol()), "groupId symbol cannot be referenced in predicate");
-
             Map<Symbol, SymbolReference> commonGroupingSymbolMapping = node.getGroupingSetMappings().entrySet().stream()
                     .filter(entry -> node.getCommonGroupingColumns().contains(entry.getKey()))
                     .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().toSymbolReference()));
@@ -862,6 +860,15 @@ public class PredicatePushDown
 
             // Sort non-equality predicates by those that can be pushed down and those that cannot
             for (Expression conjunct : EqualityInference.nonInferrableConjuncts(inheritedPredicate)) {
+                if (node.getGroupIdSymbol().isPresent() && SymbolsExtractor.extractUnique(conjunct).contains(node.getGroupIdSymbol().get())) {
+                    // aggregation operator synthesizes outputs for group ids corresponding to the global grouping set (i.e., ()), so we
+                    // need to preserve any predicates that evaluate the group id to run after the aggregation
+                    // TODO: we should be able to infer if conditions on grouping() correspond to global grouping sets to determine whether
+                    // we need to do this for each specific case
+                    postAggregationConjuncts.add(conjunct);
+                    continue;
+                }
+
                 Expression rewrittenConjunct = equalityInference.rewriteExpression(conjunct, in(node.getGroupingKeys()));
                 if (rewrittenConjunct != null) {
                     pushdownConjuncts.add(rewrittenConjunct);
