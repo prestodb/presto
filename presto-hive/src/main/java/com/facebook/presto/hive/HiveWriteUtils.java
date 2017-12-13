@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.HdfsEnvironment.HdfsContext;
+import com.facebook.presto.hive.RecordFileWriter.ExtendedRecordWriter;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
@@ -55,6 +56,8 @@ import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.hive.metastore.ProtectMode;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
 import org.apache.hadoop.hive.ql.io.HiveOutputFormat;
+import org.apache.hadoop.hive.ql.io.RCFile;
+import org.apache.hadoop.hive.ql.io.RCFileOutputFormat;
 import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.Serializer;
 import org.apache.hadoop.hive.serde2.io.DateWritable;
@@ -80,8 +83,12 @@ import org.apache.hadoop.io.FloatWritable;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
+import org.apache.hadoop.io.Writable;
+import org.apache.hadoop.io.compress.CompressionCodec;
+import org.apache.hadoop.io.compress.DefaultCodec;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
+import org.apache.hive.common.util.ReflectionUtil;
 import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
@@ -117,6 +124,7 @@ import static java.util.UUID.randomUUID;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.conf.HiveConf.ConfVars.COMPRESSRESULT;
 import static org.apache.hadoop.hive.metastore.TableType.MANAGED_TABLE;
+import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMNS;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.getPrimitiveJavaObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.getPrimitiveWritableObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaBooleanObjectInspector;
@@ -143,6 +151,7 @@ import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveO
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.writableTimestampObjectInspector;
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.getCharTypeInfo;
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.getVarcharTypeInfo;
+import static org.apache.hadoop.mapred.FileOutputFormat.getOutputCompressorClass;
 import static org.joda.time.DateTimeZone.UTC;
 
 public final class HiveWriteUtils
@@ -158,12 +167,57 @@ public final class HiveWriteUtils
     {
         try {
             boolean compress = HiveConf.getBoolVar(conf, COMPRESSRESULT);
+            if (outputFormatName.equals(RCFileOutputFormat.class.getName())) {
+                return createRcFileWriter(target, conf, properties, compress);
+            }
             Object writer = Class.forName(outputFormatName).getConstructor().newInstance();
             return ((HiveOutputFormat<?, ?>) writer).getHiveRecordWriter(conf, target, Text.class, compress, properties, Reporter.NULL);
         }
         catch (IOException | ReflectiveOperationException e) {
             throw new PrestoException(HIVE_WRITER_DATA_ERROR, e);
         }
+    }
+
+    private static RecordWriter createRcFileWriter(Path target, JobConf conf, Properties properties, boolean compress)
+            throws IOException
+    {
+        int columns = properties.getProperty(META_TABLE_COLUMNS).split(",").length;
+        RCFileOutputFormat.setColumnNumber(conf, columns);
+
+        CompressionCodec codec = null;
+        if (compress) {
+            codec = ReflectionUtil.newInstance(getOutputCompressorClass(conf, DefaultCodec.class), conf);
+        }
+
+        RCFile.Writer writer = new RCFile.Writer(target.getFileSystem(conf), conf, target, () -> {}, codec);
+        return new ExtendedRecordWriter()
+        {
+            private long length;
+
+            @Override
+            public long getWrittenBytes()
+            {
+                return length;
+            }
+
+            @Override
+            public void write(Writable value)
+                    throws IOException
+            {
+                writer.append(value);
+                length = writer.getLength();
+            }
+
+            @Override
+            public void close(boolean abort)
+                    throws IOException
+            {
+                writer.close();
+                if (!abort) {
+                    length = target.getFileSystem(conf).getFileStatus(target).getLen();
+                }
+            }
+        };
     }
 
     @SuppressWarnings("deprecation")
