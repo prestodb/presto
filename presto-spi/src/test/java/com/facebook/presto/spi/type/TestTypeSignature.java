@@ -248,9 +248,9 @@ public class TestTypeSignature
                 "map",
                 ImmutableList.of("bigint", "map(bigint,map(varchar,bigint))"));
 
-        assertSignatureFail("blah()");
-        assertSignatureFail("array()");
-        assertSignatureFail("map()");
+        assertSignature("blah()", "blah", ImmutableList.of("unknown"), "blah(unknown)");
+        assertSignature("array()", "array", ImmutableList.of("unknown"), "array(unknown)");
+        assertSignature("map()", "map", ImmutableList.of("unknown"), "map(unknown)");
         assertSignatureFail("x", ImmutableSet.of("x"));
 
         // ensure this is not treated as a row type
