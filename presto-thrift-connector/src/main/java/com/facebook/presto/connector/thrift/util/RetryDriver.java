@@ -20,7 +20,7 @@ import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
 import io.airlift.stats.DistributionStat;
-import io.airlift.stats.TimeDistribution;
+import io.airlift.stats.TimeStat;
 import io.airlift.units.Duration;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
@@ -37,10 +37,9 @@ import java.util.function.Predicate;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
+import static io.airlift.units.Duration.nanosSince;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MICROSECONDS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 public class RetryDriver
 {
@@ -254,12 +253,12 @@ public class RetryDriver
 
         Duration getDuration()
         {
-            return Duration.nanosSince(startTime);
+            return nanosSince(startTime);
         }
 
         boolean shouldStopRetry(Exception e)
         {
-            return stopRetrying.test(e) || attempts.get() >= maxAttempts || Duration.nanosSince(startTime).compareTo(maxRetryTime) >= 0;
+            return stopRetrying.test(e) || attempts.get() >= maxAttempts || nanosSince(startTime).compareTo(maxRetryTime) >= 0;
         }
 
         int getAttempts()
@@ -278,9 +277,9 @@ public class RetryDriver
         private final CounterStat success = new CounterStat();
         private final CounterStat finalFailure = new CounterStat();
         private final DistributionStat attemptsBeforeFailure = new DistributionStat();
-        private final TimeDistribution failureLatency = new TimeDistribution(MICROSECONDS);
+        private final TimeStat failureLatency = new TimeStat(MILLISECONDS);
         private final DistributionStat attemptsBeforeSuccess = new DistributionStat();
-        private final TimeDistribution successLatency = new TimeDistribution(MICROSECONDS);
+        private final TimeStat successLatency = new TimeStat(MILLISECONDS);
 
         @Managed
         @Nested
@@ -298,7 +297,7 @@ public class RetryDriver
 
         @Managed
         @Nested
-        public TimeDistribution getSuccessLatency()
+        public TimeStat getSuccessLatency()
         {
             return successLatency;
         }
@@ -319,7 +318,7 @@ public class RetryDriver
 
         @Managed
         @Nested
-        public TimeDistribution getFailureLatency()
+        public TimeStat getFailureLatency()
 
         {
             return failureLatency;
@@ -337,7 +336,7 @@ public class RetryDriver
 
         public void addSuccessLatency(Duration duration)
         {
-            successLatency.add(duration.roundTo(NANOSECONDS));
+            successLatency.add(duration);
         }
 
         public void addFinalFailure()
@@ -352,7 +351,7 @@ public class RetryDriver
 
         public void addFailureLatency(Duration duration)
         {
-            failureLatency.add(duration.roundTo(NANOSECONDS));
+            failureLatency.add(duration);
         }
     }
 }
