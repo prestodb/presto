@@ -8,6 +8,11 @@ General Changes
 * Fix regression that could cause high CPU usage for join queries when dictionary
   processing for joins is enabled.
 * Fix :func:`bit_count` for bits between 33 and 63.
+* The ``query.low-memory-killer.enabled`` config property has been replaced
+  with ``query.low-memory-killer.policy``. Use ``total-reservation`` to continue
+  using the previous policy of killing the largest query. There is also a new
+  policy, ``total-reservation-on-blocked-nodes``, which kills the query that
+  is using the most memory on nodes that are out of memory (blocked).
 * Add support for grouped join execution. When both sides of a join have the
   same table partitioning and the partitioning is addressable, partial data
   can be loaded into memory at a time, making it possible to execute the join
