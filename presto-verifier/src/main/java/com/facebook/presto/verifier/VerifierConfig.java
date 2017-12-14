@@ -83,6 +83,7 @@ public class VerifierConfig
     private boolean shadowWrites = true;
     private String shadowTestTablePrefix = "tmp_verifier_";
     private String shadowControlTablePrefix = "tmp_verifier_";
+    private boolean runTearDownOnResultMismatch;
 
     private Duration regressionMinCpuTime = new Duration(5, TimeUnit.MINUTES);
 
@@ -754,6 +755,19 @@ public class VerifierConfig
     public VerifierConfig setShadowControlTablePrefix(String prefix)
     {
         this.shadowControlTablePrefix = prefix;
+        return this;
+    }
+
+    public boolean getRunTearDownOnResultMismatch()
+    {
+        return runTearDownOnResultMismatch;
+    }
+
+    @ConfigDescription("If set to false, temporary tables will not be dropped after checksum failure")
+    @Config("run-teardown-on-result-mismatch")
+    public VerifierConfig setRunTearDownOnResultMismatch(boolean runTearDownOnResultMismatch)
+    {
+        this.runTearDownOnResultMismatch = runTearDownOnResultMismatch;
         return this;
     }
 }

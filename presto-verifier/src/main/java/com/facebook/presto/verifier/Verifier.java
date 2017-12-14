@@ -108,6 +108,7 @@ public class Verifier
                             config.isVerboseResultsComparison(),
                             config.getControlTeardownRetries(),
                             config.getTestTeardownRetries(),
+                            config.getRunTearDownOnResultMismatch(),
                             query);
                     completionService.submit(validator::valid, validator);
                     queriesSubmitted++;

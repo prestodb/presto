@@ -78,7 +78,8 @@ public class TestVerifierConfig
                 .setShadowTestTablePrefix("tmp_verifier_")
                 .setShadowControlTablePrefix("tmp_verifier_")
                 .setControlTeardownRetries(1)
-                .setTestTeardownRetries(1));
+                .setTestTeardownRetries(1)
+                .setRunTearDownOnResultMismatch(false));
     }
 
     @Test
@@ -131,6 +132,7 @@ public class TestVerifierConfig
                 .put("shadow-writes.control-table-prefix", "schema.tmp_")
                 .put("control.teardown-retries", "5")
                 .put("test.teardown-retries", "7")
+                .put("run-teardown-on-result-mismatch", "true")
                 .build();
 
         VerifierConfig expected = new VerifierConfig().setTestUsernameOverride("verifier-test")
@@ -179,7 +181,8 @@ public class TestVerifierConfig
                 .setShadowTestTablePrefix("tmp_")
                 .setShadowControlTablePrefix("schema.tmp_")
                 .setControlTeardownRetries(5)
-                .setTestTeardownRetries(7);
+                .setTestTeardownRetries(7)
+                .setRunTearDownOnResultMismatch(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
