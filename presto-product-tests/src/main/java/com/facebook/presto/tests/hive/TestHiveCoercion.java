@@ -26,7 +26,6 @@ import com.teradata.tempto.fulfillment.table.TableInstance;
 import com.teradata.tempto.fulfillment.table.hive.HiveTableDefinition;
 import com.teradata.tempto.query.QueryExecutor;
 import com.teradata.tempto.query.QueryResult;
-import com.teradata.tempto.query.QueryType;
 import org.testng.annotations.Test;
 
 import java.sql.Connection;
@@ -248,7 +247,7 @@ public class TestHiveCoercion
 
     private void assertProperAlteredTableSchema(String tableName)
     {
-        assertThat(query("SHOW COLUMNS FROM " + tableName, QueryType.SELECT).project(1, 2)).containsExactly(
+        assertThat(query("SHOW COLUMNS FROM " + tableName).project(1, 2)).containsExactly(
                 row("tinyint_to_smallint", "smallint"),
                 row("tinyint_to_int", "integer"),
                 row("tinyint_to_bigint", "bigint"),

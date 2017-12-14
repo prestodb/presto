@@ -26,7 +26,6 @@ import static com.facebook.presto.tests.TestGroups.SMOKE;
 import static com.teradata.tempto.assertions.QueryAssert.Row.row;
 import static com.teradata.tempto.assertions.QueryAssert.assertThat;
 import static com.teradata.tempto.query.QueryExecutor.query;
-import static com.teradata.tempto.query.QueryType.UPDATE;
 import static java.lang.String.format;
 
 @Requires(ImmutableNationTable.class)
@@ -54,14 +53,14 @@ public class AlterTableTests
     {
         query(format("CREATE TABLE %s AS SELECT * FROM nation", TABLE_NAME));
 
-        assertThat(query(format("ALTER TABLE %s RENAME TO %s", TABLE_NAME, RENAMED_TABLE_NAME), UPDATE))
+        assertThat(query(format("ALTER TABLE %s RENAME TO %s", TABLE_NAME, RENAMED_TABLE_NAME)))
                 .hasRowsCount(1);
 
         assertThat(query(format("SELECT * FROM %s", RENAMED_TABLE_NAME)))
                 .hasRowsCount(25);
 
         // rename back to original name
-        assertThat(query(format("ALTER TABLE %s RENAME TO %s", RENAMED_TABLE_NAME, TABLE_NAME), UPDATE))
+        assertThat(query(format("ALTER TABLE %s RENAME TO %s", RENAMED_TABLE_NAME, TABLE_NAME)))
                 .hasRowsCount(1);
     }
 
@@ -70,7 +69,7 @@ public class AlterTableTests
     {
         query(format("CREATE TABLE %s AS SELECT * FROM nation", TABLE_NAME));
 
-        assertThat(query(format("ALTER TABLE %s RENAME COLUMN n_nationkey TO nationkey", TABLE_NAME), UPDATE))
+        assertThat(query(format("ALTER TABLE %s RENAME COLUMN n_nationkey TO nationkey", TABLE_NAME)))
                 .hasRowsCount(1);
         assertThat(query(format("SELECT count(nationkey) FROM %s", TABLE_NAME)))
                 .containsExactly(row(25));
