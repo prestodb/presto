@@ -27,8 +27,7 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 
 @DefunctConfig({
         "experimental.cluster-memory-manager-enabled",
-        "query.low-memory-killer.enabled"
-})
+        "query.low-memory-killer.enabled"})
 public class MemoryManagerConfig
 {
     private DataSize maxQueryMemory = new DataSize(20, GIGABYTE);
