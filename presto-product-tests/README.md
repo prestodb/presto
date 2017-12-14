@@ -176,6 +176,20 @@ where profile is one of either:
  `mysql_connector` and `postgresql_connector` tests i.e.
  `-x mysql_connector, postgresql_connector`.
 
+### Hadoop docker image used for testing
+The default Hadoop/Hive docker image used for testing is defined in `conf/common/compose-commons.sh` and can be controlled
+via the `HADOOP_BASE_IMAGE` and `DOCKER_IMAGES_VERSION` env variables.
+- `HADOOP_BASE_IMAGE` defines the Hadoop distribution family (as found in [PrestoDB Hadoop docker
+repo](https://cloud.docker.com/swarm/prestodb/repository/list?name=hive&namespace=prestodb)). The name should be without
+the `-kerberized` suffix, eg. `cdh5.13-hive`. Only images that have their kerberized counterparts can be used with test profiles
+implying a kerberized environment eg. `singlenode-kerberos-hdfs-impersonation`, you should still use the base name for this
+env variable, the `-kerberized` suffix will be added automatically.
+- `DOCKER_IMAGES_VERSION` determines the version of the images used, both Hadoop images and base Centos images to host Presto,
+and serve as various run environments throughout the tests. Versions can be found on the
+[PrestoDB docker repo](https://cloud.docker.com/swarm/prestodb/repository/list) as well. You may use any version, either
+release or snapshot. Note that all images will be required to have this version, because this version is used globally.
+This is to ease maintenance and simplify debugging.
+
 Please keep in mind that if you run tests on Hive of version not greater than 1.0.1, you should exclude test from `post_hive_1_0_1` group by passing the following flag to tempto: `-x post_hive_1_0_1`.
 First version of Hive capable of running tests from `post_hive_1_0_1` group is Hive 1.1.0.
 
