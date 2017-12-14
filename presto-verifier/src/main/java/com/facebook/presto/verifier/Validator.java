@@ -32,6 +32,7 @@ import com.google.common.collect.SortedMultiset;
 import com.google.common.util.concurrent.SimpleTimeLimiter;
 import com.google.common.util.concurrent.TimeLimiter;
 import com.google.common.util.concurrent.UncheckedTimeoutException;
+import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 
 import java.math.BigDecimal;
@@ -66,6 +67,8 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class Validator
 {
+    private static final Logger log = Logger.get(Validator.class);
+
     private final String testUsername;
     private final String controlUsername;
     private final String testPassword;
@@ -84,6 +87,7 @@ public class Validator
     private final int precision;
     private final int controlTeardownRetries;
     private final int testTeardownRetries;
+    private final boolean runTearDownOnResultMismatch;
 
     private Boolean valid;
 
@@ -110,6 +114,7 @@ public class Validator
             boolean verboseResultsComparison,
             int controlTeardownRetries,
             int testTeardownRetries,
+            boolean runTearDownOnResultMismatch,
             QueryPair queryPair)
     {
         this.testUsername = requireNonNull(queryPair.getTest().getUsername(), "test username is null");
@@ -128,6 +133,7 @@ public class Validator
         this.verboseResultsComparison = verboseResultsComparison;
         this.controlTeardownRetries = controlTeardownRetries;
         this.testTeardownRetries = testTeardownRetries;
+        this.runTearDownOnResultMismatch = runTearDownOnResultMismatch;
 
         this.queryPair = requireNonNull(queryPair, "queryPair is null");
         // Test and Control always have the same session properties.
@@ -203,37 +209,84 @@ public class Validator
 
     private boolean validate()
     {
-        controlResult = executeQueryControl();
+        boolean tearDownControl = true;
+        boolean tearDownTest = false;
+        try {
+            controlResult = executePreAndMainForControl();
 
-        // query has too many rows. Consider blacklisting.
-        if (controlResult.getState() == State.TOO_MANY_ROWS) {
-            testResult = new QueryResult(State.INVALID, null, null, null, null, ImmutableList.of());
-            return false;
-        }
-        // query failed in the control
-        if (controlResult.getState() != State.SUCCESS) {
-            testResult = new QueryResult(State.INVALID, null, null, null, null, ImmutableList.of());
-            return true;
-        }
+            // query has too many rows. Consider blacklisting.
+            if (controlResult.getState() == State.TOO_MANY_ROWS) {
+                testResult = new QueryResult(State.INVALID, null, null, null, null, ImmutableList.of());
+                return false;
+            }
+            // query failed in the control
+            if (controlResult.getState() != State.SUCCESS) {
+                testResult = new QueryResult(State.INVALID, null, null, null, null, ImmutableList.of());
+                return true;
+            }
 
-        testResult = executeQueryTest();
+            testResult = executePreAndMainForTest();
+            tearDownTest = true;
 
-        if (controlResult.getState() != State.SUCCESS || testResult.getState() != State.SUCCESS) {
-            return false;
-        }
+            if (controlResult.getState() != State.SUCCESS || testResult.getState() != State.SUCCESS) {
+                return false;
+            }
 
-        if (!checkCorrectness) {
-            return true;
-        }
+            if (!checkCorrectness) {
+                return true;
+            }
 
-        boolean matches = resultsMatch(controlResult, testResult, precision);
-        if (!matches && checkDeterministic) {
-            return checkForDeterministicAndRerunTestQueriesIfNeeded();
+            boolean matches = resultsMatch(controlResult, testResult, precision);
+            if (!matches && checkDeterministic) {
+                matches = checkForDeterministicAndRerunTestQueriesIfNeeded();
+            }
+            if (!matches && !runTearDownOnResultMismatch) {
+                tearDownControl = false;
+                tearDownTest = false;
+            }
+            return matches;
         }
-        return matches;
+        finally {
+            if (tearDownControl) {
+                tearDownControl();
+            }
+            if (tearDownTest) {
+                tearDownTest();
+            }
+        }
     }
 
-    private static QueryResult tearDown(Query query, List<QueryResult> postQueryResults, Function<String, QueryResult> executor)
+    private void tearDownControl()
+    {
+        QueryResult controlTearDownResult = executeTearDown(
+                queryPair.getControl(),
+                controlGateway,
+                controlUsername,
+                controlPassword,
+                controlTimeout,
+                controlPostQueryResults,
+                controlTeardownRetries);
+        if (controlTearDownResult.getState() != State.SUCCESS) {
+            log.warn("Control table teardown failed");
+        }
+    }
+
+    private void tearDownTest()
+    {
+        QueryResult testTearDownResult = executeTearDown(
+                queryPair.getTest(),
+                testGateway,
+                testUsername,
+                testPassword,
+                testTimeout,
+                testPostQueryResults,
+                testTeardownRetries);
+        if (testTearDownResult.getState() != State.SUCCESS) {
+            log.warn("Test table teardown failed");
+        }
+    }
+
+    private QueryResult tearDown(Query query, List<QueryResult> postQueryResults, Function<String, QueryResult> executor)
     {
         postQueryResults.clear();
         for (String postqueryString : query.getPostQueries()) {
@@ -268,7 +321,7 @@ public class Validator
     {
         // check if the control query is deterministic
         for (int i = 0; i < 3; i++) {
-            QueryResult results = executeQueryControl();
+            QueryResult results = executePreAndMainForControl();
             if (results.getState() != State.SUCCESS) {
                 return false;
             }
@@ -282,7 +335,7 @@ public class Validator
         // Re-run the test query to confirm that the results don't match, in case there was caching on the test tier,
         // but require that it matches 3 times in a row to rule out a non-deterministic correctness bug.
         for (int i = 0; i < 3; i++) {
-            testResult = executeQueryTest();
+            testResult = executePreAndMainForTest();
             if (testResult.getState() != State.SUCCESS) {
                 return false;
             }
@@ -295,9 +348,9 @@ public class Validator
         return true;
     }
 
-    private QueryResult executeQueryTest()
+    private QueryResult executePreAndMainForTest()
     {
-        return executeQueries(
+        return executePreAndMain(
                 queryPair.getTest(),
                 testPreQueryResults,
                 testGateway,
@@ -308,9 +361,9 @@ public class Validator
                 testTeardownRetries);
     }
 
-    private QueryResult executeQueryControl()
+    private QueryResult executePreAndMainForControl()
     {
-        return executeQueries(
+        return executePreAndMain(
                 queryPair.getControl(),
                 controlPreQueryResults,
                 controlGateway,
@@ -321,7 +374,7 @@ public class Validator
                 controlTeardownRetries);
     }
 
-    private QueryResult executeQueries(
+    private QueryResult executePreAndMain(
             Query query,
             List<QueryResult> preQueryResults,
             String gateway,
@@ -331,50 +384,54 @@ public class Validator
             List<QueryResult> postQueryResults,
             int teardownRetries)
     {
-        QueryResult setupResult = null;
-        QueryResult queryResult = new QueryResult(State.INVALID, null, null, null, null, ImmutableList.of());
         try {
             // startup
-            queryResult = setup(query, preQueryResults, preQuery ->
+            QueryResult queryResult = setup(query, preQueryResults, preQuery ->
                     executeQuery(gateway, username, password, query, preQuery, timeout, sessionProperties));
 
             // if startup is successful -> execute query
             if (queryResult.getState() == State.SUCCESS) {
                 queryResult = executeQuery(gateway, username, password, query, query.getQuery(), timeout, sessionProperties);
             }
+
+            return queryResult;
         }
-        finally {
-            int retry = 0;
-            QueryResult tearDownResult;
-            do {
-                tearDownResult = tearDown(query, postQueryResults, postQuery -> executeQuery(gateway, username, password, query, postQuery, timeout, sessionProperties));
-                if (tearDownResult.getState() == State.SUCCESS) {
-                    break;
-                }
-                try {
-                    TimeUnit.MINUTES.sleep(1);
-                }
-                catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    break;
-                }
-                retry++;
-            }
-            while (retry < teardownRetries);
-            // if teardown is not successful the query fails
-            if (tearDownResult.getState() != State.SUCCESS) {
-                if (tearDownResult.getException() != null) {
-                    if (setupResult.getException() != null) {
-                        tearDownResult.addSuppressed(setupResult.getException());
-                    }
-                    if (queryResult.getException() != null) {
-                        tearDownResult.addSuppressed(queryResult.getException());
-                    }
-                }
-                queryResult = tearDownResult;
-            }
+        catch (Exception e) {
+            executeTearDown(query, gateway, username, password, timeout, postQueryResults, teardownRetries);
+            throw e;
         }
-        return queryResult;
+    }
+
+    private QueryResult executeTearDown(
+            Query query,
+            String gateway,
+            String username,
+            String password,
+            Duration timeout,
+            List<QueryResult> postQueryResults,
+            int teardownRetries)
+    {
+        int attempt = 0;
+        QueryResult tearDownResult;
+        do {
+            tearDownResult = tearDown(query, postQueryResults, postQuery ->
+                    executeQuery(gateway, username, password, query, postQuery, timeout, sessionProperties));
+            if (tearDownResult.getState() == State.SUCCESS) {
+                break;
+            }
+            try {
+                TimeUnit.MINUTES.sleep(1);
+                log.info("Query teardown failed on attempt #%s, will sleep and retry", attempt);
+            }
+            catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
+            }
+            attempt++;
+        }
+        while (attempt < teardownRetries);
+        return tearDown(query, postQueryResults, postQuery ->
+                executeQuery(gateway, username, password, query, postQuery, timeout, sessionProperties));
     }
 
     public QueryPair getQueryPair()
