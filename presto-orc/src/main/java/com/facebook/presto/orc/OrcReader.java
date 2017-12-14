@@ -95,12 +95,11 @@ public class OrcReader
         // variable: Footer
         // variable: Metadata
         // variable: PostScript - contains length of footer and metadata
-        // 3 bytes: file magic "ORC"
-        // 1 byte: postScriptSize = PostScript + Magic
+        // 1 byte: postScriptSize
 
         // figure out the size of the file using the option or filesystem
         long size = orcDataSource.getSize();
-        if (size <= 0) {
+        if (size <= MAGIC.length()) {
             throw new OrcCorruptionException(orcDataSource.getId(), "Invalid file size %s", size);
         }
 
@@ -110,13 +109,22 @@ public class OrcReader
 
         // get length of PostScript - last byte of the file
         int postScriptSize = buffer[buffer.length - SIZE_OF_BYTE] & 0xff;
-
-        // make sure this is an ORC file and not an RCFile or something else
-        verifyOrcFooter(orcDataSource, postScriptSize, buffer);
+        if (postScriptSize >= buffer.length) {
+            throw new OrcCorruptionException(orcDataSource.getId(), "Invalid postscript length %s", postScriptSize);
+        }
 
         // decode the post script
-        int postScriptOffset = buffer.length - SIZE_OF_BYTE - postScriptSize;
-        PostScript postScript = metadataReader.readPostScript(buffer, postScriptOffset, postScriptSize);
+        PostScript postScript;
+        try {
+            postScript = metadataReader.readPostScript(buffer, buffer.length - SIZE_OF_BYTE - postScriptSize, postScriptSize);
+        }
+        catch (OrcCorruptionException e) {
+            // check if this is an ORC file and not an RCFile or something else
+            if (!isValidHeaderMagic(orcDataSource)) {
+                throw new OrcCorruptionException(orcDataSource.getId(), "Not an ORC file");
+            }
+            throw e;
+        }
 
         // verify this is a supported version
         checkOrcVersion(orcDataSource, postScript.getVersion());
@@ -246,31 +254,15 @@ public class OrcReader
     }
 
     /**
-     * Verify this is an ORC file to prevent users from trying to read text
-     * files or RC files as ORC files.
+     * Does the file start with the ORC magic bytes?
      */
-    // This is based on the Apache Hive ORC code
-    private static void verifyOrcFooter(
-            OrcDataSource source,
-            int postScriptSize,
-            byte[] buffer)
+    private static boolean isValidHeaderMagic(OrcDataSource source)
             throws IOException
     {
-        int magicLength = MAGIC.length();
-        if ((postScriptSize < (magicLength + 1)) || (postScriptSize >= buffer.length)) {
-            throw new OrcCorruptionException(source.getId(), "Invalid postscript length %s", postScriptSize);
-        }
+        byte[] headerMagic = new byte[MAGIC.length()];
+        source.readFully(0, headerMagic);
 
-        if (!MAGIC.equals(Slices.wrappedBuffer(buffer, buffer.length - 1 - magicLength, magicLength))) {
-            // Old versions of ORC (0.11) wrote the magic to the head of the file
-            byte[] headerMagic = new byte[magicLength];
-            source.readFully(0, headerMagic);
-
-            // if it isn't there, this isn't an ORC file
-            if (!MAGIC.equals(Slices.wrappedBuffer(headerMagic))) {
-                throw new OrcCorruptionException(source.getId(), "Invalid postscript");
-            }
-        }
+        return MAGIC.equals(Slices.wrappedBuffer(headerMagic));
     }
 
     /**
