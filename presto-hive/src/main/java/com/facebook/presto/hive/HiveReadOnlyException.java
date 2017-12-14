@@ -19,6 +19,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import java.util.Optional;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_READ_ONLY;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_TABLE_READ_ONLY;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -35,7 +36,7 @@ public class HiveReadOnlyException
 
     public HiveReadOnlyException(SchemaTableName tableName, Optional<String> partition, String message)
     {
-        super(HIVE_PARTITION_READ_ONLY, message);
+        super(partition.isPresent() ? HIVE_PARTITION_READ_ONLY : HIVE_TABLE_READ_ONLY, message);
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.partition = requireNonNull(partition, "partition is null");
     }
