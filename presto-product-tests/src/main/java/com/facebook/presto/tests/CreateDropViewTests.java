@@ -25,7 +25,6 @@ import static com.facebook.presto.tests.TestGroups.SMOKE;
 import static com.teradata.tempto.assertions.QueryAssert.assertThat;
 import static com.teradata.tempto.context.ContextDsl.executeWith;
 import static com.teradata.tempto.query.QueryExecutor.query;
-import static com.teradata.tempto.query.QueryType.UPDATE;
 import static com.teradata.tempto.sql.SqlContexts.createViewAs;
 import static java.lang.String.format;
 
@@ -68,7 +67,7 @@ public class CreateDropViewTests
             throws IOException
     {
         executeWith(createViewAs("SELECT * FROM nation"), view -> {
-            assertThat(query(format("CREATE OR REPLACE VIEW %s AS SELECT * FROM nation", view.getName()), UPDATE))
+            assertThat(query(format("CREATE OR REPLACE VIEW %s AS SELECT * FROM nation", view.getName())))
                     .hasRowsCount(1);
             assertThat(query(format("SELECT * FROM %s", view.getName())))
                     .hasRowsCount(25);
@@ -80,7 +79,7 @@ public class CreateDropViewTests
             throws IOException
     {
         executeWith(createViewAs("SELECT * FROM nation"), view -> {
-            assertThat(() -> query(format("CREATE VIEW %s AS SELECT * FROM nation", view.getName()), UPDATE))
+            assertThat(() -> query(format("CREATE VIEW %s AS SELECT * FROM nation", view.getName())))
                     .failsWithMessage("View already exists");
             assertThat(query(format("SELECT * FROM %s", view.getName())))
                     .hasRowsCount(25);
@@ -94,7 +93,7 @@ public class CreateDropViewTests
         executeWith(createViewAs("SELECT * FROM nation"), view -> {
             assertThat(query(format("SELECT * FROM %s", view.getName())))
                     .hasRowsCount(25);
-            assertThat(query(format("DROP VIEW %s", view.getName()), UPDATE))
+            assertThat(query(format("DROP VIEW %s", view.getName())))
                     .hasRowsCount(1);
             assertThat(() -> query(format("SELECT * FROM %s", view.getName())))
                     .failsWithMessage("does not exist");

@@ -53,7 +53,7 @@ function run_product_tests() {
     -Duser.timezone=Asia/Kathmandu \
     -jar "/docker/volumes/presto-product-tests/presto-product-tests-executable.jar" \
     --report-dir "/docker/volumes/test-reports" \
-    --config-local "/docker/volumes/tempto/tempto-configuration-local.yaml" \
+    --config "tempto-configuration.yaml,/docker/volumes/tempto/tempto-configuration-local.yaml" \
     "$@" \
     &
   PRODUCT_TESTS_PROCESS_ID=$!
