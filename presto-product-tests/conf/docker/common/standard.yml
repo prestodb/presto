@@ -10,7 +10,7 @@ services:
   hadoop-master:
     extends:
       service: java-8-base
-    image: ${HADOOP_MASTER_IMAGE}
+    image: '${HADOOP_BASE_IMAGE}:${DOCKER_IMAGES_VERSION}'
     hostname: hadoop-master
     ports:
       - '${HIVE_PROXY_PORT}:1180'
