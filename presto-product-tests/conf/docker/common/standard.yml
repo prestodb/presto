@@ -49,3 +49,4 @@ services:
       - ../../../target/test-reports:/docker/volumes/test-reports
     environment:
       - PRESTO_JDBC_DRIVER_CLASS
+      - TEMPTO_EXTRA_CONFIG_FILE
