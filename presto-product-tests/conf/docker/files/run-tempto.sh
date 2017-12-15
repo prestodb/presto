@@ -10,6 +10,10 @@ if ! test -z ${TEMPTO_PROFILE_CONFIG_FILE:-}; then
   TEMPTO_CONFIG_FILES="${TEMPTO_CONFIG_FILES},${TEMPTO_PROFILE_CONFIG_FILE}"
 fi
 
+if ! test -z ${TEMPTO_EXTRA_CONFIG_FILE:-}; then
+  TEMPTO_CONFIG_FILES="${TEMPTO_CONFIG_FILES},${TEMPTO_EXTRA_CONFIG_FILE}"
+fi
+
 java \
   "-Djava.util.logging.config.file=${DOCKER_TEMPTO_CONF_DIR}/logging.properties" \
   -Duser.timezone=Asia/Kathmandu \
