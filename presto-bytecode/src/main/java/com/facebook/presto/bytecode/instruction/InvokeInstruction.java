@@ -357,7 +357,7 @@ public class InvokeInstruction
     @Override
     public void accept(MethodVisitor visitor, MethodGenerationContext generationContext)
     {
-        visitor.visitMethodInsn(opCode.getOpCode(), target.getClassName(), name, getMethodDescription());
+        visitor.visitMethodInsn(opCode.getOpCode(), target.getClassName(), name, getMethodDescription(), target.isInterface());
     }
 
     @Override
