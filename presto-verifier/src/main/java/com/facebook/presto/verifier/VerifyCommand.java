@@ -44,7 +44,6 @@ import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.TypeLiteral;
-import com.google.inject.name.Names;
 import io.airlift.airline.Arguments;
 import io.airlift.airline.Command;
 import io.airlift.bootstrap.Bootstrap;
@@ -80,7 +79,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 public class VerifyCommand
         implements Runnable
 {
-    public static final String SUPPORTED_EVENT_CLIENTS = "SUPPORTED_EVENT_CLIENTS";
     private static final Logger LOG = Logger.get(VerifyCommand.class);
 
     @Arguments(description = "Config filename")
@@ -110,7 +108,7 @@ public class VerifyCommand
         try {
             VerifierConfig config = injector.getInstance(VerifierConfig.class);
             injector.injectMembers(this);
-            Set<String> supportedEventClients = injector.getInstance(Key.get(new TypeLiteral<Set<String>>() {}, Names.named(SUPPORTED_EVENT_CLIENTS)));
+            Set<String> supportedEventClients = injector.getInstance(Key.get(new TypeLiteral<Set<String>>() {}, SupportedEventClients.class));
             for (String clientType : config.getEventClients()) {
                 checkArgument(supportedEventClients.contains(clientType), "Unsupported event client: %s", clientType);
             }
