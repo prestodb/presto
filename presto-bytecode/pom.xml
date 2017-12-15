@@ -18,7 +18,24 @@
     <dependencies>
         <dependency>
             <groupId>org.ow2.asm</groupId>
-            <artifactId>asm-debug-all</artifactId>
+            <artifactId>asm</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.ow2.asm</groupId>
+            <artifactId>asm-tree</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.ow2.asm</groupId>
+            <artifactId>asm-util</artifactId>
+        </dependency>
+
+        <!-- this undeclared dependency is used by asm-util -->
+        <dependency>
+            <groupId>org.ow2.asm</groupId>
+            <artifactId>asm-analysis</artifactId>
+            <scope>runtime</scope>
         </dependency>
 
         <dependency>
