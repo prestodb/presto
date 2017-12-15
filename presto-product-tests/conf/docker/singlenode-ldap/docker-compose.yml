@@ -9,8 +9,8 @@ services:
 
   application-runner:
     image: 'prestodb/centos6-oj8-openldap:${DOCKER_IMAGES_VERSION}'
-    volumes:
-      - ../../../conf/tempto/tempto-configuration-for-docker-ldap.yaml:/docker/volumes/tempto/tempto-configuration-local.yaml
+    environment:
+      - TEMPTO_PROFILE_CONFIG_FILE=/docker/volumes/conf/tempto/tempto-configuration-for-docker-ldap.yaml
 
   ldapserver:
     image: 'prestodb/centos6-oj8-openldap:${DOCKER_IMAGES_VERSION}'
