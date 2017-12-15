@@ -579,8 +579,8 @@
 
             <dependency>
                 <groupId>org.ow2.asm</groupId>
-                <artifactId>asm-all</artifactId>
-                <version>5.2</version>
+                <artifactId>asm-debug-all</artifactId>
+                <version>6.0_BETA</version>
             </dependency>
 
             <dependency>
