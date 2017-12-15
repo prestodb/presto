@@ -31,14 +31,16 @@ public class HiveReadOnlyException
 
     public HiveReadOnlyException(SchemaTableName tableName, Optional<String> partition)
     {
-        this(tableName, partition, format("Table '%s'%s is read-only", tableName, partition.map(name -> " partition '" + name + "'").orElse("")));
-    }
-
-    public HiveReadOnlyException(SchemaTableName tableName, Optional<String> partition, String message)
-    {
-        super(partition.isPresent() ? HIVE_PARTITION_READ_ONLY : HIVE_TABLE_READ_ONLY, message);
+        super(partition.isPresent() ? HIVE_PARTITION_READ_ONLY : HIVE_TABLE_READ_ONLY, composeMessage(tableName, partition));
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.partition = requireNonNull(partition, "partition is null");
+    }
+
+    private static String composeMessage(SchemaTableName tableName, Optional<String> partition)
+    {
+        return partition.isPresent()
+                ? format("Table '%s' partition '%s' is read-only", tableName, partition.get())
+                : format("Table '%s' is read-only", tableName);
     }
 
     public SchemaTableName getTableName()
