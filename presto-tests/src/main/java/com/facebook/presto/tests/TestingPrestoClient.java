@@ -22,6 +22,7 @@ import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.MapType;
+import com.facebook.presto.spi.type.SqlVarbinary;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
@@ -201,7 +202,7 @@ public class TestingPrestoClient
             return value;
         }
         else if (VARBINARY.equals(type)) {
-            return value;
+            return new SqlVarbinary((byte[]) value);
         }
         else if (DATE.equals(type)) {
             int days = parseDate((String) value);

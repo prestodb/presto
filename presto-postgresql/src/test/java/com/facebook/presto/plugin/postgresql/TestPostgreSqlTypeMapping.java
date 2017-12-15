@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.plugin.postgresql;
 
+import com.facebook.presto.spi.type.SqlVarbinary;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tests.datatype.CreateAndInsertDataSetup;
 import com.facebook.presto.tests.datatype.CreateAsSelectDataSetup;
@@ -31,23 +32,31 @@ import java.sql.SQLException;
 import java.util.function.Function;
 
 import static com.facebook.presto.plugin.postgresql.PostgreSqlQueryRunner.createPostgreSqlQueryRunner;
+import static com.facebook.presto.tests.datatype.DataType.bigintDataType;
+import static com.facebook.presto.tests.datatype.DataType.booleanDataType;
+import static com.facebook.presto.tests.datatype.DataType.doubleDataType;
+import static com.facebook.presto.tests.datatype.DataType.integerDataType;
+import static com.facebook.presto.tests.datatype.DataType.realDataType;
+import static com.facebook.presto.tests.datatype.DataType.smallintDataType;
+import static com.facebook.presto.tests.datatype.DataType.varbinaryDataType;
 import static com.facebook.presto.tests.datatype.DataType.varcharDataType;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.emptyList;
 
 @Test
-public class TestPostgresSqlTypeMapping
+public class TestPostgreSqlTypeMapping
         extends AbstractTestQueryFramework
 {
     private final TestingPostgreSqlServer postgreSqlServer;
 
-    public TestPostgresSqlTypeMapping()
+    public TestPostgreSqlTypeMapping()
             throws Exception
     {
         this(new TestingPostgreSqlServer("testuser", "tpch"));
     }
 
-    private TestPostgresSqlTypeMapping(TestingPostgreSqlServer postgreSqlServer)
+    private TestPostgreSqlTypeMapping(TestingPostgreSqlServer postgreSqlServer)
             throws Exception
     {
         super(() -> createPostgreSqlQueryRunner(postgreSqlServer, emptyList()));
@@ -59,6 +68,21 @@ public class TestPostgresSqlTypeMapping
             throws IOException
     {
         postgreSqlServer.close();
+    }
+
+    @Test
+    public void testBasicTypes()
+    {
+        DataTypeTest.create()
+                .addRoundTrip(booleanDataType(), true)
+                .addRoundTrip(booleanDataType(), false)
+                .addRoundTrip(bigintDataType(), 123_456_789_012L)
+                .addRoundTrip(integerDataType(), 1_234_567_890)
+                .addRoundTrip(smallintDataType(), (short) 32_456)
+                .addRoundTrip(doubleDataType(), 123.45d)
+                .addRoundTrip(realDataType(), 123.45f)
+                .addRoundTrip(varbinaryDataType(), new SqlVarbinary("hello".getBytes(UTF_8)))
+                .execute(getQueryRunner(), prestoCreateAsSelect("test_basic_types"));
     }
 
     @Test
