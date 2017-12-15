@@ -23,7 +23,6 @@ env:
 
 sudo: required
 dist: trusty
-group: deprecated-2017Q3
 
 cache:
   directories:
