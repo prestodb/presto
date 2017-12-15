@@ -48,15 +48,7 @@ function run_product_tests() {
   local REPORT_DIR="${PRODUCT_TESTS_ROOT}/target/test-reports"
   rm -rf "${REPORT_DIR}"
   mkdir -p "${REPORT_DIR}"
-  run_in_application_runner_container \
-    java "-Djava.util.logging.config.file=/docker/volumes/conf/tempto/logging.properties" \
-    -Duser.timezone=Asia/Kathmandu \
-    -cp "/docker/volumes/jdbc/driver.jar:/docker/volumes/presto-product-tests/presto-product-tests-executable.jar" \
-    com.facebook.presto.tests.TemptoProductTestRunner \
-    --report-dir "/docker/volumes/test-reports" \
-    --config "tempto-configuration.yaml,/docker/volumes/tempto/tempto-configuration-local.yaml" \
-    "$@" \
-    &
+  run_in_application_runner_container /docker/volumes/conf/docker/files/run-tempto.sh "$@" &
   PRODUCT_TESTS_PROCESS_ID=$!
   wait ${PRODUCT_TESTS_PROCESS_ID}
   local PRODUCT_TESTS_EXIT_CODE=$?
