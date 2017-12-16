@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>75</version>
+        <version>77</version>
     </parent>
 
     <groupId>com.facebook.presto</groupId>
@@ -1184,9 +1184,9 @@
                                 </pluginExecution>
                                 <pluginExecution>
                                     <pluginExecutionFilter>
-                                        <groupId>com.ning.maven.plugins</groupId>
-                                        <artifactId>maven-duplicate-finder-plugin</artifactId>
-                                        <versionRange>[1.0.4,)</versionRange>
+                                        <groupId>org.basepom.maven</groupId>
+                                        <artifactId>duplicate-finder-maven-plugin</artifactId>
+                                        <versionRange>[0,)</versionRange>
                                         <goals>
                                             <goal>check</goal>
                                         </goals>
