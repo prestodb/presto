@@ -86,3 +86,19 @@ Binary Functions
 .. function:: xxhash64(binary) -> varbinary
 
     Computes the xxhash64 hash of ``binary``.
+
+.. function:: hmac_md5(binary, key) -> varbinary
+
+    Computes HMAC with md5 of ``binary`` with the given ``key``.
+
+.. function:: hmac_sha1(binary, key) -> varbinary
+
+    Computes HMAC with sha1 of ``binary`` with the given ``key``.
+
+.. function:: hmac_sha256(binary, key) -> varbinary
+
+    Computes HMAC with sha256 of ``binary`` with the given ``key``.
+
+.. function:: hmac_sha512(binary, key) -> varbinary
+
+    Computes HMAC with sha512 of ``binary`` with the given ``key``.
