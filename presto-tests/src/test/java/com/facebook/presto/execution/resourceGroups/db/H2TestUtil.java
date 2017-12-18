@@ -20,6 +20,7 @@ import com.facebook.presto.resourceGroups.db.DbResourceGroupConfig;
 import com.facebook.presto.resourceGroups.db.H2DaoProvider;
 import com.facebook.presto.resourceGroups.db.H2ResourceGroupsDao;
 import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupSelector;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.tests.DistributedQueryRunner;
@@ -35,6 +36,7 @@ import java.util.Set;
 
 import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.execution.QueryState.TERMINAL_QUERY_STATES;
+import static com.facebook.presto.spi.StandardErrorCode.CONFIGURATION_INVALID;
 import static com.facebook.presto.spi.resourceGroups.QueryType.EXPLAIN;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static io.airlift.json.JsonCodec.listJsonCodec;
@@ -186,6 +188,15 @@ class H2TestUtil
 
     public static List<ResourceGroupSelector> getSelectors(DistributedQueryRunner queryRunner)
     {
-        return queryRunner.getCoordinator().getResourceGroupManager().get().getConfigurationManager().getSelectors();
+        try {
+            return queryRunner.getCoordinator().getResourceGroupManager().get().getConfigurationManager().getSelectors();
+        }
+        catch (PrestoException e) {
+            if (e.getErrorCode() == CONFIGURATION_INVALID.toErrorCode()) {
+                return ImmutableList.of();
+            }
+
+            throw e;
+        }
     }
 }
