@@ -198,6 +198,18 @@ public class DbResourceGroupConfigurationManager
             configureChangedGroups(changedSpecs);
             disableDeletedGroups(deletedSpecs);
 
+            if (lastRefresh.get() > 0) {
+                for (ResourceGroupIdTemplate deleted : deletedSpecs) {
+                    log.info("Resource group spec deleted %s", deleted);
+                }
+                for (ResourceGroupIdTemplate changed : changedSpecs) {
+                    log.info("Resource group spec %s changed to %s", changed, resourceGroupSpecs.get(changed));
+                }
+            }
+            else {
+                log.info("Loaded %s selectors and %s resource groups from database", this.selectors.get().size(), this.resourceGroupSpecs.size());
+            }
+
             lastRefresh.set(System.nanoTime());
         }
         catch (Throwable e) {
