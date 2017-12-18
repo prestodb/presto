@@ -33,6 +33,7 @@ import com.teradata.tempto.query.QueryResult;
 import com.teradata.tempto.query.QueryType;
 import org.testng.annotations.Test;
 
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.JDBCType;
 import java.sql.SQLException;
@@ -53,6 +54,7 @@ import static com.teradata.tempto.query.QueryExecutor.defaultQueryExecutor;
 import static com.teradata.tempto.query.QueryExecutor.query;
 import static java.lang.String.format;
 import static java.sql.JDBCType.BIGINT;
+import static java.sql.JDBCType.DECIMAL;
 import static java.sql.JDBCType.DOUBLE;
 import static java.sql.JDBCType.INTEGER;
 import static java.sql.JDBCType.LONGNVARCHAR;
@@ -94,6 +96,32 @@ public class TestHiveCoercion
             .add(new TestTuple("float", "double",
                     asList("0.5", "-1.5"),
                     asList(0.5, -1.5)))
+            .add(new TestTuple("decimal(11,5)", "decimal(8,3)",
+                    asList("12345.123",
+                            "12345.12350",
+                            "123456.12345",
+                            "99999.99999"),
+                    asList(new BigDecimal("12345.123"),
+                            new BigDecimal("12345.124"),
+                            null,
+                            null)))
+            .add(new TestTuple("decimal(21,15)", "decimal(8,3)",
+                    asList("12345.123",
+                            "12345.123999999999999",
+                            "123456.123999999999999"),
+                    asList(new BigDecimal("12345.123"),
+                            new BigDecimal("12345.124"),
+                            null)))
+            .add(new TestTuple("decimal(27,21)", "decimal(20,15)",
+                    asList("12345.123456789012345",
+                            "12345.123456789012345678901",
+                            "123456.123999999999999999999"),
+                    asList(new BigDecimal("12345.123456789012345"),
+                            new BigDecimal("12345.123456789012346"),
+                            null)))
+            .add(new TestTuple("decimal(8,3)", "decimal(20,15)",
+                    asList("12345.123"),
+                    asList(new BigDecimal("12345.123"))))
             .build();
 
     public static final HiveTableDefinition HIVE_COERCION_TEXTFILE = tableDefinitionBuilder("TEXTFILE", Optional.empty(), Optional.of("DELIMITED FIELDS TERMINATED BY '|'"));
@@ -381,7 +409,9 @@ public class TestHiveCoercion
 
         public String columnName()
         {
-            return format("%s_to_%s", fromType, toType);
+            String fromTypeName = fromType.replaceAll("[^\\w]", "_");
+            String toTypeName = toType.replaceAll("[^\\w]", "_");
+            return format("%s_to_%s", fromTypeName, toTypeName);
         }
 
         boolean validForParquet()
@@ -391,6 +421,9 @@ public class TestHiveCoercion
 
         public String getPrestoToType()
         {
+            if (toType.startsWith("decimal")) {
+                return toType;
+            }
             switch (toType) {
                 case "tinyint":
                 case "smallint":
@@ -410,6 +443,9 @@ public class TestHiveCoercion
 
         public JDBCType getJdbcToType(boolean teradataDriver)
         {
+            if (toType.startsWith("decimal")) {
+                return DECIMAL;
+            }
             switch (toType) {
                 case "tinyint":
                     return TINYINT;

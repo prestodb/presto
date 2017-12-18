@@ -17,6 +17,7 @@ import com.facebook.presto.hive.CoercionPolicy;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.VarcharType;
@@ -32,6 +33,7 @@ import static com.facebook.presto.hive.HiveType.HIVE_FLOAT;
 import static com.facebook.presto.hive.HiveType.HIVE_INT;
 import static com.facebook.presto.hive.HiveType.HIVE_LONG;
 import static com.facebook.presto.hive.HiveType.HIVE_SHORT;
+import static com.facebook.presto.hive.coercions.DecimalCoercers.createDecimalToDecimalCoercer;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -80,6 +82,9 @@ public class HiveCoercionPolicy
         }
         else if (fromHiveType.equals(HIVE_FLOAT) && toHiveType.equals(HIVE_DOUBLE)) {
             return Optional.of(new FloatToDoubleCoercer());
+        }
+        else if (fromType instanceof DecimalType && toType instanceof DecimalType) {
+            return Optional.of(createDecimalToDecimalCoercer((DecimalType) fromType, (DecimalType) toType));
         }
         return Optional.empty();
     }}
