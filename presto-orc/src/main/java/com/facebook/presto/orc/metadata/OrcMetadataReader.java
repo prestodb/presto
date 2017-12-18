@@ -420,11 +420,11 @@ public class OrcMetadataReader
                 break;
             }
 
-            // Currently, all versions of the ORC writer round trip string min and max values through java.lang.String which
+            // The original ORC writers round trip string min and max values through java.lang.String which
             // replaces invalid UTF-8 sequences with the unicode replacement character.  This can cause the min value to be
             // greater than expected which can result in data sections being skipped instead of being processed. As a work around,
             // the string stats are truncated at the first replacement character.
-            if (codePoint == REPLACEMENT_CHARACTER_CODE_POINT) {
+            if (version == ORIGINAL && codePoint == REPLACEMENT_CHARACTER_CODE_POINT) {
                 break;
             }
 
