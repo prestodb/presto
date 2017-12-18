@@ -14,7 +14,6 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.HdfsEnvironment.HdfsContext;
-import com.facebook.presto.hive.coercions.HiveCoercionPolicy;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
@@ -57,7 +56,7 @@ public class HivePageSourceProvider
     private final HdfsEnvironment hdfsEnvironment;
     private final Set<HiveRecordCursorProvider> cursorProviders;
     private final TypeManager typeManager;
-    private final HiveCoercionPolicy coercionPolicy;
+    private final CoercionPolicy coercionPolicy;
 
     private final Set<HivePageSourceFactory> pageSourceFactories;
 
@@ -68,7 +67,7 @@ public class HivePageSourceProvider
             Set<HiveRecordCursorProvider> cursorProviders,
             Set<HivePageSourceFactory> pageSourceFactories,
             TypeManager typeManager,
-            HiveCoercionPolicy coercionPolicy)
+            CoercionPolicy coercionPolicy)
     {
         requireNonNull(hiveClientConfig, "hiveClientConfig is null");
         this.hiveStorageTimeZone = hiveClientConfig.getDateTimeZone();
@@ -129,7 +128,7 @@ public class HivePageSourceProvider
             List<HivePartitionKey> partitionKeys,
             DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager,
-            HiveCoercionPolicy coercionPolicy,
+            CoercionPolicy coercionPolicy,
             Map<Integer, HiveType> columnCoercions)
     {
         List<ColumnMapping> columnMappings = ColumnMapping.buildColumnMappings(partitionKeys, hiveColumns, columnCoercions, path, bucketNumber);
