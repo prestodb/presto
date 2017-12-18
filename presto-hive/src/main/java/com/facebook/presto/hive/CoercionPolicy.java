@@ -13,7 +13,13 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.spi.block.Block;
+
+import java.util.function.Function;
+
 public interface CoercionPolicy
 {
     boolean canCoerce(HiveType fromType, HiveType toType);
+
+    Function<Block, Block> createCoercer(HiveType fromHiveType, HiveType toHiveType);
 }

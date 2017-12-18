@@ -18,15 +18,12 @@ import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.LazyBlock;
 import com.facebook.presto.spi.block.LazyBlockLoader;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.VarcharType;
 import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
@@ -35,12 +32,6 @@ import java.util.List;
 import java.util.function.Function;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
-import static com.facebook.presto.hive.HiveType.HIVE_BYTE;
-import static com.facebook.presto.hive.HiveType.HIVE_DOUBLE;
-import static com.facebook.presto.hive.HiveType.HIVE_FLOAT;
-import static com.facebook.presto.hive.HiveType.HIVE_INT;
-import static com.facebook.presto.hive.HiveType.HIVE_LONG;
-import static com.facebook.presto.hive.HiveType.HIVE_SHORT;
 import static com.facebook.presto.hive.HiveUtil.bigintPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.booleanPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.charPartitionKey;
@@ -68,8 +59,6 @@ import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
-import static io.airlift.slice.Slices.utf8Slice;
-import static java.lang.Float.intBitsToFloat;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
@@ -88,6 +77,7 @@ public class HivePageSource
             List<ColumnMapping> columnMappings,
             DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager,
+            CoercionPolicy coercionPolicy,
             ConnectorPageSource delegate)
     {
         requireNonNull(columnMappings, "columnMappings is null");
@@ -112,7 +102,7 @@ public class HivePageSource
             types[columnIndex] = type;
 
             if (columnMapping.getCoercionFrom().isPresent()) {
-                coercers[columnIndex] = createCoercer(typeManager, columnMapping.getCoercionFrom().get(), columnMapping.getHiveColumnHandle().getHiveType());
+                coercers[columnIndex] = coercionPolicy.createCoercer(columnMapping.getCoercionFrom().get(), columnMapping.getHiveColumnHandle().getHiveType());
             }
 
             if (columnMapping.isPrefilled()) {
@@ -263,165 +253,6 @@ public class HivePageSource
     public ConnectorPageSource getPageSource()
     {
         return delegate;
-    }
-
-    private static Function<Block, Block> createCoercer(TypeManager typeManager, HiveType fromHiveType, HiveType toHiveType)
-    {
-        Type fromType = typeManager.getType(fromHiveType.getTypeSignature());
-        Type toType = typeManager.getType(toHiveType.getTypeSignature());
-        if (toType instanceof VarcharType && (fromHiveType.equals(HIVE_BYTE) || fromHiveType.equals(HIVE_SHORT) || fromHiveType.equals(HIVE_INT) || fromHiveType.equals(HIVE_LONG))) {
-            return new IntegerNumberToVarcharCoercer(fromType, toType);
-        }
-        else if (fromType instanceof VarcharType && (toHiveType.equals(HIVE_BYTE) || toHiveType.equals(HIVE_SHORT) || toHiveType.equals(HIVE_INT) || toHiveType.equals(HIVE_LONG))) {
-            return new VarcharToIntegerNumberCoercer(fromType, toType);
-        }
-        else if (fromHiveType.equals(HIVE_BYTE) && toHiveType.equals(HIVE_SHORT) || toHiveType.equals(HIVE_INT) || toHiveType.equals(HIVE_LONG)) {
-            return new IntegerNumberUpscaleCoercer(fromType, toType);
-        }
-        else if (fromHiveType.equals(HIVE_SHORT) && toHiveType.equals(HIVE_INT) || toHiveType.equals(HIVE_LONG)) {
-            return new IntegerNumberUpscaleCoercer(fromType, toType);
-        }
-        else if (fromHiveType.equals(HIVE_INT) && toHiveType.equals(HIVE_LONG)) {
-            return new IntegerNumberUpscaleCoercer(fromType, toType);
-        }
-        else if (fromHiveType.equals(HIVE_FLOAT) && toHiveType.equals(HIVE_DOUBLE)) {
-            return new FloatToDoubleCoercer();
-        }
-
-        throw new PrestoException(NOT_SUPPORTED, format("Unsupported coercion from %s to %s", fromHiveType, toHiveType));
-    }
-
-    private static class IntegerNumberUpscaleCoercer
-            implements Function<Block, Block>
-    {
-        private final Type fromType;
-        private final Type toType;
-
-        public IntegerNumberUpscaleCoercer(Type fromType, Type toType)
-        {
-            this.fromType = requireNonNull(fromType, "fromType is null");
-            this.toType = requireNonNull(toType, "toType is null");
-        }
-
-        @Override
-        public Block apply(Block block)
-        {
-            BlockBuilder blockBuilder = toType.createBlockBuilder(new BlockBuilderStatus(), block.getPositionCount());
-            for (int i = 0; i < block.getPositionCount(); i++) {
-                if (block.isNull(i)) {
-                    blockBuilder.appendNull();
-                    continue;
-                }
-                toType.writeLong(blockBuilder, fromType.getLong(block, i));
-            }
-            return blockBuilder.build();
-        }
-    }
-
-    private static class IntegerNumberToVarcharCoercer
-            implements Function<Block, Block>
-    {
-        private final Type fromType;
-        private final Type toType;
-
-        public IntegerNumberToVarcharCoercer(Type fromType, Type toType)
-        {
-            this.fromType = requireNonNull(fromType, "fromType is null");
-            this.toType = requireNonNull(toType, "toType is null");
-        }
-
-        @Override
-        public Block apply(Block block)
-        {
-            BlockBuilder blockBuilder = toType.createBlockBuilder(new BlockBuilderStatus(), block.getPositionCount());
-            for (int i = 0; i < block.getPositionCount(); i++) {
-                if (block.isNull(i)) {
-                    blockBuilder.appendNull();
-                    continue;
-                }
-                toType.writeSlice(blockBuilder, utf8Slice(String.valueOf(fromType.getLong(block, i))));
-            }
-            return blockBuilder.build();
-        }
-    }
-
-    private static class VarcharToIntegerNumberCoercer
-            implements Function<Block, Block>
-    {
-        private final Type fromType;
-        private final Type toType;
-
-        private final long minValue;
-        private final long maxValue;
-
-        public VarcharToIntegerNumberCoercer(Type fromType, Type toType)
-        {
-            this.fromType = requireNonNull(fromType, "fromType is null");
-            this.toType = requireNonNull(toType, "toType is null");
-
-            if (toType.equals(TINYINT)) {
-                minValue = Byte.MIN_VALUE;
-                maxValue = Byte.MAX_VALUE;
-            }
-            else if (toType.equals(SMALLINT)) {
-                minValue = Short.MIN_VALUE;
-                maxValue = Short.MAX_VALUE;
-            }
-            else if (toType.equals(INTEGER)) {
-                minValue = Integer.MIN_VALUE;
-                maxValue = Integer.MAX_VALUE;
-            }
-            else if (toType.equals(BIGINT)) {
-                minValue = Long.MIN_VALUE;
-                maxValue = Long.MAX_VALUE;
-            }
-            else {
-                throw new PrestoException(NOT_SUPPORTED, format("Could not create Coercer from from varchar to %s", toType));
-            }
-        }
-
-        @Override
-        public Block apply(Block block)
-        {
-            BlockBuilder blockBuilder = toType.createBlockBuilder(new BlockBuilderStatus(), block.getPositionCount());
-            for (int i = 0; i < block.getPositionCount(); i++) {
-                if (block.isNull(i)) {
-                    blockBuilder.appendNull();
-                    continue;
-                }
-                try {
-                    long value = Long.parseLong(fromType.getSlice(block, i).toStringUtf8());
-                    if (minValue <= value && value <= maxValue) {
-                        toType.writeLong(blockBuilder, value);
-                    }
-                    else {
-                        blockBuilder.appendNull();
-                    }
-                }
-                catch (NumberFormatException e) {
-                    blockBuilder.appendNull();
-                }
-            }
-            return blockBuilder.build();
-        }
-    }
-
-    private static class FloatToDoubleCoercer
-            implements Function<Block, Block>
-    {
-        @Override
-        public Block apply(Block block)
-        {
-            BlockBuilder blockBuilder = DOUBLE.createBlockBuilder(new BlockBuilderStatus(), block.getPositionCount());
-            for (int i = 0; i < block.getPositionCount(); i++) {
-                if (block.isNull(i)) {
-                    blockBuilder.appendNull();
-                    continue;
-                }
-                DOUBLE.writeDouble(blockBuilder, intBitsToFloat((int) REAL.getLong(block, i)));
-            }
-            return blockBuilder.build();
-        }
     }
 
     private final class CoercionLazyBlockLoader
