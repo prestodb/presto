@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -170,6 +171,15 @@ final class WeightedFairQueue<E>
         {
             return utilization;
         }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("share", share)
+                    .add("utilization", utilization)
+                    .toString();
+        }
     }
 
     private static final class Node<E>
@@ -201,6 +211,15 @@ final class WeightedFairQueue<E>
         public int getUtilization()
         {
             return usage.getUtilization();
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("value", value)
+                    .add("usage", usage)
+                    .toString();
         }
     }
 }
