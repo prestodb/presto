@@ -134,4 +134,7 @@ public interface H2ResourceGroupsDao
             @Bind("source") String source,
             @Bind("query_type") String queryType,
             @Bind("resourceGroupId") String resourceGroupId);
+
+    @SqlUpdate("DROP TABLE selectors")
+    void dropSelectorsTable();
 }

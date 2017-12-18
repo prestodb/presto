@@ -16,6 +16,7 @@ package com.facebook.presto.resourceGroups.db;
 import com.facebook.presto.execution.resourceGroups.InternalResourceGroup;
 import com.facebook.presto.resourceGroups.ResourceGroupSpec;
 import com.facebook.presto.resourceGroups.StaticSelector;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupSelector;
 import com.facebook.presto.spi.resourceGroups.SchedulingPolicy;
@@ -283,6 +284,61 @@ public class TestDbResourceGroupConfigurationManager
             assertTrue(user.isPresent());
             assertEquals(user.get().pattern(), expectedUsers.get(i));
         }
+    }
+
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "No selectors are configured")
+    public void testInvalidConfiguration()
+    {
+        H2DaoProvider daoProvider = setup("selectors");
+        H2ResourceGroupsDao dao = daoProvider.get();
+        dao.createResourceGroupsTable();
+        dao.createSelectorsTable();
+        dao.insertResourceGroup(1, "global", "100%", 100, 100, 100, null, null, null, null, null, null, null, null, ENVIRONMENT);
+
+        DbResourceGroupConfigurationManager manager = new DbResourceGroupConfigurationManager(
+                (poolId, listener) -> {},
+                new DbResourceGroupConfig().setMaxRefreshInterval(Duration.valueOf("1ms")),
+                daoProvider.get(),
+                ENVIRONMENT);
+
+        manager.getSelectors();
+    }
+
+    @Test
+    public void testRefreshInterval()
+    {
+        H2DaoProvider daoProvider = setup("selectors");
+        H2ResourceGroupsDao dao = daoProvider.get();
+        dao.createResourceGroupsTable();
+        dao.createSelectorsTable();
+        dao.insertResourceGroup(1, "global", "100%", 100, 100, 100, null, null, null, null, null, null, null, null, ENVIRONMENT);
+
+        DbResourceGroupConfigurationManager manager = new DbResourceGroupConfigurationManager(
+                (poolId, listener) -> {},
+                new DbResourceGroupConfig().setMaxRefreshInterval(Duration.valueOf("1ms")),
+                daoProvider.get(),
+                ENVIRONMENT);
+
+        dao.dropSelectorsTable();
+        manager.load();
+
+        try {
+            manager.getSelectors();
+            fail("Expected unavailable configuration exception");
+        }
+        catch (Exception e) {
+            assertEquals(e.getMessage(), "Selectors cannot be fetched from database");
+        }
+
+        try {
+            manager.getRootGroups();
+            fail("Expected unavailable configuration exception");
+        }
+        catch (Exception e) {
+            assertEquals(e.getMessage(), "Root groups cannot be fetched from database");
+        }
+
+        manager.destroy();
     }
 
     private static void assertEqualsResourceGroup(

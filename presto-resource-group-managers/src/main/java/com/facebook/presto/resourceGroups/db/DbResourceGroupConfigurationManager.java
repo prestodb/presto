@@ -18,6 +18,7 @@ import com.facebook.presto.resourceGroups.ManagerSpec;
 import com.facebook.presto.resourceGroups.ResourceGroupIdTemplate;
 import com.facebook.presto.resourceGroups.ResourceGroupSpec;
 import com.facebook.presto.resourceGroups.SelectorSpec;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
 import com.facebook.presto.spi.resourceGroups.ResourceGroup;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
@@ -48,11 +49,15 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.spi.StandardErrorCode.CONFIGURATION_INVALID;
+import static com.facebook.presto.spi.StandardErrorCode.CONFIGURATION_UNAVAILABLE;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.units.Duration.succinctNanos;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 
@@ -70,7 +75,9 @@ public class DbResourceGroupConfigurationManager
     private final AtomicReference<Optional<Duration>> cpuQuotaPeriod = new AtomicReference<>(Optional.empty());
     private final ScheduledExecutorService configExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("DbResourceGroupConfigurationManager"));
     private final AtomicBoolean started = new AtomicBoolean();
+    private final AtomicLong lastRefresh = new AtomicLong();
     private final String environment;
+    private final Duration maxRefreshInterval;
     private final boolean exactMatchSelectorEnabled;
 
     @Inject
@@ -81,6 +88,7 @@ public class DbResourceGroupConfigurationManager
         requireNonNull(config, "config is null");
         requireNonNull(dao, "daoProvider is null");
         this.environment = requireNonNull(environment, "environment is null");
+        this.maxRefreshInterval = config.getMaxRefreshInterval();
         this.exactMatchSelectorEnabled = config.getExactMatchSelectorEnabled();
         this.dao = dao;
         this.dao.createResourceGroupsGlobalPropertiesTable();
@@ -101,6 +109,13 @@ public class DbResourceGroupConfigurationManager
     @Override
     protected List<ResourceGroupSpec> getRootGroups()
     {
+        if (lastRefresh.get() == 0) {
+            throw new PrestoException(CONFIGURATION_UNAVAILABLE, "Root groups cannot be fetched from database");
+        }
+        if (this.selectors.get().isEmpty()) {
+            throw new PrestoException(CONFIGURATION_INVALID, "No root groups are configured");
+        }
+
         return rootGroups.get();
     }
 
@@ -134,6 +149,12 @@ public class DbResourceGroupConfigurationManager
     @Override
     public List<ResourceGroupSelector> getSelectors()
     {
+        if (lastRefresh.get() == 0) {
+            throw new PrestoException(CONFIGURATION_UNAVAILABLE, "Selectors cannot be fetched from database");
+        }
+        if (this.selectors.get().isEmpty()) {
+            throw new PrestoException(CONFIGURATION_INVALID, "No selectors are configured");
+        }
         return this.selectors.get();
     }
 
@@ -176,8 +197,13 @@ public class DbResourceGroupConfigurationManager
 
             configureChangedGroups(changedSpecs);
             disableDeletedGroups(deletedSpecs);
+
+            lastRefresh.set(System.nanoTime());
         }
         catch (Throwable e) {
+            if (succinctNanos(System.nanoTime() - lastRefresh.get()).compareTo(maxRefreshInterval) > 0) {
+                lastRefresh.set(0);
+            }
             log.error(e, "Error loading configuration from db");
         }
     }
