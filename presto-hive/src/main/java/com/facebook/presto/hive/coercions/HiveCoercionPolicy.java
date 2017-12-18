@@ -23,6 +23,7 @@ import com.facebook.presto.spi.type.VarcharType;
 
 import javax.inject.Inject;
 
+import java.util.Optional;
 import java.util.function.Function;
 
 import static com.facebook.presto.hive.HiveType.HIVE_BYTE;
@@ -49,53 +50,36 @@ public class HiveCoercionPolicy
     @Override
     public boolean canCoerce(HiveType fromHiveType, HiveType toHiveType)
     {
-        Type fromType = typeManager.getType(fromHiveType.getTypeSignature());
-        Type toType = typeManager.getType(toHiveType.getTypeSignature());
-        if (fromType instanceof VarcharType) {
-            return toHiveType.equals(HIVE_BYTE) || toHiveType.equals(HIVE_SHORT) || toHiveType.equals(HIVE_INT) || toHiveType.equals(HIVE_LONG);
-        }
-        if (toType instanceof VarcharType) {
-            return fromHiveType.equals(HIVE_BYTE) || fromHiveType.equals(HIVE_SHORT) || fromHiveType.equals(HIVE_INT) || fromHiveType.equals(HIVE_LONG);
-        }
-        if (fromHiveType.equals(HIVE_BYTE)) {
-            return toHiveType.equals(HIVE_SHORT) || toHiveType.equals(HIVE_INT) || toHiveType.equals(HIVE_LONG);
-        }
-        if (fromHiveType.equals(HIVE_SHORT)) {
-            return toHiveType.equals(HIVE_INT) || toHiveType.equals(HIVE_LONG);
-        }
-        if (fromHiveType.equals(HIVE_INT)) {
-            return toHiveType.equals(HIVE_LONG);
-        }
-        if (fromHiveType.equals(HIVE_FLOAT)) {
-            return toHiveType.equals(HIVE_DOUBLE);
-        }
-
-        return false;
+        return createCoercerIfPossible(typeManager, fromHiveType, toHiveType).isPresent();
     }
 
     public Function<Block, Block> createCoercer(HiveType fromHiveType, HiveType toHiveType)
     {
+        Optional<Function<Block, Block>> coercer = createCoercerIfPossible(typeManager, fromHiveType, toHiveType);
+        return coercer.orElseThrow(() -> new PrestoException(NOT_SUPPORTED, format("Unsupported coercion from %s to %s", fromHiveType, toHiveType)));
+    }
+
+    private Optional<Function<Block, Block>> createCoercerIfPossible(TypeManager typeManager, HiveType fromHiveType, HiveType toHiveType)
+    {
         Type fromType = typeManager.getType(fromHiveType.getTypeSignature());
         Type toType = typeManager.getType(toHiveType.getTypeSignature());
         if (toType instanceof VarcharType && (fromHiveType.equals(HIVE_BYTE) || fromHiveType.equals(HIVE_SHORT) || fromHiveType.equals(HIVE_INT) || fromHiveType.equals(HIVE_LONG))) {
-            return new IntegerNumberToVarcharCoercer(fromType, toType);
+            return Optional.of(new IntegerNumberToVarcharCoercer(fromType, toType));
         }
         else if (fromType instanceof VarcharType && (toHiveType.equals(HIVE_BYTE) || toHiveType.equals(HIVE_SHORT) || toHiveType.equals(HIVE_INT) || toHiveType.equals(HIVE_LONG))) {
-            return new VarcharToIntegerNumberCoercer(fromType, toType);
+            return Optional.of(new VarcharToIntegerNumberCoercer(fromType, toType));
         }
         else if (fromHiveType.equals(HIVE_BYTE) && toHiveType.equals(HIVE_SHORT) || toHiveType.equals(HIVE_INT) || toHiveType.equals(HIVE_LONG)) {
-            return new IntegerNumberUpscaleCoercer(fromType, toType);
+            return Optional.of(new IntegerNumberUpscaleCoercer(fromType, toType));
         }
         else if (fromHiveType.equals(HIVE_SHORT) && toHiveType.equals(HIVE_INT) || toHiveType.equals(HIVE_LONG)) {
-            return new IntegerNumberUpscaleCoercer(fromType, toType);
+            return Optional.of(new IntegerNumberUpscaleCoercer(fromType, toType));
         }
         else if (fromHiveType.equals(HIVE_INT) && toHiveType.equals(HIVE_LONG)) {
-            return new IntegerNumberUpscaleCoercer(fromType, toType);
+            return Optional.of(new IntegerNumberUpscaleCoercer(fromType, toType));
         }
         else if (fromHiveType.equals(HIVE_FLOAT) && toHiveType.equals(HIVE_DOUBLE)) {
-            return new FloatToDoubleCoercer();
+            return Optional.of(new FloatToDoubleCoercer());
         }
-
-        throw new PrestoException(NOT_SUPPORTED, format("Unsupported coercion from %s to %s", fromHiveType, toHiveType));
-    }
-}
+        return Optional.empty();
+    }}
