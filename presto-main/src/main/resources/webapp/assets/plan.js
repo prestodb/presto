@@ -86,7 +86,7 @@ let StageStatistics = React.createClass({
                     <br />
                     Splits: {"Q:" + stats.queuedDrivers + ", R:" + stats.runningDrivers + ", F:" + stats.completedDrivers }
                     <hr />
-                    Input:  {stats.processedInputDataSize + " / " + formatCount(stats.processedInputPositions) } rows
+                    Input:  {stats.rawInputDataSize + " / " + formatCount(stats.rawInputPositions) } rows
                 </div>
             </div>
         );
