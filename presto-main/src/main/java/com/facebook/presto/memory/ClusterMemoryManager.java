@@ -70,7 +70,7 @@ import static com.facebook.presto.spi.NodeState.SHUTTING_DOWN;
 import static com.facebook.presto.spi.StandardErrorCode.CLUSTER_OUT_OF_MEMORY;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.MoreCollectors.onlyElement;
+import static com.google.common.collect.MoreCollectors.toOptional;
 import static com.google.common.collect.Sets.difference;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.airlift.units.Duration.nanosSince;
@@ -195,11 +195,14 @@ public class ClusterMemoryManager
                     .collect(toImmutableList());
             Optional<QueryId> chosenQueryId = lowMemoryKiller.chooseQueryToKill(queryMemoryInfoList, nodeMemoryInfos);
             if (chosenQueryId.isPresent()) {
-                QueryExecution chosenQuery = Streams.stream(queries).filter(query -> chosenQueryId.get().equals(query.getQueryId())).collect(onlyElement());
-                chosenQuery.fail(new PrestoException(CLUSTER_OUT_OF_MEMORY, "Query killed because the cluster is out of memory. Please try again in a few minutes."));
-                queriesKilledDueToOutOfMemory.incrementAndGet();
-                lastKilledQuery = chosenQueryId.get();
-                logQueryKill(chosenQueryId.get(), nodeMemoryInfos);
+                Optional<QueryExecution> chosenQuery = Streams.stream(queries).filter(query -> chosenQueryId.get().equals(query.getQueryId())).collect(toOptional());
+                if (chosenQuery.isPresent()) {
+                    // See comments in  isLastKilledQueryGone for why chosenQuery might be absent.
+                    chosenQuery.get().fail(new PrestoException(CLUSTER_OUT_OF_MEMORY, "Query killed because the cluster is out of memory. Please try again in a few minutes."));
+                    queriesKilledDueToOutOfMemory.incrementAndGet();
+                    lastKilledQuery = chosenQueryId.get();
+                    logQueryKill(chosenQueryId.get(), nodeMemoryInfos);
+                }
             }
         }
 
@@ -230,11 +233,15 @@ public class ClusterMemoryManager
         if (lastKilledQuery == null) {
             return true;
         }
+        // pools fields is updated based on nodes field.
+        // Therefore, if the query is gone from pools field, it should also be gone from nodes field.
+        // However, since nodes can updated asynchronously, it has the potential of coming back after being gone.
+        // Therefore, even if the query appears to be gone here, it might be back when one inspects nodes later.
         ClusterMemoryPool generalPool = pools.get(GENERAL_POOL);
         if (generalPool == null) {
             return false;
         }
-        return generalPool.getQueryMemoryReservations().containsKey(lastKilledQuery);
+        return !generalPool.getQueryMemoryReservations().containsKey(lastKilledQuery);
     }
 
     private void logQueryKill(QueryId killedQueryId, List<MemoryInfo> nodes)
