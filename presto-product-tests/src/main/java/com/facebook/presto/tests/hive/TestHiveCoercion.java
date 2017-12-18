@@ -13,10 +13,14 @@
  */
 package com.facebook.presto.tests.hive;
 
+import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.teradata.tempto.ProductTest;
 import com.teradata.tempto.Requirement;
 import com.teradata.tempto.RequirementsProvider;
 import com.teradata.tempto.Requires;
+import com.teradata.tempto.assertions.QueryAssert;
 import com.teradata.tempto.configuration.Configuration;
 import com.teradata.tempto.fulfillment.table.MutableTableRequirement;
 import com.teradata.tempto.fulfillment.table.MutableTablesState;
@@ -30,13 +34,15 @@ import com.teradata.tempto.query.QueryType;
 import org.testng.annotations.Test;
 
 import java.sql.Connection;
+import java.sql.JDBCType;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 
 import static com.facebook.presto.tests.TestGroups.HIVE_COERCION;
 import static com.facebook.presto.tests.TestGroups.HIVE_CONNECTOR;
-import static com.facebook.presto.tests.utils.JdbcDriverUtils.usingPrestoJdbcDriver;
 import static com.facebook.presto.tests.utils.JdbcDriverUtils.usingTeradataJdbcDriver;
 import static com.teradata.tempto.assertions.QueryAssert.Row.row;
 import static com.teradata.tempto.assertions.QueryAssert.assertThat;
@@ -50,70 +56,82 @@ import static java.sql.JDBCType.BIGINT;
 import static java.sql.JDBCType.DOUBLE;
 import static java.sql.JDBCType.INTEGER;
 import static java.sql.JDBCType.LONGNVARCHAR;
+import static java.sql.JDBCType.REAL;
 import static java.sql.JDBCType.SMALLINT;
+import static java.sql.JDBCType.TINYINT;
 import static java.sql.JDBCType.VARBINARY;
+import static java.util.Arrays.asList;
+import static java.util.stream.Collectors.toList;
+import static java.util.stream.IntStream.range;
 
 public class TestHiveCoercion
         extends ProductTest
 {
     private static String tableNameFormat = "%s_hive_coercion";
 
-    public static final HiveTableDefinition HIVE_COERCION_TEXTFILE = tableDefinitionBuilder("TEXTFILE", Optional.empty(), Optional.of("DELIMITED FIELDS TERMINATED BY '|'"))
-            .setNoData()
+    private static final List<TestTuple> TEST_TUPLES = ImmutableList.<TestTuple>builder()
+            .add(new TestTuple("tinyint", "smallint",
+                    asList("-1", "1"),
+                    asList(-1, 1)))
+            .add(new TestTuple("tinyint", "int",
+                    asList("2", "-2"),
+                    asList(2, -2)))
+            .add(new TestTuple("tinyint", "bigint",
+                    asList("-3"),
+                    asList(-3L)))
+            .add(new TestTuple("smallint", "int",
+                    asList("100", "-100"),
+                    asList(100, -100)))
+            .add(new TestTuple("smallint", "bigint",
+                    asList("-101", "101"),
+                    asList(-101L, 101L)))
+            .add(new TestTuple("int", "bigint",
+                    asList("2323", "-2323"),
+                    asList(2323L, -2323L)))
+            .add(new TestTuple("bigint", "string",
+                    asList("12345", "-12345"),
+                    asList("12345", "-12345")))
+            .add(new TestTuple("float", "double",
+                    asList("0.5", "-1.5"),
+                    asList(0.5, -1.5)))
             .build();
 
-    public static final HiveTableDefinition HIVE_COERCION_PARQUET = parquetTableDefinitionBuilder()
-            .setNoData()
-            .build();
+    public static final HiveTableDefinition HIVE_COERCION_TEXTFILE = tableDefinitionBuilder("TEXTFILE", Optional.empty(), Optional.of("DELIMITED FIELDS TERMINATED BY '|'"));
+    public static final HiveTableDefinition HIVE_COERCION_PARQUET = tableDefinitionBuilder("PARQUET", Optional.empty(), Optional.empty());
+    public static final HiveTableDefinition HIVE_COERCION_ORC = tableDefinitionBuilder("ORC", Optional.empty(), Optional.empty());
+    public static final HiveTableDefinition HIVE_COERCION_RCTEXT = tableDefinitionBuilder("RCFILE", Optional.of("RCTEXT"), Optional.of("SERDE 'org.apache.hadoop.hive.serde2.columnar.ColumnarSerDe'"));
+    public static final HiveTableDefinition HIVE_COERCION_RCBINARY = tableDefinitionBuilder("RCFILE", Optional.of("RCBINARY"), Optional.of("SERDE 'org.apache.hadoop.hive.serde2.columnar.LazyBinaryColumnarSerDe'"));
 
-    public static final HiveTableDefinition HIVE_COERCION_ORC = tableDefinitionBuilder("ORC", Optional.empty(), Optional.empty())
-            .setNoData()
-            .build();
-
-    public static final HiveTableDefinition HIVE_COERCION_RCTEXT = tableDefinitionBuilder("RCFILE", Optional.of("RCTEXT"), Optional.of("SERDE 'org.apache.hadoop.hive.serde2.columnar.ColumnarSerDe'"))
-            .setNoData()
-            .build();
-
-    public static final HiveTableDefinition HIVE_COERCION_RCBINARY = tableDefinitionBuilder("RCFILE", Optional.of("RCBINARY"), Optional.of("SERDE 'org.apache.hadoop.hive.serde2.columnar.LazyBinaryColumnarSerDe'"))
-            .setNoData()
-            .build();
-
-    private static HiveTableDefinition.HiveTableDefinitionBuilder tableDefinitionBuilder(String fileFormat, Optional<String> recommendTableName, Optional<String> rowFormat)
+    private static HiveTableDefinition tableDefinitionBuilder(String fileFormat, Optional<String> recommendTableName, Optional<String> rowFormat)
     {
         String tableName = format(tableNameFormat, recommendTableName.orElse(fileFormat).toLowerCase(Locale.ENGLISH));
+        List<TestTuple> testTuples = getTestTuples(fileFormat.equals("PARQUET"));
+        StringBuilder template = new StringBuilder();
+
+        template.append("CREATE TABLE %NAME% (");
+        template.append(Joiner.on(",").join(
+                testTuples.stream()
+                        .map(testTuple -> format(" %s %s", testTuple.columnName(), testTuple.getFromType()))
+                        .collect(toList())));
+        template.append(") PARTITIONED BY (id BIGINT)");
+        template.append((rowFormat.map(format -> " ROW FORMAT " + format).orElse("")));
+        template.append(" STORED AS " + fileFormat);
+
         return HiveTableDefinition.builder(tableName)
-                .setCreateTableDDLTemplate("" +
-                        "CREATE TABLE %NAME%(" +
-                        "    tinyint_to_smallint        TINYINT," +
-                        "    tinyint_to_int             TINYINT," +
-                        "    tinyint_to_bigint          TINYINT," +
-                        "    smallint_to_int            SMALLINT," +
-                        "    smallint_to_bigint         SMALLINT," +
-                        "    int_to_bigint              INT," +
-                        "    bigint_to_varchar          BIGINT," +
-                        "    float_to_double            FLOAT" +
-                        ") " +
-                        "PARTITIONED BY (id BIGINT) " +
-                        (rowFormat.isPresent() ? "ROW FORMAT " + rowFormat.get() + " " : " ") +
-                        "STORED AS " + fileFormat);
+                .setCreateTableDDLTemplate(template.toString())
+                .setNoData()
+                .build();
     }
 
-    private static HiveTableDefinition.HiveTableDefinitionBuilder parquetTableDefinitionBuilder()
+    private static List<TestTuple> getTestTuples(boolean forParquet)
     {
-        return HiveTableDefinition.builder("parquet_hive_coercion")
-                .setCreateTableDDLTemplate("" +
-                        "CREATE TABLE %NAME%(" +
-                        "    tinyint_to_smallint        TINYINT," +
-                        "    tinyint_to_int             TINYINT," +
-                        "    tinyint_to_bigint          TINYINT," +
-                        "    smallint_to_int            SMALLINT," +
-                        "    smallint_to_bigint         SMALLINT," +
-                        "    int_to_bigint              INT," +
-                        "    bigint_to_varchar          BIGINT," +
-                        "    float_to_double            DOUBLE" +
-                        ") " +
-                        "PARTITIONED BY (id BIGINT) " +
-                        "STORED AS PARQUET");
+        List<TestTuple> testTuples = TEST_TUPLES;
+        if (forParquet) {
+            testTuples = testTuples.stream()
+                    .filter(TestTuple::validForParquet)
+                    .collect(toList());
+        }
+        return testTuples;
     }
 
     public static final class TextRequirements
@@ -211,97 +229,84 @@ public class TestHiveCoercion
     {
         String tableName = mutableTableInstanceOf(tableDefinition).getNameInDatabase();
 
-        executeHiveQuery(format("INSERT INTO TABLE %s " +
-                        "PARTITION (id=1) " +
-                        "VALUES" +
-                        "(-1, 2, -3, 100, -101, 2323, 12345, 0.5)," +
-                        "(1, -2, null, -100, 101, -2323, -12345, -1.5)",
-                tableName));
+        List<TestTuple> testTuples = getTestTuples(tableDefinition == HIVE_COERCION_PARQUET);
+        int rowCount = getRowCount(testTuples);
 
-        alterTableColumnTypes(tableName);
-        assertProperAlteredTableSchema(tableName);
+        StringBuilder insertQuery = new StringBuilder("INSERT INTO TABLE " + tableName + " ");
+        insertQuery.append("PARTITION (id=1) ");
+        insertQuery.append("VALUES ");
+        insertQuery.append(Joiner.on(",").join(range(0, rowCount)
+                .mapToObj(row -> valuesForRow(testTuples, row))
+                .collect(toList())));
+        executeHiveQuery(insertQuery.toString());
+
+        alterTableColumnTypes(tableName, testTuples);
+        assertProperAlteredTableSchema(tableName, testTuples);
 
         QueryResult queryResult = query(format("SELECT * FROM %s", tableName));
-        assertColumnTypes(queryResult);
-        assertThat(queryResult).containsOnly(
-                row(
-                        -1,
-                        2,
-                        -3L,
-                        100,
-                        -101L,
-                        2323L,
-                        "12345",
-                        0.5,
-                        1),
-                row(
-                        1,
-                        -2,
-                        null,
-                        -100,
-                        101L,
-                        -2323L,
-                        "-12345",
-                        -1.5,
-                        1));
+        assertColumnTypes(queryResult, testTuples);
+        assertThat(queryResult).containsOnly(range(0, rowCount)
+                .mapToObj(
+                        row -> {
+                            List<Object> expectedValues = new ArrayList<>();
+                            expectedValues.addAll(testTuples.stream()
+                                    .map(testTuple -> getOrNull(testTuple.getExpectedValues(), row))
+                                    .collect(toList()));
+                            expectedValues.add(1L); // partitioning column
+                            return row(expectedValues.toArray());
+                        })
+                .collect(toList()));
     }
 
-    private void assertProperAlteredTableSchema(String tableName)
+    private String valuesForRow(List<TestTuple> testTuples, int row)
     {
-        assertThat(query("SHOW COLUMNS FROM " + tableName, QueryType.SELECT).project(1, 2)).containsExactly(
-                row("tinyint_to_smallint", "smallint"),
-                row("tinyint_to_int", "integer"),
-                row("tinyint_to_bigint", "bigint"),
-                row("smallint_to_int", "integer"),
-                row("smallint_to_bigint", "bigint"),
-                row("int_to_bigint", "bigint"),
-                row("bigint_to_varchar", "varchar"),
-                row("float_to_double", "double"),
-                row("id", "bigint"));
+        return "(" + Joiner.on(",").join(testTuples.stream()
+                .map(testTuple -> getOrNull(testTuple.getInsertedValues(), row))
+                .map(value -> value == null ? "null" : value)
+                .collect(toList())) + ")";
     }
 
-    private void assertColumnTypes(QueryResult queryResult)
+    private int getRowCount(List<TestTuple> testTuples)
     {
-        Connection connection = defaultQueryExecutor().getConnection();
-        if (usingPrestoJdbcDriver(connection)) {
-            assertThat(queryResult).hasColumns(
-                    SMALLINT,
-                    INTEGER,
-                    BIGINT,
-                    INTEGER,
-                    BIGINT,
-                    BIGINT,
-                    LONGNVARCHAR,
-                    DOUBLE,
-                    BIGINT);
-        }
-        else if (usingTeradataJdbcDriver(connection)) {
-            assertThat(queryResult).hasColumns(
-                    SMALLINT,
-                    INTEGER,
-                    BIGINT,
-                    INTEGER,
-                    BIGINT,
-                    BIGINT,
-                    VARBINARY,
-                    DOUBLE,
-                    BIGINT);
+        return testTuples.stream().mapToInt(testTuple -> testTuple.getExpectedValues().size()).max().orElse(0);
+    }
+
+    private <T> T getOrNull(List<T> list, int index)
+    {
+        if (index < list.size()) {
+            return list.get(index);
         }
         else {
-            throw new IllegalStateException();
+            return null;
         }
     }
 
-    private static void alterTableColumnTypes(String tableName)
+    private void assertProperAlteredTableSchema(String tableName, List<TestTuple> testTuples)
     {
-        executeHiveQuery(format("ALTER TABLE %s CHANGE COLUMN tinyint_to_smallint tinyint_to_smallint smallint", tableName));
-        executeHiveQuery(format("ALTER TABLE %s CHANGE COLUMN tinyint_to_int tinyint_to_int int", tableName));
-        executeHiveQuery(format("ALTER TABLE %s CHANGE COLUMN tinyint_to_bigint tinyint_to_bigint bigint", tableName));
-        executeHiveQuery(format("ALTER TABLE %s CHANGE COLUMN smallint_to_int smallint_to_int int", tableName));
-        executeHiveQuery(format("ALTER TABLE %s CHANGE COLUMN smallint_to_bigint smallint_to_bigint bigint", tableName));
-        executeHiveQuery(format("ALTER TABLE %s CHANGE COLUMN int_to_bigint int_to_bigint bigint", tableName));
-        executeHiveQuery(format("ALTER TABLE %s CHANGE COLUMN bigint_to_varchar bigint_to_varchar string", tableName));
-        executeHiveQuery(format("ALTER TABLE %s CHANGE COLUMN float_to_double float_to_double double", tableName));
+        List<QueryAssert.Row> expectedResult = new ArrayList<>();
+        expectedResult.addAll(testTuples.stream()
+                .map(testTuple -> row(testTuple.columnName(), testTuple.getPrestoToType()))
+                .collect(toList()));
+        expectedResult.add(row("id", "bigint")); // partitioning column
+        assertThat(query("SHOW COLUMNS FROM " + tableName, QueryType.SELECT).project(1, 2)).containsExactly(expectedResult);
+    }
+
+    private void assertColumnTypes(QueryResult queryResult, List<TestTuple> testTuples)
+    {
+        Connection connection = defaultQueryExecutor().getConnection();
+        List<JDBCType> expectedTypes = new ArrayList<>();
+        expectedTypes.addAll(testTuples.stream()
+                .map(testTuple -> testTuple.getJdbcToType(usingTeradataJdbcDriver(connection)))
+                .collect(toList()));
+        expectedTypes.add(BIGINT); // partitioning column
+        assertThat(queryResult).hasColumns(
+                expectedTypes);
+    }
+
+    private void alterTableColumnTypes(String tableName, List<TestTuple> testTuples)
+    {
+        testTuples.forEach(testTuple -> executeHiveQuery(
+                format("ALTER TABLE %s CHANGE COLUMN %s %s %s", tableName, testTuple.columnName(), testTuple.columnName(), testTuple.getToType())));
     }
 
     private static TableInstance mutableTableInstanceOf(TableDefinition tableDefinition)
@@ -336,5 +341,93 @@ public class TestHiveCoercion
     private static QueryResult executeHiveQuery(String query)
     {
         return testContext().getDependency(QueryExecutor.class, "hive").executeQuery(query);
+    }
+
+    private static class TestTuple
+    {
+        private final String fromType;
+        private final String toType;
+        private final List<String> insertedValues;
+        private final List<Object> expectedValues;
+
+        public TestTuple(String fromType, String toType, List<String> insertedValues, List<Object> expectedValues)
+        {
+            Preconditions.checkArgument(insertedValues.size() == expectedValues.size(), "length of insertedValues does not match the length of expectedValues");
+            this.fromType = fromType;
+            this.toType = toType;
+            this.insertedValues = new ArrayList<>(insertedValues);
+            this.expectedValues = new ArrayList<>(expectedValues);
+        }
+
+        public String getFromType()
+        {
+            return fromType;
+        }
+
+        public String getToType()
+        {
+            return toType;
+        }
+
+        public List<String> getInsertedValues()
+        {
+            return insertedValues;
+        }
+
+        public List<Object> getExpectedValues()
+        {
+            return expectedValues;
+        }
+
+        public String columnName()
+        {
+            return format("%s_to_%s", fromType, toType);
+        }
+
+        boolean validForParquet()
+        {
+            return !fromType.equals("float") && !toType.equals("float");
+        }
+
+        public String getPrestoToType()
+        {
+            switch (toType) {
+                case "tinyint":
+                case "smallint":
+                case "bigint":
+                case "double":
+                    return toType;
+                case "float":
+                    return "real";
+                case "int":
+                    return "integer";
+                case "string":
+                    return "varchar";
+                default:
+                    throw new IllegalArgumentException("unknown mapping to Presto type for Hive type " + toType);
+            }
+        }
+
+        public JDBCType getJdbcToType(boolean teradataDriver)
+        {
+            switch (toType) {
+                case "tinyint":
+                    return TINYINT;
+                case "smallint":
+                    return SMALLINT;
+                case "int":
+                    return INTEGER;
+                case "bigint":
+                    return BIGINT;
+                case "float":
+                    return REAL;
+                case "double":
+                    return DOUBLE;
+                case "string":
+                    return teradataDriver ? VARBINARY : LONGNVARCHAR;
+                default:
+                    throw new IllegalArgumentException("unknown mapping to JDBC type for Hive type " + toType);
+            }
+        }
     }
 }
