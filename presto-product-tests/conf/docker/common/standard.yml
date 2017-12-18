@@ -40,6 +40,7 @@ services:
     extends:
       service: java-8-base
     hostname: application-runner
+    command: bash -c 'echo please provide command to application-runner >&2; exit 1'
     volumes:
       - ${PRESTO_CLI_JAR}:/docker/volumes/presto-cli/presto-cli-executable.jar
       - ${PRODUCT_TESTS_JAR}:/docker/volumes/presto-product-tests/presto-product-tests-executable.jar
