@@ -14,12 +14,9 @@
 package com.facebook.presto.hive.coercions;
 
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
-
-import java.util.function.Function;
+import io.airlift.slice.Slice;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -27,21 +24,16 @@ import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
 
 public class VarcharToIntegerNumberCoercer
-        implements Function<Block, Block>
+        extends AbstractCoercer
 {
-    private final Type fromType;
-    private final Type toType;
-
     private final long minValue;
     private final long maxValue;
 
     public VarcharToIntegerNumberCoercer(Type fromType, Type toType)
     {
-        this.fromType = requireNonNull(fromType, "fromType is null");
-        this.toType = requireNonNull(toType, "toType is null");
+        super(fromType, toType);
 
         if (toType.equals(TINYINT)) {
             minValue = Byte.MIN_VALUE;
@@ -65,27 +57,19 @@ public class VarcharToIntegerNumberCoercer
     }
 
     @Override
-    public Block apply(Block block)
+    protected void appendCoercedSlice(BlockBuilder blockBuilder, Slice slice)
     {
-        BlockBuilder blockBuilder = toType.createBlockBuilder(new BlockBuilderStatus(), block.getPositionCount());
-        for (int i = 0; i < block.getPositionCount(); i++) {
-            if (block.isNull(i)) {
-                blockBuilder.appendNull();
-                continue;
+        try {
+            long value = Long.parseLong(slice.toStringUtf8());
+            if (minValue <= value && value <= maxValue) {
+                toType.writeLong(blockBuilder, value);
             }
-            try {
-                long value = Long.parseLong(fromType.getSlice(block, i).toStringUtf8());
-                if (minValue <= value && value <= maxValue) {
-                    toType.writeLong(blockBuilder, value);
-                }
-                else {
-                    blockBuilder.appendNull();
-                }
-            }
-            catch (NumberFormatException e) {
+            else {
                 blockBuilder.appendNull();
             }
         }
-        return blockBuilder.build();
+        catch (NumberFormatException e) {
+            blockBuilder.appendNull();
+        }
     }
 }
