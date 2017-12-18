@@ -292,7 +292,7 @@ public class OrcStorageManager
     @Override
     public StoragePageSink createStoragePageSink(long transactionId, OptionalInt bucketNumber, List<Long> columnIds, List<Type> columnTypes, boolean checkSpace)
     {
-        if (storageService.getAvailableBytes() < minAvailableSpace.toBytes()) {
+        if (checkSpace && storageService.getAvailableBytes() < minAvailableSpace.toBytes()) {
             throw new PrestoException(RAPTOR_LOCAL_DISK_FULL, "Local disk is full on node " + nodeId);
         }
         return new OrcStoragePageSink(transactionId, columnIds, columnTypes, bucketNumber);
