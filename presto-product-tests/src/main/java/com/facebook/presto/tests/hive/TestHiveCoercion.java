@@ -134,6 +134,38 @@ public class TestHiveCoercion
             .add(new TestTuple("decimal(25,5)", "double",
                     asList("12345678901234567890.12345"),
                     asList(12345678901234567890.12345)))
+            .add(new TestTuple("float", "decimal(8,3)",
+                    asList("12345.123",
+                            "12345.123456789",
+                            "123456.123"),
+                    asList(new BigDecimal("12345.123"),
+                            new BigDecimal("12345.123"),
+                            null)))
+            .add(new TestTuple("float", "decimal(30,5)",
+                    asList("12345.12345",
+                            "12345.123456789",
+                            "1234567890123456789012345.12345",
+                            "12345678901234567890123456.12345"),
+                    asList(new BigDecimal("12345.12305"),
+                            new BigDecimal("12345.12305"),
+                            new BigDecimal("1234567946798590058299392.00000"),
+                            null)))
+            .add(new TestTuple("double", "decimal(8,3)",
+                    asList("12345.123",
+                            "12345.123456789",
+                            "123456.123"),
+                    asList(new BigDecimal("12345.123"),
+                            new BigDecimal("12345.123"),
+                            null)))
+            .add(new TestTuple("double", "decimal(30,5)",
+                    asList("12345.12345",
+                            "12345.123456789",
+                            "1234567890123456789012345.12345",
+                            "12345678901234567890123456.12345"),
+                    asList(new BigDecimal("12345.12345"),
+                            new BigDecimal("12345.12346"),
+                            new BigDecimal("1234567890123456824475648.00000"),
+                            null)))
             .build();
 
     public static final HiveTableDefinition HIVE_COERCION_TEXTFILE = tableDefinitionBuilder("TEXTFILE", Optional.empty(), Optional.of("DELIMITED FIELDS TERMINATED BY '|'"));
