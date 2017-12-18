@@ -18,6 +18,8 @@ import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.mongodb.MongoClient;
+import com.mongodb.ServerAddress;
 import de.bwaldvogel.mongo.MongoServer;
 import io.airlift.tpch.TpchTable;
 
@@ -37,6 +39,7 @@ public class MongoQueryRunner
     private static final String TPCH_SCHEMA = "tpch";
 
     private final MongoServer server;
+    private final MongoClient client;
     private final InetSocketAddress address;
 
     private MongoQueryRunner(Session session, int workers)
@@ -46,6 +49,7 @@ public class MongoQueryRunner
 
         server = new MongoServer(new SyncMemoryBackend());
         address = server.bind();
+        client = new MongoClient(new ServerAddress(address));
     }
 
     public static MongoQueryRunner createMongoQueryRunner(TpchTable<?>... tables)
@@ -96,9 +100,15 @@ public class MongoQueryRunner
         return address;
     }
 
+    public MongoClient getMongoClient()
+    {
+        return client;
+    }
+
     public void shutdown()
     {
         close();
+        client.close();
         server.shutdown();
     }
 }

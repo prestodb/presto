@@ -16,12 +16,16 @@ package com.facebook.presto.mongodb;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import org.bson.Document;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Arrays;
 
 import static com.facebook.presto.mongodb.MongoQueryRunner.createMongoQueryRunner;
 import static io.airlift.tpch.TpchTable.ORDERS;
@@ -149,6 +153,32 @@ public class TestMongoIntegrationSmokeTest
         assertOneNotNullResult("SELECT col[DATE '2014-09-30'] FROM tmp_map6");
         assertUpdate("CREATE TABLE tmp_map7 AS SELECT MAP(ARRAY[TIMESTAMP '2001-08-22 03:04:05.321'], ARRAY[TIMESTAMP '2001-08-22 03:04:05.321']) AS col", 1);
         assertOneNotNullResult("SELECT col[TIMESTAMP '2001-08-22 03:04:05.321'] FROM tmp_map7");
+
+        assertUpdate("CREATE TABLE test.tmp_map8 (col MAP<VARCHAR, VARCHAR>)");
+        mongoQueryRunner.getMongoClient().getDatabase("test").getCollection("tmp_map8").insertOne(new Document(
+                ImmutableMap.of("col", new Document(ImmutableMap.of("key1", "value1", "key2", "value2")))));
+        assertQuery("SELECT col['key1'] FROM test.tmp_map8", "SELECT 'value1'");
+
+        assertUpdate("CREATE TABLE test.tmp_map9 (col VARCHAR)");
+        mongoQueryRunner.getMongoClient().getDatabase("test").getCollection("tmp_map9").insertOne(new Document(
+                ImmutableMap.of("col", new Document(ImmutableMap.of("key1", "value1", "key2", "value2")))));
+        assertQuery("SELECT col FROM test.tmp_map9", "SELECT '{ \"key1\" : \"value1\", \"key2\" : \"value2\" }'");
+
+        assertUpdate("CREATE TABLE test.tmp_map10 (col VARCHAR)");
+        mongoQueryRunner.getMongoClient().getDatabase("test").getCollection("tmp_map10").insertOne(new Document(
+                ImmutableMap.of("col", ImmutableList.of(new Document(ImmutableMap.of("key1", "value1", "key2", "value2")),
+                        new Document(ImmutableMap.of("key3", "value3", "key4", "value4"))))));
+        assertQuery("SELECT col FROM test.tmp_map10", "SELECT '[{ \"key1\" : \"value1\", \"key2\" : \"value2\" }, { \"key3\" : \"value3\", \"key4\" : \"value4\" }]'");
+
+        assertUpdate("CREATE TABLE test.tmp_map11 (col VARCHAR)");
+        mongoQueryRunner.getMongoClient().getDatabase("test").getCollection("tmp_map11").insertOne(new Document(
+                ImmutableMap.of("col", 10)));
+        assertQuery("SELECT col FROM test.tmp_map11", "SELECT '10'");
+
+        assertUpdate("CREATE TABLE test.tmp_map12 (col VARCHAR)");
+        mongoQueryRunner.getMongoClient().getDatabase("test").getCollection("tmp_map12").insertOne(new Document(
+                ImmutableMap.of("col", Arrays.asList(10, null, 11))));
+        assertQuery("SELECT col FROM test.tmp_map12", "SELECT '[10, null, 11]'");
     }
 
     @Test

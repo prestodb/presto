@@ -31,6 +31,7 @@ import org.bson.types.ObjectId;
 import org.joda.time.chrono.ISOChronology;
 
 import java.io.IOException;
+import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -177,11 +178,22 @@ public class MongoPageSource
         }
     }
 
+    private String toVarcharValue(Object value)
+    {
+        if (value instanceof Collection<?>) {
+            return "[" + String.join(", ", ((Collection<?>) value).stream().map(this::toVarcharValue).collect(toList())) + "]";
+        }
+        if (value instanceof Document) {
+            return ((Document) value).toJson();
+        }
+        return String.valueOf(value);
+    }
+
     private void writeSlice(BlockBuilder output, Type type, Object value)
     {
         String base = type.getTypeSignature().getBase();
         if (base.equals(StandardTypes.VARCHAR)) {
-            type.writeSlice(output, utf8Slice(value.toString()));
+            type.writeSlice(output, utf8Slice(toVarcharValue(value)));
         }
         else if (type.equals(OBJECT_ID)) {
             type.writeSlice(output, wrappedBuffer(((ObjectId) value).toByteArray()));
@@ -227,6 +239,16 @@ public class MongoPageSource
                     }
                 }
 
+                output.closeEntry();
+                return;
+            }
+            else if (value instanceof Map) {
+                BlockBuilder builder = output.beginBlockEntry();
+                Map<?, ?> document = (Map<?, ?>) value;
+                for (Map.Entry<?, ?> entry : document.entrySet()) {
+                    appendTo(type.getTypeParameters().get(0), entry.getKey(), builder);
+                    appendTo(type.getTypeParameters().get(1), entry.getValue(), builder);
+                }
                 output.closeEntry();
                 return;
             }
