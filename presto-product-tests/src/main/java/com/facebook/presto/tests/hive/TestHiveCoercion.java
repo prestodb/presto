@@ -122,6 +122,12 @@ public class TestHiveCoercion
             .add(new TestTuple("decimal(8,3)", "decimal(20,15)",
                     asList("12345.123"),
                     asList(new BigDecimal("12345.123"))))
+            .add(new TestTuple("decimal(8,3)", "float",
+                    asList("12345.123"),
+                    asList(12345.123f)))
+            .add(new TestTuple("decimal(25,5)", "float",
+                    asList("12345678901234567890.12345"),
+                    asList(12345678901234567890.12345f)))
             .build();
 
     public static final HiveTableDefinition HIVE_COERCION_TEXTFILE = tableDefinitionBuilder("TEXTFILE", Optional.empty(), Optional.of("DELIMITED FIELDS TERMINATED BY '|'"));
