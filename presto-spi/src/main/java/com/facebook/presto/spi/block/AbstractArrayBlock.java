@@ -79,10 +79,6 @@ public abstract class AbstractArrayBlock
         int positionCount = getPositionCount();
         checkValidRegion(positionCount, position, length);
 
-        if (position == 0 && length == positionCount) {
-            return this;
-        }
-
         return new ArrayBlock(
                 position + getOffsetBase(),
                 length,
