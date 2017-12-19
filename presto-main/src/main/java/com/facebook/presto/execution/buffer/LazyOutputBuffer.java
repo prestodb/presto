@@ -105,7 +105,7 @@ public class LazyOutputBuffer
     }
 
     @Override
-    public boolean isFull()
+    public boolean isOverutilized()
     {
         OutputBuffer outputBuffer;
         synchronized (this) {
@@ -113,7 +113,7 @@ public class LazyOutputBuffer
         }
 
         // until output buffer is initialized, readers cannot enqueue and thus cannot be blocked
-        return (outputBuffer != null) && outputBuffer.isFull();
+        return (outputBuffer != null) && outputBuffer.isOverutilized();
     }
 
     @Override

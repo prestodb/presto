@@ -92,7 +92,7 @@ public class ScaledWriterScheduler
 
         double fullTasks = sourceTasksProvider.get().stream()
                 .filter(task -> !task.getState().isDone())
-                .map(TaskStatus::isOutputBufferFull)
+                .map(TaskStatus::isOutputBufferOverutilized)
                 .mapToDouble(full -> full ? 1.0 : 0.0)
                 .average().orElse(0.0);
 

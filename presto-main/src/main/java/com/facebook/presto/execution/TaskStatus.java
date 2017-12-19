@@ -59,7 +59,7 @@ public class TaskStatus
 
     private final int queuedPartitionedDrivers;
     private final int runningPartitionedDrivers;
-    private final boolean outputBufferFull;
+    private final boolean outputBufferOverutilized;
     private final DataSize physicalWrittenDataSize;
     private final DataSize memoryReservation;
 
@@ -77,7 +77,7 @@ public class TaskStatus
             @JsonProperty("failures") List<ExecutionFailureInfo> failures,
             @JsonProperty("queuedPartitionedDrivers") int queuedPartitionedDrivers,
             @JsonProperty("runningPartitionedDrivers") int runningPartitionedDrivers,
-            @JsonProperty("outputBufferFull") boolean outputBufferFull,
+            @JsonProperty("outputBufferOverutilized") boolean outputBufferOverutilized,
             @JsonProperty("physicalWrittenDataSize") DataSize physicalWrittenDataSize,
             @JsonProperty("memoryReservation") DataSize memoryReservation)
     {
@@ -97,7 +97,7 @@ public class TaskStatus
         checkArgument(runningPartitionedDrivers >= 0, "runningPartitionedDrivers must be positive");
         this.runningPartitionedDrivers = runningPartitionedDrivers;
 
-        this.outputBufferFull = outputBufferFull;
+        this.outputBufferOverutilized = outputBufferOverutilized;
 
         this.physicalWrittenDataSize = requireNonNull(physicalWrittenDataSize, "physicalWrittenDataSize is null");
 
@@ -172,9 +172,9 @@ public class TaskStatus
     }
 
     @JsonProperty
-    public boolean isOutputBufferFull()
+    public boolean isOutputBufferOverutilized()
     {
-        return outputBufferFull;
+        return outputBufferOverutilized;
     }
 
     @JsonProperty
@@ -223,7 +223,7 @@ public class TaskStatus
                 exceptions,
                 taskStatus.getQueuedPartitionedDrivers(),
                 taskStatus.getRunningPartitionedDrivers(),
-                taskStatus.isOutputBufferFull(),
+                taskStatus.isOutputBufferOverutilized(),
                 taskStatus.getPhysicalWrittenDataSize(),
                 taskStatus.getMemoryReservation());
     }

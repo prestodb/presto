@@ -43,7 +43,7 @@ public interface OutputBuffer
     /**
      * Check if the buffer is blocking producers.
      */
-    boolean isFull();
+    boolean isOverutilized();
 
     /**
      * Add a listener which fires anytime the buffer state changes.
