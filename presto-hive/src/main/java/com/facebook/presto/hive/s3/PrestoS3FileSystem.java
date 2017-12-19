@@ -49,7 +49,6 @@ import com.amazonaws.services.s3.transfer.TransferManagerConfiguration;
 import com.amazonaws.services.s3.transfer.Upload;
 import com.facebook.presto.hadoop.HadoopFileStatus;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Throwables;
 import com.google.common.collect.AbstractSequentialIterator;
 import com.google.common.collect.Iterators;
 import io.airlift.log.Logger;
@@ -122,6 +121,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.Iterables.toArray;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Math.max;
@@ -565,7 +565,7 @@ public class PrestoS3FileSystem
                                         throw new UnrecoverableS3OperationException(path, e);
                                 }
                             }
-                            throw Throwables.propagate(e);
+                            throw e;
                         }
                     });
         }
@@ -575,7 +575,8 @@ public class PrestoS3FileSystem
         }
         catch (Exception e) {
             throwIfInstanceOf(e, IOException.class);
-            throw Throwables.propagate(e);
+            throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -831,7 +832,8 @@ public class PrestoS3FileSystem
             }
             catch (Exception e) {
                 throwIfInstanceOf(e, IOException.class);
-                throw Throwables.propagate(e);
+                throwIfUnchecked(e);
+                throw new RuntimeException(e);
             }
         }
 
@@ -919,7 +921,8 @@ public class PrestoS3FileSystem
             }
             catch (Exception e) {
                 throwIfInstanceOf(e, IOException.class);
-                throw Throwables.propagate(e);
+                throwIfUnchecked(e);
+                throw new RuntimeException(e);
             }
         }
 
