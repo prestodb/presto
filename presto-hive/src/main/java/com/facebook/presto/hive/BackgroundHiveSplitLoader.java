@@ -30,6 +30,7 @@ import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.CharStreams;
+import com.google.common.util.concurrent.ListenableFuture;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.BlockLocation;
 import org.apache.hadoop.fs.FileStatus;
@@ -58,7 +59,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.Executor;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -79,6 +79,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;
 import static org.apache.hadoop.hive.common.FileUtils.HIDDEN_FILES_PATH_FILTER;
@@ -88,7 +89,7 @@ public class BackgroundHiveSplitLoader
 {
     private static final String CORRUPT_BUCKETING = "Hive table is corrupt. It is declared as being bucketed, but the files do not match the bucketing declaration.";
 
-    public static final CompletableFuture<?> COMPLETED_FUTURE = CompletableFuture.completedFuture(null);
+    public static final ListenableFuture<?> COMPLETED_FUTURE = immediateFuture(null);
 
     private final Table table;
     private final TupleDomain<? extends ColumnHandle> compactEffectivePredicate;
@@ -175,7 +176,7 @@ public class BackgroundHiveSplitLoader
                 if (stopped) {
                     return TaskStatus.finished();
                 }
-                CompletableFuture<?> future;
+                ListenableFuture<?> future;
                 taskExecutionLock.readLock().lock();
                 try {
                     future = loadSplits();
@@ -216,7 +217,7 @@ public class BackgroundHiveSplitLoader
         }
     }
 
-    private CompletableFuture<?> loadSplits()
+    private ListenableFuture<?> loadSplits()
             throws IOException
     {
         HiveFileIterator files = fileIterators.poll();
@@ -266,7 +267,7 @@ public class BackgroundHiveSplitLoader
                 if (!internalHiveSplit.isPresent()) {
                     continue;
                 }
-                CompletableFuture<?> future = hiveSplitSource.addToQueue(internalHiveSplit.get());
+                ListenableFuture<?> future = hiveSplitSource.addToQueue(internalHiveSplit.get());
                 if (!future.isDone()) {
                     fileIterators.addFirst(files);
                     return future;
@@ -278,7 +279,7 @@ public class BackgroundHiveSplitLoader
         return COMPLETED_FUTURE;
     }
 
-    private CompletableFuture<?> loadPartition(HivePartitionMetadata partition)
+    private ListenableFuture<?> loadPartition(HivePartitionMetadata partition)
             throws IOException
     {
         String partitionName = partition.getHivePartition().getPartitionId();
@@ -298,7 +299,7 @@ public class BackgroundHiveSplitLoader
             }
 
             // TODO: This should use an iterator like the HiveFileIterator
-            CompletableFuture<?> lastResult = COMPLETED_FUTURE;
+            ListenableFuture<?> lastResult = COMPLETED_FUTURE;
             for (Path targetPath : getTargetPathsFromSymlink(fs, path)) {
                 // The input should be in TextInputFormat.
                 TextInputFormat targetInputFormat = new TextInputFormat();
@@ -395,7 +396,7 @@ public class BackgroundHiveSplitLoader
         return COMPLETED_FUTURE;
     }
 
-    private CompletableFuture<?> addSplitsToSource(
+    private ListenableFuture<?> addSplitsToSource(
             InputSplit[] targetSplits,
             String partitionName,
             List<HivePartitionKey> partitionKeys,
@@ -405,7 +406,7 @@ public class BackgroundHiveSplitLoader
             Optional<Domain> pathDomain)
             throws IOException
     {
-        CompletableFuture<?> lastResult = COMPLETED_FUTURE;
+        ListenableFuture<?> lastResult = COMPLETED_FUTURE;
         for (InputSplit inputSplit : targetSplits) {
             FileSplit split = (FileSplit) inputSplit;
             FileSystem targetFilesystem = hdfsEnvironment.getFileSystem(hdfsContext, split.getPath());
