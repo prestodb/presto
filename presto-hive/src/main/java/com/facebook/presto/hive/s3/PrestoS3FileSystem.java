@@ -91,6 +91,32 @@ import java.util.Optional;
 import static com.amazonaws.services.s3.Headers.SERVER_SIDE_ENCRYPTION;
 import static com.amazonaws.services.s3.Headers.UNENCRYPTED_CONTENT_LENGTH;
 import static com.facebook.presto.hive.RetryDriver.retry;
+import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_ACCESS_KEY;
+import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_CONNECT_TIMEOUT;
+import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_CREDENTIALS_PROVIDER;
+import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_ENCRYPTION_MATERIALS_PROVIDER;
+import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_ENDPOINT;
+import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_KMS_KEY_ID;
+import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_MAX_BACKOFF_TIME;
+import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_MAX_CLIENT_RETRIES;
+import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_MAX_CONNECTIONS;
+import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_MAX_ERROR_RETRIES;
+import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_MAX_RETRY_TIME;
+import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_MULTIPART_MIN_FILE_SIZE;
+import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_MULTIPART_MIN_PART_SIZE;
+import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_PATH_STYLE_ACCESS;
+import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_PIN_CLIENT_TO_CURRENT_REGION;
+import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_SECRET_KEY;
+import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_SIGNER_TYPE;
+import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_SOCKET_TIMEOUT;
+import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_SSE_ENABLED;
+import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_SSE_KMS_KEY_ID;
+import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_SSE_TYPE;
+import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_SSL_ENABLED;
+import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_STAGING_DIRECTORY;
+import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_USER_AGENT_PREFIX;
+import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_USER_AGENT_SUFFIX;
+import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_USE_INSTANCE_CREDENTIALS;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -114,44 +140,9 @@ public class PrestoS3FileSystem
         extends FileSystem
 {
     private static final Logger log = Logger.get(PrestoS3FileSystem.class);
-
     private static final PrestoS3FileSystemStats STATS = new PrestoS3FileSystemStats();
     private static final PrestoS3FileSystemMetricCollector METRIC_COLLECTOR = new PrestoS3FileSystemMetricCollector(STATS);
-
-    public static PrestoS3FileSystemStats getFileSystemStats()
-    {
-        return STATS;
-    }
-
     private static final String DIRECTORY_SUFFIX = "_$folder$";
-
-    public static final String S3_ACCESS_KEY = "presto.s3.access-key";
-    public static final String S3_SECRET_KEY = "presto.s3.secret-key";
-    public static final String S3_ENDPOINT = "presto.s3.endpoint";
-    public static final String S3_SIGNER_TYPE = "presto.s3.signer-type";
-    public static final String S3_PATH_STYLE_ACCESS = "presto.s3.path-style-access";
-    public static final String S3_SSL_ENABLED = "presto.s3.ssl.enabled";
-    public static final String S3_MAX_ERROR_RETRIES = "presto.s3.max-error-retries";
-    public static final String S3_MAX_CLIENT_RETRIES = "presto.s3.max-client-retries";
-    public static final String S3_MAX_BACKOFF_TIME = "presto.s3.max-backoff-time";
-    public static final String S3_MAX_RETRY_TIME = "presto.s3.max-retry-time";
-    public static final String S3_CONNECT_TIMEOUT = "presto.s3.connect-timeout";
-    public static final String S3_SOCKET_TIMEOUT = "presto.s3.socket-timeout";
-    public static final String S3_MAX_CONNECTIONS = "presto.s3.max-connections";
-    public static final String S3_STAGING_DIRECTORY = "presto.s3.staging-directory";
-    public static final String S3_MULTIPART_MIN_FILE_SIZE = "presto.s3.multipart.min-file-size";
-    public static final String S3_MULTIPART_MIN_PART_SIZE = "presto.s3.multipart.min-part-size";
-    public static final String S3_USE_INSTANCE_CREDENTIALS = "presto.s3.use-instance-credentials";
-    public static final String S3_PIN_CLIENT_TO_CURRENT_REGION = "presto.s3.pin-client-to-current-region";
-    public static final String S3_ENCRYPTION_MATERIALS_PROVIDER = "presto.s3.encryption-materials-provider";
-    public static final String S3_KMS_KEY_ID = "presto.s3.kms-key-id";
-    public static final String S3_SSE_KMS_KEY_ID = "presto.s3.sse.kms-key-id";
-    public static final String S3_SSE_ENABLED = "presto.s3.sse.enabled";
-    public static final String S3_SSE_TYPE = "presto.s3.sse.type";
-    public static final String S3_CREDENTIALS_PROVIDER = "presto.s3.credentials-provider";
-    public static final String S3_USER_AGENT_PREFIX = "presto.s3.user-agent-prefix";
-    public static final String S3_USER_AGENT_SUFFIX = "presto";
-
     private static final DataSize BLOCK_SIZE = new DataSize(32, MEGABYTE);
     private static final DataSize MAX_SKIP_SIZE = new DataSize(1, MEGABYTE);
     private static final String PATH_SEPARATOR = "/";
@@ -1111,5 +1102,10 @@ public class PrestoS3FileSystem
         }
 
         throw new IllegalArgumentException("Unable to determine S3 bucket from URI.");
+    }
+
+    public static PrestoS3FileSystemStats getFileSystemStats()
+    {
+        return STATS;
     }
 }
