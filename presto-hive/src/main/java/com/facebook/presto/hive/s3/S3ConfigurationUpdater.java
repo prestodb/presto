@@ -17,5 +17,32 @@ import org.apache.hadoop.conf.Configuration;
 
 public interface S3ConfigurationUpdater
 {
+    String S3_USER_AGENT_SUFFIX = "presto";
+    String S3_USER_AGENT_PREFIX = "presto.s3.user-agent-prefix";
+    String S3_CREDENTIALS_PROVIDER = "presto.s3.credentials-provider";
+    String S3_SSE_TYPE = "presto.s3.sse.type";
+    String S3_SSE_ENABLED = "presto.s3.sse.enabled";
+    String S3_SSE_KMS_KEY_ID = "presto.s3.sse.kms-key-id";
+    String S3_KMS_KEY_ID = "presto.s3.kms-key-id";
+    String S3_ENCRYPTION_MATERIALS_PROVIDER = "presto.s3.encryption-materials-provider";
+    String S3_PIN_CLIENT_TO_CURRENT_REGION = "presto.s3.pin-client-to-current-region";
+    String S3_USE_INSTANCE_CREDENTIALS = "presto.s3.use-instance-credentials";
+    String S3_MULTIPART_MIN_PART_SIZE = "presto.s3.multipart.min-part-size";
+    String S3_MULTIPART_MIN_FILE_SIZE = "presto.s3.multipart.min-file-size";
+    String S3_STAGING_DIRECTORY = "presto.s3.staging-directory";
+    String S3_MAX_CONNECTIONS = "presto.s3.max-connections";
+    String S3_SOCKET_TIMEOUT = "presto.s3.socket-timeout";
+    String S3_CONNECT_TIMEOUT = "presto.s3.connect-timeout";
+    String S3_MAX_RETRY_TIME = "presto.s3.max-retry-time";
+    String S3_MAX_BACKOFF_TIME = "presto.s3.max-backoff-time";
+    String S3_MAX_CLIENT_RETRIES = "presto.s3.max-client-retries";
+    String S3_MAX_ERROR_RETRIES = "presto.s3.max-error-retries";
+    String S3_SSL_ENABLED = "presto.s3.ssl.enabled";
+    String S3_PATH_STYLE_ACCESS = "presto.s3.path-style-access";
+    String S3_SIGNER_TYPE = "presto.s3.signer-type";
+    String S3_ENDPOINT = "presto.s3.endpoint";
+    String S3_SECRET_KEY = "presto.s3.secret-key";
+    String S3_ACCESS_KEY = "presto.s3.access-key";
+
     void updateConfiguration(Configuration config);
 }
