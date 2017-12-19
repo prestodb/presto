@@ -70,13 +70,14 @@ public class StringStatistics
         }
         StringStatistics that = (StringStatistics) o;
         return Objects.equals(minimum, that.minimum) &&
-                Objects.equals(maximum, that.maximum);
+                Objects.equals(maximum, that.maximum) &&
+                Objects.equals(sum, that.sum);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(minimum, maximum);
+        return Objects.hash(minimum, maximum, sum);
     }
 
     @Override

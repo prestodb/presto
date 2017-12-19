@@ -224,6 +224,7 @@ public class OrcMetadataWriter
             builder.setStringStatistics(OrcProto.StringStatistics.newBuilder()
                     .setMinimumBytes(ByteString.copyFrom(columnStatistics.getStringStatistics().getMin().getBytes()))
                     .setMaximumBytes(ByteString.copyFrom(columnStatistics.getStringStatistics().getMax().getBytes()))
+                    .setSum(columnStatistics.getStringStatistics().getSum())
                     .build());
         }
 
