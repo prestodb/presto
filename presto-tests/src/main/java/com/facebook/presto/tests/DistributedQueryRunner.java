@@ -37,6 +37,7 @@ import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Closer;
+import io.airlift.discovery.server.testing.TestingDiscoveryServer;
 import io.airlift.log.Logger;
 import io.airlift.testing.Assertions;
 import io.airlift.units.Duration;
@@ -58,6 +59,7 @@ import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
 import static com.facebook.presto.testing.TestingSession.createBogusTestingCatalog;
 import static com.facebook.presto.tests.AbstractTestQueries.TEST_CATALOG_PROPERTIES;
 import static com.facebook.presto.tests.AbstractTestQueries.TEST_SYSTEM_PROPERTIES;
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.units.Duration.nanosSince;
 import static java.util.Objects.requireNonNull;
@@ -105,7 +107,8 @@ public class DistributedQueryRunner
 
         try {
             long start = System.nanoTime();
-            discoveryServer = closer.register(new TestingDiscoveryServer(environment));
+            discoveryServer = new TestingDiscoveryServer(environment);
+            closer.register(() -> closeUnchecked(discoveryServer));
             log.info("Created TestingDiscoveryServer in %s", nanosSince(start).convertToMostSuccinctTimeUnit());
 
             ImmutableList.Builder<TestingPrestoServer> servers = ImmutableList.builder();
@@ -416,6 +419,17 @@ public class DistributedQueryRunner
             if (!queryInfo.getState().isDone()) {
                 queryManager.cancelQuery(queryInfo.getQueryId());
             }
+        }
+    }
+
+    private static void closeUnchecked(AutoCloseable closeable)
+    {
+        try {
+            closeable.close();
+        }
+        catch (Exception e) {
+            throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 }
