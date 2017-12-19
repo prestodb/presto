@@ -142,9 +142,9 @@ public class SqlTask
         });
     }
 
-    public boolean isOutputBufferFull()
+    public boolean isOutputBufferOverutilized()
     {
-        return outputBuffer.isFull();
+        return outputBuffer.isOverutilized();
     }
 
     private static final class UpdateSystemMemory
@@ -258,7 +258,7 @@ public class SqlTask
                 failures,
                 queuedPartitionedDrivers,
                 runningPartitionedDrivers,
-                isOutputBufferFull(),
+                isOutputBufferOverutilized(),
                 physicalWrittenDataSize,
                 memoryReservation);
     }
