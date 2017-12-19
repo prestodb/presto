@@ -281,7 +281,8 @@ public class QueryStats
             // counter-intuitively, this means that the query is still queued
             return new Duration(0, NANOSECONDS);
         }
-        return succinctNanos((long) elapsedTime.getValue(NANOSECONDS) - (long) queuedTime.getValue(NANOSECONDS));
+        long executionNanos = (long) elapsedTime.getValue(NANOSECONDS) - (long) queuedTime.getValue(NANOSECONDS);
+        return succinctNanos(Math.max(0, executionNanos));
     }
 
     @JsonProperty
