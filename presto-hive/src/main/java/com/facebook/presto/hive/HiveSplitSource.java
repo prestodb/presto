@@ -66,7 +66,6 @@ import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 
 class HiveSplitSource
         implements ConnectorSplitSource
@@ -255,19 +254,19 @@ class HiveSplitSource
         return bufferedInternalSplitCount.get();
     }
 
-    CompletableFuture<?> addToQueue(List<? extends InternalHiveSplit> splits)
+    ListenableFuture<?> addToQueue(List<? extends InternalHiveSplit> splits)
     {
-        CompletableFuture<?> lastResult = completedFuture(null);
+        ListenableFuture<?> lastResult = immediateFuture(null);
         for (InternalHiveSplit split : splits) {
             lastResult = addToQueue(split);
         }
         return lastResult;
     }
 
-    CompletableFuture<?> addToQueue(InternalHiveSplit split)
+    ListenableFuture<?> addToQueue(InternalHiveSplit split)
     {
         if (stateReference.get().getKind() != INITIAL) {
-            return completedFuture(null);
+            return immediateFuture(null);
         }
         if (estimatedSplitSizeInBytes.addAndGet(split.getEstimatedSizeInBytes()) > maxOutstandingSplitsBytes) {
             // TODO: investigate alternative split discovery strategies when this error is hit.
@@ -284,7 +283,7 @@ class HiveSplitSource
         }
         bufferedInternalSplitCount.incrementAndGet();
         OptionalInt bucketNumber = split.getBucketNumber();
-        return toCompletableFuture(queues.offer(bucketNumber, split));
+        return queues.offer(bucketNumber, split);
     }
 
     void noMoreSplits()
