@@ -139,6 +139,7 @@ import com.google.inject.TypeLiteral;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.discovery.client.ServiceDescriptor;
+import io.airlift.discovery.server.EmbeddedDiscoveryModule;
 import io.airlift.http.client.HttpClientConfig;
 import io.airlift.slice.Slice;
 import io.airlift.stats.PauseMeter;
@@ -210,6 +211,10 @@ public class ServerMainModule
                 throw new UnsupportedOperationException();
             }));
         }
+
+        // discovery server
+        // TODO: move to CoordinatorModule
+        install(installModuleIf(EmbeddedDiscoveryConfig.class, EmbeddedDiscoveryConfig::isEnabled, new EmbeddedDiscoveryModule()));
 
         InternalCommunicationConfig internalCommunicationConfig = buildConfigObject(InternalCommunicationConfig.class);
         configBinder(binder).bindConfigGlobalDefaults(HttpClientConfig.class, config -> {
