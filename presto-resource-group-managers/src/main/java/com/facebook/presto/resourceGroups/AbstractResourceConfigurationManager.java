@@ -73,6 +73,8 @@ public abstract class AbstractResourceConfigurationManager
                             checkArgument(subGroup.getSchedulingWeight().isPresent(), "Must specify scheduling weight for each sub group when using \"weighted\" scheduling policy");
                         }
                         break;
+                    case WEIGHTED_FAIR:
+                        break;
                     case QUERY_PRIORITY:
                     case FAIR:
                         for (ResourceGroupSpec subGroup : group.getSubGroups()) {
@@ -80,7 +82,7 @@ public abstract class AbstractResourceConfigurationManager
                         }
                         break;
                     default:
-                        break;
+                        throw new UnsupportedOperationException();
                 }
             }
         }
