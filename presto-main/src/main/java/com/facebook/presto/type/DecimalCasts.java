@@ -495,8 +495,14 @@ public final class DecimalCasts
 
     private static Slice internalDoubleToLongDecimal(double value, long precision, long scale)
     {
+        if (Double.isInfinite(value) || Double.isNaN(value)) {
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast DOUBLE '%s' to DECIMAL(%s, %s)", value, precision, scale));
+        }
+
         try {
-            Slice decimal = UnscaledDecimal128Arithmetic.doubleToLongDecimal(value, precision, intScale(scale));
+            // todo consider changing this implementation to more performant one which does not use intermediate String objects
+            BigDecimal bigDecimal = BigDecimal.valueOf(value).setScale(intScale(scale), HALF_UP);
+            Slice decimal = Decimals.encodeScaledValue(bigDecimal);
             if (overflows(decimal, intScale(precision))) {
                 throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast DOUBLE '%s' to DECIMAL(%s, %s)", value, precision, scale));
             }
@@ -535,9 +541,14 @@ public final class DecimalCasts
     private static Slice realToLongDecimal(long value, long precision, long scale)
     {
         float floatValue = intBitsToFloat(intScale(value));
+        if (Float.isInfinite(floatValue) || Float.isNaN(floatValue)) {
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast REAL '%s' to DECIMAL(%s, %s)", floatValue, precision, scale));
+        }
+
         try {
-            //TODO: optimize, implement specialized float to decimal conversion instead of using double to decimal
-            Slice decimal = UnscaledDecimal128Arithmetic.doubleToLongDecimal(floatValue, precision, intScale(scale));
+            // todo consider changing this implementation to more performant one which does not use intermediate String objects
+            BigDecimal bigDecimal = new BigDecimal(String.valueOf(floatValue)).setScale(intScale(scale), HALF_UP);
+            Slice decimal = Decimals.encodeScaledValue(bigDecimal);
             if (overflows(decimal, intScale(precision))) {
                 throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast REAL '%s' to DECIMAL(%s, %s)", floatValue, precision, scale));
             }
