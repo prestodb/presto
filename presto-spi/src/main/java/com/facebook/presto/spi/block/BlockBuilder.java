@@ -79,9 +79,9 @@ public interface BlockBuilder
      * Create a new block from the current materialized block by keeping the same elements
      * only with respect to {@code visiblePositions}.
      */
-    default Block getPositions(int[] visiblePositions)
+    default Block getPositions(int[] visiblePositions, int offset, int length)
     {
-        return build().getPositions(visiblePositions);
+        return build().getPositions(visiblePositions, offset, length);
     }
 
     /**

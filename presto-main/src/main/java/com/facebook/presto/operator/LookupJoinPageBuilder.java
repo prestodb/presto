@@ -104,7 +104,7 @@ public class LookupJoinPageBuilder
         for (int i = 0; i < probeOutputChannels.length; i++) {
             Block probeBlock = probe.getPage().getBlock(probeOutputChannels[i]);
             if (!isSequentialProbeIndices || length == 0) {
-                blocks[i] = probeBlock.getPositions(probeIndices);
+                blocks[i] = probeBlock.getPositions(probeIndices, 0, probeIndices.length);
             }
             else if (length == probeBlock.getPositionCount()) {
                 // probeIndices are a simple covering of the block
