@@ -265,7 +265,7 @@ public class TestDecimalCasts
         assertDecimalFunction("CAST(DOUBLE '1234567890.0' AS DECIMAL(30,20))", decimal("1234567890.00000000000000000000"));
         assertDecimalFunction("CAST(DOUBLE '-1234567890.0' AS DECIMAL(30,20))", decimal("-1234567890.00000000000000000000"));
         assertDecimalFunction("CAST(DOUBLE '123456789123456784' AS DECIMAL(18,0))", decimal("123456789123456784"));
-        assertDecimalFunction("CAST(DOUBLE '123456789.123456791' AS DECIMAL(18,9))", decimal("123456789.123456791"));
+        assertDecimalFunction("CAST(DOUBLE '123456789.123456790' AS DECIMAL(18,9))", decimal("123456789.123456790"));
 
         // test rounding
         assertDecimalFunction("CAST(DOUBLE '1234567890.49' AS DECIMAL(16,0))", decimal("0000001234567890"));
@@ -299,12 +299,24 @@ public class TestDecimalCasts
         assertDecimalFunction("CAST(DOUBLE '-1234567890.0' AS DECIMAL(20,10))", decimal("-1234567890.0000000000"));
         assertDecimalFunction("CAST(DOUBLE '1234567890123456.9' AS DECIMAL(16,0))", decimal("1234567890123457"));
         assertDecimalFunction("CAST(DOUBLE '-1234567890123456.9' AS DECIMAL(16,0))", decimal("-1234567890123457"));
+        assertDecimalFunction("CAST(DOUBLE '1234567890123456789012345' AS DECIMAL(30,5))", decimal("1234567890123456800000000.00000"));
+        assertDecimalFunction("CAST(DOUBLE '-1234567890123456789012345' AS DECIMAL(30,5))", decimal("-1234567890123456800000000.00000"));
+        assertDecimalFunction("CAST(DOUBLE '1.2345678901234568E24' AS DECIMAL(30,5))", decimal("1234567890123456800000000.00000"));
+        assertDecimalFunction("CAST(DOUBLE '-1.2345678901234568E24' AS DECIMAL(30,5))", decimal("-1234567890123456800000000.00000"));
+        assertDecimalFunction("CAST(DOUBLE '.1234567890123456789012345' AS DECIMAL(30,30))", decimal(".123456789012345680000000000000"));
+        assertDecimalFunction("CAST(DOUBLE '-.1234567890123456789012345' AS DECIMAL(30,30))", decimal("-.123456789012345680000000000000"));
+
+        // test roundtrip
+        assertFunction("CAST(CAST(DOUBLE '1234567890123456789012345' AS DECIMAL(30,5)) as DOUBLE) = DOUBLE '1234567890123456789012345'", BOOLEAN, true);
+        assertFunction("CAST(CAST(DOUBLE '1.2345678901234568E24' AS DECIMAL(30,5)) as DOUBLE) = DOUBLE '1.2345678901234568E24'", BOOLEAN, true);
 
         // test rounding
         assertDecimalFunction("CAST(DOUBLE '1234567890.49' AS DECIMAL(20,0))", decimal("00000000001234567890"));
         assertDecimalFunction("CAST(DOUBLE '1234567890.51' AS DECIMAL(20,0))", decimal("00000000001234567891"));
         assertDecimalFunction("CAST(DOUBLE '-1234567890.49' AS DECIMAL(20,0))", decimal("-00000000001234567890"));
         assertDecimalFunction("CAST(DOUBLE '-1234567890.51' AS DECIMAL(20,0))", decimal("-00000000001234567891"));
+        assertDecimalFunction("CAST(DOUBLE '1234567890.49' AS DECIMAL(10,0))", decimal("1234567890"));
+        assertDecimalFunction("CAST(DOUBLE '1234567890.51' AS DECIMAL(10,0))", decimal("1234567891"));
 
         assertInvalidCast("CAST(DOUBLE '100.02' AS DECIMAL(38,37))", "Cannot cast DOUBLE '100.02' to DECIMAL(38, 37)");
         assertInvalidCast("CAST(DOUBLE '234000000000000000000.0' AS DECIMAL(20,0))", "Cannot cast DOUBLE '2.34E20' to DECIMAL(20, 0)");
@@ -352,14 +364,23 @@ public class TestDecimalCasts
         assertDecimalFunction("CAST(REAL '1000' AS DECIMAL(4,0))", decimal("1000"));
         assertDecimalFunction("CAST(REAL '1000.01' AS DECIMAL(7,2))", decimal("01000.01"));
         assertDecimalFunction("CAST(REAL '-234.0' AS DECIMAL(3,0))", decimal("-234"));
-        assertDecimalFunction("CAST(REAL '12345678407663616' AS DECIMAL(17,0))", decimal("12345678407663616"));
-        assertDecimalFunction("CAST(REAL '-12345678407663616' AS DECIMAL(17,0))", decimal("-12345678407663616"));
-        assertDecimalFunction("CAST(REAL '1234567936' AS DECIMAL(20,10))", decimal("1234567936.0000000000"));
-        assertDecimalFunction("CAST(REAL '-1234567936' AS DECIMAL(20,10))", decimal("-1234567936.0000000000"));
-        assertDecimalFunction("CAST(REAL '1234567936' AS DECIMAL(30,20))", decimal("1234567936.00000000000000000000"));
-        assertDecimalFunction("CAST(REAL '-1234567936' AS DECIMAL(30,20))", decimal("-1234567936.00000000000000000000"));
-        assertDecimalFunction("CAST(REAL '123456790519087104' AS DECIMAL(18,0))", decimal("123456790519087104"));
-        assertDecimalFunction("CAST(REAL '1456213.432632456' AS DECIMAL(18,9))", decimal("001456213.375000000"));
+        assertDecimalFunction("CAST(REAL '12345678400000000' AS DECIMAL(17,0))", decimal("12345678400000000"));
+        assertDecimalFunction("CAST(REAL '-12345678400000000' AS DECIMAL(17,0))", decimal("-12345678400000000"));
+        assertDecimalFunction("CAST(REAL '1234567940' AS DECIMAL(20,10))", decimal("1234567940.0000000000"));
+        assertDecimalFunction("CAST(REAL '-1234567940' AS DECIMAL(20,10))", decimal("-1234567940.0000000000"));
+        assertDecimalFunction("CAST(REAL '1234567940' AS DECIMAL(30,20))", decimal("1234567940.00000000000000000000"));
+        assertDecimalFunction("CAST(REAL '-1234567940' AS DECIMAL(30,20))", decimal("-1234567940.00000000000000000000"));
+        assertDecimalFunction("CAST(REAL '123456790519087104' AS DECIMAL(18,0))", decimal("123456791000000000"));
+        assertDecimalFunction("CAST(REAL '-123456790519087104' AS DECIMAL(18,0))", decimal("-123456791000000000"));
+        assertDecimalFunction("CAST(REAL '123456790519087104' AS DECIMAL(20,2))", decimal("123456791000000000.00"));
+        assertDecimalFunction("CAST(REAL '-123456790519087104' AS DECIMAL(20,2))", decimal("-123456791000000000.00"));
+        assertDecimalFunction("CAST(REAL '1234567905190871' AS DECIMAL(18,2))", decimal("1234567950000000.00"));
+        assertDecimalFunction("CAST(REAL '-1234567905190871' AS DECIMAL(18,2))", decimal("-1234567950000000.00"));
+        assertDecimalFunction("CAST(REAL '1456213.432632456' AS DECIMAL(18,9))", decimal("001456213.400000000"));
+
+        // test roundtrip
+        assertFunction("CAST(CAST(DOUBLE '123456790519087104' AS DECIMAL(18,0)) as DOUBLE) = DOUBLE '123456790519087104'", BOOLEAN, true);
+        assertFunction("CAST(CAST(DOUBLE '123456790519087104' AS DECIMAL(30,0)) as DOUBLE) = DOUBLE '123456790519087104'", BOOLEAN, true);
 
         assertInvalidCast("CAST(REAL '100.02' AS DECIMAL(38,37))", "Cannot cast REAL '100.02' to DECIMAL(38, 37)");
         assertInvalidCast("CAST(REAL '100.02' AS DECIMAL(17,16))", "Cannot cast REAL '100.02' to DECIMAL(17, 16)");
