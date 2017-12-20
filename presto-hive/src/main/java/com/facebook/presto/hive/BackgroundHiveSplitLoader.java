@@ -24,7 +24,6 @@ import com.facebook.presto.hive.util.ResumableTasks;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.CharStreams;
@@ -79,7 +78,7 @@ public class BackgroundHiveSplitLoader
 {
     private static final String CORRUPT_BUCKETING = "Hive table is corrupt. It is declared as being bucketed, but the files do not match the bucketing declaration.";
 
-    public static final ListenableFuture<?> COMPLETED_FUTURE = immediateFuture(null);
+    private static final ListenableFuture<?> COMPLETED_FUTURE = immediateFuture(null);
 
     private final Table table;
     private final TupleDomain<? extends ColumnHandle> compactEffectivePredicate;
@@ -258,7 +257,7 @@ public class BackgroundHiveSplitLoader
 
         if (inputFormat instanceof SymlinkTextInputFormat) {
             if (bucketHandle.isPresent()) {
-                throw new PrestoException(StandardErrorCode.NOT_SUPPORTED, "Bucketed table in SymlinkTextInputFormat is not yet supported");
+                throw new PrestoException(NOT_SUPPORTED, "Bucketed table in SymlinkTextInputFormat is not yet supported");
             }
 
             // TODO: This should use an iterator like the HiveFileIterator

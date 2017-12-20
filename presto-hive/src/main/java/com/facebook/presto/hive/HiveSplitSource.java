@@ -445,7 +445,7 @@ class HiveSplitSource
         }
     }
 
-    private OptionalInt toBucketNumber(ConnectorPartitionHandle partitionHandle)
+    private static OptionalInt toBucketNumber(ConnectorPartitionHandle partitionHandle)
     {
         if (partitionHandle == NOT_PARTITIONED) {
             return OptionalInt.empty();
