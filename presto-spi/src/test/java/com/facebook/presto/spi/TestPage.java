@@ -118,7 +118,7 @@ public class TestPage
         }
         Block block = blockBuilder.build();
 
-        Page page = new Page(block, block, block).getPositions(new int[]{1, 1, 1, 2, 5});
+        Page page = new Page(block, block, block).getPositions(new int[]{0, 1, 1, 1, 2, 5, 5}, 1, 5);
         assertEquals(page.getPositionCount(), 5);
         for (int i = 0; i < 3; i++) {
             assertEquals(page.getBlock(i).getLong(0, 0), 1);
