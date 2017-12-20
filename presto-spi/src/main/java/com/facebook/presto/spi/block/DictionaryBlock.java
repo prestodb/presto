@@ -69,7 +69,7 @@ public class DictionaryBlock
         this(0, positionCount, dictionary, ids, dictionaryIsCompacted, dictionarySourceId);
     }
 
-    private DictionaryBlock(int idsOffset, int positionCount, Block dictionary, int[] ids, boolean dictionaryIsCompacted, DictionaryId dictionarySourceId)
+    public DictionaryBlock(int idsOffset, int positionCount, Block dictionary, int[] ids, boolean dictionaryIsCompacted, DictionaryId dictionarySourceId)
     {
         requireNonNull(dictionary, "dictionary is null");
         requireNonNull(ids, "ids is null");
@@ -307,9 +307,10 @@ public class DictionaryBlock
     }
 
     @Override
-    public Block getPositions(int[] positions)
+    public Block getPositions(int[] positions, int offset, int length)
     {
-        int length = positions.length;
+        checkArrayRange(positions, offset, length);
+
         int[] newIds = new int[length];
         boolean isCompact = isCompact() && length >= dictionary.getPositionCount();
         boolean[] seen = null;
@@ -317,7 +318,7 @@ public class DictionaryBlock
             seen = new boolean[dictionary.getPositionCount()];
         }
         for (int i = 0; i < length; i++) {
-            newIds[i] = getId(positions[i]);
+            newIds[i] = getId(positions[offset + i]);
             if (isCompact) {
                 seen[newIds[i]] = true;
             }

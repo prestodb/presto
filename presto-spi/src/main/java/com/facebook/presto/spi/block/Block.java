@@ -17,6 +17,9 @@ import io.airlift.slice.Slice;
 
 import java.util.function.BiConsumer;
 
+import static com.facebook.presto.spi.block.BlockUtil.checkArrayRange;
+import static com.facebook.presto.spi.block.DictionaryId.randomDictionaryId;
+
 public interface Block
 {
     /**
@@ -193,12 +196,14 @@ public interface Block
 
     /**
      * Create a new block from the current block by keeping the same elements
-     * only with respect to {@code visiblePositions}.
+     * only with respect to {@code positions} that starts at {@code offset} and has length of {@code length}.
      * May return a view over the data in this block or may return a copy
      */
-    default Block getPositions(int[] positions)
+    default Block getPositions(int[] positions, int offset, int length)
     {
-        return new DictionaryBlock(this, positions);
+        checkArrayRange(positions, offset, length);
+
+        return new DictionaryBlock(offset, length, this, positions, false, randomDictionaryId());
     }
 
     /**
