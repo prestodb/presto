@@ -605,7 +605,7 @@
             <dependency>
                 <groupId>io.airlift.resolver</groupId>
                 <artifactId>resolver</artifactId>
-                <version>1.3</version>
+                <version>1.4</version>
             </dependency>
 
             <dependency>
