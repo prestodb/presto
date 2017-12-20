@@ -26,3 +26,4 @@ Functions and Operators
     functions/geospatial
     functions/color
     functions/teradata
+    functions/unit

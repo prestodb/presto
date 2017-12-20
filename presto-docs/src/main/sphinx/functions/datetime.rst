@@ -164,10 +164,12 @@ Unit              Description
 
     Returns ``timestamp2 - timestamp1`` expressed in terms of ``unit``.
 
-Duration Function
------------------
+.. _duration_functions:
 
-The ``parse_duration`` function supports the following units:
+Duration Functions
+------------------
+
+The duration functions support the following time units:
 
 ======= =============
 Unit    Description
@@ -189,6 +191,22 @@ Unit    Description
         SELECT parse_duration('42.8ms'); -- 0 00:00:00.043
         SELECT parse_duration('3.81 d'); -- 3 19:26:24.000
         SELECT parse_duration('5m');     -- 0 00:05:00.000
+
+.. function:: succinct_duration(value, unit) -> varchar
+
+    Returns a succinct string representation of a given time value. ``unit`` is one of the time units in the above::
+
+        SELECT succinct_duration(3600, 's');     -- 1.00h
+        SELECT succinct_duration(1234.5, 'ms');  -- 1.23s
+
+.. function:: succinct_nanos(nanos) -> varchar
+
+    Returns a succinct string representation of a nanosecond value. This is equivalent to ``succinct_duration(nanos, 'ns')``.
+
+.. function:: succinct_millis(millis) -> varchar
+
+    Returns a succinct string representation of a millisecond value. This is equivalent to ``succinct_duration(millis, 'ms')``.
+
 
 MySQL Date Functions
 --------------------
