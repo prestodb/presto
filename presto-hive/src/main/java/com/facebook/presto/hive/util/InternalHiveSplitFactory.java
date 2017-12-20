@@ -77,6 +77,11 @@ public class InternalHiveSplitFactory
         this.forceLocalScheduling = forceLocalScheduling;
     }
 
+    public String getPartitionName()
+    {
+        return partitionName;
+    }
+
     public Optional<InternalHiveSplit> createInternalHiveSplit(LocatedFileStatus status)
     {
         return createInternalHiveSplit(status, OptionalInt.empty());
