@@ -39,9 +39,9 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public class TestUnitFunctions
         extends AbstractTestFunctions
 {
-    private void testDuration(String sqlExpr, Duration expected)
+    private void testDuration(String sqlExpression, Duration expected)
     {
-        assertFunction(sqlExpr, VarcharType.VARCHAR, expected.toString());
+        assertFunction(sqlExpression, VarcharType.VARCHAR, expected.toString());
     }
 
     @Test
@@ -64,15 +64,33 @@ public class TestUnitFunctions
         testDuration("succinct_millis(123.4)", succinctDuration(123.4, MILLISECONDS));
         testDuration("succinct_millis(1234)", new Duration(1.234, SECONDS));
 
+        // bigint
         assertInvalidFunction("succinct_duration(-1, 'ns')", INVALID_FUNCTION_ARGUMENT);
         assertInvalidFunction("succinct_duration(123, 'sec')", INVALID_FUNCTION_ARGUMENT);
         assertInvalidFunction("succinct_nanos(-123)", INVALID_FUNCTION_ARGUMENT);
         assertInvalidFunction("succinct_millis(-123)", INVALID_FUNCTION_ARGUMENT);
+
+        // double
+        assertInvalidFunction("succinct_duration(-1.2, 'ns')", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("succinct_duration(123.45, 'sec')", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("succinct_nanos(-123.4)", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("succinct_millis(-123.4)", INVALID_FUNCTION_ARGUMENT);
+
+        // NaN
+        assertInvalidFunction("succinct_duration(nan(), 'ns')", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("succinct_duration(infinity(), 'ns')", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("succinct_duration(-infinity(), 'ns')", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("succinct_nanos(nan())", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("succinct_nanos(infinity())", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("succinct_nanos(-infinity())", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("succinct_millis(nan())", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("succinct_millis(+infinity())", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("succinct_millis(-infinity())", INVALID_FUNCTION_ARGUMENT);
     }
 
-    private void testDataSize(String sqlExpr, DataSize expected)
+    private void testDataSize(String sqlExpression, DataSize expected)
     {
-        assertFunction(sqlExpr, VarcharType.VARCHAR, expected.toString());
+        assertFunction(sqlExpression, VarcharType.VARCHAR, expected.toString());
     }
 
     @Test

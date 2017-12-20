@@ -194,7 +194,7 @@ Unit    Description
 
 .. function:: succinct_duration(value, unit) -> varchar
 
-    Returns a succinct string representation of a given time value. ``unit`` is one of the time units in the above::
+    Returns a succinct string representation of a given time value. ``unit`` must be one of the supported time units::
 
         SELECT succinct_duration(3600, 's');     -- 1.00h
         SELECT succinct_duration(1234.5, 'ms');  -- 1.23s

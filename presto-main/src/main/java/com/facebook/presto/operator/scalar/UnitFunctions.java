@@ -20,6 +20,7 @@ import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
+import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
 
 import java.util.concurrent.TimeUnit;
@@ -32,7 +33,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 /**
- * UDFs for reporting values in succinct representations
+ * Functions for reporting values in succinct representations
  */
 public final class UnitFunctions
 {
@@ -40,22 +41,23 @@ public final class UnitFunctions
     {
     }
 
-    @Description("succinct duration string")
+    @Description("Returns the succinct string representation of a time value")
     @ScalarFunction("succinct_duration")
     @SqlType(StandardTypes.VARCHAR)
     public static Slice succinctDuration(@SqlType(StandardTypes.DOUBLE) double value, @SqlType(StandardTypes.VARCHAR) Slice unit)
     {
+        Duration duration;
         try {
-            Duration duration = Duration.succinctDuration(value, valueOfTimeUnit(unit.toStringUtf8()));
-            return utf8Slice(duration.toString());
+            duration = Duration.succinctDuration(value, valueOfTimeUnit(unit.toStringUtf8()));
         }
         catch (IllegalArgumentException e) {
             // When value is negative, NaN, etc.
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
         }
+        return utf8Slice(duration.toString());
     }
 
-    @Description("succinct duration string of nanoseconds")
+    @Description("Returns the succinct string representation of a nanosecond value")
     @ScalarFunction("succinct_nanos")
     @SqlType(StandardTypes.VARCHAR)
     public static Slice succinctNanos(@SqlType(StandardTypes.BIGINT) long value)
@@ -63,22 +65,23 @@ public final class UnitFunctions
         return succinctNanos((double) value);
     }
 
-    @Description("succinct duration string of nanoseconds")
+    @Description("Returns the succinct string representation of a nanosecond value")
     @ScalarFunction("succinct_nanos")
     @SqlType(StandardTypes.VARCHAR)
     public static Slice succinctNanos(@SqlType(StandardTypes.DOUBLE) double value)
     {
+        Duration duration;
         try {
-            Duration duration = Duration.succinctDuration(value, NANOSECONDS);
-            return utf8Slice(duration.toString());
+            duration = Duration.succinctDuration(value, NANOSECONDS);
         }
         catch (IllegalArgumentException e) {
             // When value is negative, etc.
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
         }
+        return utf8Slice(duration.toString());
     }
 
-    @Description("succinct duration string of milliseconds")
+    @Description("Returns the succinct string representation of a millisecond value")
     @ScalarFunction("succinct_millis")
     @SqlType(StandardTypes.VARCHAR)
     public static Slice succinctMillis(@SqlType(StandardTypes.BIGINT) long value)
@@ -86,64 +89,68 @@ public final class UnitFunctions
         return succinctMillis((double) value);
     }
 
-    @Description("succinct duration string of milliseconds")
+    @Description("Returns the succinct string representation of a millisecond value")
     @ScalarFunction("succinct_millis")
     @SqlType(StandardTypes.VARCHAR)
     public static Slice succinctMillis(@SqlType(StandardTypes.DOUBLE) double value)
     {
+        Duration duration;
         try {
-            Duration duration = Duration.succinctDuration(value, MILLISECONDS);
-            return utf8Slice(duration.toString());
+            duration = Duration.succinctDuration(value, MILLISECONDS);
         }
         catch (IllegalArgumentException e) {
             // When value is negative, etc.
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
         }
+        return utf8Slice(duration.toString());
     }
 
-    @Description("succinct data size string")
+    @Description("Returns the succinct string representation of a data size")
     @ScalarFunction("succinct_data_size")
     @SqlType(StandardTypes.VARCHAR)
     public static Slice succinctDataSize(@SqlType(StandardTypes.DOUBLE) double value, @SqlType(StandardTypes.VARCHAR) Slice unit)
     {
+        DataSize dataSize;
         try {
-            DataSize dataSize = DataSize.succinctDataSize(value, valueOfUnit(unit.toStringUtf8()));
-            return utf8Slice(dataSize.toString());
+            dataSize = DataSize.succinctDataSize(value, valueOfUnit(unit.toStringUtf8()));
         }
         catch (IllegalArgumentException e) {
             // When value is negative, NaN, etc.
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
         }
+        return utf8Slice(dataSize.toString());
     }
 
-    @Description("succinct byte size string")
+    @Description("Returns the succinct string representation of a byte size")
     @ScalarFunction("succinct_bytes")
     @SqlType(StandardTypes.VARCHAR)
     public static Slice succinctBytes(@SqlType(StandardTypes.BIGINT) long value)
     {
+        DataSize dataSize;
         try {
-            DataSize dataSize = DataSize.succinctBytes(value);
-            return utf8Slice(dataSize.toString());
+            dataSize = DataSize.succinctBytes(value);
         }
         catch (IllegalArgumentException e) {
             // When value is negative, etc.
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
         }
+        return utf8Slice(dataSize.toString());
     }
 
-    @Description("succinct byte size string")
+    @Description("Returns the succinct string representation of a byte size")
     @ScalarFunction("succinct_bytes")
     @SqlType(StandardTypes.VARCHAR)
     public static Slice succinctBytes(@SqlType(StandardTypes.DOUBLE) double value)
     {
+        DataSize dataSize;
         try {
-            DataSize dataSize = DataSize.succinctDataSize(value, BYTE);
-            return utf8Slice(dataSize.toString());
+            dataSize = DataSize.succinctDataSize(value, BYTE);
         }
         catch (IllegalArgumentException e) {
             // When value is negative, etc.
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
         }
+        return utf8Slice(dataSize.toString());
     }
 
     private static TimeUnit valueOfTimeUnit(String timeUnitString)
@@ -152,13 +159,13 @@ public final class UnitFunctions
             return Duration.valueOfTimeUnit(timeUnitString);
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "TimeUnit string must be one of [ns, us, ms, s, m, h, d]");
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Time unit must be one of [ns, us, ms, s, m, h, d]", e);
         }
     }
 
-    private static DataSize.Unit valueOfUnit(String unitString)
+    private static Unit valueOfUnit(String unitString)
     {
-        for (DataSize.Unit unit : DataSize.Unit.values()) {
+        for (Unit unit : Unit.values()) {
             if (unit.getUnitString().equals(unitString)) {
                 return unit;
             }
