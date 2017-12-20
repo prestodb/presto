@@ -68,7 +68,6 @@ public class TestBackgroundHiveSplitLoader
 
     private static final String SAMPLE_PATH = "hdfs://VOL1:9000/db_name/table_name/000000_0";
     private static final String SAMPLE_PATH_FILTERED = "hdfs://VOL1:9000/db_name/table_name/000000_1";
-    private static final String TEST_CONNECTOR_ID = "test_connector";
 
     private static final Path RETURNED_PATH = new Path(SAMPLE_PATH);
     private static final Path FILTERED_PATH = new Path(SAMPLE_PATH_FILTERED);
@@ -180,7 +179,7 @@ public class TestBackgroundHiveSplitLoader
         assertEquals(splits.get(0).getLength(), 0);
     }
 
-    private List<String> drain(HiveSplitSource source)
+    private static List<String> drain(HiveSplitSource source)
             throws Exception
     {
         return drainSplits(source).stream()
@@ -188,7 +187,7 @@ public class TestBackgroundHiveSplitLoader
                 .collect(toImmutableList());
     }
 
-    private List<HiveSplit> drainSplits(HiveSplitSource source)
+    private static List<HiveSplit> drainSplits(HiveSplitSource source)
             throws Exception
     {
         ImmutableList.Builder<HiveSplit> splits = ImmutableList.builder();
@@ -425,7 +424,7 @@ public class TestBackgroundHiveSplitLoader
         }
 
         @Override
-        public FSDataInputStream open(Path f, int buffersize)
+        public FSDataInputStream open(Path f, int bufferSize)
         {
             throw new UnsupportedOperationException();
         }
