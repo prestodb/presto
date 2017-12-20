@@ -18,6 +18,7 @@ import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.hive.util.HiveFileIterator;
+import com.facebook.presto.hive.util.HiveFileIterator.NestedDirectoryNotAllowedException;
 import com.facebook.presto.hive.util.InternalHiveSplitFactory;
 import com.facebook.presto.hive.util.ResumableTask;
 import com.facebook.presto.hive.util.ResumableTasks;
@@ -26,6 +27,8 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterators;
+import com.google.common.collect.Streams;
 import com.google.common.io.CharStreams;
 import com.google.common.util.concurrent.ListenableFuture;
 import org.apache.hadoop.conf.Configuration;
@@ -49,6 +52,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Deque;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
@@ -58,7 +62,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.IntPredicate;
 
-import static com.facebook.presto.hadoop.HadoopFileStatus.isDirectory;
 import static com.facebook.presto.hive.HiveBucketing.HiveBucket;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
@@ -69,6 +72,9 @@ import static com.facebook.presto.hive.HiveUtil.checkCondition;
 import static com.facebook.presto.hive.HiveUtil.getInputFormat;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
 import static com.facebook.presto.hive.util.ConfigurationUtils.toJobConf;
+import static com.facebook.presto.hive.util.HiveFileIterator.NestedDirectoryPolicy.FAIL;
+import static com.facebook.presto.hive.util.HiveFileIterator.NestedDirectoryPolicy.IGNORED;
+import static com.facebook.presto.hive.util.HiveFileIterator.NestedDirectoryPolicy.RECURSE;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -96,7 +102,7 @@ public class BackgroundHiveSplitLoader
     private final Executor executor;
     private final ConnectorSession session;
     private final ConcurrentLazyQueue<HivePartitionMetadata> partitions;
-    private final Deque<HiveFileIterator> fileIterators = new ConcurrentLinkedDeque<>();
+    private final Deque<Iterator<InternalHiveSplit>> fileIterators = new ConcurrentLinkedDeque<>();
 
     // Purpose of this lock:
     // * When write lock is acquired, except the holder, no one can do any of the following:
@@ -210,8 +216,8 @@ public class BackgroundHiveSplitLoader
     private ListenableFuture<?> loadSplits()
             throws IOException
     {
-        HiveFileIterator files = fileIterators.poll();
-        if (files == null) {
+        Iterator<InternalHiveSplit> splits = fileIterators.poll();
+        if (splits == null) {
             HivePartitionMetadata partition = partitions.poll();
             if (partition == null) {
                 return COMPLETED_FUTURE;
@@ -219,23 +225,11 @@ public class BackgroundHiveSplitLoader
             return loadPartition(partition);
         }
 
-        while (files.hasNext() && !stopped) {
-            LocatedFileStatus file = files.next();
-            if (isDirectory(file)) {
-                if (recursiveDirWalkerEnabled) {
-                    fileIterators.add(files.withPath(file.getPath()));
-                }
-            }
-            else {
-                Optional<InternalHiveSplit> internalHiveSplit = files.getSplitFactory().createInternalHiveSplit(file);
-                if (!internalHiveSplit.isPresent()) {
-                    continue;
-                }
-                ListenableFuture<?> future = hiveSplitSource.addToQueue(internalHiveSplit.get());
-                if (!future.isDone()) {
-                    fileIterators.addFirst(files);
-                    return future;
-                }
+        while (splits.hasNext() && !stopped) {
+            ListenableFuture<?> future = hiveSplitSource.addToQueue(splits.next());
+            if (!future.isDone()) {
+                fileIterators.addFirst(splits);
+                return future;
             }
         }
 
@@ -301,7 +295,7 @@ public class BackgroundHiveSplitLoader
             return hiveSplitSource.addToQueue(getBucketedSplits(path, fs, splitFactory, bucketSplitInfo.get()));
         }
 
-        fileIterators.addLast(new HiveFileIterator(path, fs, directoryLister, namenodeStats, partitionName, splitFactory));
+        fileIterators.addLast(createInternalHiveSplitIterator(path, fs, splitFactory));
         return COMPLETED_FUTURE;
     }
 
@@ -329,37 +323,44 @@ public class BackgroundHiveSplitLoader
                 .anyMatch(name -> name.equals("UseFileSplitsFromInputFormat"));
     }
 
+    private Iterator<InternalHiveSplit> createInternalHiveSplitIterator(Path path, FileSystem fileSystem, InternalHiveSplitFactory splitFactory)
+    {
+        return Streams.stream(new HiveFileIterator(path, fileSystem, directoryLister, namenodeStats, recursiveDirWalkerEnabled ? RECURSE : IGNORED))
+                .map(splitFactory::createInternalHiveSplit)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .iterator();
+    }
+
     private List<InternalHiveSplit> getBucketedSplits(Path path, FileSystem fileSystem, InternalHiveSplitFactory splitFactory, BucketSplitInfo bucketSplitInfo)
     {
         int bucketCount = bucketSplitInfo.getBucketCount();
 
         // list all files in the partition
-        ArrayList<LocatedFileStatus> list = new ArrayList<>(bucketCount);
-        HiveFileIterator hiveFileIterator = new HiveFileIterator(path, fileSystem, directoryLister, namenodeStats, splitFactory.getPartitionName(), splitFactory);
-        while (hiveFileIterator.hasNext()) {
-            LocatedFileStatus next = hiveFileIterator.next();
-            if (isDirectory(next)) {
-                // Fail here to be on the safe side. This seems to be the same as what Hive does
-                throw new PrestoException(HIVE_INVALID_BUCKET_FILES, format("%s Found sub-directory in bucket directory for partition: %s", CORRUPT_BUCKETING, splitFactory.getPartitionName()));
-            }
-            list.add(next);
+        ArrayList<LocatedFileStatus> files = new ArrayList<>(bucketCount);
+        try {
+            Iterators.addAll(files, new HiveFileIterator(path, fileSystem, directoryLister, namenodeStats, FAIL));
+        }
+        catch (NestedDirectoryNotAllowedException e) {
+            // Fail here to be on the safe side. This seems to be the same as what Hive does
+            throw new PrestoException(HIVE_INVALID_BUCKET_FILES, format("%s Found sub-directory in bucket directory for partition: %s", CORRUPT_BUCKETING, splitFactory.getPartitionName()));
         }
 
         // verify we found one file per bucket
-        if (list.size() != bucketCount) {
-            throw new PrestoException(HIVE_INVALID_BUCKET_FILES, format("%s The number of files in the directory (%s) does not match the declared bucket count (%s) for partition: %s", CORRUPT_BUCKETING, list.size(),
+        if (files.size() != bucketCount) {
+            throw new PrestoException(HIVE_INVALID_BUCKET_FILES, format("%s The number of files in the directory (%s) does not match the declared bucket count (%s) for partition: %s", CORRUPT_BUCKETING, files.size(),
                     bucketCount,
                     splitFactory.getPartitionName()));
         }
 
         // Sort FileStatus objects (instead of, e.g., fileStatus.getPath().toString). This matches org.apache.hadoop.hive.ql.metadata.Table.getSortedPaths
-        list.sort(null);
+        files.sort(null);
 
         // convert files internal splits
         List<InternalHiveSplit> splitList = new ArrayList<>();
         for (int bucketNumber = 0; bucketNumber < bucketCount; bucketNumber++) {
             if (bucketSplitInfo.isBucketEnabled(bucketNumber)) {
-                LocatedFileStatus file = list.get(bucketNumber);
+                LocatedFileStatus file = files.get(bucketNumber);
                 splitFactory.createInternalHiveSplit(file, bucketNumber)
                         .ifPresent(splitList::add);
             }
