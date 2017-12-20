@@ -1,5 +1,8 @@
 language: java
 
+jdk:
+  - oraclejdk9
+
 env:
   global:
     - MAVEN_OPTS="-Xmx512M -XX:+ExitOnOutOfMemoryError"
