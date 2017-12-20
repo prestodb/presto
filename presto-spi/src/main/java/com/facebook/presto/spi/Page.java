@@ -263,14 +263,14 @@ public class Page
         return blocks[0].getPositionCount();
     }
 
-    public Page getPositions(int[] retainedPositions)
+    public Page getPositions(int[] retainedPositions, int offset, int length)
     {
         requireNonNull(retainedPositions, "retainedPositions is null");
 
         Block[] blocks = Arrays.stream(getBlocks())
-                .map(block -> block.getPositions(retainedPositions, 0, retainedPositions.length))
+                .map(block -> block.getPositions(retainedPositions, offset, length))
                 .toArray(Block[]::new);
-        return new Page(retainedPositions.length, blocks);
+        return new Page(length, blocks);
     }
 
     private static class DictionaryBlockIndexes
