@@ -121,7 +121,7 @@ public final class UnitFunctions
         return utf8Slice(dataSize.toString());
     }
 
-    @Description("Returns the succinct string representation of a byte size")
+    @Description("Returns the succinct string representation of a data size specified in bytes")
     @ScalarFunction("succinct_bytes")
     @SqlType(StandardTypes.VARCHAR)
     public static Slice succinctBytes(@SqlType(StandardTypes.BIGINT) long value)
@@ -137,7 +137,7 @@ public final class UnitFunctions
         return utf8Slice(dataSize.toString());
     }
 
-    @Description("Returns the succinct string representation of a byte size")
+    @Description("Returns the succinct string representation of a data size specified in bytes")
     @ScalarFunction("succinct_bytes")
     @SqlType(StandardTypes.VARCHAR)
     public static Slice succinctBytes(@SqlType(StandardTypes.DOUBLE) double value)

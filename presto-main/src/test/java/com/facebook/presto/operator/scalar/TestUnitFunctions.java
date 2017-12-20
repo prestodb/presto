@@ -14,69 +14,44 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.spi.type.VarcharType;
-import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 
-import static io.airlift.units.DataSize.Unit.BYTE;
-import static io.airlift.units.DataSize.Unit.GIGABYTE;
-import static io.airlift.units.DataSize.Unit.KILOBYTE;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static io.airlift.units.DataSize.Unit.PETABYTE;
-import static io.airlift.units.DataSize.Unit.TERABYTE;
-import static io.airlift.units.Duration.succinctDuration;
-import static io.airlift.units.Duration.succinctNanos;
-import static java.util.concurrent.TimeUnit.DAYS;
-import static java.util.concurrent.TimeUnit.HOURS;
-import static java.util.concurrent.TimeUnit.MICROSECONDS;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.util.concurrent.TimeUnit.MINUTES;
-import static java.util.concurrent.TimeUnit.NANOSECONDS;
-import static java.util.concurrent.TimeUnit.SECONDS;
-
 public class TestUnitFunctions
         extends AbstractTestFunctions
 {
-    private void testDuration(String sqlExpression, Duration expected)
-    {
-        assertFunction(sqlExpression, VarcharType.VARCHAR, expected.toString());
-    }
-
     @Test
     public void testSuccinctDuration()
     {
-        testDuration("succinct_duration(123, 'ns')", succinctNanos(123));
-        testDuration("succinct_duration(123.45, 'ns')", succinctDuration(123.45, NANOSECONDS));
-        testDuration("succinct_duration(123.45, 'us')", succinctDuration(123.45, MICROSECONDS));
-        testDuration("succinct_duration(123.45, 'ms')", succinctDuration(123.45, MILLISECONDS));
-        testDuration("succinct_duration(123.45, 's')", succinctDuration(123.45, SECONDS));
-        testDuration("succinct_duration(12.34, 'm')", succinctDuration(12.34, MINUTES));
-        testDuration("succinct_duration(12.34, 'h')", succinctDuration(12.34, HOURS));
-        testDuration("succinct_duration(12.34, 'd')", succinctDuration(12.34, DAYS));
-        testDuration("succinct_duration(3600, 's')", new Duration(1.00, HOURS));
+        assertFunction("succinct_duration(123, 'ns')", VarcharType.VARCHAR, "123.00ns");
+        assertFunction("succinct_duration(123.45, 'ns')", VarcharType.VARCHAR, "123.45ns");
+        assertFunction("succinct_duration(123.45, 'us')", VarcharType.VARCHAR, "123.45us");
+        assertFunction("succinct_duration(123.45, 'ms')", VarcharType.VARCHAR, "123.45ms");
+        assertFunction("succinct_duration(123.45, 's')", VarcharType.VARCHAR, "2.06m");
+        assertFunction("succinct_duration(12.34, 'm')", VarcharType.VARCHAR, "12.34m");
+        assertFunction("succinct_duration(12.34, 'h')", VarcharType.VARCHAR, "12.34h");
+        assertFunction("succinct_duration(12.34, 'd')", VarcharType.VARCHAR, "12.34d");
+        assertFunction("succinct_duration(3600, 's')", VarcharType.VARCHAR, "1.00h");
 
-        testDuration("succinct_nanos(123)", succinctNanos(123));
-        testDuration("succinct_nanos(123.4)", succinctDuration(123.4, NANOSECONDS));
-        testDuration("succinct_nanos(123456)", new Duration(123.456, MICROSECONDS));
-        testDuration("succinct_millis(123)", succinctDuration(123, MILLISECONDS));
-        testDuration("succinct_millis(123.4)", succinctDuration(123.4, MILLISECONDS));
-        testDuration("succinct_millis(1234)", new Duration(1.234, SECONDS));
+        assertFunction("succinct_nanos(123)", VarcharType.VARCHAR, "123.00ns");
+        assertFunction("succinct_nanos(123.4)", VarcharType.VARCHAR, "123.40ns");
+        assertFunction("succinct_nanos(123456)", VarcharType.VARCHAR, "123.46us");
 
-        // bigint
+        assertFunction("succinct_millis(123)", VarcharType.VARCHAR, "123.00ms");
+        assertFunction("succinct_millis(123.4)", VarcharType.VARCHAR, "123.40ms");
+        assertFunction("succinct_millis(1234)", VarcharType.VARCHAR, "1.23s");
+
         assertInvalidFunction("succinct_duration(-1, 'ns')", INVALID_FUNCTION_ARGUMENT);
         assertInvalidFunction("succinct_duration(123, 'sec')", INVALID_FUNCTION_ARGUMENT);
         assertInvalidFunction("succinct_nanos(-123)", INVALID_FUNCTION_ARGUMENT);
         assertInvalidFunction("succinct_millis(-123)", INVALID_FUNCTION_ARGUMENT);
 
-        // double
         assertInvalidFunction("succinct_duration(-1.2, 'ns')", INVALID_FUNCTION_ARGUMENT);
         assertInvalidFunction("succinct_duration(123.45, 'sec')", INVALID_FUNCTION_ARGUMENT);
         assertInvalidFunction("succinct_nanos(-123.4)", INVALID_FUNCTION_ARGUMENT);
         assertInvalidFunction("succinct_millis(-123.4)", INVALID_FUNCTION_ARGUMENT);
 
-        // NaN
         assertInvalidFunction("succinct_duration(nan(), 'ns')", INVALID_FUNCTION_ARGUMENT);
         assertInvalidFunction("succinct_duration(infinity(), 'ns')", INVALID_FUNCTION_ARGUMENT);
         assertInvalidFunction("succinct_duration(-infinity(), 'ns')", INVALID_FUNCTION_ARGUMENT);
@@ -84,37 +59,32 @@ public class TestUnitFunctions
         assertInvalidFunction("succinct_nanos(infinity())", INVALID_FUNCTION_ARGUMENT);
         assertInvalidFunction("succinct_nanos(-infinity())", INVALID_FUNCTION_ARGUMENT);
         assertInvalidFunction("succinct_millis(nan())", INVALID_FUNCTION_ARGUMENT);
-        assertInvalidFunction("succinct_millis(+infinity())", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("succinct_millis(infinity())", INVALID_FUNCTION_ARGUMENT);
         assertInvalidFunction("succinct_millis(-infinity())", INVALID_FUNCTION_ARGUMENT);
-    }
-
-    private void testDataSize(String sqlExpression, DataSize expected)
-    {
-        assertFunction(sqlExpression, VarcharType.VARCHAR, expected.toString());
     }
 
     @Test
     public void testSuccinctDataSize()
     {
-        testDataSize("succinct_data_size(123, 'B')", DataSize.succinctDataSize(123, BYTE));
-        testDataSize("succinct_data_size(123, 'kB')", DataSize.succinctDataSize(123, KILOBYTE));
-        testDataSize("succinct_data_size(123, 'MB')", DataSize.succinctDataSize(123, MEGABYTE));
-        testDataSize("succinct_data_size(123, 'TB')", DataSize.succinctDataSize(123, TERABYTE));
-        testDataSize("succinct_data_size(123, 'PB')", DataSize.succinctDataSize(123, PETABYTE));
+        assertFunction("succinct_data_size(123, 'B')", VarcharType.VARCHAR, "123B");
+        assertFunction("succinct_data_size(123, 'kB')", VarcharType.VARCHAR, "123kB");
+        assertFunction("succinct_data_size(123, 'MB')", VarcharType.VARCHAR, "123MB");
+        assertFunction("succinct_data_size(123, 'TB')", VarcharType.VARCHAR, "123TB");
+        assertFunction("succinct_data_size(123, 'PB')", VarcharType.VARCHAR, "123PB");
 
-        testDataSize("succinct_data_size(5.5 * 1024, 'kB')", DataSize.succinctDataSize(5.5, MEGABYTE));
-        testDataSize("succinct_data_size(2048, 'MB')", new DataSize(2.00, GIGABYTE));
+        assertFunction("succinct_data_size(5.5 * 1024, 'kB')", VarcharType.VARCHAR, "5.50MB");
+        assertFunction("succinct_data_size(2048, 'MB')", VarcharType.VARCHAR, "2GB");
 
-        testDataSize("succinct_bytes(1024 * 1024)", new DataSize(1.00, MEGABYTE));
-        testDataSize("succinct_bytes(123)", DataSize.succinctBytes(123));
-        testDataSize("succinct_bytes(123.45)", DataSize.succinctDataSize(123.45, BYTE));
-        testDataSize("succinct_bytes(5.5 * 1024)", DataSize.succinctBytes((long) (5.5 * 1024)));
-        testDataSize("succinct_bytes(12345)", DataSize.succinctBytes(12345));
-        testDataSize("succinct_bytes(123456789)", DataSize.succinctBytes(123456789));
-        testDataSize("succinct_bytes(1000000000)", DataSize.succinctBytes(1_000_000_000L));
-        testDataSize("succinct_bytes(1000000000000)", DataSize.succinctBytes(1_000_000_000_000L));
-        testDataSize("succinct_bytes(1000000000000000)", DataSize.succinctBytes(1_000_000_000_000_000L));
-        testDataSize("succinct_bytes(1000000000000000000)", DataSize.succinctBytes(1_000_000_000_000_000_000L));
+        assertFunction("succinct_bytes(1024 * 1024)", VarcharType.VARCHAR, "1MB");
+        assertFunction("succinct_bytes(123)", VarcharType.VARCHAR, "123B");
+        assertFunction("succinct_bytes(123.45)", VarcharType.VARCHAR, "123.45B");
+        assertFunction("succinct_bytes(5.5 * 1024)", VarcharType.VARCHAR, "5.50kB");
+        assertFunction("succinct_bytes(12345)", VarcharType.VARCHAR, "12.06kB");
+        assertFunction("succinct_bytes(123456789)", VarcharType.VARCHAR, "117.74MB");
+        assertFunction("succinct_bytes(1000000000)", VarcharType.VARCHAR, "953.67MB");
+        assertFunction("succinct_bytes(1000000000000)", VarcharType.VARCHAR, "931.32GB");
+        assertFunction("succinct_bytes(1000000000000000)", VarcharType.VARCHAR, "909.49TB");
+        assertFunction("succinct_bytes(1000000000000000000)", VarcharType.VARCHAR, "888.18PB");
 
         assertInvalidFunction("succinct_data_size(123, 'xx')", INVALID_FUNCTION_ARGUMENT);
         assertInvalidFunction("succinct_data_size(-1, 'B')", INVALID_FUNCTION_ARGUMENT);
