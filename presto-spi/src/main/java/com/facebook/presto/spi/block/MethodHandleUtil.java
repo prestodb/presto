@@ -23,6 +23,7 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static java.lang.String.format;
 import static java.lang.invoke.MethodType.methodType;
 
 public final class MethodHandleUtil
@@ -46,7 +47,7 @@ public final class MethodHandleUtil
     public static MethodHandle compose(MethodHandle f, MethodHandle g)
     {
         if (f.type().parameterType(0) != g.type().returnType()) {
-            throw new IllegalArgumentException(String.format("f.parameter(0) != g.return(). f: %s  g: %s", f.type(), g.type()));
+            throw new IllegalArgumentException(format("f.parameter(0) != g.return(). f: %s  g: %s", f.type(), g.type()));
         }
         // Semantics: f => f
         // Type: (U, S1, S2, ..., Sn)R => (U, T1, T2, ..., Tm, S1, S2, ..., Sn)R
@@ -65,13 +66,13 @@ public final class MethodHandleUtil
     public static MethodHandle compose(MethodHandle f, MethodHandle g, MethodHandle h)
     {
         if (f.type().parameterCount() != 2) {
-            throw new IllegalArgumentException(String.format("f.parameterCount != 2. f: %s", f.type()));
+            throw new IllegalArgumentException(format("f.parameterCount != 2. f: %s", f.type()));
         }
         if (f.type().parameterType(0) != g.type().returnType()) {
-            throw new IllegalArgumentException(String.format("f.parameter(0) != g.return. f: %s  g: %s", f.type(), g.type()));
+            throw new IllegalArgumentException(format("f.parameter(0) != g.return. f: %s  g: %s", f.type(), g.type()));
         }
         if (f.type().parameterType(1) != h.type().returnType()) {
-            throw new IllegalArgumentException(String.format("f.parameter(0) != h.return. f: %s  h: %s", f.type(), h.type()));
+            throw new IllegalArgumentException(format("f.parameter(0) != h.return. f: %s  h: %s", f.type(), h.type()));
         }
 
         // (V, T1, T2, ..., Tn, U)R
