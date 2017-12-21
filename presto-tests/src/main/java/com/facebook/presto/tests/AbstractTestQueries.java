@@ -47,9 +47,9 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
-import java.sql.Time;
 import java.sql.Timestamp;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.OffsetTime;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
@@ -7904,7 +7904,12 @@ public abstract class AbstractTestQueries
         assertQuery(chicago, "SELECT DATE '2013-03-22'");
         assertQuery(kathmandu, "SELECT DATE '2013-03-22'");
 
-        assertEquals(evaluateScalar("SELECT TIME '3:04:05'"), new Time(new DateTime(1970, 1, 1, 3, 4, 5, sessionTimeZone).getMillisOfDay()));
+        assertEquals(evaluateScalar("SELECT TIME '3:04:05'"), LocalTime.of(3, 4, 5, 0));
+        assertEquals(evaluateScalar("SELECT TIME '3:04:05.123'"), LocalTime.of(3, 4, 5, 123_000_000));
+        assertQuery("SELECT TIME '3:04:05'");
+        // TODO #7122 assertQuery(chicago, "SELECT TIME '3:04:05'");
+        // TODO #7122 assertQuery(kathmandu, "SELECT TIME '3:04:05'");
+
         assertEquals(evaluateScalar("SELECT TIME '01:02:03.400 Z'"), OffsetTime.of(1, 2, 3, 400_000_000, ZoneOffset.UTC));
         assertEquals(evaluateScalar("SELECT TIME '01:02:03.400 UTC'"), OffsetTime.of(1, 2, 3, 400_000_000, ZoneOffset.UTC));
         assertEquals(evaluateScalar("SELECT TIME '3:04:05 +06:00'"), OffsetTime.of(3, 4, 5, 0, ZoneOffset.ofHoursMinutes(6, 0)));

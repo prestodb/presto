@@ -214,7 +214,7 @@ public class TestingPrestoClient
             return DateTimeFormatter.ISO_LOCAL_DATE.parse(((String) value), LocalDate::from);
         }
         else if (TIME.equals(type)) {
-            return new Time(parseTime(timeZoneKey, (String) value));
+            return DateTimeFormatter.ISO_LOCAL_TIME.parse(((String) value), LocalTime::from);
         }
         else if (TIME_WITH_TIME_ZONE.equals(type)) {
             // Only zone-offset timezones are supported (TODO remove political timezones support for TIME WITH TIME ZONE)
