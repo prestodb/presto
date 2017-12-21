@@ -25,7 +25,8 @@ import java.util.function.BiConsumer;
 
 import static com.facebook.presto.spi.block.BlockUtil.MAX_ARRAY_SIZE;
 import static com.facebook.presto.spi.block.BlockUtil.calculateBlockResetSize;
-import static com.facebook.presto.spi.block.BlockUtil.checkValidPositions;
+import static com.facebook.presto.spi.block.BlockUtil.checkValidPosition;
+import static com.facebook.presto.spi.block.BlockUtil.checkValidPositionsArray;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidRegion;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
@@ -111,13 +112,14 @@ public class FixedWidthBlockBuilder
     @Override
     public Block copyPositions(int[] positions, int offset, int length)
     {
-        checkValidPositions(positions, offset, length, positionCount);
+        checkValidPositionsArray(positions, offset, length);
 
         SliceOutput newSlice = Slices.allocate(length * fixedSize).getOutput();
         SliceOutput newValueIsNull = Slices.allocate(length).getOutput();
 
         for (int i = offset; i < offset + length; ++i) {
             int position = positions[i];
+            checkValidPosition(position, positionCount);
             newValueIsNull.appendByte(valueIsNull.getUnderlyingSlice().getByte(position));
             newSlice.appendBytes(getRawSlice().getBytes(position * fixedSize, fixedSize));
         }
