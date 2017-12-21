@@ -19,6 +19,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 
 import static com.facebook.presto.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class BlockBuilderStatus
@@ -74,16 +75,16 @@ public class BlockBuilderStatus
     private static int deepInstanceSize(Class<?> clazz)
     {
         if (clazz.isArray()) {
-            throw new IllegalArgumentException(String.format("Cannot determine size of %s because it contains an array", clazz.getSimpleName()));
+            throw new IllegalArgumentException(format("Cannot determine size of %s because it contains an array", clazz.getSimpleName()));
         }
         if (clazz.isInterface()) {
-            throw new IllegalArgumentException(String.format("%s is an interface", clazz.getSimpleName()));
+            throw new IllegalArgumentException(format("%s is an interface", clazz.getSimpleName()));
         }
         if (Modifier.isAbstract(clazz.getModifiers())) {
-            throw new IllegalArgumentException(String.format("%s is abstract", clazz.getSimpleName()));
+            throw new IllegalArgumentException(format("%s is abstract", clazz.getSimpleName()));
         }
         if (!clazz.getSuperclass().equals(Object.class)) {
-            throw new IllegalArgumentException(String.format("Cannot determine size of a subclass. %s extends from %s", clazz.getSimpleName(), clazz.getSuperclass().getSimpleName()));
+            throw new IllegalArgumentException(format("Cannot determine size of a subclass. %s extends from %s", clazz.getSimpleName(), clazz.getSuperclass().getSimpleName()));
         }
 
         int size = ClassLayout.parseClass(clazz).instanceSize();
