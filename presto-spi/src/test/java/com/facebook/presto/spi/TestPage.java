@@ -48,7 +48,7 @@ public class TestPage
         assertEquals(new Page(10).getRegion(5, 0).getPositionCount(), 0);
     }
 
-    @Test(expectedExceptions = IndexOutOfBoundsException.class, expectedExceptionsMessageRegExp = "Invalid position .* in page with .* positions")
+    @Test(expectedExceptions = IndexOutOfBoundsException.class, expectedExceptionsMessageRegExp = "Invalid position 1 and length 1 in page with 0 positions")
     public void testGetRegionExceptions()
             throws Exception
     {
