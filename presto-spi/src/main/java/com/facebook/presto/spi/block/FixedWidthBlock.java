@@ -20,7 +20,8 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.util.function.BiConsumer;
 
-import static com.facebook.presto.spi.block.BlockUtil.checkValidPositions;
+import static com.facebook.presto.spi.block.BlockUtil.checkValidPosition;
+import static com.facebook.presto.spi.block.BlockUtil.checkValidPositionsArray;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidRegion;
 import static com.facebook.presto.spi.block.BlockUtil.compactSlice;
 import static java.util.Objects.requireNonNull;
@@ -95,13 +96,14 @@ public class FixedWidthBlock
     @Override
     public Block copyPositions(int[] positions, int offset, int length)
     {
-        checkValidPositions(positions, offset, length, positionCount);
+        checkValidPositionsArray(positions, offset, length);
 
         SliceOutput newSlice = Slices.allocate(length * fixedSize).getOutput();
         SliceOutput newValueIsNull = Slices.allocate(length).getOutput();
 
         for (int i = offset; i < offset + length; ++i) {
             int position = positions[i];
+            checkValidPosition(position, positionCount);
             newSlice.writeBytes(slice, position * fixedSize, fixedSize);
             newValueIsNull.writeByte(valueIsNull.getByte(position));
         }

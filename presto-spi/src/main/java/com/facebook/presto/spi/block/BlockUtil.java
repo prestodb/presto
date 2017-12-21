@@ -34,16 +34,6 @@ final class BlockUtil
     {
     }
 
-    static void checkValidPositions(int[] positions, int offset, int length, int positionCount)
-    {
-        checkValidPositionsArray(positions, offset, length);
-
-        for (int i = offset; i < offset + length; ++i) {
-            int position = positions[i];
-            checkValidPosition(position, positionCount);
-        }
-    }
-
     static void checkValidPositionsArray(int[] positions, int offset, int length)
     {
         requireNonNull(positions, "positions array is null");
