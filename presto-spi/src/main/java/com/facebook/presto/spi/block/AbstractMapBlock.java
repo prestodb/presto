@@ -19,7 +19,7 @@ import com.facebook.presto.spi.type.Type;
 import java.lang.invoke.MethodHandle;
 import java.util.Arrays;
 
-import static com.facebook.presto.spi.block.BlockUtil.checkValidPositionsArray;
+import static com.facebook.presto.spi.block.BlockUtil.checkArrayRange;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidRegion;
 import static com.facebook.presto.spi.block.BlockUtil.compactArray;
 import static com.facebook.presto.spi.block.BlockUtil.compactOffsets;
@@ -78,7 +78,7 @@ public abstract class AbstractMapBlock
     @Override
     public Block copyPositions(int[] positions, int offset, int length)
     {
-        checkValidPositionsArray(positions, offset, length);
+        checkArrayRange(positions, offset, length);
 
         int[] newOffsets = new int[length + 1];
         boolean[] newMapIsNull = new boolean[length];

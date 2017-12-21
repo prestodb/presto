@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.spi.block;
 
-import static com.facebook.presto.spi.block.BlockUtil.checkValidPositionsArray;
+import static com.facebook.presto.spi.block.BlockUtil.checkArrayRange;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidRegion;
 import static com.facebook.presto.spi.block.BlockUtil.compactArray;
 import static com.facebook.presto.spi.block.BlockUtil.compactOffsets;
@@ -43,7 +43,7 @@ public abstract class AbstractArrayBlock
     @Override
     public Block copyPositions(int[] positions, int offset, int length)
     {
-        checkValidPositionsArray(positions, offset, length);
+        checkArrayRange(positions, offset, length);
 
         int[] newOffsets = new int[length + 1];
         boolean[] newValueIsNull = new boolean[length];

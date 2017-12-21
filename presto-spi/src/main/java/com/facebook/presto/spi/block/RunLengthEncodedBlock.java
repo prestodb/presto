@@ -20,8 +20,8 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.util.function.BiConsumer;
 
+import static com.facebook.presto.spi.block.BlockUtil.checkArrayRange;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidPosition;
-import static com.facebook.presto.spi.block.BlockUtil.checkValidPositionsArray;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidRegion;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -99,7 +99,7 @@ public class RunLengthEncodedBlock
     @Override
     public Block copyPositions(int[] positions, int offset, int length)
     {
-        checkValidPositionsArray(positions, offset, length);
+        checkArrayRange(positions, offset, length);
         for (int i = offset; i < offset + length; i++) {
             checkValidPosition(positions[i], positionCount);
         }
