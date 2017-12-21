@@ -298,7 +298,7 @@ public abstract class AbstractTestDistributedQueries
 
     private void assertExplainAnalyze(@Language("SQL") String query)
     {
-        String value = getOnlyElement(computeActual(query).getOnlyColumnAsSet());
+        String value = (String) computeActual(query).getOnlyValue();
 
         assertTrue(value.matches("(?s:.*)CPU:.*, Input:.*, Output(?s:.*)"), format("Expected output to contain \"CPU:.*, Input:.*, Output\", but it is %s", value));
 
