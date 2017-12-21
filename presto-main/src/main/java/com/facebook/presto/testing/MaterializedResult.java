@@ -42,6 +42,8 @@ import org.joda.time.DateTimeZone;
 import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
@@ -53,6 +55,7 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -189,12 +192,16 @@ public class MaterializedResult
                 .toString();
     }
 
-    public Set<Object> getOnlyColumnAsSet()
+    public Stream<Object> getOnlyColumn()
     {
         checkState(types.size() == 1, "result set must have exactly one column");
         return rows.stream()
-                .map(row -> row.getField(0))
-                .collect(toImmutableSet());
+                .map(row -> row.getField(0));
+    }
+
+    public Set<Object> getOnlyColumnAsSet()
+    {
+        return getOnlyColumn().collect(toImmutableSet());
     }
 
     public Object getOnlyValue()
@@ -350,7 +357,8 @@ public class MaterializedResult
                 jdbcValue = new Timestamp(((SqlTimestamp) prestoValue).getMillisUtc());
             }
             else if (prestoValue instanceof SqlTimestampWithTimeZone) {
-                jdbcValue = new Timestamp(((SqlTimestampWithTimeZone) prestoValue).getMillisUtc());
+                jdbcValue = Instant.ofEpochMilli(((SqlTimestampWithTimeZone) prestoValue).getMillisUtc())
+                        .atZone(ZoneId.of(((SqlTimestampWithTimeZone) prestoValue).getTimeZoneKey().getId()));
             }
             else if (prestoValue instanceof SqlDecimal) {
                 jdbcValue = ((SqlDecimal) prestoValue).toBigDecimal();

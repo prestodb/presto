@@ -22,6 +22,7 @@ import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.MapType;
+import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
@@ -37,6 +38,8 @@ import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -69,7 +72,6 @@ import static com.facebook.presto.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH
 import static com.facebook.presto.util.DateTimeUtils.parseDate;
 import static com.facebook.presto.util.DateTimeUtils.parseTime;
 import static com.facebook.presto.util.DateTimeUtils.parseTimeWithTimeZone;
-import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithoutTimeZone;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -80,6 +82,8 @@ public class TestingPrestoClient
         extends AbstractTestingPrestoClient<MaterializedResult>
 {
     private static final Logger log = Logger.get("TestQueries");
+
+    private static final DateTimeFormatter timestampWithTimeZoneFormat = DateTimeFormatter.ofPattern(SqlTimestampWithTimeZone.JSON_FORMAT);
 
     public TestingPrestoClient(TestingPrestoServer prestoServer, Session defaultSession)
     {
@@ -217,7 +221,7 @@ public class TestingPrestoClient
             return new Timestamp(parseTimestampWithoutTimeZone(timeZoneKey, (String) value));
         }
         else if (TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
-            return new Timestamp(unpackMillisUtc(parseTimestampWithTimeZone(timeZoneKey, (String) value)));
+            return timestampWithTimeZoneFormat.parse((String) value, ZonedDateTime::from);
         }
         else if (INTERVAL_DAY_TIME.equals(type)) {
             return new SqlIntervalDayTime(IntervalDayTime.parseMillis(String.valueOf(value)));
