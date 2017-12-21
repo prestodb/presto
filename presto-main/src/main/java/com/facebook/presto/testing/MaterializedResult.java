@@ -189,11 +189,11 @@ public class MaterializedResult
                 .toString();
     }
 
-    public Set<String> getOnlyColumnAsSet()
+    public Set<Object> getOnlyColumnAsSet()
     {
         checkState(types.size() == 1, "result set must have exactly one column");
         return rows.stream()
-                .map(row -> (String) row.getField(0))
+                .map(row -> row.getField(0))
                 .collect(toImmutableSet());
     }
 
