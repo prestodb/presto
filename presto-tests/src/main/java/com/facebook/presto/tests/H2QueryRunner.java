@@ -274,7 +274,7 @@ public class H2QueryRunner
                             row.add(dateValue);
                         }
                     }
-                    else if (TIME.equals(type) || TIME_WITH_TIME_ZONE.equals(type)) {
+                    else if (TIME.equals(type)) {
                         Time timeValue = resultSet.getTime(i);
                         if (resultSet.wasNull()) {
                             row.add(null);
@@ -282,6 +282,9 @@ public class H2QueryRunner
                         else {
                             row.add(timeValue);
                         }
+                    }
+                    else if (TIME_WITH_TIME_ZONE.equals(type)) {
+                        throw new UnsupportedOperationException("H2 does not support TIME WITH TIME ZONE");
                     }
                     else if (TIMESTAMP.equals(type)) {
                         Timestamp timestampValue = resultSet.getTimestamp(i);

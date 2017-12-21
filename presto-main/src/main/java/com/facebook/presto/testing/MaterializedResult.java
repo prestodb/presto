@@ -43,7 +43,10 @@ import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.LocalTime;
+import java.time.OffsetTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
@@ -79,6 +82,8 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.Float.floatToRawIntBits;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class MaterializedResult
         implements Iterable<MaterializedRow>
@@ -351,7 +356,12 @@ public class MaterializedResult
                 jdbcValue = new Time(((SqlTime) prestoValue).getMillisUtc());
             }
             else if (prestoValue instanceof SqlTimeWithTimeZone) {
-                jdbcValue = new Time(((SqlTimeWithTimeZone) prestoValue).getMillisUtc());
+                // Political timezone cannot be represented in OffsetTime and there isn't any better representation.
+                long millisUtc = ((SqlTimeWithTimeZone) prestoValue).getMillisUtc();
+                ZoneOffset zone = toZoneOffset(((SqlTimeWithTimeZone) prestoValue).getTimeZoneKey());
+                jdbcValue = OffsetTime.of(
+                        LocalTime.ofNanoOfDay(MILLISECONDS.toNanos(millisUtc) + SECONDS.toNanos(zone.getTotalSeconds())),
+                        zone);
             }
             else if (prestoValue instanceof SqlTimestamp) {
                 jdbcValue = new Timestamp(((SqlTimestamp) prestoValue).getMillisUtc());
@@ -393,6 +403,17 @@ public class MaterializedResult
             values.add(value);
         }
         return new MaterializedRow(prestoRow.getPrecision(), values);
+    }
+
+    private static ZoneOffset toZoneOffset(TimeZoneKey timeZoneKey)
+    {
+        requireNonNull(timeZoneKey, "timeZoneKey is null");
+        if (Objects.equals("UTC", timeZoneKey.getId())) {
+            return ZoneOffset.UTC;
+        }
+
+        checkArgument(timeZoneKey.getId().matches("[+-]\\d\\d:\\d\\d"), "Not a zone-offset timezone: %s", timeZoneKey);
+        return ZoneOffset.of(timeZoneKey.getId());
     }
 
     public static MaterializedResult materializeSourceDataStream(Session session, ConnectorPageSource pageSource, List<Type> types)

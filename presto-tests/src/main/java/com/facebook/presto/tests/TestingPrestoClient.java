@@ -38,8 +38,12 @@ import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.time.LocalTime;
+import java.time.OffsetTime;
+import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -54,7 +58,6 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.Chars.isCharType;
-import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
@@ -71,7 +74,6 @@ import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static com.facebook.presto.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static com.facebook.presto.util.DateTimeUtils.parseDate;
 import static com.facebook.presto.util.DateTimeUtils.parseTime;
-import static com.facebook.presto.util.DateTimeUtils.parseTimeWithTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithoutTimeZone;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -82,6 +84,9 @@ public class TestingPrestoClient
         extends AbstractTestingPrestoClient<MaterializedResult>
 {
     private static final Logger log = Logger.get("TestQueries");
+
+    private static final DateTimeFormatter timeWithUtcZoneFormat = DateTimeFormatter.ofPattern("HH:mm:ss.SSS 'UTC'"); // UTC zone would be printed as "Z" in "XXX" format
+    private static final DateTimeFormatter timeWithZoneOffsetFormat = DateTimeFormatter.ofPattern("HH:mm:ss.SSS XXX");
 
     private static final DateTimeFormatter timestampWithTimeZoneFormat = DateTimeFormatter.ofPattern(SqlTimestampWithTimeZone.JSON_FORMAT);
 
@@ -215,7 +220,13 @@ public class TestingPrestoClient
             return new Time(parseTime(timeZoneKey, (String) value));
         }
         else if (TIME_WITH_TIME_ZONE.equals(type)) {
-            return new Time(unpackMillisUtc(parseTimeWithTimeZone((String) value)));
+            // Only zone-offset timezones are supported (TODO remove political timezones support for TIME WITH TIME ZONE)
+            try {
+                return timeWithUtcZoneFormat.parse(((String) value), LocalTime::from).atOffset(ZoneOffset.UTC);
+            }
+            catch (DateTimeParseException e) {
+                return timeWithZoneOffsetFormat.parse(((String) value), OffsetTime::from);
+            }
         }
         else if (TIMESTAMP.equals(type)) {
             return new Timestamp(parseTimestampWithoutTimeZone(timeZoneKey, (String) value));

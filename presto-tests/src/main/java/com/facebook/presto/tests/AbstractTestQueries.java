@@ -20,7 +20,6 @@ import com.facebook.presto.metadata.SqlFunction;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
-import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.testing.Arguments;
@@ -50,6 +49,7 @@ import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.time.OffsetTime;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -7895,11 +7895,14 @@ public abstract class AbstractTestQueries
     public void testTimeLiterals()
     {
         DateTimeZone sessionTimeZone = DateTimeZoneIndex.getDateTimeZone(getSession().getTimeZoneKey());
-        DateTimeZone utcPlus6 = DateTimeZoneIndex.getDateTimeZone(TimeZoneKey.getTimeZoneKeyForOffset(6 * 60));
 
         assertEquals(evaluateScalar("SELECT DATE '2013-03-22'"), new Date(new DateTime(2013, 3, 22, 0, 0, sessionTimeZone).getMillis()));
         assertEquals(evaluateScalar("SELECT TIME '3:04:05'"), new Time(new DateTime(1970, 1, 1, 3, 4, 5, sessionTimeZone).getMillisOfDay()));
-        assertEquals(evaluateScalar("SELECT TIME '3:04:05 +06:00'"), new Time(new DateTime(1970, 1, 1, 3, 4, 5, utcPlus6).getMillis())); // hack because java.sql.Time compares based on actual number of ms since epoch instead of ms since midnight
+        assertEquals(evaluateScalar("SELECT TIME '01:02:03.400 Z'"), OffsetTime.of(1, 2, 3, 400_000_000, ZoneOffset.UTC));
+        assertEquals(evaluateScalar("SELECT TIME '01:02:03.400 UTC'"), OffsetTime.of(1, 2, 3, 400_000_000, ZoneOffset.UTC));
+        assertEquals(evaluateScalar("SELECT TIME '3:04:05 +06:00'"), OffsetTime.of(3, 4, 5, 0, ZoneOffset.ofHoursMinutes(6, 0)));
+        assertEquals(evaluateScalar("SELECT TIME '3:04:05 +0507'"), OffsetTime.of(3, 4, 5, 0, ZoneOffset.ofHoursMinutes(5, 7)));
+        assertEquals(evaluateScalar("SELECT TIME '3:04:05 +03'"), OffsetTime.of(3, 4, 5, 0, ZoneOffset.ofHoursMinutes(3, 0)));
         assertEquals(evaluateScalar("SELECT TIMESTAMP '1960-01-22 3:04:05'"), new Timestamp(new DateTime(1960, 1, 22, 3, 4, 5, sessionTimeZone).getMillis()));
         assertEquals(evaluateScalar("SELECT TIMESTAMP '1960-01-22 3:04:05 +06:00'"), ZonedDateTime.of(1960, 1, 22, 3, 4, 5, 0, ZoneOffset.ofHoursMinutes(6, 0)));
     }
