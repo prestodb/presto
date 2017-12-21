@@ -22,8 +22,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.BiConsumer;
 
+import static com.facebook.presto.spi.block.BlockUtil.checkArrayRange;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidPosition;
-import static com.facebook.presto.spi.block.BlockUtil.checkValidPositionsArray;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidRegion;
 import static com.facebook.presto.spi.block.DictionaryId.randomDictionaryId;
 import static io.airlift.slice.SizeOf.sizeOf;
@@ -266,7 +266,7 @@ public class DictionaryBlock
     @Override
     public Block copyPositions(int[] positions, int offset, int length)
     {
-        checkValidPositionsArray(positions, offset, length);
+        checkArrayRange(positions, offset, length);
 
         IntArrayList positionsToCopy = new IntArrayList();
         Map<Integer, Integer> oldIndexToNewIndex = new HashMap<>();

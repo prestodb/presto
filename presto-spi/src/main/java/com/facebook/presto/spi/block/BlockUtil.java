@@ -34,11 +34,11 @@ final class BlockUtil
     {
     }
 
-    static void checkValidPositionsArray(int[] positions, int offset, int length)
+    static void checkArrayRange(int[] array, int offset, int length)
     {
-        requireNonNull(positions, "positions array is null");
-        if (offset < 0 || length < 0 || offset + length > positions.length) {
-            throw new IndexOutOfBoundsException(format("Invalid offset %s and length %s in array with %s elements", offset, length, positions.length));
+        requireNonNull(array, "array is null");
+        if (offset < 0 || length < 0 || offset + length > array.length) {
+            throw new IndexOutOfBoundsException(format("Invalid offset %s and length %s in array with %s elements", offset, length, array.length));
         }
     }
 
