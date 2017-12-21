@@ -22,6 +22,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.BiConsumer;
 
+import static com.facebook.presto.spi.block.BlockUtil.checkValidPosition;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidPositions;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidRegion;
 import static com.facebook.presto.spi.block.DictionaryId.randomDictionaryId;
@@ -348,9 +349,7 @@ public class DictionaryBlock
 
     public int getId(int position)
     {
-        if (position < 0 || position >= positionCount) {
-            throw new IllegalArgumentException("Invalid position " + position + " in block with " + positionCount + " positions");
-        }
+        checkValidPosition(position, positionCount);
         return ids[position + idsOffset];
     }
 
