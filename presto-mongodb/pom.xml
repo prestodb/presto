@@ -13,7 +13,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <mongo-java.version>3.1.0</mongo-java.version>
+        <mongo-java.version>3.6.0</mongo-java.version>
         <mongo-server.version>1.5.0</mongo-server.version>
         <netty.version>4.0.32.Final</netty.version>
     </properties>
