@@ -27,6 +27,7 @@ import java.util.function.BiConsumer;
 import static com.facebook.presto.spi.block.BlockUtil.MAX_ARRAY_SIZE;
 import static com.facebook.presto.spi.block.BlockUtil.calculateBlockResetBytes;
 import static com.facebook.presto.spi.block.BlockUtil.calculateBlockResetSize;
+import static com.facebook.presto.spi.block.BlockUtil.checkValidPosition;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidPositionsArray;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidRegion;
 import static com.facebook.presto.spi.block.BlockUtil.compactArray;
@@ -76,18 +77,14 @@ public class VariableWidthBlockBuilder
     @Override
     protected int getPositionOffset(int position)
     {
-        if (position >= positions) {
-            throw new IllegalArgumentException("position " + position + " must be less than position count " + positions);
-        }
+        checkValidPosition(position, positions);
         return getOffset(position);
     }
 
     @Override
     public int getSliceLength(int position)
     {
-        if (position >= positions) {
-            throw new IllegalArgumentException("position " + position + " must be less than position count " + positions);
-        }
+        checkValidPosition(position, positions);
         return getOffset((position + 1)) - getOffset(position);
     }
 

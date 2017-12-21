@@ -40,9 +40,7 @@ final class BlockUtil
 
         for (int i = offset; i < offset + length; ++i) {
             int position = positions[i];
-            if (position > positionCount) {
-                throw new IllegalArgumentException(format("Invalid position '%s' in block with '%s' positions", position, positionCount));
-            }
+            checkValidPosition(position, positionCount);
         }
     }
 
@@ -58,6 +56,13 @@ final class BlockUtil
     {
         if (positionOffset < 0 || length < 0 || positionOffset + length > positionCount) {
             throw new IndexOutOfBoundsException(format("Invalid position %s and length %s in block with %s positions", positionOffset, length, positionCount));
+        }
+    }
+
+    static void checkValidPosition(int position, int positionCount)
+    {
+        if (position < 0 || position >= positionCount) {
+            throw new IllegalArgumentException(format("Invalid position %s in block with %s positions", position, positionCount));
         }
     }
 
