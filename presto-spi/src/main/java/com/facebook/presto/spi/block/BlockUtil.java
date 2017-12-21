@@ -49,19 +49,15 @@ final class BlockUtil
     static void checkValidPositionsArray(int[] positions, int offset, int length)
     {
         requireNonNull(positions, "positions array is null");
-        if (offset < 0 || offset > positions.length) {
-            throw new IndexOutOfBoundsException(format("Invalid offset '%s' for positions array with '%s' elements", offset, positions.length));
-        }
-
-        if (length < 0 || offset + length > positions.length) {
-            throw new IndexOutOfBoundsException(format("Invalid length '%s' for positions array with '%s' elements and offset: '%s", length, positions.length, offset));
+        if (offset < 0 || length < 0 || offset + length > positions.length) {
+            throw new IndexOutOfBoundsException(format("Invalid offset %s and length %s in array with %s elements", offset, length, positions.length));
         }
     }
 
     static void checkValidRegion(int positionCount, int positionOffset, int length)
     {
         if (positionOffset < 0 || length < 0 || positionOffset + length > positionCount) {
-            throw new IndexOutOfBoundsException(format("Invalid position '%s' in block with '%s' positions", positionOffset, positionCount));
+            throw new IndexOutOfBoundsException(format("Invalid position %s and length %s in block with %s positions", positionOffset, length, positionCount));
         }
     }
 

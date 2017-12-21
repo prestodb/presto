@@ -26,6 +26,7 @@ import java.util.function.BiConsumer;
 import static com.facebook.presto.spi.block.BlockUtil.MAX_ARRAY_SIZE;
 import static com.facebook.presto.spi.block.BlockUtil.calculateBlockResetSize;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidPositions;
+import static com.facebook.presto.spi.block.BlockUtil.checkValidRegion;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
@@ -243,9 +244,7 @@ public class FixedWidthBlockBuilder
     public Block getRegion(int positionOffset, int length)
     {
         int positionCount = getPositionCount();
-        if (positionOffset < 0 || length < 0 || positionOffset + length > positionCount) {
-            throw new IndexOutOfBoundsException("Invalid position " + positionOffset + " in block with " + positionCount + " positions");
-        }
+        checkValidRegion(positionCount, positionOffset, length);
 
         Slice newSlice = sliceOutput.slice().slice(positionOffset * fixedSize, length * fixedSize);
         Slice newValueIsNull = valueIsNull.slice().slice(positionOffset, length);
@@ -256,9 +255,7 @@ public class FixedWidthBlockBuilder
     public Block copyRegion(int positionOffset, int length)
     {
         int positionCount = getPositionCount();
-        if (positionOffset < 0 || length < 0 || positionOffset + length > positionCount) {
-            throw new IndexOutOfBoundsException("Invalid position " + positionOffset + " in block with " + positionCount + " positions");
-        }
+        checkValidRegion(positionCount, positionOffset, length);
 
         Slice newSlice = Slices.copyOf(sliceOutput.getUnderlyingSlice(), positionOffset * fixedSize, length * fixedSize);
         Slice newValueIsNull = Slices.copyOf(valueIsNull.getUnderlyingSlice(), positionOffset, length);
