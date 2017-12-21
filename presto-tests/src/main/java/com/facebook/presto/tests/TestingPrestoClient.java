@@ -35,9 +35,9 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 
 import java.math.BigDecimal;
-import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.OffsetTime;
 import java.time.ZoneOffset;
@@ -50,7 +50,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
@@ -72,7 +71,6 @@ import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.testing.MaterializedResult.DEFAULT_PRECISION;
 import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static com.facebook.presto.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
-import static com.facebook.presto.util.DateTimeUtils.parseDate;
 import static com.facebook.presto.util.DateTimeUtils.parseTime;
 import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithoutTimeZone;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -213,8 +211,7 @@ public class TestingPrestoClient
             return value;
         }
         else if (DATE.equals(type)) {
-            int days = parseDate((String) value);
-            return new Date(TimeUnit.DAYS.toMillis(days));
+            return DateTimeFormatter.ISO_LOCAL_DATE.parse(((String) value), LocalDate::from);
         }
         else if (TIME.equals(type)) {
             return new Time(parseTime(timeZoneKey, (String) value));

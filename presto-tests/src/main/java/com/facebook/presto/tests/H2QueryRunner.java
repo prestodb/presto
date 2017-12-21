@@ -69,7 +69,6 @@ import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static com.facebook.presto.tpch.TpchRecordSet.createTpchRecordSet;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
-import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.padEnd;
@@ -164,9 +163,6 @@ public class H2QueryRunner
                         .map(rowMapper(resultTypes))
                         .list(),
                 resultTypes);
-
-        // H2 produces dates in the JVM time zone instead of the session timezone
-        materializedRows = materializedRows.toTimeZone(DateTimeZone.getDefault(), getDateTimeZone(session.getTimeZoneKey()));
 
         return materializedRows;
     }
@@ -271,7 +267,7 @@ public class H2QueryRunner
                             row.add(null);
                         }
                         else {
-                            row.add(dateValue);
+                            row.add(dateValue.toLocalDate());
                         }
                     }
                     else if (TIME.equals(type)) {
