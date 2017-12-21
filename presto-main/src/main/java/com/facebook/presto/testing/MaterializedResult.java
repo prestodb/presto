@@ -352,7 +352,7 @@ public class MaterializedResult
                 convertedValue = LocalDate.ofEpochDay(((SqlDate) prestoValue).getDays());
             }
             else if (prestoValue instanceof SqlTime) {
-                convertedValue = new Time(((SqlTime) prestoValue).getMillisUtc());
+                convertedValue = LocalTime.ofNanoOfDay(MILLISECONDS.toNanos(((SqlTime) prestoValue).getMillisUtc()));
             }
             else if (prestoValue instanceof SqlTimeWithTimeZone) {
                 // Political timezone cannot be represented in OffsetTime and there isn't any better representation.
