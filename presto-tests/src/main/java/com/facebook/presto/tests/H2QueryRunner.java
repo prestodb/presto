@@ -283,7 +283,7 @@ public class H2QueryRunner
                             row.add(timeValue);
                         }
                     }
-                    else if (TIMESTAMP.equals(type) || TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
+                    else if (TIMESTAMP.equals(type)) {
                         Timestamp timestampValue = resultSet.getTimestamp(i);
                         if (resultSet.wasNull()) {
                             row.add(null);
@@ -291,6 +291,11 @@ public class H2QueryRunner
                         else {
                             row.add(timestampValue);
                         }
+                    }
+                    else if (TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
+                        // H2 supports TIMESTAMP WITH TIME ZONE via org.h2.api.TimestampWithTimeZone, but it represent only a fixed-offset TZ (not named)
+                        // This means H2 is unsuitable for testing TIMESTAMP WITH TIME ZONE-bearing queries. Those need to be tested manually.
+                        throw new UnsupportedOperationException();
                     }
                     else if (UNKNOWN.equals(type)) {
                         Object objectValue = resultSet.getObject(i);
