@@ -16,6 +16,7 @@ package com.facebook.presto.spi.block;
 import java.util.Arrays;
 
 import static com.facebook.presto.spi.block.BlockUtil.MAX_ARRAY_SIZE;
+import static java.lang.String.format;
 
 /**
  * A simplified version of fastutils IntArrayList for the purpose of positions copying.
@@ -29,7 +30,7 @@ class IntArrayList
     public IntArrayList(int initialCapacity)
     {
         if (initialCapacity < 0) {
-            throw new IllegalArgumentException(String.format("Initial capacity '%s' is negative", initialCapacity));
+            throw new IllegalArgumentException(format("Initial capacity '%s' is negative", initialCapacity));
         }
         array = new int[initialCapacity];
     }
