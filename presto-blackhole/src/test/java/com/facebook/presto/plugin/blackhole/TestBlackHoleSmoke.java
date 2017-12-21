@@ -26,9 +26,9 @@ import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
-import java.sql.Date;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.time.LocalDate;
 import java.util.List;
 
 import static com.facebook.presto.plugin.blackhole.BlackHoleConnector.FIELD_LENGTH_PROPERTY;
@@ -235,7 +235,7 @@ public class TestBlackHoleSmoke
         assertEquals(row.getField(5), 0.0f);
         assertEquals(row.getField(6), 0.0);
         assertEquals(row.getField(7), false);
-        assertEquals(row.getField(8), new Date(0));
+        assertEquals(row.getField(8), LocalDate.ofEpochDay(0));
         assertEquals(row.getField(9), new Timestamp(0));
         assertEquals(row.getField(10), "****************".getBytes());
         assertEquals(row.getField(11), new BigDecimal("0.00"));

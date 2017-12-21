@@ -20,6 +20,7 @@ import com.facebook.presto.metadata.SqlFunction;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
+import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.testing.Arguments;
@@ -46,9 +47,9 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
-import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.time.LocalDate;
 import java.time.OffsetTime;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
@@ -7895,8 +7896,14 @@ public abstract class AbstractTestQueries
     public void testTimeLiterals()
     {
         DateTimeZone sessionTimeZone = DateTimeZoneIndex.getDateTimeZone(getSession().getTimeZoneKey());
+        Session chicago = Session.builder(getSession()).setTimeZoneKey(TimeZoneKey.getTimeZoneKey("America/Chicago")).build();
+        Session kathmandu = Session.builder(getSession()).setTimeZoneKey(TimeZoneKey.getTimeZoneKey("Asia/Kathmandu")).build();
 
-        assertEquals(evaluateScalar("SELECT DATE '2013-03-22'"), new Date(new DateTime(2013, 3, 22, 0, 0, sessionTimeZone).getMillis()));
+        assertEquals(evaluateScalar("SELECT DATE '2013-03-22'"), LocalDate.of(2013, 3, 22));
+        assertQuery("SELECT DATE '2013-03-22'");
+        assertQuery(chicago, "SELECT DATE '2013-03-22'");
+        assertQuery(kathmandu, "SELECT DATE '2013-03-22'");
+
         assertEquals(evaluateScalar("SELECT TIME '3:04:05'"), new Time(new DateTime(1970, 1, 1, 3, 4, 5, sessionTimeZone).getMillisOfDay()));
         assertEquals(evaluateScalar("SELECT TIME '01:02:03.400 Z'"), OffsetTime.of(1, 2, 3, 400_000_000, ZoneOffset.UTC));
         assertEquals(evaluateScalar("SELECT TIME '01:02:03.400 UTC'"), OffsetTime.of(1, 2, 3, 400_000_000, ZoneOffset.UTC));

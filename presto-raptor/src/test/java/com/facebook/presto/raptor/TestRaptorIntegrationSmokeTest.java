@@ -24,8 +24,8 @@ import com.google.common.collect.SetMultimap;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
-import java.sql.Date;
 import java.sql.Timestamp;
+import java.time.LocalDate;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
@@ -182,12 +182,12 @@ public class TestRaptorIntegrationSmokeTest
         MaterializedResult results = computeActual("SELECT orderdate, \"$shard_uuid\" FROM test_shard_temporal_date");
 
         // Each shard will only contain data of one date.
-        SetMultimap<String, Date> shardDateMap = HashMultimap.create();
+        SetMultimap<String, LocalDate> shardDateMap = HashMultimap.create();
         for (MaterializedRow row : results.getMaterializedRows()) {
-            shardDateMap.put((String) row.getField(1), (Date) row.getField(0));
+            shardDateMap.put((String) row.getField(1), (LocalDate) row.getField(0));
         }
 
-        for (Collection<Date> dates : shardDateMap.asMap().values()) {
+        for (Collection<LocalDate> dates : shardDateMap.asMap().values()) {
             assertEquals(dates.size(), 1);
         }
 
@@ -215,12 +215,12 @@ public class TestRaptorIntegrationSmokeTest
         MaterializedResult results = computeActual("SELECT orderdate, \"$shard_uuid\" FROM test_shard_temporal_date_bucketed");
 
         // Each shard will only contain data of one date.
-        SetMultimap<String, Date> shardDateMap = HashMultimap.create();
+        SetMultimap<String, LocalDate> shardDateMap = HashMultimap.create();
         for (MaterializedRow row : results.getMaterializedRows()) {
-            shardDateMap.put((String) row.getField(1), (Date) row.getField(0));
+            shardDateMap.put((String) row.getField(1), (LocalDate) row.getField(0));
         }
 
-        for (Collection<Date> dates : shardDateMap.asMap().values()) {
+        for (Collection<LocalDate> dates : shardDateMap.asMap().values()) {
             assertEquals(dates.size(), 1);
         }
 

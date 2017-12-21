@@ -37,12 +37,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slices;
-import org.joda.time.DateTimeZone;
 
-import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.OffsetTime;
 import java.time.ZoneId;
@@ -57,7 +56,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -351,8 +349,7 @@ public class MaterializedResult
             Object prestoValue = prestoRow.getField(field);
             Object convertedValue;
             if (prestoValue instanceof SqlDate) {
-                int days = ((SqlDate) prestoValue).getDays();
-                convertedValue = new Date(TimeUnit.DAYS.toMillis(days));
+                convertedValue = LocalDate.ofEpochDay(((SqlDate) prestoValue).getDays());
             }
             else if (prestoValue instanceof SqlTime) {
                 convertedValue = new Time(((SqlTime) prestoValue).getMillisUtc());
@@ -381,30 +378,6 @@ public class MaterializedResult
             convertedValues.add(convertedValue);
         }
         return new MaterializedRow(prestoRow.getPrecision(), convertedValues);
-    }
-
-    public MaterializedResult toTimeZone(DateTimeZone oldTimeZone, DateTimeZone newTimeZone)
-    {
-        ImmutableList.Builder<MaterializedRow> jdbcRows = ImmutableList.builder();
-        for (MaterializedRow row : rows) {
-            jdbcRows.add(toTimeZone(row, oldTimeZone, newTimeZone));
-        }
-        return new MaterializedResult(jdbcRows.build(), types);
-    }
-
-    private static MaterializedRow toTimeZone(MaterializedRow prestoRow, DateTimeZone oldTimeZone, DateTimeZone newTimeZone)
-    {
-        List<Object> values = new ArrayList<>();
-        for (int field = 0; field < prestoRow.getFieldCount(); field++) {
-            Object value = prestoRow.getField(field);
-            if (value instanceof Date) {
-                long oldMillis = ((Date) value).getTime();
-                long newMillis = oldTimeZone.getMillisKeepLocal(newTimeZone, oldMillis);
-                value = new Date(newMillis);
-            }
-            values.add(value);
-        }
-        return new MaterializedRow(prestoRow.getPrecision(), values);
     }
 
     private static ZoneOffset toZoneOffset(TimeZoneKey timeZoneKey)
