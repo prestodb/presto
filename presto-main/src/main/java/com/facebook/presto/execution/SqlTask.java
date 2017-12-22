@@ -21,12 +21,16 @@ import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.execution.buffer.LazyOutputBuffer;
 import com.facebook.presto.execution.buffer.OutputBuffer;
+import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.operator.PipelineContext;
 import com.facebook.presto.operator.PipelineStatus;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskStats;
+import com.facebook.presto.server.TaskClientOutputContext;
+import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.sql.planner.PlanFragment;
+import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
@@ -50,6 +54,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.SystemSessionProperties.isExchangeCompressionEnabled;
 import static com.facebook.presto.util.Failures.toFailures;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -77,6 +82,8 @@ public class SqlTask
 
     private final AtomicReference<TaskHolder> taskHolderReference = new AtomicReference<>(new TaskHolder());
     private final AtomicBoolean needsPlan = new AtomicBoolean(true);
+
+    private final AtomicReference<Optional<TaskClientOutputContext>> clientOutputContext = new AtomicReference<>(Optional.empty());
 
     public SqlTask(
             TaskId taskId,
@@ -318,7 +325,12 @@ public class SqlTask
         return Futures.transform(futureTaskState, input -> getTaskInfo());
     }
 
-    public TaskInfo updateTask(Session session, Optional<PlanFragment> fragment, List<TaskSource> sources, OutputBuffers outputBuffers)
+    public TaskInfo updateTask(
+            Session session,
+            Optional<PlanFragment> fragment,
+            List<TaskSource> sources,
+            OutputBuffers outputBuffers,
+            BlockEncodingSerde blockEncodingSerde)
     {
         try {
             // The LazyOutput buffer does not support write methods, so the actual
@@ -337,6 +349,15 @@ public class SqlTask
                 taskExecution = taskHolder.getTaskExecution();
                 if (taskExecution == null) {
                     checkState(fragment.isPresent(), "fragment must be present");
+                    // this block must happen before creating task execution to prevent a race condition when execution finished,
+                    // but types are not ready. Types are accessed by a task resource in order to convert pages to a client output
+                    if (!clientOutputContext.get().isPresent() && fragment.get().getRoot() instanceof OutputNode) {
+                        TaskClientOutputContext clientOutputContext = new TaskClientOutputContext(
+                                fragment.get().getTypes(),
+                                new PagesSerdeFactory(blockEncodingSerde, isExchangeCompressionEnabled(session)).createPagesSerde(),
+                                session.toConnectorSession());
+                        this.clientOutputContext.set(Optional.of(clientOutputContext));
+                    }
                     taskExecution = sqlTaskExecutionFactory.create(session, queryContext, taskStateMachine, outputBuffer, fragment.get(), sources);
                     taskHolderReference.compareAndSet(taskHolder, new TaskHolder(taskExecution));
                     needsPlan.set(false);
@@ -393,6 +414,11 @@ public class SqlTask
     {
         taskStateMachine.abort();
         return getTaskInfo();
+    }
+
+    public Optional<TaskClientOutputContext> getClientOutputContext()
+    {
+        return clientOutputContext.get();
     }
 
     @Override

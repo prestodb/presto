@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.OutputBuffers.OutputBufferId;
 import com.facebook.presto.TaskSource;
+import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.event.query.QueryMonitorConfig;
@@ -30,8 +31,10 @@ import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.operator.ExchangeClientSupplier;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spiller.LocalSpillManager;
 import com.facebook.presto.spiller.NodeSpillConfig;
+import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.ObjectMapperProvider;
@@ -69,6 +72,7 @@ public class TestSqlTaskManager
     private final TaskManagementExecutor taskManagementExecutor;
     private final LocalMemoryManager localMemoryManager;
     private final LocalSpillManager localSpillManager;
+    private final BlockEncodingSerde blockEncodingSerde;
 
     public TestSqlTaskManager()
     {
@@ -77,6 +81,7 @@ public class TestSqlTaskManager
         taskExecutor = new TaskExecutor(8, 16);
         taskExecutor.start();
         taskManagementExecutor = new TaskManagementExecutor();
+        blockEncodingSerde = new BlockEncodingManager(new TypeRegistry());
     }
 
     @AfterClass(alwaysRun = true)
@@ -285,7 +290,8 @@ public class TestSqlTaskManager
                 config,
                 new NodeMemoryConfig(),
                 localSpillManager,
-                new NodeSpillConfig());
+                new NodeSpillConfig(),
+                blockEncodingSerde);
     }
 
     public static class MockExchangeClientSupplier
