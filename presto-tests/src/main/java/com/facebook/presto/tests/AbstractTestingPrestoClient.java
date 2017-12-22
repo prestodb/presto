@@ -39,6 +39,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.client.StatementClientFactory.newStatementClient;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.google.common.base.Preconditions.checkState;
@@ -80,7 +81,7 @@ public abstract class AbstractTestingPrestoClient<T>
 
         ClientSession clientSession = toClientSession(session, prestoServer.getBaseUrl(), new Duration(2, TimeUnit.MINUTES));
 
-        try (StatementClient client = new StatementClient(httpClient, clientSession, sql)) {
+        try (StatementClient client = newStatementClient(httpClient, clientSession, sql)) {
             while (client.isRunning()) {
                 resultsSession.addResults(client.currentStatusInfo(), client.currentData());
                 client.advance();
