@@ -174,8 +174,14 @@ elif [[ "$ENVIRONMENT" == "multinode-tls" ]]; then
 fi
 
 CLI_ARGUMENTS="--server presto-master:8080"
-if [[ "$ENVIRONMENT" == "multinode-tls" ]]; then
+if [[ "$ENVIRONMENT" == "singlenode-ldap" ]]; then
+    CLI_ARGUMENTS="--server https://presto-master:8443 --keystore-path /etc/openldap/certs/coordinator.jks --keystore-password testldap"
+fi
+if [[ "$ENVIRONMENT" == "multinode-tls" || "$ENVIRONMENT" == *kerberos* ]]; then
     CLI_ARGUMENTS="--server https://presto-master.docker.cluster:7778 --keystore-path /docker/volumes/conf/presto/etc/docker.cluster.jks --keystore-password 123456"
+fi
+if [[ "$ENVIRONMENT" == *kerberos* ]]; then
+    CLI_ARGUMENTS="${CLI_ARGUMENTS} --enable-authentication --krb5-config-path /etc/krb5.conf --krb5-principal presto-client/presto-master.docker.cluster@LABS.TERADATA.COM --krb5-keytab-path /etc/presto/conf/presto-client.keytab --krb5-remote-service-name presto-server --krb5-disable-remote-service-hostname-canonicalization"
 fi
 
 # check docker and docker compose installation
