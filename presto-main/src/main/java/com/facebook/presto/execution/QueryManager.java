@@ -44,6 +44,8 @@ public interface QueryManager
 
     QueryInfo createQuery(SessionContext sessionContext, String query);
 
+    void failQuery(QueryId queryId, Throwable cause);
+
     void cancelQuery(QueryId queryId);
 
     void cancelStage(StageId stageId);
