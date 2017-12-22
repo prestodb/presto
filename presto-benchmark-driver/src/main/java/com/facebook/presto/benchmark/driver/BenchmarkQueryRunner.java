@@ -42,6 +42,7 @@ import static com.facebook.presto.benchmark.driver.BenchmarkQueryResult.failResu
 import static com.facebook.presto.benchmark.driver.BenchmarkQueryResult.passResult;
 import static com.facebook.presto.client.OkHttpUtil.setupCookieJar;
 import static com.facebook.presto.client.OkHttpUtil.setupSocksProxy;
+import static com.facebook.presto.client.StatementClientFactory.newStatementClient;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
@@ -199,7 +200,7 @@ public class BenchmarkQueryRunner
     private StatementStats execute(ClientSession session, String query, Consumer<QueryData> queryDataConsumer, Consumer<QueryError> queryErrorConsumer)
     {
         // start query
-        try (StatementClient client = new StatementClient(okHttpClient, session, query)) {
+        try (StatementClient client = newStatementClient(okHttpClient, session, query)) {
             // read query output
             while (client.isRunning()) {
                 queryDataConsumer.accept(client.currentData());
