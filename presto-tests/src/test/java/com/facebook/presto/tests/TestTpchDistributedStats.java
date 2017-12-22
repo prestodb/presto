@@ -14,6 +14,7 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.tests.statistics.StatisticsAssertion;
+import com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder;
 import com.facebook.presto.tpch.ColumnNaming;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.tpch.TpchTable;
@@ -25,9 +26,7 @@ import static com.facebook.presto.tests.statistics.MetricComparisonStrategies.ab
 import static com.facebook.presto.tests.statistics.MetricComparisonStrategies.noError;
 import static com.facebook.presto.tests.statistics.MetricComparisonStrategies.relativeError;
 import static com.facebook.presto.tests.statistics.Metrics.OUTPUT_ROW_COUNT;
-import static com.facebook.presto.tests.tpch.TpchQueryRunner.createQueryRunnerWithoutCatalogs;
 import static com.facebook.presto.tpch.TpchConnectorFactory.TPCH_COLUMN_NAMING_PROPERTY;
-import static java.util.Collections.emptyMap;
 
 public class TestTpchDistributedStats
 {
@@ -37,7 +36,7 @@ public class TestTpchDistributedStats
     public void setup()
             throws Exception
     {
-        DistributedQueryRunner runner = createQueryRunnerWithoutCatalogs(emptyMap(), emptyMap());
+        DistributedQueryRunner runner = TpchQueryRunnerBuilder.builder().buildWithoutCatalogs();
         runner.createCatalog(
                 "tpch",
                 "tpch",

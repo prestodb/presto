@@ -18,6 +18,7 @@ import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.TestingSessionContext;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -26,7 +27,6 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.RUNNING;
-import static com.facebook.presto.tests.tpch.TpchQueryRunner.createQueryRunner;
 import static org.testng.Assert.assertEquals;
 
 /**
@@ -45,7 +45,7 @@ public class TestMetadataManager
     public void setUp()
             throws Exception
     {
-        queryRunner = createQueryRunner();
+        queryRunner = TpchQueryRunnerBuilder.builder().build();
         metadataManager = (MetadataManager) queryRunner.getMetadata();
     }
 
