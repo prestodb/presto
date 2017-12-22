@@ -16,6 +16,7 @@ package com.facebook.presto.tests;
 import com.facebook.presto.Session;
 import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.client.Column;
+import com.facebook.presto.client.ProtocolVersion;
 import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryStatusInfo;
 import com.facebook.presto.client.StatementClient;
@@ -51,14 +52,15 @@ public abstract class AbstractTestingPrestoClient<T>
 {
     private final TestingPrestoServer prestoServer;
     private final Session defaultSession;
+    private final ProtocolVersion protocolVersion;
 
     private final OkHttpClient httpClient = new OkHttpClient();
 
-    protected AbstractTestingPrestoClient(TestingPrestoServer prestoServer,
-            Session defaultSession)
+    protected AbstractTestingPrestoClient(TestingPrestoServer prestoServer, Session defaultSession, ProtocolVersion protocolVersion)
     {
         this.prestoServer = requireNonNull(prestoServer, "prestoServer is null");
         this.defaultSession = requireNonNull(defaultSession, "defaultSession is null");
+        this.protocolVersion = requireNonNull(protocolVersion, "protocolVersion is null");
     }
 
     @Override
@@ -81,7 +83,7 @@ public abstract class AbstractTestingPrestoClient<T>
 
         ClientSession clientSession = toClientSession(session, prestoServer.getBaseUrl(), new Duration(2, TimeUnit.MINUTES));
 
-        try (StatementClient client = newStatementClient(httpClient, clientSession, sql)) {
+        try (StatementClient client = newStatementClient(protocolVersion, httpClient, clientSession, sql)) {
             while (client.isRunning()) {
                 resultsSession.addResults(client.currentStatusInfo(), client.currentData());
                 client.advance();

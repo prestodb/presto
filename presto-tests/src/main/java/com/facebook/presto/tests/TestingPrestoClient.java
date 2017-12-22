@@ -16,6 +16,7 @@ package com.facebook.presto.tests;
 import com.facebook.presto.Session;
 import com.facebook.presto.client.IntervalDayTime;
 import com.facebook.presto.client.IntervalYearMonth;
+import com.facebook.presto.client.ProtocolVersion;
 import com.facebook.presto.client.QueryData;
 import com.facebook.presto.client.QueryStatusInfo;
 import com.facebook.presto.server.testing.TestingPrestoServer;
@@ -87,9 +88,9 @@ public class TestingPrestoClient
     private static final DateTimeFormatter timestampFormat = DateTimeFormatter.ofPattern(SqlTimestamp.JSON_FORMAT);
     private static final DateTimeFormatter timestampWithTimeZoneFormat = DateTimeFormatter.ofPattern(SqlTimestampWithTimeZone.JSON_FORMAT);
 
-    public TestingPrestoClient(TestingPrestoServer prestoServer, Session defaultSession)
+    public TestingPrestoClient(TestingPrestoServer prestoServer, Session defaultSession, ProtocolVersion protocolVersion)
     {
-        super(prestoServer, defaultSession);
+        super(prestoServer, defaultSession, protocolVersion);
     }
 
     @Override

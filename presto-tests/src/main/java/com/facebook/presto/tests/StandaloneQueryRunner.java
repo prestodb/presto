@@ -41,6 +41,7 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
+import static com.facebook.presto.client.StatementClientFactory.DEFAULT_PROTOCOL_VERSION;
 import static com.facebook.presto.tests.AbstractTestQueries.TEST_CATALOG_PROPERTIES;
 import static com.facebook.presto.tests.AbstractTestQueries.TEST_SYSTEM_PROPERTIES;
 import static java.util.Objects.requireNonNull;
@@ -68,7 +69,7 @@ public final class StandaloneQueryRunner
             throw e;
         }
 
-        this.prestoClient = new TestingPrestoClient(server, defaultSession);
+        this.prestoClient = new TestingPrestoClient(server, defaultSession, DEFAULT_PROTOCOL_VERSION);
 
         refreshNodes();
 

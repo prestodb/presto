@@ -35,6 +35,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.client.StatementClientFactory.DEFAULT_PROTOCOL_VERSION;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
@@ -69,7 +70,7 @@ public class RedisLoader
             String tableName,
             String dataFormat)
     {
-        super(prestoServer, defaultSession);
+        super(prestoServer, defaultSession, DEFAULT_PROTOCOL_VERSION);
         this.jedisPool = jedisPool;
         this.tableName = tableName;
         this.dataFormat = dataFormat;

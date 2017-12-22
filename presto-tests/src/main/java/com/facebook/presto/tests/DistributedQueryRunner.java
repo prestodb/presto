@@ -14,6 +14,7 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.client.ProtocolVersion;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.execution.QueryInfo;
@@ -55,6 +56,7 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
+import static com.facebook.presto.client.StatementClientFactory.DEFAULT_PROTOCOL_VERSION;
 import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
 import static com.facebook.presto.testing.TestingSession.createBogusTestingCatalog;
 import static com.facebook.presto.tests.AbstractTestQueries.TEST_CATALOG_PROPERTIES;
@@ -94,7 +96,7 @@ public class DistributedQueryRunner
     public DistributedQueryRunner(Session defaultSession, int workersCount, Map<String, String> extraProperties)
             throws Exception
     {
-        this(defaultSession, workersCount, extraProperties, ImmutableMap.of(), DEFAULT_SQL_PARSER_OPTIONS, ENVIRONMENT);
+        this(defaultSession, workersCount, extraProperties, ImmutableMap.of(), DEFAULT_SQL_PARSER_OPTIONS, ENVIRONMENT, DEFAULT_PROTOCOL_VERSION);
     }
 
     public static Builder builder(Session defaultSession)
@@ -108,7 +110,8 @@ public class DistributedQueryRunner
             Map<String, String> extraProperties,
             Map<String, String> coordinatorProperties,
             SqlParserOptions parserOptions,
-            String environment)
+            String environment,
+            ProtocolVersion protocolVersion)
             throws Exception
     {
         requireNonNull(defaultSession, "defaultSession is null");
@@ -147,7 +150,7 @@ public class DistributedQueryRunner
 
         // copy session using property manager in coordinator
         defaultSession = defaultSession.toSessionRepresentation().toSession(coordinator.getMetadata().getSessionPropertyManager());
-        this.prestoClient = closer.register(new TestingPrestoClient(coordinator, defaultSession));
+        this.prestoClient = closer.register(new TestingPrestoClient(coordinator, defaultSession, protocolVersion));
 
         long start = System.nanoTime();
         while (!allNodesGloballyVisible()) {
@@ -445,6 +448,7 @@ public class DistributedQueryRunner
         private Map<String, String> coordinatorProperties = ImmutableMap.of();
         private SqlParserOptions parserOptions = DEFAULT_SQL_PARSER_OPTIONS;
         private String environment = ENVIRONMENT;
+        private ProtocolVersion protocolVersion = DEFAULT_PROTOCOL_VERSION;
 
         protected Builder(Session defaultSession)
         {
@@ -501,10 +505,23 @@ public class DistributedQueryRunner
             return this;
         }
 
+        public Builder setProtocolVersion(ProtocolVersion protocolVersion)
+        {
+            this.protocolVersion = protocolVersion;
+            return this;
+        }
+
         public DistributedQueryRunner build()
                 throws Exception
         {
-            return new DistributedQueryRunner(defaultSession, workerCount, extraProperties, coordinatorProperties, parserOptions, environment);
+            return new DistributedQueryRunner(
+                    defaultSession,
+                    workerCount,
+                    extraProperties,
+                    coordinatorProperties,
+                    parserOptions,
+                    environment,
+                    protocolVersion);
         }
     }
 }
