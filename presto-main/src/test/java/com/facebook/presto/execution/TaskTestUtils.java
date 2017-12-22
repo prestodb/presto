@@ -39,6 +39,7 @@ import com.facebook.presto.operator.LookupJoinOperators;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
 import com.facebook.presto.server.ServerMainModule;
+import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.TestingTypeManager;
@@ -65,6 +66,7 @@ import com.facebook.presto.testing.TestingMetadata.TestingColumnHandle;
 import com.facebook.presto.testing.TestingMetadata.TestingTableHandle;
 import com.facebook.presto.testing.TestingSplit;
 import com.facebook.presto.testing.TestingTransactionHandle;
+import com.facebook.presto.type.TypeRegistry;
 import com.facebook.presto.util.FinalizerService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -88,6 +90,8 @@ public final class TaskTestUtils
     private TaskTestUtils()
     {
     }
+
+    private static final BlockEncodingSerde BLOCK_ENCODING_SERDE = new BlockEncodingManager(new TypeRegistry());
 
     private static final ConnectorTransactionHandle TRANSACTION_HANDLE = TestingTransactionHandle.create();
 
@@ -172,7 +176,13 @@ public final class TaskTestUtils
 
     public static TaskInfo updateTask(SqlTask sqlTask, List<TaskSource> taskSources, OutputBuffers outputBuffers)
     {
-        return sqlTask.updateTask(TEST_SESSION, Optional.of(PLAN_FRAGMENT), taskSources, outputBuffers, OptionalInt.empty());
+        return sqlTask.updateTask(
+                TEST_SESSION,
+                BLOCK_ENCODING_SERDE,
+                Optional.of(PLAN_FRAGMENT),
+                taskSources,
+                outputBuffers,
+                OptionalInt.empty());
     }
 
     public static QueryMonitor createTestQueryMonitor()

@@ -28,8 +28,10 @@ import com.facebook.presto.memory.MemoryPoolAssignment;
 import com.facebook.presto.memory.MemoryPoolAssignmentsRequest;
 import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.memory.QueryContext;
+import com.facebook.presto.server.TaskClientOutputContext;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spiller.LocalSpillManager;
 import com.facebook.presto.spiller.NodeSpillConfig;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
@@ -94,6 +96,7 @@ public class SqlTaskManager
     private final Duration clientTimeout;
 
     private final LocalMemoryManager localMemoryManager;
+    private final BlockEncodingSerde blockEncodingSerde;
     private final LoadingCache<QueryId, QueryContext> queryContexts;
     private final LoadingCache<TaskId, SqlTask> tasks;
 
@@ -115,6 +118,7 @@ public class SqlTaskManager
             QueryMonitor queryMonitor,
             NodeInfo nodeInfo,
             LocalMemoryManager localMemoryManager,
+            BlockEncodingSerde blockEncodingSerde,
             TaskManagementExecutor taskManagementExecutor,
             TaskManagerConfig config,
             NodeMemoryConfig nodeMemoryConfig,
@@ -138,6 +142,8 @@ public class SqlTaskManager
         SqlTaskExecutionFactory sqlTaskExecutionFactory = new SqlTaskExecutionFactory(taskNotificationExecutor, taskExecutor, planner, queryMonitor, config);
 
         this.localMemoryManager = requireNonNull(localMemoryManager, "localMemoryManager is null");
+        this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
+
         DataSize maxQueryUserMemoryPerNode = nodeMemoryConfig.getMaxQueryMemoryPerNode();
         DataSize maxQueryTotalMemoryPerNode = nodeMemoryConfig.getMaxQueryTotalMemoryPerNode();
         DataSize maxQuerySpillPerNode = nodeSpillConfig.getQueryMaxSpillPerNode();
@@ -362,7 +368,7 @@ public class SqlTaskManager
 
         SqlTask sqlTask = tasks.getUnchecked(taskId);
         sqlTask.recordHeartbeat();
-        return sqlTask.updateTask(session, fragment, sources, outputBuffers, totalPartitions);
+        return sqlTask.updateTask(session, blockEncodingSerde, fragment, sources, outputBuffers, totalPartitions);
     }
 
     @Override
@@ -478,9 +484,15 @@ public class SqlTaskManager
         tasks.getUnchecked(taskId).addStateChangeListener(stateChangeListener);
     }
 
+    @Override
+    public Optional<TaskClientOutputContext> getClientOutputContext(TaskId taskId)
+    {
+        requireNonNull(taskId, "taskId is null");
+        return tasks.getUnchecked(taskId).getClientOutputContext();
+    }
+
     @VisibleForTesting
     public QueryContext getQueryContext(QueryId queryId)
-
     {
         return queryContexts.getUnchecked(queryId);
     }

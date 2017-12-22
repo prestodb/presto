@@ -20,6 +20,7 @@ import com.facebook.presto.TaskSource;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.memory.MemoryPoolAssignmentsRequest;
+import com.facebook.presto.server.TaskClientOutputContext;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
@@ -127,4 +128,10 @@ public interface TaskManager
      * Adds a state change listener to the specified task.
      */
     void addStateChangeListener(TaskId taskId, StateChangeListener<TaskState> stateChangeListener);
+
+    /**
+     * Returns a client output context for a given task.
+     * Used for converting pages to values when sending results to client.
+     */
+    Optional<TaskClientOutputContext> getClientOutputContext(TaskId taskId);
 }

@@ -21,12 +21,17 @@ import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.execution.buffer.LazyOutputBuffer;
 import com.facebook.presto.execution.buffer.OutputBuffer;
+import com.facebook.presto.execution.buffer.PagesSerde;
+import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.operator.PipelineContext;
 import com.facebook.presto.operator.PipelineStatus;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskStats;
+import com.facebook.presto.server.TaskClientOutputContext;
+import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.sql.planner.PlanFragment;
+import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
@@ -53,6 +58,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.SystemSessionProperties.isExchangeCompressionEnabled;
 import static com.facebook.presto.execution.TaskState.ABORTED;
 import static com.facebook.presto.execution.TaskState.FAILED;
 import static com.facebook.presto.util.Failures.toFailures;
@@ -82,6 +88,7 @@ public class SqlTask
     private final AtomicReference<DateTime> lastHeartbeat = new AtomicReference<>(DateTime.now());
     private final AtomicLong nextTaskInfoVersion = new AtomicLong(TaskStatus.STARTING_VERSION);
 
+    private final AtomicReference<Optional<TaskClientOutputContext>> clientOutputContext = new AtomicReference<>(Optional.empty());
     private final AtomicReference<TaskHolder> taskHolderReference = new AtomicReference<>(new TaskHolder());
     private final AtomicBoolean needsPlan = new AtomicBoolean(true);
 
@@ -342,7 +349,13 @@ public class SqlTask
         return Futures.transform(futureTaskState, input -> getTaskInfo(), directExecutor());
     }
 
-    public TaskInfo updateTask(Session session, Optional<PlanFragment> fragment, List<TaskSource> sources, OutputBuffers outputBuffers, OptionalInt totalPartitions)
+    public TaskInfo updateTask(
+            Session session,
+            BlockEncodingSerde blockEncodingSerde,
+            Optional<PlanFragment> fragment,
+            List<TaskSource> sources,
+            OutputBuffers outputBuffers,
+            OptionalInt totalPartitions)
     {
         try {
             // The LazyOutput buffer does not support write methods, so the actual
@@ -361,6 +374,16 @@ public class SqlTask
                 taskExecution = taskHolder.getTaskExecution();
                 if (taskExecution == null) {
                     checkState(fragment.isPresent(), "fragment must be present");
+
+                    // The client output context must be created before creating the task execution to
+                    // prevent a race condition where execution is finished but types are not ready.
+                    // Types are accessed by the task resource in order to convert pages to client output.
+                    if (!clientOutputContext.get().isPresent() && (fragment.get().getRoot() instanceof OutputNode)) {
+                        PagesSerde serde = new PagesSerdeFactory(blockEncodingSerde, isExchangeCompressionEnabled(session)).createPagesSerde();
+                        TaskClientOutputContext context = new TaskClientOutputContext(fragment.get().getTypes(), serde, session.toConnectorSession());
+                        this.clientOutputContext.set(Optional.of(context));
+                    }
+
                     taskExecution = sqlTaskExecutionFactory.create(session, queryContext, taskStateMachine, outputBuffer, fragment.get(), sources, totalPartitions);
                     taskHolderReference.compareAndSet(taskHolder, new TaskHolder(taskExecution));
                     needsPlan.set(false);
@@ -424,6 +447,11 @@ public class SqlTask
     {
         taskStateMachine.abort();
         return getTaskInfo();
+    }
+
+    public Optional<TaskClientOutputContext> getClientOutputContext()
+    {
+        return clientOutputContext.get();
     }
 
     @Override

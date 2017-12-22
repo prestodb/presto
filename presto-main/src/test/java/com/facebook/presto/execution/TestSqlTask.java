@@ -16,6 +16,7 @@ package com.facebook.presto.execution;
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.OutputBuffers.OutputBufferId;
 import com.facebook.presto.TaskSource;
+import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.execution.buffer.BufferState;
 import com.facebook.presto.execution.executor.TaskExecutor;
@@ -25,6 +26,7 @@ import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spiller.SpillSpaceTracker;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
+import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Functions;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
@@ -68,6 +70,8 @@ import static org.testng.Assert.fail;
 @Test(singleThreaded = true)
 public class TestSqlTask
 {
+    private static final BlockEncodingManager BLOCK_ENCODING_SERDE = new BlockEncodingManager(new TypeRegistry());
+
     public static final OutputBufferId OUT = new OutputBufferId(0);
     private final TaskExecutor taskExecutor;
     private final ScheduledExecutorService taskNotificationExecutor;
@@ -107,7 +111,9 @@ public class TestSqlTask
     {
         SqlTask sqlTask = createInitialTask();
 
-        TaskInfo taskInfo = sqlTask.updateTask(TEST_SESSION,
+        TaskInfo taskInfo = sqlTask.updateTask(
+                TEST_SESSION,
+                BLOCK_ENCODING_SERDE,
                 Optional.of(PLAN_FRAGMENT),
                 ImmutableList.of(),
                 createInitialEmptyOutputBuffers(PARTITIONED)
@@ -118,7 +124,9 @@ public class TestSqlTask
         taskInfo = sqlTask.getTaskInfo();
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
 
-        taskInfo = sqlTask.updateTask(TEST_SESSION,
+        taskInfo = sqlTask.updateTask(
+                TEST_SESSION,
+                BLOCK_ENCODING_SERDE,
                 Optional.of(PLAN_FRAGMENT),
                 ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.of(), true)),
                 createInitialEmptyOutputBuffers(PARTITIONED)
@@ -136,7 +144,9 @@ public class TestSqlTask
     {
         SqlTask sqlTask = createInitialTask();
 
-        TaskInfo taskInfo = sqlTask.updateTask(TEST_SESSION,
+        TaskInfo taskInfo = sqlTask.updateTask(
+                TEST_SESSION,
+                BLOCK_ENCODING_SERDE,
                 Optional.of(PLAN_FRAGMENT),
                 ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.of(SPLIT), true)),
                 createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds(),
@@ -172,7 +182,9 @@ public class TestSqlTask
     {
         SqlTask sqlTask = createInitialTask();
 
-        TaskInfo taskInfo = sqlTask.updateTask(TEST_SESSION,
+        TaskInfo taskInfo = sqlTask.updateTask(
+                TEST_SESSION,
+                BLOCK_ENCODING_SERDE,
                 Optional.of(PLAN_FRAGMENT),
                 ImmutableList.of(),
                 createInitialEmptyOutputBuffers(PARTITIONED)
@@ -201,7 +213,9 @@ public class TestSqlTask
     {
         SqlTask sqlTask = createInitialTask();
 
-        TaskInfo taskInfo = sqlTask.updateTask(TEST_SESSION,
+        TaskInfo taskInfo = sqlTask.updateTask(
+                TEST_SESSION,
+                BLOCK_ENCODING_SERDE,
                 Optional.of(PLAN_FRAGMENT),
                 ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.of(SPLIT), true)),
                 createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds(),

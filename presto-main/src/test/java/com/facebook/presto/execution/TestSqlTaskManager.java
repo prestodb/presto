@@ -17,6 +17,7 @@ import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.OutputBuffers.OutputBufferId;
 import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.TaskSource;
+import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.execution.buffer.BufferState;
 import com.facebook.presto.execution.executor.TaskExecutor;
@@ -30,6 +31,7 @@ import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spiller.LocalSpillManager;
 import com.facebook.presto.spiller.NodeSpillConfig;
+import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -62,6 +64,8 @@ import static org.testng.Assert.assertNull;
 @Test
 public class TestSqlTaskManager
 {
+    private static final BlockEncodingManager BLOCK_ENCODING_SERDE = new BlockEncodingManager(new TypeRegistry());
+
     private static final TaskId TASK_ID = new TaskId("query", 0, 1);
     public static final OutputBufferId OUT = new OutputBufferId(0);
 
@@ -241,6 +245,7 @@ public class TestSqlTaskManager
                 createTestQueryMonitor(),
                 new NodeInfo("test"),
                 localMemoryManager,
+                BLOCK_ENCODING_SERDE,
                 taskManagementExecutor,
                 config,
                 new NodeMemoryConfig(),
