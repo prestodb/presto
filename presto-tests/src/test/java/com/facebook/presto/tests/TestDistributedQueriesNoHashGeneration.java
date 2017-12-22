@@ -13,15 +13,15 @@
  */
 package com.facebook.presto.tests;
 
-import com.google.common.collect.ImmutableMap;
-
-import static com.facebook.presto.tests.tpch.TpchQueryRunner.createQueryRunner;
+import com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder;
 
 public class TestDistributedQueriesNoHashGeneration
         extends AbstractTestQueries
 {
     public TestDistributedQueriesNoHashGeneration()
     {
-        super(() -> createQueryRunner(ImmutableMap.of(), ImmutableMap.of("optimizer.optimize-hash-generation", "false")));
+        super(() -> TpchQueryRunnerBuilder.builder()
+                .setSingleCoordinatorProperty("optimizer.optimize-hash-generation", "false")
+                .build());
     }
 }

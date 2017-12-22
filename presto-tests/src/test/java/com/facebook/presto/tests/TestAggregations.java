@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.tests;
 
-import com.facebook.presto.tests.tpch.TpchQueryRunner;
+import com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder;
 
 public class TestAggregations
         extends AbstractTestAggregations
 {
     public TestAggregations()
     {
-        super(TpchQueryRunner::createQueryRunner);
+        super(() -> TpchQueryRunnerBuilder.builder().build());
     }
 }
