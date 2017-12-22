@@ -20,11 +20,12 @@ import org.testng.annotations.Test;
 import java.util.Base64;
 import java.util.List;
 
+import static com.facebook.presto.client.FixJsonDataUtils.fixData;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.google.common.collect.Lists.newArrayList;
 import static org.testng.Assert.assertEquals;
 
-public class TestQueryResults
+public class TestFixJsonDataUtils
 {
     @Test
     public void testFixData()
@@ -58,7 +59,7 @@ public class TestQueryResults
 
     private void assertQueryResult(String type, Object data, Object expected)
     {
-        List<List<Object>> rows = newArrayList(QueryResults.fixData(
+        List<List<Object>> rows = newArrayList(fixData(
                 ImmutableList.of(new Column("test", type, new ClientTypeSignature(parseTypeSignature(type)))),
                 ImmutableList.of(ImmutableList.of(data))));
         assertEquals(rows.size(), 1);
