@@ -68,6 +68,7 @@ import com.facebook.presto.memory.TotalReservationLowMemoryKiller;
 import com.facebook.presto.memory.TotalReservationOnBlockedNodesLowMemoryKiller;
 import com.facebook.presto.operator.ForScheduler;
 import com.facebook.presto.server.protocol.StatementResource;
+import com.facebook.presto.server.protocol.StatementResourceV2;
 import com.facebook.presto.server.remotetask.RemoteTaskStats;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -155,11 +156,17 @@ public class CoordinatorModule
         // presto coordinator announcement
         discoveryBinder(binder).bindHttpAnnouncement("presto-coordinator");
 
+        // build FeatureConfig which is used for conditional bindings
+        FeaturesConfig featuresConfig = buildConfigObject(FeaturesConfig.class);
+
         // statement resource
         jsonCodecBinder(binder).bindJsonCodec(QueryInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(QueryResults.class);
         jaxrsBinder(binder).bind(StatementResource.class);
+        if (featuresConfig.isEnableClientProtocolV2()) {
+            jaxrsBinder(binder).bind(StatementResourceV2.class);
+        }
 
         // query execution visualizer
         jaxrsBinder(binder).bind(QueryExecutionResource.class);
@@ -176,7 +183,7 @@ public class CoordinatorModule
         newExporter(binder).export(InternalResourceGroupManager.class).withGeneratedName();
         binder.bind(ResourceGroupManager.class).to(InternalResourceGroupManager.class);
         binder.bind(LegacyResourceGroupConfigurationManagerFactory.class).in(Scopes.SINGLETON);
-        if (buildConfigObject(FeaturesConfig.class).isResourceGroupsEnabled()) {
+        if (featuresConfig.isResourceGroupsEnabled()) {
             binder.bind(QueryQueueManager.class).to(InternalResourceGroupManager.class);
         }
         else {

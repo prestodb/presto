@@ -289,6 +289,9 @@ public class ServerMainModule
 
         // task execution
         jaxrsBinder(binder).bind(TaskResource.class);
+        if (buildConfigObject(FeaturesConfig.class).isEnableClientProtocolV2()) {
+            jaxrsBinder(binder).bind(TaskResource.TaskDownloadResource.class);
+        }
         newExporter(binder).export(TaskResource.class).withGeneratedName();
         binder.bind(TaskManagementExecutor.class).in(Scopes.SINGLETON);
         binder.bind(SqlTaskManager.class).in(Scopes.SINGLETON);
