@@ -23,7 +23,6 @@ import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
-import io.airlift.log.Logger;
 import org.fusesource.jansi.Ansi;
 import sun.misc.Signal;
 import sun.misc.SignalHandler;
@@ -51,8 +50,6 @@ import static java.util.Objects.requireNonNull;
 public class Query
         implements Closeable
 {
-    private static final Logger log = Logger.get(Query.class);
-
     private static final Signal SIGINT = new Signal("INT");
 
     private final AtomicBoolean ignoreUserInterrupt = new AtomicBoolean();
