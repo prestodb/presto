@@ -71,6 +71,7 @@ public class DistributedQueryRunner
 {
     private static final Logger log = Logger.get(DistributedQueryRunner.class);
     private static final String ENVIRONMENT = "testing";
+    private static final SqlParserOptions DEFAULT_SQL_PARSER_OPTIONS = new SqlParserOptions();
 
     private final TestingDiscoveryServer discoveryServer;
     private final TestingPrestoServer coordinator;
@@ -82,21 +83,28 @@ public class DistributedQueryRunner
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
 
-    public DistributedQueryRunner(Session defaultSession, int workersCount)
+    @Deprecated
+    public DistributedQueryRunner(Session defaultSession, int nodeCount)
             throws Exception
     {
-        this(defaultSession, workersCount, ImmutableMap.of());
+        this(defaultSession, nodeCount, ImmutableMap.of());
     }
 
-    public DistributedQueryRunner(Session defaultSession, int workersCount, Map<String, String> extraProperties)
+    @Deprecated
+    public DistributedQueryRunner(Session defaultSession, int nodeCount, Map<String, String> extraProperties)
             throws Exception
     {
-        this(defaultSession, workersCount, extraProperties, ImmutableMap.of(), new SqlParserOptions());
+        this(defaultSession, nodeCount, extraProperties, ImmutableMap.of(), DEFAULT_SQL_PARSER_OPTIONS, ENVIRONMENT);
     }
 
-    public DistributedQueryRunner(
+    public static Builder builder(Session defaultSession)
+    {
+        return new Builder(defaultSession);
+    }
+
+    private DistributedQueryRunner(
             Session defaultSession,
-            int workersCount,
+            int nodeCount,
             Map<String, String> extraProperties,
             Map<String, String> coordinatorProperties,
             SqlParserOptions parserOptions,
@@ -113,7 +121,7 @@ public class DistributedQueryRunner
 
             ImmutableList.Builder<TestingPrestoServer> servers = ImmutableList.builder();
 
-            for (int i = 1; i < workersCount; i++) {
+            for (int i = 1; i < nodeCount; i++) {
                 TestingPrestoServer worker = closer.register(createTestingPrestoServer(discoveryServer.getBaseUrl(), false, extraProperties, parserOptions, environment));
                 servers.add(worker);
             }
@@ -162,17 +170,6 @@ public class DistributedQueryRunner
             sessionPropertyManager.addSystemSessionProperties(TEST_SYSTEM_PROPERTIES);
             sessionPropertyManager.addConnectorSessionProperties(bogusTestingCatalog.getConnectorId(), TEST_CATALOG_PROPERTIES);
         }
-    }
-
-    public DistributedQueryRunner(
-            Session defaultSession,
-            int workersCount,
-            Map<String, String> extraProperties,
-            Map<String, String> coordinatorProperties,
-            SqlParserOptions parserOptions)
-            throws Exception
-    {
-        this(defaultSession, workersCount, extraProperties, coordinatorProperties, parserOptions, ENVIRONMENT);
     }
 
     private static TestingPrestoServer createTestingPrestoServer(URI discoveryUri, boolean coordinator, Map<String, String> extraProperties, SqlParserOptions parserOptions, String environment)
@@ -435,6 +432,77 @@ public class DistributedQueryRunner
         catch (Exception e) {
             throwIfUnchecked(e);
             throw new RuntimeException(e);
+        }
+    }
+
+    public static class Builder
+    {
+        private final Session defaultSession;
+        private int nodeCount = 4;
+        private Map<String, String> extraProperties = ImmutableMap.of();
+        private Map<String, String> coordinatorProperties = ImmutableMap.of();
+        private SqlParserOptions parserOptions = DEFAULT_SQL_PARSER_OPTIONS;
+        private String environment = ENVIRONMENT;
+
+        protected Builder(Session defaultSession)
+        {
+            this.defaultSession = defaultSession;
+        }
+
+        public Builder setNodeCount(int nodeCount)
+        {
+            this.nodeCount = nodeCount;
+            return this;
+        }
+
+        public Builder setExtraProperties(Map<String, String> extraProperties)
+        {
+            this.extraProperties = extraProperties;
+            return this;
+        }
+
+        /**
+         * Sets extra properties being equal to a map containing given key and value.
+         * Note, that calling this method OVERWRITES previously set property values.
+         * As a result, it should only be used when only one extra property needs to be set.
+         */
+        public Builder setSingleExtraProperty(String key, String value)
+        {
+            return setExtraProperties(ImmutableMap.of(key, value));
+        }
+
+        public Builder setCoordinatorProperties(Map<String, String> coordinatorProperties)
+        {
+            this.coordinatorProperties = coordinatorProperties;
+            return this;
+        }
+
+        /**
+         * Sets coordinator properties being equal to a map containing given key and value.
+         * Note, that calling this method OVERWRITES previously set property values.
+         * As a result, it should only be used when only one coordinator property needs to be set.
+         */
+        public Builder setSingleCoordinatorProperty(String key, String value)
+        {
+            return setCoordinatorProperties(ImmutableMap.of(key, value));
+        }
+
+        public Builder setParserOptions(SqlParserOptions parserOptions)
+        {
+            this.parserOptions = parserOptions;
+            return this;
+        }
+
+        public Builder setEnvironment(String environment)
+        {
+            this.environment = environment;
+            return this;
+        }
+
+        public DistributedQueryRunner build()
+                throws Exception
+        {
+            return new DistributedQueryRunner(defaultSession, nodeCount, extraProperties, coordinatorProperties, parserOptions, environment);
         }
     }
 }

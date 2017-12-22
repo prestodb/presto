@@ -22,7 +22,6 @@ import com.facebook.presto.resourceGroups.db.H2ResourceGroupsDao;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupSelector;
-import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableList;
@@ -125,13 +124,12 @@ class H2TestUtil
     public static DistributedQueryRunner createQueryRunner(String dbConfigUrl, H2ResourceGroupsDao dao, String environment)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = new DistributedQueryRunner(
-                testSessionBuilder().setCatalog("tpch").setSchema("tiny").build(),
-                2,
-                ImmutableMap.of("experimental.resource-groups-enabled", "true"),
-                ImmutableMap.of(),
-                new SqlParserOptions(),
-                environment);
+        DistributedQueryRunner queryRunner = DistributedQueryRunner
+                .builder(testSessionBuilder().setCatalog("tpch").setSchema("tiny").build())
+                .setNodeCount(2)
+                .setSingleExtraProperty("experimental.resource-groups-enabled", "true")
+                .setEnvironment(environment)
+                .build();
         try {
             Plugin h2ResourceGroupManagerPlugin = new H2ResourceGroupManagerPlugin();
             queryRunner.installPlugin(h2ResourceGroupManagerPlugin);
