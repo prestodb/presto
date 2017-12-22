@@ -15,12 +15,29 @@ package com.facebook.presto.client;
 
 import okhttp3.OkHttpClient;
 
+import static java.util.Objects.requireNonNull;
+
 public final class StatementClientFactory
 {
+    public static final ProtocolVersion DEFAULT_PROTOCOL_VERSION = ProtocolVersion.V1;
+
     private StatementClientFactory() {}
 
     public static StatementClient newStatementClient(OkHttpClient httpClient, ClientSession session, String query)
     {
-        return new StatementClientV1(httpClient, session, query);
+        return newStatementClient(DEFAULT_PROTOCOL_VERSION, httpClient, session, query);
+    }
+
+    public static StatementClient newStatementClient(ProtocolVersion protocolVersion, OkHttpClient httpClient, ClientSession session, String query)
+    {
+        requireNonNull(protocolVersion, "protocolVersion is null");
+        switch (protocolVersion) {
+            case V1:
+                return new StatementClientV1(httpClient, session, query);
+            case V2:
+                return new StatementClientV2(httpClient, session, query);
+            default:
+                throw new IllegalArgumentException("Unknown protocol version: " + protocolVersion);
+        }
     }
 }
