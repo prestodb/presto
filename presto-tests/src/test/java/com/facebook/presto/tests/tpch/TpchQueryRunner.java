@@ -26,32 +26,34 @@ import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 
 public final class TpchQueryRunner
 {
-    private static final int DEFAULT_WORKER_COUNT = 4;
+    private Map<String, String> extraProperties = ImmutableMap.of();
+    private Map<String, String> coordinatorProperties = ImmutableMap.of();
+    private int nodeCount = 4;
 
     private TpchQueryRunner() {}
 
-    public static DistributedQueryRunner createQueryRunner()
-            throws Exception
+    public TpchQueryRunner setExtraProperties(Map<String, String> extraProperties)
     {
-        return createQueryRunner(ImmutableMap.of());
+        this.extraProperties = extraProperties;
+        return this;
     }
 
-    public static DistributedQueryRunner createQueryRunner(Map<String, String> extraProperties)
-            throws Exception
+    public TpchQueryRunner setCoordinatorProperties(Map<String, String> coordinatorProperties)
     {
-        return createQueryRunner(extraProperties, ImmutableMap.of());
+        this.coordinatorProperties = coordinatorProperties;
+        return this;
     }
 
-    public static DistributedQueryRunner createQueryRunner(Map<String, String> extraProperties, Map<String, String> coordinatorProperties)
-            throws Exception
+    public TpchQueryRunner setNodeCount(int nodeCount)
     {
-        return createQueryRunner(extraProperties, coordinatorProperties, DEFAULT_WORKER_COUNT);
+        this.nodeCount = nodeCount;
+        return this;
     }
 
-    public static DistributedQueryRunner createQueryRunner(Map<String, String> extraProperties, Map<String, String> coordinatorProperties, int nodeCount)
+    public DistributedQueryRunner build()
             throws Exception
     {
-        DistributedQueryRunner queryRunner = createQueryRunnerWithoutCatalogs(extraProperties, coordinatorProperties, nodeCount);
+        DistributedQueryRunner queryRunner = buildWithoutCatalogs();
         try {
             queryRunner.createCatalog("tpch", "tpch");
 
@@ -63,13 +65,7 @@ public final class TpchQueryRunner
         }
     }
 
-    public static DistributedQueryRunner createQueryRunnerWithoutCatalogs(Map<String, String> extraProperties, Map<String, String> coordinatorProperties)
-            throws Exception
-    {
-        return createQueryRunnerWithoutCatalogs(extraProperties, coordinatorProperties, DEFAULT_WORKER_COUNT);
-    }
-
-    public static DistributedQueryRunner createQueryRunnerWithoutCatalogs(Map<String, String> extraProperties, Map<String, String> coordinatorProperties, int nodeCount)
+    public DistributedQueryRunner buildWithoutCatalogs()
             throws Exception
     {
         Session session = testSessionBuilder()
@@ -94,11 +90,25 @@ public final class TpchQueryRunner
         }
     }
 
+    public static TpchQueryRunner builder()
+    {
+        return new TpchQueryRunner();
+    }
+
+    // keep this method for convenience as it's common to pass no parameters
+    public static DistributedQueryRunner createQueryRunner()
+            throws Exception
+    {
+        return builder().build();
+    }
+
     public static void main(String[] args)
             throws Exception
     {
         Logging.initialize();
-        DistributedQueryRunner queryRunner = createQueryRunner(ImmutableMap.of("http-server.http.port", "8080"));
+        DistributedQueryRunner queryRunner = builder()
+                .setExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
+                .build();
         Thread.sleep(10);
         Logger log = Logger.get(TpchQueryRunner.class);
         log.info("======== SERVER STARTED ========");

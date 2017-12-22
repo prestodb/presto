@@ -284,7 +284,7 @@ public class TestQueues
     public void testQueryTypeBasedSelection()
             throws Exception
     {
-        try (DistributedQueryRunner queryRunner = TpchQueryRunner.createQueryRunner(ImmutableMap.of(), ImmutableMap.of("experimental.resource-groups-enabled", "true"))) {
+        try (DistributedQueryRunner queryRunner = TpchQueryRunner.builder().setCoordinatorProperties(ImmutableMap.of("experimental.resource-groups-enabled", "true")).build()) {
             queryRunner.installPlugin(new ResourceGroupManagerPlugin());
             queryRunner.getCoordinator().getResourceGroupManager().get()
                     .setConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_query_type_based_config.json")));

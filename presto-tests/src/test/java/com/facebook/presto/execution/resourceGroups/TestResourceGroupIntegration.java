@@ -17,10 +17,10 @@ import com.facebook.presto.resourceGroups.ResourceGroupManagerPlugin;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupInfo;
 import com.facebook.presto.tests.DistributedQueryRunner;
+import com.facebook.presto.tests.tpch.TpchQueryRunner;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.tests.tpch.TpchQueryRunner.createQueryRunner;
 import static io.airlift.testing.Assertions.assertLessThan;
 import static io.airlift.units.Duration.nanosSince;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -31,7 +31,9 @@ public class TestResourceGroupIntegration
     public void testMemoryFraction()
             throws Exception
     {
-        try (DistributedQueryRunner queryRunner = createQueryRunner(ImmutableMap.of(), ImmutableMap.of("experimental.resource-groups-enabled", "true"))) {
+        try (DistributedQueryRunner queryRunner = TpchQueryRunner.builder()
+                .setCoordinatorProperties(ImmutableMap.of("experimental.resource-groups-enabled", "true"))
+                .build()) {
             queryRunner.installPlugin(new ResourceGroupManagerPlugin());
             getResourceGroupManager(queryRunner).setConfigurationManager("file", ImmutableMap.of(
                     "resource-groups.config-file", getResourceFilePath("resource_groups_memory_percentage.json")));

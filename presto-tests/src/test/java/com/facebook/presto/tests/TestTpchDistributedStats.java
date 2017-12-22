@@ -20,6 +20,7 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.tests.statistics.Metric;
 import com.facebook.presto.tests.statistics.MetricComparator;
 import com.facebook.presto.tests.statistics.MetricComparison;
+import com.facebook.presto.tests.tpch.TpchQueryRunner;
 import com.facebook.presto.tpch.ColumnNaming;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
@@ -39,10 +40,8 @@ import static com.facebook.presto.tests.statistics.MetricComparison.Result.DIFFE
 import static com.facebook.presto.tests.statistics.MetricComparison.Result.MATCH;
 import static com.facebook.presto.tests.statistics.MetricComparison.Result.NO_BASELINE;
 import static com.facebook.presto.tests.statistics.MetricComparison.Result.NO_ESTIMATE;
-import static com.facebook.presto.tests.tpch.TpchQueryRunner.createQueryRunnerWithoutCatalogs;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
-import static java.util.Collections.emptyMap;
 import static java.util.stream.Collectors.groupingBy;
 import static org.testng.Assert.assertEquals;
 
@@ -57,7 +56,7 @@ public class TestTpchDistributedStats
     public void setUp()
             throws Exception
     {
-        runner = createQueryRunnerWithoutCatalogs(emptyMap(), emptyMap());
+        runner = TpchQueryRunner.builder().buildWithoutCatalogs();
         runner.createCatalog("tpch", "tpch", ImmutableMap.of(
                 "tpch.column-naming", ColumnNaming.STANDARD.name()));
     }
