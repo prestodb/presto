@@ -132,6 +132,7 @@
         <module name="DefaultComesLast" />
         <module name="ArrayTypeStyle" />
         <module name="MultipleVariableDeclarations" />
+        <module name="FallThrough" />
         <module name="ModifierOrder" />
         <module name="OneStatementPerLine" />
         <module name="StringLiteralEquality" />

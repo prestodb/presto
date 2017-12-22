@@ -75,6 +75,7 @@ import static com.facebook.presto.sql.tree.ComparisonExpressionType.LESS_THAN_OR
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.NOT_EQUAL;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterators.peekingIterator;
 import static java.util.Collections.emptyList;
@@ -613,7 +614,8 @@ public final class DomainTranslator
                     else if (coercedValueIsEqualToOriginal) {
                         return new ComparisonExpression(comparisonType, symbolExpression, coercedLiteral);
                     }
-                    else if (coercedValueIsLessThanOriginal) {
+                    else {
+                        verify(coercedValueIsLessThanOriginal);
                         return new ComparisonExpression(GREATER_THAN, symbolExpression, coercedLiteral);
                     }
                 }
@@ -625,7 +627,8 @@ public final class DomainTranslator
                     else if (coercedValueIsEqualToOriginal) {
                         return new ComparisonExpression(comparisonType, symbolExpression, coercedLiteral);
                     }
-                    else if (coercedValueIsGreaterThanOriginal) {
+                    else {
+                        verify(coercedValueIsGreaterThanOriginal);
                         return new ComparisonExpression(LESS_THAN, symbolExpression, coercedLiteral);
                     }
                 }

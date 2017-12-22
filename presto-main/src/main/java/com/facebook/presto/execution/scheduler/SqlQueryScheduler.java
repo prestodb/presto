@@ -628,6 +628,7 @@ public class SqlQueryScheduler
                 case CANCELED:
                     // no more workers will be added to the query
                     noMoreTasks = true;
+                    // fall through
                 case ABORTED:
                 case FAILED:
                     // DO NOT complete a FAILED or ABORTED stage.  This will cause the
