@@ -27,7 +27,6 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.Duration;
 
@@ -58,7 +57,6 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
  */
 public class OperatorContext
 {
-    private static final Logger log = Logger.get(OperatorContext.class);
     private static final ThreadMXBean THREAD_MX_BEAN = ManagementFactory.getThreadMXBean();
 
     private final int operatorId;
@@ -109,7 +107,6 @@ public class OperatorContext
     private Runnable memoryRevocationRequestListener;
 
     private final MemoryTrackingContext operatorMemoryContext;
-    private final AtomicLong peakUserMemory = new AtomicLong();
 
     public OperatorContext(
             int operatorId,
@@ -263,13 +260,13 @@ public class OperatorContext
     // caller shouldn't close this context as it's managed by the OperatorContext
     public LocalMemoryContext localUserMemoryContext()
     {
-        return new DecoratedLocalMemoryContext(operatorMemoryContext.localUserMemoryContext(), memoryFuture, Optional.of(peakUserMemory));
+        return new DecoratedLocalMemoryContext(operatorMemoryContext.localUserMemoryContext(), memoryFuture);
     }
 
     // caller shouldn't close this context as it's managed by the OperatorContext
     public LocalMemoryContext localRevocableMemoryContext()
     {
-        return new DecoratedLocalMemoryContext(operatorMemoryContext.localRevocableMemoryContext(), revocableMemoryFuture, Optional.empty());
+        return new DecoratedLocalMemoryContext(operatorMemoryContext.localRevocableMemoryContext(), revocableMemoryFuture);
     }
 
     // caller should close this context as it's a new context
@@ -334,11 +331,6 @@ public class OperatorContext
         }
     }
 
-    public long getPeakUserMemory()
-    {
-        return peakUserMemory.get();
-    }
-
     public SpillContext getSpillContext()
     {
         return spillContext;
@@ -376,9 +368,7 @@ public class OperatorContext
         LocalMemoryContext localMemoryContext = operatorMemoryContext.localUserMemoryContext();
         long delta = newMemoryReservation - operatorMemoryContext.getUserMemory();
         if (delta > 0) {
-            boolean result = localMemoryContext.trySetBytes(delta);
-            peakUserMemory.accumulateAndGet(localMemoryContext.getBytes(), Math::max);
-            return result;
+            return localMemoryContext.trySetBytes(delta);
         }
         localMemoryContext.setBytes(newMemoryReservation);
         return true;
@@ -626,13 +616,11 @@ public class OperatorContext
     {
         private final LocalMemoryContext delegate;
         private final AtomicReference<SettableFuture<?>> memoryFuture;
-        private final Optional<AtomicLong> peakMemory;
 
-        public DecoratedLocalMemoryContext(LocalMemoryContext delegate, AtomicReference<SettableFuture<?>> memoryFuture, Optional<AtomicLong> peakMemory)
+        public DecoratedLocalMemoryContext(LocalMemoryContext delegate, AtomicReference<SettableFuture<?>> memoryFuture)
         {
             this.delegate = requireNonNull(delegate, "delegate is null");
             this.memoryFuture = requireNonNull(memoryFuture, "memoryFuture is null");
-            this.peakMemory = requireNonNull(peakMemory, "peakMemory is null");
         }
 
         @Override
@@ -646,20 +634,13 @@ public class OperatorContext
         {
             ListenableFuture<?> blocked = delegate.setBytes(bytes);
             updateMemoryFuture(blocked, memoryFuture);
-            if (peakMemory.isPresent()) {
-                peakMemory.get().accumulateAndGet(delegate.getBytes(), Math::max);
-            }
             return blocked;
         }
 
         @Override
         public boolean trySetBytes(long bytes)
         {
-            boolean result = delegate.trySetBytes(bytes);
-            if (peakMemory.isPresent()) {
-                peakMemory.get().accumulateAndGet(delegate.getBytes(), Math::max);
-            }
-            return result;
+            return delegate.trySetBytes(bytes);
         }
 
         @Override
