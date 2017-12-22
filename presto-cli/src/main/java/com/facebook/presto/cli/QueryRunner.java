@@ -72,7 +72,7 @@ public class QueryRunner
 
         OkHttpClient.Builder builder = new OkHttpClient.Builder();
 
-        setupTimeouts(builder, 5, SECONDS);
+        setupTimeouts(builder, 30, SECONDS);
         setupCookieJar(builder);
         setupSocksProxy(builder, socksProxy);
         setupHttpProxy(builder, httpProxy);
