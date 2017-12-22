@@ -178,7 +178,6 @@ public class TestMemoryTracking
     @Test
     public void testStats()
     {
-        MemoryTrackingContext operatorMemoryContext = operatorContext.getOperatorMemoryContext();
         LocalMemoryContext systemMemory = operatorContext.newLocalSystemMemoryContext();
         LocalMemoryContext userMemory = operatorContext.localUserMemoryContext();
         userMemory.setBytes(100_000_000);
@@ -191,8 +190,7 @@ public class TestMemoryTracking
                 taskContext.getTaskStats(),
                 100_000_000,
                 0,
-                200_000_000,
-                100_000_000);
+                200_000_000);
 
         // allocate more and check peak memory reservation
         userMemory.setBytes(600_000_000);
@@ -203,8 +201,7 @@ public class TestMemoryTracking
                 taskContext.getTaskStats(),
                 600_000_000,
                 0,
-                200_000_000,
-                600_000_000);
+                200_000_000);
 
         userMemory.setBytes(userMemory.getBytes() - 300_000_000);
         assertStats(
@@ -214,8 +211,7 @@ public class TestMemoryTracking
                 taskContext.getTaskStats(),
                 300_000_000,
                 0,
-                200_000_000,
-                600_000_000);
+                200_000_000);
 
         userMemory.setBytes(userMemory.getBytes() - 300_000_000);
         assertStats(
@@ -225,8 +221,7 @@ public class TestMemoryTracking
                 taskContext.getTaskStats(),
                 0,
                 0,
-                200_000_000,
-                600_000_000);
+                200_000_000);
 
         operatorContext.destroy();
 
@@ -237,8 +232,7 @@ public class TestMemoryTracking
                 taskContext.getTaskStats(),
                 0,
                 0,
-                0,
-                600_000_000);
+                0);
     }
 
     @Test
@@ -255,8 +249,8 @@ public class TestMemoryTracking
                 taskContext.getTaskStats(),
                 0,
                 100_000_000,
-                0,
                 0);
+
         userMemory.setBytes(100_000_000);
         systemMemory.setBytes(100_000_000);
         revocableMemory.setBytes(200_000_000);
@@ -267,23 +261,7 @@ public class TestMemoryTracking
                 taskContext.getTaskStats(),
                 100_000_000,
                 200_000_000,
-                100_000_000,
                 100_000_000);
-    }
-
-    @Test
-    public void testPeakMemoryReservation()
-    {
-        LocalMemoryContext userMemory = operatorContext.localUserMemoryContext();
-        userMemory.setBytes(1000);
-        assertEquals(driverContext.getDriverStats().getPeakMemoryReservation().toBytes(), 1000);
-        userMemory.setBytes(3000);
-        assertEquals(driverContext.getDriverStats().getPeakMemoryReservation().toBytes(), 3000);
-        userMemory.setBytes(4500);
-        assertEquals(driverContext.getDriverStats().getPeakMemoryReservation().toBytes(), 4500);
-        assertTrue(operatorContext.trySetMemoryReservation(3500));
-        assertEquals(driverContext.getDriverStats().getPeakMemoryReservation().toBytes(), 4500,
-                "setting reservation to a lower value shouldn't change peak memory reservation");
     }
 
     @Test
@@ -297,8 +275,7 @@ public class TestMemoryTracking
                 taskContext.getTaskStats(),
                 100_000_000,
                 0,
-                0,
-                100_000_000); // trySetMemoryReservation should update peak usage
+                0);
 
         assertTrue(operatorContext.trySetMemoryReservation(200_000_000));
         assertStats(
@@ -308,8 +285,7 @@ public class TestMemoryTracking
                 taskContext.getTaskStats(),
                 200_000_000,
                 0,
-                0,
-                200_000_000); // trySetMemoryReservation should update peak usage
+                0);
 
         assertFalse(operatorContext.trySetMemoryReservation(userPool.getMaxBytes() + 1));
         // the allocation should fail and we should have the same stats as before
@@ -320,8 +296,7 @@ public class TestMemoryTracking
                 taskContext.getTaskStats(),
                 200_000_000,
                 0,
-                0,
-                200_000_000);
+                0);
     }
 
     @Test
@@ -364,8 +339,7 @@ public class TestMemoryTracking
             TaskStats taskStats,
             long expectedUserMemory,
             long expectedRevocableMemory,
-            long expectedSystemMemory,
-            long expectedPeakDriverUserMemory)
+            long expectedSystemMemory)
     {
         assertEquals(operatorStats.getMemoryReservation().toBytes(), expectedUserMemory);
         assertEquals(driverStats.getMemoryReservation().toBytes(), expectedUserMemory);
@@ -381,8 +355,6 @@ public class TestMemoryTracking
         assertEquals(driverStats.getRevocableMemoryReservation().toBytes(), expectedRevocableMemory);
         assertEquals(pipelineStats.getRevocableMemoryReservation().toBytes(), expectedRevocableMemory);
         assertEquals(taskStats.getRevocableMemoryReservation().toBytes(), expectedRevocableMemory);
-
-        assertEquals(driverStats.getPeakMemoryReservation().toBytes(), expectedPeakDriverUserMemory);
     }
 
     private void assertAllocationFails(Consumer<Void> allocationFunction, String expectedPattern)

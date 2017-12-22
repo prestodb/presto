@@ -22,7 +22,6 @@ import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
@@ -395,7 +394,6 @@ public class DriverContext
                 queuedTime.convertToMostSuccinctTimeUnit(),
                 elapsedTime.convertToMostSuccinctTimeUnit(),
                 succinctBytes(driverMemoryContext.getUserMemory()),
-                succinctBytes(getPeakUserMemory()),
                 succinctBytes(driverMemoryContext.getRevocableMemory()),
                 succinctBytes(driverMemoryContext.getSystemMemory()),
                 new Duration(totalScheduledTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
@@ -413,14 +411,6 @@ public class DriverContext
                 outputPositions,
                 succinctBytes(physicalWrittenDataSize),
                 ImmutableList.copyOf(transform(operatorContexts, OperatorContext::getOperatorStats)));
-    }
-
-    private long getPeakUserMemory()
-    {
-        if (operatorContexts.isEmpty()) {
-            return 0L;
-        }
-        return Ordering.natural().max(transform(operatorContexts, OperatorContext::getPeakUserMemory));
     }
 
     public <C, R> R accept(QueryContextVisitor<C, R> visitor, C context)
