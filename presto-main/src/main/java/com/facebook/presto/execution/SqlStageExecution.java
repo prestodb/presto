@@ -84,7 +84,7 @@ public final class SqlStageExecution
     private final Set<TaskId> finishedTasks = newConcurrentHashSet();
     private final AtomicBoolean splitsScheduled = new AtomicBoolean();
 
-    private final Multimap<PlanNodeId, URI> exchangeLocations = HashMultimap.create();
+    private final Multimap<PlanNodeId, RemoteTask> sourceTasks = HashMultimap.create();
     private final Set<PlanNodeId> completeSources = newConcurrentHashSet();
     private final Set<PlanFragmentId> completeSourceFragments = newConcurrentHashSet();
 
@@ -231,19 +231,20 @@ public final class SqlStageExecution
                 ImmutableList::of);
     }
 
-    public synchronized void addExchangeLocations(PlanFragmentId fragmentId, Set<URI> exchangeLocations, boolean noMoreExchangeLocations)
+    public synchronized void addExchangeLocations(PlanFragmentId fragmentId, Set<RemoteTask> sourceTasks, boolean noMoreExchangeLocations)
     {
         requireNonNull(fragmentId, "fragmentId is null");
-        requireNonNull(exchangeLocations, "exchangeLocations is null");
+        requireNonNull(sourceTasks, "sourceTasks is null");
 
         RemoteSourceNode remoteSource = exchangeSources.get(fragmentId);
         checkArgument(remoteSource != null, "Unknown remote source %s. Known sources are %s", fragmentId, exchangeSources.keySet());
 
-        this.exchangeLocations.putAll(remoteSource.getId(), exchangeLocations);
+        this.sourceTasks.putAll(remoteSource.getId(), sourceTasks);
 
         for (RemoteTask task : getAllTasks()) {
             ImmutableMultimap.Builder<PlanNodeId, Split> newSplits = ImmutableMultimap.builder();
-            for (URI exchangeLocation : exchangeLocations) {
+            for (RemoteTask sourceTask : sourceTasks) {
+                URI exchangeLocation = sourceTask.getTaskStatus().getSelf();
                 newSplits.put(remoteSource.getId(), createRemoteSplitFor(task.getTaskId(), exchangeLocation));
             }
             task.addSplits(newSplits.build());
@@ -349,9 +350,13 @@ public final class SqlStageExecution
 
         ImmutableMultimap.Builder<PlanNodeId, Split> initialSplits = ImmutableMultimap.builder();
         initialSplits.putAll(sourceSplits);
-        for (Entry<PlanNodeId, URI> entry : exchangeLocations.entries()) {
-            initialSplits.put(entry.getKey(), createRemoteSplitFor(taskId, entry.getValue()));
-        }
+
+        sourceTasks.forEach((planNodeId, task) -> {
+            TaskStatus status = task.getTaskStatus();
+            if (status.getState() != TaskState.FINISHED) {
+                initialSplits.put(planNodeId, createRemoteSplitFor(taskId, status.getSelf()));
+            }
+        });
 
         OutputBuffers outputBuffers = this.outputBuffers.get();
         checkState(outputBuffers != null, "Initial output buffers must be set before a task can be scheduled");
