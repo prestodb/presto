@@ -155,7 +155,7 @@ public class SqlQueryScheduler
 
         OutputBufferId rootBufferId = Iterables.getOnlyElement(rootOutputBuffers.getBuffers().keySet());
         List<SqlStageExecution> stages = createStages(
-                (fragmentId, exchangeLocations, noMoreExchangeLocations) -> updateQueryOutputLocations(queryStateMachine, rootBufferId, exchangeLocations, noMoreExchangeLocations),
+                (fragmentId, tasks, noMoreExchangeLocations) -> updateQueryOutputLocations(queryStateMachine, rootBufferId, tasks, noMoreExchangeLocations),
                 new AtomicInteger(),
                 locationFactory,
                 plan.withBucketToPartition(Optional.of(new int[1])),
@@ -217,9 +217,10 @@ public class SqlQueryScheduler
         }
     }
 
-    private static void updateQueryOutputLocations(QueryStateMachine queryStateMachine, OutputBufferId rootBufferId, Set<URI> exchangeLocations, boolean noMoreExchangeLocations)
+    private static void updateQueryOutputLocations(QueryStateMachine queryStateMachine, OutputBufferId rootBufferId, Set<RemoteTask> tasks, boolean noMoreExchangeLocations)
     {
-        Set<URI> bufferLocations = exchangeLocations.stream()
+        Set<URI> bufferLocations = tasks.stream()
+                .map(task -> task.getTaskStatus().getSelf())
                 .map(location -> uriBuilderFrom(location).appendPath("results").appendPath(rootBufferId.toString()).build())
                 .collect(toImmutableSet());
         queryStateMachine.updateOutputLocations(bufferLocations, noMoreExchangeLocations);
@@ -573,7 +574,7 @@ public class SqlQueryScheduler
 
     private interface ExchangeLocationsConsumer
     {
-        void addExchangeLocations(PlanFragmentId fragmentId, Set<URI> exchangeLocations, boolean noMoreExchangeLocations);
+        void addExchangeLocations(PlanFragmentId fragmentId, Set<RemoteTask> tasks, boolean noMoreExchangeLocations);
     }
 
     private static class StageLinkage
@@ -637,10 +638,7 @@ public class SqlQueryScheduler
             }
 
             // Add an exchange location to the parent stage for each new task
-            Set<URI> newExchangeLocations = newTasks.stream()
-                    .map(task -> task.getTaskStatus().getSelf())
-                    .collect(toImmutableSet());
-            parent.addExchangeLocations(currentStageFragmentId, newExchangeLocations, noMoreTasks);
+            parent.addExchangeLocations(currentStageFragmentId, newTasks, noMoreTasks);
 
             if (!childOutputBufferManagers.isEmpty()) {
                 // Add an output buffer to the child stages for each new task
