@@ -36,6 +36,7 @@ import java.util.Locale;
 import java.util.Optional;
 
 import static com.facebook.presto.cli.ClientOptions.OutputFormat.CSV;
+import static com.facebook.presto.client.StatementClientFactory.DEFAULT_PROTOCOL_VERSION;
 import static com.google.common.io.ByteStreams.nullOutputStream;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static com.google.common.net.HttpHeaders.LOCATION;
@@ -145,6 +146,7 @@ public class TestQueryRunner
                 Optional.empty(),
                 Optional.empty(),
                 false,
-                false);
+                false,
+                DEFAULT_PROTOCOL_VERSION);
     }
 }
