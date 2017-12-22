@@ -14,8 +14,6 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.execution.Lifespan;
-import com.facebook.presto.memory.AggregatedMemoryContext;
-import com.facebook.presto.memory.MemoryTrackingContext;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.TestingSession;
 import com.facebook.presto.testing.TestingTaskContext;
@@ -39,14 +37,11 @@ public class TestingOperatorContext
                 scheduledExecutor,
                 TestingSession.testSessionBuilder().build());
 
-        MemoryTrackingContext pipelineMemoryContext = new MemoryTrackingContext(new AggregatedMemoryContext(), new AggregatedMemoryContext(), new AggregatedMemoryContext());
-
         PipelineContext pipelineContext = new PipelineContext(
                 1,
                 taskContext,
                 executor,
                 scheduledExecutor,
-                pipelineMemoryContext,
                 false,
                 false);
 
@@ -54,7 +49,6 @@ public class TestingOperatorContext
                 pipelineContext,
                 executor,
                 scheduledExecutor,
-                pipelineMemoryContext,
                 false,
                 Lifespan.taskWide());
 

@@ -57,11 +57,6 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-memory-context</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>com.google.code.findbugs</groupId>
             <artifactId>jsr305</artifactId>
         </dependency>

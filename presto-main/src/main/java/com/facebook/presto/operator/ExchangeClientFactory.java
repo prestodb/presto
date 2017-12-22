@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.memory.LocalMemoryContext;
+import com.facebook.presto.execution.SystemMemoryUsageListener;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.http.client.HttpClient;
@@ -114,7 +114,7 @@ public class ExchangeClientFactory
     }
 
     @Override
-    public ExchangeClient get(LocalMemoryContext systemMemoryContext)
+    public ExchangeClient get(SystemMemoryUsageListener systemMemoryUsageListener)
     {
         return new ExchangeClient(
                 maxBufferedBytes,
@@ -124,7 +124,7 @@ public class ExchangeClientFactory
                 maxErrorDuration,
                 httpClient,
                 scheduler,
-                systemMemoryContext,
+                systemMemoryUsageListener,
                 boundedExecutor);
     }
 }

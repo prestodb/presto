@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.memory.LocalMemoryContext;
 import com.facebook.presto.operator.window.FramedWindowFunction;
 import com.facebook.presto.operator.window.WindowPartition;
 import com.facebook.presto.spi.Page;
@@ -178,7 +177,6 @@ public class WindowOperator
     private final List<Integer> orderChannels;
     private final List<SortOrder> ordering;
     private final List<Type> types;
-    private final LocalMemoryContext localUserMemoryContext;
 
     private final int[] preGroupedChannels;
 
@@ -227,7 +225,6 @@ public class WindowOperator
         checkArgument(preSortedChannelPrefix == 0 || ImmutableSet.copyOf(preGroupedChannels).equals(ImmutableSet.copyOf(partitionChannels)), "preSortedChannelPrefix can only be greater than zero if all partition channels are pre-grouped");
 
         this.operatorContext = operatorContext;
-        this.localUserMemoryContext = operatorContext.localUserMemoryContext();
         this.outputChannels = Ints.toArray(outputChannels);
         this.windowFunctions = windowFunctionDefinitions.stream()
                 .map(functionDefinition -> new FramedWindowFunction(functionDefinition.createWindowFunction(), functionDefinition.getFrameInfo()))
@@ -327,7 +324,7 @@ public class WindowOperator
         if (processPendingInput()) {
             state = State.HAS_OUTPUT;
         }
-        localUserMemoryContext.setBytes(pagesIndex.getEstimatedSize().toBytes());
+        operatorContext.setMemoryReservation(pagesIndex.getEstimatedSize().toBytes());
     }
 
     /**
@@ -397,7 +394,7 @@ public class WindowOperator
         }
 
         Page page = extractOutput();
-        localUserMemoryContext.setBytes(pagesIndex.getEstimatedSize().toBytes());
+        operatorContext.setMemoryReservation(pagesIndex.getEstimatedSize().toBytes());
         return page;
     }
 

@@ -17,7 +17,7 @@ import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.OutputBuffers.OutputBufferId;
 import com.facebook.presto.execution.StateMachine;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
-import com.facebook.presto.memory.LocalMemoryContext;
+import com.facebook.presto.execution.SystemMemoryUsageListener;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
@@ -34,7 +34,6 @@ import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.Supplier;
 
 import static com.facebook.presto.OutputBuffers.BufferType.BROADCAST;
 import static com.facebook.presto.execution.buffer.BufferState.FAILED;
@@ -73,14 +72,14 @@ public class BroadcastOutputBuffer
             String taskInstanceId,
             StateMachine<BufferState> state,
             DataSize maxBufferSize,
-            Supplier<LocalMemoryContext> systemMemoryContextSupplier,
+            SystemMemoryUsageListener systemMemoryUsageListener,
             Executor notificationExecutor)
     {
         this.taskInstanceId = requireNonNull(taskInstanceId, "taskInstanceId is null");
         this.state = requireNonNull(state, "state is null");
         this.memoryManager = new OutputBufferMemoryManager(
                 requireNonNull(maxBufferSize, "maxBufferSize is null").toBytes(),
-                requireNonNull(systemMemoryContextSupplier, "systemMemoryContextSupplier is null"),
+                requireNonNull(systemMemoryUsageListener, "systemMemoryUsageListener is null"),
                 requireNonNull(notificationExecutor, "notificationExecutor is null"));
     }
 

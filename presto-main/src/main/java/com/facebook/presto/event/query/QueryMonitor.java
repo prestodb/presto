@@ -388,6 +388,7 @@ public class QueryMonitor
                                     ofMillis(driverStats.getRawInputReadTime().toMillis()),
                                     driverStats.getRawInputPositions(),
                                     driverStats.getRawInputDataSize().toBytes(),
+                                    driverStats.getPeakMemoryReservation().toBytes(),
                                     timeToStart,
                                     timeToEnd),
                             splitFailureMetadata,

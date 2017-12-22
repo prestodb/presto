@@ -14,7 +14,6 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.array.LongBigArray;
-import com.facebook.presto.memory.LocalMemoryContext;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
@@ -122,7 +121,6 @@ public class RowNumberOperator
     }
 
     private final OperatorContext operatorContext;
-    private final LocalMemoryContext localUserMemoryContext;
     private boolean finishing;
 
     private final int[] outputChannels;
@@ -150,7 +148,6 @@ public class RowNumberOperator
             JoinCompiler joinCompiler)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.localUserMemoryContext = operatorContext.localUserMemoryContext();
         this.outputChannels = Ints.toArray(outputChannels);
         this.maxRowsPerPartition = maxRowsPerPartition;
 
@@ -259,10 +256,10 @@ public class RowNumberOperator
     // The following implementation is a hybrid model, where the push model is going to call the pull model causing reentrancy
     private boolean updateMemoryReservation()
     {
-        // Operator/driver will be blocked on memory after we call localUserMemoryContext.setBytes().
+        // Operator/driver will be blocked on memory after we call setMemoryReservation.
         // If memory is not available, once we return, this operator will be blocked until memory is available.
         long memorySizeInBytes = groupByHash.map(GroupByHash::getEstimatedSize).orElse(0L) + partitionRowCount.sizeOf();
-        localUserMemoryContext.setBytes(memorySizeInBytes);
+        operatorContext.setMemoryReservation(memorySizeInBytes);
         // If memory is not available, inform the caller that we cannot proceed for allocation.
         return operatorContext.isWaitingForMemory().isDone();
     }

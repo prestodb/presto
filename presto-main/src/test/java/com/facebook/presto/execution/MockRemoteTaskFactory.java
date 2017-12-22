@@ -19,10 +19,8 @@ import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.execution.NodeTaskMap.PartitionedSplitCountTracker;
 import com.facebook.presto.execution.buffer.LazyOutputBuffer;
 import com.facebook.presto.execution.buffer.OutputBuffer;
-import com.facebook.presto.memory.AggregatedMemoryContext;
 import com.facebook.presto.memory.MemoryPool;
 import com.facebook.presto.memory.QueryContext;
-import com.facebook.presto.memory.SimpleLocalMemoryContext;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.operator.TaskContext;
@@ -188,7 +186,7 @@ public class MockRemoteTaskFactory
                     TASK_INSTANCE_ID,
                     executor,
                     requireNonNull(new DataSize(1, BYTE), "maxBufferSize is null"),
-                    () -> new SimpleLocalMemoryContext(new AggregatedMemoryContext()));
+                    new UpdateSystemMemory(queryContext));
 
             this.fragment = requireNonNull(fragment, "fragment is null");
             this.nodeId = requireNonNull(nodeId, "nodeId is null");
@@ -398,6 +396,28 @@ public class MockRemoteTaskFactory
                 return 0;
             }
             return getPartitionedSplitCount() - runningDrivers;
+        }
+
+        private static final class UpdateSystemMemory
+                implements SystemMemoryUsageListener
+        {
+            private final QueryContext queryContext;
+
+            public UpdateSystemMemory(QueryContext queryContext)
+            {
+                this.queryContext = requireNonNull(queryContext, "queryContext is null");
+            }
+
+            @Override
+            public void updateSystemMemoryUsage(long deltaMemoryInBytes)
+            {
+                if (deltaMemoryInBytes > 0) {
+                    queryContext.reserveSystemMemory(deltaMemoryInBytes);
+                }
+                else {
+                    queryContext.freeSystemMemory(-deltaMemoryInBytes);
+                }
+            }
         }
     }
 }

@@ -501,26 +501,40 @@ public class Driver
                             driverContext.getTaskId());
                 }
                 try {
-                    operator.getOperatorContext().destroy();
+                    operator.getOperatorContext().setMemoryReservation(0);
                 }
                 catch (Throwable t) {
                     inFlightException = addSuppressedException(
                             inFlightException,
                             t,
-                            "Error freeing all allocated memory for operator %s for task %s",
+                            "Error freeing memory for operator %s for task %s",
+                            operator.getOperatorContext().getOperatorId(),
+                            driverContext.getTaskId());
+                }
+                try {
+                    operator.getOperatorContext().closeSystemMemoryContext();
+                }
+                catch (Throwable t) {
+                    inFlightException = addSuppressedException(
+                            inFlightException,
+                            t,
+                            "Error freeing system memory for operator %s for task %s",
                             operator.getOperatorContext().getOperatorId(),
                             driverContext.getTaskId());
                 }
             }
             if (driverContext.getMemoryUsage() > 0) {
-                log.error("Driver still has memory reserved after freeing all operator memory.");
+                log.error("Driver still has memory reserved after freeing all operator memory. Freeing it.");
             }
             if (driverContext.getSystemMemoryUsage() > 0) {
-                log.error("Driver still has system memory reserved after freeing all operator memory.");
+                log.error("Driver still has system memory reserved after freeing all operator memory. Freeing it.");
             }
             if (driverContext.getRevocableMemoryUsage() > 0) {
                 log.error("Driver still has revocable memory reserved after freeing all operator memory. Freeing it.");
             }
+            driverContext.freeMemory(driverContext.getMemoryUsage());
+            driverContext.freeSystemMemory(driverContext.getSystemMemoryUsage());
+            driverContext.freeRevocableMemory(driverContext.getRevocableMemoryUsage());
             driverContext.finished();
         }
         catch (Throwable t) {

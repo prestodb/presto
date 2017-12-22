@@ -15,10 +15,10 @@ package com.facebook.presto.hive.orc;
 
 import com.facebook.presto.hive.FileFormatDataSourceStats;
 import com.facebook.presto.hive.HiveColumnHandle;
-import com.facebook.presto.memory.AggregatedMemoryContext;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcRecordReader;
+import com.facebook.presto.orc.memory.AggregatedMemoryContext;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;

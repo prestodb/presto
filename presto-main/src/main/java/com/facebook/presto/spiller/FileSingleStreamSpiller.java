@@ -46,6 +46,7 @@ import static com.facebook.presto.execution.buffer.PagesSerdeUtil.writeSerialize
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spiller.FileSingleStreamSpillerFactory.SPILL_FILE_PREFIX;
 import static com.facebook.presto.spiller.FileSingleStreamSpillerFactory.SPILL_FILE_SUFFIX;
+import static com.facebook.presto.util.PrestoCloseables.combineCloseables;
 import static com.google.common.base.Preconditions.checkState;
 import static java.nio.file.StandardOpenOption.APPEND;
 import static java.util.Objects.requireNonNull;
@@ -82,19 +83,7 @@ public class FileSingleStreamSpiller
         this.executor = requireNonNull(executor, "executor is null");
         this.spillerStats = requireNonNull(spillerStats, "spillerStats is null");
         this.localSpillContext = spillContext.newLocalSpillContext();
-        this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
-        // HACK!
-        // The writePages() method is called in a separate thread pool and it's possible that
-        // these spiller threads can race with the driver thread that calls FileSingleStreamSpiller::close()
-        // in Driver::destroyIfNecessary().
-        // Due to this race when the spiller threads are running, the driver thread:
-        // 1. Can zero out the memory reservation even though the spiller threads physically hold onto that memory.
-        // 2. Can close/delete the temp file(s) used for spilling, which doesn't have any visible side effects, but still not desirable.
-        // To hack around the first issue we reserve the memory in the constructor and we release it in the close() method.
-        // This means we start accounting for the memory before the spiller threads allocate it, and we release the memory reservation
-        // before/after the spiller threads allocate that memory -- whether before or after depends on whether writePages() is in the
-        // middle of execution when close() is called.
-        this.memoryContext.setBytes(BUFFER_SIZE);
+        this.memoryContext = requireNonNull(memoryContext, "memoryContext can not be null");
         try {
             this.targetFile = closer.register(new FileHolder(Files.createTempFile(spillPath, SPILL_FILE_PREFIX, SPILL_FILE_SUFFIX)));
         }
@@ -134,7 +123,9 @@ public class FileSingleStreamSpiller
     private void writePages(Iterator<Page> pageIterator)
     {
         checkState(writable, "Spilling no longer allowed. The spiller has been made non-writable on first read for subsequent reads to be consistent");
+
         try (SliceOutput output = new OutputStreamSliceOutput(targetFile.newOutputStream(APPEND), BUFFER_SIZE)) {
+            memoryContext.setBytes(BUFFER_SIZE);
             while (pageIterator.hasNext()) {
                 Page page = pageIterator.next();
                 spilledPagesInMemorySize += page.getSizeInBytes();
@@ -148,6 +139,9 @@ public class FileSingleStreamSpiller
         catch (UncheckedIOException | IOException e) {
             throw new PrestoException(GENERIC_INTERNAL_ERROR, "Failed to spill pages", e);
         }
+        finally {
+            memoryContext.setBytes(0);
+        }
     }
 
     private Iterator<Page> readPages()
@@ -157,7 +151,8 @@ public class FileSingleStreamSpiller
 
         try {
             InputStream input = targetFile.newInputStream();
-            Closeable resources = closer.register(input);
+            Closeable resources = closer.register(combineCloseables(input, () -> memoryContext.setBytes(0)));
+            memoryContext.setBytes(BUFFER_SIZE);
             Iterator<Page> pages = PagesSerdeUtil.readPages(serde, new InputStreamSliceInput(input, BUFFER_SIZE));
             return PrestoIterators.closeWhenExhausted(pages, resources);
         }
@@ -170,7 +165,7 @@ public class FileSingleStreamSpiller
     public void close()
     {
         closer.register(localSpillContext);
-        closer.register(() -> memoryContext.setBytes(0));
+
         try {
             closer.close();
         }
