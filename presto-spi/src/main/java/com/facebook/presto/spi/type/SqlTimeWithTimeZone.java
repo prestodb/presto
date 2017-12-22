@@ -75,8 +75,8 @@ public final class SqlTimeWithTimeZone
             return false;
         }
         SqlTimeWithTimeZone other = (SqlTimeWithTimeZone) obj;
-        return Objects.equals(this.millisUtc, other.millisUtc) &&
-                Objects.equals(this.timeZoneKey, other.timeZoneKey);
+        return this.millisUtc == other.millisUtc &&
+                this.timeZoneKey == other.timeZoneKey;
     }
 
     @JsonValue
