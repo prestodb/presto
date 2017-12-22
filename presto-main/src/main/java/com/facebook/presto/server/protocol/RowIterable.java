@@ -27,7 +27,7 @@ import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
-class RowIterable
+public class RowIterable
         implements Iterable<List<Object>>
 {
     private final ConnectorSession session;

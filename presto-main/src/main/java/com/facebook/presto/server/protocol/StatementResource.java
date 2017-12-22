@@ -13,11 +13,10 @@
  */
 package com.facebook.presto.server.protocol;
 
+import com.facebook.presto.client.QueryActions;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.execution.QueryManager;
-import com.facebook.presto.memory.context.SimpleLocalMemoryContext;
 import com.facebook.presto.metadata.SessionPropertyManager;
-import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.operator.ExchangeClientSupplier;
 import com.facebook.presto.server.ForStatementResource;
 import com.facebook.presto.server.HttpRequestSessionContext;
@@ -46,13 +45,12 @@ import javax.ws.rs.container.Suspended;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-import javax.ws.rs.core.Response.ResponseBuilder;
 import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriInfo;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
-import java.util.Map.Entry;
+import java.util.Map;
 import java.util.OptionalLong;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -66,7 +64,6 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_CATALOG;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_SCHEMA;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_STARTED_TRANSACTION_ID;
-import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.http.server.AsyncResponseHandler.bindAsyncResponse;
@@ -131,16 +128,13 @@ public class StatementResource
                     .entity("SQL statement is empty")
                     .build());
         }
-
         SessionContext sessionContext = new HttpRequestSessionContext(servletRequest);
-
-        ExchangeClient exchangeClient = exchangeClientSupplier.get(new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext()));
-        Query query = Query.create(
+        Query query = Query.createV1(
                 sessionContext,
                 statement,
                 queryManager,
                 sessionPropertyManager,
-                exchangeClient,
+                exchangeClientSupplier,
                 responseExecutor,
                 timeoutExecutor,
                 blockEncodingSerde);
@@ -164,7 +158,6 @@ public class StatementResource
             asyncResponse.resume(Response.status(Status.NOT_FOUND).build());
             return;
         }
-
         asyncQueryResults(query, OptionalLong.of(token), maxWait, uriInfo, asyncResponse);
     }
 
@@ -173,45 +166,65 @@ public class StatementResource
         Duration wait = WAIT_ORDERING.min(MAX_WAIT_TIME, maxWait);
         ListenableFuture<QueryResults> queryResultsFuture = query.waitForResults(token, uriInfo, wait);
 
-        ListenableFuture<Response> response = Futures.transform(queryResultsFuture, queryResults -> toResponse(query, queryResults));
+        ListenableFuture<Response> response = Futures.transform(queryResultsFuture, StatementResource::toResponse);
 
         bindAsyncResponse(asyncResponse, response, responseExecutor);
     }
 
-    private static Response toResponse(Query query, QueryResults queryResults)
+    private static Response toResponse(QueryResults queryResults)
     {
-        ResponseBuilder response = Response.ok(queryResults);
+        // TODO: think if it's fine to keep this section for V1 protocol
+        QueryResults withoutActions = queryResults.clearActions();
+        Response.ResponseBuilder response = Response.ok(withoutActions);
+
+        QueryActions actions = queryResults.getActions();
+        if (actions == null) {
+            return response.build();
+        }
 
         // add set catalog and schema
-        query.getSetCatalog().ifPresent(catalog -> response.header(PRESTO_SET_CATALOG, catalog));
-        query.getSetSchema().ifPresent(schema -> response.header(PRESTO_SET_SCHEMA, schema));
+        if (actions.getSetCatalog() != null) {
+            response.header(PRESTO_SET_CATALOG, actions.getSetCatalog());
+        }
+        if (actions.getSetSchema() != null) {
+            response.header(PRESTO_SET_SCHEMA, actions.getSetSchema());
+        }
 
         // add set session properties
-        query.getSetSessionProperties().entrySet()
-                .forEach(entry -> response.header(PRESTO_SET_SESSION, entry.getKey() + '=' + entry.getValue()));
+        if (actions.getSetSessionProperties() != null) {
+            actions.getSetSessionProperties().entrySet()
+                    .forEach(entry -> response.header(PRESTO_SET_SESSION, entry.getKey() + '=' + entry.getValue()));
+        }
 
         // add clear session properties
-        query.getResetSessionProperties()
-                .forEach(name -> response.header(PRESTO_CLEAR_SESSION, name));
+        if (actions.getClearSessionProperties() != null) {
+            actions.getClearSessionProperties()
+                    .forEach(name -> response.header(PRESTO_CLEAR_SESSION, name));
+        }
 
         // add added prepare statements
-        for (Entry<String, String> entry : query.getAddedPreparedStatements().entrySet()) {
-            String encodedKey = urlEncode(entry.getKey());
-            String encodedValue = urlEncode(entry.getValue());
-            response.header(PRESTO_ADDED_PREPARE, encodedKey + '=' + encodedValue);
+        if (actions.getAddedPreparedStatements() != null) {
+            for (Map.Entry<String, String> entry : actions.getAddedPreparedStatements().entrySet()) {
+                String encodedKey = urlEncode(entry.getKey());
+                String encodedValue = urlEncode(entry.getValue());
+                response.header(PRESTO_ADDED_PREPARE, encodedKey + '=' + encodedValue);
+            }
         }
 
         // add deallocated prepare statements
-        for (String name : query.getDeallocatedPreparedStatements()) {
-            response.header(PRESTO_DEALLOCATED_PREPARE, urlEncode(name));
+        if (actions.getDeallocatedPreparedStatements() != null) {
+            for (String name : actions.getDeallocatedPreparedStatements()) {
+                response.header(PRESTO_DEALLOCATED_PREPARE, urlEncode(name));
+            }
         }
 
         // add new transaction ID
-        query.getStartedTransactionId()
-                .ifPresent(transactionId -> response.header(PRESTO_STARTED_TRANSACTION_ID, transactionId));
+        if (actions.getStartedTransactionId() != null) {
+            response.header(PRESTO_STARTED_TRANSACTION_ID, actions.getStartedTransactionId());
+        }
 
         // add clear transaction ID directive
-        if (query.isClearTransactionId()) {
+        if (actions.isClearTransactionId() != null && actions.isClearTransactionId()) {
             response.header(PRESTO_CLEAR_TRANSACTION_ID, true);
         }
 

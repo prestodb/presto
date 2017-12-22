@@ -15,6 +15,7 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.OutputBuffers.OutputBufferId;
 import com.facebook.presto.Session;
+import com.facebook.presto.client.DataResults;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
@@ -23,8 +24,10 @@ import com.facebook.presto.execution.TaskStatus;
 import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.execution.buffer.SerializedPage;
 import com.facebook.presto.metadata.SessionPropertyManager;
+import com.facebook.presto.server.protocol.RowIterable;
 import com.facebook.presto.spi.Page;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.reflect.TypeToken;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -56,6 +59,7 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriInfo;
 
+import java.net.URI;
 import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
@@ -65,6 +69,7 @@ import java.util.function.Function;
 import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_BUFFER_COMPLETE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CURRENT_STATE;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_DATA_NEXT_URI;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_SIZE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_WAIT;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
@@ -74,6 +79,7 @@ import static com.google.common.collect.Iterables.transform;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addTimeout;
 import static io.airlift.http.server.AsyncResponseHandler.bindAsyncResponse;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -336,5 +342,99 @@ public class TaskResource
         // Randomize in [T/2, T], so wait is not near zero and the client-supplied max wait time is respected
         long halfWaitMillis = waitTime.toMillis() / 2;
         return new Duration(halfWaitMillis + ThreadLocalRandom.current().nextLong(halfWaitMillis), MILLISECONDS);
+    }
+
+    // implement it as a static inner class as a simpler option to have a different URL path for the client download endpoint
+    @Path("/v1/download")
+    public static class TaskDownloadResource
+    {
+        private static final DataSize DEFAULT_MAX_SIZE = new DataSize(1.2, MEGABYTE);
+        private final TaskResource taskResource;
+
+        @Inject
+        public TaskDownloadResource(TaskResource taskResource)
+        {
+            this.taskResource = requireNonNull(taskResource, "taskResource is null");
+        }
+
+        @GET
+        @Path("{taskId}/results/{bufferId}/{token}")
+        @Produces(MediaType.APPLICATION_JSON)
+        public void downloadResults(@PathParam("taskId") TaskId taskId,
+                @PathParam("bufferId") OutputBufferId bufferId,
+                @PathParam("token") final long token,
+                @QueryParam("maxSize") DataSize maxSize,
+                @Suspended AsyncResponse asyncResponse,
+                @Context UriInfo uriInfo)
+                throws InterruptedException
+        {
+            maxSize = maxSize != null ? maxSize : DEFAULT_MAX_SIZE;
+            taskResource.getTaskResults(taskId, bufferId, token, maxSize, asyncResponse, result -> {
+                List<SerializedPage> serializedPages = result.getSerializedPages();
+                if (serializedPages.isEmpty()) {
+                    URI nextUri = createNextUri(uriInfo, taskId, bufferId, result.getNextToken(), result.isBufferComplete());
+                    return Response.noContent()
+                            .header(PRESTO_DATA_NEXT_URI, nextUri)
+                            .build();
+                }
+
+                ImmutableList.Builder<RowIterable> pages = ImmutableList.builder();
+                TaskClientOutputContext clientOutputContext = taskResource.taskManager.getClientOutputContext(taskId).orElseThrow(() -> new IllegalStateException("client output context must be present"));
+                boolean hasRecords = false;
+                for (SerializedPage serializedPage : serializedPages) {
+                    Page page = clientOutputContext.getPagesSerde().deserialize(serializedPage);
+                    hasRecords = hasRecords || page.getPositionCount() > 0;
+                    pages.add(new RowIterable(clientOutputContext.getConnectorSession(), clientOutputContext.getTypes(), page));
+                }
+
+                URI nextUri = createNextUri(uriInfo, taskId, bufferId, result.getNextToken(), result.isBufferComplete());
+                if (hasRecords) {
+                    Iterable<List<Object>> data = Iterables.concat(pages.build());
+                    return Response.status(Status.OK)
+                            .header(PRESTO_DATA_NEXT_URI, nextUri)
+                            .entity(new DataResults(data))
+                            .build();
+                }
+                else {
+                    return Response.noContent()
+                            .header(PRESTO_DATA_NEXT_URI, nextUri)
+                            .build();
+                }
+            });
+        }
+
+        @GET
+        @Path("{taskId}/finished/{bufferId}")
+        @Produces(MediaType.APPLICATION_JSON)
+        public void finishedDownload(@PathParam("taskId") TaskId taskId, @PathParam("bufferId") OutputBufferId bufferId, @Context UriInfo uriInfo)
+        {
+            requireNonNull(taskId, "taskId is null");
+            requireNonNull(bufferId, "bufferId is null");
+
+            taskResource.taskManager.abortTaskResults(taskId, bufferId);
+        }
+
+        private static URI createNextUri(UriInfo uriInfo, TaskId taskId, OutputBufferId bufferId, long nextToken, boolean bufferComplete)
+        {
+            if (bufferComplete) {
+                return uriInfo.getBaseUriBuilder()
+                        .replacePath("/v1/download")
+                        .path(taskId.toString())
+                        .path("finished")
+                        .path(bufferId.toString())
+                        .replaceQuery("")
+                        .build();
+            }
+            else {
+                return uriInfo.getBaseUriBuilder()
+                        .replacePath("/v1/download")
+                        .path(taskId.toString())
+                        .path("results")
+                        .path(bufferId.toString())
+                        .path(String.valueOf(nextToken))
+                        .replaceQuery("")
+                        .build();
+            }
+        }
     }
 }
