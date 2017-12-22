@@ -43,7 +43,6 @@ public class DriverStats
     private final Duration elapsedTime;
 
     private final DataSize memoryReservation;
-    private final DataSize peakMemoryReservation;
     private final DataSize revocableMemoryReservation;
     private final DataSize systemMemoryReservation;
 
@@ -77,7 +76,6 @@ public class DriverStats
         this.elapsedTime = new Duration(0, MILLISECONDS);
 
         this.memoryReservation = new DataSize(0, BYTE);
-        this.peakMemoryReservation = new DataSize(0, BYTE);
         this.revocableMemoryReservation = new DataSize(0, BYTE);
         this.systemMemoryReservation = new DataSize(0, BYTE);
 
@@ -112,7 +110,6 @@ public class DriverStats
             @JsonProperty("elapsedTime") Duration elapsedTime,
 
             @JsonProperty("memoryReservation") DataSize memoryReservation,
-            @JsonProperty("peakMemoryReservation") DataSize peakMemoryReservation,
             @JsonProperty("revocableMemoryReservation") DataSize revocableMemoryReservation,
             @JsonProperty("systemMemoryReservation") DataSize systemMemoryReservation,
 
@@ -144,7 +141,6 @@ public class DriverStats
         this.elapsedTime = requireNonNull(elapsedTime, "elapsedTime is null");
 
         this.memoryReservation = requireNonNull(memoryReservation, "memoryReservation is null");
-        this.peakMemoryReservation = requireNonNull(peakMemoryReservation, "peakMemoryReservation is null");
         this.revocableMemoryReservation = requireNonNull(revocableMemoryReservation, "revocableMemoryReservation is null");
         this.systemMemoryReservation = requireNonNull(systemMemoryReservation, "systemMemoryReservation is null");
 
@@ -209,12 +205,6 @@ public class DriverStats
     public DataSize getMemoryReservation()
     {
         return memoryReservation;
-    }
-
-    @JsonProperty
-    public DataSize getPeakMemoryReservation()
-    {
-        return peakMemoryReservation;
     }
 
     @JsonProperty
