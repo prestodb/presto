@@ -188,9 +188,9 @@ public class TestGenericPartitioningSpiller
                 assertEquals(spillResult.getRetained().getPositionCount(), 0);
                 getFutureValue(spillResult.getSpillingFuture());
                 getFutureValue(spiller.flush());
+                assertEquals(memoryContext.getBytes(), 0, "Reserved bytes should be zeroed after spill completes");
             }
         }
-        assertEquals(memoryContext.getBytes(), 0, "Reserved bytes should be zeroed after spiller is closed");
     }
 
     private void assertSpilledPages(
@@ -212,7 +212,9 @@ public class TestGenericPartitioningSpiller
     private static AggregatedMemoryContext mockMemoryContext()
     {
         // It's important to use OperatorContext's system memory context, because it does additional bookkeeping.
-        return TestingOperatorContext.create().newAggregateSystemMemoryContext();
+        return TestingOperatorContext.create()
+                .getSystemMemoryContext()
+                .newAggregatedMemoryContext();
     }
 
     private static SpillContext mockSpillContext()

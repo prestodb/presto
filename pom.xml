@@ -122,7 +122,6 @@
         <module>presto-thrift-testing-server</module>
         <module>presto-thrift-connector</module>
         <module>presto-matching</module>
-        <module>presto-memory-context</module>
     </modules>
 
     <dependencyManagement>
@@ -316,12 +315,6 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-matching</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.facebook.presto</groupId>
-                <artifactId>presto-memory-context</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
