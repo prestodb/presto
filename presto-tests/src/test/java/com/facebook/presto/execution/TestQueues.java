@@ -17,7 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.resourceGroups.ResourceGroupManagerPlugin;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.tests.DistributedQueryRunner;
-import com.facebook.presto.tests.tpch.TpchQueryRunner;
+import com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
@@ -284,7 +284,9 @@ public class TestQueues
     public void testQueryTypeBasedSelection()
             throws Exception
     {
-        try (DistributedQueryRunner queryRunner = TpchQueryRunner.createQueryRunner(ImmutableMap.of(), ImmutableMap.of("experimental.resource-groups-enabled", "true"))) {
+        try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder()
+                .setSingleCoordinatorProperty("experimental.resource-groups-enabled", "true")
+                .build()) {
             queryRunner.installPlugin(new ResourceGroupManagerPlugin());
             queryRunner.getCoordinator().getResourceGroupManager().get()
                     .setConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_query_type_based_config.json")));

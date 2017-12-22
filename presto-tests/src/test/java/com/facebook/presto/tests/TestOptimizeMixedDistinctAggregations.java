@@ -13,15 +13,16 @@
  */
 package com.facebook.presto.tests;
 
-import com.facebook.presto.tests.tpch.TpchQueryRunner;
-import com.google.common.collect.ImmutableMap;
+import com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder;
 
 public class TestOptimizeMixedDistinctAggregations
         extends AbstractTestAggregations
 {
     public TestOptimizeMixedDistinctAggregations()
     {
-        super(() -> TpchQueryRunner.createQueryRunner(ImmutableMap.of("optimizer.optimize-mixed-distinct-aggregations", "true")));
+        super(() -> TpchQueryRunnerBuilder.builder()
+                .setSingleCoordinatorProperty("optimizer.optimize-mixed-distinct-aggregations", "true")
+                .build());
     }
 
     @Override
