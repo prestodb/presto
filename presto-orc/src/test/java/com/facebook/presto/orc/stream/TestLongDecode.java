@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.orc.stream;
 
-import com.facebook.presto.memory.AggregatedMemoryContext;
 import com.facebook.presto.orc.OrcDataSourceId;
+import com.facebook.presto.orc.memory.AggregatedMemoryContext;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;

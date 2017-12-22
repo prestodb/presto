@@ -13,10 +13,11 @@
  */
 package com.facebook.presto.orc;
 
-import com.facebook.presto.memory.AggregatedMemoryContext;
 import com.facebook.presto.orc.OrcWriteValidation.StatisticsValidation;
 import com.facebook.presto.orc.OrcWriteValidation.WriteChecksum;
 import com.facebook.presto.orc.OrcWriteValidation.WriteChecksumBuilder;
+import com.facebook.presto.orc.memory.AbstractAggregatedMemoryContext;
+import com.facebook.presto.orc.memory.AggregatedMemoryContext;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.MetadataReader;
 import com.facebook.presto.orc.metadata.OrcType;
@@ -100,7 +101,7 @@ public class OrcRecordReader
 
     private final Map<String, Slice> userMetadata;
 
-    private final AggregatedMemoryContext systemMemoryUsage;
+    private final AbstractAggregatedMemoryContext systemMemoryUsage;
 
     private final Optional<OrcWriteValidation> writeValidation;
     private final Optional<WriteChecksumBuilder> writeChecksumBuilder;
@@ -128,7 +129,7 @@ public class OrcRecordReader
             DataSize maxReadSize,
             DataSize maxBlockSize,
             Map<String, Slice> userMetadata,
-            AggregatedMemoryContext systemMemoryUsage,
+            AbstractAggregatedMemoryContext systemMemoryUsage,
             Optional<OrcWriteValidation> writeValidation)
             throws IOException
     {

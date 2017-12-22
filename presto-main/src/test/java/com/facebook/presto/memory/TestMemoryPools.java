@@ -271,14 +271,12 @@ public class TestMemoryPools
         private final long numberOfPages;
         private final OperatorContext operatorContext;
         private long producedPagesCount = 0;
-        private final LocalMemoryContext revocableMemoryContext;
 
         public RevocableMemoryOperator(OperatorContext operatorContext, DataSize reservedPerPage, long numberOfPages)
         {
             this.operatorContext = operatorContext;
             this.reservedPerPage = reservedPerPage;
             this.numberOfPages = numberOfPages;
-            this.revocableMemoryContext = operatorContext.localRevocableMemoryContext();
         }
 
         @Override
@@ -290,7 +288,7 @@ public class TestMemoryPools
         @Override
         public void finishMemoryRevoke()
         {
-            revocableMemoryContext.setBytes(0);
+            operatorContext.setRevocableMemoryReservation(0);
         }
 
         @Override
@@ -308,7 +306,7 @@ public class TestMemoryPools
         @Override
         public void finish()
         {
-            revocableMemoryContext.setBytes(0);
+            operatorContext.setRevocableMemoryReservation(0);
         }
 
         @Override
@@ -332,7 +330,7 @@ public class TestMemoryPools
         @Override
         public Page getOutput()
         {
-            revocableMemoryContext.setBytes(revocableMemoryContext.getBytes() + reservedPerPage.toBytes());
+            operatorContext.reserveRevocableMemory(reservedPerPage.toBytes());
             producedPagesCount++;
             if (producedPagesCount == numberOfPages) {
                 finish();

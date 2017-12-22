@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.execution.buffer;
 
-import com.facebook.presto.memory.LocalMemoryContext;
+import com.facebook.presto.execution.SystemMemoryUsageListener;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 
@@ -23,7 +23,6 @@ import javax.annotation.concurrent.ThreadSafe;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -38,14 +37,14 @@ class OutputBufferMemoryManager
 
     private final AtomicBoolean blockOnFull = new AtomicBoolean(true);
 
-    private final Supplier<LocalMemoryContext> systemMemoryContextSupplier;
+    private final SystemMemoryUsageListener systemMemoryUsageListener;
     private final Executor notificationExecutor;
 
-    public OutputBufferMemoryManager(long maxBufferedBytes, Supplier<LocalMemoryContext> systemMemoryContextSupplier, Executor notificationExecutor)
+    public OutputBufferMemoryManager(long maxBufferedBytes, SystemMemoryUsageListener systemMemoryUsageListener, Executor notificationExecutor)
     {
         checkArgument(maxBufferedBytes > 0, "maxBufferedBytes must be > 0");
         this.maxBufferedBytes = maxBufferedBytes;
-        this.systemMemoryContextSupplier = requireNonNull(systemMemoryContextSupplier, "systemMemoryContextSupplier is null");
+        this.systemMemoryUsageListener = requireNonNull(systemMemoryUsageListener, "systemMemoryUsageListener is null");
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
 
         notFull = SettableFuture.create();
@@ -54,10 +53,8 @@ class OutputBufferMemoryManager
 
     public void updateMemoryUsage(long bytesAdded)
     {
-        // the supplier will return the same system memory context of the current task
-        // so it's safe to call get multiple times
-        systemMemoryContextSupplier.get()
-                .setBytes(bufferedBytes.addAndGet(bytesAdded));
+        systemMemoryUsageListener.updateSystemMemoryUsage(bytesAdded);
+        bufferedBytes.addAndGet(bytesAdded);
         synchronized (this) {
             if (!isFull() && !notFull.isDone()) {
                 // Complete future in a new thread to avoid making a callback on the caller thread.

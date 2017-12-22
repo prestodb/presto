@@ -38,11 +38,6 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-memory-context</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>com.facebook.presto.hadoop</groupId>
             <artifactId>hadoop-apache2</artifactId>
             <scope>provided</scope>

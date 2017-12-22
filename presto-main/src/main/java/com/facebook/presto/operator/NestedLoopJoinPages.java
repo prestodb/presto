@@ -51,6 +51,6 @@ public final class NestedLoopJoinPages
     {
         checkState(!freed, "Memory already freed");
         freed = true;
-        taskContext.freeUserMemory(estimatedSize.toBytes());
+        taskContext.freeMemory(estimatedSize.toBytes());
     }
 }

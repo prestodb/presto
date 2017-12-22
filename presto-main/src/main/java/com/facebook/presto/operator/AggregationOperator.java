@@ -94,7 +94,6 @@ public class AggregationOperator
 
     private final OperatorContext operatorContext;
     private final LocalMemoryContext systemMemoryContext;
-    private final LocalMemoryContext userMemoryContext;
     private final List<Type> types;
     private final List<Aggregator> aggregates;
 
@@ -103,8 +102,7 @@ public class AggregationOperator
     public AggregationOperator(OperatorContext operatorContext, Step step, List<AccumulatorFactory> accumulatorFactories)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.systemMemoryContext = operatorContext.newLocalSystemMemoryContext();
-        this.userMemoryContext = operatorContext.localUserMemoryContext();
+        this.systemMemoryContext = operatorContext.getSystemMemoryContext().newLocalMemoryContext();
 
         requireNonNull(step, "step is null");
         this.partial = step.isOutputPartial();
@@ -167,7 +165,7 @@ public class AggregationOperator
             systemMemoryContext.setBytes(memorySize);
         }
         else {
-            userMemoryContext.setBytes(memorySize);
+            operatorContext.setMemoryReservation(memorySize);
         }
     }
 

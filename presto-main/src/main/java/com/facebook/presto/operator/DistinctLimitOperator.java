@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.memory.LocalMemoryContext;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.type.Type;
@@ -97,7 +96,6 @@ public class DistinctLimitOperator
 
     private final OperatorContext operatorContext;
     private final List<Type> types;
-    private final LocalMemoryContext localUserMemoryContext;
 
     private final PageBuilder pageBuilder;
     private Page inputPage;
@@ -116,7 +114,6 @@ public class DistinctLimitOperator
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
-        this.localUserMemoryContext = operatorContext.localUserMemoryContext();
         requireNonNull(distinctChannels, "distinctChannels is null");
         checkArgument(limit >= 0, "limit must be at least zero");
         requireNonNull(hashChannel, "hashChannel is null");
@@ -245,9 +242,9 @@ public class DistinctLimitOperator
     // The following implementation is a hybrid model, where the push model is going to call the pull model causing reentrancy
     private boolean updateMemoryReservation()
     {
-        // Operator/driver will be blocked on memory after we call localUserMemoryContext.setBytes().
+        // Operator/driver will be blocked on memory after we call setMemoryReservation.
         // If memory is not available, once we return, this operator will be blocked until memory is available.
-        localUserMemoryContext.setBytes(groupByHash.getEstimatedSize());
+        operatorContext.setMemoryReservation(groupByHash.getEstimatedSize());
         // If memory is not available, inform the caller that we cannot proceed for allocation.
         return operatorContext.isWaitingForMemory().isDone();
     }
