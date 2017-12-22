@@ -14,7 +14,6 @@
 package com.facebook.presto.tests.tpch;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableMap;
@@ -79,7 +78,10 @@ public final class TpchQueryRunner
                 .setSchema("tiny")
                 .build();
 
-        DistributedQueryRunner queryRunner = new DistributedQueryRunner(session, nodeCount, extraProperties, coordinatorProperties, new SqlParserOptions());
+        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session, nodeCount)
+                .setExtraProperties(extraProperties)
+                .setCoordinatorProperties(coordinatorProperties)
+                .build();
 
         try {
             queryRunner.installPlugin(new TpchPlugin());
