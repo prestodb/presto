@@ -495,6 +495,18 @@ public class SqlQueryManager
     }
 
     @Override
+    public void failQuery(QueryId queryId, Throwable cause)
+    {
+        requireNonNull(queryId, "queryId is null");
+        requireNonNull(cause, "cause is null");
+
+        QueryExecution query = queries.get(queryId);
+        if (query != null) {
+            query.fail(cause);
+        }
+    }
+
+    @Override
     public void cancelQuery(QueryId queryId)
     {
         requireNonNull(queryId, "queryId is null");
