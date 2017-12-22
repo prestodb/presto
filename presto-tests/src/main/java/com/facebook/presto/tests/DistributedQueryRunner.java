@@ -71,6 +71,7 @@ public class DistributedQueryRunner
 {
     private static final Logger log = Logger.get(DistributedQueryRunner.class);
     private static final String ENVIRONMENT = "testing";
+    private static final SqlParserOptions DEFAULT_SQL_PARSER_OPTIONS = new SqlParserOptions();
 
     private final TestingDiscoveryServer discoveryServer;
     private final TestingPrestoServer coordinator;
@@ -91,10 +92,10 @@ public class DistributedQueryRunner
     public DistributedQueryRunner(Session defaultSession, int workersCount, Map<String, String> extraProperties)
             throws Exception
     {
-        this(defaultSession, workersCount, extraProperties, ImmutableMap.of(), new SqlParserOptions());
+        this(defaultSession, workersCount, extraProperties, ImmutableMap.of(), DEFAULT_SQL_PARSER_OPTIONS, ENVIRONMENT);
     }
 
-    public DistributedQueryRunner(
+    private DistributedQueryRunner(
             Session defaultSession,
             int workersCount,
             Map<String, String> extraProperties,
@@ -164,17 +165,6 @@ public class DistributedQueryRunner
             sessionPropertyManager.addSystemSessionProperties(TEST_SYSTEM_PROPERTIES);
             sessionPropertyManager.addConnectorSessionProperties(bogusTestingCatalog.getConnectorId(), TEST_CATALOG_PROPERTIES);
         }
-    }
-
-    public DistributedQueryRunner(
-            Session defaultSession,
-            int workersCount,
-            Map<String, String> extraProperties,
-            Map<String, String> coordinatorProperties,
-            SqlParserOptions parserOptions)
-            throws Exception
-    {
-        this(defaultSession, workersCount, extraProperties, coordinatorProperties, parserOptions, ENVIRONMENT);
     }
 
     private static TestingPrestoServer createTestingPrestoServer(URI discoveryUri, boolean coordinator, Map<String, String> extraProperties, SqlParserOptions parserOptions, String environment)
@@ -412,6 +402,11 @@ public class DistributedQueryRunner
         }
     }
 
+    public static Builder builder(Session defaultSession, int workersCount)
+    {
+        return new Builder(defaultSession, workersCount);
+    }
+
     private void cancelAllQueries()
     {
         QueryManager queryManager = coordinator.getQueryManager();
@@ -430,6 +425,52 @@ public class DistributedQueryRunner
         catch (Exception e) {
             throwIfUnchecked(e);
             throw new RuntimeException(e);
+        }
+    }
+
+    public static class Builder
+    {
+        private final Session defaultSession;
+        private final int workerCount;
+        private Map<String, String> extraProperties = ImmutableMap.of();
+        private Map<String, String> coordinatorProperties = ImmutableMap.of();
+        private SqlParserOptions parserOptions = DEFAULT_SQL_PARSER_OPTIONS;
+        private String environment = ENVIRONMENT;
+
+        private Builder(Session defaultSession, int workersCount)
+        {
+            this.defaultSession = defaultSession;
+            this.workerCount = workersCount;
+        }
+
+        public Builder setExtraProperties(Map<String, String> extraProperties)
+        {
+            this.extraProperties = extraProperties;
+            return this;
+        }
+
+        public Builder setCoordinatorProperties(Map<String, String> coordinatorProperties)
+        {
+            this.coordinatorProperties = coordinatorProperties;
+            return this;
+        }
+
+        public Builder setParserOptions(SqlParserOptions parserOptions)
+        {
+            this.parserOptions = parserOptions;
+            return this;
+        }
+
+        public Builder setEnvironment(String environment)
+        {
+            this.environment = environment;
+            return this;
+        }
+
+        public DistributedQueryRunner build()
+                throws Exception
+        {
+            return new DistributedQueryRunner(defaultSession, workerCount, extraProperties, coordinatorProperties, parserOptions, environment);
         }
     }
 }

@@ -11,19 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.tests;
+package com.facebook.presto.client;
 
-import com.facebook.presto.tests.tpch.TpchQueryRunner;
-import com.google.common.collect.ImmutableMap;
+import okhttp3.OkHttpClient;
 
-public class TestDistributedQueriesNoHashGeneration
-        extends AbstractTestQueries
+public final class StatementClientFactory
 {
-    public TestDistributedQueriesNoHashGeneration()
-            throws Exception
+    private StatementClientFactory() {}
+
+    public static StatementClient newStatementClient(OkHttpClient httpClient, ClientSession session, String query)
     {
-        super(() -> TpchQueryRunner.builder()
-                .setCoordinatorProperties(ImmutableMap.of("optimizer.optimize-hash-generation", "false"))
-                .build());
+        return new StatementClientV1(httpClient, session, query);
     }
 }

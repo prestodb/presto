@@ -38,6 +38,7 @@ import java.util.concurrent.TimeUnit;
 import static com.facebook.presto.benchmark.driver.BenchmarkQueryResult.failResult;
 import static com.facebook.presto.benchmark.driver.BenchmarkQueryResult.passResult;
 import static com.facebook.presto.client.OkHttpUtil.setupSocksProxy;
+import static com.facebook.presto.client.StatementClientFactory.newStatementClient;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
@@ -150,18 +151,51 @@ public class BenchmarkQueryRunner
         failures = 0;
         while (true) {
             // start query
-            StatementClient client = new StatementClient(okHttpClient, session, "show schemas");
-
-            // read query output
-            ImmutableList.Builder<String> schemas = ImmutableList.builder();
-            while (client.isValid() && client.advance()) {
-                // we do not process the output
-                Iterable<List<Object>> data = client.currentData().getData();
-                if (data != null) {
-                    for (List<Object> objects : data) {
-                        schemas.add(objects.get(0).toString());
+            try (StatementClient client = newStatementClient(okHttpClient, session, "show schemas")) {
+                // read query output
+                ImmutableList.Builder<String> schemas = ImmutableList.builder();
+                while (client.isValid() && client.advance()) {
+                    // we do not process the output
+                    Iterable<List<Object>> data = client.currentData().getData();
+                    if (data != null) {
+                        for (List<Object> objects : data) {
+                            schemas.add(objects.get(0).toString());
+                        }
                     }
                 }
+
+                // verify final state
+                if (client.isClosed()) {
+                    throw new IllegalStateException("Query aborted by user");
+                }
+
+                if (client.isGone()) {
+                    throw new IllegalStateException("Query is gone (server restarted?)");
+                }
+
+                QueryError resultsError = client.finalStatusInfo().getError();
+                if (resultsError != null) {
+                    RuntimeException cause = null;
+                    if (resultsError.getFailureInfo() != null) {
+                        cause = resultsError.getFailureInfo().toException();
+                    }
+                    handleFailure(cause);
+
+                    continue;
+                }
+
+                return schemas.build();
+            }
+        }
+    }
+
+    private StatementStats execute(ClientSession session, String name, String query)
+    {
+        // start query
+        try (StatementClient client = newStatementClient(okHttpClient, session, query)) {
+            // read query output
+            while (client.isValid() && client.advance()) {
+                // we do not process the output
             }
 
             // verify final state
@@ -179,45 +213,12 @@ public class BenchmarkQueryRunner
                 if (resultsError.getFailureInfo() != null) {
                     cause = resultsError.getFailureInfo().toException();
                 }
-                handleFailure(cause);
 
-                continue;
+                throw new BenchmarkDriverExecutionException(format("Query %s failed: %s", name, resultsError.getMessage()), cause);
             }
 
-            return schemas.build();
+            return client.finalStatusInfo().getStats();
         }
-    }
-
-    private StatementStats execute(ClientSession session, String name, String query)
-    {
-        // start query
-        StatementClient client = new StatementClient(okHttpClient, session, query);
-
-        // read query output
-        while (client.isValid() && client.advance()) {
-            // we do not process the output
-        }
-
-        // verify final state
-        if (client.isClosed()) {
-            throw new IllegalStateException("Query aborted by user");
-        }
-
-        if (client.isGone()) {
-            throw new IllegalStateException("Query is gone (server restarted?)");
-        }
-
-        QueryError resultsError = client.finalStatusInfo().getError();
-        if (resultsError != null) {
-            RuntimeException cause = null;
-            if (resultsError.getFailureInfo() != null) {
-                cause = resultsError.getFailureInfo().toException();
-            }
-
-            throw new BenchmarkDriverExecutionException(format("Query %s failed: %s", name, resultsError.getMessage()), cause);
-        }
-
-        return client.finalStatusInfo().getStats();
     }
 
     @Override
