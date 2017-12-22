@@ -16,6 +16,8 @@ package com.facebook.presto.server;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.transaction.TransactionId;
 
+import javax.annotation.Nullable;
+
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -24,22 +26,29 @@ public interface SessionContext
 {
     Identity getIdentity();
 
+    @Nullable
     String getCatalog();
 
+    @Nullable
     String getSchema();
 
+    @Nullable
     String getSource();
 
     String getRemoteUserAddress();
 
+    @Nullable
     String getUserAgent();
 
+    @Nullable
     String getClientInfo();
 
     Set<String> getClientTags();
 
+    @Nullable
     String getTimeZoneId();
 
+    @Nullable
     String getLanguage();
 
     Map<String, String> getSystemProperties();
