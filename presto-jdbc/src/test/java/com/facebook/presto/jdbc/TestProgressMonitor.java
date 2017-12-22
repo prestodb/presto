@@ -92,6 +92,8 @@ public class TestProgressMonitor
                 new StatementStats(state, state.equals("QUEUED"), true, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null),
                 null,
                 null,
+                null,
+                null,
                 null);
 
         return QUERY_RESULTS_CODEC.toJson(queryResults);

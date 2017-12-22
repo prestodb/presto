@@ -383,6 +383,8 @@ class Query
                             .build(),
                     null,
                     null,
+                    null,
+                    null,
                     null);
 
             cacheLastResults(queryResults);
@@ -484,7 +486,9 @@ class Query
                 toStatementStats(queryInfo),
                 toQueryError(queryInfo),
                 queryInfo.getUpdateType(),
-                updateCount);
+                updateCount,
+                null,
+                null);
 
         cacheLastResults(queryResults);
         return queryResults;

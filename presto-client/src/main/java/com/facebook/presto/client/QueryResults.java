@@ -39,11 +39,15 @@ public class QueryResults
     private final URI partialCancelUri;
     private final URI nextUri;
     private final List<Column> columns;
+    // TODO: remove data after fully migrated to V2 protocol
     private final Iterable<List<Object>> data;
     private final StatementStats stats;
     private final QueryError error;
     private final String updateType;
     private final Long updateCount;
+    // actions and dataUris will not be set for V1 protocol
+    private final QueryActions actions;
+    private final List<URI> dataUris;
 
     @JsonCreator
     public QueryResults(
@@ -56,9 +60,11 @@ public class QueryResults
             @JsonProperty("stats") StatementStats stats,
             @JsonProperty("error") QueryError error,
             @JsonProperty("updateType") String updateType,
-            @JsonProperty("updateCount") Long updateCount)
+            @JsonProperty("updateCount") Long updateCount,
+            @JsonProperty("actions") QueryActions actions,
+            @JsonProperty("dataUris") List<URI> dataUris)
     {
-        this(id, infoUri, partialCancelUri, nextUri, columns, fixData(columns, data), stats, error, updateType, updateCount);
+        this(id, infoUri, partialCancelUri, nextUri, columns, fixData(columns, data), stats, error, updateType, updateCount, actions, dataUris);
     }
 
     public QueryResults(
@@ -71,7 +77,9 @@ public class QueryResults
             StatementStats stats,
             QueryError error,
             String updateType,
-            Long updateCount)
+            Long updateCount,
+            QueryActions actions,
+            List<URI> dataUris)
     {
         this.id = requireNonNull(id, "id is null");
         this.infoUri = requireNonNull(infoUri, "infoUri is null");
@@ -84,6 +92,8 @@ public class QueryResults
         this.error = error;
         this.updateType = updateType;
         this.updateCount = updateCount;
+        this.actions = actions;
+        this.dataUris = dataUris != null ? ImmutableList.copyOf(dataUris) : null;
     }
 
     @Nonnull
@@ -166,6 +176,20 @@ public class QueryResults
         return updateCount;
     }
 
+    @Nullable
+    @JsonProperty
+    public QueryActions getActions()
+    {
+        return actions;
+    }
+
+    @Nullable
+    @JsonProperty
+    public List<URI> getDataUris()
+    {
+        return dataUris;
+    }
+
     @Override
     public String toString()
     {
@@ -180,6 +204,9 @@ public class QueryResults
                 .add("error", error)
                 .add("updateType", updateType)
                 .add("updateCount", updateCount)
+                .add("actions", actions)
+                .add("dataUris", dataUris)
+                .omitNullValues()
                 .toString();
     }
 }
