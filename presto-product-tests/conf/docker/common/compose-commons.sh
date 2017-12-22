@@ -23,7 +23,7 @@ function export_canonical_path() {
 
 source ${BASH_SOURCE%/*}/../../../bin/locations.sh
 
-export DOCKER_IMAGES_VERSION=${DOCKER_IMAGES_VERSION:-1}
+export DOCKER_IMAGES_VERSION=${DOCKER_IMAGES_VERSION:-2}
 export HADOOP_MASTER_IMAGE=${HADOOP_MASTER_IMAGE:-"prestodb/hdp2.5-hive:${DOCKER_IMAGES_VERSION}"}
 
 # The following variables are defined to enable running product tests with arbitrary/downloaded jars
