@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.tests.nullconnector;
+package com.facebook.presto.tests.blackhole;
 
 import com.teradata.tempto.query.QueryResult;
 import org.testng.annotations.Test;
