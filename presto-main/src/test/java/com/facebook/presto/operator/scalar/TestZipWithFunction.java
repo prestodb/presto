@@ -34,6 +34,12 @@ public class TestZipWithFunction
         extends AbstractTestFunctions
 {
     @Test
+    public void testRetainedSizeBounded()
+    {
+        assertCachedInstanceHasBoundedRetainedSize("zip_with(ARRAY [25, 26, 27], ARRAY [1, 2, 3], (x, y) -> x + y)");
+    }
+
+    @Test
     public void testSameLength()
     {
         assertFunction("zip_with(ARRAY[], ARRAY[], (x, y) -> (y, x))",
