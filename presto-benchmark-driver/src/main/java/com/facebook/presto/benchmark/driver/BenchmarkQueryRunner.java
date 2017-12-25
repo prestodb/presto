@@ -196,28 +196,28 @@ public class BenchmarkQueryRunner
     private StatementStats execute(ClientSession session, String query, Consumer<QueryData> queryDataConsumer, Consumer<QueryError> queryErrorConsumer)
     {
         // start query
-        StatementClient client = new StatementClient(okHttpClient, session, query);
+        try (StatementClient client = new StatementClient(okHttpClient, session, query)) {
+            // read query output
+            while (client.isValid() && client.advance()) {
+                queryDataConsumer.accept(client.currentData());
+            }
 
-        // read query output
-        while (client.isValid() && client.advance()) {
-            queryDataConsumer.accept(client.currentData());
+            // verify final state
+            if (client.isClosed()) {
+                throw new IllegalStateException("Query aborted by user");
+            }
+
+            if (client.isGone()) {
+                throw new IllegalStateException("Query is gone (server restarted?)");
+            }
+
+            QueryError resultsError = client.finalStatusInfo().getError();
+            if (resultsError != null) {
+                queryErrorConsumer.accept(resultsError);
+            }
+
+            return client.finalStatusInfo().getStats();
         }
-
-        // verify final state
-        if (client.isClosed()) {
-            throw new IllegalStateException("Query aborted by user");
-        }
-
-        if (client.isGone()) {
-            throw new IllegalStateException("Query is gone (server restarted?)");
-        }
-
-        QueryError resultsError = client.finalStatusInfo().getError();
-        if (resultsError != null) {
-            queryErrorConsumer.accept(resultsError);
-        }
-
-        return client.finalStatusInfo().getStats();
     }
 
     @Override
