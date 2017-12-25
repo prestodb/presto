@@ -123,7 +123,7 @@ public abstract class PlanRewriter<C, P>
                 children.add(result.getPlanNode());
                 payloads.add(result.getPayload());
             }
-            return new Result<>(ChildReplacer.replaceChildren(node, children), payloadCombiner.apply(payloads));
+            return new Result<>(node.replaceChildren(children), payloadCombiner.apply(payloads));
         }
 
         /**

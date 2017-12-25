@@ -15,7 +15,6 @@ package com.facebook.presto.sql.planner.plan;
 
 import java.util.List;
 
-import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
@@ -73,7 +72,7 @@ public abstract class SimplePlanRewriter<C>
                     .map(child -> rewrite(child, context))
                     .collect(toImmutableList());
 
-            return replaceChildren(node, children);
+            return node.replaceChildren(children);
         }
 
         /**

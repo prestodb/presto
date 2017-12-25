@@ -22,7 +22,6 @@ import java.util.Optional;
 import java.util.function.Predicate;
 
 import static com.facebook.presto.sql.planner.iterative.Lookup.noLookup;
-import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -155,7 +154,7 @@ public class PlanNodeSearcher
             List<PlanNode> sources = node.getSources().stream()
                     .map(source -> removeAllRecursive(source))
                     .collect(toImmutableList());
-            return replaceChildren(node, sources);
+            return node.replaceChildren(sources);
         }
         return node;
     }
@@ -181,7 +180,7 @@ public class PlanNodeSearcher
                 return node;
             }
             else if (sources.size() == 1) {
-                return replaceChildren(node, ImmutableList.of(removeFirstRecursive(sources.get(0))));
+                return node.replaceChildren(ImmutableList.of(removeFirstRecursive(sources.get(0))));
             }
             else {
                 throw new IllegalArgumentException("Unable to remove first node when a node has multiple children, use removeAll instead");
@@ -206,7 +205,7 @@ public class PlanNodeSearcher
             List<PlanNode> sources = node.getSources().stream()
                     .map(source -> replaceAllRecursive(source, nodeToReplace))
                     .collect(toImmutableList());
-            return replaceChildren(node, sources);
+            return node.replaceChildren(sources);
         }
         return node;
     }
@@ -228,7 +227,7 @@ public class PlanNodeSearcher
             return node;
         }
         else if (sources.size() == 1) {
-            return replaceChildren(node, ImmutableList.of(replaceFirstRecursive(node, sources.get(0))));
+            return node.replaceChildren(ImmutableList.of(replaceFirstRecursive(node, sources.get(0))));
         }
         else {
             throw new IllegalArgumentException("Unable to replace first node when a node has multiple children, use replaceAll instead");
