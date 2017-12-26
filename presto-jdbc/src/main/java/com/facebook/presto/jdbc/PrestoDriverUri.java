@@ -91,7 +91,8 @@ final class PrestoDriverUri
 
         validateConnectionProperties(properties);
 
-        useSecureConnection = SSL.getRequiredValue(properties);
+        // enable SSL by default for standard port
+        useSecureConnection = SSL.getValue(properties).orElse(uri.getPort() == 443);
 
         initCatalogAndSchema();
     }
