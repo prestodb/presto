@@ -90,7 +90,7 @@ final class PrestoDriverUri
 
         validateConnectionProperties(properties);
 
-        useSecureConnection = SSL.getRequiredValue(properties);
+        useSecureConnection = SSL.getRequiredValue(uri, properties);
 
         initCatalogAndSchema();
     }
