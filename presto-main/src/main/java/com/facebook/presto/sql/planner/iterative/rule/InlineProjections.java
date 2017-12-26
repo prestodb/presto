@@ -16,7 +16,6 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.sql.planner.ExpressionSymbolInliner;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.iterative.Rule;
@@ -35,6 +34,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.matching.Capture.newCapture;
+import static com.facebook.presto.sql.planner.ExpressionSymbolInliner.inlineSymbols;
 import static com.facebook.presto.sql.planner.plan.Patterns.project;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
 import static java.util.stream.Collectors.toSet;
@@ -119,7 +119,7 @@ public class InlineProjections
             return symbol.toSymbolReference();
         };
 
-        return new ExpressionSymbolInliner(mapping).rewrite(expression);
+        return inlineSymbols(mapping, expression);
     }
 
     private Sets.SetView<Symbol> extractInliningTargets(ProjectNode parent, ProjectNode child)
