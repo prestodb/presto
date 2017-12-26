@@ -27,16 +27,21 @@ import java.util.function.Function;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
-public class ExpressionSymbolInliner
+public final class ExpressionSymbolInliner
 {
+    public static Expression inlineSymbols(Function<Symbol, Expression> mapping, Expression expression)
+    {
+        return new ExpressionSymbolInliner(mapping).rewrite(expression);
+    }
+
     private final Function<Symbol, Expression> mapping;
 
-    public ExpressionSymbolInliner(Function<Symbol, Expression> mapping)
+    private ExpressionSymbolInliner(Function<Symbol, Expression> mapping)
     {
         this.mapping = mapping;
     }
 
-    public Expression rewrite(Expression expression)
+    private Expression rewrite(Expression expression)
     {
         return ExpressionTreeRewriter.rewriteWith(new Visitor(), expression);
     }
