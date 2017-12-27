@@ -397,7 +397,8 @@ public class InvokeInstruction
                     bootstrapMethod.getName(),
                     methodDescription(
                             bootstrapMethod.getReturnType(),
-                            bootstrapMethod.getParameterTypes()));
+                            bootstrapMethod.getParameterTypes()),
+                    false);
 
             visitor.visitInvokeDynamicInsn(getName(),
                     getMethodDescription(),
