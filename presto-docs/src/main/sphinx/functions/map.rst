@@ -75,3 +75,8 @@ Map Functions
 .. function:: map_values(x<K,V>) -> array<V>
 
     Returns all the values in the map ``x``.
+
+.. function:: map_zip_with(map<K,V1>, map<K,V2>, function<K,V1,V2,V3>) -> map<K,V3>
+    :noindex:
+
+    See :func:`map_zip_with`.
