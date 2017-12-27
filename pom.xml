@@ -118,6 +118,7 @@
         <module>presto-thrift-testing-server</module>
         <module>presto-thrift-connector</module>
         <module>presto-matching</module>
+        <module>presto-ranger-toolkit2</module>
     </modules>
 
     <dependencyManagement>
