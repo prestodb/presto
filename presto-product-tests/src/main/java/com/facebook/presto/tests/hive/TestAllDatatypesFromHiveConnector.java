@@ -163,7 +163,7 @@ public class TestAllDatatypesFromHiveConnector
     }
 
     @Requires(OrcRequirements.class)
-    @Test(groups = {HIVE_CONNECTOR})
+    @Test(groups = {HIVE_CONNECTOR, JDBC})
     public void testSelectAllDatatypesOrc()
             throws SQLException
     {
@@ -195,7 +195,7 @@ public class TestAllDatatypesFromHiveConnector
     }
 
     @Requires(RcfileRequirements.class)
-    @Test(groups = {HIVE_CONNECTOR})
+    @Test(groups = {HIVE_CONNECTOR, JDBC})
     public void testSelectAllDatatypesRcfile()
             throws SQLException
     {

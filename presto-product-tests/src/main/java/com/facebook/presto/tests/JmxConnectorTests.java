@@ -18,6 +18,7 @@ import org.testng.annotations.Test;
 
 import java.sql.Connection;
 
+import static com.facebook.presto.tests.TestGroups.JDBC;
 import static com.facebook.presto.tests.TestGroups.JMX_CONNECTOR;
 import static com.facebook.presto.tests.utils.JdbcDriverUtils.usingPrestoJdbcDriver;
 import static com.facebook.presto.tests.utils.JdbcDriverUtils.usingTeradataJdbcDriver;
@@ -31,7 +32,7 @@ import static java.sql.JDBCType.VARCHAR;
 public class JmxConnectorTests
         extends ProductTest
 {
-    @Test(groups = JMX_CONNECTOR)
+    @Test(groups = {JMX_CONNECTOR, JDBC})
     public void selectFromJavaRuntimeJmxMBean()
     {
         Connection connection = defaultQueryExecutor().getConnection();
