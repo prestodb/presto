@@ -98,11 +98,6 @@ public class CursorProcessorCompiler
                 .invokeConstructor(Object.class);
 
         cachedInstanceBinder.generateInitializations(thisVariable, constructorBody);
-        for (PreGeneratedExpressions preGeneratedExpressions : allPreGeneratedExpressions) {
-            for (CompiledLambda compiledLambda : preGeneratedExpressions.getCompiledLambdaMap().values()) {
-                compiledLambda.generateInitialization(thisVariable, constructorBody);
-            }
-        }
         constructorBody.ret();
     }
 
@@ -215,11 +210,11 @@ public class CursorProcessorCompiler
         for (RowExpression expression : lambdaAndTryExpressions) {
             if (expression instanceof LambdaDefinitionExpression) {
                 LambdaDefinitionExpression lambdaExpression = (LambdaDefinitionExpression) expression;
-                String fieldName = methodPrefix + "_lambda_" + counter;
+                String methodName = methodPrefix + "_lambda_" + counter;
                 PreGeneratedExpressions preGeneratedExpressions = new PreGeneratedExpressions(tryMethodMap.build(), compiledLambdaMap.build());
                 CompiledLambda compiledLambda = LambdaBytecodeGenerator.preGenerateLambdaExpression(
                         lambdaExpression,
-                        fieldName,
+                        methodName,
                         containerClassDefinition,
                         preGeneratedExpressions,
                         callSiteBinder,
