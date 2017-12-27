@@ -193,7 +193,7 @@ public class TestHiveCoercion
     }
 
     @Requires(TextRequirements.class)
-    @Test(groups = {HIVE_COERCION, HIVE_CONNECTOR})
+    @Test(groups = {HIVE_COERCION, HIVE_CONNECTOR, JDBC})
     public void testHiveCoercionTextFile()
             throws SQLException
     {
@@ -201,7 +201,7 @@ public class TestHiveCoercion
     }
 
     @Requires(OrcRequirements.class)
-    @Test(groups = {HIVE_COERCION, HIVE_CONNECTOR})
+    @Test(groups = {HIVE_COERCION, HIVE_CONNECTOR, JDBC})
     public void testHiveCoercionOrc()
             throws SQLException
     {
@@ -209,7 +209,7 @@ public class TestHiveCoercion
     }
 
     @Requires(RcTextRequirements.class)
-    @Test(groups = {HIVE_COERCION, HIVE_CONNECTOR})
+    @Test(groups = {HIVE_COERCION, HIVE_CONNECTOR, JDBC})
     public void testHiveCoercionRcText()
             throws SQLException
     {
@@ -217,7 +217,7 @@ public class TestHiveCoercion
     }
 
     @Requires(RcBinaryRequirements.class)
-    @Test(groups = {HIVE_COERCION, HIVE_CONNECTOR})
+    @Test(groups = {HIVE_COERCION, HIVE_CONNECTOR, JDBC})
     public void testHiveCoercionRcBinary()
             throws SQLException
     {
@@ -225,7 +225,7 @@ public class TestHiveCoercion
     }
 
     @Requires(ParquetRequirements.class)
-    @Test(groups = {HIVE_COERCION, HIVE_CONNECTOR})
+    @Test(groups = {HIVE_COERCION, HIVE_CONNECTOR, JDBC})
     public void testHiveCoercionParquet()
             throws SQLException
     {

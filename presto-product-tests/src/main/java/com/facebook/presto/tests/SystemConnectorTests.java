@@ -18,6 +18,7 @@ import org.testng.annotations.Test;
 
 import java.sql.Connection;
 
+import static com.facebook.presto.tests.TestGroups.JDBC;
 import static com.facebook.presto.tests.TestGroups.SYSTEM_CONNECTOR;
 import static com.facebook.presto.tests.utils.JdbcDriverUtils.usingPrestoJdbcDriver;
 import static com.facebook.presto.tests.utils.JdbcDriverUtils.usingTeradataJdbcDriver;
@@ -32,7 +33,7 @@ import static java.sql.JDBCType.VARCHAR;
 public class SystemConnectorTests
         extends ProductTest
 {
-    @Test(groups = SYSTEM_CONNECTOR)
+    @Test(groups = {SYSTEM_CONNECTOR, JDBC})
     public void selectRuntimeNodes()
     {
         Connection connection = defaultQueryExecutor().getConnection();
@@ -52,7 +53,7 @@ public class SystemConnectorTests
         }
     }
 
-    @Test(groups = SYSTEM_CONNECTOR)
+    @Test(groups = {SYSTEM_CONNECTOR, JDBC})
     public void selectRuntimeQueries()
     {
         Connection connection = defaultQueryExecutor().getConnection();
@@ -87,7 +88,7 @@ public class SystemConnectorTests
         }
     }
 
-    @Test(groups = SYSTEM_CONNECTOR)
+    @Test(groups = {SYSTEM_CONNECTOR, JDBC})
     public void selectRuntimeTasks()
     {
         Connection connection = defaultQueryExecutor().getConnection();
@@ -136,7 +137,7 @@ public class SystemConnectorTests
         }
     }
 
-    @Test(groups = SYSTEM_CONNECTOR)
+    @Test(groups = {SYSTEM_CONNECTOR, JDBC})
     public void selectMetadataCatalogs()
     {
         Connection connection = defaultQueryExecutor().getConnection();
