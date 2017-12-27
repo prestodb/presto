@@ -20,6 +20,7 @@ import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HivePageSourceFactory;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
@@ -32,6 +33,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
 
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcLazyReadSmallRanges;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxBufferSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxMergeDistance;
@@ -71,6 +73,10 @@ public class DwrfPageSourceFactory
     {
         if (!isDeserializerClass(schema, OrcSerde.class)) {
             return Optional.empty();
+        }
+
+        if (fileSize == 0) {
+            throw new PrestoException(HIVE_BAD_DATA, "ORC file is empty: " + path);
         }
 
         return Optional.of(createOrcPageSource(
