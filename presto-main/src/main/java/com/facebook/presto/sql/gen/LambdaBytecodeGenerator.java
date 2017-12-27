@@ -130,7 +130,8 @@ public class LambdaBytecodeGenerator
                 Opcodes.H_INVOKEVIRTUAL,
                 method.getThis().getType().getClassName(),
                 method.getName(),
-                method.getMethodDescriptor());
+                method.getMethodDescriptor(),
+                false);
 
         return new CompiledLambda(
                 lambdaAsmHandle,
