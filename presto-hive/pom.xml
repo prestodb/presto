@@ -14,12 +14,18 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+        <ranger.version>0.7.1</ranger.version>
     </properties>
 
     <dependencies>
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-plugin-toolkit</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-ranger-toolkit2</artifactId>
+            <version>0.188</version>
         </dependency>
 
         <dependency>
@@ -278,5 +284,7 @@
             <artifactId>jmh-generator-annprocess</artifactId>
             <scope>test</scope>
         </dependency>
+
+
     </dependencies>
 </project>
