@@ -105,7 +105,7 @@ public class PushProjectionThroughExchange
                 inputs.add(exchange.getPartitioningScheme().getHashColumn().get());
             }
             for (Map.Entry<Symbol, Expression> projection : project.getAssignments().entrySet()) {
-                Expression translatedExpression = inlineSymbols(outputToInputMap::get, projection.getValue());
+                Expression translatedExpression = inlineSymbols(outputToInputMap, projection.getValue());
                 Type type = context.getSymbolAllocator().getTypes().get(projection.getKey());
                 Symbol symbol = context.getSymbolAllocator().newSymbol(translatedExpression, type);
                 projections.put(symbol, translatedExpression);

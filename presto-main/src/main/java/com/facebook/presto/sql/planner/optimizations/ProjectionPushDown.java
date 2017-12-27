@@ -100,7 +100,7 @@ public class ProjectionPushDown
 
                 // Translate the assignments in the ProjectNode using symbols of the source of the UnionNode
                 for (Map.Entry<Symbol, Expression> entry : node.getAssignments().entrySet()) {
-                    Expression translatedExpression = inlineSymbols(outputToInput::get, entry.getValue());
+                    Expression translatedExpression = inlineSymbols(outputToInput, entry.getValue());
                     Type type = symbolAllocator.getTypes().get(entry.getKey());
                     Symbol symbol = symbolAllocator.newSymbol(translatedExpression, type);
                     assignments.put(symbol, translatedExpression);
@@ -138,7 +138,7 @@ public class ProjectionPushDown
                     inputs.add(exchange.getPartitioningScheme().getHashColumn().get());
                 }
                 for (Map.Entry<Symbol, Expression> projection : node.getAssignments().entrySet()) {
-                    Expression translatedExpression = inlineSymbols(outputToInputMap::get, projection.getValue());
+                    Expression translatedExpression = inlineSymbols(outputToInputMap, projection.getValue());
                     Type type = symbolAllocator.getTypes().get(projection.getKey());
                     Symbol symbol = symbolAllocator.newSymbol(translatedExpression, type);
                     projections.put(symbol, translatedExpression);

@@ -75,7 +75,7 @@ public class PushProjectionThroughUnion
 
             // Translate the assignments in the ProjectNode using symbols of the source of the UnionNode
             for (Map.Entry<Symbol, Expression> entry : parent.getAssignments().entrySet()) {
-                Expression translatedExpression = inlineSymbols(outputToInput::get, entry.getValue());
+                Expression translatedExpression = inlineSymbols(outputToInput, entry.getValue());
                 Type type = context.getSymbolAllocator().getTypes().get(entry.getKey());
                 Symbol symbol = context.getSymbolAllocator().newSymbol(translatedExpression, type);
                 assignments.put(symbol, translatedExpression);
