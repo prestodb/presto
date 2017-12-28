@@ -75,7 +75,7 @@ public class TestMongoIntegrationSmokeTest
 
         assertUpdate(query, 1);
 
-        MaterializedResult results = getQueryRunner().execute(getSession(), "SELECT * FROM test_types_table").toJdbcTypes();
+        MaterializedResult results = getQueryRunner().execute(getSession(), "SELECT * FROM test_types_table").toTestTypes();
         assertEquals(results.getRowCount(), 1);
         MaterializedRow row = results.getMaterializedRows().get(0);
         assertEquals(row.getField(0), "foo");
@@ -172,7 +172,7 @@ public class TestMongoIntegrationSmokeTest
 
     private void assertOneNotNullResult(String query)
     {
-        MaterializedResult results = getQueryRunner().execute(getSession(), query).toJdbcTypes();
+        MaterializedResult results = getQueryRunner().execute(getSession(), query).toTestTypes();
         assertEquals(results.getRowCount(), 1);
         assertEquals(results.getMaterializedRows().get(0).getFieldCount(), 1);
         assertNotNull(results.getMaterializedRows().get(0).getField(0));

@@ -33,7 +33,7 @@ public class TestAccumuloIntegrationSmokeTest
             throws Exception
     {
         // Override base class because table descriptions for Accumulo connector include comments
-        MaterializedResult actual = computeActual("DESC ORDERS").toJdbcTypes();
+        MaterializedResult actual = computeActual("DESC ORDERS").toTestTypes();
         assertEquals(actual.getMaterializedRows().get(0).getField(0), "orderkey");
         assertEquals(actual.getMaterializedRows().get(0).getField(1), "bigint");
         assertEquals(actual.getMaterializedRows().get(1).getField(0), "custkey");
