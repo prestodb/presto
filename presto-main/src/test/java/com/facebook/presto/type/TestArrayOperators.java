@@ -1166,6 +1166,19 @@ public class TestArrayOperators
     }
 
     @Test
+    public void testIdentity()
+    {
+        assertFunction("identity_array(ARRAY[1, 2, 3])", new ArrayType(INTEGER), ImmutableList.of(1, 2, 3));
+    }
+
+    @Test
+    public void testIdentityDirect()
+    {
+        assertFunction("identity_array_direct(ARRAY[1, 2, 3])", new ArrayType(INTEGER), ImmutableList.of(1, 2, 3));
+    }
+
+
+    @Test
     public void testFlatten()
     {
         // BOOLEAN Tests
