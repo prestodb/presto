@@ -18,6 +18,7 @@ import com.facebook.presto.plugin.jdbc.BaseJdbcConfig;
 import com.facebook.presto.plugin.jdbc.ConnectionFactory;
 import com.facebook.presto.plugin.jdbc.DriverConnectionFactory;
 import com.facebook.presto.plugin.jdbc.JdbcConnectorId;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
@@ -36,6 +37,7 @@ import java.util.Properties;
 import java.util.Set;
 
 import static com.facebook.presto.plugin.jdbc.DriverConnectionFactory.basicConnectionProperties;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
@@ -135,13 +137,10 @@ public class MySqlClient
         if (REAL.equals(type)) {
             return "float";
         }
-        if (TIME_WITH_TIME_ZONE.equals(type)) {
-            return "time";
+        if (TIME_WITH_TIME_ZONE.equals(type) || TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
+            throw new PrestoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
         }
         if (TIMESTAMP.equals(type)) {
-            return "datetime";
-        }
-        if (TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
             return "datetime";
         }
         if (VARBINARY.equals(type)) {
