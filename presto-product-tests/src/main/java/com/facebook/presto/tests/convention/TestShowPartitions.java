@@ -43,7 +43,7 @@ public class TestShowPartitions
         extends ProductTest
         implements RequirementsProvider
 {
-    private static final String TABLE_NAME = "partitioned_table";
+    private static final String PARTITIONED_TABLE = "partitioned_table";
 
     @Inject
     private MutableTablesState tablesState;
@@ -51,10 +51,10 @@ public class TestShowPartitions
     @Override
     public Requirement getRequirements(Configuration configuration)
     {
-        return compose(mutableTable(generateTableDefinition(), TABLE_NAME, MutableTableRequirement.State.CREATED));
+        return compose(mutableTable(partitionedTableDefinition(), PARTITIONED_TABLE, MutableTableRequirement.State.CREATED));
     }
 
-    private static TableDefinition generateTableDefinition()
+    private static TableDefinition partitionedTableDefinition()
     {
         StringBuilder createTableDdl = new StringBuilder();
         createTableDdl.append("CREATE EXTERNAL TABLE %NAME%(");
@@ -63,9 +63,9 @@ public class TestShowPartitions
         createTableDdl.append("PARTITIONED BY (part_col INT) ");
         createTableDdl.append(" STORED AS ORC");
 
-        HiveDataSource dataSource = createResourceDataSource(TABLE_NAME, String.valueOf(ThreadLocalRandom.current().nextLong(Long.MAX_VALUE)), "com/facebook/presto/tests/hive/data/single_int_column/data.orc");
-        HiveDataSource invalidData = createStringDataSource(TABLE_NAME, String.valueOf(ThreadLocalRandom.current().nextLong(Long.MAX_VALUE)), "INVALID DATA");
-        return HiveTableDefinition.builder(TABLE_NAME)
+        HiveDataSource dataSource = createResourceDataSource(PARTITIONED_TABLE, String.valueOf(ThreadLocalRandom.current().nextLong(Long.MAX_VALUE)), "com/facebook/presto/tests/hive/data/single_int_column/data.orc");
+        HiveDataSource invalidData = createStringDataSource(PARTITIONED_TABLE, String.valueOf(ThreadLocalRandom.current().nextLong(Long.MAX_VALUE)), "INVALID DATA");
+        return HiveTableDefinition.builder(PARTITIONED_TABLE)
                 .setCreateTableDDLTemplate(createTableDdl.toString())
                 .addPartition("part_col = 1", invalidData)
                 .addPartition("part_col = 2", dataSource)
@@ -76,7 +76,7 @@ public class TestShowPartitions
     public void testShowPartitionsFromHiveTable()
             throws SQLException
     {
-        String tableNameInDatabase = tablesState.get(TABLE_NAME).getNameInDatabase();
+        String tableNameInDatabase = tablesState.get(PARTITIONED_TABLE).getNameInDatabase();
 
         String selectFromOnePartitionsSql = "show partitions from " + tableNameInDatabase;
         QueryResult partitionListResult = query(selectFromOnePartitionsSql);
