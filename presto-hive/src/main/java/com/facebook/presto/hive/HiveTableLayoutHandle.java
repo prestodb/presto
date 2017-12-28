@@ -73,7 +73,7 @@ public final class HiveTableLayoutHandle
     /**
      * Partitions are dropped when HiveTableLayoutHandle is serialized.
      *
-     * @return list of partitions if avaiable, Optional.empty() if dropped
+     * @return list of partitions if available, {@code Optional.empty()} if dropped
      */
     @JsonIgnore
     public Optional<List<HivePartition>> getPartitions()
