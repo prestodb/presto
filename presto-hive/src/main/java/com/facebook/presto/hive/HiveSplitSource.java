@@ -531,7 +531,8 @@ class HiveSplitSource
         }
     }
 
-    enum StateKind {
+    enum StateKind
+    {
         INITIAL,
         NO_MORE_SPLITS,
         FAILED,

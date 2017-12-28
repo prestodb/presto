@@ -1843,7 +1843,7 @@ public abstract class AbstractTestHiveClient
                 .withStorage(storage -> storage
                         .setLocation(targetPath.toString())
                         .setStorageFormat(fromHiveStorageFormat(ORC))
-                .setSerdeParameters(ImmutableMap.of()))
+                        .setSerdeParameters(ImmutableMap.of()))
                 .build();
     }
 
