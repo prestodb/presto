@@ -163,6 +163,12 @@ public class HiveSplitManager
         Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(tableName));
 
+        // verify table is not marked as non-readable
+        String tableNotReadable = table.getParameters().get(OBJECT_NOT_READABLE);
+        if (!isNullOrEmpty(tableNotReadable)) {
+            throw new HiveNotReadableException(tableName, Optional.empty(), tableNotReadable);
+        }
+
         // get partitions
         List<HivePartition> partitions = layout.getPartitions()
                 .orElseThrow(() -> new PrestoException(GENERIC_INTERNAL_ERROR, "Layout does not contain partitions"));
@@ -245,11 +251,6 @@ public class HiveSplitManager
 
     private Iterable<HivePartitionMetadata> getPartitionMetadata(SemiTransactionalHiveMetastore metastore, Table table, SchemaTableName tableName, List<HivePartition> hivePartitions, Optional<HiveBucketProperty> bucketProperty)
     {
-        String tableNotReadable = table.getParameters().get(OBJECT_NOT_READABLE);
-        if (!isNullOrEmpty(tableNotReadable)) {
-            throw new HiveNotReadableException(tableName, Optional.empty(), tableNotReadable);
-        }
-
         if (hivePartitions.isEmpty()) {
             return ImmutableList.of();
         }
