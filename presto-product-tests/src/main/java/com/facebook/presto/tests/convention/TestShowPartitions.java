@@ -73,7 +73,7 @@ public class TestShowPartitions
     }
 
     @Test(groups = {BASIC_SQL})
-    public void testSelectPartitionedHiveTableDifferentFormats()
+    public void testShowPartitionsFromHiveTable()
             throws SQLException
     {
         String tableNameInDatabase = tablesState.get(TABLE_NAME).getNameInDatabase();
