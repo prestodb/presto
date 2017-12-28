@@ -155,6 +155,7 @@ public class HiveSplitManager
     public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableLayoutHandle layoutHandle, SplitSchedulingStrategy splitSchedulingStrategy)
     {
         HiveTableLayoutHandle layout = (HiveTableLayoutHandle) layoutHandle;
+        SchemaTableName tableName = layout.getSchemaTableName();
 
         List<HivePartition> partitions = layout.getPartitions().get();
 
@@ -162,7 +163,6 @@ public class HiveSplitManager
         if (partition == null) {
             return new FixedSplitSource(ImmutableList.of());
         }
-        SchemaTableName tableName = partition.getTableName();
         List<HiveBucketing.HiveBucket> buckets = partition.getBuckets();
         Optional<HiveBucketHandle> bucketHandle = layout.getBucketHandle();
         checkArgument(splitSchedulingStrategy != GROUPED_SCHEDULING || bucketHandle.isPresent(), "SchedulingPolicy is bucketed, but BucketHandle is not present");
