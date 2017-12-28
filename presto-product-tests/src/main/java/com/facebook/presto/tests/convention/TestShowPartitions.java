@@ -56,17 +56,14 @@ public class TestShowPartitions
 
     private static TableDefinition partitionedTableDefinition()
     {
-        StringBuilder createTableDdl = new StringBuilder();
-        createTableDdl.append("CREATE EXTERNAL TABLE %NAME%(");
-        createTableDdl.append("   col INT");
-        createTableDdl.append(") ");
-        createTableDdl.append("PARTITIONED BY (part_col INT) ");
-        createTableDdl.append(" STORED AS ORC");
+        String createTableDdl = "CREATE EXTERNAL TABLE %NAME%(col INT) " +
+                "PARTITIONED BY (part_col INT) " +
+                "STORED AS ORC";
 
         HiveDataSource dataSource = createResourceDataSource(PARTITIONED_TABLE, String.valueOf(ThreadLocalRandom.current().nextLong(Long.MAX_VALUE)), "com/facebook/presto/tests/hive/data/single_int_column/data.orc");
         HiveDataSource invalidData = createStringDataSource(PARTITIONED_TABLE, String.valueOf(ThreadLocalRandom.current().nextLong(Long.MAX_VALUE)), "INVALID DATA");
         return HiveTableDefinition.builder(PARTITIONED_TABLE)
-                .setCreateTableDDLTemplate(createTableDdl.toString())
+                .setCreateTableDDLTemplate(createTableDdl)
                 .addPartition("part_col = 1", invalidData)
                 .addPartition("part_col = 2", dataSource)
                 .build();
