@@ -1263,7 +1263,7 @@ public abstract class AbstractTestHiveClient
                 fail("Expected HiveNotReadableException");
             }
             catch (HiveNotReadableException e) {
-                assertEquals(e.getMessage(), "Table 'default.presto_test_not_readable' is not readable: reason for not readable");
+                assertThat(e).hasMessageMatching("Table '.*\\.presto_test_not_readable' is not readable: reason for not readable");
                 assertEquals(e.getTableName(), tableNotReadable);
                 assertEquals(e.getPartition(), Optional.empty());
             }
