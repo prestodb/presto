@@ -172,7 +172,7 @@ public class HiveWriterFactory
                 partitionColumnTypes.add(typeManager.getType(column.getTypeSignature()));
             }
             else {
-                dataColumns.add(new DataColumn(column.getName(), typeManager.getType(column.getTypeSignature()), hiveType));
+                dataColumns.add(new DataColumn(column.getName(), hiveType));
             }
         }
         this.partitionColumnNames = partitionColumnNames.build();
@@ -528,24 +528,17 @@ public class HiveWriterFactory
     private static class DataColumn
     {
         private final String name;
-        private final Type type;
         private final HiveType hiveType;
 
-        public DataColumn(String name, Type type, HiveType hiveType)
+        public DataColumn(String name, HiveType hiveType)
         {
             this.name = requireNonNull(name, "name is null");
-            this.type = requireNonNull(type, "type is null");
             this.hiveType = requireNonNull(hiveType, "hiveType is null");
         }
 
         public String getName()
         {
             return name;
-        }
-
-        public Type getType()
-        {
-            return type;
         }
 
         public HiveType getHiveType()
