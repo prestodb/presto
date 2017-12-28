@@ -15,7 +15,6 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.ExpressionSymbolInliner;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
@@ -35,6 +34,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.sql.planner.ExpressionSymbolInliner.inlineSymbols;
 import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
 import static java.util.Objects.requireNonNull;
 
@@ -100,7 +100,7 @@ public class ProjectionPushDown
 
                 // Translate the assignments in the ProjectNode using symbols of the source of the UnionNode
                 for (Map.Entry<Symbol, Expression> entry : node.getAssignments().entrySet()) {
-                    Expression translatedExpression = translateExpression(entry.getValue(), outputToInput);
+                    Expression translatedExpression = inlineSymbols(outputToInput, entry.getValue());
                     Type type = symbolAllocator.getTypes().get(entry.getKey());
                     Symbol symbol = symbolAllocator.newSymbol(translatedExpression, type);
                     assignments.put(symbol, translatedExpression);
@@ -138,7 +138,7 @@ public class ProjectionPushDown
                     inputs.add(exchange.getPartitioningScheme().getHashColumn().get());
                 }
                 for (Map.Entry<Symbol, Expression> projection : node.getAssignments().entrySet()) {
-                    Expression translatedExpression = translateExpression(projection.getValue(), outputToInputMap);
+                    Expression translatedExpression = inlineSymbols(outputToInputMap, projection.getValue());
                     Type type = symbolAllocator.getTypes().get(projection.getKey());
                     Symbol symbol = symbolAllocator.newSymbol(translatedExpression, type);
                     projections.put(symbol, translatedExpression);
@@ -184,10 +184,5 @@ public class ProjectionPushDown
             outputToInputMap.put(exchange.getOutputSymbols().get(i), exchange.getInputs().get(sourceIndex).get(i).toSymbolReference());
         }
         return outputToInputMap;
-    }
-
-    private static Expression translateExpression(Expression inputExpression, Map<Symbol, SymbolReference> symbolMapping)
-    {
-        return new ExpressionSymbolInliner(symbolMapping).rewrite(inputExpression);
     }
 }

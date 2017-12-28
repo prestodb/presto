@@ -15,7 +15,6 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.ExpressionSymbolInliner;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.tree.BindExpression;
@@ -33,7 +32,9 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 
+import static com.facebook.presto.sql.planner.ExpressionSymbolInliner.inlineSymbols;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
@@ -89,8 +90,8 @@ public class LambdaCaptureDesugaringRewriter
             newLambdaArguments.addAll(node.getArguments());
 
             ImmutableMap<Symbol, Symbol> symbolsMap = captureSymbolToExtraSymbol.build();
-            ExpressionSymbolInliner inliner = new ExpressionSymbolInliner(x -> symbolsMap.getOrDefault(x, x).toSymbolReference());
-            Expression rewrittenExpression = new LambdaExpression(newLambdaArguments.build(), inliner.rewrite(rewrittenBody));
+            Function<Symbol, Expression> symbolMapping = symbol -> symbolsMap.getOrDefault(symbol, symbol).toSymbolReference();
+            Expression rewrittenExpression = new LambdaExpression(newLambdaArguments.build(), inlineSymbols(symbolMapping, rewrittenBody));
 
             if (captureSymbols.size() != 0) {
                 List<Expression> capturedValues = captureSymbols.stream()
