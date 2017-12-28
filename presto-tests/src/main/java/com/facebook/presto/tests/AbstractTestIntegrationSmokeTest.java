@@ -100,7 +100,7 @@ public abstract class AbstractTestIntegrationSmokeTest
     public void testShowSchemas()
             throws Exception
     {
-        MaterializedResult actualSchemas = computeActual("SHOW SCHEMAS").toJdbcTypes();
+        MaterializedResult actualSchemas = computeActual("SHOW SCHEMAS").toTestTypes();
 
         MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR)
                 .row(getQueryRunner().getDefaultSession().getSchema().orElse("tpch"));
@@ -112,7 +112,7 @@ public abstract class AbstractTestIntegrationSmokeTest
     public void testShowTables()
             throws Exception
     {
-        MaterializedResult actualTables = computeActual("SHOW TABLES").toJdbcTypes();
+        MaterializedResult actualTables = computeActual("SHOW TABLES").toTestTypes();
         MaterializedResult expectedTables = MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR)
                 .row("orders")
                 .build();
@@ -123,7 +123,7 @@ public abstract class AbstractTestIntegrationSmokeTest
     public void testDescribeTable()
             throws Exception
     {
-        MaterializedResult actualColumns = computeActual("DESC ORDERS").toJdbcTypes();
+        MaterializedResult actualColumns = computeActual("DESC ORDERS").toTestTypes();
 
         // some connectors don't support dates, and some do not support parametrized varchars, so we check multiple options
         List<MaterializedResult> expectedColumnsPossibilities = ImmutableList.of(

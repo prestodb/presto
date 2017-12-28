@@ -81,7 +81,7 @@ public final class QueryAssertions
         long start = System.nanoTime();
         MaterializedResult actualResults = null;
         try {
-            actualResults = actualQueryRunner.execute(session, actual).toJdbcTypes();
+            actualResults = actualQueryRunner.execute(session, actual).toTestTypes();
         }
         catch (RuntimeException ex) {
             fail("Execution of 'actual' query failed: " + actual, ex);

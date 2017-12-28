@@ -106,7 +106,7 @@ public abstract class AbstractTestQueryFramework
 
     protected MaterializedResult computeActual(Session session, @Language("SQL") String sql)
     {
-        return queryRunner.execute(session, sql).toJdbcTypes();
+        return queryRunner.execute(session, sql).toTestTypes();
     }
 
     protected void assertQuery(@Language("SQL") String sql)
