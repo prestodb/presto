@@ -355,7 +355,6 @@ public abstract class AbstractTestHiveClient
     protected ConnectorTableLayout tableLayout;
     protected ConnectorTableLayout unpartitionedTableLayout;
     protected ConnectorTableLayoutHandle invalidTableLayoutHandle;
-    protected ConnectorTableLayoutHandle emptyTableLayoutHandle;
 
     protected DateTimeZone timeZone;
 
@@ -412,7 +411,6 @@ public abstract class AbstractTestHiveClient
                 TupleDomain.all(),
                 TupleDomain.all(),
                 Optional.empty());
-        emptyTableLayoutHandle = new HiveTableLayoutHandle(ImmutableList.of(), ImmutableList.of(), TupleDomain.none(), TupleDomain.none(), Optional.empty());
 
         dsColumn = new HiveColumnHandle("ds", HIVE_STRING, parseTypeSignature(StandardTypes.VARCHAR), -1, PARTITION_KEY, Optional.empty());
         fileFormatColumn = new HiveColumnHandle("file_format", HIVE_STRING, parseTypeSignature(StandardTypes.VARCHAR), -1, PARTITION_KEY, Optional.empty());
@@ -1183,17 +1181,6 @@ public abstract class AbstractTestHiveClient
     {
         try (Transaction transaction = newTransaction()) {
             splitManager.getSplits(transaction.getTransactionHandle(), newSession(), invalidTableLayoutHandle, UNGROUPED_SCHEDULING);
-        }
-    }
-
-    @Test
-    public void testGetPartitionSplitsEmpty()
-            throws Exception
-    {
-        try (Transaction transaction = newTransaction()) {
-            ConnectorSplitSource splitSource = splitManager.getSplits(transaction.getTransactionHandle(), newSession(), emptyTableLayoutHandle, UNGROUPED_SCHEDULING);
-            // fetch full list
-            getSplitCount(splitSource);
         }
     }
 
