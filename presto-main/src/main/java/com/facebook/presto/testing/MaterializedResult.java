@@ -79,6 +79,7 @@ import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.Float.floatToRawIntBits;
 import static java.util.Objects.requireNonNull;
@@ -327,14 +328,15 @@ public class MaterializedResult
         }
     }
 
-    public MaterializedResult toJdbcTypes()
+    /**
+     * Converts this {@link MaterializedResult} to a new one, representing the data using the same type domain as returned by {@code TestingPrestoClient}.
+     */
+    public MaterializedResult toTestTypes()
     {
-        ImmutableList.Builder<MaterializedRow> jdbcRows = ImmutableList.builder();
-        for (MaterializedRow row : rows) {
-            jdbcRows.add(convertToJdbcTypes(row));
-        }
         return new MaterializedResult(
-                jdbcRows.build(),
+                rows.stream()
+                        .map(MaterializedResult::convertToTestTypes)
+                        .collect(toImmutableList()),
                 types,
                 setSessionProperties,
                 resetSessionProperties,
@@ -342,43 +344,43 @@ public class MaterializedResult
                 updateCount);
     }
 
-    private static MaterializedRow convertToJdbcTypes(MaterializedRow prestoRow)
+    private static MaterializedRow convertToTestTypes(MaterializedRow prestoRow)
     {
-        List<Object> jdbcValues = new ArrayList<>();
+        List<Object> convertedValues = new ArrayList<>();
         for (int field = 0; field < prestoRow.getFieldCount(); field++) {
             Object prestoValue = prestoRow.getField(field);
-            Object jdbcValue;
+            Object convertedValue;
             if (prestoValue instanceof SqlDate) {
                 int days = ((SqlDate) prestoValue).getDays();
-                jdbcValue = new Date(TimeUnit.DAYS.toMillis(days));
+                convertedValue = new Date(TimeUnit.DAYS.toMillis(days));
             }
             else if (prestoValue instanceof SqlTime) {
-                jdbcValue = new Time(((SqlTime) prestoValue).getMillisUtc());
+                convertedValue = new Time(((SqlTime) prestoValue).getMillisUtc());
             }
             else if (prestoValue instanceof SqlTimeWithTimeZone) {
                 // Political timezone cannot be represented in OffsetTime and there isn't any better representation.
                 long millisUtc = ((SqlTimeWithTimeZone) prestoValue).getMillisUtc();
                 ZoneOffset zone = toZoneOffset(((SqlTimeWithTimeZone) prestoValue).getTimeZoneKey());
-                jdbcValue = OffsetTime.of(
+                convertedValue = OffsetTime.of(
                         LocalTime.ofNanoOfDay(MILLISECONDS.toNanos(millisUtc) + SECONDS.toNanos(zone.getTotalSeconds())),
                         zone);
             }
             else if (prestoValue instanceof SqlTimestamp) {
-                jdbcValue = new Timestamp(((SqlTimestamp) prestoValue).getMillisUtc());
+                convertedValue = new Timestamp(((SqlTimestamp) prestoValue).getMillisUtc());
             }
             else if (prestoValue instanceof SqlTimestampWithTimeZone) {
-                jdbcValue = Instant.ofEpochMilli(((SqlTimestampWithTimeZone) prestoValue).getMillisUtc())
+                convertedValue = Instant.ofEpochMilli(((SqlTimestampWithTimeZone) prestoValue).getMillisUtc())
                         .atZone(ZoneId.of(((SqlTimestampWithTimeZone) prestoValue).getTimeZoneKey().getId()));
             }
             else if (prestoValue instanceof SqlDecimal) {
-                jdbcValue = ((SqlDecimal) prestoValue).toBigDecimal();
+                convertedValue = ((SqlDecimal) prestoValue).toBigDecimal();
             }
             else {
-                jdbcValue = prestoValue;
+                convertedValue = prestoValue;
             }
-            jdbcValues.add(jdbcValue);
+            convertedValues.add(convertedValue);
         }
-        return new MaterializedRow(prestoRow.getPrecision(), jdbcValues);
+        return new MaterializedRow(prestoRow.getPrecision(), convertedValues);
     }
 
     public MaterializedResult toTimeZone(DateTimeZone oldTimeZone, DateTimeZone newTimeZone)

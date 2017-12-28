@@ -65,7 +65,7 @@ public class TestMySqlIntegrationSmokeTest
             throws Exception
     {
         // we need specific implementation of this tests due to specific Presto<->Mysql varchar length mapping.
-        MaterializedResult actualColumns = computeActual("DESC ORDERS").toJdbcTypes();
+        MaterializedResult actualColumns = computeActual("DESC ORDERS").toTestTypes();
 
         // some connectors don't support dates, and some do not support parametrized varchars, so we check multiple options
         MaterializedResult expectedColumns = MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
