@@ -175,6 +175,7 @@ public class MetastoreHiveStatisticsProvider
 
         return new Estimate(totalNullsCount.getValue() / totalRowsCount.getValue());
     }
+
     private Estimate countDistinctPartitionKeys(HiveColumnHandle partitionColumn, List<HivePartition> partitions)
     {
         return new Estimate(partitions.stream()
@@ -207,6 +208,7 @@ public class MetastoreHiveStatisticsProvider
                 .sum();
         return new Estimate(estimatedNullsCount / estimatedTotalRowsCount);
     }
+
     private Estimate summarizePartitionStatistics(
             Collection<PartitionStatistics> partitionStatistics,
             String column,

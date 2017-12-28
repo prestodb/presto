@@ -2,7 +2,9 @@
   "tables": [
     {
       "user": "user",
-      "privileges": ["SELECT"]
+      "privileges": [
+        "SELECT"
+      ]
     }
   ],
   "schemas": [
