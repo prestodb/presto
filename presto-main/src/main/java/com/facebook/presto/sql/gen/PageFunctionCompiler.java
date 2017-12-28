@@ -92,6 +92,7 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newIns
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.not;
 import static com.facebook.presto.operator.project.PageFieldsToInputParametersRewriter.rewritePageFieldsToInputParameters;
 import static com.facebook.presto.spi.StandardErrorCode.COMPILER_ERROR;
+import static com.facebook.presto.sql.gen.BytecodeUtils.directWrittenToBlock;
 import static com.facebook.presto.sql.gen.BytecodeUtils.generateWrite;
 import static com.facebook.presto.sql.gen.BytecodeUtils.invoke;
 import static com.facebook.presto.sql.gen.LambdaAndTryExpressionExtractor.extractLambdaAndTryExpressions;
@@ -369,10 +370,18 @@ public class PageFunctionCompiler
                 metadata.getFunctionRegistry(),
                 preGeneratedExpressions);
 
-        body.append(thisVariable.getField(blockBuilder))
-                .append(compiler.compile(projection, scope))
-                .append(generateWrite(callSiteBinder, scope, wasNullVariable, projection.getType()))
-                .ret();
+        if (!directWrittenToBlock(projection, metadata.getFunctionRegistry())) {
+            body.append(thisVariable.getField(blockBuilder))
+                    .append(compiler.compile(projection, scope, Optional.empty()))
+                    .append(generateWrite(callSiteBinder, scope, wasNullVariable, projection.getType()))
+                    .ret();
+        }
+        else {
+            Variable blockBuilderVariable = scope.createTempVariable(BlockBuilder.class);
+            body.append(blockBuilderVariable.set(thisVariable.getField(blockBuilder)))
+                    .append(compiler.compile(projection, scope, Optional.of(blockBuilderVariable)))
+                    .ret();
+        }
         return method;
     }
 
@@ -546,7 +555,7 @@ public class PageFunctionCompiler
                 preGeneratedExpressions);
 
         Variable result = scope.declareVariable(boolean.class, "result");
-        body.append(compiler.compile(filter, scope))
+        body.append(compiler.compile(filter, scope, Optional.empty()))
                 // store result so we can check for null
                 .putVariable(result)
                 .append(and(not(wasNullVariable), result).ret());

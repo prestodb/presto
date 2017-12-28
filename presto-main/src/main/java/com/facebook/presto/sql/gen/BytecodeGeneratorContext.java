@@ -35,6 +35,7 @@ public class BytecodeGeneratorContext
     private final CachedInstanceBinder cachedInstanceBinder;
     private final FunctionRegistry registry;
     private final PreGeneratedExpressions preGeneratedExpressions;
+    private final Optional<Variable> outputBlockBuilder;
     private final Variable wasNull;
 
     public BytecodeGeneratorContext(
@@ -43,6 +44,7 @@ public class BytecodeGeneratorContext
             CallSiteBinder callSiteBinder,
             CachedInstanceBinder cachedInstanceBinder,
             FunctionRegistry registry,
+            Optional<Variable> outputBlockBuilder,
             PreGeneratedExpressions preGeneratedExpressions)
     {
         requireNonNull(rowExpressionCompiler, "bytecodeGenerator is null");
@@ -57,6 +59,7 @@ public class BytecodeGeneratorContext
         this.cachedInstanceBinder = cachedInstanceBinder;
         this.registry = registry;
         this.preGeneratedExpressions = preGeneratedExpressions;
+        this.outputBlockBuilder = outputBlockBuilder;
         this.wasNull = scope.getVariable("wasNull");
     }
 
@@ -70,19 +73,24 @@ public class BytecodeGeneratorContext
         return callSiteBinder;
     }
 
-    public BytecodeNode generate(RowExpression expression)
+    public BytecodeNode generate(RowExpression expression, Optional<Variable> outputBlockBuilder)
     {
-        return generate(expression, Optional.empty());
+        return generate(expression, outputBlockBuilder, Optional.empty());
     }
 
-    public BytecodeNode generate(RowExpression expression, Optional<Class> lambdaInterface)
+    public BytecodeNode generate(RowExpression expression, Optional<Variable> outputBlockBuilder, Optional<Class> lambdaInterface)
     {
-        return rowExpressionCompiler.compile(expression, scope, lambdaInterface);
+        return rowExpressionCompiler.compile(expression, scope, outputBlockBuilder, lambdaInterface);
     }
 
     public FunctionRegistry getRegistry()
     {
         return registry;
+    }
+
+    public Optional<Variable> getOutputBlockBuilder()
+    {
+        return outputBlockBuilder;
     }
 
     /**
@@ -96,7 +104,7 @@ public class BytecodeGeneratorContext
             FieldDefinition field = cachedInstanceBinder.getCachedInstance(function.getInstanceFactory().get());
             instance = Optional.of(scope.getThis().getField(field));
         }
-        return generateInvocation(scope, name, function, instance, arguments, binding);
+        return generateInvocation(scope, name, function, instance, outputBlockBuilder, arguments, binding);
     }
 
     public Variable wasNull()

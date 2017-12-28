@@ -47,6 +47,7 @@ import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.presto.bytecode.Access.FINAL;
 import static com.facebook.presto.bytecode.Access.PRIVATE;
@@ -132,7 +133,7 @@ public class LambdaBytecodeGenerator
 
         Scope scope = method.getScope();
         Variable wasNull = scope.declareVariable(boolean.class, "wasNull");
-        BytecodeNode compiledBody = innerExpressionCompiler.compile(lambda.getBody(), scope);
+        BytecodeNode compiledBody = innerExpressionCompiler.compile(lambda.getBody(), scope, Optional.empty());
         method.getBody()
                 .putVariable(wasNull, false)
                 .append(compiledBody)
@@ -193,7 +194,7 @@ public class LambdaBytecodeGenerator
         for (RowExpression captureExpression : captureExpressions) {
             Class<?> valueType = Primitives.wrap(captureExpression.getType().getJavaType());
             Variable valueVariable = scope.createTempVariable(valueType);
-            block.append(context.generate(captureExpression));
+            block.append(context.generate(captureExpression, Optional.empty()));
             block.append(boxPrimitiveIfNecessary(scope, valueType));
             block.putVariable(valueVariable);
             block.append(wasNull.set(constantFalse()));

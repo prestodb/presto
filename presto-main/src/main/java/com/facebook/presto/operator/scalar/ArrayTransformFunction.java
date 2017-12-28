@@ -111,6 +111,7 @@ public final class ArrayTransformFunction
                 ImmutableList.of(Optional.empty(), Optional.of(UnaryFunctionInterface.class)),
                 methodHandle(generatedClass, "transform", PageBuilder.class, Block.class, UnaryFunctionInterface.class),
                 Optional.of(methodHandle(generatedClass, "createPageBuilder")),
+                false,
                 isDeterministic());
     }
 

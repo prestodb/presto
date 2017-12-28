@@ -119,6 +119,7 @@ public class TestVarArgsToArrayAdapterGenerator
                     nCopies(arity, Optional.empty()),
                     methodHandleAndConstructor.getMethodHandle(),
                     Optional.of(methodHandleAndConstructor.getConstructor()),
+                    false,
                     isDeterministic());
         }
 

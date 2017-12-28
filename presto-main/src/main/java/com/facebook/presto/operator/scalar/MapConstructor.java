@@ -98,6 +98,7 @@ public final class MapConstructor
                 ImmutableList.of(Optional.empty(), Optional.empty()),
                 METHOD_HANDLE.bindTo(mapType).bindTo(keyEqual).bindTo(keyHashCode),
                 Optional.of(instanceFactory),
+                false,
                 isDeterministic());
     }
 

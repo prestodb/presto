@@ -47,7 +47,7 @@ public class DereferenceCodeGenerator
 
         // clear the wasNull flag before evaluating the row value
         block.putVariable(wasNull, false);
-        block.append(generator.generate(arguments.get(0))).putVariable(rowBlock);
+        block.append(generator.generate(arguments.get(0), generator.getOutputBlockBuilder())).putVariable(rowBlock);
 
         IfStatement ifRowBlockIsNull = new IfStatement("if row block is null...")
                 .condition(wasNull);

@@ -89,6 +89,7 @@ public class ParametricScalar
                     implementation.getLambdaInterface(),
                     methodHandleAndConstructor.get().getMethodHandle(),
                     methodHandleAndConstructor.get().getConstructor(),
+                    false,
                     isDeterministic());
         }
 
@@ -104,6 +105,7 @@ public class ParametricScalar
                         implementation.getLambdaInterface(),
                         methodHandle.get().getMethodHandle(),
                         methodHandle.get().getConstructor(),
+                        false,
                         isDeterministic());
             }
         }
@@ -122,6 +124,7 @@ public class ParametricScalar
                         implementation.getLambdaInterface(),
                         methodHandle.get().getMethodHandle(),
                         methodHandle.get().getConstructor(),
+                        false,
                         isDeterministic());
             }
         }

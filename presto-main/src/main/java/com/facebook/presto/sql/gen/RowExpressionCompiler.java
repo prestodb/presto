@@ -16,6 +16,7 @@ package com.facebook.presto.sql.gen;
 import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.Scope;
+import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.ConstantExpression;
@@ -73,14 +74,14 @@ public class RowExpressionCompiler
         this.preGeneratedExpressions = preGeneratedExpressions;
     }
 
-    public BytecodeNode compile(RowExpression rowExpression, Scope scope)
+    public BytecodeNode compile(RowExpression rowExpression, Scope scope, Optional<Variable> outputBlockBuilder)
     {
-        return compile(rowExpression, scope, Optional.empty());
+        return compile(rowExpression, scope, outputBlockBuilder, Optional.empty());
     }
 
-    public BytecodeNode compile(RowExpression rowExpression, Scope scope, Optional<Class> lambdaInterface)
+    public BytecodeNode compile(RowExpression rowExpression, Scope scope, Optional<Variable> outputBlockBuilder, Optional<Class> lambdaInterface)
     {
-        return rowExpression.accept(new Visitor(), new Context(scope, lambdaInterface));
+        return rowExpression.accept(new Visitor(), new Context(scope, outputBlockBuilder, lambdaInterface));
     }
 
     private class Visitor
@@ -148,6 +149,7 @@ public class RowExpressionCompiler
                     callSiteBinder,
                     cachedInstanceBinder,
                     registry,
+                    context.getOutputBlockBuilder(),
                     preGeneratedExpressions);
 
             return generator.generateExpression(call.getSignature(), generatorContext, call.getType(), call.getArguments());
@@ -220,6 +222,7 @@ public class RowExpressionCompiler
                     callSiteBinder,
                     cachedInstanceBinder,
                     registry,
+                    context.getOutputBlockBuilder(),
                     preGeneratedExpressions);
 
             return generateLambda(
@@ -239,17 +242,24 @@ public class RowExpressionCompiler
     private static class Context
     {
         private final Scope scope;
+        private final Optional<Variable> outputBlockBuilder;
         private final Optional<Class> lambdaInterface;
 
-        public Context(Scope scope, Optional<Class> lambdaInterface)
+        public Context(Scope scope, Optional<Variable> outputBlockBuilder, Optional<Class> lambdaInterface)
         {
             this.scope = scope;
+            this.outputBlockBuilder = outputBlockBuilder;
             this.lambdaInterface = lambdaInterface;
         }
 
         public Scope getScope()
         {
             return scope;
+        }
+
+        public Optional<Variable> getOutputBlockBuilder()
+        {
+            return outputBlockBuilder;
         }
 
         public Optional<Class> getLambdaInterface()

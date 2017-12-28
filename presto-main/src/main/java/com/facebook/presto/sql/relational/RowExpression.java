@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.relational;
 
+import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.spi.type.Type;
 
 public abstract class RowExpression
@@ -29,4 +30,9 @@ public abstract class RowExpression
     public abstract String toString();
 
     public abstract <R, C> R accept(RowExpressionVisitor<R, C> visitor, C context);
+
+    public boolean directWriteToOutputBuilder(FunctionRegistry functionRegistry)
+    {
+        return false;
+    }
 }

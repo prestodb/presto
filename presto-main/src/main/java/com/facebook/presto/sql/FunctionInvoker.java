@@ -17,6 +17,10 @@ import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.type.ArrayType;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Defaults;
 import com.google.common.base.Throwables;
 
@@ -26,6 +30,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static java.lang.invoke.MethodHandleProxies.asInterfaceInstance;
 import static java.util.Objects.requireNonNull;
 
@@ -80,7 +85,16 @@ public class FunctionInvoker
         }
 
         try {
-            return method.invokeWithArguments(actualArguments);
+            if (implementation.isWriteToBlockBuilderParamater()) {
+                Type arrayType = new ArrayType(INTEGER);
+                BlockBuilder builder = arrayType.createBlockBuilder(new BlockBuilderStatus(), 20);
+                actualArguments.add(0, builder);
+                method.invokeWithArguments(actualArguments);
+                return arrayType.getObject(builder, builder.getPositionCount() - 1);
+            }
+            else {
+                return method.invokeWithArguments(actualArguments);
+            }
         }
         catch (Throwable throwable) {
             throw Throwables.propagate(throwable);

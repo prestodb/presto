@@ -125,6 +125,7 @@ public final class MapTransformValueFunction
                 ImmutableList.of(Optional.empty(), Optional.of(BinaryFunctionInterface.class)),
                 generateTransform(keyType, valueType, transformedValueType, resultMapType),
                 Optional.of(STATE_FACTORY.bindTo(resultMapType)),
+                false,
                 isDeterministic());
     }
 

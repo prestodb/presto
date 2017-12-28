@@ -47,6 +47,7 @@ import io.airlift.slice.Slice;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.bytecode.Access.PUBLIC;
@@ -54,6 +55,7 @@ import static com.facebook.presto.bytecode.Access.a;
 import static com.facebook.presto.bytecode.OpCode.NOP;
 import static com.facebook.presto.bytecode.Parameter.arg;
 import static com.facebook.presto.bytecode.ParameterizedType.type;
+import static com.facebook.presto.sql.gen.BytecodeUtils.directWrittenToBlock;
 import static com.facebook.presto.sql.gen.BytecodeUtils.generateWrite;
 import static com.facebook.presto.sql.gen.LambdaAndTryExpressionExtractor.extractLambdaAndTryExpressions;
 import static com.facebook.presto.sql.gen.TryCodeGenerator.defineTryMethod;
@@ -289,7 +291,7 @@ public class CursorProcessorCompiler
                 .comment("boolean wasNull = false;")
                 .putVariable(wasNullVariable, false)
                 .comment("evaluate filter: " + filter)
-                .append(compiler.compile(filter, scope))
+                .append(compiler.compile(filter, scope, Optional.empty()))
                 .comment("if (wasNull) return false;")
                 .getVariable(wasNullVariable)
                 .ifFalseGoto(end)
@@ -324,14 +326,25 @@ public class CursorProcessorCompiler
                 metadata.getFunctionRegistry(),
                 preGeneratedExpressions);
 
-        method.getBody()
-                .comment("boolean wasNull = false;")
-                .putVariable(wasNullVariable, false)
-                .getVariable(output)
-                .comment("evaluate projection: " + projection.toString())
-                .append(compiler.compile(projection, scope))
-                .append(generateWrite(callSiteBinder, scope, wasNullVariable, projection.getType()))
-                .ret();
+        if (!directWrittenToBlock(projection, metadata.getFunctionRegistry())) {
+            method.getBody()
+                    .comment("boolean wasNull = false;")
+                    .putVariable(wasNullVariable, false)
+                    .getVariable(output)
+                    .comment("evaluate projection: " + projection.toString())
+                    .append(compiler.compile(projection, scope, Optional.empty()))
+                    .append(generateWrite(callSiteBinder, scope, wasNullVariable, projection.getType()))
+                    .ret();
+        }
+        else {
+            method.getBody()
+                    .comment("boolean wasNull = false;")
+                    .putVariable(wasNullVariable, false)
+                    .getVariable(output)
+                    .comment("evaluate projection: " + projection.toString())
+                    .append(compiler.compile(projection, scope, Optional.of(output)))
+                    .ret();
+        }
     }
 
     private static RowExpressionVisitor<BytecodeNode, Scope> fieldReferenceCompiler(Variable cursorVariable)

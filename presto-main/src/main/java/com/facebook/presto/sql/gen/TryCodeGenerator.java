@@ -34,6 +34,7 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodType;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.presto.bytecode.Access.PUBLIC;
 import static com.facebook.presto.bytecode.Access.a;
@@ -102,7 +103,7 @@ public class TryCodeGenerator
         Scope calleeMethodScope = method.getScope();
 
         Variable wasNull = calleeMethodScope.declareVariable(boolean.class, "wasNull");
-        BytecodeNode innerExpression = innerExpressionCompiler.compile(innerRowExpression, calleeMethodScope);
+        BytecodeNode innerExpression = innerExpressionCompiler.compile(innerRowExpression, calleeMethodScope, Optional.empty());
 
         MethodType exceptionHandlerType = methodType(returnType, PrestoException.class);
         MethodHandle exceptionHandler = EXCEPTION_HANDLER.asType(exceptionHandlerType);

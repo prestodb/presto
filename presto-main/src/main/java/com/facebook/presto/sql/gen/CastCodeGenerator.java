@@ -33,6 +33,6 @@ public class CastCodeGenerator
                 .getRegistry()
                 .getCoercion(argument.getType(), returnType);
 
-        return generatorContext.generateCall(function.getName(), generatorContext.getRegistry().getScalarFunctionImplementation(function), ImmutableList.of(generatorContext.generate(argument)));
+        return generatorContext.generateCall(function.getName(), generatorContext.getRegistry().getScalarFunctionImplementation(function), ImmutableList.of(generatorContext.generate(argument, generatorContext.getOutputBlockBuilder())));
     }
 }

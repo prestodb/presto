@@ -20,16 +20,20 @@ import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.bytecode.control.IfStatement;
 import com.facebook.presto.bytecode.expression.BytecodeExpression;
 import com.facebook.presto.bytecode.instruction.LabelNode;
+import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.relational.CallExpression;
+import com.facebook.presto.sql.relational.RowExpression;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
+import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
@@ -42,6 +46,17 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.consta
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantTrue;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invokeDynamic;
 import static com.facebook.presto.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
+import static com.facebook.presto.sql.relational.Signatures.BIND;
+import static com.facebook.presto.sql.relational.Signatures.CAST;
+import static com.facebook.presto.sql.relational.Signatures.COALESCE;
+import static com.facebook.presto.sql.relational.Signatures.DEREFERENCE;
+import static com.facebook.presto.sql.relational.Signatures.IF;
+import static com.facebook.presto.sql.relational.Signatures.IN;
+import static com.facebook.presto.sql.relational.Signatures.IS_NULL;
+import static com.facebook.presto.sql.relational.Signatures.NULL_IF;
+import static com.facebook.presto.sql.relational.Signatures.ROW_CONSTRUCTOR;
+import static com.facebook.presto.sql.relational.Signatures.SWITCH;
+import static com.facebook.presto.sql.relational.Signatures.TRY;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
@@ -157,7 +172,40 @@ public final class BytecodeUtils
                 binding.getType().returnType());
     }
 
-    public static BytecodeNode generateInvocation(Scope scope, String name, ScalarFunctionImplementation function, Optional<BytecodeNode> instance, List<BytecodeNode> arguments, Binding binding)
+    public static boolean directWrittenToBlock(RowExpression expression, FunctionRegistry registry)
+    {
+        if (!(expression instanceof CallExpression)) {
+            return false;
+        }
+
+        CallExpression call = (CallExpression) expression;
+        if (call.getSignature().getName().equals(CAST)) {
+            return false;
+        }
+        else {
+            switch (call.getSignature().getName()) {
+                // lazy evaluation
+                case IF:
+                case NULL_IF:
+                case SWITCH:
+                case TRY:
+                case IS_NULL:
+                case COALESCE:
+                case IN:
+                case "AND":
+                case "OR":
+                case DEREFERENCE:
+                case ROW_CONSTRUCTOR:
+                case BIND:
+                    return false;
+                default:
+                    ScalarFunctionImplementation function = registry.getScalarFunctionImplementation(call.getSignature());
+                    return function.isWriteToBlockBuilderParamater();
+            }
+        }
+    }
+
+    public static BytecodeNode generateInvocation(Scope scope, String name, ScalarFunctionImplementation function, Optional<BytecodeNode> instance, Optional<Variable> outputBlockBuilder, List<BytecodeNode> arguments, Binding binding)
     {
         MethodType methodType = binding.getType();
 
@@ -175,6 +223,13 @@ public final class BytecodeUtils
 
         // Index of current parameter in the MethodHandle
         int currentParameterIndex = 0;
+        if (function.isWriteToBlockBuilderParamater()) {
+            checkState(outputBlockBuilder.isPresent());
+            block.append(outputBlockBuilder.get());
+            Class<?> type = methodType.parameterArray()[currentParameterIndex];
+            stackTypes.add(type);
+            currentParameterIndex++;
+        }
 
         // Index of parameter (without @IsNull) in Presto function
         int realParameterIndex = 0;
@@ -215,11 +270,17 @@ public final class BytecodeUtils
             }
             currentParameterIndex++;
         }
+
         block.append(invoke(binding, name));
 
-        if (function.isNullable()) {
+        if (function.isNullable() && !function.isWriteToBlockBuilderParamater()) {
             block.append(unboxPrimitiveIfNecessary(scope, returnType));
         }
+        if (!function.isWriteToBlockBuilderParamater() && outputBlockBuilder.isPresent()) {
+            //  Result is on the stack, append it to the BlockBuilder
+            throw new NotImplementedException();
+        }
+
         block.visitLabel(end);
 
         return block;

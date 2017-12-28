@@ -65,7 +65,7 @@ public class InvokeFunctionBytecodeExpression
     {
         super(type(function.getMethodHandle().type().returnType()));
 
-        this.invocation = generateInvocation(scope, name, function, instance, parameters.stream().map(BytecodeNode.class::cast).collect(toImmutableList()), binding);
+        this.invocation = generateInvocation(scope, name, function, instance, Optional.empty(), parameters.stream().map(BytecodeNode.class::cast).collect(toImmutableList()), binding);
         this.oneLineDescription = name + "(" + Joiner.on(", ").join(parameters) + ")";
     }
 

@@ -33,6 +33,7 @@ public final class ScalarFunctionImplementation
     private final List<Optional<Class>> lambdaInterface;
     private final MethodHandle methodHandle;
     private final Optional<MethodHandle> instanceFactory;
+    private final boolean writeToBlockBuilderParamater;
     private final boolean deterministic;
 
     public ScalarFunctionImplementation(boolean nullable, List<Boolean> nullableArguments, MethodHandle methodHandle, boolean deterministic)
@@ -44,6 +45,7 @@ public final class ScalarFunctionImplementation
                 nCopies(nullableArguments.size(), Optional.empty()),
                 methodHandle,
                 Optional.empty(),
+                false,
                 deterministic);
     }
 
@@ -56,6 +58,7 @@ public final class ScalarFunctionImplementation
                 nCopies(nullableArguments.size(), Optional.empty()),
                 methodHandle,
                 Optional.empty(),
+                false,
                 deterministic);
     }
 
@@ -74,6 +77,7 @@ public final class ScalarFunctionImplementation
                 lambdaInterface,
                 methodHandle,
                 Optional.empty(),
+                false,
                 deterministic);
     }
 
@@ -84,6 +88,7 @@ public final class ScalarFunctionImplementation
             List<Optional<Class>> lambdaInterface,
             MethodHandle methodHandle,
             Optional<MethodHandle> instanceFactory,
+            boolean writeToBlockBuilderParamater,
             boolean deterministic)
     {
         this.nullable = nullable;
@@ -92,6 +97,7 @@ public final class ScalarFunctionImplementation
         this.lambdaInterface = ImmutableList.copyOf(requireNonNull(lambdaInterface, "lambdaInterface is null"));
         this.methodHandle = requireNonNull(methodHandle, "methodHandle is null");
         this.instanceFactory = requireNonNull(instanceFactory, "instanceFactory is null");
+        this.writeToBlockBuilderParamater = writeToBlockBuilderParamater;
         this.deterministic = deterministic;
 
         if (instanceFactory.isPresent()) {
@@ -144,6 +150,11 @@ public final class ScalarFunctionImplementation
     public Optional<MethodHandle> getInstanceFactory()
     {
         return instanceFactory;
+    }
+
+    public boolean isWriteToBlockBuilderParamater()
+    {
+        return writeToBlockBuilderParamater;
     }
 
     public boolean isDeterministic()

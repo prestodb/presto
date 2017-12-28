@@ -214,6 +214,8 @@ import static com.facebook.presto.operator.aggregation.MultimapAggregationFuncti
 import static com.facebook.presto.operator.scalar.ArrayConcatFunction.ARRAY_CONCAT_FUNCTION;
 import static com.facebook.presto.operator.scalar.ArrayConstructor.ARRAY_CONSTRUCTOR;
 import static com.facebook.presto.operator.scalar.ArrayFlattenFunction.ARRAY_FLATTEN_FUNCTION;
+import static com.facebook.presto.operator.scalar.ArrayIdentityDirectFunction.ARRAY_IDENTITY_DIRECT_FUNCTION;
+import static com.facebook.presto.operator.scalar.ArrayIdentityFunction.ARRAY_IDENTITY_FUNCTION;
 import static com.facebook.presto.operator.scalar.ArrayJoin.ARRAY_JOIN;
 import static com.facebook.presto.operator.scalar.ArrayJoin.ARRAY_JOIN_WITH_NULL_REPLACEMENT;
 import static com.facebook.presto.operator.scalar.ArrayReduceFunction.ARRAY_REDUCE_FUNCTION;
@@ -546,6 +548,7 @@ public class FunctionRegistry
                 .function(MAP_ELEMENT_AT)
                 .function(MAP_CONCAT_FUNCTION)
                 .function(ARRAY_FLATTEN_FUNCTION)
+                .functions(ARRAY_IDENTITY_DIRECT_FUNCTION, ARRAY_IDENTITY_FUNCTION)
                 .function(ARRAY_CONCAT_FUNCTION)
                 .functions(ARRAY_CONSTRUCTOR, ARRAY_SUBSCRIPT, ARRAY_TO_JSON, JSON_TO_ARRAY, JSON_STRING_TO_ARRAY)
                 .functions(new MapSubscriptOperator(featuresConfig.isLegacyMapSubscript()))

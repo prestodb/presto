@@ -40,8 +40,8 @@ public class AndCodeGenerator
                 .comment("AND")
                 .setDescription("AND");
 
-        BytecodeNode left = generator.generate(arguments.get(0));
-        BytecodeNode right = generator.generate(arguments.get(1));
+        BytecodeNode left = generator.generate(arguments.get(0), generator.getOutputBlockBuilder());
+        BytecodeNode right = generator.generate(arguments.get(1), generator.getOutputBlockBuilder());
 
         block.append(left);
 

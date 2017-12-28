@@ -46,7 +46,7 @@ public class NullIfCodeGenerator
         // push first arg on the stack
         BytecodeBlock block = new BytecodeBlock()
                 .comment("check if first arg is null")
-                .append(generatorContext.generate(first))
+                .append(generatorContext.generate(first, generatorContext.getOutputBlockBuilder()))
                 .append(BytecodeUtils.ifWasNullPopAndGoto(scope, notMatch, void.class));
 
         Type firstType = first.getType();
@@ -60,7 +60,7 @@ public class NullIfCodeGenerator
                 equalsFunction,
                 ImmutableList.of(
                         cast(generatorContext, new BytecodeBlock().dup(firstType.getJavaType()), firstType, equalsSignature.getArgumentTypes().get(0)),
-                        cast(generatorContext, generatorContext.generate(second), secondType, equalsSignature.getArgumentTypes().get(1))));
+                        cast(generatorContext, generatorContext.generate(second, generatorContext.getOutputBlockBuilder()), secondType, equalsSignature.getArgumentTypes().get(1))));
 
         BytecodeBlock conditionBlock = new BytecodeBlock()
                 .append(equalsCall)

@@ -109,13 +109,13 @@ public class InCodeGenerator
     @Override
     public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments)
     {
-        BytecodeNode value = generatorContext.generate(arguments.get(0));
+        BytecodeNode value = generatorContext.generate(arguments.get(0), generatorContext.getOutputBlockBuilder());
 
         List<RowExpression> values = arguments.subList(1, arguments.size());
 
         ImmutableList.Builder<BytecodeNode> valuesBytecode = ImmutableList.builder();
         for (int i = 1; i < arguments.size(); i++) {
-            BytecodeNode testNode = generatorContext.generate(arguments.get(i));
+            BytecodeNode testNode = generatorContext.generate(arguments.get(i), generatorContext.getOutputBlockBuilder());
             valuesBytecode.add(testNode);
         }
 
@@ -132,7 +132,7 @@ public class InCodeGenerator
         ImmutableSet.Builder<Object> constantValuesBuilder = ImmutableSet.builder();
 
         for (RowExpression testValue : values) {
-            BytecodeNode testBytecode = generatorContext.generate(testValue);
+            BytecodeNode testBytecode = generatorContext.generate(testValue, generatorContext.getOutputBlockBuilder());
 
             if (testValue instanceof ConstantExpression && ((ConstantExpression) testValue).getValue() != null) {
                 ConstantExpression constant = (ConstantExpression) testValue;

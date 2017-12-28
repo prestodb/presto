@@ -119,6 +119,7 @@ public final class MapFilterFunction
                 ImmutableList.of(Optional.empty(), Optional.of(BinaryFunctionInterface.class)),
                 generateFilter(mapType),
                 Optional.of(STATE_FACTORY.bindTo(mapType)),
+                false,
                 isDeterministic());
     }
 

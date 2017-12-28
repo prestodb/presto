@@ -40,7 +40,7 @@ public class IsNullCodeGenerator
             return loadBoolean(true);
         }
 
-        BytecodeNode value = generatorContext.generate(argument);
+        BytecodeNode value = generatorContext.generate(argument, generatorContext.getOutputBlockBuilder());
 
         // evaluate the expression, pop the produced value, and load the null flag
         Variable wasNull = generatorContext.wasNull();
