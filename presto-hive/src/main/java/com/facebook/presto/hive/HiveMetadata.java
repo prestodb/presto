@@ -1170,6 +1170,7 @@ public class HiveMetadata
                 getTableLayout(
                         session,
                         new HiveTableLayoutHandle(
+                                handle.getSchemaTableName(),
                                 ImmutableList.copyOf(hivePartitionResult.getPartitionColumns()),
                                 hivePartitionResult.getPartitions(),
                                 hivePartitionResult.getCompactEffectivePredicate(),
