@@ -22,6 +22,7 @@ import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.MapType;
+import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
@@ -35,9 +36,8 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 
 import java.math.BigDecimal;
-import java.sql.Time;
-import java.sql.Timestamp;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.OffsetTime;
 import java.time.ZoneOffset;
@@ -71,8 +71,6 @@ import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.testing.MaterializedResult.DEFAULT_PRECISION;
 import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static com.facebook.presto.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
-import static com.facebook.presto.util.DateTimeUtils.parseTime;
-import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithoutTimeZone;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.transform;
@@ -86,6 +84,7 @@ public class TestingPrestoClient
     private static final DateTimeFormatter timeWithUtcZoneFormat = DateTimeFormatter.ofPattern("HH:mm:ss.SSS 'UTC'"); // UTC zone would be printed as "Z" in "XXX" format
     private static final DateTimeFormatter timeWithZoneOffsetFormat = DateTimeFormatter.ofPattern("HH:mm:ss.SSS XXX");
 
+    private static final DateTimeFormatter timestampFormat = DateTimeFormatter.ofPattern(SqlTimestamp.JSON_FORMAT);
     private static final DateTimeFormatter timestampWithTimeZoneFormat = DateTimeFormatter.ofPattern(SqlTimestampWithTimeZone.JSON_FORMAT);
 
     public TestingPrestoClient(TestingPrestoServer prestoServer, Session defaultSession)
@@ -226,7 +225,7 @@ public class TestingPrestoClient
             }
         }
         else if (TIMESTAMP.equals(type)) {
-            return new Timestamp(parseTimestampWithoutTimeZone(timeZoneKey, (String) value));
+            return timestampFormat.parse((String) value, LocalDateTime::from);
         }
         else if (TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
             return timestampWithTimeZoneFormat.parse((String) value, ZonedDateTime::from);

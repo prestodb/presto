@@ -33,13 +33,12 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
 import org.apache.hadoop.fs.Path;
 import org.intellij.lang.annotations.Language;
-import org.joda.time.DateTime;
 import org.testng.annotations.Test;
 
 import java.io.File;
 import java.math.BigDecimal;
-import java.sql.Timestamp;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -83,7 +82,6 @@ import static io.airlift.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
-import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
@@ -196,7 +194,7 @@ public class TestHiveIntegrationSmokeTest
         assertEquals(row.getField(4), 3.14);
         assertEquals(row.getField(5), true);
         assertEquals(row.getField(6), LocalDate.of(1980, 5, 7));
-        assertEquals(row.getField(7), new Timestamp(new DateTime(1980, 5, 7, 11, 22, 33, 456, UTC).getMillis()));
+        assertEquals(row.getField(7), LocalDateTime.of(1980, 5, 7, 11, 22, 33, 456_000_000));
         assertEquals(row.getField(8), new BigDecimal("3.14"));
         assertEquals(row.getField(9), new BigDecimal("12345678901234567890.0123456789"));
         assertEquals(row.getField(10), "bar       ");
@@ -289,7 +287,7 @@ public class TestHiveIntegrationSmokeTest
         MaterializedResult result = computeActual("SELECT * from test_partitioned_table");
         assertEquals(result.getRowCount(), 0);
 
-        @Language("SQL") String insert = "" +
+        @Language("SQL") String select = "" +
                 "SELECT" +
                 " 'foo' _string" +
                 ", 'bar' _varchar" +
@@ -316,42 +314,12 @@ public class TestHiveIntegrationSmokeTest
                 ", CAST('2017-05-01' AS DATE) _partition_date" +
                 ", CAST('2017-05-01 10:12:34' AS TIMESTAMP) _partition_timestamp";
 
-        // This is different from the insert statement because the timestamp needs to be adjusted for the timezone
-        @Language("SQL") String select = "" +
-                "SELECT" +
-                " 'foo' _string" +
-                ", 'bar' _varchar" +
-                ", CAST('boo' AS CHAR(10)) _char" +
-                ", CAST(1 AS BIGINT) _bigint" +
-                ", 2 _integer" +
-                ", CAST (3 AS SMALLINT) _smallint" +
-                ", CAST (4 AS TINYINT) _tinyint" +
-                ", CAST('123.45' AS REAL) _real" +
-                ", CAST('3.14' AS DOUBLE) _double" +
-                ", true _boolean" +
-                ", CAST('3.14' AS DECIMAL(3,2)) _decimal_short" +
-                ", CAST('12345678901234567890.0123456789' AS DECIMAL(30,10)) _decimal_long" +
-                ", 'foo' _partition_string" +
-                ", 'bar' _partition_varchar" +
-                ", CAST('boo' AS CHAR(10)) _partition_char" +
-                ", CAST(1 AS TINYINT) _partition_tinyint" +
-                ", CAST(1 AS SMALLINT) _partition_smallint" +
-                ", 1 _partition_integer" +
-                ", CAST (1 AS BIGINT) _partition_bigint" +
-                ", true _partition_boolean" +
-                ", CAST('3.14' AS DECIMAL(3,2)) _partition_decimal_short" +
-                ", CAST('12345678901234567890.0123456789' AS DECIMAL(30,10)) _partition_decimal_long" +
-                ", CAST('2017-05-01' AS DATE) _partition_date" +
-                ", CAST('2017-05-01 15:57:34' AS TIMESTAMP) _partition_timestamp";
-
         if (storageFormat == HiveStorageFormat.AVRO) {
-            insert = insert.replace(" CAST (3 AS SMALLINT) _smallint,", " 3 _smallint,");
-            insert = insert.replace(" CAST (4 AS TINYINT) _tinyint,", " 4 _tinyint,");
             select = select.replace(" CAST (3 AS SMALLINT) _smallint,", " 3 _smallint,");
             select = select.replace(" CAST (4 AS TINYINT) _tinyint,", " 4 _tinyint,");
         }
 
-        assertUpdate(session, "INSERT INTO test_partitioned_table " + insert, 1);
+        assertUpdate(session, "INSERT INTO test_partitioned_table " + select, 1);
         assertQuery(session, "SELECT * from test_partitioned_table", select);
         assertQuery(session,
                 "SELECT * from test_partitioned_table WHERE" +
