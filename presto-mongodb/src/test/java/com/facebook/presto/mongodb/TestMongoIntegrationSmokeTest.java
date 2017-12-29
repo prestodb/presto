@@ -16,18 +16,16 @@ package com.facebook.presto.mongodb;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
-import org.joda.time.DateTime;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.sql.Timestamp;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 import static com.facebook.presto.mongodb.MongoQueryRunner.createMongoQueryRunner;
 import static io.airlift.tpch.TpchTable.ORDERS;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -84,7 +82,7 @@ public class TestMongoIntegrationSmokeTest
         assertEquals(row.getField(3), 3.14);
         assertEquals(row.getField(4), true);
         assertEquals(row.getField(5), LocalDate.of(1980, 5, 7));
-        assertEquals(row.getField(6), new Timestamp(new DateTime(1980, 5, 7, 11, 22, 33, 456, UTC).getMillis()));
+        assertEquals(row.getField(6), LocalDateTime.of(1980, 5, 7, 11, 22, 33, 456_000_000));
         assertUpdate("DROP TABLE test_types_table");
 
         assertFalse(getQueryRunner().tableExists(getSession(), "test_types_table"));

@@ -24,8 +24,8 @@ import com.google.common.collect.SetMultimap;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
-import java.sql.Timestamp;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
@@ -671,8 +671,8 @@ public class TestRaptorIntegrationSmokeTest
                 "  AND table_name = 'test_table_stats'";
         MaterializedRow row = getOnlyElement(computeActual(sql).getMaterializedRows());
 
-        Timestamp createTime = (Timestamp) row.getField(0);
-        Timestamp updateTime1 = (Timestamp) row.getField(1);
+        LocalDateTime createTime = (LocalDateTime) row.getField(0);
+        LocalDateTime updateTime1 = (LocalDateTime) row.getField(1);
         assertEquals(createTime, updateTime1);
 
         assertEquals(row.getField(2), 1L);      // table_version
@@ -685,7 +685,7 @@ public class TestRaptorIntegrationSmokeTest
         row = getOnlyElement(computeActual(sql).getMaterializedRows());
 
         assertEquals(row.getField(0), createTime);
-        Timestamp updateTime2 = (Timestamp) row.getField(1);
+        LocalDateTime updateTime2 = (LocalDateTime) row.getField(1);
         assertLessThan(updateTime1, updateTime2);
 
         assertEquals(row.getField(2), 2L);                    // table_version
@@ -699,7 +699,7 @@ public class TestRaptorIntegrationSmokeTest
         row = getOnlyElement(computeActual(sql).getMaterializedRows());
 
         assertEquals(row.getField(0), createTime);
-        Timestamp updateTime3 = (Timestamp) row.getField(1);
+        LocalDateTime updateTime3 = (LocalDateTime) row.getField(1);
         assertLessThan(updateTime2, updateTime3);
 
         assertEquals(row.getField(2), 3L);                    // table_version
@@ -713,7 +713,7 @@ public class TestRaptorIntegrationSmokeTest
         row = getOnlyElement(computeActual(sql).getMaterializedRows());
 
         assertEquals(row.getField(0), createTime);
-        assertLessThan(updateTime3, (Timestamp) row.getField(1));
+        assertLessThan(updateTime3, (LocalDateTime) row.getField(1));
 
         assertEquals(row.getField(2), 4L);      // table_version
         assertEquals(row.getField(4), 2L);      // row_count
