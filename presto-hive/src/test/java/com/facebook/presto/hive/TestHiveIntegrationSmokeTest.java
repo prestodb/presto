@@ -102,7 +102,7 @@ public class TestHiveIntegrationSmokeTest
         this(() -> createQueryRunner(ORDERS, CUSTOMER), createBucketedSession(), HIVE_CATALOG, new HiveTypeTranslator());
     }
 
-    protected TestHiveIntegrationSmokeTest(QueryRunnerSupplier queryRunnerSupplier, Session bucketedSession, String catalog, TypeTranslator typeTranslator)
+    private TestHiveIntegrationSmokeTest(QueryRunnerSupplier queryRunnerSupplier, Session bucketedSession, String catalog, TypeTranslator typeTranslator)
     {
         super(queryRunnerSupplier);
         this.catalog = requireNonNull(catalog, "catalog is null");
@@ -110,7 +110,7 @@ public class TestHiveIntegrationSmokeTest
         this.typeTranslator = requireNonNull(typeTranslator, "typeTranslator is null");
     }
 
-    protected List<?> getPartitions(HiveTableLayoutHandle tableLayoutHandle)
+    private List<?> getPartitions(HiveTableLayoutHandle tableLayoutHandle)
     {
         return tableLayoutHandle.getPartitions().get();
     }
@@ -214,8 +214,7 @@ public class TestHiveIntegrationSmokeTest
         }
     }
 
-    public void createPartitionedTable(Session session, HiveStorageFormat storageFormat)
-            throws Exception
+    private void createPartitionedTable(Session session, HiveStorageFormat storageFormat)
     {
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE test_partitioned_table (" +
@@ -351,8 +350,7 @@ public class TestHiveIntegrationSmokeTest
         createTableLike("INCLUDING PROPERTIES", true);
     }
 
-    protected void createTableLike(String likeSuffix, boolean hasPartition)
-            throws Exception
+    private void createTableLike(String likeSuffix, boolean hasPartition)
     {
         // Create a non-partitioned table
         @Language("SQL") String createTable = "" +
@@ -466,8 +464,7 @@ public class TestHiveIntegrationSmokeTest
         }
     }
 
-    public void createTableAs(Session session, HiveStorageFormat storageFormat)
-            throws Exception
+    private void createTableAs(Session session, HiveStorageFormat storageFormat)
     {
         @Language("SQL") String select = "SELECT" +
                 " 'foo' _varchar" +
@@ -516,8 +513,7 @@ public class TestHiveIntegrationSmokeTest
         }
     }
 
-    public void createPartitionedTableAs(Session session, HiveStorageFormat storageFormat)
-            throws Exception
+    private void createPartitionedTableAs(Session session, HiveStorageFormat storageFormat)
     {
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE test_create_partitioned_table_as " +
@@ -601,7 +597,6 @@ public class TestHiveIntegrationSmokeTest
     }
 
     private void testCreatePartitionedBucketedTableAsFewRows(Session session, HiveStorageFormat storageFormat)
-            throws Exception
     {
         String tableName = "test_create_partitioned_bucketed_table_as_few_rows";
 
@@ -720,7 +715,6 @@ public class TestHiveIntegrationSmokeTest
     }
 
     private void verifyPartitionedBucketedTable(HiveStorageFormat storageFormat, String tableName)
-            throws Exception
     {
         TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, tableName);
         assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), storageFormat);
@@ -757,7 +751,6 @@ public class TestHiveIntegrationSmokeTest
     }
 
     private void testCreateInvalidBucketedTable(HiveStorageFormat storageFormat)
-            throws Exception
     {
         String tableName = "test_create_invalid_bucketed_table";
 
@@ -811,7 +804,6 @@ public class TestHiveIntegrationSmokeTest
     }
 
     private void testInsertPartitionedBucketedTableFewRows(Session session, HiveStorageFormat storageFormat)
-            throws Exception
     {
         String tableName = "test_insert_partitioned_bucketed_table_few_rows";
 
@@ -879,7 +871,6 @@ public class TestHiveIntegrationSmokeTest
     }
 
     private void testInsertPartitionedBucketedTable(HiveStorageFormat storageFormat)
-            throws Exception
     {
         String tableName = "test_insert_partitioned_bucketed_table";
 
@@ -924,7 +915,6 @@ public class TestHiveIntegrationSmokeTest
     }
 
     private void testInsertPartitionedBucketedTableWithUnionAll(HiveStorageFormat storageFormat)
-            throws Exception
     {
         String tableName = "test_insert_partitioned_bucketed_table_with_union_all";
 
@@ -976,8 +966,7 @@ public class TestHiveIntegrationSmokeTest
         }
     }
 
-    public void insertTable(Session session, HiveStorageFormat storageFormat)
-            throws Exception
+    private void insertTable(Session session, HiveStorageFormat storageFormat)
     {
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE test_insert_format_table " +
@@ -1063,7 +1052,6 @@ public class TestHiveIntegrationSmokeTest
     }
 
     private void insertPartitionedTable(Session session, HiveStorageFormat storageFormat)
-            throws Exception
     {
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE test_insert_partitioned_table " +
@@ -1133,7 +1121,6 @@ public class TestHiveIntegrationSmokeTest
     }
 
     private void testInsertPartitionedTableExistingPartition(Session session, HiveStorageFormat storageFormat)
-            throws Exception
     {
         String tableName = "test_insert_partitioned_table_existing_partition";
 
@@ -1189,8 +1176,7 @@ public class TestHiveIntegrationSmokeTest
         testPartitionPerScanLimit(storageFormat.getSession(), storageFormat.getFormat());
     }
 
-    public void testPartitionPerScanLimit(Session session, HiveStorageFormat storageFormat)
-            throws Exception
+    private void testPartitionPerScanLimit(Session session, HiveStorageFormat storageFormat)
     {
         String tableName = "test_partition_per_scan_limit";
 
@@ -1263,7 +1249,6 @@ public class TestHiveIntegrationSmokeTest
     }
 
     private void testInsertUnpartitionedTable(Session session, HiveStorageFormat storageFormat)
-            throws Exception
     {
         String tableName = "test_insert_unpartitioned_table";
 
@@ -2243,7 +2228,7 @@ public class TestHiveIntegrationSmokeTest
         private final Session session;
         private final HiveStorageFormat format;
 
-        public TestingHiveStorageFormat(Session session, HiveStorageFormat format)
+        TestingHiveStorageFormat(Session session, HiveStorageFormat format)
         {
             this.session = requireNonNull(session, "session is null");
             this.format = requireNonNull(format, "format is null");
