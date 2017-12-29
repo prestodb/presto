@@ -29,6 +29,7 @@ import com.facebook.presto.orc.TupleDomainOrcPredicate.ColumnReference;
 import com.facebook.presto.orc.memory.AggregatedMemoryContext;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
@@ -107,6 +108,11 @@ public class OrcPageSourceFactory
     {
         if (!isDeserializerClass(schema, OrcSerde.class)) {
             return Optional.empty();
+        }
+
+        // per HIVE-13040 and ORC-162, empty files are allowed
+        if (fileSize == 0) {
+            return Optional.of(new FixedPageSource(ImmutableList.of()));
         }
 
         return Optional.of(createOrcPageSource(
