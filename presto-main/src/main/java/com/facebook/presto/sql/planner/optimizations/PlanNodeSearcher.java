@@ -95,10 +95,14 @@ public class PlanNodeSearcher
     public <T extends PlanNode> Optional<T> findSingle()
     {
         List<T> all = findAll();
-        if (all.size() == 1) {
-            return Optional.of(all.get(0));
+        switch (all.size()) {
+            case 0:
+                return Optional.empty();
+            case 1:
+                return Optional.of(all.get(0));
+            default:
+                throw new IllegalStateException("Multiple nodes found");
         }
-        return Optional.empty();
     }
 
     public <T extends PlanNode> List<T> findAll()
