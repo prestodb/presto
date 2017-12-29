@@ -114,6 +114,10 @@ public class RcFilePageSourceFactory
             return Optional.empty();
         }
 
+        if (fileSize == 0) {
+            throw new PrestoException(HIVE_BAD_DATA, "RCFile is empty: " + path);
+        }
+
         FSDataInputStream inputStream;
         try {
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(session.getUser(), path, configuration);

@@ -134,6 +134,7 @@ import static com.facebook.presto.hive.HiveMetadata.PRESTO_QUERY_ID_NAME;
 import static com.facebook.presto.hive.HiveMetadata.PRESTO_VERSION_NAME;
 import static com.facebook.presto.hive.HiveMetadata.convertToPredicate;
 import static com.facebook.presto.hive.HiveStorageFormat.AVRO;
+import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
 import static com.facebook.presto.hive.HiveStorageFormat.JSON;
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
 import static com.facebook.presto.hive.HiveStorageFormat.PARQUET;
@@ -1620,6 +1621,90 @@ public abstract class AbstractTestHiveClient
             throws Exception
     {
         assertGetRecordsOptional("presto_test_types_parquet", PARQUET);
+    }
+
+    @Test
+    public void testEmptyTextFile()
+            throws Exception
+    {
+        assertEmptyFile(TEXTFILE);
+    }
+
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Error opening Hive split .*SequenceFile.*EOFException")
+    public void testEmptySequenceFile()
+            throws Exception
+    {
+        assertEmptyFile(SEQUENCEFILE);
+    }
+
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "RCFile is empty: .*")
+    public void testEmptyRcTextFile()
+            throws Exception
+    {
+        assertEmptyFile(RCTEXT);
+    }
+
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "RCFile is empty: .*")
+    public void testEmptyRcBinaryFile()
+            throws Exception
+    {
+        assertEmptyFile(RCBINARY);
+    }
+
+    @Test
+    public void testEmptyOrcFile()
+            throws Exception
+    {
+        assertEmptyFile(ORC);
+    }
+
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "ORC file is empty: .*")
+    public void testEmptyDwrfFile()
+            throws Exception
+    {
+        assertEmptyFile(DWRF);
+    }
+
+    private void assertEmptyFile(HiveStorageFormat format)
+            throws Exception
+    {
+        SchemaTableName tableName = temporaryTable("empty_file");
+        try {
+            List<Column> columns = ImmutableList.of(new Column("test", HIVE_STRING, Optional.empty()));
+            createEmptyTable(tableName, format, columns, ImmutableList.of());
+
+            try (Transaction transaction = newTransaction()) {
+                ConnectorSession session = newSession();
+                ConnectorMetadata metadata = transaction.getMetadata();
+
+                ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
+                List<ColumnHandle> columnHandles = filterNonHiddenColumnHandles(metadata.getColumnHandles(session, tableHandle).values());
+
+                Table table = transaction.getMetastore(tableName.getSchemaName())
+                        .getTable(tableName.getSchemaName(), tableName.getTableName())
+                        .orElseThrow(AssertionError::new);
+
+                // verify directory is empty
+                HdfsContext context = new HdfsContext(session, tableName.getSchemaName(), tableName.getTableName());
+                Path location = new Path(table.getStorage().getLocation());
+                assertTrue(listDirectory(context, location).isEmpty());
+
+                // read table with empty directory
+                readTable(transaction, tableHandle, columnHandles, session, TupleDomain.all(), OptionalInt.of(0), Optional.of(ORC));
+
+                // create empty file
+                FileSystem fileSystem = hdfsEnvironment.getFileSystem(context, location);
+                assertTrue(fileSystem.createNewFile(new Path(location, "empty-file")));
+                assertEquals(listDirectory(context, location), ImmutableList.of("empty-file"));
+
+                // read table with empty file
+                MaterializedResult result = readTable(transaction, tableHandle, columnHandles, session, TupleDomain.all(), OptionalInt.of(1), Optional.empty());
+                assertEquals(result.getRowCount(), 0);
+            }
+        }
+        finally {
+            dropTable(tableName);
+        }
     }
 
     @Test

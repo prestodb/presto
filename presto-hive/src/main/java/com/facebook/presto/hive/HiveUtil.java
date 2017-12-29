@@ -105,6 +105,7 @@ import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Lists.newArrayList;
@@ -199,7 +200,7 @@ public final class HiveUtil
                     start,
                     length,
                     getInputFormatName(schema),
-                    e.getMessage()),
+                    firstNonNull(e.getMessage(), e.getClass().getName())),
                     e);
         }
     }
