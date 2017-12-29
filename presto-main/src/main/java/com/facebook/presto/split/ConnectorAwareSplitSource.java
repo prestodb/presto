@@ -20,17 +20,11 @@ import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorSplitSource.ConnectorSplitBatch;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
-import com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 
-import java.util.List;
-
-import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
-import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static java.util.Objects.requireNonNull;
 
@@ -41,18 +35,14 @@ public class ConnectorAwareSplitSource
     private final ConnectorTransactionHandle transactionHandle;
     private final ConnectorSplitSource source;
 
-    private final SplitSchedulingStrategy splitSchedulingStrategy;
-
     public ConnectorAwareSplitSource(
             ConnectorId connectorId,
             ConnectorTransactionHandle transactionHandle,
-            ConnectorSplitSource source,
-            SplitSchedulingStrategy splitSchedulingStrategy)
+            ConnectorSplitSource source)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.transactionHandle = requireNonNull(transactionHandle, "transactionHandle is null");
         this.source = requireNonNull(source, "source is null");
-        this.splitSchedulingStrategy = requireNonNull(splitSchedulingStrategy, "splitSchedulingStrategy is null");
     }
 
     @Override
@@ -65,14 +55,6 @@ public class ConnectorAwareSplitSource
     public ConnectorTransactionHandle getTransactionHandle()
     {
         return transactionHandle;
-    }
-
-    @Override
-    public ListenableFuture<List<Split>> getNextBatch(int maxSize)
-    {
-        checkState(splitSchedulingStrategy == UNGROUPED_SCHEDULING);
-        ListenableFuture<List<ConnectorSplit>> nextBatch = toListenableFuture(source.getNextBatch(maxSize));
-        return Futures.transform(nextBatch, splits -> Lists.transform(splits, split -> new Split(connectorId, transactionHandle, split)));
     }
 
     @Override
