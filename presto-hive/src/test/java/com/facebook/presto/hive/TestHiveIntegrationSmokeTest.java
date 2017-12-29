@@ -1106,6 +1106,9 @@ public class TestHiveIntegrationSmokeTest
                 "SHOW PARTITIONS FROM test_insert_partitioned_table WHERE order_status = 'O'",
                 "SELECT DISTINCT shippriority, orderstatus FROM orders WHERE orderstatus = 'O'");
 
+        assertQueryFails(session, "SHOW PARTITIONS FROM test_insert_partitioned_table WHERE no_such_column = 1", "line \\S*: Column 'no_such_column' cannot be resolved");
+        assertQueryFails(session, "SHOW PARTITIONS FROM test_insert_partitioned_table WHERE orderkey = 1", "line \\S*: Column 'orderkey' cannot be resolved");
+
         assertUpdate(session, "DROP TABLE test_insert_partitioned_table");
 
         assertFalse(getQueryRunner().tableExists(session, "test_insert_partitioned_table"));
@@ -1209,6 +1212,16 @@ public class TestHiveIntegrationSmokeTest
 
             assertUpdate(session, insertPartitions, 100);
         }
+
+        // verify can show partitions
+        assertQuery(
+                session,
+                "SHOW PARTITIONS FROM " + tableName + " WHERE part > 490 and part <= 500",
+                "VALUES 491, 492, 493, 494, 495, 496, 497, 498, 499, 500");
+        assertQuery(
+                session,
+                "SHOW PARTITIONS FROM " + tableName + " WHERE part < 0",
+                "SELECT null WHERE false");
 
         // verify can query 1000 partitions
         assertQuery(
