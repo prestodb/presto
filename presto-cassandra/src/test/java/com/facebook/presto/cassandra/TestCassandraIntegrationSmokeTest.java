@@ -26,7 +26,7 @@ import org.testng.annotations.Test;
 
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
-import java.sql.Timestamp;
+import java.time.LocalDateTime;
 import java.util.Date;
 import java.util.List;
 
@@ -68,7 +68,7 @@ public class TestCassandraIntegrationSmokeTest
 
     private static final DateTime DATE_TIME_UTC = new DateTime(1970, 1, 1, 3, 4, 5, UTC);
     private static final Date DATE_LOCAL = new Date(DATE_TIME_UTC.getMillis());
-    private static final Timestamp TIMESTAMP_LOCAL = new Timestamp(DATE_TIME_UTC.getMillis());
+    private static final LocalDateTime TIMESTAMP_LOCAL = LocalDateTime.of(1970, 1, 1, 3, 4, 5);
 
     private CassandraSession session;
 
@@ -458,7 +458,7 @@ public class TestCassandraIntegrationSmokeTest
                 1,
                 1000L,
                 null,
-                Timestamp.valueOf("1970-01-01 14:04:05.0"),
+                LocalDateTime.of(1970, 1, 1, 8, 34, 5),
                 "ansi1",
                 true,
                 null,

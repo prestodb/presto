@@ -288,7 +288,7 @@ public class H2QueryRunner
                             row.add(null);
                         }
                         else {
-                            row.add(timestampValue);
+                            row.add(timestampValue.toLocalDateTime());
                         }
                     }
                     else if (TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
