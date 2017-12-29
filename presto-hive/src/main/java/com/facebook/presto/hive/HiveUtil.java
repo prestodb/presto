@@ -64,6 +64,7 @@ import org.joda.time.format.ISODateTimeFormat;
 
 import javax.annotation.Nullable;
 
+import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.math.BigDecimal;
@@ -89,7 +90,6 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALU
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_VIEW_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_SERDE_NOT_FOUND;
 import static com.facebook.presto.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
-import static com.facebook.presto.hive.RetryDriver.retry;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
 import static com.facebook.presto.hive.util.ConfigurationUtils.toJobConf;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -191,11 +191,9 @@ public final class HiveUtil
         jobConf.set("io.compression.codecs", codecs.stream().collect(joining(",")));
 
         try {
-            return retry()
-                    .stopOnIllegalExceptions()
-                    .run("createRecordReader", () -> inputFormat.getRecordReader(fileSplit, jobConf, Reporter.NULL));
+            return inputFormat.getRecordReader(fileSplit, jobConf, Reporter.NULL);
         }
-        catch (Exception e) {
+        catch (IOException e) {
             throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, format("Error opening Hive split %s (offset=%s, length=%s) using %s: %s",
                     path,
                     start,
