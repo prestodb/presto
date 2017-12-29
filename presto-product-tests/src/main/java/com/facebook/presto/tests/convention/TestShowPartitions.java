@@ -27,7 +27,6 @@ import org.testng.annotations.Test;
 
 import javax.inject.Inject;
 
-import java.sql.SQLException;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.presto.tests.TestGroups.BASIC_SQL;
@@ -71,7 +70,6 @@ public class TestShowPartitions
 
     @Test(groups = {BASIC_SQL})
     public void testShowPartitionsFromHiveTable()
-            throws SQLException
     {
         String tableNameInDatabase = tablesState.get(PARTITIONED_TABLE).getNameInDatabase();
 
