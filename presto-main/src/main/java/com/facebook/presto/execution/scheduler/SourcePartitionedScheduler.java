@@ -63,14 +63,26 @@ public class SourcePartitionedScheduler
 {
     private enum State
     {
+        /**
+         * No splits have been added to pendingSplits set.
+         */
         INITIALIZED,
-        // At least one split has been added to pendingSplits set.
+
+        /**
+         * At least one split has been added to pendingSplits set.
+         */
         SPLITS_ADDED,
-        // All splits from underlying SplitSource has been discovered.
-        // No more splits will be added to the pendingSplits set.
+
+        /**
+         * All splits from underlying SplitSource have been discovered.
+         * No more splits will be added to the pendingSplits set.
+         */
         NO_MORE_SPLITS,
-        // All splits has been provided to caller of this scheduler.
-        // Cleanup operations are done (e.g. drainCompletedLifespans has drained all driver groups).
+
+        /**
+         * All splits have been provided to caller of this scheduler.
+         * Cleanup operations are done (e.g., drainCompletedLifespans has drained all driver groups).
+         */
         FINISHED
     }
 
@@ -429,13 +441,23 @@ public class SourcePartitionedScheduler
         }
     }
 
-    private enum ScheduleGroupState {
+    private enum ScheduleGroupState
+    {
+        /**
+         * The underlying SplitSource is not complete.
+         */
         DISCOVERING_SPLITS,
-        // All splits from underlying SplitSource has been discovered.
-        // No more splits will be added to the pendingSplits set.
+
+        /**
+         * All splits from underlying SplitSource has been discovered.
+         * No more splits will be added to the pendingSplits set.
+         */
         NO_MORE_SPLITS,
-        // All splits has been provided to caller of this scheduler.
-        // Cleanup operations (e.g. inform caller of noMoreSplits) are done.
+
+        /**
+         * All splits has been provided to caller of this scheduler.
+         * Cleanup operations (e.g. inform caller of noMoreSplits) are done.
+         */
         DONE
     }
 }
