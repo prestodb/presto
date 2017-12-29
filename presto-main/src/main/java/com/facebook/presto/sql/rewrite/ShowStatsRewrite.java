@@ -229,7 +229,7 @@ public class ShowStatsRewrite
 
             Optional<TableScanNode> scanNode = searchFrom(plan.getRoot())
                     .where(TableScanNode.class::isInstance)
-                    .findFirst();
+                    .findSingle();
 
             if (!scanNode.isPresent()) {
                 return new Constraint<>(TupleDomain.none(), bindings -> true);
