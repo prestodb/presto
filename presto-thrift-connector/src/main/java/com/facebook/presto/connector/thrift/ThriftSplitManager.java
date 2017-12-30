@@ -29,6 +29,7 @@ import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.util.concurrent.Futures;
@@ -118,7 +119,7 @@ public class ThriftSplitManager
          * It can be called by multiple threads, but only if the previous call finished.
          */
         @Override
-        public CompletableFuture<List<ConnectorSplit>> getNextBatch(int maxSize)
+        public CompletableFuture<ConnectorSplitBatch> getNextBatch(ConnectorPartitionHandle partitionHandle, int maxSize)
         {
             checkState(future.get() == null || future.get().isDone(), "previous batch not completed");
             checkState(hasMoreData.get(), "this method cannot be invoked when there's no more data");
@@ -129,7 +130,7 @@ public class ThriftSplitManager
                     constraint,
                     maxSize,
                     new PrestoThriftNullableToken(currentToken));
-            ListenableFuture<List<ConnectorSplit>> resultFuture = Futures.transform(
+            ListenableFuture<ConnectorSplitBatch> resultFuture = Futures.transform(
                     splitsFuture,
                     batch -> {
                         requireNonNull(batch, "batch is null");
@@ -138,7 +139,7 @@ public class ThriftSplitManager
                                 .collect(toImmutableList());
                         checkState(nextToken.compareAndSet(currentToken, batch.getNextToken()));
                         checkState(hasMoreData.compareAndSet(true, nextToken.get() != null));
-                        return splits;
+                        return new ConnectorSplitBatch(splits, isFinished());
                     });
             future.set(resultFuture);
             return toCompletableFuture(resultFuture);

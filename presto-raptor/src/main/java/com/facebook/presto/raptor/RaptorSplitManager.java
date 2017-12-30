@@ -26,6 +26,7 @@ import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
@@ -141,7 +142,7 @@ public class RaptorSplitManager
         private final ResultIterator<BucketShards> iterator;
 
         @GuardedBy("this")
-        private CompletableFuture<List<ConnectorSplit>> future;
+        private CompletableFuture<ConnectorSplitBatch> future;
 
         public RaptorSplitSource(
                 long tableId,
@@ -166,7 +167,7 @@ public class RaptorSplitManager
         }
 
         @Override
-        public synchronized CompletableFuture<List<ConnectorSplit>> getNextBatch(int maxSize)
+        public CompletableFuture<ConnectorSplitBatch> getNextBatch(ConnectorPartitionHandle partitionHandle, int maxSize)
         {
             checkState((future == null) || future.isDone(), "previous batch not completed");
             future = supplyAsync(batchSupplier(maxSize), executor);
@@ -189,7 +190,7 @@ public class RaptorSplitManager
             return !iterator.hasNext();
         }
 
-        private Supplier<List<ConnectorSplit>> batchSupplier(int maxSize)
+        private Supplier<ConnectorSplitBatch> batchSupplier(int maxSize)
         {
             return () -> {
                 ImmutableList.Builder<ConnectorSplit> list = ImmutableList.builder();
@@ -202,7 +203,7 @@ public class RaptorSplitManager
                     }
                     list.add(createSplit(iterator.next()));
                 }
-                return list.build();
+                return new ConnectorSplitBatch(list.build(), isFinished());
             };
         }
 

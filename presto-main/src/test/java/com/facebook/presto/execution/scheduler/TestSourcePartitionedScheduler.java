@@ -35,6 +35,7 @@ import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.split.ConnectorAwareSplitSource;
 import com.facebook.presto.split.SplitSource;
@@ -76,10 +77,12 @@ import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.execution.scheduler.SourcePartitionedScheduler.simpleSourcePartitionedScheduler;
 import static com.facebook.presto.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
+import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.lang.Integer.min;
 import static java.util.Objects.requireNonNull;
@@ -517,9 +520,12 @@ public class TestSourcePartitionedScheduler
         }
 
         @Override
-        public synchronized CompletableFuture<List<ConnectorSplit>> getNextBatch(int maxSize)
+        public CompletableFuture<ConnectorSplitBatch> getNextBatch(ConnectorPartitionHandle partitionHandle, int maxSize)
         {
-            return notEmptyFuture.thenApply(x -> getBatch(maxSize));
+            checkArgument(partitionHandle.equals(NOT_PARTITIONED), "partitionHandle must be NOT_PARTITIONED");
+            return notEmptyFuture
+                    .thenApply(x -> getBatch(maxSize))
+                    .thenApply(splits -> new ConnectorSplitBatch(splits, isFinished()));
         }
 
         private synchronized List<ConnectorSplit> getBatch(int maxSize)
