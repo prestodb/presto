@@ -57,6 +57,7 @@ import static com.facebook.presto.raptor.metadata.DatabaseShardManager.shardInde
 import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static com.facebook.presto.raptor.metadata.TestDatabaseShardManager.shardInfo;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
+import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.google.common.base.Ticker.systemTicker;
@@ -151,7 +152,7 @@ public class TestRaptorSplitManager
         ConnectorSplitSource splitSource = getSplits(raptorSplitManager, layout);
         int splitCount = 0;
         while (!splitSource.isFinished()) {
-            splitCount += getFutureValue(splitSource.getNextBatch(1000)).size();
+            splitCount += getSplits(splitSource, 1000).size();
         }
         assertEquals(splitCount, 4);
     }
@@ -163,7 +164,7 @@ public class TestRaptorSplitManager
 
         ConnectorTableLayoutResult layout = getOnlyElement(metadata.getTableLayouts(SESSION, tableHandle, Constraint.alwaysTrue(), Optional.empty()));
         ConnectorSplitSource splitSource = getSplits(raptorSplitManager, layout);
-        getFutureValue(splitSource.getNextBatch(1000));
+        getSplits(splitSource, 1000);
     }
 
     @Test
@@ -181,7 +182,7 @@ public class TestRaptorSplitManager
 
         ConnectorTableLayoutResult layout = getOnlyElement(metadata.getTableLayouts(SESSION, tableHandle, Constraint.alwaysTrue(), Optional.empty()));
         ConnectorSplitSource partitionSplit = getSplits(raptorSplitManagerWithBackup, layout);
-        List<ConnectorSplit> batch = getFutureValue(partitionSplit.getNextBatch(1), PrestoException.class);
+        List<ConnectorSplit> batch = getSplits(partitionSplit, 1);
         assertEquals(getOnlyElement(getOnlyElement(batch).getAddresses()), node.getHostAndPort());
     }
 
@@ -193,7 +194,7 @@ public class TestRaptorSplitManager
         RaptorSplitManager raptorSplitManagerWithBackup = new RaptorSplitManager(new RaptorConnectorId("fbraptor"), ImmutableSet::of, shardManager, true);
         ConnectorTableLayoutResult layout = getOnlyElement(metadata.getTableLayouts(SESSION, tableHandle, Constraint.alwaysTrue(), Optional.empty()));
         ConnectorSplitSource splitSource = getSplits(raptorSplitManagerWithBackup, layout);
-        getFutureValue(splitSource.getNextBatch(1000), PrestoException.class);
+        getSplits(splitSource, 1000);
     }
 
     private void deleteShardNodes()
@@ -206,5 +207,10 @@ public class TestRaptorSplitManager
     {
         ConnectorTransactionHandle transaction = new RaptorTransactionHandle();
         return splitManager.getSplits(transaction, SESSION, layout.getTableLayout().getHandle(), UNGROUPED_SCHEDULING);
+    }
+
+    private static List<ConnectorSplit> getSplits(ConnectorSplitSource source, int maxSize)
+    {
+        return getFutureValue(source.getNextBatch(NOT_PARTITIONED, maxSize)).getSplits();
     }
 }
