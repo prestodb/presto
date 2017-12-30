@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
+import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
@@ -95,7 +96,7 @@ final class TestingDatabase
         JdbcTableHandle jdbcTableHandle = jdbcClient.getTableHandle(new SchemaTableName(schemaName, tableName));
         JdbcTableLayoutHandle jdbcLayoutHandle = new JdbcTableLayoutHandle(jdbcTableHandle, TupleDomain.all());
         ConnectorSplitSource splits = jdbcClient.getSplits(jdbcLayoutHandle);
-        return (JdbcSplit) getOnlyElement(getFutureValue(splits.getNextBatch(1000)));
+        return (JdbcSplit) getOnlyElement(getFutureValue(splits.getNextBatch(NOT_PARTITIONED, 1000)).getSplits());
     }
 
     public Map<String, JdbcColumnHandle> getColumnHandles(String schemaName, String tableName)
