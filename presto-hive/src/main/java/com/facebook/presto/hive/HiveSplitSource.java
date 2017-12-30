@@ -312,12 +312,6 @@ class HiveSplitSource
     }
 
     @Override
-    public CompletableFuture<List<ConnectorSplit>> getNextBatch(int maxSize)
-    {
-        return getNextBatch(NOT_PARTITIONED, maxSize).thenApply(ConnectorSplitBatch::getSplits);
-    }
-
-    @Override
     public CompletableFuture<ConnectorSplitBatch> getNextBatch(ConnectorPartitionHandle partitionHandle, int maxSize)
     {
         boolean noMoreSplits;
