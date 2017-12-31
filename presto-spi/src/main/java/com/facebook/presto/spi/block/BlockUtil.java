@@ -19,6 +19,7 @@ import io.airlift.slice.Slices;
 import java.util.Arrays;
 
 import static java.lang.Math.ceil;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 final class BlockUtil
@@ -33,34 +34,25 @@ final class BlockUtil
     {
     }
 
-    static void checkValidPositions(int[] positions, int offset, int length, int positionCount)
+    static void checkArrayRange(int[] array, int offset, int length)
     {
-        checkValidPositionsArray(positions, offset, length);
-
-        for (int i = offset; i < offset + length; ++i) {
-            int position = positions[i];
-            if (position > positionCount) {
-                throw new IllegalArgumentException(String.format("Invalid position '%s' in block with '%s' positions", position, positionCount));
-            }
-        }
-    }
-
-    static void checkValidPositionsArray(int[] positions, int offset, int length)
-    {
-        requireNonNull(positions, "positions array is null");
-        if (offset < 0 || offset > positions.length) {
-            throw new IndexOutOfBoundsException(String.format("Invalid offset '%s' for positions array with '%s' elements", offset, positions.length));
-        }
-
-        if (length < 0 || offset + length > positions.length) {
-            throw new IndexOutOfBoundsException(String.format("Invalid length '%s' for positions array with '%s' elements and offset: '%s", length, positions.length, offset));
+        requireNonNull(array, "array is null");
+        if (offset < 0 || length < 0 || offset + length > array.length) {
+            throw new IndexOutOfBoundsException(format("Invalid offset %s and length %s in array with %s elements", offset, length, array.length));
         }
     }
 
     static void checkValidRegion(int positionCount, int positionOffset, int length)
     {
         if (positionOffset < 0 || length < 0 || positionOffset + length > positionCount) {
-            throw new IndexOutOfBoundsException(String.format("Invalid position '%s' in block with '%s' positions", positionOffset, positionCount));
+            throw new IndexOutOfBoundsException(format("Invalid position %s and length %s in block with %s positions", positionOffset, length, positionCount));
+        }
+    }
+
+    static void checkValidPosition(int position, int positionCount)
+    {
+        if (position < 0 || position >= positionCount) {
+            throw new IllegalArgumentException(format("Invalid position %s in block with %s positions", position, positionCount));
         }
     }
 
@@ -76,7 +68,7 @@ final class BlockUtil
         else if (newSize > MAX_ARRAY_SIZE) {
             newSize = MAX_ARRAY_SIZE;
             if (newSize == currentSize) {
-                throw new IllegalArgumentException(String.format("Can not grow array beyond '%s'", MAX_ARRAY_SIZE));
+                throw new IllegalArgumentException(format("Can not grow array beyond '%s'", MAX_ARRAY_SIZE));
             }
         }
         return (int) newSize;

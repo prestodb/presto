@@ -19,10 +19,10 @@ import com.facebook.presto.spi.type.Type;
 import java.lang.invoke.MethodHandle;
 import java.util.Arrays;
 
-import static com.facebook.presto.spi.block.BlockUtil.checkValidPositionsArray;
+import static com.facebook.presto.spi.block.BlockUtil.checkArrayRange;
+import static com.facebook.presto.spi.block.BlockUtil.checkValidRegion;
 import static com.facebook.presto.spi.block.BlockUtil.compactArray;
 import static com.facebook.presto.spi.block.BlockUtil.compactOffsets;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public abstract class AbstractMapBlock
@@ -78,7 +78,7 @@ public abstract class AbstractMapBlock
     @Override
     public Block copyPositions(int[] positions, int offset, int length)
     {
-        checkValidPositionsArray(positions, offset, length);
+        checkArrayRange(positions, offset, length);
 
         int[] newOffsets = new int[length + 1];
         boolean[] newMapIsNull = new boolean[length];
@@ -127,9 +127,7 @@ public abstract class AbstractMapBlock
     public Block getRegion(int position, int length)
     {
         int positionCount = getPositionCount();
-        if (position < 0 || length < 0 || position + length > positionCount) {
-            throw new IndexOutOfBoundsException(format("Invalid position range [%s, %s) in block with %s positions", position, position + length, positionCount));
-        }
+        checkValidRegion(positionCount, position, length);
 
         if (position == 0 && length == positionCount) {
             return this;
@@ -151,9 +149,7 @@ public abstract class AbstractMapBlock
     public long getRegionSizeInBytes(int position, int length)
     {
         int positionCount = getPositionCount();
-        if (position < 0 || length < 0 || position + length > positionCount) {
-            throw new IndexOutOfBoundsException(format("Invalid position range [%s, %s) in block with %s positions", position, position + length, positionCount));
-        }
+        checkValidRegion(positionCount, position, length);
 
         int entriesStart = getOffsets()[getOffsetBase() + position];
         int entriesEnd = getOffsets()[getOffsetBase() + position + length];
@@ -169,9 +165,7 @@ public abstract class AbstractMapBlock
     public Block copyRegion(int position, int length)
     {
         int positionCount = getPositionCount();
-        if (position < 0 || length < 0 || position + length > positionCount) {
-            throw new IndexOutOfBoundsException(format("Invalid position range [%s, %s) in block with %s positions", position, position + length, positionCount));
-        }
+        checkValidRegion(positionCount, position, length);
 
         int startValueOffset = getOffset(position);
         int endValueOffset = getOffset(position + length);

@@ -38,8 +38,8 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.math.BigDecimal;
-import java.sql.Date;
 import java.sql.Timestamp;
+import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -186,7 +186,7 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate(query, 1);
 
-        MaterializedResult results = getQueryRunner().execute(getSession(), "SELECT * FROM test_types_table").toJdbcTypes();
+        MaterializedResult results = getQueryRunner().execute(getSession(), "SELECT * FROM test_types_table").toTestTypes();
         assertEquals(results.getRowCount(), 1);
         MaterializedRow row = results.getMaterializedRows().get(0);
         assertEquals(row.getField(0), "foo");
@@ -195,7 +195,7 @@ public class TestHiveIntegrationSmokeTest
         assertEquals(row.getField(3), 2);
         assertEquals(row.getField(4), 3.14);
         assertEquals(row.getField(5), true);
-        assertEquals(row.getField(6), new Date(new DateTime(1980, 5, 7, 0, 0, 0, UTC).getMillis()));
+        assertEquals(row.getField(6), LocalDate.of(1980, 5, 7));
         assertEquals(row.getField(7), new Timestamp(new DateTime(1980, 5, 7, 11, 22, 33, 456, UTC).getMillis()));
         assertEquals(row.getField(8), new BigDecimal("3.14"));
         assertEquals(row.getField(9), new BigDecimal("12345678901234567890.0123456789"));
@@ -2198,7 +2198,7 @@ public class TestHiveIntegrationSmokeTest
 
     private void assertOneNotNullResult(@Language("SQL") String query)
     {
-        MaterializedResult results = getQueryRunner().execute(getSession(), query).toJdbcTypes();
+        MaterializedResult results = getQueryRunner().execute(getSession(), query).toTestTypes();
         assertEquals(results.getRowCount(), 1);
         assertEquals(results.getMaterializedRows().get(0).getFieldCount(), 1);
         assertNotNull(results.getMaterializedRows().get(0).getField(0));

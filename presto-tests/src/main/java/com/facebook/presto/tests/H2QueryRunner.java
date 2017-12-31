@@ -69,7 +69,6 @@ import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static com.facebook.presto.tpch.TpchRecordSet.createTpchRecordSet;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
-import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.padEnd;
@@ -164,9 +163,6 @@ public class H2QueryRunner
                         .map(rowMapper(resultTypes))
                         .list(),
                 resultTypes);
-
-        // H2 produces dates in the JVM time zone instead of the session timezone
-        materializedRows = materializedRows.toTimeZone(DateTimeZone.getDefault(), getDateTimeZone(session.getTimeZoneKey()));
 
         return materializedRows;
     }
@@ -271,10 +267,10 @@ public class H2QueryRunner
                             row.add(null);
                         }
                         else {
-                            row.add(dateValue);
+                            row.add(dateValue.toLocalDate());
                         }
                     }
-                    else if (TIME.equals(type) || TIME_WITH_TIME_ZONE.equals(type)) {
+                    else if (TIME.equals(type)) {
                         Time timeValue = resultSet.getTime(i);
                         if (resultSet.wasNull()) {
                             row.add(null);
@@ -283,7 +279,10 @@ public class H2QueryRunner
                             row.add(timeValue);
                         }
                     }
-                    else if (TIMESTAMP.equals(type) || TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
+                    else if (TIME_WITH_TIME_ZONE.equals(type)) {
+                        throw new UnsupportedOperationException("H2 does not support TIME WITH TIME ZONE");
+                    }
+                    else if (TIMESTAMP.equals(type)) {
                         Timestamp timestampValue = resultSet.getTimestamp(i);
                         if (resultSet.wasNull()) {
                             row.add(null);
@@ -291,6 +290,11 @@ public class H2QueryRunner
                         else {
                             row.add(timestampValue);
                         }
+                    }
+                    else if (TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
+                        // H2 supports TIMESTAMP WITH TIME ZONE via org.h2.api.TimestampWithTimeZone, but it represent only a fixed-offset TZ (not named)
+                        // This means H2 is unsuitable for testing TIMESTAMP WITH TIME ZONE-bearing queries. Those need to be tested manually.
+                        throw new UnsupportedOperationException();
                     }
                     else if (UNKNOWN.equals(type)) {
                         Object objectValue = resultSet.getObject(i);

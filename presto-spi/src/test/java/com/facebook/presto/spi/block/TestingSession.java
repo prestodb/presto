@@ -66,6 +66,12 @@ public final class TestingSession
         }
 
         @Override
+        public boolean isLegacyTimestamp()
+        {
+            return true;
+        }
+
+        @Override
         public <T> T getProperty(String name, Class<T> type)
         {
             throw new PrestoException(INVALID_SESSION_PROPERTY, "Unknown session property " + name);

@@ -20,7 +20,9 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.util.function.BiConsumer;
 
-import static com.facebook.presto.spi.block.BlockUtil.checkValidPositions;
+import static com.facebook.presto.spi.block.BlockUtil.checkArrayRange;
+import static com.facebook.presto.spi.block.BlockUtil.checkValidPosition;
+import static com.facebook.presto.spi.block.BlockUtil.checkValidRegion;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -97,14 +99,17 @@ public class RunLengthEncodedBlock
     @Override
     public Block copyPositions(int[] positions, int offset, int length)
     {
-        checkValidPositions(positions, offset, length, positionCount);
+        checkArrayRange(positions, offset, length);
+        for (int i = offset; i < offset + length; i++) {
+            checkValidPosition(positions[i], positionCount);
+        }
         return new RunLengthEncodedBlock(value.copyRegion(0, 1), length);
     }
 
     @Override
     public Block getRegion(int positionOffset, int length)
     {
-        checkPositionIndexes(positionOffset, length);
+        checkValidRegion(positionCount, positionOffset, length);
         return new RunLengthEncodedBlock(value, length);
     }
 
@@ -117,7 +122,7 @@ public class RunLengthEncodedBlock
     @Override
     public Block copyRegion(int positionOffset, int length)
     {
-        checkPositionIndexes(positionOffset, length);
+        checkValidRegion(positionCount, positionOffset, length);
         return new RunLengthEncodedBlock(value.copyRegion(0, 1), length);
     }
 
@@ -233,13 +238,6 @@ public class RunLengthEncodedBlock
     public void assureLoaded()
     {
         value.assureLoaded();
-    }
-
-    private void checkPositionIndexes(int positionOffset, int length)
-    {
-        if (positionOffset < 0 || length < 0 || positionOffset + length > positionCount) {
-            throw new IndexOutOfBoundsException("Invalid position " + positionOffset + " in block with " + positionCount + " positions");
-        }
     }
 
     private void checkReadablePosition(int position)

@@ -154,6 +154,10 @@ public class RcFilePageSource
             closeWithSuppression(e);
             throw e;
         }
+        catch (RcFileCorruptionException e) {
+            closeWithSuppression(e);
+            throw new PrestoException(HIVE_BAD_DATA, e);
+        }
         catch (IOException | RuntimeException e) {
             closeWithSuppression(e);
             throw new PrestoException(HIVE_CURSOR_ERROR, e);
@@ -235,10 +239,10 @@ public class RcFilePageSource
                 Block block = rcFileReader.readBlock(columnIndex);
                 lazyBlock.setBlock(block);
             }
+            catch (RcFileCorruptionException e) {
+                throw new PrestoException(HIVE_BAD_DATA, e);
+            }
             catch (IOException e) {
-                if (e instanceof RcFileCorruptionException) {
-                    throw new PrestoException(HIVE_BAD_DATA, e);
-                }
                 throw new PrestoException(HIVE_CURSOR_ERROR, e);
             }
 

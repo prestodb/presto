@@ -13,6 +13,13 @@
  */
 package com.facebook.presto.tests.datatype;
 
+import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.IntegerType;
+import com.facebook.presto.spi.type.RealType;
+import com.facebook.presto.spi.type.SmallintType;
+import com.facebook.presto.spi.type.TinyintType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
 
@@ -33,6 +40,41 @@ public class DataType<T>
     private Type prestoResultType;
     private Function<T, String> toLiteral;
     private Function<T, ?> toPrestoQueryResult;
+
+    public static DataType<Boolean> booleanDataType()
+    {
+        return dataType("boolean", BooleanType.BOOLEAN);
+    }
+
+    public static DataType<Long> bigintDataType()
+    {
+        return dataType("bigint", BigintType.BIGINT);
+    }
+
+    public static DataType<Integer> integerDataType()
+    {
+        return dataType("integer", IntegerType.INTEGER);
+    }
+
+    public static DataType<Short> smallintDataType()
+    {
+        return dataType("smallint", SmallintType.SMALLINT);
+    }
+
+    public static DataType<Byte> tinyintDataType()
+    {
+        return dataType("tinyint", TinyintType.TINYINT);
+    }
+
+    public static DataType<Double> doubleDataType()
+    {
+        return dataType("double", DoubleType.DOUBLE);
+    }
+
+    public static DataType<Float> realDataType()
+    {
+        return dataType("real", RealType.REAL);
+    }
 
     public static DataType<String> varcharDataType(int size)
     {
@@ -91,6 +133,11 @@ public class DataType<T>
     private static String quote(String value)
     {
         return "'" + value + "'";
+    }
+
+    private static <T> DataType<T> dataType(String insertType, Type prestoResultType)
+    {
+        return new DataType<>(insertType, prestoResultType, Object::toString, Function.identity());
     }
 
     public static <T> DataType<T> dataType(String insertType, Type prestoResultType, Function<T, String> toLiteral, Function<T, ?> toPrestoQueryResult)

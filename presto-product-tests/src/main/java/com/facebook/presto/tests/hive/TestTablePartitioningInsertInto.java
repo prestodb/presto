@@ -29,7 +29,6 @@ import static com.teradata.tempto.fulfillment.table.MutableTablesState.mutableTa
 import static com.teradata.tempto.fulfillment.table.TableRequirements.mutableTable;
 import static com.teradata.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
 import static com.teradata.tempto.query.QueryExecutor.query;
-import static com.teradata.tempto.query.QueryType.UPDATE;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestTablePartitioningInsertInto
@@ -78,7 +77,7 @@ public class TestTablePartitioningInsertInto
                 targetNation,
                 partitionedNation,
                 condition);
-        QueryResult queryResult = query(query, UPDATE);
+        QueryResult queryResult = query(query);
 
         long processedLinesCount = getProcessedLinesCount(query, queryResult);
         int expectedLinesCount = expectedProcessedSplits * NATION_PARTITIONED_BY_REGIONKEY_NUMBER_OF_LINES_PER_SPLIT;
