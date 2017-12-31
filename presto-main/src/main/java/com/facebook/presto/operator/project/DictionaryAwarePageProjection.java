@@ -204,9 +204,12 @@ public class DictionaryAwarePageProjection
 
             // Process dictionary if:
             //   there is only one entry in the dictionary
+            //   the current projection will use more positions than that in the dictionary
             //   this is the first block
             //   the last dictionary was used for more positions than were in the dictionary
-            boolean shouldProcessDictionary = dictionary.get().getPositionCount() == 1 || lastInputDictionary == null || lastDictionaryUsageCount >= lastInputDictionary.getPositionCount();
+            boolean shouldProcessDictionary = dictionary.get().getPositionCount() == 1
+                    || dictionary.get().getPositionCount() <= selectedPositions.size()
+                    || lastInputDictionary == null || lastDictionaryUsageCount >= lastInputDictionary.getPositionCount();
 
             // record the usage count regardless of dictionary processing choice, so we have stats for next time
             lastDictionaryUsageCount = 0;

@@ -141,10 +141,32 @@ public class TestDictionaryAwarePageProjection
         // in this case, we don't even check yield signal; make yieldForce to false
         testProjectList(ineffectiveBlock, DictionaryBlock.class, projection, false);
 
-        // last dictionary not effective, so dictionary processing is disabled
+        // last dictionary not effective, and current dictionary is also not effective, so dictionary processing is disabled
+        DictionaryBlock anotherIneffectiveBlock = createDictionaryBlock(100, 20);
+        testProjectRange(anotherIneffectiveBlock, LongArrayBlock.class, projection, forceYield);
+        testProjectList(anotherIneffectiveBlock, LongArrayBlock.class, projection, forceYield);
+
+        // last dictionary not effective, but current dictionary is effective, so dictionary processing is enabled
         DictionaryBlock effectiveBlock = createDictionaryBlock(10, 100);
-        testProjectRange(effectiveBlock, LongArrayBlock.class, projection, forceYield);
-        testProjectList(effectiveBlock, LongArrayBlock.class, projection, forceYield);
+        testProjectRange(effectiveBlock, DictionaryBlock.class, projection, forceYield);
+        testProjectFastReturnIgnoreYield(effectiveBlock, projection);
+        // dictionary processing can reuse the last dictionary
+        // in this case, we don't even check yield signal; make yieldForce to false
+        testProjectList(effectiveBlock, DictionaryBlock.class, projection, false);
+
+        // last dictionary effective, so dictionary processing is enabled
+        testProjectRange(ineffectiveBlock, DictionaryBlock.class, projection, forceYield);
+        testProjectFastReturnIgnoreYield(ineffectiveBlock, projection);
+        // dictionary processing can reuse the last dictionary
+        // in this case, we don't even check yield signal; make yieldForce to false
+        testProjectList(ineffectiveBlock, DictionaryBlock.class, projection, false);
+
+        // last dictionary not effective, but current dictionary is effective, so dictionary processing is keeping enabled
+        testProjectRange(effectiveBlock, DictionaryBlock.class, projection, forceYield);
+        testProjectFastReturnIgnoreYield(effectiveBlock, projection);
+        // dictionary processing can reuse the last dictionary
+        // in this case, we don't even check yield signal; make yieldForce to false
+        testProjectList(effectiveBlock, DictionaryBlock.class, projection, false);
 
         // last dictionary effective, so dictionary processing is enabled again
         testProjectRange(ineffectiveBlock, DictionaryBlock.class, projection, forceYield);
@@ -153,9 +175,9 @@ public class TestDictionaryAwarePageProjection
         // in this case, we don't even check yield signal; make yieldForce to false
         testProjectList(ineffectiveBlock, DictionaryBlock.class, projection, false);
 
-        // last dictionary not effective, so dictionary processing is disabled again
-        testProjectRange(effectiveBlock, LongArrayBlock.class, projection, forceYield);
-        testProjectList(effectiveBlock, LongArrayBlock.class, projection, forceYield);
+        // last dictionary not effective, and current dictionary is also not effective, so dictionary processing is disabled again
+        testProjectRange(anotherIneffectiveBlock, LongArrayBlock.class, projection, forceYield);
+        testProjectList(anotherIneffectiveBlock, LongArrayBlock.class, projection, forceYield);
     }
 
     private static DictionaryBlock createDictionaryBlock(int dictionarySize, int blockSize)
