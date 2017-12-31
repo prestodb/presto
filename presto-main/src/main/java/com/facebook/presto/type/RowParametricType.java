@@ -13,14 +13,7 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.spi.type.NamedType;
-import com.facebook.presto.spi.type.ParameterKind;
-import com.facebook.presto.spi.type.ParametricType;
-import com.facebook.presto.spi.type.RowType;
-import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.TypeParameter;
+import com.facebook.presto.spi.type.*;
 
 import java.util.List;
 import java.util.Optional;
@@ -46,7 +39,9 @@ public final class RowParametricType
     @Override
     public Type createType(TypeManager typeManager, List<TypeParameter> parameters)
     {
-        checkArgument(!parameters.isEmpty(), "Row type must have at least one parameter");
+        //Mongodb allows empty row type;
+        //checkArgument(!parameters.isEmpty(), "Row type must have at least one parameter");
+
         checkArgument(
                 parameters.stream().allMatch(parameter -> parameter.getKind() == ParameterKind.NAMED_TYPE),
                 "Expected only named types as a parameters, got %s",
