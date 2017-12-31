@@ -73,11 +73,14 @@ public class MongoSplitManager
         MongoTableLayoutHandle tableLayout = (MongoTableLayoutHandle) layout;
         MongoTableHandle tableHandle = tableLayout.getTable();
 
-        //获取指定表的chunk切分明细和shard类型，非shard表不存在该记录
+        //Get the collection's chunks info detail
         MongoCursor<Document> chunkCursor= mongoSession.getChunkInfo(tableHandle.getSchemaTableName());
+
+        //Get the collection's sharded type
         String shardType= mongoSession.getShardType(tableHandle.getSchemaTableName());
         LOG.debug("shardType:%s",shardType);
 
+        //If the collection is not sharded or is hash-sharded, return splitsource  with the whole collection as a split;
         if(shardType==null || shardType.equals("hashed"))
         {
             return new FixedSplitSource(ImmutableList.of(new MongoSplit(tableHandle.getSchemaTableName(),
@@ -85,7 +88,7 @@ public class MongoSplitManager
                     addresses)));
         }
 
-        //遍历每一个chunk，每一个chunk作为一个split对象
+        //Scan the chunks, one chunk as a split
         if(chunkCursor.hasNext()) {
             MongoSplit chunkSplit;
             Optional<Map<ColumnHandle, Domain>> chunkDomain;
@@ -114,7 +117,7 @@ public class MongoSplitManager
                 Object firstKeyLowValue = minDoc.get(firstKey);
                 Object firstKeyHighValue = maxDoc.get(firstKey);
 
-                //根据key的类型，创建相应的columnhandle及Domain对象
+
                 if (firstKeyLowValue instanceof MinKey) {
                     if (firstKeyHighValue instanceof String) {
                         predicateColumnHandle = new MongoColumnHandle(firstKey,
@@ -317,7 +320,7 @@ public class MongoSplitManager
 
                 if (!newDomain.getValues().isNone()) {
                     splitCount++;
-                    //print chunk range info
+                    //Print splits' detail info
                     LOG.debug("Split %s range info details below:", splitCount);
                     for (Range range : newDomain.getValues().getRanges().getOrderedRanges()) {
                         if (range.isSingleValue()) {
