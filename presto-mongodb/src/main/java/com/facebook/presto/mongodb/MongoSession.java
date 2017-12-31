@@ -333,11 +333,11 @@ public class MongoSession
 
         // Add back all of the possible single values either as an equality or an IN predicate
         if (singleValues.size() == 1) {
-            disjuncts.add(documentOf(EQ_OP, translateValue(singleValues.get(0), type)));
+            disjuncts.add(documentOf(EQ_OP, singleValues.get(0)));
         }
         else if (singleValues.size() > 1) {
             disjuncts.add(documentOf(IN_OP, singleValues.stream()
-                    .map(value -> translateValue(value, type))
+                    .map(value -> value)
                     .collect(toList())));
         }
 
