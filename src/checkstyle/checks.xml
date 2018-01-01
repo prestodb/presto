@@ -44,10 +44,6 @@
         <property name="message" value="No new line before extends/implements" />
     </module>
     <module name="RegexpSingleline">
-        <property name="format" value="Preconditions\.checkNotNull" />
-        <property name="message" value="Use java.util.Objects.requireNonNull instead of Preconditions\.checkNotNull" />
-    </module>
-    <module name="RegexpSingleline">
         <property name="format" value="^([^i]|i[^m]|im[^p]|imp[^o]|impo[^r]|impor[^t]|import[^ ]).*Objects\.requireNonNull" />
         <property name="message" value="Objects.requireNonNull should only be used with static imports" />
     </module>
