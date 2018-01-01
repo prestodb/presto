@@ -48,10 +48,6 @@
         <property name="message" value="Objects.requireNonNull should only be used with static imports" />
     </module>
     <module name="RegexpSingleline">
-        <property name="format" value="Ints\.checkedCast" />
-        <property name="message" value="Use Math.toIntExact instead of Ints.checkedCast" />
-    </module>
-    <module name="RegexpSingleline">
         <property name="format" value="^([^i]|i[^m]|im[^p]|imp[^o]|impo[^r]|impor[^t]|import[^ ]).*Math\.toIntExact" />
         <property name="message" value="Math.toIntExact should only be used with static imports" />
     </module>
