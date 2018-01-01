@@ -101,8 +101,8 @@ public class Storage
         private StorageFormat storageFormat;
         private String location;
         private Optional<HiveBucketProperty> bucketProperty = Optional.empty();
-        private boolean sorted = false;
-        private boolean skewed = false;
+        private boolean sorted;
+        private boolean skewed;
         private Map<String, String> serdeParameters = ImmutableMap.of();
 
         private Builder()

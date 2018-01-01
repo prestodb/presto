@@ -156,7 +156,7 @@ public class MockRemoteTaskFactory
         private final Multimap<PlanNodeId, Split> splits = HashMultimap.create();
 
         @GuardedBy("this")
-        private int runningDrivers = 0;
+        private int runningDrivers;
 
         @GuardedBy("this")
         private SettableFuture<?> whenSplitQueueHasSpace = SettableFuture.create();

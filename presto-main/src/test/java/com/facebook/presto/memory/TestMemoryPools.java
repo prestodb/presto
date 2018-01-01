@@ -270,7 +270,7 @@ public class TestMemoryPools
         private final DataSize reservedPerPage;
         private final long numberOfPages;
         private final OperatorContext operatorContext;
-        private long producedPagesCount = 0;
+        private long producedPagesCount;
 
         public RevocableMemoryOperator(OperatorContext operatorContext, DataSize reservedPerPage, long numberOfPages)
         {

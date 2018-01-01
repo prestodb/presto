@@ -51,7 +51,7 @@ public class BenchmarkRoundFunction
     private float floatOperand4;
 
     @Param({"0", "1", "2", "3", "4"})
-    private int numberOfDecimals = 0;
+    private int numberOfDecimals;
 
     @Setup
     public void setup()

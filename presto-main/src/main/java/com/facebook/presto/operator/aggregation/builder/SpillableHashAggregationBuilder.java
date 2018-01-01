@@ -60,7 +60,7 @@ public class SpillableHashAggregationBuilder
     private final JoinCompiler joinCompiler;
 
     // todo get rid of that and only use revocable memory
-    private long emptyHashAggregationBuilderSize = 0;
+    private long emptyHashAggregationBuilderSize;
 
     private long hashCollisions;
     private double expectedHashCollisions;

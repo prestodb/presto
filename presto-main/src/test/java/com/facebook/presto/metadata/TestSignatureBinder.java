@@ -1130,9 +1130,9 @@ public class TestSignatureBinder
     private class BindSignatureAssertion
     {
         private final Signature function;
-        private List<TypeSignatureProvider> argumentTypes = null;
-        private Type returnType = null;
-        private boolean allowCoercion = false;
+        private List<TypeSignatureProvider> argumentTypes;
+        private Type returnType;
+        private boolean allowCoercion;
 
         private BindSignatureAssertion(Signature function)
         {

@@ -91,7 +91,7 @@ public class BenchmarkHashBuildAndJoinOperators
         protected String hashColumns = "bigint";
 
         @Param({"false", "true"})
-        protected boolean buildHashEnabled = false;
+        protected boolean buildHashEnabled;
 
         @Param({"1", "5"})
         protected int buildRowsRepetition = 1;

@@ -17,7 +17,7 @@ import com.facebook.presto.sql.planner.plan.PlanNodeId;
 
 public class PlanNodeIdAllocator
 {
-    private int nextId = 0;
+    private int nextId;
 
     public PlanNodeId getNextId()
     {
