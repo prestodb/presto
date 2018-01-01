@@ -132,6 +132,7 @@
         <module name="InnerAssignment" />
         <module name="InterfaceIsType" />
         <module name="HideUtilityClassConstructor" />
+        <module name="ExplicitInitialization" />
 
         <module name="MemberName" />
         <module name="LocalVariableName" />
