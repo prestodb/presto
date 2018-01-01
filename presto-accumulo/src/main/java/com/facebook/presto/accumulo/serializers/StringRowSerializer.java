@@ -62,7 +62,7 @@ public class StringRowSerializer
     private final Text qualifier = new Text();
     private final Text value = new Text();
 
-    private boolean rowOnly = false;
+    private boolean rowOnly;
     private String rowIdName;
 
     @Override

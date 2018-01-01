@@ -35,8 +35,8 @@ public class TableFinishInfo
     private static final JsonCodec<Object> INFO_CODEC = jsonCodec(Object.class);
     private static final JsonCodec<JsonNode> JSON_NODE_CODEC = jsonCodec(JsonNode.class);
 
-    private String connectorOutputMetadata = null;
-    private boolean jsonLengthLimitExceeded = false;
+    private String connectorOutputMetadata;
+    private boolean jsonLengthLimitExceeded;
 
     public TableFinishInfo(Optional<ConnectorOutputMetadata> metadata)
     {

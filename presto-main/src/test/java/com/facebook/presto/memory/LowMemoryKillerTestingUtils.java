@@ -120,7 +120,7 @@ public class LowMemoryKillerTestingUtils
 
     private static class PoolReservation
     {
-        private long totalReservedBytes = 0;
+        private long totalReservedBytes;
         private final Map<QueryId, Long> reservationByQuery = new HashMap<>();
 
         public void add(QueryId queryId, long bytes)

@@ -58,7 +58,7 @@ public final class AccumuloQueryRunner
     private static final String MAC_PASSWORD = "secret";
     private static final String MAC_USER = "root";
 
-    private static boolean tpchLoaded = false;
+    private static boolean tpchLoaded;
     private static Connector connector = getAccumuloConnector();
 
     private AccumuloQueryRunner() {}

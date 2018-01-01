@@ -202,7 +202,7 @@ public final class SqlScalarFunctionBuilder
     public static class MethodsGroupBuilder
     {
         private final Class<?> clazz;
-        private List<Method> methods = null;
+        private List<Method> methods;
         private Optional<Predicate<SpecializeContext>> predicate = Optional.empty();
         private Optional<Function<SpecializeContext, List<Object>>> extraParametersFunction = Optional.empty();
 

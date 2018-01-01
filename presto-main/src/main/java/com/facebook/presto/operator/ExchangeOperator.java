@@ -51,7 +51,7 @@ public class ExchangeOperator
         private final ExchangeClientSupplier exchangeClientSupplier;
         private final PagesSerdeFactory serdeFactory;
         private final List<Type> types;
-        private ExchangeClient exchangeClient = null;
+        private ExchangeClient exchangeClient;
         private boolean closed;
 
         public ExchangeOperatorFactory(

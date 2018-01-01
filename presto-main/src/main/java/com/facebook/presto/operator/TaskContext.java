@@ -84,10 +84,10 @@ public class TaskContext
     private final AtomicDouble cumulativeMemory = new AtomicDouble(0.0);
 
     @GuardedBy("cumulativeMemoryLock")
-    private long lastMemoryReservation = 0;
+    private long lastMemoryReservation;
 
     @GuardedBy("cumulativeMemoryLock")
-    private long lastTaskStatCallNanos = 0;
+    private long lastTaskStatCallNanos;
 
     public static TaskContext createTaskContext(
             QueryContext queryContext,

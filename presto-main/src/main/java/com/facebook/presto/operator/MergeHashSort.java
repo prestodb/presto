@@ -168,7 +168,7 @@ public class MergeHashSort
         private final HashGenerator hashGenerator;
         private final PageBuilder builder;
         private final LocalMemoryContext memoryContext;
-        private PagePosition currentPage = null;
+        private PagePosition currentPage;
 
         public PageRewriteIterator(HashGenerator hashGenerator, List<Type> allTypes, Iterator<PagePosition> pagePositions, LocalMemoryContext memoryContext)
         {

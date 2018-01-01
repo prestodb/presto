@@ -83,7 +83,7 @@ public class LookupJoinOperator
     private boolean unspilling;
     private boolean finished;
     private long joinPosition = -1;
-    private int joinSourcePositions = 0;
+    private int joinSourcePositions;
 
     private boolean currentProbePositionProducedRow;
 

@@ -765,7 +765,7 @@ public class SqlTaskExecution
             Iterator<SchedulingLifespan> lifespansIterator = lifespans.values().iterator();
             return new AbstractIterator<SchedulingLifespan>()
             {
-                SchedulingLifespan lastSchedulingLifespan = null;
+                SchedulingLifespan lastSchedulingLifespan;
 
                 @Override
                 protected SchedulingLifespan computeNext()

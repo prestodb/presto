@@ -113,7 +113,7 @@ public class Analysis
     private Optional<QualifiedObjectName> createTableDestination = Optional.empty();
     private Map<String, Expression> createTableProperties = ImmutableMap.of();
     private boolean createTableAsSelectWithData = true;
-    private boolean createTableAsSelectNoOp = false;
+    private boolean createTableAsSelectNoOp;
     private Optional<List<Identifier>> createTableColumnAliases = Optional.empty();
     private Optional<String> createTableComment = Optional.empty();
 

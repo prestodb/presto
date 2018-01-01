@@ -129,8 +129,8 @@ public class Indexer
     private final AccumuloRowSerializer serializer;
     private final Comparator<byte[]> byteArrayComparator = UnsignedBytes.lexicographicalComparator();
 
-    private byte[] firstRow = null;
-    private byte[] lastRow = null;
+    private byte[] firstRow;
+    private byte[] lastRow;
 
     public Indexer(
             Connector connector,

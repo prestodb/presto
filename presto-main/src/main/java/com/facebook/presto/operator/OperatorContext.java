@@ -104,7 +104,7 @@ public class OperatorContext
      *   thread safe
      */
     @GuardedBy("this")
-    private long revocableMemoryReservation = 0;
+    private long revocableMemoryReservation;
     private final OperatorSystemMemoryContext systemMemoryContext;
     private final SpillContext spillContext;
 

@@ -46,12 +46,12 @@ public class MockSplitSource
         COMPLETED_FUTURE.set(null);
     }
 
-    private int batchSize = 0;
-    private int totalSplits = 0;
+    private int batchSize;
+    private int totalSplits;
     private Action atSplitDepletion = DO_NOTHING;
 
     private int nextBatchInvocationCount;
-    private int splitsProduced = 0;
+    private int splitsProduced;
 
     private SettableFuture<List<Split>> nextBatchFuture = COMPLETED_FUTURE;
     private int nextBatchMaxSize;

@@ -360,7 +360,7 @@ public class InMemoryHashAggregationBuilder
         return new AbstractIntIterator()
         {
             private final int totalPositions = groupByHash.getGroupCount();
-            private int position = 0;
+            private int position;
 
             @Override
             public boolean hasNext()

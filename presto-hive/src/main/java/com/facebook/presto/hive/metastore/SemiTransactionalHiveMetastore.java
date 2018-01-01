@@ -95,7 +95,7 @@ public class SemiTransactionalHiveMetastore
     private ExclusiveOperation bufferedExclusiveOperation;
     @GuardedBy("this")
     private State state = State.EMPTY;
-    private boolean throwOnCleanupFailure = false;
+    private boolean throwOnCleanupFailure;
 
     public SemiTransactionalHiveMetastore(HdfsEnvironment hdfsEnvironment, ExtendedHiveMetastore delegate, Executor renameExecutor, boolean skipDeletionForAlter)
     {
