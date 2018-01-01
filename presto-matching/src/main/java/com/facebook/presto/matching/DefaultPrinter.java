@@ -22,8 +22,8 @@ import com.facebook.presto.matching.pattern.WithPattern;
 public class DefaultPrinter
         implements PatternVisitor
 {
-    private StringBuilder result = new StringBuilder();
-    private int level = 0;
+    private final StringBuilder result = new StringBuilder();
+    private int level;
 
     public String result()
     {
