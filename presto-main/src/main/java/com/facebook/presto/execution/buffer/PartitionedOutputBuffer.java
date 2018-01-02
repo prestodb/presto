@@ -17,7 +17,7 @@ import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.OutputBuffers.OutputBufferId;
 import com.facebook.presto.execution.StateMachine;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
-import com.facebook.presto.execution.SystemMemoryUsageListener;
+import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
@@ -25,6 +25,7 @@ import io.airlift.units.DataSize;
 import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Supplier;
 
 import static com.facebook.presto.OutputBuffers.BufferType.PARTITIONED;
 import static com.facebook.presto.execution.buffer.BufferState.FAILED;
@@ -56,7 +57,7 @@ public class PartitionedOutputBuffer
             StateMachine<BufferState> state,
             OutputBuffers outputBuffers,
             DataSize maxBufferSize,
-            SystemMemoryUsageListener systemMemoryUsageListener,
+            Supplier<LocalMemoryContext> systemMemoryContextSupplier,
             Executor notificationExecutor)
     {
         this.state = requireNonNull(state, "state is null");
@@ -68,7 +69,7 @@ public class PartitionedOutputBuffer
 
         this.memoryManager = new OutputBufferMemoryManager(
                 requireNonNull(maxBufferSize, "maxBufferSize is null").toBytes(),
-                requireNonNull(systemMemoryUsageListener, "systemMemoryUsageListener is null"),
+                requireNonNull(systemMemoryContextSupplier, "systemMemoryContextSupplier is null"),
                 requireNonNull(notificationExecutor, "notificationExecutor is null"));
 
         ImmutableList.Builder<ClientBuffer> partitions = ImmutableList.builder();

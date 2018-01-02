@@ -17,7 +17,7 @@ import com.facebook.presto.RowPagesBuilder;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.execution.buffer.PagesSerde;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
-import com.facebook.presto.memory.AggregatedMemoryContext;
+import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
@@ -37,6 +37,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 
+import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -74,7 +75,7 @@ public class TestBinaryFileSpiller
         factory = new GenericSpillerFactory(singleStreamSpillerFactory);
         PagesSerdeFactory pagesSerdeFactory = new PagesSerdeFactory(requireNonNull(blockEncodingSerde, "blockEncodingSerde is null"), false);
         pagesSerde = pagesSerdeFactory.createPagesSerde();
-        memoryContext = new AggregatedMemoryContext();
+        memoryContext = newSimpleAggregatedMemoryContext();
     }
 
     @AfterMethod

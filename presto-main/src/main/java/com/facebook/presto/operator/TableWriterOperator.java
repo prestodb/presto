@@ -14,7 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.memory.LocalMemoryContext;
+import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
@@ -135,7 +135,7 @@ public class TableWriterOperator
             List<Integer> inputChannels)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.pageSinkMemoryContext = operatorContext.getSystemMemoryContext().newLocalMemoryContext();
+        this.pageSinkMemoryContext = operatorContext.newLocalSystemMemoryContext();
         this.pageSink = requireNonNull(pageSink, "pageSink is null");
         this.inputChannels = requireNonNull(inputChannels, "inputChannels is null");
     }

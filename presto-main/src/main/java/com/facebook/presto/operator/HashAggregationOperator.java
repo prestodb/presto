@@ -511,8 +511,8 @@ public class HashAggregationOperator
             // The reference must be set to null afterwards to avoid unaccounted memory.
             aggregationBuilder = null;
         }
-        operatorContext.setMemoryReservation(0);
-        operatorContext.setRevocableMemoryReservation(0);
+        operatorContext.localUserMemoryContext().setBytes(0);
+        operatorContext.localRevocableMemoryContext().setBytes(0);
     }
 
     private Page getGlobalAggregationOutput()

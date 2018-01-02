@@ -13,7 +13,8 @@
  */
 package com.facebook.presto.execution.buffer;
 
-import com.facebook.presto.execution.SystemMemoryUsageListener;
+import com.facebook.presto.memory.context.LocalMemoryContext;
+import com.google.common.base.Suppliers;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 
@@ -23,6 +24,7 @@ import javax.annotation.concurrent.ThreadSafe;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -37,14 +39,15 @@ class OutputBufferMemoryManager
 
     private final AtomicBoolean blockOnFull = new AtomicBoolean(true);
 
-    private final SystemMemoryUsageListener systemMemoryUsageListener;
+    private final Supplier<LocalMemoryContext> systemMemoryContextSupplier;
     private final Executor notificationExecutor;
 
-    public OutputBufferMemoryManager(long maxBufferedBytes, SystemMemoryUsageListener systemMemoryUsageListener, Executor notificationExecutor)
+    public OutputBufferMemoryManager(long maxBufferedBytes, Supplier<LocalMemoryContext> systemMemoryContextSupplier, Executor notificationExecutor)
     {
+        requireNonNull(systemMemoryContextSupplier, "systemMemoryContextSupplier is null");
         checkArgument(maxBufferedBytes > 0, "maxBufferedBytes must be > 0");
         this.maxBufferedBytes = maxBufferedBytes;
-        this.systemMemoryUsageListener = requireNonNull(systemMemoryUsageListener, "systemMemoryUsageListener is null");
+        this.systemMemoryContextSupplier = Suppliers.memoize(systemMemoryContextSupplier::get);
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
 
         notFull = SettableFuture.create();
@@ -53,8 +56,7 @@ class OutputBufferMemoryManager
 
     public void updateMemoryUsage(long bytesAdded)
     {
-        systemMemoryUsageListener.updateSystemMemoryUsage(bytesAdded);
-        bufferedBytes.addAndGet(bytesAdded);
+        systemMemoryContextSupplier.get().setBytes(bufferedBytes.addAndGet(bytesAdded));
         synchronized (this) {
             if (!isFull() && !notFull.isDone()) {
                 // Complete future in a new thread to avoid making a callback on the caller thread.

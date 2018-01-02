@@ -14,7 +14,7 @@
 package com.facebook.presto.spiller;
 
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
-import com.facebook.presto.memory.LocalMemoryContext;
+import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.SpillContext;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
