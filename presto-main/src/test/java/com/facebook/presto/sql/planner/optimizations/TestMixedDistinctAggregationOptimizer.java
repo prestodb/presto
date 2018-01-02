@@ -14,11 +14,9 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.SystemSessionProperties;
-import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.StatsRecorder;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.assertions.ExpectedValueProvider;
-import com.facebook.presto.sql.planner.assertions.PlanAssert;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
@@ -117,11 +115,6 @@ public class TestMixedDistinctAggregationOptimizer
                 new IterativeOptimizer(new StatsRecorder(), ImmutableSet.of(new RemoveRedundantIdentityProjections())),
                 new OptimizeMixedDistinctAggregations(getQueryRunner().getMetadata()),
                 new PruneUnreferencedOutputs());
-
-        getQueryRunner().inTransaction(transactionSession -> {
-            Plan actualPlan = getQueryRunner().createPlan(transactionSession, sql, optimizers);
-            PlanAssert.assertPlan(transactionSession, getQueryRunner().getMetadata(), getQueryRunner().getCostCalculator(), actualPlan, pattern);
-            return null;
-        });
+        assertPlan(sql, pattern, optimizers);
     }
 }

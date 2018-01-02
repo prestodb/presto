@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql.planner.optimizations;
 
-import com.facebook.presto.sql.planner.LogicalPlanner;
 import com.facebook.presto.sql.planner.StatsRecorder;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
@@ -131,6 +130,6 @@ public class TestSetFlatteningOptimizer
                 new PruneUnreferencedOutputs(),
                 new IterativeOptimizer(new StatsRecorder(), ImmutableSet.of(new RemoveRedundantIdentityProjections())),
                 new SetFlatteningOptimizer());
-        assertPlan(sql, LogicalPlanner.Stage.OPTIMIZED, pattern, optimizers);
+        assertPlan(sql, pattern, optimizers);
     }
 }
