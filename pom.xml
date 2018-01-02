@@ -55,7 +55,6 @@
         <dep.assertj-core.version>3.8.0</dep.assertj-core.version>
         <dep.nifty.version>0.15.1</dep.nifty.version>
         <dep.swift.version>0.15.6</dep.swift.version>
-        <dep.asm.version>6.0</dep.asm.version>
 
         <!-- use a fractional hour timezone offset for tests -->
         <air.test.timezone>Asia/Katmandu</air.test.timezone>
@@ -94,7 +93,6 @@
         <module>presto-redshift</module>
         <module>presto-sqlserver</module>
         <module>presto-mongodb</module>
-        <module>presto-bytecode</module>
         <module>presto-client</module>
         <module>presto-parser</module>
         <module>presto-main</module>
@@ -269,12 +267,6 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-cli</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.facebook.presto</groupId>
-                <artifactId>presto-bytecode</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -579,25 +571,7 @@
             <dependency>
                 <groupId>org.ow2.asm</groupId>
                 <artifactId>asm</artifactId>
-                <version>${dep.asm.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.ow2.asm</groupId>
-                <artifactId>asm-tree</artifactId>
-                <version>${dep.asm.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.ow2.asm</groupId>
-                <artifactId>asm-util</artifactId>
-                <version>${dep.asm.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.ow2.asm</groupId>
-                <artifactId>asm-analysis</artifactId>
-                <version>${dep.asm.version}</version>
+                <version>6.0</version>
             </dependency>
 
             <dependency>
