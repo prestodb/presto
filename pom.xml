@@ -548,6 +548,12 @@
 
             <dependency>
                 <groupId>io.airlift</groupId>
+                <artifactId>bytecode</artifactId>
+                <version>1.0</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.airlift</groupId>
                 <artifactId>joni</artifactId>
                 <version>2.1.5.1</version>
             </dependency>

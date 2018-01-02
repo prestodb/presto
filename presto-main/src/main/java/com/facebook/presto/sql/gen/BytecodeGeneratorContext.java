@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.bytecode.BytecodeNode;
-import com.facebook.presto.bytecode.FieldDefinition;
-import com.facebook.presto.bytecode.Scope;
-import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.sql.relational.RowExpression;
+import io.airlift.bytecode.BytecodeNode;
+import io.airlift.bytecode.FieldDefinition;
+import io.airlift.bytecode.Scope;
+import io.airlift.bytecode.Variable;
 
 import java.util.List;
 import java.util.Optional;
