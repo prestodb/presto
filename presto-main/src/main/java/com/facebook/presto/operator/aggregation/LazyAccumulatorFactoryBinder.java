@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.bytecode.DynamicClassLoader;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
+import io.airlift.bytecode.DynamicClassLoader;
 
 import java.util.List;
 import java.util.Optional;

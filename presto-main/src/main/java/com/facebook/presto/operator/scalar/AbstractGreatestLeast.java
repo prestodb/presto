@@ -14,15 +14,6 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.annotation.UsedByGeneratedCode;
-import com.facebook.presto.bytecode.BytecodeBlock;
-import com.facebook.presto.bytecode.ClassDefinition;
-import com.facebook.presto.bytecode.CompilerUtils;
-import com.facebook.presto.bytecode.DynamicClassLoader;
-import com.facebook.presto.bytecode.MethodDefinition;
-import com.facebook.presto.bytecode.Parameter;
-import com.facebook.presto.bytecode.Scope;
-import com.facebook.presto.bytecode.Variable;
-import com.facebook.presto.bytecode.control.IfStatement;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.FunctionRegistry;
@@ -35,19 +26,19 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.gen.CallSiteBinder;
 import com.google.common.collect.ImmutableList;
+import io.airlift.bytecode.BytecodeBlock;
+import io.airlift.bytecode.ClassDefinition;
+import io.airlift.bytecode.DynamicClassLoader;
+import io.airlift.bytecode.MethodDefinition;
+import io.airlift.bytecode.Parameter;
+import io.airlift.bytecode.Scope;
+import io.airlift.bytecode.Variable;
+import io.airlift.bytecode.control.IfStatement;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.stream.IntStream;
 
-import static com.facebook.presto.bytecode.Access.FINAL;
-import static com.facebook.presto.bytecode.Access.PRIVATE;
-import static com.facebook.presto.bytecode.Access.PUBLIC;
-import static com.facebook.presto.bytecode.Access.STATIC;
-import static com.facebook.presto.bytecode.Access.a;
-import static com.facebook.presto.bytecode.CompilerUtils.defineClass;
-import static com.facebook.presto.bytecode.Parameter.arg;
-import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.facebook.presto.metadata.Signature.orderableTypeParameter;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
@@ -57,10 +48,19 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.gen.BytecodeUtils.invoke;
+import static com.facebook.presto.util.CompilerUtils.defineClass;
+import static com.facebook.presto.util.CompilerUtils.makeClassName;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.bytecode.Access.FINAL;
+import static io.airlift.bytecode.Access.PRIVATE;
+import static io.airlift.bytecode.Access.PUBLIC;
+import static io.airlift.bytecode.Access.STATIC;
+import static io.airlift.bytecode.Access.a;
+import static io.airlift.bytecode.Parameter.arg;
+import static io.airlift.bytecode.ParameterizedType.type;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
@@ -137,7 +137,7 @@ public abstract class AbstractGreatestLeast
 
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),
-                CompilerUtils.makeClassName(javaTypeName + "$" + getSignature().getName()),
+                makeClassName(javaTypeName + "$" + getSignature().getName()),
                 type(Object.class));
 
         definition.declareDefaultConstructor(a(PRIVATE));

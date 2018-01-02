@@ -13,20 +13,20 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.bytecode.BytecodeBlock;
-import com.facebook.presto.bytecode.BytecodeNode;
-import com.facebook.presto.bytecode.Variable;
-import com.facebook.presto.bytecode.control.IfStatement;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.google.common.collect.Lists;
+import io.airlift.bytecode.BytecodeBlock;
+import io.airlift.bytecode.BytecodeNode;
+import io.airlift.bytecode.Variable;
+import io.airlift.bytecode.control.IfStatement;
 
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantFalse;
-import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantTrue;
+import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
+import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
 
 public class CoalesceCodeGenerator
         implements BytecodeGenerator

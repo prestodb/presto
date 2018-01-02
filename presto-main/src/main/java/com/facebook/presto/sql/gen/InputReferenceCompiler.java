@@ -13,11 +13,6 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.bytecode.BytecodeNode;
-import com.facebook.presto.bytecode.Scope;
-import com.facebook.presto.bytecode.Variable;
-import com.facebook.presto.bytecode.control.IfStatement;
-import com.facebook.presto.bytecode.expression.BytecodeExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.ConstantExpression;
@@ -26,6 +21,11 @@ import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
 import com.facebook.presto.sql.relational.RowExpressionVisitor;
 import com.facebook.presto.sql.relational.VariableReferenceExpression;
 import com.google.common.primitives.Primitives;
+import io.airlift.bytecode.BytecodeNode;
+import io.airlift.bytecode.Scope;
+import io.airlift.bytecode.Variable;
+import io.airlift.bytecode.control.IfStatement;
+import io.airlift.bytecode.expression.BytecodeExpression;
 import io.airlift.slice.Slice;
 
 import java.util.function.BiFunction;

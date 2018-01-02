@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.bytecode.DynamicClassLoader;
 import com.google.common.base.Throwables;
+import io.airlift.bytecode.DynamicClassLoader;
 
 import java.lang.invoke.CallSite;
 import java.lang.invoke.ConstantCallSite;
