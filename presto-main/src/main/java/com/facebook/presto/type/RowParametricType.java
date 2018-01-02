@@ -13,7 +13,14 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.spi.type.*;
+import com.facebook.presto.spi.type.NamedType;
+import com.facebook.presto.spi.type.ParameterKind;
+import com.facebook.presto.spi.type.ParametricType;
+import com.facebook.presto.spi.type.RowType;
+import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeParameter;
 
 import java.util.List;
 import java.util.Optional;
