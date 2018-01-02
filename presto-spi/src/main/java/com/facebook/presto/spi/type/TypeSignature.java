@@ -16,14 +16,7 @@ package com.facebook.presto.spi.type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.TreeMap;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static java.lang.String.format;
@@ -207,7 +200,10 @@ public class TypeSignature
                 if (bracketCount == 0) {
                     checkArgument(i == signature.length() - 1, "Bad type signature: '%s'", signature);
                     checkArgument(parameterStart >= 0, "Bad type signature: '%s'", signature);
-                    parameters.add(parseTypeSignature(signature.substring(parameterStart, i), literalParameters));
+                    //Mongodb allows empty row type
+                    if(parameterStart==i) {
+                        parameters.add(parseTypeSignature(signature.substring(parameterStart, i), literalParameters));
+                    }
                     return new TypeSignature(baseName, createNamedTypeParameters(parameters, fieldNames));
                 }
             }
