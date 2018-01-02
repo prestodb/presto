@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.spiller;
 
-import com.facebook.presto.memory.AggregatedMemoryContext;
+import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.operator.SpillContext;
 import com.facebook.presto.spi.type.Type;
 import com.google.inject.Inject;
@@ -34,8 +34,8 @@ public class GenericSpillerFactory
     }
 
     @Override
-    public Spiller create(List<Type> types, SpillContext localSpillContext, AggregatedMemoryContext memoryContext)
+    public Spiller create(List<Type> types, SpillContext localSpillContext, AggregatedMemoryContext aggregatedMemoryContext)
     {
-        return new GenericSpiller(types, localSpillContext, memoryContext, singleStreamSpillerFactory);
+        return new GenericSpiller(types, localSpillContext, aggregatedMemoryContext, singleStreamSpillerFactory);
     }
 }

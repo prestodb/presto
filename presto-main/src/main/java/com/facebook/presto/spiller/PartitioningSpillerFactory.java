@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.spiller;
 
-import com.facebook.presto.memory.AggregatedMemoryContext;
+import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.operator.PartitionFunction;
 import com.facebook.presto.operator.SpillContext;
 import com.facebook.presto.spi.type.Type;

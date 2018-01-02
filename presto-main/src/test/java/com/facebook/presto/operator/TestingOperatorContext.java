@@ -14,6 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.execution.Lifespan;
+import com.facebook.presto.memory.context.MemoryTrackingContext;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.TestingSession;
 import com.facebook.presto.testing.TestingTaskContext;
@@ -22,6 +23,7 @@ import com.google.common.util.concurrent.MoreExecutors;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 
+import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 
@@ -37,11 +39,14 @@ public class TestingOperatorContext
                 scheduledExecutor,
                 TestingSession.testSessionBuilder().build());
 
+        MemoryTrackingContext pipelineMemoryContext = new MemoryTrackingContext(newSimpleAggregatedMemoryContext(), newSimpleAggregatedMemoryContext(), newSimpleAggregatedMemoryContext());
+
         PipelineContext pipelineContext = new PipelineContext(
                 1,
                 taskContext,
                 executor,
                 scheduledExecutor,
+                pipelineMemoryContext,
                 false,
                 false);
 
@@ -49,6 +54,7 @@ public class TestingOperatorContext
                 pipelineContext,
                 executor,
                 scheduledExecutor,
+                pipelineMemoryContext,
                 false,
                 Lifespan.taskWide());
 
