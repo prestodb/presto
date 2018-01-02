@@ -200,10 +200,7 @@ public class TypeSignature
                 if (bracketCount == 0) {
                     checkArgument(i == signature.length() - 1, "Bad type signature: '%s'", signature);
                     checkArgument(parameterStart >= 0, "Bad type signature: '%s'", signature);
-                    //Mongodb allows empty row type
-                    if(parameterStart==i) {
-                        parameters.add(parseTypeSignature(signature.substring(parameterStart, i), literalParameters));
-                    }
+                    parameters.add(parseTypeSignature(signature.substring(parameterStart, i), literalParameters));
                     return new TypeSignature(baseName, createNamedTypeParameters(parameters, fieldNames));
                 }
             }

@@ -39,9 +39,7 @@ public final class RowParametricType
     @Override
     public Type createType(TypeManager typeManager, List<TypeParameter> parameters)
     {
-        //Mongodb allows empty row type;
-        //checkArgument(!parameters.isEmpty(), "Row type must have at least one parameter");
-
+        checkArgument(!parameters.isEmpty(), "Row type must have at least one parameter");
         checkArgument(
                 parameters.stream().allMatch(parameter -> parameter.getKind() == ParameterKind.NAMED_TYPE),
                 "Expected only named types as a parameters, got %s",

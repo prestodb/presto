@@ -54,10 +54,9 @@ public class RowType
     private static TypeSignature toTypeSignature(List<Type> fieldTypes, Optional<List<String>> fieldNames)
     {
         int size = fieldTypes.size();
-        //Mongo allows empty row type
-        /*if (size == 0) {
+        if (size == 0) {
             throw new IllegalArgumentException("Row type must have at least 1 field");
-        }*/
+        }
 
         List<TypeSignature> elementTypeSignatures = new ArrayList<>();
         List<String> literalParameters = new ArrayList<>();
