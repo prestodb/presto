@@ -15,7 +15,6 @@ package com.facebook.presto.orc.stream;
 
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcDataSourceId;
-import com.facebook.presto.orc.memory.AggregatedMemoryContext;
 import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -27,6 +26,7 @@ import java.io.OutputStream;
 import java.math.BigInteger;
 import java.util.Optional;
 
+import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.spi.type.Decimals.MAX_DECIMAL_UNSCALED_VALUE;
 import static com.facebook.presto.spi.type.Decimals.MIN_DECIMAL_UNSCALED_VALUE;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
@@ -149,7 +149,7 @@ public class TestDecimalStream
 
     private static OrcInputStream orcInputStreamFor(String source, byte[] bytes)
     {
-        return new OrcInputStream(new OrcDataSourceId(source), new BasicSliceInput(Slices.wrappedBuffer(bytes)), Optional.empty(), new AggregatedMemoryContext());
+        return new OrcInputStream(new OrcDataSourceId(source), new BasicSliceInput(Slices.wrappedBuffer(bytes)), Optional.empty(), newSimpleAggregatedMemoryContext());
     }
 
     // copied from org.apache.hadoop.hive.ql.io.orc.SerializationUtils.java
