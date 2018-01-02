@@ -13,8 +13,7 @@
  */
 package com.facebook.presto.orc;
 
-import com.facebook.presto.orc.memory.AbstractAggregatedMemoryContext;
-import com.facebook.presto.orc.memory.AggregatedMemoryContext;
+import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.orc.metadata.ExceptionWrappingMetadataReader;
 import com.facebook.presto.orc.metadata.Footer;
@@ -38,6 +37,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Predicate;
 
+import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.orc.OrcDecompressor.createOrcDecompressor;
 import static com.facebook.presto.orc.metadata.PostScript.MAGIC;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
@@ -163,13 +163,13 @@ public class OrcReader
 
         // read metadata
         Slice metadataSlice = completeFooterSlice.slice(0, metadataSize);
-        try (InputStream metadataInputStream = new OrcInputStream(orcDataSource.getId(), metadataSlice.getInput(), decompressor, new AggregatedMemoryContext())) {
+        try (InputStream metadataInputStream = new OrcInputStream(orcDataSource.getId(), metadataSlice.getInput(), decompressor, newSimpleAggregatedMemoryContext())) {
             this.metadata = metadataReader.readMetadata(hiveWriterVersion, metadataInputStream);
         }
 
         // read footer
         Slice footerSlice = completeFooterSlice.slice(metadataSize, footerSize);
-        try (InputStream footerInputStream = new OrcInputStream(orcDataSource.getId(), footerSlice.getInput(), decompressor, new AggregatedMemoryContext())) {
+        try (InputStream footerInputStream = new OrcInputStream(orcDataSource.getId(), footerSlice.getInput(), decompressor, newSimpleAggregatedMemoryContext())) {
             this.footer = metadataReader.readFooter(hiveWriterVersion, footerInputStream);
         }
 
@@ -202,7 +202,7 @@ public class OrcReader
         return bufferSize;
     }
 
-    public OrcRecordReader createRecordReader(Map<Integer, Type> includedColumns, OrcPredicate predicate, DateTimeZone hiveStorageTimeZone, AbstractAggregatedMemoryContext systemMemoryUsage)
+    public OrcRecordReader createRecordReader(Map<Integer, Type> includedColumns, OrcPredicate predicate, DateTimeZone hiveStorageTimeZone, AggregatedMemoryContext systemMemoryUsage)
             throws IOException
     {
         return createRecordReader(includedColumns, predicate, 0, orcDataSource.getSize(), hiveStorageTimeZone, systemMemoryUsage);
@@ -214,7 +214,7 @@ public class OrcReader
             long offset,
             long length,
             DateTimeZone hiveStorageTimeZone,
-            AbstractAggregatedMemoryContext systemMemoryUsage)
+            AggregatedMemoryContext systemMemoryUsage)
             throws IOException
     {
         return new OrcRecordReader(
@@ -311,7 +311,7 @@ public class OrcReader
         }
         try {
             OrcReader orcReader = new OrcReader(input, orcEncoding, new DataSize(1, MEGABYTE), new DataSize(8, MEGABYTE), new DataSize(16, MEGABYTE), Optional.of(writeValidation));
-            try (OrcRecordReader orcRecordReader = orcReader.createRecordReader(readTypes.build(), OrcPredicate.TRUE, hiveStorageTimeZone, new AggregatedMemoryContext())) {
+            try (OrcRecordReader orcRecordReader = orcReader.createRecordReader(readTypes.build(), OrcPredicate.TRUE, hiveStorageTimeZone, newSimpleAggregatedMemoryContext())) {
                 while (orcRecordReader.nextBatch() >= 0) {
                     // ignored
                 }
