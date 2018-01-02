@@ -336,7 +336,7 @@ public class TestLogicalPlanner
     @Test
     public void testCorrelatedSubqueries()
     {
-        assertPlanWithOptimizerFiltering(
+        assertPlan(
                 "SELECT orderkey FROM orders WHERE 3 = (SELECT orderkey)",
                 LogicalPlanner.Stage.OPTIMIZED,
                 anyTree(
@@ -388,7 +388,7 @@ public class TestLogicalPlanner
     @Test
     public void testDoubleNestedCorrelatedSubqueries()
     {
-        assertPlanWithOptimizerFiltering(
+        assertPlan(
                 "SELECT orderkey FROM orders o " +
                         "WHERE 3 IN (SELECT o.custkey FROM lineitem l WHERE (SELECT l.orderkey = o.orderkey))",
                 LogicalPlanner.Stage.OPTIMIZED,
