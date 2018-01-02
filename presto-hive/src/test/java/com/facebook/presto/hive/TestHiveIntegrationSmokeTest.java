@@ -131,7 +131,6 @@ public class TestHiveIntegrationSmokeTest
 
     @Test
     public void testInformationSchemaTablesWithoutEqualityConstraint()
-            throws Exception
     {
         @Language("SQL") String actual = "" +
                 "SELECT lower(table_name) " +
@@ -148,7 +147,6 @@ public class TestHiveIntegrationSmokeTest
 
     @Test
     public void testInformationSchemaColumnsWithoutEqualityConstraint()
-            throws Exception
     {
         @Language("SQL") String actual = "" +
                 "SELECT lower(table_name), lower(column_name) " +
@@ -165,7 +163,6 @@ public class TestHiveIntegrationSmokeTest
 
     @Test
     public void createTableWithEveryType()
-            throws Exception
     {
         @Language("SQL") String query = "" +
                 "CREATE TABLE test_types_table AS " +
@@ -205,7 +202,6 @@ public class TestHiveIntegrationSmokeTest
 
     @Test
     public void createPartitionedTable()
-            throws Exception
     {
         for (TestingHiveStorageFormat storageFormat : getAllTestingHiveStorageFormat()) {
             if (insertOperationsSupported(storageFormat.getFormat())) {
@@ -343,7 +339,6 @@ public class TestHiveIntegrationSmokeTest
 
     @Test
     public void createTableLike()
-            throws Exception
     {
         createTableLike("", false);
         createTableLike("EXCLUDING PROPERTIES", false);
@@ -455,7 +450,6 @@ public class TestHiveIntegrationSmokeTest
 
     @Test
     public void createTableAs()
-            throws Exception
     {
         for (TestingHiveStorageFormat storageFormat : getAllTestingHiveStorageFormat()) {
             if (insertOperationsSupported(storageFormat.getFormat())) {
@@ -506,7 +500,6 @@ public class TestHiveIntegrationSmokeTest
 
     @Test
     public void createPartitionedTableAs()
-            throws Exception
     {
         for (TestingHiveStorageFormat storageFormat : getAllTestingHiveStorageFormat()) {
             createPartitionedTableAs(storageFormat.getSession(), storageFormat.getFormat());
@@ -552,7 +545,6 @@ public class TestHiveIntegrationSmokeTest
 
     @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Partition keys must be the last columns in the table and in the same order as the table properties.*")
     public void testCreatePartitionedTableAsInvalidColumnOrdering()
-            throws Exception
     {
         assertUpdate("" +
                 "CREATE TABLE test_create_table_as_invalid_column_ordering " +
@@ -588,7 +580,6 @@ public class TestHiveIntegrationSmokeTest
 
     @Test
     public void testCreatePartitionedBucketedTableAsFewRows()
-            throws Exception
     {
         // go through all storage formats to make sure the empty buckets are correctly created
         for (TestingHiveStorageFormat storageFormat : getAllTestingHiveStorageFormat()) {
@@ -645,7 +636,6 @@ public class TestHiveIntegrationSmokeTest
     }
 
     private void testCreatePartitionedBucketedTableAs(HiveStorageFormat storageFormat)
-            throws Exception
     {
         String tableName = "test_create_partitioned_bucketed_table_as";
 
@@ -681,7 +671,6 @@ public class TestHiveIntegrationSmokeTest
     }
 
     private void testCreatePartitionedBucketedTableAsWithUnionAll(HiveStorageFormat storageFormat)
-            throws Exception
     {
         String tableName = "test_create_partitioned_bucketed_table_as_with_union_all";
 
@@ -745,7 +734,6 @@ public class TestHiveIntegrationSmokeTest
 
     @Test
     public void testCreateInvalidBucketedTable()
-            throws Exception
     {
         testCreateInvalidBucketedTable(HiveStorageFormat.RCBINARY);
     }
@@ -795,7 +783,6 @@ public class TestHiveIntegrationSmokeTest
 
     @Test
     public void testInsertPartitionedBucketedTableFewRows()
-            throws Exception
     {
         // go through all storage formats to make sure the empty buckets are correctly created
         for (TestingHiveStorageFormat storageFormat : getAllTestingHiveStorageFormat()) {
@@ -865,7 +852,6 @@ public class TestHiveIntegrationSmokeTest
 
     @Test
     public void testInsertPartitionedBucketedTable()
-            throws Exception
     {
         testInsertPartitionedBucketedTable(HiveStorageFormat.RCBINARY);
     }
@@ -909,7 +895,6 @@ public class TestHiveIntegrationSmokeTest
 
     @Test
     public void testInsertPartitionedBucketedTableWithUnionAll()
-            throws Exception
     {
         testInsertPartitionedBucketedTableWithUnionAll(HiveStorageFormat.RCBINARY);
     }
@@ -957,7 +942,6 @@ public class TestHiveIntegrationSmokeTest
 
     @Test
     public void insertTable()
-            throws Exception
     {
         for (TestingHiveStorageFormat storageFormat : getAllTestingHiveStorageFormat()) {
             if (insertOperationsSupported(storageFormat.getFormat())) {
@@ -1044,7 +1028,6 @@ public class TestHiveIntegrationSmokeTest
 
     @Test
     public void insertPartitionedTable()
-            throws Exception
     {
         for (TestingHiveStorageFormat storageFormat : getAllTestingHiveStorageFormat()) {
             insertPartitionedTable(storageFormat.getSession(), storageFormat.getFormat());
@@ -1116,7 +1099,6 @@ public class TestHiveIntegrationSmokeTest
 
     @Test
     public void testInsertPartitionedTableExistingPartition()
-            throws Exception
     {
         for (TestingHiveStorageFormat storageFormat : getAllTestingHiveStorageFormat()) {
             testInsertPartitionedTableExistingPartition(storageFormat.getSession(), storageFormat.getFormat());
@@ -1173,7 +1155,6 @@ public class TestHiveIntegrationSmokeTest
 
     @Test
     public void testPartitionPerScanLimit()
-            throws Exception
     {
         TestingHiveStorageFormat storageFormat = new TestingHiveStorageFormat(getSession(), HiveStorageFormat.DWRF);
         testPartitionPerScanLimit(storageFormat.getSession(), storageFormat.getFormat());
@@ -1254,7 +1235,6 @@ public class TestHiveIntegrationSmokeTest
 
     @Test
     public void testInsertUnpartitionedTable()
-            throws Exception
     {
         for (TestingHiveStorageFormat storageFormat : getAllTestingHiveStorageFormat()) {
             testInsertUnpartitionedTable(storageFormat.getSession(), storageFormat.getFormat());
@@ -1305,7 +1285,6 @@ public class TestHiveIntegrationSmokeTest
 
     @Test
     public void testDeleteFromUnpartitionedTable()
-            throws Exception
     {
         assertUpdate("CREATE TABLE test_delete_unpartitioned AS SELECT orderstatus FROM tpch.tiny.orders", "SELECT count(*) from orders");
 
@@ -1321,7 +1300,6 @@ public class TestHiveIntegrationSmokeTest
 
     @Test
     public void testMetadataDelete()
-            throws Exception
     {
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE test_metadata_delete " +
@@ -1434,7 +1412,6 @@ public class TestHiveIntegrationSmokeTest
     // TODO: These should be moved to another class, when more connectors support arrays
     @Test
     public void testArrays()
-            throws Exception
     {
         assertUpdate("CREATE TABLE tmp_array1 AS SELECT ARRAY[1, 2, NULL] AS col", 1);
         assertQuery("SELECT col[2] FROM tmp_array1", "SELECT 2");
@@ -1477,7 +1454,6 @@ public class TestHiveIntegrationSmokeTest
 
     @Test
     public void testTemporalArrays()
-            throws Exception
     {
         assertUpdate("CREATE TABLE tmp_array11 AS SELECT ARRAY[DATE '2014-09-30'] AS col", 1);
         assertOneNotNullResult("SELECT col[1] FROM tmp_array11");
@@ -1487,7 +1463,6 @@ public class TestHiveIntegrationSmokeTest
 
     @Test
     public void testMaps()
-            throws Exception
     {
         assertUpdate("CREATE TABLE tmp_map1 AS SELECT MAP(ARRAY[0,1], ARRAY[2,NULL]) AS col", 1);
         assertQuery("SELECT col[0] FROM tmp_map1", "SELECT 2");
@@ -1529,7 +1504,6 @@ public class TestHiveIntegrationSmokeTest
 
     @Test
     public void testRows()
-            throws Exception
     {
         assertUpdate("CREATE TABLE tmp_row1 AS SELECT cast(row(CAST(1 as BIGINT), CAST(NULL as BIGINT)) AS row(col0 bigint, col1 bigint)) AS a", 1);
         assertQuery(
@@ -1539,7 +1513,6 @@ public class TestHiveIntegrationSmokeTest
 
     @Test
     public void testComplex()
-            throws Exception
     {
         assertUpdate("CREATE TABLE tmp_complex1 AS SELECT " +
                         "ARRAY [MAP(ARRAY['a', 'b'], ARRAY[2.0E0, 4.0E0]), MAP(ARRAY['c', 'd'], ARRAY[12.0E0, 14.0E0])] AS a",
@@ -1552,7 +1525,6 @@ public class TestHiveIntegrationSmokeTest
 
     @Test
     public void testBucketedCatalog()
-            throws Exception
     {
         String bucketedCatalog = bucketedSession.getCatalog().get();
         String bucketedSchema = bucketedSession.getSchema().get();
@@ -1568,7 +1540,6 @@ public class TestHiveIntegrationSmokeTest
 
     @Test
     public void testBucketedExecution()
-            throws Exception
     {
         assertQuery(bucketedSession, "select count(*) a from orders t1 join orders t2 on t1.custkey=t2.custkey");
         assertQuery(bucketedSession, "select count(*) a from orders t1 join customer t2 on t1.custkey=t2.custkey", "SELECT count(*) from orders");
@@ -1612,7 +1583,6 @@ public class TestHiveIntegrationSmokeTest
 
     @Test
     public void testShowCreateTable()
-            throws Exception
     {
         String createTableSql = format("" +
                         "CREATE TABLE %s.%s.%s (\n" +
@@ -1692,7 +1662,6 @@ public class TestHiveIntegrationSmokeTest
 
     @Test
     public void testPathHiddenColumn()
-            throws Exception
     {
         for (TestingHiveStorageFormat storageFormat : getAllTestingHiveStorageFormat()) {
             doTestPathHiddenColumn(storageFormat.getSession(), storageFormat.getFormat());
@@ -1757,7 +1726,6 @@ public class TestHiveIntegrationSmokeTest
 
     @Test
     public void testBucketHiddenColumn()
-            throws Exception
     {
         @Language("SQL") String createTable = "CREATE TABLE test_bucket_hidden_column " +
                 "WITH (" +
@@ -1909,7 +1877,6 @@ public class TestHiveIntegrationSmokeTest
 
     @Test
     public void testRenameColumn()
-            throws Exception
     {
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE test_rename_column\n" +
@@ -1930,7 +1897,6 @@ public class TestHiveIntegrationSmokeTest
 
     @Test
     public void testDropColumn()
-            throws Exception
     {
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE test_drop_column\n" +
@@ -1964,7 +1930,6 @@ public class TestHiveIntegrationSmokeTest
 
     @Test
     public void testOrderByChar()
-            throws Exception
     {
         assertUpdate("CREATE TABLE char_order_by (c_char char(2))");
         assertUpdate("INSERT INTO char_order_by (c_char) VALUES" +
@@ -1991,7 +1956,6 @@ public class TestHiveIntegrationSmokeTest
      */
     @Test
     public void testPredicatePushDownToTableScan()
-            throws Exception
     {
         // Test not specific to Hive, but needs a connector supporting table creation
 
@@ -2122,7 +2086,6 @@ public class TestHiveIntegrationSmokeTest
     }
 
     private void testRcTextCharDecoding(boolean rcFileOptimizedWriterEnabled)
-            throws Exception
     {
         String catalog = getSession().getCatalog().get();
         Session session = Session.builder(getSession())
@@ -2142,7 +2105,6 @@ public class TestHiveIntegrationSmokeTest
 
     @Test
     public void testInvalidPartitionValue()
-            throws Exception
     {
         assertUpdate("CREATE TABLE invalid_partition_value (a int, b varchar) WITH (partitioned_by = ARRAY['b'])");
         assertQueryFails(
