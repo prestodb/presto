@@ -100,11 +100,11 @@ public class MongoSplitManager
             while (chunkCursor.hasNext()) {
 
                 oneChunk = (Document) chunkCursor.next();
-                //获取每个chunk的min和max document
+
                 minDoc = (Document) oneChunk.get("min");
                 maxDoc = (Document) oneChunk.get("max");
 
-                //使用传入的tupleDomain重置每个split的tupleDomain
+                //init every chunkDomain with the tableLayout's toupleDomain
                 chunkDomain = tableLayout.getTupleDomain().getDomains();
                 Map<ColumnHandle, Domain> chunkMap = new HashMap<ColumnHandle, Domain>();
                 chunkMap.putAll(chunkDomain.get());
