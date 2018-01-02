@@ -48,7 +48,6 @@ public class TestCanonicalize
 {
     @Test
     public void testJoin()
-            throws Exception
     {
         assertPlan("SELECT *\n" +
                         "FROM (\n" +
@@ -65,7 +64,6 @@ public class TestCanonicalize
 
     @Test
     public void testDuplicatesInWindowOrderBy()
-            throws Exception
     {
         ExpectedValueProvider<WindowNode.Specification> specification = specification(
                 ImmutableList.of(),
