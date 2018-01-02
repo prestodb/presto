@@ -17,6 +17,7 @@ import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.OutputBuffers.OutputBufferId;
 import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.execution.StateMachine;
+import com.facebook.presto.memory.context.SimpleLocalMemoryContext;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.BigintType;
 import com.google.common.collect.ImmutableList;
@@ -42,6 +43,7 @@ import static com.facebook.presto.execution.buffer.BufferState.TERMINAL_BUFFER_S
 import static com.facebook.presto.execution.buffer.TestClientBuffer.assertBufferResultEquals;
 import static com.facebook.presto.execution.buffer.TestClientBuffer.getFuture;
 import static com.facebook.presto.execution.buffer.TestingPagesSerdeFactory.testingPagesSerde;
+import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
@@ -951,7 +953,7 @@ public class TestBroadcastOutputBuffer
                 TASK_INSTANCE_ID,
                 new StateMachine<>("bufferState", stateNotificationExecutor, OPEN, TERMINAL_BUFFER_STATES),
                 dataSize,
-                ignored -> {},
+                () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext()),
                 stateNotificationExecutor);
         buffer.setOutputBuffers(outputBuffers);
         return buffer;

@@ -16,6 +16,8 @@ package com.facebook.presto.memory;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskStateMachine;
+import com.facebook.presto.memory.context.MemoryReservationHandler;
+import com.facebook.presto.memory.context.MemoryTrackingContext;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spiller.SpillSpaceTracker;
@@ -32,9 +34,12 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.function.LongFunction;
+import java.util.function.LongPredicate;
 
 import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalLimit;
 import static com.facebook.presto.ExceededSpillLimitException.exceededPerQueryLocalLimit;
+import static com.facebook.presto.memory.context.AggregatedMemoryContext.newRootAggregatedMemoryContext;
 import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
@@ -60,22 +65,23 @@ public class QueryContext
     @GuardedBy("this")
     private long maxMemory;
 
-    @GuardedBy("this")
-    private long reserved;
-
-    @GuardedBy("this")
-    private long revocableReserved;
+    private final MemoryTrackingContext queryMemoryContext;
 
     @GuardedBy("this")
     private MemoryPool memoryPool;
 
     @GuardedBy("this")
-    private long systemReserved;
-
-    @GuardedBy("this")
     private long spillUsed;
 
-    public QueryContext(QueryId queryId, DataSize maxMemory, MemoryPool memoryPool, MemoryPool systemMemoryPool, Executor notificationExecutor, ScheduledExecutorService yieldExecutor, DataSize maxSpill, SpillSpaceTracker spillSpaceTracker)
+    public QueryContext(
+            QueryId queryId,
+            DataSize maxMemory,
+            MemoryPool memoryPool,
+            MemoryPool systemMemoryPool,
+            Executor notificationExecutor,
+            ScheduledExecutorService yieldExecutor,
+            DataSize maxSpill,
+            SpillSpaceTracker spillSpaceTracker)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.maxMemory = requireNonNull(maxMemory, "maxMemory is null").toBytes();
@@ -85,6 +91,10 @@ public class QueryContext
         this.yieldExecutor = requireNonNull(yieldExecutor, "yieldExecutor is null");
         this.maxSpill = requireNonNull(maxSpill, "maxSpill is null").toBytes();
         this.spillSpaceTracker = requireNonNull(spillSpaceTracker, "spillSpaceTracker is null");
+        this.queryMemoryContext = new MemoryTrackingContext(
+                newRootAggregatedMemoryContext(new QueryMemoryReservationHandler(this::updateUserMemory, this::tryUpdateUserMemory), GUARANTEED_MEMORY),
+                newRootAggregatedMemoryContext(new QueryMemoryReservationHandler(this::updateRevocableMemory, this::tryReserveMemoryNotSupported), 0L),
+                newRootAggregatedMemoryContext(new QueryMemoryReservationHandler(this::updateSystemMemory, this::tryReserveMemoryNotSupported), 0L));
     }
 
     // TODO: This method should be removed, and the correct limit set in the constructor. However, due to the way QueryContext is constructed the memory limit is not known in advance
@@ -95,39 +105,37 @@ public class QueryContext
         maxMemory = memoryPool.getMaxBytes();
     }
 
-    public synchronized ListenableFuture<?> reserveMemory(long bytes)
+    private synchronized ListenableFuture<?> updateUserMemory(long delta)
     {
-        checkArgument(bytes >= 0, "bytes is negative");
-
-        if (reserved + bytes > maxMemory) {
-            throw exceededLocalLimit(succinctBytes(maxMemory));
+        if (delta >= 0) {
+            if (queryMemoryContext.getUserMemory() + delta > maxMemory) {
+                throw exceededLocalLimit(succinctBytes(maxMemory));
+            }
+            return memoryPool.reserve(queryId, delta);
         }
-        ListenableFuture<?> future = memoryPool.reserve(queryId, bytes);
-        reserved += bytes;
-        // Never block queries using a trivial amount of memory
-        if (reserved < GUARANTEED_MEMORY) {
-            return NOT_BLOCKED;
+        memoryPool.free(queryId, -delta);
+        return NOT_BLOCKED;
+    }
+
+    private synchronized ListenableFuture<?> updateRevocableMemory(long delta)
+    {
+        if (delta >= 0) {
+            return memoryPool.reserveRevocable(queryId, delta);
         }
-        return future;
+        memoryPool.freeRevocable(queryId, -delta);
+        return NOT_BLOCKED;
     }
 
-    public synchronized ListenableFuture<?> reserveRevocableMemory(long bytes)
+    private synchronized ListenableFuture<?> updateSystemMemory(long delta)
     {
-        checkArgument(bytes >= 0, "bytes is negative");
-        ListenableFuture<?> future = memoryPool.reserveRevocable(queryId, bytes);
-        revocableReserved += bytes;
-        return future;
+        if (delta >= 0) {
+            return systemMemoryPool.reserve(queryId, delta);
+        }
+        systemMemoryPool.free(queryId, -delta);
+        return NOT_BLOCKED;
     }
 
-    public synchronized ListenableFuture<?> reserveSystemMemory(long bytes)
-    {
-        checkArgument(bytes >= 0, "bytes is negative");
-
-        ListenableFuture<?> future = systemMemoryPool.reserve(queryId, bytes);
-        systemReserved += bytes;
-        return future;
-    }
-
+    //TODO move spill tracking to the new memory tracking framework
     public synchronized ListenableFuture<?> reserveSpill(long bytes)
     {
         checkArgument(bytes >= 0, "bytes is negative");
@@ -139,41 +147,17 @@ public class QueryContext
         return future;
     }
 
-    public synchronized boolean tryReserveMemory(long bytes)
+    private synchronized boolean tryUpdateUserMemory(long delta)
     {
-        checkArgument(bytes >= 0, "bytes is negative");
-
-        if (reserved + bytes > maxMemory) {
-            return false;
-        }
-        if (memoryPool.tryReserve(queryId, bytes)) {
-            reserved += bytes;
+        if (delta <= 0) {
+            ListenableFuture<?> future = updateUserMemory(delta);
+            verify(future.isDone(), "future should be done");
             return true;
         }
-        return false;
-    }
-
-    public synchronized void freeMemory(long bytes)
-    {
-        checkArgument(reserved - bytes >= 0, "tried to free more memory than is reserved");
-        reserved -= bytes;
-        memoryPool.free(queryId, bytes);
-    }
-
-    public synchronized void freeRevocableMemory(long bytes)
-    {
-        checkArgument(bytes >= 0, "bytes is negative");
-        checkArgument(revocableReserved - bytes >= 0, "tried to free more revocable memory than is reserved");
-        revocableReserved -= bytes;
-        memoryPool.freeRevocable(queryId, bytes);
-    }
-
-    public synchronized void freeSystemMemory(long bytes)
-    {
-        checkArgument(bytes >= 0, "bytes is negative");
-        checkArgument(systemReserved - bytes >= 0, "tried to free more system memory than is reserved");
-        systemReserved -= bytes;
-        systemMemoryPool.free(queryId, bytes);
+        if (queryMemoryContext.getUserMemory() + delta > maxMemory) {
+            return false;
+        }
+        return memoryPool.tryReserve(queryId, delta);
     }
 
     public synchronized void freeSpill(long bytes)
@@ -191,7 +175,7 @@ public class QueryContext
             return;
         }
         MemoryPool originalPool = memoryPool;
-        long originalReserved = reserved + revocableReserved;
+        long originalReserved = queryMemoryContext.getUserMemory() + queryMemoryContext.getRevocableMemory();
         memoryPool = pool;
         ListenableFuture<?> future = pool.reserve(queryId, originalReserved);
         Futures.addCallback(future, new FutureCallback<Object>()
@@ -221,7 +205,15 @@ public class QueryContext
 
     public TaskContext addTaskContext(TaskStateMachine taskStateMachine, Session session, boolean verboseStats, boolean cpuTimerEnabled)
     {
-        TaskContext taskContext = TaskContext.createTaskContext(this, taskStateMachine, notificationExecutor, yieldExecutor, session, verboseStats, cpuTimerEnabled);
+        TaskContext taskContext = TaskContext.createTaskContext(
+                this,
+                taskStateMachine,
+                notificationExecutor,
+                yieldExecutor,
+                session,
+                queryMemoryContext.newMemoryTrackingContext(),
+                verboseStats,
+                cpuTimerEnabled);
         taskContexts.put(taskStateMachine.getTaskId(), taskContext);
         return taskContext;
     }
@@ -244,5 +236,35 @@ public class QueryContext
         TaskContext taskContext = taskContexts.get(taskId);
         verify(taskContext != null, "task does not exist");
         return taskContext;
+    }
+
+    private static class QueryMemoryReservationHandler
+            implements MemoryReservationHandler
+    {
+        private final LongFunction<ListenableFuture<?>> reserveMemoryFunction;
+        private final LongPredicate tryReserveMemoryFunction;
+
+        public QueryMemoryReservationHandler(LongFunction<ListenableFuture<?>> reserveMemoryFunction, LongPredicate tryReserveMemoryFunction)
+        {
+            this.reserveMemoryFunction = requireNonNull(reserveMemoryFunction, "reserveMemoryFunction is null");
+            this.tryReserveMemoryFunction = requireNonNull(tryReserveMemoryFunction, "tryReserveMemoryFunction is null");
+        }
+
+        @Override
+        public ListenableFuture<?> reserveMemory(long delta)
+        {
+            return reserveMemoryFunction.apply(delta);
+        }
+
+        @Override
+        public boolean tryReserveMemory(long delta)
+        {
+            return tryReserveMemoryFunction.test(delta);
+        }
+    }
+
+    private boolean tryReserveMemoryNotSupported(long bytes)
+    {
+        throw new UnsupportedOperationException("tryReserveMemory is not supported");
     }
 }

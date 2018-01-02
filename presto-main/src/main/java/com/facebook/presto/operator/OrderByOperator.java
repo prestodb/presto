@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.SortOrder;
@@ -112,6 +113,7 @@ public class OrderByOperator
     private final List<SortOrder> sortOrder;
     private final int[] outputChannels;
     private final List<Type> types;
+    private final LocalMemoryContext localUserMemoryContext;
 
     private final PagesIndex pageIndex;
 
@@ -136,6 +138,7 @@ public class OrderByOperator
         this.types = toTypes(sourceTypes, outputChannels);
         this.sortChannels = ImmutableList.copyOf(requireNonNull(sortChannels, "sortChannels is null"));
         this.sortOrder = ImmutableList.copyOf(requireNonNull(sortOrder, "sortOrder is null"));
+        this.localUserMemoryContext = operatorContext.localUserMemoryContext();
 
         this.pageIndex = pagesIndexFactory.newPagesIndex(sourceTypes, expectedPositions);
 
@@ -185,11 +188,10 @@ public class OrderByOperator
 
         pageIndex.addPage(page);
 
-        if (!operatorContext.trySetMemoryReservation(pageIndex.getEstimatedSize().toBytes())) {
+        if (!localUserMemoryContext.trySetBytes(pageIndex.getEstimatedSize().toBytes())) {
             pageIndex.compact();
+            localUserMemoryContext.setBytes(pageIndex.getEstimatedSize().toBytes());
         }
-
-        operatorContext.setMemoryReservation(pageIndex.getEstimatedSize().toBytes());
     }
 
     @Override

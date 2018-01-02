@@ -98,7 +98,14 @@ public class SqlTask
         requireNonNull(onDone, "onDone is null");
         requireNonNull(maxBufferSize, "maxBufferSize is null");
 
-        outputBuffer = new LazyOutputBuffer(taskId, taskInstanceId, taskNotificationExecutor, maxBufferSize, new UpdateSystemMemory(queryContext, taskId));
+        outputBuffer = new LazyOutputBuffer(
+                taskId,
+                taskInstanceId,
+                taskNotificationExecutor,
+                maxBufferSize,
+                // Pass a memory context supplier instead of a memory context to the output buffer,
+                // because we haven't created the task context that holds the the memory context yet.
+                () -> queryContext.getTaskContextByTaskId(taskId).localSystemMemoryContext());
         taskStateMachine = new TaskStateMachine(taskId, taskNotificationExecutor);
         taskStateMachine.addStateChangeListener(new StateChangeListener<TaskState>()
         {
@@ -145,34 +152,6 @@ public class SqlTask
     public boolean isOutputBufferOverutilized()
     {
         return outputBuffer.isOverutilized();
-    }
-
-    private static final class UpdateSystemMemory
-            implements SystemMemoryUsageListener
-    {
-        private final QueryContext queryContext;
-        private final TaskId taskId;
-        private TaskContext taskContext;
-
-        public UpdateSystemMemory(QueryContext queryContext, TaskId taskId)
-        {
-            this.queryContext = requireNonNull(queryContext, "queryContext is null");
-            this.taskId = requireNonNull(taskId, "taskId is null");
-        }
-
-        @Override
-        public void updateSystemMemoryUsage(long deltaMemoryInBytes)
-        {
-            if (taskContext == null) {
-                taskContext = queryContext.getTaskContextByTaskId(taskId);
-            }
-            if (deltaMemoryInBytes > 0) {
-                taskContext.reserveSystemMemory(deltaMemoryInBytes);
-            }
-            else {
-                taskContext.freeSystemMemory(-deltaMemoryInBytes);
-            }
-        }
     }
 
     public SqlTaskIoStats getIoStats()

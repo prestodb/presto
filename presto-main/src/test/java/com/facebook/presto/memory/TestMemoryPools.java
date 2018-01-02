@@ -15,6 +15,7 @@ package com.facebook.presto.memory;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.buffer.TestingPagesSerdeFactory;
+import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.Operator;
@@ -270,12 +271,14 @@ public class TestMemoryPools
         private final long numberOfPages;
         private final OperatorContext operatorContext;
         private long producedPagesCount;
+        private final LocalMemoryContext revocableMemoryContext;
 
         public RevocableMemoryOperator(OperatorContext operatorContext, DataSize reservedPerPage, long numberOfPages)
         {
             this.operatorContext = operatorContext;
             this.reservedPerPage = reservedPerPage;
             this.numberOfPages = numberOfPages;
+            this.revocableMemoryContext = operatorContext.localRevocableMemoryContext();
         }
 
         @Override
@@ -287,7 +290,7 @@ public class TestMemoryPools
         @Override
         public void finishMemoryRevoke()
         {
-            operatorContext.setRevocableMemoryReservation(0);
+            revocableMemoryContext.setBytes(0);
         }
 
         @Override
@@ -305,7 +308,7 @@ public class TestMemoryPools
         @Override
         public void finish()
         {
-            operatorContext.setRevocableMemoryReservation(0);
+            revocableMemoryContext.setBytes(0);
         }
 
         @Override
@@ -329,7 +332,7 @@ public class TestMemoryPools
         @Override
         public Page getOutput()
         {
-            operatorContext.reserveRevocableMemory(reservedPerPage.toBytes());
+            revocableMemoryContext.setBytes(revocableMemoryContext.getBytes() + reservedPerPage.toBytes());
             producedPagesCount++;
             if (producedPagesCount == numberOfPages) {
                 finish();
