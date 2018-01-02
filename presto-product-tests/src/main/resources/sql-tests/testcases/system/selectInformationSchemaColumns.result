@@ -1,10 +1,4 @@
 -- delimiter: |; trimValues:true;
-system| information_schema| __internal_partitions__| table_catalog| varchar| YES| null| null|
-system| information_schema| __internal_partitions__| table_schema| varchar| YES| null| null|
-system| information_schema| __internal_partitions__| table_name| varchar| YES| null| null|
-system| information_schema| __internal_partitions__| partition_number| bigint| YES| null| null|
-system| information_schema| __internal_partitions__| partition_key| varchar| YES| null| null|
-system| information_schema| __internal_partitions__| partition_value| varchar| YES| null| null|
 system| information_schema| columns| table_catalog| varchar| YES| null| null|
 system| information_schema| columns| table_schema| varchar| YES| null| null|
 system| information_schema| columns| table_name| varchar| YES| null| null|
