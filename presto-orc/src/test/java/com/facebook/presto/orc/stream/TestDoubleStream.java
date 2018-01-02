@@ -16,7 +16,6 @@ package com.facebook.presto.orc.stream;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcDecompressor;
 import com.facebook.presto.orc.checkpoint.DoubleStreamCheckpoint;
-import com.facebook.presto.orc.memory.AggregatedMemoryContext;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
@@ -25,6 +24,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.orc.OrcDecompressor.createOrcDecompressor;
 import static com.facebook.presto.orc.OrcWriter.DEFAULT_BUFFER_SIZE;
 import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
@@ -64,7 +64,7 @@ public class TestDoubleStream
             throws OrcCorruptionException
     {
         Optional<OrcDecompressor> orcDecompressor = createOrcDecompressor(ORC_DATA_SOURCE_ID, SNAPPY, DEFAULT_BUFFER_SIZE);
-        return new DoubleInputStream(new OrcInputStream(ORC_DATA_SOURCE_ID, slice.getInput(), orcDecompressor, new AggregatedMemoryContext()));
+        return new DoubleInputStream(new OrcInputStream(ORC_DATA_SOURCE_ID, slice.getInput(), orcDecompressor, newSimpleAggregatedMemoryContext()));
     }
 
     @Override
