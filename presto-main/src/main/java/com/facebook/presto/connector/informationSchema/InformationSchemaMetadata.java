@@ -57,7 +57,6 @@ public class InformationSchemaMetadata
     public static final SchemaTableName TABLE_TABLES = new SchemaTableName(INFORMATION_SCHEMA, "tables");
     public static final SchemaTableName TABLE_VIEWS = new SchemaTableName(INFORMATION_SCHEMA, "views");
     public static final SchemaTableName TABLE_SCHEMATA = new SchemaTableName(INFORMATION_SCHEMA, "schemata");
-    public static final SchemaTableName TABLE_INTERNAL_PARTITIONS = new SchemaTableName(INFORMATION_SCHEMA, "__internal_partitions__");
     public static final SchemaTableName TABLE_TABLE_PRIVILEGES = new SchemaTableName(INFORMATION_SCHEMA, "table_privileges");
 
     public static final Map<SchemaTableName, ConnectorTableMetadata> TABLES = schemaMetadataBuilder()
@@ -88,14 +87,6 @@ public class InformationSchemaMetadata
             .table(tableMetadataBuilder(TABLE_SCHEMATA)
                     .column("catalog_name", createUnboundedVarcharType())
                     .column("schema_name", createUnboundedVarcharType())
-                    .build())
-            .table(tableMetadataBuilder(TABLE_INTERNAL_PARTITIONS)
-                    .column("table_catalog", createUnboundedVarcharType())
-                    .column("table_schema", createUnboundedVarcharType())
-                    .column("table_name", createUnboundedVarcharType())
-                    .column("partition_number", BIGINT)
-                    .column("partition_key", createUnboundedVarcharType())
-                    .column("partition_value", createUnboundedVarcharType())
                     .build())
             .table(tableMetadataBuilder(TABLE_TABLE_PRIVILEGES)
                     .column("grantor", createUnboundedVarcharType())
