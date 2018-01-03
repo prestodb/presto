@@ -34,7 +34,8 @@ public class TestBackupConfig
                 .setProvider(null)
                 .setTimeoutThreads(1000)
                 .setTimeout(new Duration(1, MINUTES))
-                .setBackupThreads(5));
+                .setBackupThreads(5)
+                .setBackupQueueThreshold(0));
     }
 
     @Test
@@ -45,13 +46,15 @@ public class TestBackupConfig
                 .put("backup.timeout", "42s")
                 .put("backup.timeout-threads", "13")
                 .put("backup.threads", "3")
+                .put("backup.backup-queue-threshold", "1000")
                 .build();
 
         BackupConfig expected = new BackupConfig()
                 .setProvider("file")
                 .setTimeout(new Duration(42, SECONDS))
                 .setTimeoutThreads(13)
-                .setBackupThreads(3);
+                .setBackupThreads(3)
+                .setBackupQueueThreshold(1000);
 
         assertFullMapping(properties, expected);
     }

@@ -29,14 +29,18 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 @ThreadSafe
 public class BackupStats
 {
+    private final TimeStat queuedTimeMilliSeconds = new TimeStat(MILLISECONDS);
+
     private final DistributionStat copyToBackupBytesPerSecond = new DistributionStat();
     private final DistributionStat copyToBackupShardSizeBytes = new DistributionStat();
     private final DistributionStat copyToBackupTimeInMilliSeconds = new DistributionStat();
-    private final TimeStat queuedTimeMilliSeconds = new TimeStat(MILLISECONDS);
 
     private final CounterStat backupSuccess = new CounterStat();
     private final CounterStat backupFailure = new CounterStat();
     private final CounterStat backupCorruption = new CounterStat();
+
+    private final CounterStat deleteSuccess = new CounterStat();
+    private final CounterStat deleteFailure = new CounterStat();
 
     public void addCopyShardDataRate(DataSize size, Duration duration)
     {
@@ -66,6 +70,23 @@ public class BackupStats
         backupCorruption.update(1);
     }
 
+    public void incrementDeleteSuccess()
+    {
+        deleteSuccess.update(1);
+    }
+
+    public void incrementDeleteFailure()
+    {
+        deleteFailure.update(1);
+    }
+
+    @Managed
+    @Nested
+    public TimeStat getQueuedTimeMilliSeconds()
+    {
+        return queuedTimeMilliSeconds;
+    }
+
     @Managed
     @Nested
     public DistributionStat getCopyToBackupBytesPerSecond()
@@ -89,13 +110,6 @@ public class BackupStats
 
     @Managed
     @Nested
-    public TimeStat getQueuedTimeMilliSeconds()
-    {
-        return queuedTimeMilliSeconds;
-    }
-
-    @Managed
-    @Nested
     public CounterStat getBackupSuccess()
     {
         return backupSuccess;
@@ -113,5 +127,19 @@ public class BackupStats
     public CounterStat getBackupCorruption()
     {
         return backupCorruption;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getDeleteSuccess()
+    {
+        return deleteSuccess;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getDeleteFailure()
+    {
+        return deleteFailure;
     }
 }

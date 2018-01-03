@@ -18,10 +18,12 @@ import com.facebook.presto.raptor.storage.StorageService;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.io.Files;
 import io.airlift.log.Logger;
+import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
@@ -31,7 +33,6 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_BACKUP_CORRUPTION;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -51,22 +52,25 @@ public class BackupManager
     private final StorageService storageService;
     private final ExecutorService executorService;
 
-    private final AtomicInteger pendingBackups = new AtomicInteger();
     private final BackupStats stats = new BackupStats();
+    private final CounterStat blockingFutures = new CounterStat();
+    private final NotifyingCounter pendingBackupCount;
 
     @Inject
     public BackupManager(Optional<BackupStore> backupStore, StorageService storageService, BackupConfig config)
     {
-        this(backupStore, storageService, config.getBackupThreads());
+        this(backupStore, storageService, config.getBackupThreads(), config.getBackupQueueThreshold());
     }
 
-    public BackupManager(Optional<BackupStore> backupStore, StorageService storageService, int backupThreads)
+    public BackupManager(Optional<BackupStore> backupStore, StorageService storageService, int backupThreads, long backupQueueThreshold)
     {
         checkArgument(backupThreads > 0, "backupThreads must be > 0");
+        checkArgument(backupQueueThreshold >= 0, "backupQueueThreshold must be >= 0");
 
         this.backupStore = requireNonNull(backupStore, "backupStore is null");
         this.storageService = requireNonNull(storageService, "storageService is null");
         this.executorService = newFixedThreadPool(backupThreads, daemonThreadsNamed("background-shard-backup-%s"));
+        this.pendingBackupCount = new NotifyingCounter(backupQueueThreshold);
     }
 
     @PreDestroy
@@ -75,7 +79,28 @@ public class BackupManager
         executorService.shutdownNow();
     }
 
-    public CompletableFuture<?> submit(UUID uuid, File source)
+    public CompletableFuture<?> submitDelete(UUID uuid)
+    {
+        requireNonNull(uuid, "uuid is null");
+        if (!backupStore.isPresent()) {
+            return completedFuture(null);
+        }
+
+        long queuedTime = System.nanoTime();
+        return submit(() -> {
+            try {
+                backupStore.get().deleteShard(uuid);
+                stats.addQueuedTime(Duration.nanosSince(queuedTime));
+                stats.incrementDeleteSuccess();
+            }
+            catch (Throwable t) {
+                stats.incrementDeleteFailure();
+                throw propagate(t);
+            }
+        });
+    }
+
+    public CompletableFuture<?> submitBackup(UUID uuid, File source)
     {
         requireNonNull(uuid, "uuid is null");
         requireNonNull(source, "source is null");
@@ -84,10 +109,27 @@ public class BackupManager
             return completedFuture(null);
         }
 
-        // TODO: decrement when the running task is finished (not immediately on cancel)
-        pendingBackups.incrementAndGet();
-        CompletableFuture<?> future = runAsync(new BackgroundBackup(uuid, source), executorService);
-        future.whenComplete((none, throwable) -> pendingBackups.decrementAndGet());
+        return submit(new BackgroundBackup(uuid, source));
+    }
+
+    private CompletableFuture<?> submit(Runnable runnable)
+    {
+        pendingBackupCount.increment();
+        CompletableFuture<?> future = runAsync(runnable, executorService);
+        future.whenComplete((none, throwable) -> pendingBackupCount.decrement());
+        return future;
+    }
+
+    /**
+     * Return a future that will be completed when the pending backup count
+     * is below the threshold.
+     */
+    public CompletableFuture<?> getBelowThresholdFuture()
+    {
+        CompletableFuture<?> future = pendingBackupCount.getBelowThreshold();
+        if (!future.isDone()) {
+            blockingFutures.update(1);
+        }
         return future;
     }
 
@@ -146,9 +188,16 @@ public class BackupManager
     }
 
     @Managed
-    public int getPendingBackupCount()
+    public long getPendingBackupCount()
     {
-        return pendingBackups.get();
+        return pendingBackupCount.getCount();
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getBlockingFutures()
+    {
+        return blockingFutures;
     }
 
     @Managed

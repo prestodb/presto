@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 public interface StorageManager
 {
@@ -35,6 +36,14 @@ public interface StorageManager
     {
         return getPageSource(shardUuid, bucketNumber, columnIds, columnTypes, effectivePredicate, readerAttributes, OptionalLong.empty());
     }
+
+    /**
+     * Return a future that will be completed when the storage manager can
+     * accept more pages. If the storage manager can accept more pages
+     * immediately, this method should return {@code NOT_BLOCKED} defined
+     * in {@code ConnectorPageSink.java}.
+     */
+    CompletableFuture<?> getAcceptMorePageFuture();
 
     ConnectorPageSource getPageSource(
             UUID shardUuid,

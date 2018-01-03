@@ -27,6 +27,7 @@ import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
+import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
@@ -53,6 +54,7 @@ import static java.util.stream.Collectors.toList;
 public class RaptorPageSink
         implements ConnectorPageSink
 {
+    private static final Logger log = Logger.get(RaptorPageSink.class);
     private static final JsonCodec<ShardInfo> SHARD_INFO_CODEC = jsonCodec(ShardInfo.class);
 
     private final long transactionId;
@@ -118,6 +120,11 @@ public class RaptorPageSink
         }
 
         pageWriter.appendPage(page);
+        CompletableFuture<?> future = storageManager.getAcceptMorePageFuture();
+        if (!future.isDone()) {
+            log.warn("Blocking the append page call because the storage manager can not accept more pages now.");
+            return future;
+        }
         return NOT_BLOCKED;
     }
 

@@ -145,6 +145,7 @@ public class OrcStorageManager
     private final TypeManager typeManager;
     private final ExecutorService deletionExecutor;
     private final ExecutorService commitExecutor;
+    private final boolean asyncRollbackEnabled;
 
     @Inject
     public OrcStorageManager(
@@ -172,7 +173,8 @@ public class OrcStorageManager
                 config.getShardRecoveryTimeout(),
                 config.getMaxShardRows(),
                 config.getMaxShardSize(),
-                config.getMinAvailableSpace());
+                config.getMinAvailableSpace(),
+                config.isAsyncRollbackEnabled());
     }
 
     public OrcStorageManager(
@@ -189,7 +191,8 @@ public class OrcStorageManager
             Duration shardRecoveryTimeout,
             long maxShardRows,
             DataSize maxShardSize,
-            DataSize minAvailableSpace)
+            DataSize minAvailableSpace,
+            boolean asyncRollbackEnabled)
     {
         this.nodeId = requireNonNull(nodeId, "nodeId is null");
         this.storageService = requireNonNull(storageService, "storageService is null");
@@ -208,6 +211,7 @@ public class OrcStorageManager
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.deletionExecutor = newFixedThreadPool(deletionThreads, daemonThreadsNamed("raptor-delete-" + connectorId + "-%s"));
         this.commitExecutor = newCachedThreadPool(daemonThreadsNamed("raptor-commit-" + connectorId + "-%s"));
+        this.asyncRollbackEnabled = asyncRollbackEnabled;
     }
 
     @PreDestroy
@@ -215,6 +219,12 @@ public class OrcStorageManager
     {
         deletionExecutor.shutdownNow();
         commitExecutor.shutdown();
+    }
+
+    @Override
+    public CompletableFuture<?> getAcceptMorePageFuture()
+    {
+        return backupManager.getBelowThresholdFuture();
     }
 
     @Override
@@ -408,7 +418,7 @@ public class OrcStorageManager
         shardRecorder.recordCreatedShard(transactionId, newShardUuid);
 
         // submit for backup and wait until it finishes
-        getFutureValue(backupManager.submit(newShardUuid, output));
+        getFutureValue(backupManager.submitBackup(newShardUuid, output));
 
         Set<String> nodes = ImmutableSet.of(nodeId);
         long uncompressedSize = info.getUncompressedSize();
@@ -609,7 +619,7 @@ public class OrcStorageManager
                 shardRecorder.recordCreatedShard(transactionId, shardUuid);
 
                 File stagingFile = storageService.getStagingFile(shardUuid);
-                futures.add(backupManager.submit(shardUuid, stagingFile));
+                futures.add(backupManager.submitBackup(shardUuid, stagingFile));
 
                 Set<String> nodes = ImmutableSet.of(nodeId);
                 long rowCount = writer.getRowCount();
@@ -656,12 +666,18 @@ public class OrcStorageManager
                 // cancel incomplete backup jobs
                 futures.forEach(future -> future.cancel(true));
 
-                // delete completed backup shards
-                backupStore.ifPresent(backupStore -> {
+                if (asyncRollbackEnabled) {
                     for (ShardInfo shard : shards) {
-                        backupStore.deleteShard(shard.getShardUuid());
+                        backupManager.submitDelete(shard.getShardUuid());
                     }
-                });
+                }
+                else {
+                    backupStore.ifPresent(backupStore -> {
+                        for (ShardInfo shard : shards) {
+                            backupStore.deleteShard(shard.getShardUuid());
+                        }
+                    });
+                }
             }
         }
 
