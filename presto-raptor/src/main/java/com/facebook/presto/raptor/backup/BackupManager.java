@@ -16,7 +16,6 @@ package com.facebook.presto.raptor.backup;
 import com.facebook.presto.raptor.storage.BackupStats;
 import com.facebook.presto.raptor.storage.StorageService;
 import com.facebook.presto.spi.PrestoException;
-import com.google.common.base.Throwables;
 import com.google.common.io.Files;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
@@ -36,6 +35,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_BACKUP_CORRUPTION;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.Objects.requireNonNull;
@@ -140,7 +140,7 @@ public class BackupManager
             }
             catch (Throwable t) {
                 stats.incrementBackupFailure();
-                throw Throwables.propagate(t);
+                throw propagate(t);
             }
         }
     }
@@ -156,5 +156,11 @@ public class BackupManager
     public BackupStats getStats()
     {
         return stats;
+    }
+
+    private RuntimeException propagate(Throwable t)
+    {
+        throwIfUnchecked(t);
+        throw new RuntimeException(t);
     }
 }
