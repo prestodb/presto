@@ -20,12 +20,7 @@ import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.type.NamedTypeSignature;
-import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.TypeSignature;
-import com.facebook.presto.spi.type.TypeSignatureParameter;
+import com.facebook.presto.spi.type.*;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
@@ -46,15 +41,9 @@ import io.airlift.slice.Slice;
 import org.bson.Document;
 import org.bson.types.ObjectId;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Date;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ExecutionException;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -67,11 +56,12 @@ import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharTyp
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
-import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
+
+import static java.util.Objects.requireNonNull;
 
 public class MongoSession
 {
@@ -248,6 +238,32 @@ public class MongoSession
         return iterable.iterator();
     }
 
+    public MongoCursor<Document> getChunkInfo(SchemaTableName schemaTableName)
+    {
+        MongoCollection chunks=client.getDatabase("config").getCollection("chunks");
+        Document query=new Document();
+        Document output=new Document();
+        Pattern idPattern= Pattern.compile("^" + schemaTableName.toString() + "-*", Pattern.CASE_INSENSITIVE);
+        query.put("_id", idPattern);
+        output.append("min", 1);
+        output.append("max", 1);
+        return chunks.find(query).projection(output).iterator();
+    }
+
+    public String getShardType(SchemaTableName schemaTableName)
+    {
+        MongoCollection chunks=client.getDatabase("config").getCollection("collections");
+        Document query=new Document();
+        query.put("_id", schemaTableName.toString());
+        FindIterable<Document> result=chunks.find(query);
+        if( !result.iterator().hasNext())
+        {
+            return null;
+        }
+        Document keyDoc = (Document) (((Document) (result.iterator().next())).get("key"));
+        return keyDoc.get(keyDoc.keySet().iterator().next()).toString();
+    }
+
     @VisibleForTesting
     static Document buildQuery(TupleDomain<ColumnHandle> tupleDomain)
     {
@@ -336,13 +352,18 @@ public class MongoSession
     {
         if (source instanceof Slice) {
             if (type instanceof ObjectIdType) {
-                return new ObjectId(((Slice) source).getBytes());
+                //return new ObjectId(((Slice) source).getBytes());
+                return new ObjectId(((Slice) source).toStringUtf8());
             }
             else {
                 return ((Slice) source).toStringUtf8();
             }
         }
 
+        if(type instanceof TimestampType)
+        {
+            return new Date((Long)source);
+        }
         return source;
     }
 
