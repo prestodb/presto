@@ -336,9 +336,7 @@ public class MongoSession
             disjuncts.add(documentOf(EQ_OP, singleValues.get(0)));
         }
         else if (singleValues.size() > 1) {
-            disjuncts.add(documentOf(IN_OP, singleValues.stream()
-                    .map(value -> value)
-                    .collect(toList())));
+            disjuncts.add(documentOf(IN_OP, singleValues));
         }
 
         if (domain.isNullAllowed()) {
