@@ -26,7 +26,7 @@ import static com.facebook.presto.spi.type.DateTimeEncoding.unpackZoneKey;
 
 public final class SqlTimestampWithTimeZone
 {
-    // This needs to be Locale-independent, work the same in Joda and Java Time and should never change, as it defines the external API data format.
+    // This needs to be Locale-independent, Java Time's DateTimeFormatter compatible and should never change, as it defines the external API data format.
     public static final String JSON_FORMAT = "uuuu-MM-dd HH:mm:ss.SSS VV";
     private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern(JSON_FORMAT);
 
