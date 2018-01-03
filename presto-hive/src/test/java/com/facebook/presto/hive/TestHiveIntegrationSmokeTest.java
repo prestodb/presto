@@ -102,7 +102,7 @@ public class TestHiveIntegrationSmokeTest
         this(() -> createQueryRunner(ORDERS, CUSTOMER), createBucketedSession(), HIVE_CATALOG, new HiveTypeTranslator());
     }
 
-    private TestHiveIntegrationSmokeTest(QueryRunnerSupplier queryRunnerSupplier, Session bucketedSession, String catalog, TypeTranslator typeTranslator)
+    protected TestHiveIntegrationSmokeTest(QueryRunnerSupplier queryRunnerSupplier, Session bucketedSession, String catalog, TypeTranslator typeTranslator)
     {
         super(queryRunnerSupplier);
         this.catalog = requireNonNull(catalog, "catalog is null");
