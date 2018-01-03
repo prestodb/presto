@@ -15,6 +15,7 @@ package com.facebook.presto.raptor.storage;
 
 import io.airlift.stats.CounterStat;
 import io.airlift.stats.DistributionStat;
+import io.airlift.stats.TimeStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.weakref.jmx.Managed;
@@ -23,6 +24,7 @@ import org.weakref.jmx.Nested;
 import javax.annotation.concurrent.ThreadSafe;
 
 import static com.facebook.presto.raptor.storage.ShardRecoveryManager.dataRate;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 @ThreadSafe
 public class BackupStats
@@ -30,7 +32,7 @@ public class BackupStats
     private final DistributionStat copyToBackupBytesPerSecond = new DistributionStat();
     private final DistributionStat copyToBackupShardSizeBytes = new DistributionStat();
     private final DistributionStat copyToBackupTimeInMilliSeconds = new DistributionStat();
-    private final DistributionStat queuedTimeMilliSeconds = new DistributionStat();
+    private final TimeStat queuedTimeMilliSeconds = new TimeStat(MILLISECONDS);
 
     private final CounterStat backupSuccess = new CounterStat();
     private final CounterStat backupFailure = new CounterStat();
@@ -46,7 +48,7 @@ public class BackupStats
 
     public void addQueuedTime(Duration queuedTime)
     {
-        queuedTimeMilliSeconds.add(queuedTime.toMillis());
+        queuedTimeMilliSeconds.add(queuedTime);
     }
 
     public void incrementBackupSuccess()
@@ -87,7 +89,7 @@ public class BackupStats
 
     @Managed
     @Nested
-    public DistributionStat getQueuedTimeMilliSeconds()
+    public TimeStat getQueuedTimeMilliSeconds()
     {
         return queuedTimeMilliSeconds;
     }
