@@ -31,14 +31,19 @@ import java.sql.SQLException;
 import java.util.function.Function;
 
 import static com.facebook.presto.plugin.postgresql.PostgreSqlQueryRunner.createPostgreSqlQueryRunner;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.tests.datatype.DataType.bigintDataType;
 import static com.facebook.presto.tests.datatype.DataType.booleanDataType;
 import static com.facebook.presto.tests.datatype.DataType.doubleDataType;
 import static com.facebook.presto.tests.datatype.DataType.integerDataType;
 import static com.facebook.presto.tests.datatype.DataType.realDataType;
 import static com.facebook.presto.tests.datatype.DataType.smallintDataType;
+import static com.facebook.presto.tests.datatype.DataType.varbinaryDataType;
 import static com.facebook.presto.tests.datatype.DataType.varcharDataType;
+import static com.google.common.io.BaseEncoding.base16;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_16LE;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.emptyList;
 
 @Test
@@ -79,6 +84,27 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip(doubleDataType(), 123.45d)
                 .addRoundTrip(realDataType(), 123.45f)
                 .execute(getQueryRunner(), prestoCreateAsSelect("test_basic_types"));
+    }
+
+    @Test
+    public void testVarbinary()
+    {
+        varbinaryTestCases(varbinaryDataType())
+                .execute(getQueryRunner(), prestoCreateAsSelect("test_varbinary"));
+
+        varbinaryTestCases(byteaDataType())
+                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.test_varbinary"));
+    }
+
+    private DataTypeTest varbinaryTestCases(DataType<byte[]> varbinaryDataType)
+    {
+        return DataTypeTest.create()
+                .addRoundTrip(varbinaryDataType, "hello".getBytes(UTF_8))
+                .addRoundTrip(varbinaryDataType, "Piękna łąka w 東京都".getBytes(UTF_8))
+                .addRoundTrip(varbinaryDataType, "Bag full of 💰".getBytes(UTF_16LE))
+                .addRoundTrip(varbinaryDataType, null)
+                .addRoundTrip(varbinaryDataType, new byte[] {})
+                .addRoundTrip(varbinaryDataType, new byte[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 13, -7, 54, 122, -89, 0, 0, 0});
     }
 
     @Test
@@ -199,6 +225,15 @@ public class TestPostgreSqlTypeMapping
         finally {
             jdbcSqlExecutor.execute("DROP TABLE tpch.test_unsupported_data_type");
         }
+    }
+
+    private static DataType<byte[]> byteaDataType()
+    {
+        return DataType.dataType(
+                "bytea",
+                VARBINARY,
+                bytes -> format("bytea E'\\\\x%s'", base16().encode(bytes)),
+                Function.identity());
     }
 
     private DataSetup prestoCreateAsSelect(String tableNamePrefix)
