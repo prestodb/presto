@@ -428,13 +428,10 @@ public class TestHashJoinOperator
             PageBuffer pageBuffer = new PageBuffer(10);
             PageBufferOperatorFactory pageBufferOperatorFactory = new PageBufferOperatorFactory(18, new PlanNodeId("pageBuffer"), pageBuffer);
 
-            Driver joinDriver = new Driver(
-                    joinDriverContext,
+            Driver joinDriver = Driver.createDriver(joinDriverContext,
                     valuesOperatorFactory.createOperator(joinDriverContext),
                     joinOperator,
                     pageBufferOperatorFactory.createOperator(joinDriverContext));
-            joinDriver.initialize();
-
             while (!called.get()) { // process first row of first page of LookupJoinOperator
                 processRow(joinDriver, taskStateMachine);
             }
@@ -1066,10 +1063,9 @@ public class TestHashJoinOperator
         DriverContext collectDriverContext = taskContext.addPipelineContext(0, true, true).addDriverContext();
         ValuesOperatorFactory valuesOperatorFactory = new ValuesOperatorFactory(0, new PlanNodeId("values"), buildPages.getTypes(), buildPages.build());
         LocalExchangeSinkOperatorFactory sinkOperatorFactory = new LocalExchangeSinkOperatorFactory(localExchangeFactory, 1, new PlanNodeId("sink"), localExchangeSinkFactoryId, Function.identity());
-        Driver sourceDriver = new Driver(collectDriverContext,
+        Driver sourceDriver = Driver.createDriver(collectDriverContext,
                 valuesOperatorFactory.createOperator(collectDriverContext),
                 sinkOperatorFactory.createOperator(collectDriverContext));
-        sourceDriver.initialize();
         valuesOperatorFactory.noMoreOperators();
         sinkOperatorFactory.noMoreOperators();
 
@@ -1113,11 +1109,10 @@ public class TestHashJoinOperator
         for (int i = 0; i < partitionCount; i++) {
             DriverContext buildDriverContext = buildPipeline.addDriverContext();
             HashBuilderOperator buildOperator = buildOperatorFactory.createOperator(buildDriverContext);
-            Driver driver = new Driver(
+            Driver driver = Driver.createDriver(
                     buildDriverContext,
                     sourceOperatorFactory.createOperator(buildDriverContext),
                     buildOperator);
-            driver.initialize();
             buildDrivers.add(driver);
             buildOperators.add(buildOperator);
         }
