@@ -64,7 +64,7 @@ public class PageSinkManager
     private ConnectorPageSinkProvider providerFor(ConnectorId connectorId)
     {
         ConnectorPageSinkProvider provider = pageSinkProviders.get(connectorId);
-        checkArgument(provider != null, "No page sink provider for connector '%s'", connectorId);
+        checkArgument(provider != null, "No page sink provider for catalog '%s'", connectorId.getCatalogName());
         return provider;
     }
 }
