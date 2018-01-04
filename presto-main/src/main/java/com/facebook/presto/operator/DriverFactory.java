@@ -114,9 +114,7 @@ public class DriverFactory
             Operator operator = operatorFactory.createOperator(driverContext);
             operators.add(operator);
         }
-        Driver driver = new Driver(driverContext, operators.build());
-        driver.initialize();
-        return driver;
+        return Driver.createDriver(driverContext, operators.build());
     }
 
     public synchronized void noMoreDrivers(Lifespan lifespan)

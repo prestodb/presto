@@ -104,8 +104,7 @@ public class TestDriver
                 .build());
 
         Operator sink = createSinkOperator(source);
-        Driver driver = new Driver(driverContext, source, sink);
-        driver.initialize();
+        Driver driver = Driver.createDriver(driverContext, source, sink);
 
         assertSame(driver.getDriverContext(), driverContext);
 
@@ -127,8 +126,7 @@ public class TestDriver
                 .build());
 
         PageConsumerOperator sink = createSinkOperator(source);
-        Driver driver = new Driver(driverContext, source, sink);
-        driver.initialize();
+        Driver driver = Driver.createDriver(driverContext, source, sink);
 
         assertSame(driver.getDriverContext(), driverContext);
 
@@ -165,8 +163,7 @@ public class TestDriver
                 ImmutableList.of());
 
         PageConsumerOperator sink = createSinkOperator(source);
-        Driver driver = new Driver(driverContext, source, sink);
-        driver.initialize();
+        Driver driver = Driver.createDriver(driverContext, source, sink);
 
         assertSame(driver.getDriverContext(), driverContext);
 
@@ -189,8 +186,7 @@ public class TestDriver
             throws Exception
     {
         BrokenOperator brokenOperator = new BrokenOperator(driverContext.addOperatorContext(0, new PlanNodeId("test"), "source"), false);
-        final Driver driver = new Driver(driverContext, brokenOperator, createSinkOperator(brokenOperator));
-        driver.initialize();
+        final Driver driver = Driver.createDriver(driverContext, brokenOperator, createSinkOperator(brokenOperator));
 
         assertSame(driver.getDriverContext(), driverContext);
 
@@ -223,8 +219,7 @@ public class TestDriver
             throws Exception
     {
         BrokenOperator brokenOperator = new BrokenOperator(driverContext.addOperatorContext(0, new PlanNodeId("test"), "source"), true);
-        final Driver driver = new Driver(driverContext, brokenOperator, createSinkOperator(brokenOperator));
-        driver.initialize();
+        final Driver driver = Driver.createDriver(driverContext, brokenOperator, createSinkOperator(brokenOperator));
 
         assertSame(driver.getDriverContext(), driverContext);
 
@@ -269,8 +264,7 @@ public class TestDriver
                 types,
                 ImmutableList.of());
 
-        Driver driver = new Driver(driverContext, source, createSinkOperator(source));
-        driver.initialize();
+        Driver driver = Driver.createDriver(driverContext, source, createSinkOperator(source));
         // the table scan operator will request memory revocation with requestMemoryRevoking()
         // while the driver is still not done with the processFor() method and before it moves to
         // updateDriverBlockedFuture() method.
@@ -300,8 +294,7 @@ public class TestDriver
                 ImmutableList.of());
 
         BrokenOperator brokenOperator = new BrokenOperator(driverContext.addOperatorContext(0, new PlanNodeId("test"), "source"));
-        final Driver driver = new Driver(driverContext, source, brokenOperator);
-        driver.initialize();
+        final Driver driver = Driver.createDriver(driverContext, source, brokenOperator);
 
         // block thread in operator processing
         Future<Boolean> driverProcessFor = executor.submit(new Callable<Boolean>()
