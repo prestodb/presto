@@ -590,21 +590,6 @@ public class SqlTaskExecution
         taskStateMachine.finished();
     }
 
-    public void cancel()
-    {
-        // todo this should finish all input sources and let the task finish naturally
-        try (SetThreadName ignored = new SetThreadName("Task-%s", taskId)) {
-            taskStateMachine.cancel();
-        }
-    }
-
-    public void fail(Throwable cause)
-    {
-        try (SetThreadName ignored = new SetThreadName("Task-%s", taskId)) {
-            taskStateMachine.failed(cause);
-        }
-    }
-
     @Override
     public String toString()
     {
