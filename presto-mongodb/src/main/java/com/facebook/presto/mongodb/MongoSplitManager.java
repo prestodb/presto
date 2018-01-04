@@ -13,11 +13,20 @@
  */
 package com.facebook.presto.mongodb;
 
-import com.facebook.presto.spi.*;
+import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.ConnectorSplitSource;
+import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
+import com.facebook.presto.spi.FixedSplitSource;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.predicate.*;
-import com.facebook.presto.spi.type.*;
+import com.facebook.presto.spi.predicate.Domain;
+import com.facebook.presto.spi.predicate.ValueSet;
+import com.facebook.presto.spi.predicate.Range;
+import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TimestampType;
 import com.google.common.collect.ImmutableList;
 import com.mongodb.client.MongoCursor;
 import io.airlift.log.Logger;
@@ -26,28 +35,20 @@ import org.bson.Document;
 import org.bson.types.MaxKey;
 import org.bson.types.MinKey;
 import org.bson.types.ObjectId;
-
 import javax.inject.Inject;
-import java.sql.Timestamp;
-import java.util.*;
 import java.util.LinkedHashMap;
-
+import java.util.Map;
+import java.util.HashMap;
+import java.util.Date;
+import java.util.Optional;
+import java.util.List;
 import static com.facebook.presto.mongodb.ObjectIdType.OBJECT_ID;
 import static com.facebook.presto.spi.HostAddress.fromParts;
-import static com.facebook.presto.spi.predicate.Range.equal;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.airlift.slice.Slices.utf8Slice;
-import static java.util.stream.Collectors.toList;
-
-import static com.facebook.presto.spi.HostAddress.fromParts;
 import static java.util.stream.Collectors.toList;
 
 public class MongoSplitManager
@@ -58,12 +59,12 @@ public class MongoSplitManager
     private static final Logger LOG = Logger.get(MongoSplitManager.class);
 
     @Inject
-    public MongoSplitManager(MongoClientConfig config,MongoSession mongoSession)
+    public MongoSplitManager(MongoClientConfig config, MongoSession mongoSession)
     {
         this.addresses = config.getSeeds().stream()
                 .map(s -> fromParts(s.getHost(), s.getPort()))
                 .collect(toList());
-        this.mongoSession=mongoSession;
+        this.mongoSession = mongoSession;
     }
 
     @Override
@@ -74,22 +75,21 @@ public class MongoSplitManager
         MongoTableHandle tableHandle = tableLayout.getTable();
 
         //Get the collection's chunks info detail
-        MongoCursor<Document> chunkCursor= mongoSession.getChunkInfo(tableHandle.getSchemaTableName());
+        MongoCursor<Document> chunkCursor = mongoSession.getChunkInfo(tableHandle.getSchemaTableName());
 
         //Get the collection's sharded type
-        String shardType= mongoSession.getShardType(tableHandle.getSchemaTableName());
-        LOG.debug("shardType:%s",shardType);
+        String shardType = mongoSession.getShardType(tableHandle.getSchemaTableName());
+        LOG.debug("shardType:%s", shardType);
 
         //If the collection is not sharded or is hash-sharded, return splitsource  with the whole collection as a split;
-        if(shardType==null || shardType.equals("hashed"))
-        {
+        if (shardType == null || shardType.equals("hashed")) {
             return new FixedSplitSource(ImmutableList.of(new MongoSplit(tableHandle.getSchemaTableName(),
                     tableLayout.getTupleDomain(),
                     addresses)));
         }
 
         //Scan the chunks, one chunk as a split
-        if(chunkCursor.hasNext()) {
+        if (chunkCursor.hasNext()) {
             MongoSplit chunkSplit;
             Optional<Map<ColumnHandle, Domain>> chunkDomain;
             Document oneChunk;
@@ -98,7 +98,6 @@ public class MongoSplitManager
             LinkedHashMap<Object, Object> keySet;
             int splitCount = 0;
             while (chunkCursor.hasNext()) {
-
                 oneChunk = (Document) chunkCursor.next();
 
                 minDoc = (Document) oneChunk.get("min");
@@ -117,7 +116,6 @@ public class MongoSplitManager
                 Object firstKeyLowValue = minDoc.get(firstKey);
                 Object firstKeyHighValue = maxDoc.get(firstKey);
 
-
                 if (firstKeyLowValue instanceof MinKey) {
                     if (firstKeyHighValue instanceof String) {
                         predicateColumnHandle = new MongoColumnHandle(firstKey,
@@ -126,42 +124,48 @@ public class MongoSplitManager
                         newDomain = Domain.create(ValueSet.ofRanges(Range.lessThan(VARCHAR,
                                         utf8Slice(firstKeyHighValue.toString()))),
                                 false);
-                    } else if (firstKeyHighValue instanceof ObjectId) {
+                    }
+                    else if (firstKeyHighValue instanceof ObjectId) {
                         predicateColumnHandle = new MongoColumnHandle(firstKey,
                                 OBJECT_ID,
                                 false);
                         newDomain = Domain.create(ValueSet.ofRanges(Range.lessThan(OBJECT_ID,
                                         utf8Slice(firstKeyHighValue.toString()))),
                                 false);
-                    }else if (firstKeyHighValue instanceof Integer) {
+                    }
+                    else if (firstKeyHighValue instanceof Integer) {
                         predicateColumnHandle = new MongoColumnHandle(firstKey,
                                 BIGINT,
                                 false);
                         newDomain = Domain.create(ValueSet.ofRanges(Range.lessThan(BIGINT,
                                         Long.valueOf((Integer) firstKeyHighValue))),
                                 false);
-                    }else if (firstKeyHighValue instanceof Long) {
+                    }
+                    else if (firstKeyHighValue instanceof Long) {
                         predicateColumnHandle = new MongoColumnHandle(firstKey,
                                 BIGINT,
                                 false);
                         newDomain = Domain.create(ValueSet.ofRanges(Range.lessThan(BIGINT,
-                                        (Long)firstKeyHighValue)),
+                                        (Long) firstKeyHighValue)),
                                 false);
-                    }else if (firstKeyHighValue instanceof Float || firstKeyHighValue instanceof Double) {
+                    }
+                    else if (firstKeyHighValue instanceof Float || firstKeyHighValue instanceof Double) {
                         predicateColumnHandle = new MongoColumnHandle(firstKey,
                                 DOUBLE,
                                 false);
                         newDomain = Domain.create(ValueSet.ofRanges(Range.lessThan(DOUBLE,
                                         (Double) firstKeyHighValue)),
                                 false);
-                    }else if (firstKeyHighValue instanceof Date) {
+                    }
+                    else if (firstKeyHighValue instanceof Date) {
                         predicateColumnHandle = new MongoColumnHandle(firstKey,
                                 TIMESTAMP,
                                 false);
                         newDomain = Domain.create(ValueSet.ofRanges(Range.lessThan(TIMESTAMP,
                                         ((Date) firstKeyHighValue).getTime())),
                                 false);
-                    }else {
+                    }
+                    else {
                         return new FixedSplitSource(ImmutableList.of(new MongoSplit(tableHandle.getSchemaTableName(),
                                 tableLayout.getTupleDomain(),
                                 addresses)));
@@ -170,7 +174,8 @@ public class MongoSplitManager
                     if (oldDomain != null) {
                         newDomain = Domain.create(newDomain.getValues().intersect(oldDomain.getValues()), false);
                     }
-                }else if (firstKeyHighValue instanceof MaxKey) {
+                }
+                else if (firstKeyHighValue instanceof MaxKey) {
                     if (firstKeyLowValue instanceof String) {
                         predicateColumnHandle = new MongoColumnHandle(firstKey,
                                 VARCHAR,
@@ -178,42 +183,48 @@ public class MongoSplitManager
                         newDomain = Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(VARCHAR,
                                         utf8Slice(firstKeyLowValue.toString()))),
                                 false);
-                    } else if (firstKeyLowValue instanceof ObjectId) {
+                    }
+                    else if (firstKeyLowValue instanceof ObjectId) {
                         predicateColumnHandle = new MongoColumnHandle(firstKey,
                                 OBJECT_ID,
                                 false);
                         newDomain = Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(OBJECT_ID,
                                         utf8Slice(firstKeyLowValue.toString()))),
                                 false);
-                    }else if (firstKeyLowValue instanceof Integer) {
+                    }
+                    else if (firstKeyLowValue instanceof Integer) {
                         predicateColumnHandle = new MongoColumnHandle(firstKey,
                                 BIGINT,
                                 false);
                         newDomain = Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(BIGINT,
                                         Long.valueOf((Integer) firstKeyLowValue))),
                                 false);
-                    }else if (firstKeyLowValue instanceof Long) {
+                    }
+                    else if (firstKeyLowValue instanceof Long) {
                         predicateColumnHandle = new MongoColumnHandle(firstKey,
                                 BIGINT,
                                 false);
                         newDomain = Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(BIGINT,
-                                        (Long)firstKeyLowValue)),
+                                        (Long) firstKeyLowValue)),
                                 false);
-                    } else if (firstKeyLowValue instanceof Float || firstKeyLowValue instanceof Double) {
+                    }
+                    else if (firstKeyLowValue instanceof Float || firstKeyLowValue instanceof Double) {
                         predicateColumnHandle = new MongoColumnHandle(firstKey,
                                 DOUBLE,
                                 false);
                         newDomain = Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(DOUBLE,
                                         (Double) firstKeyLowValue)),
                                 false);
-                    }else if (firstKeyLowValue instanceof Date) {
+                    }
+                    else if (firstKeyLowValue instanceof Date) {
                         predicateColumnHandle = new MongoColumnHandle(firstKey,
                                 TIMESTAMP,
                                 false);
                         newDomain = Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(TIMESTAMP,
                                         ((Date) firstKeyLowValue).getTime())),
                                 false);
-                    }else {
+                    }
+                    else {
                         return new FixedSplitSource(ImmutableList.of(new MongoSplit(tableHandle.getSchemaTableName(),
                                 tableLayout.getTupleDomain(),
                                 addresses)));
@@ -244,8 +255,8 @@ public class MongoSplitManager
                             BIGINT,
                             false);
                     newDomain = Domain.create(ValueSet.ofRanges(Range.range(BIGINT,
-                                    Long.valueOf((Integer)firstKeyLowValue), true,
-                                    Long.valueOf((Integer)firstKeyHighValue),
+                                    Long.valueOf((Integer) firstKeyLowValue), true,
+                                    Long.valueOf((Integer) firstKeyHighValue),
                                     false)),
                             false);
 
@@ -259,8 +270,8 @@ public class MongoSplitManager
                             BIGINT,
                             false);
                     newDomain = Domain.create(ValueSet.ofRanges(Range.range(BIGINT,
-                                    (Long)firstKeyLowValue, true,
-                                    (Long)firstKeyHighValue,
+                                    (Long) firstKeyLowValue, true,
+                                    (Long) firstKeyHighValue,
                                     false)),
                             false);
 
@@ -274,8 +285,8 @@ public class MongoSplitManager
                             DOUBLE,
                             false);
                     newDomain = Domain.create(ValueSet.ofRanges(Range.range(DOUBLE,
-                                    (Double)firstKeyLowValue, true,
-                                    (Double)firstKeyHighValue,
+                                    (Double) firstKeyLowValue, true,
+                                    (Double) firstKeyHighValue,
                                     false)),
                             false);
 
@@ -288,7 +299,7 @@ public class MongoSplitManager
                             TIMESTAMP,
                             false);
                     newDomain = Domain.create(ValueSet.ofRanges(Range.range(TIMESTAMP,
-                                    ((Date)firstKeyLowValue).getTime(), true,
+                                    ((Date) firstKeyLowValue).getTime(), true,
                                     ((Date) firstKeyHighValue).getTime(),
                                     false)),
                             false);
@@ -297,7 +308,8 @@ public class MongoSplitManager
                     if (oldDomain != null) {
                         newDomain = Domain.create(newDomain.getValues().intersect(oldDomain.getValues()), false);
                     }
-                }else if (firstKeyLowValue instanceof ObjectId) {
+                }
+                else if (firstKeyLowValue instanceof ObjectId) {
                     predicateColumnHandle = new MongoColumnHandle(firstKey,
                             OBJECT_ID,
                             false);
@@ -311,12 +323,12 @@ public class MongoSplitManager
                     if (oldDomain != null) {
                         newDomain = Domain.create(newDomain.getValues().intersect(oldDomain.getValues()), false);
                     }
-                }else {
+                }
+                else {
                     return new FixedSplitSource(ImmutableList.of(new MongoSplit(tableHandle.getSchemaTableName(),
                             tableLayout.getTupleDomain(),
                             addresses)));
                 }
-
 
                 if (!newDomain.getValues().isNone()) {
                     splitCount++;
@@ -324,10 +336,11 @@ public class MongoSplitManager
                     LOG.debug("Split %s range info details below:", splitCount);
                     for (Range range : newDomain.getValues().getRanges().getOrderedRanges()) {
                         if (range.isSingleValue()) {
-                            LOG.debug("Split %s range signle value:%s", splitCount, translateValue(range.getSingleValue(),range.getType()));
-                        } else {
+                            LOG.debug("Split %s range signle value:%s", splitCount, translateValue(range.getSingleValue(), range.getType()));
+                        }
+                        else {
                             if (!range.getLow().isLowerUnbounded()) {
-                                LOG.debug("Split %s range low value:%s", splitCount, translateValue(range.getLow().getValue(),range.getType()));
+                                LOG.debug("Split %s range low value:%s", splitCount, translateValue(range.getLow().getValue(), range.getType()));
                             }
                             if (!range.getHigh().isUpperUnbounded()) {
                                 LOG.debug("Split %s range high value:%s", splitCount, translateValue(range.getHigh().getValue(), range.getType()));
@@ -352,14 +365,12 @@ public class MongoSplitManager
         }
     }
 
-    private void mapPutOrReplace(Map map,Object key,Object value)
+    private void mapPutOrReplace(Map map, Object key, Object value)
     {
-        if(map.containsKey(key))
-        {
+        if (map.containsKey(key)) {
             map.replace(key, value);
         }
-        else
-        {
+        else {
             map.put(key, value);
         }
     }
@@ -375,9 +386,8 @@ public class MongoSplitManager
                 return ((Slice) source).toStringUtf8();
             }
         }
-        if(type instanceof TimestampType)
-        {
-            return new Date((Long)source);
+        if(type instanceof TimestampType) {
+            return new Date((Long) source);
         }
         return source;
     }
