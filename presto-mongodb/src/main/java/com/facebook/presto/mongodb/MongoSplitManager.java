@@ -13,20 +13,20 @@
  */
 package com.facebook.presto.mongodb;
 
-import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
-import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.FixedSplitSource;
+import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.predicate.Domain;
-import com.facebook.presto.spi.predicate.ValueSet;
 import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.predicate.ValueSet;
 import com.facebook.presto.spi.type.TimestampType;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.mongodb.client.MongoCursor;
 import io.airlift.log.Logger;
@@ -35,18 +35,21 @@ import org.bson.Document;
 import org.bson.types.MaxKey;
 import org.bson.types.MinKey;
 import org.bson.types.ObjectId;
+
 import javax.inject.Inject;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.HashMap;
+
 import java.util.Date;
-import java.util.Optional;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
 import static com.facebook.presto.mongodb.ObjectIdType.OBJECT_ID;
 import static com.facebook.presto.spi.HostAddress.fromParts;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.util.stream.Collectors.toList;
@@ -294,7 +297,8 @@ public class MongoSplitManager
                     if (oldDomain != null) {
                         newDomain = Domain.create(newDomain.getValues().intersect(oldDomain.getValues()), false);
                     }
-                }else if (firstKeyLowValue instanceof Date) {
+                }
+                else if (firstKeyLowValue instanceof Date) {
                     predicateColumnHandle = new MongoColumnHandle(firstKey,
                             TIMESTAMP,
                             false);
@@ -386,7 +390,7 @@ public class MongoSplitManager
                 return ((Slice) source).toStringUtf8();
             }
         }
-        if(type instanceof TimestampType) {
+        if (type instanceof TimestampType) {
             return new Date((Long) source);
         }
         return source;
