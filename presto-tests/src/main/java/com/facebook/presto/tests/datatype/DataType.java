@@ -21,6 +21,7 @@ import com.facebook.presto.spi.type.RealType;
 import com.facebook.presto.spi.type.SmallintType;
 import com.facebook.presto.spi.type.TinyintType;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarbinaryType;
 import com.facebook.presto.spi.type.VarcharType;
 
 import java.math.BigDecimal;
@@ -31,6 +32,7 @@ import static com.facebook.presto.spi.type.CharType.createCharType;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.google.common.base.Strings.padEnd;
+import static com.google.common.io.BaseEncoding.base16;
 import static java.lang.String.format;
 import static java.util.Optional.empty;
 
@@ -120,6 +122,11 @@ public class DataType<T>
         return dataType(insertType, createCharType(length), DataType::quote, input -> padEnd(input, length, ' '));
     }
 
+    public static DataType<byte[]> varbinaryDataType()
+    {
+        return dataType("varbinary", VarbinaryType.VARBINARY, DataType::binaryLiteral, Function.identity());
+    }
+
     public static DataType<BigDecimal> decimalType(int precision, int scale)
     {
         String databaseType = format("decimal(%s, %s)", precision, scale);
@@ -133,6 +140,14 @@ public class DataType<T>
     private static String quote(String value)
     {
         return "'" + value + "'";
+    }
+
+    /**
+     * Formats bytes using SQL standard format for binary string literal
+     */
+    public static String binaryLiteral(byte[] value)
+    {
+        return "X'" + base16().encode(value) + "'";
     }
 
     private static <T> DataType<T> dataType(String insertType, Type prestoResultType)
@@ -155,6 +170,9 @@ public class DataType<T>
 
     public String toLiteral(T inputValue)
     {
+        if (inputValue == null) {
+            return "NULL";
+        }
         return toLiteral.apply(inputValue);
     }
 

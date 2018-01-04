@@ -15,7 +15,6 @@ package com.facebook.presto.tests.datatype;
 
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.MaterializedResult;
-import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.sql.TestTable;
 
@@ -51,8 +50,11 @@ public class DataTypeTest
         try (TestTable testTable = dataSetup.setupTestTable(unmodifiableList(inputs))) {
             MaterializedResult materializedRows = prestoExecutor.execute("SELECT * from " + testTable.getName());
             assertEquals(materializedRows.getTypes(), expectedTypes);
-            MaterializedRow row = getOnlyElement(materializedRows);
-            assertEquals(row.getFields(), expectedResults);
+            List<Object> actualResults = getOnlyElement(materializedRows).getFields();
+            assertEquals(actualResults.size(), expectedResults.size(), "lists don't have the same size");
+            for (int i = 0; i < expectedResults.size(); i++) {
+                assertEquals(actualResults.get(i), expectedResults.get(i), "Element " + i);
+            }
         }
     }
 
