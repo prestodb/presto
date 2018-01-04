@@ -95,8 +95,7 @@ public class TestHashSemiJoinOperator
         SetBuilderOperatorFactory setBuilderOperatorFactory = new SetBuilderOperatorFactory(1, new PlanNodeId("test"), buildOperator.getTypes().get(0), 0, rowPagesBuilder.getHashChannel(), 10, new JoinCompiler());
         Operator setBuilderOperator = setBuilderOperatorFactory.createOperator(driverContext);
 
-        Driver driver = new Driver(driverContext, buildOperator, setBuilderOperator);
-        driver.initialize();
+        Driver driver = Driver.createDriver(driverContext, buildOperator, setBuilderOperator);
         while (!driver.isFinished()) {
             driver.process();
         }
@@ -152,8 +151,7 @@ public class TestHashSemiJoinOperator
         SetBuilderOperatorFactory setBuilderOperatorFactory = new SetBuilderOperatorFactory(1, new PlanNodeId("test"), buildOperator.getTypes().get(0), 0, rowPagesBuilder.getHashChannel(), 10, new JoinCompiler());
         Operator setBuilderOperator = setBuilderOperatorFactory.createOperator(driverContext);
 
-        Driver driver = new Driver(driverContext, buildOperator, setBuilderOperator);
-        driver.initialize();
+        Driver driver = Driver.createDriver(driverContext, buildOperator, setBuilderOperator);
         while (!driver.isFinished()) {
             driver.process();
         }
@@ -200,8 +198,7 @@ public class TestHashSemiJoinOperator
         SetBuilderOperatorFactory setBuilderOperatorFactory = new SetBuilderOperatorFactory(1, new PlanNodeId("test"), buildOperator.getTypes().get(0), 0, rowPagesBuilder.getHashChannel(), 10, new JoinCompiler());
         Operator setBuilderOperator = setBuilderOperatorFactory.createOperator(driverContext);
 
-        Driver driver = new Driver(driverContext, buildOperator, setBuilderOperator);
-        driver.initialize();
+        Driver driver = Driver.createDriver(driverContext, buildOperator, setBuilderOperator);
         while (!driver.isFinished()) {
             driver.process();
         }
@@ -252,8 +249,7 @@ public class TestHashSemiJoinOperator
         SetBuilderOperatorFactory setBuilderOperatorFactory = new SetBuilderOperatorFactory(1, new PlanNodeId("test"), buildOperator.getTypes().get(0), 0, rowPagesBuilder.getHashChannel(), 10, new JoinCompiler());
         Operator setBuilderOperator = setBuilderOperatorFactory.createOperator(driverContext);
 
-        Driver driver = new Driver(driverContext, buildOperator, setBuilderOperator);
-        driver.initialize();
+        Driver driver = Driver.createDriver(driverContext, buildOperator, setBuilderOperator);
         while (!driver.isFinished()) {
             driver.process();
         }
@@ -302,8 +298,7 @@ public class TestHashSemiJoinOperator
         SetBuilderOperatorFactory setBuilderOperatorFactory = new SetBuilderOperatorFactory(1, new PlanNodeId("test"), buildOperator.getTypes().get(0), 0, rowPagesBuilder.getHashChannel(), 10, new JoinCompiler());
         Operator setBuilderOperator = setBuilderOperatorFactory.createOperator(driverContext);
 
-        Driver driver = new Driver(driverContext, buildOperator, setBuilderOperator);
-        driver.initialize();
+        Driver driver = Driver.createDriver(driverContext, buildOperator, setBuilderOperator);
         while (!driver.isFinished()) {
             driver.process();
         }

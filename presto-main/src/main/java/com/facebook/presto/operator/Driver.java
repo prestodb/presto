@@ -20,6 +20,7 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.UpdatablePageSource;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
@@ -41,7 +42,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
@@ -86,23 +86,35 @@ public class Driver
     private TaskSource currentTaskSource;
 
     private final AtomicReference<SettableFuture<?>> driverBlockedFuture = new AtomicReference<>();
-    private final AtomicBoolean initialized = new AtomicBoolean();
 
     private enum State
     {
         ALIVE, NEED_DESTRUCTION, DESTROYED
     }
 
-    public Driver(DriverContext driverContext, Operator firstOperator, Operator... otherOperators)
+    public static Driver createDriver(DriverContext driverContext, List<Operator> operators)
     {
-        this(requireNonNull(driverContext, "driverContext is null"),
-                ImmutableList.<Operator>builder()
-                        .add(requireNonNull(firstOperator, "firstOperator is null"))
-                        .add(requireNonNull(otherOperators, "otherOperators is null"))
-                        .build());
+        requireNonNull(driverContext, "driverContext is null");
+        requireNonNull(operators, "operators is null");
+        Driver driver = new Driver(driverContext, operators);
+        driver.initialize();
+        return driver;
     }
 
-    public Driver(DriverContext driverContext, List<Operator> operators)
+    @VisibleForTesting
+    public static Driver createDriver(DriverContext driverContext, Operator firstOperator, Operator... otherOperators)
+    {
+        requireNonNull(driverContext, "driverContext is null");
+        requireNonNull(firstOperator, "firstOperator is null");
+        requireNonNull(otherOperators, "otherOperators is null");
+        ImmutableList<Operator> operators = ImmutableList.<Operator>builder()
+                .add(firstOperator)
+                .add(otherOperators)
+                .build();
+        return createDriver(driverContext, operators);
+    }
+
+    private Driver(DriverContext driverContext, List<Operator> operators)
     {
         this.driverContext = requireNonNull(driverContext, "driverContext is null");
         this.operators = ImmutableList.copyOf(requireNonNull(operators, "operators is null"));
@@ -130,24 +142,23 @@ public class Driver
         driverBlockedFuture.set(future);
     }
 
-    public void initialize()
+    // the memory revocation request listeners are added here in a separate initialize() method
+    // instead of the constructor to prevent leaking the "this" reference to
+    // another thread, which will cause unsafe publication of this instance.
+    private void initialize()
     {
-        if (initialized.compareAndSet(false, true)) {
-            operators.stream()
-                    .map(Operator::getOperatorContext)
-                    .forEach(operatorContext -> operatorContext.setMemoryRevocationRequestListener(() -> driverBlockedFuture.get().set(null)));
-        }
+        operators.stream()
+                .map(Operator::getOperatorContext)
+                .forEach(operatorContext -> operatorContext.setMemoryRevocationRequestListener(() -> driverBlockedFuture.get().set(null)));
     }
 
     public DriverContext getDriverContext()
     {
-        checkState(initialized.get(), "Driver is not initialized");
         return driverContext;
     }
 
     public Optional<PlanNodeId> getSourceId()
     {
-        checkState(initialized.get(), "Driver is not initialized");
         return sourceOperator.map(SourceOperator::getSourceId);
     }
 
@@ -188,7 +199,6 @@ public class Driver
 
     public void updateSource(TaskSource sourceUpdate)
     {
-        checkState(initialized.get(), "Driver is not initialized");
         checkLockNotHeld("Can not update sources while holding the driver lock");
         checkArgument(
                 sourceOperator.isPresent() && sourceOperator.get().getSourceId().equals(sourceUpdate.getPlanNodeId()),
@@ -247,7 +257,6 @@ public class Driver
 
     public ListenableFuture<?> processFor(Duration duration)
     {
-        checkState(initialized.get(), "Driver is not initialized");
         checkLockNotHeld("Can not process for a duration while holding the driver lock");
 
         requireNonNull(duration, "duration is null");
@@ -284,7 +293,6 @@ public class Driver
 
     public ListenableFuture<?> process()
     {
-        checkState(initialized.get(), "Driver is not initialized");
         checkLockNotHeld("Can not process while holding the driver lock");
 
         // if the driver is blocked we don't need to continue
@@ -302,7 +310,6 @@ public class Driver
 
     private ListenableFuture<?> updateDriverBlockedFuture(ListenableFuture<?> sourceBlockedFuture)
     {
-        checkState(initialized.get(), "Driver is not initialized");
         // driverBlockedFuture will be completed as soon as the sourceBlockedFuture is completed
         // or any of the operators gets a memory revocation request
         SettableFuture<?> newDriverBlockedFuture = SettableFuture.create();
