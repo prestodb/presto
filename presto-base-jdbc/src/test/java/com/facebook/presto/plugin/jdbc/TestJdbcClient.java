@@ -21,6 +21,10 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.plugin.jdbc.TestingDatabase.CONNECTOR_ID;
+import static com.facebook.presto.plugin.jdbc.TestingJdbcTypeHandle.JDBC_BIGINT;
+import static com.facebook.presto.plugin.jdbc.TestingJdbcTypeHandle.JDBC_DOUBLE;
+import static com.facebook.presto.plugin.jdbc.TestingJdbcTypeHandle.JDBC_REAL;
+import static com.facebook.presto.plugin.jdbc.TestingJdbcTypeHandle.JDBC_VARCHAR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.RealType.REAL;
@@ -75,9 +79,9 @@ public class TestJdbcClient
         assertEquals(table.getTableName(), "NUMBERS");
         assertEquals(table.getSchemaTableName(), schemaTableName);
         assertEquals(jdbcClient.getColumns(table), ImmutableList.of(
-                new JdbcColumnHandle(CONNECTOR_ID, "TEXT", VARCHAR),
-                new JdbcColumnHandle(CONNECTOR_ID, "TEXT_SHORT", createVarcharType(32)),
-                new JdbcColumnHandle(CONNECTOR_ID, "VALUE", BIGINT)));
+                new JdbcColumnHandle(CONNECTOR_ID, "TEXT", JDBC_VARCHAR, VARCHAR),
+                new JdbcColumnHandle(CONNECTOR_ID, "TEXT_SHORT", JDBC_VARCHAR, createVarcharType(32)),
+                new JdbcColumnHandle(CONNECTOR_ID, "VALUE", JDBC_BIGINT, BIGINT)));
     }
 
     @Test
@@ -88,8 +92,8 @@ public class TestJdbcClient
         JdbcTableHandle table = jdbcClient.getTableHandle(schemaTableName);
         assertNotNull(table, "table is null");
         assertEquals(jdbcClient.getColumns(table), ImmutableList.of(
-                new JdbcColumnHandle(CONNECTOR_ID, "TE_T", VARCHAR),
-                new JdbcColumnHandle(CONNECTOR_ID, "VA%UE", BIGINT)));
+                new JdbcColumnHandle(CONNECTOR_ID, "TE_T", JDBC_VARCHAR, VARCHAR),
+                new JdbcColumnHandle(CONNECTOR_ID, "VA%UE", JDBC_BIGINT, BIGINT)));
     }
 
     @Test
@@ -100,9 +104,9 @@ public class TestJdbcClient
         JdbcTableHandle table = jdbcClient.getTableHandle(schemaTableName);
         assertNotNull(table, "table is null");
         assertEquals(jdbcClient.getColumns(table), ImmutableList.of(
-                new JdbcColumnHandle(CONNECTOR_ID, "COL1", BIGINT),
-                new JdbcColumnHandle(CONNECTOR_ID, "COL2", DOUBLE),
-                new JdbcColumnHandle(CONNECTOR_ID, "COL3", DOUBLE),
-                new JdbcColumnHandle(CONNECTOR_ID, "COL4", REAL)));
+                new JdbcColumnHandle(CONNECTOR_ID, "COL1", JDBC_BIGINT, BIGINT),
+                new JdbcColumnHandle(CONNECTOR_ID, "COL2", JDBC_DOUBLE, DOUBLE),
+                new JdbcColumnHandle(CONNECTOR_ID, "COL3", JDBC_DOUBLE, DOUBLE),
+                new JdbcColumnHandle(CONNECTOR_ID, "COL4", JDBC_REAL, REAL)));
     }
 }

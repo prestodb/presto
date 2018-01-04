@@ -37,6 +37,17 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
 
+import static com.facebook.presto.plugin.jdbc.TestingJdbcTypeHandle.JDBC_BIGINT;
+import static com.facebook.presto.plugin.jdbc.TestingJdbcTypeHandle.JDBC_BOOLEAN;
+import static com.facebook.presto.plugin.jdbc.TestingJdbcTypeHandle.JDBC_DATE;
+import static com.facebook.presto.plugin.jdbc.TestingJdbcTypeHandle.JDBC_DOUBLE;
+import static com.facebook.presto.plugin.jdbc.TestingJdbcTypeHandle.JDBC_INTEGER;
+import static com.facebook.presto.plugin.jdbc.TestingJdbcTypeHandle.JDBC_REAL;
+import static com.facebook.presto.plugin.jdbc.TestingJdbcTypeHandle.JDBC_SMALLINT;
+import static com.facebook.presto.plugin.jdbc.TestingJdbcTypeHandle.JDBC_TIME;
+import static com.facebook.presto.plugin.jdbc.TestingJdbcTypeHandle.JDBC_TIMESTAMP;
+import static com.facebook.presto.plugin.jdbc.TestingJdbcTypeHandle.JDBC_TINYINT;
+import static com.facebook.presto.plugin.jdbc.TestingJdbcTypeHandle.JDBC_VARCHAR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
@@ -71,17 +82,17 @@ public class TestJdbcQueryBuilder
         jdbcClient = database.getJdbcClient();
 
         columns = ImmutableList.of(
-                new JdbcColumnHandle("test_id", "col_0", BIGINT),
-                new JdbcColumnHandle("test_id", "col_1", DOUBLE),
-                new JdbcColumnHandle("test_id", "col_2", BOOLEAN),
-                new JdbcColumnHandle("test_id", "col_3", VARCHAR),
-                new JdbcColumnHandle("test_id", "col_4", DATE),
-                new JdbcColumnHandle("test_id", "col_5", TIME),
-                new JdbcColumnHandle("test_id", "col_6", TIMESTAMP),
-                new JdbcColumnHandle("test_id", "col_7", TINYINT),
-                new JdbcColumnHandle("test_id", "col_8", SMALLINT),
-                new JdbcColumnHandle("test_id", "col_9", INTEGER),
-                new JdbcColumnHandle("test_id", "col_10", REAL));
+                new JdbcColumnHandle("test_id", "col_0", JDBC_BIGINT, BIGINT),
+                new JdbcColumnHandle("test_id", "col_1", JDBC_DOUBLE, DOUBLE),
+                new JdbcColumnHandle("test_id", "col_2", JDBC_BOOLEAN, BOOLEAN),
+                new JdbcColumnHandle("test_id", "col_3", JDBC_VARCHAR, VARCHAR),
+                new JdbcColumnHandle("test_id", "col_4", JDBC_DATE, DATE),
+                new JdbcColumnHandle("test_id", "col_5", JDBC_TIME, TIME),
+                new JdbcColumnHandle("test_id", "col_6", JDBC_TIMESTAMP, TIMESTAMP),
+                new JdbcColumnHandle("test_id", "col_7", JDBC_TINYINT, TINYINT),
+                new JdbcColumnHandle("test_id", "col_8", JDBC_SMALLINT, SMALLINT),
+                new JdbcColumnHandle("test_id", "col_9", JDBC_INTEGER, INTEGER),
+                new JdbcColumnHandle("test_id", "col_10", JDBC_REAL, REAL));
 
         Connection connection = database.getConnection();
         try (PreparedStatement preparedStatement = connection.prepareStatement("create table \"test_table\" (" + "" +

@@ -29,16 +29,19 @@ public final class JdbcColumnHandle
 {
     private final String connectorId;
     private final String columnName;
+    private final JdbcTypeHandle jdbcTypeHandle;
     private final Type columnType;
 
     @JsonCreator
     public JdbcColumnHandle(
             @JsonProperty("connectorId") String connectorId,
             @JsonProperty("columnName") String columnName,
+            @JsonProperty("jdbcTypeHandle") JdbcTypeHandle jdbcTypeHandle,
             @JsonProperty("columnType") Type columnType)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.columnName = requireNonNull(columnName, "columnName is null");
+        this.jdbcTypeHandle = requireNonNull(jdbcTypeHandle, "jdbcTypeHandle is null");
         this.columnType = requireNonNull(columnType, "columnType is null");
     }
 
@@ -52,6 +55,12 @@ public final class JdbcColumnHandle
     public String getColumnName()
     {
         return columnName;
+    }
+
+    @JsonProperty
+    public JdbcTypeHandle getJdbcTypeHandle()
+    {
+        return jdbcTypeHandle;
     }
 
     @JsonProperty
@@ -91,6 +100,7 @@ public final class JdbcColumnHandle
         return toStringHelper(this)
                 .add("connectorId", connectorId)
                 .add("columnName", columnName)
+                .add("jdbcTypeHandle", jdbcTypeHandle)
                 .add("columnType", columnType)
                 .toString();
     }

@@ -43,10 +43,25 @@ import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
 import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
+import static com.facebook.presto.plugin.jdbc.StandardReadMappings.bigintReadMapping;
+import static com.facebook.presto.plugin.jdbc.StandardReadMappings.booleanReadMapping;
+import static com.facebook.presto.plugin.jdbc.StandardReadMappings.charReadMapping;
+import static com.facebook.presto.plugin.jdbc.StandardReadMappings.dateReadMapping;
+import static com.facebook.presto.plugin.jdbc.StandardReadMappings.decimalReadMapping;
+import static com.facebook.presto.plugin.jdbc.StandardReadMappings.doubleReadMapping;
+import static com.facebook.presto.plugin.jdbc.StandardReadMappings.integerReadMapping;
+import static com.facebook.presto.plugin.jdbc.StandardReadMappings.realReadMapping;
+import static com.facebook.presto.plugin.jdbc.StandardReadMappings.smallintReadMapping;
+import static com.facebook.presto.plugin.jdbc.StandardReadMappings.timeReadMapping;
+import static com.facebook.presto.plugin.jdbc.StandardReadMappings.timestampReadMapping;
+import static com.facebook.presto.plugin.jdbc.StandardReadMappings.tinyintReadMapping;
+import static com.facebook.presto.plugin.jdbc.StandardReadMappings.varbinaryReadMapping;
+import static com.facebook.presto.plugin.jdbc.StandardReadMappings.varcharReadMapping;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -194,14 +209,15 @@ public class BaseJdbcClient
             try (ResultSet resultSet = getColumns(tableHandle, connection.getMetaData())) {
                 List<JdbcColumnHandle> columns = new ArrayList<>();
                 while (resultSet.next()) {
-                    Type columnType = toPrestoType(
+                    JdbcTypeHandle typeHandle = new JdbcTypeHandle(
                             resultSet.getInt("DATA_TYPE"),
                             resultSet.getInt("COLUMN_SIZE"),
                             resultSet.getInt("DECIMAL_DIGITS"));
+                    Optional<ReadMapping> columnMapping = toPrestoType(typeHandle);
                     // skip unsupported column types
-                    if (columnType != null) {
+                    if (columnMapping.isPresent()) {
                         String columnName = resultSet.getString("COLUMN_NAME");
-                        columns.add(new JdbcColumnHandle(connectorId, columnName, columnType));
+                        columns.add(new JdbcColumnHandle(connectorId, columnName, typeHandle, columnMapping.get().getType()));
                     }
                 }
                 if (columns.isEmpty()) {
@@ -448,55 +464,75 @@ public class BaseJdbcClient
         }
     }
 
-    protected Type toPrestoType(int jdbcType, int columnSize, int decimalDigits)
+    @Override
+    public Optional<ReadMapping> toPrestoType(JdbcTypeHandle typeHandle)
     {
-        switch (jdbcType) {
+        int columnSize = typeHandle.getColumnSize();
+        switch (typeHandle.getJdbcType()) {
             case Types.BIT:
             case Types.BOOLEAN:
-                return BOOLEAN;
+                return Optional.of(booleanReadMapping());
+
             case Types.TINYINT:
-                return TINYINT;
+                return Optional.of(tinyintReadMapping());
+
             case Types.SMALLINT:
-                return SMALLINT;
+                return Optional.of(smallintReadMapping());
+
             case Types.INTEGER:
-                return INTEGER;
+                return Optional.of(integerReadMapping());
+
             case Types.BIGINT:
-                return BIGINT;
+                return Optional.of(bigintReadMapping());
+
             case Types.REAL:
-                return REAL;
+                return Optional.of(realReadMapping());
+
             case Types.FLOAT:
             case Types.DOUBLE:
-                return DOUBLE;
+                return Optional.of(doubleReadMapping());
+
             case Types.NUMERIC:
             case Types.DECIMAL:
+                int decimalDigits = typeHandle.getDecimalDigits();
                 int precision = columnSize + max(-decimalDigits, 0); // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
                 if (precision > Decimals.MAX_PRECISION) {
-                    return null;
+                    return Optional.empty();
                 }
-                return createDecimalType(precision, max(decimalDigits, 0));
+                return Optional.of(decimalReadMapping(createDecimalType(precision, max(decimalDigits, 0))));
+
             case Types.CHAR:
             case Types.NCHAR:
-                return createCharType(min(columnSize, CharType.MAX_LENGTH));
+                // TODO this is wrong, we're going to construct malformed Slice representation if source > charLength
+                int charLength = min(columnSize, CharType.MAX_LENGTH);
+                return Optional.of(charReadMapping(createCharType(charLength)));
+
             case Types.VARCHAR:
             case Types.NVARCHAR:
             case Types.LONGVARCHAR:
             case Types.LONGNVARCHAR:
                 if (columnSize > VarcharType.MAX_LENGTH) {
-                    return createUnboundedVarcharType();
+                    return Optional.of(varcharReadMapping(createUnboundedVarcharType()));
                 }
-                return createVarcharType(columnSize);
+                else {
+                    return Optional.of(varcharReadMapping(createVarcharType(columnSize)));
+                }
+
             case Types.BINARY:
             case Types.VARBINARY:
             case Types.LONGVARBINARY:
-                return VARBINARY;
+                return Optional.of(varbinaryReadMapping());
+
             case Types.DATE:
-                return DATE;
+                return Optional.of(dateReadMapping());
+
             case Types.TIME:
-                return TIME;
+                return Optional.of(timeReadMapping());
+
             case Types.TIMESTAMP:
-                return TIMESTAMP;
+                return Optional.of(timestampReadMapping());
         }
-        return null;
+        return Optional.empty();
     }
 
     protected String toSqlType(Type type)
