@@ -28,6 +28,7 @@ import java.util.List;
 
 import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
 import static com.facebook.presto.operator.scalar.ApplyFunction.APPLY_FUNCTION;
+import static com.facebook.presto.plugin.geospatial.BingTile.fromCoordinates;
 import static com.facebook.presto.plugin.geospatial.BingTileType.BING_TILE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -55,10 +56,17 @@ public class TestBingTileFunctions
             throws Exception
     {
         ObjectMapper objectMapper = new ObjectMapper();
-        BingTile tile = BingTile.fromCoordinates(1, 2, 3);
+        BingTile tile = fromCoordinates(1, 2, 3);
         String json = objectMapper.writeValueAsString(tile);
         assertEquals("{\"x\":1,\"y\":2,\"zoom\":3}", json);
         assertEquals(tile, objectMapper.readerFor(BingTile.class).readValue(json));
+    }
+
+    @Test
+    public void testArrayOfTiles()
+            throws Exception
+    {
+        assertFunction("array[bing_tile(1, 2, 10), bing_tile(3, 4, 11)]", new ArrayType(BING_TILE), ImmutableList.of(fromCoordinates(1, 2, 10), fromCoordinates(3, 4, 11)));
     }
 
     @Test
@@ -89,10 +97,10 @@ public class TestBingTileFunctions
     public void testPointToBingTile()
             throws Exception
     {
-        assertFunction("bing_tile_at(30.12, 60, 15)", BING_TILE, BingTile.fromCoordinates(21845, 13506, 15));
-        assertFunction("bing_tile_at(0, -0.002, 1)", BING_TILE, BingTile.fromCoordinates(0, 1, 1));
-        assertFunction("bing_tile_at(1e0/512, 0, 1)", BING_TILE, BingTile.fromCoordinates(1, 0, 1));
-        assertFunction("bing_tile_at(1e0/512, 0, 9)", BING_TILE, BingTile.fromCoordinates(256, 255, 9));
+        assertFunction("bing_tile_at(30.12, 60, 15)", BING_TILE, fromCoordinates(21845, 13506, 15));
+        assertFunction("bing_tile_at(0, -0.002, 1)", BING_TILE, fromCoordinates(0, 1, 1));
+        assertFunction("bing_tile_at(1e0/512, 0, 1)", BING_TILE, fromCoordinates(1, 0, 1));
+        assertFunction("bing_tile_at(1e0/512, 0, 9)", BING_TILE, fromCoordinates(256, 255, 9));
 
         // Invalid calls
         // Longitude out of range
