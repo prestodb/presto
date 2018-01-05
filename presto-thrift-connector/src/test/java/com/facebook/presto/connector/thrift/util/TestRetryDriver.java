@@ -73,7 +73,6 @@ public class TestRetryDriver
 
     @Test
     void testNoRetry()
-            throws Exception
     {
         SyncTaskImpl task = new SyncTaskImpl(SUCCESS);
         RetryStats retryStats = new RetryStats();
@@ -85,7 +84,6 @@ public class TestRetryDriver
 
     @Test
     void testRetrySuccess()
-            throws Exception
     {
         SyncTaskImpl task = new SyncTaskImpl(SYNC_FAILURE, SYNC_FAILURE, SYNC_FAILURE, SYNC_FAILURE, SUCCESS);
         RetryStats retryStats = new RetryStats();
@@ -152,7 +150,6 @@ public class TestRetryDriver
 
     @Test
     void testAsyncOutOfRetries()
-            throws Exception
     {
         AsyncTaskImpl task = new AsyncTaskImpl(ASYNC_FAILURE, ASYNC_FAILURE, ASYNC_FAILURE, ASYNC_FAILURE);
         RetryStats retryStats = new RetryStats();
@@ -188,7 +185,6 @@ public class TestRetryDriver
     }
 
     private static void assertSyncSuccess(Integer result, SyncTaskImpl task, int expectedAttempts)
-            throws Exception
     {
         assertEquals(result, RESULT);
         assertEquals(task.totalAttemptsMade(), expectedAttempts);
@@ -269,7 +265,6 @@ public class TestRetryDriver
 
         @Override
         public ListenableFuture<Integer> call()
-                throws Exception
         {
             switch (taskTracker.getNextAttemptStatus()) {
                 case SUCCESS:

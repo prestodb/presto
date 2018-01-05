@@ -36,7 +36,6 @@ public class TestLookupJoinPageBuilder
 {
     @Test
     public void testPageBuilder()
-            throws Exception
     {
         int entries = 10_000;
         BlockBuilder blockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), entries);
@@ -86,7 +85,6 @@ public class TestLookupJoinPageBuilder
 
     @Test
     public void testDifferentPositions()
-            throws Exception
     {
         int entries = 100;
         BlockBuilder blockBuilder = BIGINT.createFixedSizeBlockBuilder(entries);

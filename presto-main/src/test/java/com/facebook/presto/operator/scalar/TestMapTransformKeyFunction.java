@@ -41,7 +41,6 @@ public class TestMapTransformKeyFunction
 
     @Test
     public void testEmpty()
-            throws Exception
     {
         assertFunction("transform_keys(map(ARRAY[], ARRAY[]), (k, v) -> NULL)", mapType(UNKNOWN, UNKNOWN), ImmutableMap.of());
         assertFunction("transform_keys(map(ARRAY[], ARRAY[]), (k, v) -> k)", mapType(UNKNOWN, UNKNOWN), ImmutableMap.of());
@@ -56,7 +55,6 @@ public class TestMapTransformKeyFunction
 
     @Test
     public void testNullKey()
-            throws Exception
     {
         assertInvalidFunction("transform_keys(map(ARRAY[1, 2, 3], ARRAY ['a', 'b', 'c']), (k, v) -> NULL)", "map key cannot be null");
         assertInvalidFunction("transform_keys(map(ARRAY[1, 2, 3], ARRAY ['a', 'b', NULL]), (k, v) -> v)", "map key cannot be null");
@@ -69,7 +67,6 @@ public class TestMapTransformKeyFunction
 
     @Test
     public void testDuplicateKeys()
-            throws Exception
     {
         assertInvalidFunction("transform_keys(map(ARRAY[1, 2, 3, 4], ARRAY ['a', 'b', 'c', 'd']), (k, v) -> k % 3)", "Duplicate keys (1) are not allowed");
         assertInvalidFunction("transform_keys(map(ARRAY[1, 2, 3], ARRAY ['a', 'b', 'c']), (k, v) -> k % 2 = 0)", "Duplicate keys (false) are not allowed");
@@ -84,7 +81,6 @@ public class TestMapTransformKeyFunction
 
     @Test
     public void testBasic()
-            throws Exception
     {
         assertFunction(
                 "transform_keys(map(ARRAY [1, 2, 3, 4], ARRAY [10, 20, 30, 40]), (k, v) -> k + v)",
@@ -119,7 +115,6 @@ public class TestMapTransformKeyFunction
 
     @Test
     public void testTypeCombinations()
-            throws Exception
     {
         assertFunction(
                 "transform_keys(map(ARRAY [25, 26, 27], ARRAY [25, 26, 27]), (k, v) -> k + v)",

@@ -28,7 +28,6 @@ public class TestDecimals
 {
     @Test
     public void testParse()
-            throws Exception
     {
         assertParseResult("0", 0L, 1, 0);
         assertParseResult("0.", 0L, 1, 0);
@@ -93,7 +92,6 @@ public class TestDecimals
 
     @Test
     public void testParseIncludeLeadingZerosInPrecision()
-            throws Exception
     {
         assertParseResultIncludeLeadingZerosInPrecision("0", 0L, 1, 0);
         assertParseResultIncludeLeadingZerosInPrecision("+0", 0L, 1, 0);

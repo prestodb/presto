@@ -110,7 +110,6 @@ public class TestArrayOperators
 
     @Test
     public void testStackRepresentation()
-            throws Exception
     {
         Block actualBlock = arrayBlockOf(new ArrayType(BIGINT), arrayBlockOf(BIGINT, 1L, 2L), arrayBlockOf(BIGINT, 3L));
         DynamicSliceOutput actualSliceOutput = new DynamicSliceOutput(100);
@@ -131,7 +130,6 @@ public class TestArrayOperators
 
     @Test
     public void testTypeConstructor()
-            throws Exception
     {
         assertFunction("ARRAY[7]", new ArrayType(INTEGER), ImmutableList.of(7));
         assertFunction("ARRAY[12.34E0, 56.78E0]", new ArrayType(DOUBLE), ImmutableList.of(12.34, 56.78));
@@ -139,7 +137,6 @@ public class TestArrayOperators
 
     @Test
     public void testArrayElements()
-            throws Exception
     {
         assertFunction("CAST(ARRAY [null] AS ARRAY<INTEGER>)", new ArrayType(INTEGER), asList((Integer) null));
         assertFunction("CAST(ARRAY [1, 2, 3] AS ARRAY<INTEGER>)", new ArrayType(INTEGER), ImmutableList.of(1, 2, 3));
@@ -175,7 +172,6 @@ public class TestArrayOperators
 
     @Test
     public void testArraySize()
-            throws Exception
     {
         int size = toIntExact(MAX_FUNCTION_MEMORY.toBytes() + 1);
         assertInvalidFunction(
@@ -189,7 +185,6 @@ public class TestArrayOperators
 
     @Test
     public void testArrayToJson()
-            throws Exception
     {
         assertFunction("cast(cast (null as ARRAY<BIGINT>) AS JSON)", JSON, null);
         assertFunction("cast(ARRAY[] AS JSON)", JSON, "[]");
@@ -243,7 +238,6 @@ public class TestArrayOperators
 
     @Test
     public void testJsonToArray()
-            throws Exception
     {
         // special values
         assertFunction("CAST(CAST (null AS JSON) AS ARRAY<BIGINT>)", new ArrayType(BIGINT), null);
@@ -355,7 +349,6 @@ public class TestArrayOperators
 
     @Test
     public void testConstructor()
-            throws Exception
     {
         assertFunction("ARRAY []", new ArrayType(UNKNOWN), ImmutableList.of());
         assertFunction("ARRAY [NULL]", new ArrayType(UNKNOWN), Lists.newArrayList((Object) null));
@@ -402,7 +395,6 @@ public class TestArrayOperators
 
     @Test
     public void testArrayToArrayConcat()
-            throws Exception
     {
         assertFunction("ARRAY [1, NULL] || ARRAY [3]", new ArrayType(INTEGER), Lists.newArrayList(1, null, 3));
         assertFunction("ARRAY [1, 2] || ARRAY[3, 4]", new ArrayType(INTEGER), ImmutableList.of(1, 2, 3, 4));
@@ -461,7 +453,6 @@ public class TestArrayOperators
 
     @Test
     public void testElementArrayConcat()
-            throws Exception
     {
         assertFunction("CAST (ARRAY [DATE '2001-08-22'] || DATE '2001-08-23' AS JSON)", JSON, "[\"2001-08-22\",\"2001-08-23\"]");
         assertFunction("CAST (DATE '2001-08-23' || ARRAY [DATE '2001-08-22'] AS JSON)", JSON, "[\"2001-08-23\",\"2001-08-22\"]");
@@ -503,7 +494,6 @@ public class TestArrayOperators
 
     @Test
     public void testArrayContains()
-            throws Exception
     {
         assertFunction("CONTAINS(ARRAY ['puppies', 'dogs'], 'dogs')", BOOLEAN, true);
         assertFunction("CONTAINS(ARRAY [1, 2, 3], 2)", BOOLEAN, true);
@@ -536,7 +526,6 @@ public class TestArrayOperators
 
     @Test
     public void testArrayJoin()
-            throws Exception
     {
         assertFunction("array_join(ARRAY[1, NULL, 2], ',')", VARCHAR, "1,2");
         assertFunction("ARRAY_JOIN(ARRAY [1, 2, 3], ';', 'N/A')", VARCHAR, "1;2;3");
@@ -568,7 +557,6 @@ public class TestArrayOperators
 
     @Test
     public void testCardinality()
-            throws Exception
     {
         assertFunction("CARDINALITY(ARRAY [])", BIGINT, 0L);
         assertFunction("CARDINALITY(ARRAY [NULL])", BIGINT, 1L);
@@ -585,7 +573,6 @@ public class TestArrayOperators
 
     @Test
     public void testArrayMin()
-            throws Exception
     {
         assertFunction("ARRAY_MIN(ARRAY [])", UNKNOWN, null);
         assertFunction("ARRAY_MIN(ARRAY [NULL])", UNKNOWN, null);
@@ -616,7 +603,6 @@ public class TestArrayOperators
 
     @Test
     public void testArrayMax()
-            throws Exception
     {
         assertFunction("ARRAY_MAX(ARRAY [])", UNKNOWN, null);
         assertFunction("ARRAY_MAX(ARRAY [NULL])", UNKNOWN, null);
@@ -647,7 +633,6 @@ public class TestArrayOperators
 
     @Test
     public void testArrayPosition()
-            throws Exception
     {
         assertFunction("ARRAY_POSITION(ARRAY [10, 20, 30, 40], 30)", BIGINT, 3L);
         assertFunction("ARRAY_POSITION(CAST (JSON '[]' as array(bigint)), 30)", BIGINT, 0L);
@@ -677,7 +662,6 @@ public class TestArrayOperators
 
     @Test
     public void testSubscript()
-            throws Exception
     {
         String outOfBounds = "Array subscript out of bounds";
         String negativeIndex = "Array subscript is negative";
@@ -720,7 +704,6 @@ public class TestArrayOperators
 
     @Test
     public void testElementAt()
-            throws Exception
     {
         assertInvalidFunction("ELEMENT_AT(ARRAY [], 0)", "SQL array indices start at 1");
         assertInvalidFunction("ELEMENT_AT(ARRAY [1, 2, 3], 0)", "SQL array indices start at 1");
@@ -782,7 +765,6 @@ public class TestArrayOperators
 
     @Test
     public void testSort()
-            throws Exception
     {
         assertFunction("ARRAY_SORT(ARRAY[2, 3, 4, 1])", new ArrayType(INTEGER), ImmutableList.of(1, 2, 3, 4));
         assertFunction("ARRAY_SORT(ARRAY[2, BIGINT '3', 4, 1])", new ArrayType(BIGINT), ImmutableList.of(1L, 2L, 3L, 4L));
@@ -816,7 +798,6 @@ public class TestArrayOperators
 
     @Test
     public void testReverse()
-            throws Exception
     {
         assertFunction("REVERSE(ARRAY[1])", new ArrayType(INTEGER), ImmutableList.of(1));
         assertFunction("REVERSE(ARRAY[1, 2, 3, 4])", new ArrayType(INTEGER), ImmutableList.of(4, 3, 2, 1));
@@ -830,7 +811,6 @@ public class TestArrayOperators
 
     @Test
     public void testDistinct()
-            throws Exception
     {
         assertFunction("ARRAY_DISTINCT(ARRAY [])", new ArrayType(UNKNOWN), ImmutableList.of());
 
@@ -869,7 +849,6 @@ public class TestArrayOperators
 
     @Test
     public void testSlice()
-            throws Exception
     {
         assertFunction("SLICE(ARRAY [1, 2, 3, 4, 5], 1, 4)", new ArrayType(INTEGER), ImmutableList.of(1, 2, 3, 4));
         assertFunction("SLICE(ARRAY [1, 2], 1, 4)", new ArrayType(INTEGER), ImmutableList.of(1, 2));
@@ -892,7 +871,6 @@ public class TestArrayOperators
 
     @Test
     public void testArraysOverlap()
-            throws Exception
     {
         assertFunction("ARRAYS_OVERLAP(ARRAY [1, 2], ARRAY [2, 3])", BooleanType.BOOLEAN, true);
         assertFunction("ARRAYS_OVERLAP(ARRAY [2, 1], ARRAY [2, 3])", BooleanType.BOOLEAN, true);
@@ -960,7 +938,6 @@ public class TestArrayOperators
 
     @Test
     public void testArrayIntersect()
-            throws Exception
     {
         assertFunction("ARRAY_INTERSECT(ARRAY [12], ARRAY [10])", new ArrayType(INTEGER), ImmutableList.of());
         assertFunction("ARRAY_INTERSECT(ARRAY ['foo', 'bar', 'baz'], ARRAY ['foo', 'test', 'bar'])", new ArrayType(createVarcharType(4)), ImmutableList.of("bar", "foo"));
@@ -989,7 +966,6 @@ public class TestArrayOperators
 
     @Test
     public void testArrayUnion()
-            throws Exception
     {
         assertFunction("ARRAY_UNION(ARRAY [cast(10 as bigint), NULL, cast(12 as bigint), NULL], ARRAY [NULL, cast(10 as bigint), NULL, NULL])", new ArrayType(BIGINT), asList(10L, null, 12L));
         assertFunction("ARRAY_UNION(ARRAY [12], ARRAY [10])", new ArrayType(INTEGER), ImmutableList.of(12, 10));
@@ -1008,7 +984,6 @@ public class TestArrayOperators
 
     @Test
     public void testComparison()
-            throws Exception
     {
         assertFunction("ARRAY [1, 2, 3] = ARRAY [1, 2, 3]", BOOLEAN, true);
         assertFunction("ARRAY [1, 2, 3] != ARRAY [1, 2, 3]", BOOLEAN, false);
@@ -1191,7 +1166,6 @@ public class TestArrayOperators
 
     @Test
     public void testDistinctFrom()
-            throws Exception
     {
         assertFunction("CAST(NULL AS ARRAY(UNKNOWN)) IS DISTINCT FROM CAST(NULL AS ARRAY(UNKNOWN))", BOOLEAN, false);
         assertFunction("ARRAY [NULL] IS DISTINCT FROM ARRAY [NULL]", BOOLEAN, false);
@@ -1211,7 +1185,6 @@ public class TestArrayOperators
 
     @Test
     public void testArrayRemove()
-            throws Exception
     {
         assertFunction("ARRAY_REMOVE(ARRAY ['foo', 'bar', 'baz'], 'foo')", new ArrayType(createVarcharType(3)), ImmutableList.of("bar", "baz"));
         assertFunction("ARRAY_REMOVE(ARRAY ['foo', 'bar', 'baz'], 'bar')", new ArrayType(createVarcharType(3)), ImmutableList.of("foo", "baz"));
@@ -1260,7 +1233,6 @@ public class TestArrayOperators
 
     @Test
     public void testRepeat()
-            throws Exception
     {
         // concrete values
         assertFunction("REPEAT(1, 5)", new ArrayType(INTEGER), ImmutableList.of(1, 1, 1, 1, 1));
@@ -1294,7 +1266,6 @@ public class TestArrayOperators
 
     @Test
     public void testSequence()
-            throws Exception
     {
         // defaults to a step of 1
         assertFunction("SEQUENCE(1, 5)", new ArrayType(BIGINT), ImmutableList.of(1L, 2L, 3L, 4L, 5L));

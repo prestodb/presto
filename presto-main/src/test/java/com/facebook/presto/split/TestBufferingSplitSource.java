@@ -45,7 +45,6 @@ public class TestBufferingSplitSource
 
     @Test(dataProvider = "nextBatchAsserters")
     public void testSlowSource(NextBatchAsserter nextBatchAsserter)
-            throws Exception
     {
         MockSplitSource mockSource = new MockSplitSource()
                 .setBatchSize(1)
@@ -68,7 +67,6 @@ public class TestBufferingSplitSource
 
     @Test(dataProvider = "nextBatchAsserters")
     public void testFastSource(NextBatchAsserter nextBatchAsserter)
-            throws Exception
     {
         MockSplitSource mockSource = new MockSplitSource()
                 .setBatchSize(11)
@@ -88,7 +86,6 @@ public class TestBufferingSplitSource
 
     @Test(dataProvider = "nextBatchAsserters")
     public void testEmptySource(NextBatchAsserter nextBatchAsserter)
-            throws Exception
     {
         MockSplitSource mockSource = new MockSplitSource()
                 .setBatchSize(1)
@@ -104,7 +101,6 @@ public class TestBufferingSplitSource
 
     @Test(dataProvider = "nextBatchAsserters")
     public void testBlocked(NextBatchAsserter nextBatchAsserter)
-            throws Exception
     {
         MockSplitSource mockSource = new MockSplitSource()
                 .setBatchSize(1);
@@ -189,7 +185,6 @@ public class TestBufferingSplitSource
 
     @Test(dataProvider = "nextBatchAsserters")
     public void testFinishedSetWithoutIndicationFromSplitBatch(NextBatchAsserter nextBatchAsserter)
-            throws Exception
     {
         MockSplitSource mockSource = new MockSplitSource()
                 .setBatchSize(1)
@@ -215,7 +210,6 @@ public class TestBufferingSplitSource
 
     @Test(dataProvider = "nextBatchAsserters")
     public void testFailImmediate(NextBatchAsserter nextBatchAsserter)
-            throws Exception
     {
         MockSplitSource mockSource = new MockSplitSource()
                 .setBatchSize(1)
@@ -228,7 +222,6 @@ public class TestBufferingSplitSource
 
     @Test(dataProvider = "nextBatchAsserters")
     public void testFail(NextBatchAsserter nextBatchAsserter)
-            throws Exception
     {
         MockSplitSource mockSource = new MockSplitSource()
                 .setBatchSize(1)

@@ -110,7 +110,6 @@ public class TestFileBasedSystemAccessControl
 
     @Test
     public void testViewOperations()
-            throws Exception
     {
         TransactionManager transactionManager = createTestTransactionManager();
         AccessControlManager accessControlManager = newAccessControlManager(transactionManager);

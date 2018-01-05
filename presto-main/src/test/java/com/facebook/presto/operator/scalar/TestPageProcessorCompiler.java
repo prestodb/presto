@@ -78,7 +78,6 @@ public class TestPageProcessorCompiler
 
     @Test
     public void testNoCaching()
-            throws Throwable
     {
         ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
         ArrayType arrayType = new ArrayType(VARCHAR);
@@ -93,7 +92,6 @@ public class TestPageProcessorCompiler
 
     @Test
     public void testSanityRLE()
-            throws Exception
     {
         PageProcessor processor = compiler.compilePageProcessor(Optional.empty(), ImmutableList.of(field(0, BIGINT), field(1, VARCHAR))).get();
 
@@ -114,7 +112,6 @@ public class TestPageProcessorCompiler
 
     @Test
     public void testSanityFilterOnDictionary()
-            throws Exception
     {
         CallExpression lengthVarchar = new CallExpression(
                 new Signature("length", SCALAR, parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.VARCHAR)), BIGINT, ImmutableList.of(field(0, VARCHAR)));
@@ -144,7 +141,6 @@ public class TestPageProcessorCompiler
 
     @Test
     public void testSanityFilterOnRLE()
-            throws Exception
     {
         Signature lessThan = internalOperator(LESS_THAN, BOOLEAN, ImmutableList.of(BIGINT, BIGINT));
         CallExpression filter = new CallExpression(lessThan, BOOLEAN, ImmutableList.of(field(0, BIGINT), constant(10L, BIGINT)));
@@ -163,7 +159,6 @@ public class TestPageProcessorCompiler
 
     @Test
     public void testSanityColumnarDictionary()
-            throws Exception
     {
         PageProcessor processor = compiler.compilePageProcessor(Optional.empty(), ImmutableList.of(field(0, VARCHAR))).get();
 
@@ -179,7 +174,6 @@ public class TestPageProcessorCompiler
 
     @Test
     public void testNonDeterministicProject()
-            throws Exception
     {
         Signature lessThan = internalOperator(LESS_THAN, BOOLEAN, ImmutableList.of(BIGINT, BIGINT));
         CallExpression random = new CallExpression(

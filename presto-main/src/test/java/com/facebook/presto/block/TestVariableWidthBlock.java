@@ -43,7 +43,6 @@ public class TestVariableWidthBlock
 
     @Test
     public void testCopyRegion()
-            throws Exception
     {
         Slice[] expectedValues = createExpectedValues(100);
         Block block = createBlockBuilderWithValues(expectedValues).build();
@@ -55,7 +54,6 @@ public class TestVariableWidthBlock
 
     @Test
     public void testCopyPositions()
-            throws Exception
     {
         Slice[] expectedValues = (Slice[]) alternatingNullValues(createExpectedValues(100));
         BlockBuilder blockBuilder = createBlockBuilderWithValues(expectedValues);
@@ -64,7 +62,6 @@ public class TestVariableWidthBlock
 
     @Test
     public void testLazyBlockBuilderInitialization()
-            throws Exception
     {
         Slice[] expectedValues = createExpectedValues(100);
         BlockBuilder emptyBlockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), 0, 0);

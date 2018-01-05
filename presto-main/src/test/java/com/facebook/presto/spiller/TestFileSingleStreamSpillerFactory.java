@@ -56,7 +56,6 @@ public class TestFileSingleStreamSpillerFactory
 
     @BeforeMethod
     public void setUp()
-            throws Exception
     {
         executor = MoreExecutors.listeningDecorator(Executors.newCachedThreadPool());
         closer.register(() -> executor.shutdownNow());

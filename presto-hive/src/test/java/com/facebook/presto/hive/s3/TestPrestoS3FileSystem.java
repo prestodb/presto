@@ -404,7 +404,6 @@ public class TestPrestoS3FileSystem
 
     @Test(expectedExceptions = UnrecoverableS3OperationException.class, expectedExceptionsMessageRegExp = ".*\\Q (Path: /tmp/test/path)\\E")
     public void testUnrecoverableS3ExceptionMessage()
-            throws Exception
     {
         throw new UnrecoverableS3OperationException(new Path("/tmp/test/path"), new IOException("test io exception"));
     }

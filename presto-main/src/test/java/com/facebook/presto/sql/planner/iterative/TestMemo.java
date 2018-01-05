@@ -30,7 +30,6 @@ public class TestMemo
 
     @Test
     public void testInitialization()
-            throws Exception
     {
         PlanNode plan = node(node());
         Memo memo = new Memo(idAllocator, plan);
@@ -45,7 +44,6 @@ public class TestMemo
      */
     @Test
     public void testReplaceSubtree()
-            throws Exception
     {
         PlanNode plan = node(node(node()));
 
@@ -65,7 +63,6 @@ public class TestMemo
      */
     @Test
     public void testReplaceNonLeafSubtree()
-            throws Exception
     {
         PlanNode w = node();
         PlanNode z = node(w);
@@ -102,7 +99,6 @@ public class TestMemo
      */
     @Test
     public void testRemoveNode()
-            throws Exception
     {
         PlanNode z = node();
         PlanNode y = node(z);
@@ -129,7 +125,6 @@ public class TestMemo
      */
     @Test
     public void testInsertNode()
-            throws Exception
     {
         PlanNode z = node();
         PlanNode x = node(z);
@@ -158,7 +153,6 @@ public class TestMemo
      */
     @Test
     public void testMultipleReferences()
-            throws Exception
     {
         PlanNode z = node();
         PlanNode y = node(z);

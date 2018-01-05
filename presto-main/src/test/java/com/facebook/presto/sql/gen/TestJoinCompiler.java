@@ -55,7 +55,6 @@ public class TestJoinCompiler
 
     @Test(dataProvider = "hashEnabledValues")
     public void testSingleChannel(boolean hashEnabled)
-            throws Exception
     {
         List<Type> joinTypes = ImmutableList.of(VARCHAR);
         List<Integer> joinChannels = Ints.asList(0);
@@ -135,7 +134,6 @@ public class TestJoinCompiler
 
     @Test(dataProvider = "hashEnabledValues")
     public void testMultiChannel(boolean hashEnabled)
-            throws Exception
     {
         // compile a single channel hash strategy
         JoinCompiler joinCompiler = new JoinCompiler();

@@ -23,7 +23,6 @@ public class TestCharOperators
 {
     @Test
     public void testEqual()
-            throws Exception
     {
         assertFunction("cast('foo' as char(3)) = cast('foo' as char(5))", BOOLEAN, false);
         assertFunction("cast('foo' as char(3)) = cast('foo' as char(3))", BOOLEAN, true);
@@ -40,7 +39,6 @@ public class TestCharOperators
 
     @Test
     public void testNotEqual()
-            throws Exception
     {
         assertFunction("cast('foo' as char(3)) <> cast('foo' as char(5))", BOOLEAN, true);
         assertFunction("cast('foo' as char(3)) <> cast('foo' as char(3))", BOOLEAN, false);
@@ -57,7 +55,6 @@ public class TestCharOperators
 
     @Test
     public void testLessThan()
-            throws Exception
     {
         assertFunction("cast('bar' as char(5)) < cast('foo' as char(3))", BOOLEAN, true);
         assertFunction("cast('foo' as char(5)) < cast('bar' as char(3))", BOOLEAN, false);
@@ -80,7 +77,6 @@ public class TestCharOperators
 
     @Test
     public void testLessThanOrEqual()
-            throws Exception
     {
         assertFunction("cast('bar' as char(5)) <= cast('foo' as char(3))", BOOLEAN, true);
         assertFunction("cast('foo' as char(5)) <= cast('bar' as char(3))", BOOLEAN, false);
@@ -103,7 +99,6 @@ public class TestCharOperators
 
     @Test
     public void testGreaterThan()
-            throws Exception
     {
         assertFunction("cast('bar' as char(5)) > cast('foo' as char(3))", BOOLEAN, false);
         assertFunction("cast('foo' as char(5)) > cast('bar' as char(3))", BOOLEAN, true);
@@ -126,7 +121,6 @@ public class TestCharOperators
 
     @Test
     public void testGreaterThanOrEqual()
-            throws Exception
     {
         assertFunction("cast('bar' as char(5)) >= cast('foo' as char(3))", BOOLEAN, false);
         assertFunction("cast('foo' as char(5)) >= cast('bar' as char(3))", BOOLEAN, true);
@@ -149,7 +143,6 @@ public class TestCharOperators
 
     @Test
     public void testBetween()
-            throws Exception
     {
         assertFunction("cast('bbb' as char(3)) BETWEEN cast('aaa' as char(3)) AND cast('ccc' as char(3))", BOOLEAN, true);
         assertFunction("cast('foo' as char(3)) BETWEEN cast('foo' as char(3)) AND cast('foo' as char(3))", BOOLEAN, true);
@@ -175,7 +168,6 @@ public class TestCharOperators
 
     @Test
     public void testIsDistinctFrom()
-            throws Exception
     {
         assertFunction("cast(NULL as char(3)) IS DISTINCT FROM cast(NULL as char(3))", BOOLEAN, false);
         assertFunction("cast(NULL as char(3)) IS DISTINCT FROM cast(NULL as char(5))", BOOLEAN, false);

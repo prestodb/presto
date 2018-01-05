@@ -29,7 +29,6 @@ public class TestRemoveFullSample
 {
     @Test
     public void testDoesNotFire()
-            throws Exception
     {
         tester().assertThat(new RemoveFullSample())
                 .on(p ->
@@ -42,7 +41,6 @@ public class TestRemoveFullSample
 
     @Test
     public void test()
-            throws Exception
     {
         tester().assertThat(new RemoveFullSample())
                 .on(p ->

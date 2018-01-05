@@ -60,7 +60,6 @@ public class TestSwapAdjacentWindowsBySpecifications
 
     @Test
     public void doesNotFireOnPlanWithoutWindowFunctions()
-            throws Exception
     {
         tester().assertThat(new GatherAndMergeWindows.SwapAdjacentWindowsBySpecifications(0))
                 .on(p -> p.values(p.symbol("a")))
@@ -69,7 +68,6 @@ public class TestSwapAdjacentWindowsBySpecifications
 
     @Test
     public void doesNotFireOnPlanWithSingleWindowNode()
-            throws Exception
     {
         tester().assertThat(new GatherAndMergeWindows.SwapAdjacentWindowsBySpecifications(0))
                 .on(p -> p.window(new WindowNode.Specification(
@@ -84,7 +82,6 @@ public class TestSwapAdjacentWindowsBySpecifications
 
     @Test
     public void subsetComesFirst()
-            throws Exception
     {
         String columnAAlias = "ALIAS_A";
         String columnBAlias = "ALIAS_B";
@@ -122,7 +119,6 @@ public class TestSwapAdjacentWindowsBySpecifications
 
     @Test
     public void dependentWindowsAreNotReordered()
-            throws Exception
     {
         Optional<Window> windowA = Optional.of(new Window(ImmutableList.of(new SymbolReference("a")), Optional.empty(), Optional.empty()));
 

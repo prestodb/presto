@@ -67,7 +67,6 @@ public class TestLocalQueries
 
     @Test
     public void testShowColumnStats()
-            throws Exception
     {
         // FIXME Add tests for more complex scenario with more stats
         MaterializedResult result = computeActual("SHOW STATS FOR nation");

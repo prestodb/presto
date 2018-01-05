@@ -27,7 +27,6 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
-import java.sql.SQLException;
 
 import static com.facebook.presto.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
@@ -60,7 +59,6 @@ public class TestMySqlTypeMapping
     }
 
     private TestMySqlTypeMapping(TestingMySqlServer mysqlServer)
-            throws Exception
     {
         super(() -> createMySqlQueryRunner(mysqlServer, emptyList()));
         this.mysqlServer = mysqlServer;
@@ -195,13 +193,11 @@ public class TestMySqlTypeMapping
 
     @Test
     public void testDecimalExceedingPrecisionMax()
-            throws SQLException
     {
         testUnsupportedDataType("decimal(50,0)");
     }
 
     private void testUnsupportedDataType(String databaseDataType)
-            throws SQLException
     {
         JdbcSqlExecutor jdbcSqlExecutor = new JdbcSqlExecutor(mysqlServer.getJdbcUrl());
         jdbcSqlExecutor.execute(format("CREATE TABLE tpch.test_unsupported_data_type(supported_column varchar(5), unsupported_column %s)", databaseDataType));

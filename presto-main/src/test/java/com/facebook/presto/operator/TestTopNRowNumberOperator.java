@@ -77,7 +77,6 @@ public class TestTopNRowNumberOperator
 
     @Test(dataProvider = "hashEnabledValues")
     public void testTopNRowNumberPartitioned(boolean hashEnabled)
-            throws Exception
     {
         RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), BIGINT, DOUBLE);
         List<Page> input = rowPagesBuilder
@@ -127,7 +126,6 @@ public class TestTopNRowNumberOperator
 
     @Test
     public void testTopNRowNumberUnPartitioned()
-            throws Exception
     {
         List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
                 .row(1L, 0.3)

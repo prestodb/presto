@@ -38,7 +38,6 @@ public class TestColumnarRow
 
     @Test
     public void test()
-            throws Exception
     {
         Slice[][] expectedValues = new Slice[POSITION_COUNT][];
         for (int i = 0; i < POSITION_COUNT; i++) {

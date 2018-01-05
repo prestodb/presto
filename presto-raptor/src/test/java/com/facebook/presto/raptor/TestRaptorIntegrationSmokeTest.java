@@ -59,7 +59,6 @@ public class TestRaptorIntegrationSmokeTest
 {
     @SuppressWarnings("unused")
     public TestRaptorIntegrationSmokeTest()
-            throws Exception
     {
         this(() -> createRaptorQueryRunner(ImmutableMap.of(), true, false));
     }
@@ -71,7 +70,6 @@ public class TestRaptorIntegrationSmokeTest
 
     @Test
     public void testCreateArrayTable()
-            throws Exception
     {
         assertUpdate("CREATE TABLE array_test AS SELECT ARRAY [1, 2, 3] AS c", 1);
         assertQuery("SELECT cardinality(c) FROM array_test", "SELECT 3");
@@ -80,7 +78,6 @@ public class TestRaptorIntegrationSmokeTest
 
     @Test
     public void testMapTable()
-            throws Exception
     {
         assertUpdate("CREATE TABLE map_test AS SELECT MAP(ARRAY [1, 2, 3], ARRAY ['hi', 'bye', NULL]) AS c", 1);
         assertQuery("SELECT c[1] FROM map_test", "SELECT 'hi'");
@@ -90,7 +87,6 @@ public class TestRaptorIntegrationSmokeTest
 
     @Test
     public void testCreateTableViewAlreadyExists()
-            throws Exception
     {
         assertUpdate("CREATE VIEW view_already_exists AS SELECT 1 a");
         assertQueryFails("CREATE TABLE view_already_exists(a integer)", "View already exists: tpch.view_already_exists");
@@ -102,7 +98,6 @@ public class TestRaptorIntegrationSmokeTest
 
     @Test
     public void testCreateViewTableAlreadyExists()
-            throws Exception
     {
         assertUpdate("CREATE TABLE table_already_exists (id integer)");
         assertQueryFails("CREATE VIEW table_already_exists AS SELECT 1 a", "Table already exists: tpch.table_already_exists");
@@ -114,7 +109,6 @@ public class TestRaptorIntegrationSmokeTest
 
     @Test
     public void testInsertSelectDecimal()
-            throws Exception
     {
         assertUpdate("CREATE TABLE test_decimal(short_decimal DECIMAL(5,2), long_decimal DECIMAL(25,20))");
         assertUpdate("INSERT INTO test_decimal VALUES(DECIMAL '123.45', DECIMAL '12345.12345678901234567890')", "VALUES(1)");
@@ -125,7 +119,6 @@ public class TestRaptorIntegrationSmokeTest
 
     @Test
     public void testShardUuidHiddenColumn()
-            throws Exception
     {
         assertUpdate("CREATE TABLE test_shard_uuid AS SELECT orderdate, orderkey FROM orders", "SELECT count(*) FROM orders");
 
@@ -147,7 +140,6 @@ public class TestRaptorIntegrationSmokeTest
 
     @Test
     public void testBucketNumberHiddenColumn()
-            throws Exception
     {
         assertUpdate("" +
                         "CREATE TABLE test_bucket_number " +
@@ -165,7 +157,6 @@ public class TestRaptorIntegrationSmokeTest
 
     @Test
     public void testShardingByTemporalDateColumn()
-            throws Exception
     {
         // Make sure we have at least 2 different orderdate.
         assertEquals(computeActual("SELECT count(DISTINCT orderdate) >= 2 FROM orders WHERE orderdate < date '1992-02-08'").getOnlyValue(), true);
@@ -198,7 +189,6 @@ public class TestRaptorIntegrationSmokeTest
 
     @Test
     public void testShardingByTemporalDateColumnBucketed()
-            throws Exception
     {
         // Make sure we have at least 2 different orderdate.
         assertEquals(computeActual("SELECT count(DISTINCT orderdate) >= 2 FROM orders WHERE orderdate < date '1992-02-08'").getOnlyValue(), true);
@@ -231,7 +221,6 @@ public class TestRaptorIntegrationSmokeTest
 
     @Test
     public void testShardingByTemporalTimestampColumn()
-            throws Exception
     {
         // Make sure we have at least 2 different orderdate.
         assertEquals(computeActual("SELECT count(DISTINCT orderdate) >= 2 FROM orders WHERE orderdate < date '1992-02-08'").getOnlyValue(), true);
@@ -265,7 +254,6 @@ public class TestRaptorIntegrationSmokeTest
 
     @Test
     public void testShardingByTemporalTimestampColumnBucketed()
-            throws Exception
     {
         // Make sure we have at least 2 different orderdate.
         assertEquals(computeActual("SELECT count(DISTINCT orderdate) >= 2 FROM orders WHERE orderdate < date '1992-02-08'").getOnlyValue(), true);
@@ -304,7 +292,6 @@ public class TestRaptorIntegrationSmokeTest
 
     @Test
     public void testTableProperties()
-            throws Exception
     {
         computeActual("CREATE TABLE test_table_properties_1 (foo BIGINT, bar BIGINT, ds DATE) WITH (ordering=array['foo','bar'], temporal_column='ds')");
         computeActual("CREATE TABLE test_table_properties_2 (foo BIGINT, bar BIGINT, ds DATE) WITH (ORDERING=array['foo','bar'], TEMPORAL_COLUMN='ds')");
@@ -312,7 +299,6 @@ public class TestRaptorIntegrationSmokeTest
 
     @Test
     public void testShardsSystemTable()
-            throws Exception
     {
         assertQuery("" +
                         "SELECT table_schema, table_name, sum(row_count)\n" +
@@ -328,7 +314,6 @@ public class TestRaptorIntegrationSmokeTest
 
     @Test
     public void testShardsSystemTableWithTemporalColumn()
-            throws Exception
     {
         // Make sure we have rows in the selected range
         assertEquals(computeActual("SELECT count(*) >= 1 FROM orders WHERE orderdate BETWEEN date '1992-01-01' AND date '1992-02-08'").getOnlyValue(), true);
@@ -401,7 +386,6 @@ public class TestRaptorIntegrationSmokeTest
 
     @Test
     public void testCreateBucketedTable()
-            throws Exception
     {
         assertUpdate("" +
                         "CREATE TABLE orders_bucketed " +
@@ -433,7 +417,6 @@ public class TestRaptorIntegrationSmokeTest
 
     @Test
     public void testCreateBucketedTableLike()
-            throws Exception
     {
         assertUpdate("" +
                 "CREATE TABLE orders_bucketed_original (" +
@@ -474,7 +457,6 @@ public class TestRaptorIntegrationSmokeTest
 
     @Test
     public void testShowCreateTable()
-            throws Exception
     {
         String createTableSql = format("" +
                         "CREATE TABLE %s.%s.%s (\n" +
@@ -637,7 +619,6 @@ public class TestRaptorIntegrationSmokeTest
     @SuppressWarnings("OverlyStrongTypeCast")
     @Test
     public void testTableStatsSystemTable()
-            throws Exception
     {
         // basic sanity tests
         assertQuery("" +

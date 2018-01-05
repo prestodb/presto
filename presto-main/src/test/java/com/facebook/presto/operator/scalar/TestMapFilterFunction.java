@@ -41,7 +41,6 @@ public class TestMapFilterFunction
 
     @Test
     public void testEmpty()
-            throws Exception
     {
         assertFunction("map_filter(map(ARRAY[], ARRAY[]), (k, v) -> true)", mapType(UNKNOWN, UNKNOWN), ImmutableMap.of());
         assertFunction("map_filter(map(ARRAY[], ARRAY[]), (k, v) -> false)", mapType(UNKNOWN, UNKNOWN), ImmutableMap.of());
@@ -51,7 +50,6 @@ public class TestMapFilterFunction
 
     @Test
     public void testNull()
-            throws Exception
     {
         Map<Integer, Void> oneToNullMap = new HashMap<>();
         oneToNullMap.put(1, null);
@@ -68,7 +66,6 @@ public class TestMapFilterFunction
 
     @Test
     public void testBasic()
-            throws Exception
     {
         assertFunction(
                 "map_filter(map(ARRAY [5, 6, 7, 8], ARRAY [5, 6, 6, 5]), (x, y) -> x <= 6 OR y = 5)",
@@ -90,7 +87,6 @@ public class TestMapFilterFunction
 
     @Test
     public void testTypeCombinations()
-            throws Exception
     {
         assertFunction(
                 "map_filter(map(ARRAY [25, 26, 27], ARRAY [25, 26, 27]), (k, v) -> k = 25 OR v = 27)",

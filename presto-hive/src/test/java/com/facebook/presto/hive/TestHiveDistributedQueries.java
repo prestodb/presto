@@ -22,7 +22,6 @@ public class TestHiveDistributedQueries
         extends AbstractTestDistributedQueries
 {
     public TestHiveDistributedQueries()
-            throws Exception
     {
         super(() -> createQueryRunner(getTables()));
     }

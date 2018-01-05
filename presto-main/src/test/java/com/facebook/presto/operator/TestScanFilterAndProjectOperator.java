@@ -92,7 +92,6 @@ public class TestScanFilterAndProjectOperator
 
     @Test
     public void testPageSource()
-            throws Exception
     {
         final Page input = SequencePageBuilder.createSequencePage(ImmutableList.of(VARCHAR), 10_000, 0);
         DriverContext driverContext = newDriverContext();
@@ -126,7 +125,6 @@ public class TestScanFilterAndProjectOperator
 
     @Test
     public void testPageSourceMergeOutput()
-            throws Exception
     {
         List<Page> input = rowPagesBuilder(BIGINT)
                 .addSequencePage(100, 0)
@@ -175,7 +173,6 @@ public class TestScanFilterAndProjectOperator
 
     @Test
     public void testPageSourceLazyLoad()
-            throws Exception
     {
         Block inputBlock = BlockAssertions.createLongSequenceBlock(0, 100);
         // If column 1 is loaded, test will fail
@@ -213,7 +210,6 @@ public class TestScanFilterAndProjectOperator
 
     @Test
     public void testRecordCursorSource()
-            throws Exception
     {
         final Page input = SequencePageBuilder.createSequencePage(ImmutableList.of(VARCHAR), 10_000, 0);
         DriverContext driverContext = newDriverContext();
@@ -247,7 +243,6 @@ public class TestScanFilterAndProjectOperator
 
     @Test
     public void testPageYield()
-            throws Exception
     {
         int totalRows = 1000;
         Page input = SequencePageBuilder.createSequencePage(ImmutableList.of(BIGINT), totalRows, 1);
@@ -309,7 +304,6 @@ public class TestScanFilterAndProjectOperator
 
     @Test
     public void testRecordCursorYield()
-            throws Exception
     {
         // create a generic long function that yields for projection on every row
         // verify we will yield #row times totally

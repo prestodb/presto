@@ -27,14 +27,12 @@ public class TestTpcds
 {
     @SuppressWarnings("unused")
     public TestTpcds()
-            throws Exception
     {
         super(TpcdsQueryRunner::createQueryRunner);
     }
 
     @Test
     public void testSelect()
-            throws Exception
     {
         MaterializedResult actual = computeActual(
                 "SELECT c_first_name, c_last_name, ca_address_sk, ca_gmt_offset " +

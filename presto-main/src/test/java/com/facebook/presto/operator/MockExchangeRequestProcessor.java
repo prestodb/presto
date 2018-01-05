@@ -78,7 +78,6 @@ public class MockExchangeRequestProcessor
 
     @Override
     public Response handle(Request request)
-            throws Exception
     {
         if (request.getMethod().equalsIgnoreCase("DELETE")) {
             return new TestingResponse(HttpStatus.NO_CONTENT, ImmutableListMultimap.of(), new byte[0]);

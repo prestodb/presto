@@ -22,7 +22,6 @@ public class TestLikePredicate
 {
     @Test
     public void testGetChildren()
-            throws Exception
     {
         StringLiteral value = new StringLiteral("a");
         StringLiteral pattern = new StringLiteral("b");

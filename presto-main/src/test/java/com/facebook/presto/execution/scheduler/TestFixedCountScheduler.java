@@ -57,7 +57,6 @@ public class TestFixedCountScheduler
 
     @Test
     public void testSingleNode()
-            throws Exception
     {
         FixedCountScheduler nodeScheduler = new FixedCountScheduler(
                 (node, partition) -> taskFactory.createTableScanTask(
@@ -75,7 +74,6 @@ public class TestFixedCountScheduler
 
     @Test
     public void testMultipleNodes()
-            throws Exception
     {
         FixedCountScheduler nodeScheduler = new FixedCountScheduler(
                 (node, partition) -> taskFactory.createTableScanTask(

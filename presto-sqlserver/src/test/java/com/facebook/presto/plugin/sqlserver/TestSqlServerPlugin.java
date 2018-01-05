@@ -25,7 +25,6 @@ public class TestSqlServerPlugin
 {
     @Test
     public void testCreateConnector()
-            throws Exception
     {
         Plugin plugin = new SqlServerPlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());

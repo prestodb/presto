@@ -49,7 +49,6 @@ public class TestDeallocateTask
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
-            throws Exception
     {
         executor.shutdownNow();
     }

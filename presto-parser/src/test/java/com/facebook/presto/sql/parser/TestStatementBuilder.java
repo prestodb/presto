@@ -36,7 +36,6 @@ public class TestStatementBuilder
 
     @Test
     public void testStatementBuilder()
-            throws Exception
     {
         printStatement("select * from foo");
         printStatement("explain select * from foo");
@@ -260,7 +259,6 @@ public class TestStatementBuilder
 
     @Test
     public void testStringFormatter()
-            throws Exception
     {
         assertSqlFormatter("U&'hello\\6d4B\\8Bd5\\+10FFFFworld\\7F16\\7801'",
                 "U&'hello\\6D4B\\8BD5\\+10FFFFworld\\7F16\\7801'");

@@ -25,7 +25,6 @@ import com.teradata.tempto.query.QueryExecutionException;
 import com.teradata.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
-import java.sql.SQLException;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -92,7 +91,6 @@ public class TestTablePartitioningSelect
 
     @Test(groups = {HIVE_CONNECTOR})
     public void testSelectPartitionedHiveTableDifferentFormats()
-            throws SQLException
     {
         String tableNameInDatabase = tablesState.get(TABLE_NAME).getNameInDatabase();
 

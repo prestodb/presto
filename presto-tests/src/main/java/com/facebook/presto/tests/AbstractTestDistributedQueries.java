@@ -740,7 +740,6 @@ public abstract class AbstractTestDistributedQueries
 
     @Test
     public void testQueryLoggingCount()
-            throws Exception
     {
         QueryManager queryManager = ((DistributedQueryRunner) getQueryRunner()).getCoordinator().getQueryManager();
         executeExclusively(() -> {
@@ -830,7 +829,6 @@ public abstract class AbstractTestDistributedQueries
 
     @Test
     public void testSymbolAliasing()
-            throws Exception
     {
         assertUpdate("CREATE TABLE test_symbol_aliasing AS SELECT 1 foo_1, 2 foo_2_4", 1);
         assertQuery("SELECT foo_1, foo_2_4 FROM test_symbol_aliasing", "SELECT 1, 2");
@@ -839,7 +837,6 @@ public abstract class AbstractTestDistributedQueries
 
     @Test
     public void testNonQueryAccessControl()
-            throws Exception
     {
         skipTestUnless(supportsViews());
 
@@ -867,7 +864,6 @@ public abstract class AbstractTestDistributedQueries
 
     @Test
     public void testViewAccessControl()
-            throws Exception
     {
         skipTestUnless(supportsViews());
 

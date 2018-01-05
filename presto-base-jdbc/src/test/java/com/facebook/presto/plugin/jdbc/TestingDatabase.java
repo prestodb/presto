@@ -91,7 +91,6 @@ final class TestingDatabase
     }
 
     public JdbcSplit getSplit(String schemaName, String tableName)
-            throws InterruptedException
     {
         JdbcTableHandle jdbcTableHandle = jdbcClient.getTableHandle(new SchemaTableName(schemaName, tableName));
         JdbcTableLayoutHandle jdbcLayoutHandle = new JdbcTableLayoutHandle(jdbcTableHandle, TupleDomain.all());

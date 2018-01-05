@@ -28,7 +28,6 @@ public class TestDistributedSpilledQueries
         extends AbstractTestQueries
 {
     public TestDistributedSpilledQueries()
-            throws Exception
     {
         super(TestDistributedSpilledQueries::createQueryRunner);
     }

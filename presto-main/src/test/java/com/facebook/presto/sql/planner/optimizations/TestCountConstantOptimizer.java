@@ -44,7 +44,6 @@ public class TestCountConstantOptimizer
 {
     @Test
     public void testCountConstantOptimizer()
-            throws Exception
     {
         CountConstantOptimizer optimizer = new CountConstantOptimizer();
         PlanNodeIdAllocator planNodeIdAllocator = new PlanNodeIdAllocator();

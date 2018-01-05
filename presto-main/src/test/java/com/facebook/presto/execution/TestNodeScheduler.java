@@ -79,7 +79,6 @@ public class TestNodeScheduler
 
     @BeforeMethod
     public void setUp()
-            throws Exception
     {
         finalizerService = new FinalizerService();
         nodeTaskMap = new NodeTaskMap(finalizerService);
@@ -108,7 +107,6 @@ public class TestNodeScheduler
 
     @AfterMethod
     public void tearDown()
-            throws Exception
     {
         remoteTaskExecutor.shutdown();
         remoteTaskScheduledExecutor.shutdown();
@@ -117,7 +115,6 @@ public class TestNodeScheduler
 
     @Test
     public void testScheduleLocal()
-            throws Exception
     {
         Split split = new Split(CONNECTOR_ID, TestingTransactionHandle.create(), new TestSplitLocal());
         Set<Split> splits = ImmutableSet.of(split);
@@ -268,7 +265,6 @@ public class TestNodeScheduler
 
     @Test
     public void testScheduleRemote()
-            throws Exception
     {
         Set<Split> splits = new HashSet<>();
         splits.add(new Split(CONNECTOR_ID, TestingTransactionHandle.create(), new TestSplitRemote()));
@@ -278,7 +274,6 @@ public class TestNodeScheduler
 
     @Test
     public void testBasicAssignment()
-            throws Exception
     {
         // One split for each node
         Set<Split> splits = new HashSet<>();
@@ -294,7 +289,6 @@ public class TestNodeScheduler
 
     @Test
     public void testMaxSplitsPerNode()
-            throws Exception
     {
         TestingTransactionHandle transactionHandle = TestingTransactionHandle.create();
 
@@ -333,7 +327,6 @@ public class TestNodeScheduler
 
     @Test
     public void testMaxSplitsPerNodePerTask()
-            throws Exception
     {
         TestingTransactionHandle transactionHandle = TestingTransactionHandle.create();
 
@@ -403,7 +396,6 @@ public class TestNodeScheduler
 
     @Test
     public void testSplitCount()
-            throws Exception
     {
         MockRemoteTaskFactory remoteTaskFactory = new MockRemoteTaskFactory(remoteTaskExecutor, remoteTaskScheduledExecutor);
         Node chosenNode = Iterables.get(nodeManager.getActiveConnectorNodes(CONNECTOR_ID), 0);

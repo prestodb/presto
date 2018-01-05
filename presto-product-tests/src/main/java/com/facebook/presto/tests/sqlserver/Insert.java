@@ -24,7 +24,6 @@ import io.airlift.log.Logger;
 import org.testng.annotations.Test;
 
 import java.sql.Date;
-import java.sql.SQLException;
 
 import static com.facebook.presto.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static com.facebook.presto.tests.TestGroups.SQL_SERVER;
@@ -65,7 +64,6 @@ public class Insert
 
     @Test(groups = {SQL_SERVER, PROFILE_SPECIFIC_TESTS})
     public void testInsertMin()
-            throws SQLException
     {
         String sql = format(
                 "INSERT INTO %s.%s values (BIGINT '%s', SMALLINT '%s', INTEGER '%s', DOUBLE '%s', " +
@@ -87,7 +85,6 @@ public class Insert
 
     @Test(groups = {SQL_SERVER, PROFILE_SPECIFIC_TESTS})
     public void testInsertMax()
-            throws SQLException
     {
         String sql = format(
                 "INSERT INTO %s.%s values (BIGINT '%s', SMALLINT '%s', INTEGER '%s', DOUBLE '%s', " +
@@ -109,7 +106,6 @@ public class Insert
 
     @Test(groups = {SQL_SERVER, PROFILE_SPECIFIC_TESTS})
     public void testInsertNull()
-            throws SQLException
     {
         String sql = format(
                 "INSERT INTO %s.%s values (null, null, null, null, null, null, null, null)",

@@ -45,7 +45,6 @@ public class TestExpressionVerifier
 
     @Test
     public void testCast()
-            throws Exception
     {
         SymbolAliases aliases = SymbolAliases.builder()
                 .put("X", new SymbolReference("orderkey"))
@@ -59,7 +58,6 @@ public class TestExpressionVerifier
 
     @Test
     public void testBetween()
-            throws Exception
     {
         SymbolAliases symbolAliases = SymbolAliases.builder()
                 .put("X", new SymbolReference("orderkey"))

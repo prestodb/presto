@@ -19,8 +19,6 @@ import com.teradata.tempto.RequirementsProvider;
 import com.teradata.tempto.configuration.Configuration;
 import org.testng.annotations.Test;
 
-import java.sql.SQLException;
-
 import static com.facebook.presto.tests.TestGroups.CASSANDRA;
 import static com.facebook.presto.tests.cassandra.CassandraTpchTableDefinitions.CASSANDRA_NATION;
 import static com.facebook.presto.tests.cassandra.TestConstants.CONNECTOR_NAME;
@@ -42,7 +40,6 @@ public class NegativeTests
 
     @Test(groups = CASSANDRA)
     public void testInvalidTable()
-            throws SQLException
     {
         String tableName = format("%s.%s.%s", CONNECTOR_NAME, KEY_SPACE, "bogus");
         assertThat(() -> query(format("SELECT * FROM %s", tableName)))
@@ -51,7 +48,6 @@ public class NegativeTests
 
     @Test(groups = CASSANDRA)
     public void testInvalidSchema()
-            throws SQLException
     {
         String tableName = format("%s.%s.%s", CONNECTOR_NAME, "does_not_exist", "bogus");
         assertThat(() -> query(format("SELECT * FROM %s", tableName)))
@@ -60,7 +56,6 @@ public class NegativeTests
 
     @Test(groups = CASSANDRA)
     public void testInvalidColumn()
-            throws SQLException
     {
         String tableName = format("%s.%s.%s", CONNECTOR_NAME, KEY_SPACE, CASSANDRA_NATION.getName());
         assertThat(() -> query(format("SELECT bogus FROM %s", tableName)))

@@ -42,14 +42,12 @@ public class TestJmxQueries
             .build();
 
     public TestJmxQueries()
-            throws Exception
     {
         super(JmxQueryRunner::createJmxQueryRunner);
     }
 
     @Test
     public void testShowSchemas()
-            throws Exception
     {
         MaterializedResult result = computeActual("SHOW SCHEMAS");
         assertEquals(result.getOnlyColumnAsSet(), ImmutableSet.of(INFORMATION_SCHEMA, JMX_SCHEMA_NAME, HISTORY_SCHEMA_NAME));
@@ -57,7 +55,6 @@ public class TestJmxQueries
 
     @Test
     public void testShowTables()
-            throws Exception
     {
         Set<String> standardNamesLower = STANDARD_NAMES.stream()
                 .map(String::toLowerCase)
@@ -68,7 +65,6 @@ public class TestJmxQueries
 
     @Test
     public void testQuery()
-            throws Exception
     {
         for (String name : STANDARD_NAMES) {
             computeActual(format("SELECT * FROM \"%s\"", name));

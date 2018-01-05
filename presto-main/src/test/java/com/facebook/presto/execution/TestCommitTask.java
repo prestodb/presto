@@ -54,14 +54,12 @@ public class TestCommitTask
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
-            throws Exception
     {
         executor.shutdownNow();
     }
 
     @Test
     public void testCommit()
-            throws Exception
     {
         TransactionManager transactionManager = createTestTransactionManager();
         AccessControl accessControl = new AccessControlManager(transactionManager);
@@ -82,7 +80,6 @@ public class TestCommitTask
 
     @Test
     public void testNoTransactionCommit()
-            throws Exception
     {
         TransactionManager transactionManager = createTestTransactionManager();
         AccessControl accessControl = new AccessControlManager(transactionManager);
@@ -111,7 +108,6 @@ public class TestCommitTask
 
     @Test
     public void testUnknownTransactionCommit()
-            throws Exception
     {
         TransactionManager transactionManager = createTestTransactionManager();
         AccessControl accessControl = new AccessControlManager(transactionManager);

@@ -36,7 +36,6 @@ public class TestPruneFilterColumns
 {
     @Test
     public void testNotAllInputsReferenced()
-            throws Exception
     {
         tester().assertThat(new PruneFilterColumns())
                 .on(p -> buildProjectedFilter(p, symbol -> symbol.getName().equals("b")))
@@ -52,7 +51,6 @@ public class TestPruneFilterColumns
 
     @Test
     public void testAllInputsReferenced()
-            throws Exception
     {
         tester().assertThat(new PruneFilterColumns())
                 .on(p -> buildProjectedFilter(p, symbol -> symbol.getName().equals("a")))
@@ -61,7 +59,6 @@ public class TestPruneFilterColumns
 
     @Test
     public void testAllOutputsReferenced()
-            throws Exception
     {
         tester().assertThat(new PruneFilterColumns())
                 .on(p -> buildProjectedFilter(p, alwaysTrue()))

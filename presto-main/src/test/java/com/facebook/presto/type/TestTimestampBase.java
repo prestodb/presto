@@ -60,7 +60,6 @@ public abstract class TestTimestampBase
 
     @Test
     public void testSubstract()
-            throws Exception
     {
         functionAssertions.assertFunctionString("TIMESTAMP '2017-03-30 14:15:16.432' - TIMESTAMP '2016-03-29 03:04:05.321'",
                 INTERVAL_DAY_TIME,
@@ -172,7 +171,6 @@ public abstract class TestTimestampBase
 
     @Test
     public void testCastToDate()
-            throws Exception
     {
         long millis = new DateTime(2001, 1, 22, 0, 0, UTC).getMillis();
         assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05.321' as date)", DATE, new SqlDate((int) TimeUnit.MILLISECONDS.toDays(millis)));
@@ -180,14 +178,12 @@ public abstract class TestTimestampBase
 
     @Test
     public void testCastToTime()
-            throws Exception
     {
         assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05.321' as time)", TIME, new SqlTime(new DateTime(1970, 1, 1, 3, 4, 5, 321, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY));
     }
 
     @Test
     public void testCastToTimeWithTimeZone()
-            throws Exception
     {
         assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05.321' as time with time zone)",
                 TIME_WITH_TIME_ZONE,
@@ -266,7 +262,6 @@ public abstract class TestTimestampBase
 
     @Test
     public void testGreatest()
-            throws Exception
     {
         assertFunction("greatest(TIMESTAMP '2013-03-30 01:05', TIMESTAMP '2012-03-30 01:05')",
                 TIMESTAMP,
@@ -278,7 +273,6 @@ public abstract class TestTimestampBase
 
     @Test
     public void testLeast()
-            throws Exception
     {
         assertFunction("least(TIMESTAMP '2013-03-30 01:05', TIMESTAMP '2012-03-30 01:05')",
                 TIMESTAMP,

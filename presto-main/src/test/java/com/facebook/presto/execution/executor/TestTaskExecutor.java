@@ -138,7 +138,6 @@ public class TestTaskExecutor
 
     @Test(invocationCount = 100)
     public void testQuantaFairness()
-            throws Exception
     {
         TestingTicker ticker = new TestingTicker();
         TaskExecutor taskExecutor = new TaskExecutor(1, 2, ticker);
@@ -173,7 +172,6 @@ public class TestTaskExecutor
 
     @Test(invocationCount = 100)
     public void testLevelMovement()
-            throws Exception
     {
         TestingTicker ticker = new TestingTicker();
         TaskExecutor taskExecutor = new TaskExecutor(2, 2, ticker);
@@ -353,7 +351,6 @@ public class TestTaskExecutor
 
     @Test
     public void testTaskHandle()
-            throws Exception
     {
         TestingTicker ticker = new TestingTicker();
         TaskExecutor taskExecutor = new TaskExecutor(4, 8, ticker);
@@ -390,7 +387,6 @@ public class TestTaskExecutor
 
     @Test
     public void testLevelContributionCap()
-            throws Exception
     {
         MultilevelSplitQueue splitQueue = new MultilevelSplitQueue(false, 2);
         TaskHandle handle0 = new TaskHandle(new TaskId("test0", 0, 0), splitQueue, () -> 1, 1, new Duration(1, SECONDS));
@@ -411,7 +407,6 @@ public class TestTaskExecutor
 
     @Test
     public void testUpdateLevelWithCap()
-            throws Exception
     {
         MultilevelSplitQueue splitQueue = new MultilevelSplitQueue(false, 2);
         TaskHandle handle0 = new TaskHandle(new TaskId("test0", 0, 0), splitQueue, () -> 1, 1, new Duration(1, SECONDS));
@@ -477,7 +472,6 @@ public class TestTaskExecutor
 
         @Override
         public ListenableFuture<?> processFor(Duration duration)
-                throws Exception
         {
             ticker.increment(quantaTimeMillis, MILLISECONDS);
             globalPhaser.arriveAndAwaitAdvance();

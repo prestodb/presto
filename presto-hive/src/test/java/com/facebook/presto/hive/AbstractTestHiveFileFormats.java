@@ -494,7 +494,6 @@ public abstract class AbstractTestHiveFileFormats
             ConnectorSession session,
             int numRows,
             HiveFileWriterFactory fileWriterFactory)
-            throws Exception
     {
         // filter out partition keys, which are not written to the file
         testColumns = ImmutableList.copyOf(filter(testColumns, not(TestColumn::isPartitionKey)));
@@ -616,7 +615,6 @@ public abstract class AbstractTestHiveFileFormats
     }
 
     protected void checkCursor(RecordCursor cursor, List<TestColumn> testColumns, int rowCount)
-            throws IOException
     {
         for (int row = 0; row < rowCount; row++) {
             assertTrue(cursor.advanceNextPosition());

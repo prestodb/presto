@@ -36,7 +36,6 @@ public class TestByteArrayBlock
 
     @Test
     public void testCopyPositions()
-            throws Exception
     {
         Slice[] expectedValues = (Slice[]) alternatingNullValues(createTestValue(17));
         BlockBuilder blockBuilder = createBlockBuilderWithValues(expectedValues);
@@ -45,7 +44,6 @@ public class TestByteArrayBlock
 
     @Test
     public void testLazyBlockBuilderInitialization()
-            throws Exception
     {
         Slice[] expectedValues = createTestValue(100);
         BlockBuilder emptyBlockBuilder = new ByteArrayBlockBuilder(new BlockBuilderStatus(), 0);

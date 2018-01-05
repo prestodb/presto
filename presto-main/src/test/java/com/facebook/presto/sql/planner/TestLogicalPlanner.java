@@ -78,7 +78,6 @@ public class TestLogicalPlanner
 {
     @Test
     public void testDistinctLimitOverInequalityJoin()
-            throws Exception
     {
         assertPlan("SELECT DISTINCT o.orderkey FROM orders o JOIN lineitem l ON o.orderkey < l.orderkey LIMIT 1",
                 anyTree(
@@ -108,7 +107,6 @@ public class TestLogicalPlanner
 
     @Test
     public void testInnerInequalityJoinNoEquiJoinConjuncts()
-            throws Exception
     {
         assertPlan("SELECT 1 FROM orders o JOIN lineitem l ON o.orderkey < l.orderkey",
                 anyTree(
@@ -120,7 +118,6 @@ public class TestLogicalPlanner
 
     @Test
     public void testInnerInequalityJoinWithEquiJoinConjuncts()
-            throws Exception
     {
         assertPlan("SELECT 1 FROM orders o JOIN lineitem l ON o.shippriority = l.linenumber AND o.orderkey < l.orderkey",
                 anyTree(
@@ -138,7 +135,6 @@ public class TestLogicalPlanner
 
     @Test
     public void testLeftConvertedToInnerInequalityJoinNoEquiJoinConjuncts()
-            throws Exception
     {
         assertPlan("SELECT 1 FROM orders o LEFT JOIN lineitem l ON o.orderkey < l.orderkey WHERE l.orderkey IS NOT NULL",
                 anyTree(

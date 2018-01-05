@@ -76,7 +76,6 @@ final class OrcTestingUtil
     }
 
     public static OrcRecordReader createRecordReader(OrcReader orcReader, Map<Integer, Type> includedColumns)
-            throws IOException
     {
         return orcReader.createRecordReader(includedColumns, OrcPredicate.TRUE, DateTimeZone.UTC, newSimpleAggregatedMemoryContext());
     }

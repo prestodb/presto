@@ -66,7 +66,6 @@ public class TestGroupIdOperator
     }
 
     public void testGroupId()
-            throws Exception
     {
         RowPagesBuilder rowPagesBuilder = rowPagesBuilder(false, ImmutableList.of(), BIGINT, VARCHAR, BOOLEAN, BIGINT);
         List<Page> input = rowPagesBuilder

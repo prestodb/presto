@@ -27,7 +27,6 @@ public class TestRandomPartitionerTokenRing
 
     @Test
     public void testGetRingFraction()
-            throws Exception
     {
         assertEquals(tokenRing.getTokenCountInRange("0", "1"), ONE);
         assertEquals(tokenRing.getTokenCountInRange("0", "200"), new BigInteger("200"));
@@ -40,7 +39,6 @@ public class TestRandomPartitionerTokenRing
 
     @Test
     public void testGetTokenCountInRange()
-            throws Exception
     {
         assertEquals(tokenRing.getRingFraction("0", "0"), 0.0, 0.001);
         assertEquals(tokenRing.getRingFraction("1", "0"), 1.0, 0.001);

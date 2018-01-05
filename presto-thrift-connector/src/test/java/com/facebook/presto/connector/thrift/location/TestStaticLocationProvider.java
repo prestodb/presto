@@ -27,7 +27,6 @@ public class TestStaticLocationProvider
 {
     @Test
     public void testGetAnyHostRoundRobin()
-            throws Exception
     {
         List<HostAddress> expected = ImmutableList.of(
                 HostAddress.fromParts("localhost1", 11111),

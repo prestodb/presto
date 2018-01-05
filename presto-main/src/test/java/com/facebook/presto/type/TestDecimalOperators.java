@@ -26,7 +26,6 @@ public class TestDecimalOperators
 {
     @Test
     public void testAdd()
-            throws Exception
     {
         // short short -> short
         assertDecimalFunction("DECIMAL '137.7' + DECIMAL '17.1'", decimal("0154.8"));
@@ -82,7 +81,6 @@ public class TestDecimalOperators
 
     @Test
     public void testSubtract()
-            throws Exception
     {
         // short short -> short
         assertDecimalFunction("DECIMAL '107.7' - DECIMAL '17.1'", decimal("0090.6"));
@@ -137,7 +135,6 @@ public class TestDecimalOperators
 
     @Test
     public void testMultiply()
-            throws Exception
     {
         // short short -> short
         assertDecimalFunction("DECIMAL '12' * DECIMAL '3'", decimal("036"));
@@ -181,7 +178,6 @@ public class TestDecimalOperators
 
     @Test
     public void testDivide()
-            throws Exception
     {
         // short short -> short
         assertDecimalFunction("DECIMAL '1' / DECIMAL '3'", decimal("0"));
@@ -261,7 +257,6 @@ public class TestDecimalOperators
 
     @Test
     public void testModulus()
-            throws Exception
     {
         // short short -> short
         assertDecimalFunction("DECIMAL '1' % DECIMAL '3'", decimal("1"));
@@ -326,7 +321,6 @@ public class TestDecimalOperators
 
     @Test
     public void testNegation()
-            throws Exception
     {
         // short
         assertDecimalFunction("-DECIMAL '1' ", decimal("-1"));
@@ -344,7 +338,6 @@ public class TestDecimalOperators
 
     @Test
     public void testEqual()
-            throws Exception
     {
         // short short
         assertFunction("DECIMAL '37' = DECIMAL '37'", BOOLEAN, true);
@@ -389,7 +382,6 @@ public class TestDecimalOperators
 
     @Test
     public void testNotEqual()
-            throws Exception
     {
         // short short
         assertFunction("DECIMAL '37' != DECIMAL '37'", BOOLEAN, false);
@@ -435,7 +427,6 @@ public class TestDecimalOperators
 
     @Test
     public void testLessThan()
-            throws Exception
     {
         // short short
         assertFunction("DECIMAL '37' < DECIMAL '37'", BOOLEAN, false);
@@ -488,7 +479,6 @@ public class TestDecimalOperators
 
     @Test
     public void testGreaterThan()
-            throws Exception
     {
         // short short
         assertFunction("DECIMAL '37' > DECIMAL '37'", BOOLEAN, false);
@@ -541,7 +531,6 @@ public class TestDecimalOperators
 
     @Test
     public void testLessThanOrEqual()
-            throws Exception
     {
         // short short
         assertFunction("DECIMAL '37' <= DECIMAL '36'", BOOLEAN, false);
@@ -594,7 +583,6 @@ public class TestDecimalOperators
 
     @Test
     public void testGreaterThanOrEqual()
-            throws Exception
     {
         // short short
         assertFunction("DECIMAL '37' >= DECIMAL '38'", BOOLEAN, false);
@@ -647,7 +635,6 @@ public class TestDecimalOperators
 
     @Test
     public void testBetween()
-            throws Exception
     {
         // short short short
         assertFunction("DECIMAL '1' BETWEEN DECIMAL '-5' AND DECIMAL '5'", BOOLEAN, true);
@@ -693,7 +680,6 @@ public class TestDecimalOperators
 
     @Test
     public void testAddDecimalBigint()
-            throws Exception
     {
         // decimal + bigint
         assertDecimalFunction("DECIMAL '123456789012345678' + 123456789012345678", decimal("00246913578024691356"));
@@ -708,7 +694,6 @@ public class TestDecimalOperators
 
     @Test
     public void testSubtractDecimalBigint()
-            throws Exception
     {
         // decimal - bigint
         assertDecimalFunction("DECIMAL '1234567890123456789' - 1234567890123456789", decimal("00000000000000000000"));
@@ -723,7 +708,6 @@ public class TestDecimalOperators
 
     @Test
     public void testMultiplyDecimalBigint()
-            throws Exception
     {
         // decimal bigint
         assertDecimalFunction("DECIMAL '12345678901234567' * 12345678901234567", decimal("000152415787532388345526596755677489"));
@@ -740,7 +724,6 @@ public class TestDecimalOperators
 
     @Test
     public void testDivideDecimalBigint()
-            throws Exception
     {
         // bigint / decimal
         assertDecimalFunction("BIGINT '9' / DECIMAL '3.0'", decimal("00000000000000000003.0"));
@@ -756,7 +739,6 @@ public class TestDecimalOperators
 
     @Test
     public void testModulusDecimalBigint()
-            throws Exception
     {
         // bigint % decimal
         assertDecimalFunction("BIGINT '13' % DECIMAL '9.0'", decimal("4.0"));
@@ -771,7 +753,6 @@ public class TestDecimalOperators
 
     @Test
     public void testIsDistinctFrom()
-            throws Exception
     {
         assertFunction("CAST(NULL AS DECIMAL) IS DISTINCT FROM CAST(NULL AS DECIMAL)", BOOLEAN, false);
         assertFunction("DECIMAL '37' IS DISTINCT FROM DECIMAL '37'", BOOLEAN, false);
@@ -809,7 +790,6 @@ public class TestDecimalOperators
 
     @Test
     public void testNullIf()
-            throws Exception
     {
         // short short
         assertDecimalFunction("nullif(DECIMAL '-2', DECIMAL '-3')", decimal("-2"));
@@ -841,7 +821,6 @@ public class TestDecimalOperators
 
     @Test
     public void testCoalesce()
-            throws Exception
     {
         assertDecimalFunction("coalesce(2.1, null, cast(null as decimal(5,3)))", decimal("02.100"));
         assertFunction("coalesce(cast(null as decimal(17,3)), null, cast(null as decimal(12,3)))", createDecimalType(17, 3), null);

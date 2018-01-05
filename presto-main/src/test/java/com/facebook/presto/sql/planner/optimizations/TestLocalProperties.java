@@ -48,7 +48,6 @@ public class TestLocalProperties
 {
     @Test
     public void testConstantProcessing()
-            throws Exception
     {
         assertEquals(stripLeadingConstants(ImmutableList.of()), ImmutableList.of());
         assertEquals(extractLeadingConstants(ImmutableList.of()), ImmutableSet.of());
@@ -80,7 +79,6 @@ public class TestLocalProperties
 
     @Test
     public void testTranslate()
-            throws Exception
     {
         Map<String, String> map = ImmutableMap.of();
         List<LocalProperty<String>> input = ImmutableList.of();
@@ -146,7 +144,6 @@ public class TestLocalProperties
 
     @Test
     public void testNormalizeEmpty()
-            throws Exception
     {
         List<LocalProperty<String>> localProperties = builder().build();
         assertNormalize(localProperties);
@@ -155,7 +152,6 @@ public class TestLocalProperties
 
     @Test
     public void testNormalizeSingleSmbolGroup()
-            throws Exception
     {
         List<LocalProperty<String>> localProperties = builder().grouped("a").build();
         assertNormalize(localProperties, Optional.of(grouped("a")));
@@ -164,7 +160,6 @@ public class TestLocalProperties
 
     @Test
     public void testNormalizeOverlappingSymbol()
-            throws Exception
     {
         List<LocalProperty<String>> localProperties = builder()
                 .grouped("a")
@@ -183,7 +178,6 @@ public class TestLocalProperties
 
     @Test
     public void testNormalizeComplexWithLeadingConstant()
-            throws Exception
     {
         List<LocalProperty<String>> localProperties = builder()
                 .constant("a")
@@ -206,7 +200,6 @@ public class TestLocalProperties
 
     @Test
     public void testNormalizeComplexWithMiddleConstant()
-            throws Exception
     {
         List<LocalProperty<String>> localProperties = builder()
                 .sorted("a", SortOrder.ASC_NULLS_FIRST)
@@ -229,7 +222,6 @@ public class TestLocalProperties
 
     @Test
     public void testNormalizeDifferentSorts()
-            throws Exception
     {
         List<LocalProperty<String>> localProperties = builder()
                 .sorted("a", SortOrder.ASC_NULLS_FIRST)
@@ -246,7 +238,6 @@ public class TestLocalProperties
 
     @Test
     public void testMatchedGroupHierarchy()
-            throws Exception
     {
         List<LocalProperty<String>> actual = builder()
                 .grouped("a")
@@ -312,7 +303,6 @@ public class TestLocalProperties
 
     @Test
     public void testGroupedTuple()
-            throws Exception
     {
         List<LocalProperty<String>> actual = builder()
                 .grouped("a", "b", "c")
@@ -347,7 +337,6 @@ public class TestLocalProperties
 
     @Test
     public void testGroupedDoubleThenSingle()
-            throws Exception
     {
         List<LocalProperty<String>> actual = builder()
                 .grouped("a", "b")
@@ -387,7 +376,6 @@ public class TestLocalProperties
 
     @Test
     public void testGroupedDoubleThenDouble()
-            throws Exception
     {
         List<LocalProperty<String>> actual = builder()
                 .grouped("a", "b")
@@ -427,7 +415,6 @@ public class TestLocalProperties
 
     @Test
     public void testSortProperties()
-            throws Exception
     {
         List<LocalProperty<String>> actual = builder()
                 .sorted("a", SortOrder.ASC_NULLS_FIRST)
@@ -477,7 +464,6 @@ public class TestLocalProperties
 
     @Test
     public void testSortGroupSort()
-            throws Exception
     {
         List<LocalProperty<String>> actual = builder()
                 .sorted("a", SortOrder.ASC_NULLS_FIRST)
@@ -543,7 +529,6 @@ public class TestLocalProperties
 
     @Test
     public void testPartialConstantGroup()
-            throws Exception
     {
         List<LocalProperty<String>> actual = builder()
                 .constant("a")
@@ -573,7 +558,6 @@ public class TestLocalProperties
 
     @Test
     public void testNonoverlappingConstantGroup()
-            throws Exception
     {
         List<LocalProperty<String>> actual = builder()
                 .constant("a")
@@ -612,7 +596,6 @@ public class TestLocalProperties
 
     @Test
     public void testConstantWithMultiGroup()
-            throws Exception
     {
         List<LocalProperty<String>> actual = builder()
                 .constant("a")
@@ -653,7 +636,6 @@ public class TestLocalProperties
 
     @Test
     public void testConstantWithSort()
-            throws Exception
     {
         List<LocalProperty<String>> actual = builder()
                 .constant("b")
@@ -675,7 +657,6 @@ public class TestLocalProperties
 
     @Test
     public void testMoreRequiredGroupsThanActual()
-            throws Exception
     {
         List<LocalProperty<String>> actual = builder()
                 .constant("b")
@@ -699,7 +680,6 @@ public class TestLocalProperties
 
     @Test
     public void testDifferentSortOrders()
-            throws Exception
     {
         List<LocalProperty<String>> actual = builder()
                 .sorted("a", SortOrder.ASC_NULLS_FIRST)

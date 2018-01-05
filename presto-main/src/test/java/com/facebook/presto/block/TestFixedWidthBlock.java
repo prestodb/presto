@@ -37,7 +37,6 @@ public class TestFixedWidthBlock
 
     @Test
     public void testCopyPositions()
-            throws Exception
     {
         for (int fixedSize = 0; fixedSize < 20; fixedSize++) {
             Slice[] expectedValues = (Slice[]) alternatingNullValues(createExpectedValues(17, fixedSize));
@@ -48,7 +47,6 @@ public class TestFixedWidthBlock
 
     @Test
     public void testLazyBlockBuilderInitialization()
-            throws Exception
     {
         for (int fixedSize = 0; fixedSize < 20; fixedSize++) {
             Slice[] expectedValues = (Slice[]) alternatingNullValues(createExpectedValues(17, fixedSize));

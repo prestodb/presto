@@ -24,7 +24,6 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.StandardTypes;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
@@ -45,7 +44,6 @@ public class TestEvaluateClassifierPredictions
 
     @Test
     public void testEvaluateClassifierPredictions()
-            throws Exception
     {
         metadata.addFunctions(extractFunctions(new MLPlugin().getFunctions()));
         InternalAggregationFunction aggregation = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
@@ -65,7 +63,6 @@ public class TestEvaluateClassifierPredictions
     }
 
     private static Page getPage()
-            throws JsonProcessingException
     {
         return RowPageBuilder.rowPageBuilder(BIGINT, BIGINT)
                 .row(1L, 1L)

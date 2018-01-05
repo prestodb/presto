@@ -40,7 +40,6 @@ public class TestSortedRangeSet
 {
     @Test
     public void testEmptySet()
-            throws Exception
     {
         SortedRangeSet rangeSet = SortedRangeSet.none(BIGINT);
         assertEquals(rangeSet.getType(), BIGINT);
@@ -57,7 +56,6 @@ public class TestSortedRangeSet
 
     @Test
     public void testEntireSet()
-            throws Exception
     {
         SortedRangeSet rangeSet = SortedRangeSet.all(BIGINT);
         assertEquals(rangeSet.getType(), BIGINT);
@@ -73,7 +71,6 @@ public class TestSortedRangeSet
 
     @Test
     public void testSingleValue()
-            throws Exception
     {
         SortedRangeSet rangeSet = SortedRangeSet.of(BIGINT, 10L);
 
@@ -94,7 +91,6 @@ public class TestSortedRangeSet
 
     @Test
     public void testBoundedSet()
-            throws Exception
     {
         SortedRangeSet rangeSet = SortedRangeSet.of(
                 Range.equal(BIGINT, 10L),
@@ -133,7 +129,6 @@ public class TestSortedRangeSet
 
     @Test
     public void testUnboundedSet()
-            throws Exception
     {
         SortedRangeSet rangeSet = SortedRangeSet.of(
                 Range.greaterThan(BIGINT, 10L),
@@ -169,7 +164,6 @@ public class TestSortedRangeSet
 
     @Test
     public void testGetSingleValue()
-            throws Exception
     {
         assertEquals(SortedRangeSet.of(BIGINT, 0L).getSingleValue(), 0L);
         try {
@@ -182,7 +176,6 @@ public class TestSortedRangeSet
 
     @Test
     public void testSpan()
-            throws Exception
     {
         try {
             SortedRangeSet.none(BIGINT).getSpan();
@@ -200,7 +193,6 @@ public class TestSortedRangeSet
 
     @Test
     public void testOverlaps()
-            throws Exception
     {
         assertTrue(SortedRangeSet.all(BIGINT).overlaps(SortedRangeSet.all(BIGINT)));
         assertFalse(SortedRangeSet.all(BIGINT).overlaps(SortedRangeSet.none(BIGINT)));
@@ -232,7 +224,6 @@ public class TestSortedRangeSet
 
     @Test
     public void testContains()
-            throws Exception
     {
         assertTrue(SortedRangeSet.all(BIGINT).contains(SortedRangeSet.all(BIGINT)));
         assertTrue(SortedRangeSet.all(BIGINT).contains(SortedRangeSet.none(BIGINT)));
@@ -264,7 +255,6 @@ public class TestSortedRangeSet
 
     @Test
     public void testIntersect()
-            throws Exception
     {
         assertEquals(
                 SortedRangeSet.none(BIGINT).intersect(
@@ -309,7 +299,6 @@ public class TestSortedRangeSet
 
     @Test
     public void testUnion()
-            throws Exception
     {
         assertUnion(SortedRangeSet.none(BIGINT), SortedRangeSet.none(BIGINT), SortedRangeSet.none(BIGINT));
         assertUnion(SortedRangeSet.all(BIGINT), SortedRangeSet.all(BIGINT), SortedRangeSet.all(BIGINT));
@@ -340,7 +329,6 @@ public class TestSortedRangeSet
 
     @Test
     public void testSubtract()
-            throws Exception
     {
         assertEquals(
                 SortedRangeSet.all(BIGINT).subtract(SortedRangeSet.all(BIGINT)),

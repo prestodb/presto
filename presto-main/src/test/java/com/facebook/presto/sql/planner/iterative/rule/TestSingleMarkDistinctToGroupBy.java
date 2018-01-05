@@ -32,7 +32,6 @@ public class TestSingleMarkDistinctToGroupBy
 {
     @Test
     public void testMultipleDistincts()
-            throws Exception
     {
         tester().assertThat(new SingleMarkDistinctToGroupBy())
                 .on(p -> p.aggregation(builder -> builder
@@ -54,7 +53,6 @@ public class TestSingleMarkDistinctToGroupBy
 
     @Test
     public void testDistinctWithFilter()
-            throws Exception
     {
         tester().assertThat(new SingleMarkDistinctToGroupBy())
                 .on(p -> p.aggregation(builder -> builder

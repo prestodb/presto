@@ -73,7 +73,6 @@ public class BenchmarkJsonToMapCast
     @Benchmark
     @OperationsPerInvocation(POSITION_COUNT)
     public List<Optional<Page>> benchmark(BenchmarkData data)
-            throws Throwable
     {
         return ImmutableList.copyOf(data.getPageProcessor().process(SESSION, new DriverYieldSignal(), data.getPage()));
     }
@@ -181,7 +180,6 @@ public class BenchmarkJsonToMapCast
 
     @Test
     public void verify()
-            throws Throwable
     {
         BenchmarkData data = new BenchmarkData();
         data.setup();

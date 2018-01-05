@@ -86,7 +86,6 @@ public class TestDistinctLimitOperator
 
     @Test(dataProvider = "hashEnabledValues")
     public void testDistinctLimit(boolean hashEnabled)
-            throws Exception
     {
         RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), BIGINT);
         List<Page> input = rowPagesBuilder
@@ -109,7 +108,6 @@ public class TestDistinctLimitOperator
 
     @Test(dataProvider = "hashEnabledValues")
     public void testDistinctLimitWithPageAlignment(boolean hashEnabled)
-            throws Exception
     {
         RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), BIGINT);
         List<Page> input = rowPagesBuilder
@@ -130,7 +128,6 @@ public class TestDistinctLimitOperator
 
     @Test(dataProvider = "hashEnabledValues")
     public void testDistinctLimitValuesLessThanLimit(boolean hashEnabled)
-            throws Exception
     {
         RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), BIGINT);
         List<Page> input = rowPagesBuilder

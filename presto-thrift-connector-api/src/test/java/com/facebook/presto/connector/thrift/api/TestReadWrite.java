@@ -109,21 +109,18 @@ public class TestReadWrite
 
     @Test(invocationCount = 20)
     public void testSingleRowPageReadWrite()
-            throws Exception
     {
         testPageReadWrite(new Random(singleRowPageSeedGenerator.incrementAndGet()), 1);
     }
 
     @Test(invocationCount = 20)
     public void testSingleRowRecordSetReadWrite()
-            throws Exception
     {
         testRecordSetReadWrite(new Random(singleRowRecordSetSeedGenerator.incrementAndGet()), 1);
     }
 
     @Test(invocationCount = 20)
     public void testMultiRowPageReadWrite()
-            throws Exception
     {
         Random random = new Random(multiRowPageSeedGenerator.incrementAndGet());
         testPageReadWrite(random, random.nextInt(10000) + 10000);
@@ -131,7 +128,6 @@ public class TestReadWrite
 
     @Test(invocationCount = 20)
     public void testMultiRowRecordSetReadWrite()
-            throws Exception
     {
         Random random = new Random(multiRowRecordSetSeedGenerator.incrementAndGet());
         testRecordSetReadWrite(random, random.nextInt(10000) + 10000);

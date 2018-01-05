@@ -88,7 +88,6 @@ public class TestMinimalFunctionality
 
     @AfterMethod
     public void tearDown()
-            throws Exception
     {
         queryRunner.close();
     }
@@ -105,7 +104,6 @@ public class TestMinimalFunctionality
 
     @Test
     public void testTopicExists()
-            throws Exception
     {
         QualifiedObjectName name = new QualifiedObjectName("kafka", "default", topicName);
 
@@ -119,7 +117,6 @@ public class TestMinimalFunctionality
 
     @Test
     public void testTopicHasData()
-            throws Exception
     {
         MaterializedResult result = queryRunner.execute("SELECT count(1) from " + topicName);
 

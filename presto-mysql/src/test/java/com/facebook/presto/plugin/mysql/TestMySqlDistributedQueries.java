@@ -38,7 +38,6 @@ public class TestMySqlDistributedQueries
     }
 
     public TestMySqlDistributedQueries(TestingMySqlServer mysqlServer)
-            throws Exception
     {
         super(() -> createMySqlQueryRunner(mysqlServer, TpchTable.getTables()));
         this.mysqlServer = mysqlServer;

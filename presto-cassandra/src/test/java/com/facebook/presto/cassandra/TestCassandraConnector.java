@@ -114,7 +114,6 @@ public class TestCassandraConnector
 
     @AfterMethod
     public void tearDown()
-            throws Exception
     {
     }
 
@@ -125,7 +124,6 @@ public class TestCassandraConnector
 
     @Test
     public void testGetDatabaseNames()
-            throws Exception
     {
         List<String> databases = metadata.listSchemaNames(SESSION);
         assertTrue(databases.contains(database.toLowerCase(ENGLISH)));
@@ -133,7 +131,6 @@ public class TestCassandraConnector
 
     @Test
     public void testGetTableNames()
-            throws Exception
     {
         List<SchemaTableName> tables = metadata.listTables(SESSION, database);
         assertTrue(tables.contains(table));
@@ -142,7 +139,6 @@ public class TestCassandraConnector
     // disabled until metadata manager is updated to handle invalid catalogs and schemas
     @Test(enabled = false, expectedExceptions = SchemaNotFoundException.class)
     public void testGetTableNamesException()
-            throws Exception
     {
         metadata.listTables(SESSION, INVALID_DATABASE);
     }
@@ -157,7 +153,6 @@ public class TestCassandraConnector
 
     @Test
     public void testGetRecords()
-            throws Exception
     {
         ConnectorTableHandle tableHandle = getTableHandle(table);
         ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(SESSION, tableHandle);
@@ -259,7 +254,6 @@ public class TestCassandraConnector
     }
 
     private static List<ConnectorSplit> getAllSplits(ConnectorSplitSource splitSource)
-            throws InterruptedException
     {
         ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
         while (!splitSource.isFinished()) {

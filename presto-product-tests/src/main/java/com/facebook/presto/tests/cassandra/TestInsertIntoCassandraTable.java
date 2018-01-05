@@ -52,7 +52,6 @@ public class TestInsertIntoCassandraTable
 
     @Test(groups = CASSANDRA)
     public void testInsertIntoValuesToCassandraTableAllSimpleTypes()
-            throws Exception
     {
         TableName table = mutableTablesState().get(CASSANDRA_INSERT_TABLE).getTableName();
         String tableNameInDatabase = String.format("%s.%s", CONNECTOR_NAME, table.getNameInDatabase());

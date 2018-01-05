@@ -22,14 +22,12 @@ public class TestRaptorIntegrationSmokeTestBucketed
         extends TestRaptorIntegrationSmokeTest
 {
     public TestRaptorIntegrationSmokeTestBucketed()
-            throws Exception
     {
         super(() -> createRaptorQueryRunner(ImmutableMap.of(), true, true));
     }
 
     @Test
     public void testShardsSystemTableBucketNumber()
-            throws Exception
     {
         assertQuery("" +
                         "SELECT count(DISTINCT bucket_number)\n" +

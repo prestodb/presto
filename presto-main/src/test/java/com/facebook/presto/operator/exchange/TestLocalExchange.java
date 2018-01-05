@@ -443,7 +443,6 @@ public class TestLocalExchange
 
     @Test
     public void testMismatchedExecutionStrategy()
-            throws Exception
     {
         // If sink/source didn't create a matching set of exchanges, operators will block forever,
         // waiting for the other half that will never show up.

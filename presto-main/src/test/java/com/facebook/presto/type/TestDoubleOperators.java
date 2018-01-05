@@ -27,7 +27,6 @@ public class TestDoubleOperators
 {
     @Test
     public void testLiteral()
-            throws Exception
     {
         assertFunction("37.7E0", DOUBLE, 37.7);
         assertFunction("17.1E0", DOUBLE, 17.1);
@@ -35,7 +34,6 @@ public class TestDoubleOperators
 
     @Test
     public void testTypeConstructor()
-            throws Exception
     {
         assertFunction("DOUBLE '12.34'", DOUBLE, 12.34);
         assertFunction("DOUBLE '-17.6'", DOUBLE, -17.6);
@@ -47,7 +45,6 @@ public class TestDoubleOperators
 
     @Test
     public void testAdd()
-            throws Exception
     {
         assertFunction("37.7E0 + 37.7E0", DOUBLE, 37.7 + 37.7);
         assertFunction("37.7E0 + 17.1E0", DOUBLE, 37.7 + 17.1);
@@ -57,7 +54,6 @@ public class TestDoubleOperators
 
     @Test
     public void testSubtract()
-            throws Exception
     {
         assertFunction("37.7E0 - 37.7E0", DOUBLE, 37.7 - 37.7);
         assertFunction("37.7E0 - 17.1E0", DOUBLE, 37.7 - 17.1);
@@ -67,7 +63,6 @@ public class TestDoubleOperators
 
     @Test
     public void testMultiply()
-            throws Exception
     {
         assertFunction("37.7E0 * 37.7E0", DOUBLE, 37.7 * 37.7);
         assertFunction("37.7E0 * 17.1E0", DOUBLE, 37.7 * 17.1);
@@ -77,7 +72,6 @@ public class TestDoubleOperators
 
     @Test
     public void testDivide()
-            throws Exception
     {
         assertFunction("37.7E0 / 37.7E0", DOUBLE, 37.7 / 37.7);
         assertFunction("37.7E0 / 17.1E0", DOUBLE, 37.7 / 17.1);
@@ -87,7 +81,6 @@ public class TestDoubleOperators
 
     @Test
     public void testModulus()
-            throws Exception
     {
         assertFunction("37.7E0 % 37.7E0", DOUBLE, 37.7 % 37.7);
         assertFunction("37.7E0 % 17.1E0", DOUBLE, 37.7 % 17.1);
@@ -97,7 +90,6 @@ public class TestDoubleOperators
 
     @Test
     public void testNegation()
-            throws Exception
     {
         assertFunction("-(37.7E0)", DOUBLE, -37.7);
         assertFunction("-(17.1E0)", DOUBLE, -17.1);
@@ -105,7 +97,6 @@ public class TestDoubleOperators
 
     @Test
     public void testEqual()
-            throws Exception
     {
         assertFunction("37.7E0 = 37.7E0", BOOLEAN, true);
         assertFunction("37.7E0 = 17.1E0", BOOLEAN, false);
@@ -115,7 +106,6 @@ public class TestDoubleOperators
 
     @Test
     public void testNotEqual()
-            throws Exception
     {
         assertFunction("37.7E0 <> 37.7E0", BOOLEAN, false);
         assertFunction("37.7E0 <> 17.1E0", BOOLEAN, true);
@@ -125,7 +115,6 @@ public class TestDoubleOperators
 
     @Test
     public void testLessThan()
-            throws Exception
     {
         assertFunction("37.7E0 < 37.7E0", BOOLEAN, false);
         assertFunction("37.7E0 < 17.1E0", BOOLEAN, false);
@@ -135,7 +124,6 @@ public class TestDoubleOperators
 
     @Test
     public void testLessThanOrEqual()
-            throws Exception
     {
         assertFunction("37.7E0 <= 37.7E0", BOOLEAN, true);
         assertFunction("37.7E0 <= 17.1E0", BOOLEAN, false);
@@ -145,7 +133,6 @@ public class TestDoubleOperators
 
     @Test
     public void testGreaterThan()
-            throws Exception
     {
         assertFunction("37.7E0 > 37.7E0", BOOLEAN, false);
         assertFunction("37.7E0 > 17.1E0", BOOLEAN, true);
@@ -155,7 +142,6 @@ public class TestDoubleOperators
 
     @Test
     public void testGreaterThanOrEqual()
-            throws Exception
     {
         assertFunction("37.7E0 >= 37.7E0", BOOLEAN, true);
         assertFunction("37.7E0 >= 17.1E0", BOOLEAN, true);
@@ -165,7 +151,6 @@ public class TestDoubleOperators
 
     @Test
     public void testBetween()
-            throws Exception
     {
         assertFunction("37.7E0 BETWEEN 37.7E0 AND 37.7E0", BOOLEAN, true);
         assertFunction("37.7E0 BETWEEN 37.7E0 AND 17.1E0", BOOLEAN, false);
@@ -182,7 +167,6 @@ public class TestDoubleOperators
 
     @Test
     public void testCastToVarchar()
-            throws Exception
     {
         assertFunction("cast(37.7E0 as varchar)", VARCHAR, "37.7");
         assertFunction("cast(17.1E0 as varchar)", VARCHAR, "17.1");
@@ -190,7 +174,6 @@ public class TestDoubleOperators
 
     @Test
     public void testCastToBigint()
-            throws Exception
     {
         assertFunction("cast(37.7E0 as bigint)", BIGINT, 38L);
         assertFunction("cast(17.1E0 as bigint)", BIGINT, 17L);
@@ -198,7 +181,6 @@ public class TestDoubleOperators
 
     @Test
     public void testCastToBoolean()
-            throws Exception
     {
         assertFunction("cast(37.7E0 as boolean)", BOOLEAN, true);
         assertFunction("cast(17.1E0 as boolean)", BOOLEAN, true);
@@ -207,7 +189,6 @@ public class TestDoubleOperators
 
     @Test
     public void testCastToFloat()
-            throws Exception
     {
         assertFunction("cast('754.1985' as real)", REAL, 754.1985f);
         assertFunction("cast('-754.2008' as real)", REAL, -754.2008f);
@@ -217,7 +198,6 @@ public class TestDoubleOperators
 
     @Test
     public void testCastFromVarchar()
-            throws Exception
     {
         assertFunction("cast('37.7' as double)", DOUBLE, 37.7);
         assertFunction("cast('17.1' as double)", DOUBLE, 17.1);
@@ -227,7 +207,6 @@ public class TestDoubleOperators
 
     @Test
     public void testIsDistinctFrom()
-            throws Exception
     {
         assertFunction("CAST(NULL AS DOUBLE) IS DISTINCT FROM CAST(NULL AS DOUBLE)", BOOLEAN, false);
         assertFunction("37.7 IS DISTINCT FROM 37.7", BOOLEAN, false);

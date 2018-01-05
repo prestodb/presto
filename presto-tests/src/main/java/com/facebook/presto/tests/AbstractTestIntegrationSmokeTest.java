@@ -33,7 +33,6 @@ public abstract class AbstractTestIntegrationSmokeTest
 
     @Test
     public void testAggregateSingleColumn()
-            throws Exception
     {
         assertQuery("SELECT SUM(orderkey) FROM ORDERS");
         assertQuery("SELECT SUM(totalprice) FROM ORDERS");
@@ -42,63 +41,54 @@ public abstract class AbstractTestIntegrationSmokeTest
 
     @Test
     public void testColumnsInReverseOrder()
-            throws Exception
     {
         assertQuery("SELECT shippriority, clerk, totalprice FROM ORDERS");
     }
 
     @Test
     public void testCountAll()
-            throws Exception
     {
         assertQuery("SELECT COUNT(*) FROM ORDERS");
     }
 
     @Test
     public void testExactPredicate()
-            throws Exception
     {
         assertQuery("SELECT * FROM ORDERS WHERE orderkey = 10");
     }
 
     @Test
     public void testInListPredicate()
-            throws Exception
     {
         assertQuery("SELECT * FROM ORDERS WHERE orderkey IN (10, 11, 20, 21)");
     }
 
     @Test
     public void testIsNullPredicate()
-            throws Exception
     {
         assertQuery("SELECT * FROM ORDERS WHERE orderkey = 10 OR orderkey IS NULL");
     }
 
     @Test
     public void testMultipleRangesPredicate()
-            throws Exception
     {
         assertQuery("SELECT * FROM ORDERS WHERE orderkey BETWEEN 10 AND 50 or orderkey BETWEEN 100 AND 150");
     }
 
     @Test
     public void testRangePredicate()
-            throws Exception
     {
         assertQuery("SELECT * FROM ORDERS WHERE orderkey BETWEEN 10 AND 50");
     }
 
     @Test
     public void testSelectAll()
-            throws Exception
     {
         assertQuery("SELECT * FROM ORDERS");
     }
 
     @Test
     public void testShowSchemas()
-            throws Exception
     {
         MaterializedResult actualSchemas = computeActual("SHOW SCHEMAS").toTestTypes();
 
@@ -110,7 +100,6 @@ public abstract class AbstractTestIntegrationSmokeTest
 
     @Test
     public void testShowTables()
-            throws Exception
     {
         MaterializedResult actualTables = computeActual("SHOW TABLES").toTestTypes();
         MaterializedResult expectedTables = MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR)
@@ -121,7 +110,6 @@ public abstract class AbstractTestIntegrationSmokeTest
 
     @Test
     public void testDescribeTable()
-            throws Exception
     {
         MaterializedResult actualColumns = computeActual("DESC ORDERS").toTestTypes();
 

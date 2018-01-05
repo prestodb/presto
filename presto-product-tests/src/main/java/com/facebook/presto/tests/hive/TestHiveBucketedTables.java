@@ -24,7 +24,6 @@ import com.teradata.tempto.fulfillment.table.hive.HiveTableDefinition;
 import com.teradata.tempto.query.QueryExecutor;
 import org.testng.annotations.Test;
 
-import java.sql.SQLException;
 import java.util.Optional;
 
 import static com.facebook.presto.tests.TestGroups.HIVE_CONNECTOR;
@@ -67,7 +66,6 @@ public class TestHiveBucketedTables
 
     @Test(groups = {HIVE_CONNECTOR})
     public void testIgnorePartitionBucketingIfNotBucketed()
-            throws SQLException
     {
         String tableName = mutableTablesState().get(BUCKETED_PARTITIONED_NATION).getNameInDatabase();
         populateDataToHiveTable(tableName, NATION.getName(), Optional.of("part_key = 'insert_1'"));

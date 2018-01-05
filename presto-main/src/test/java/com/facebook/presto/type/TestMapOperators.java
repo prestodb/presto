@@ -84,7 +84,6 @@ public class TestMapOperators
 
     @Test
     public void testConstructor()
-            throws Exception
     {
         assertFunction("MAP(ARRAY ['1','3'], ARRAY [2,4])", mapType(createVarcharType(1), INTEGER), ImmutableMap.of("1", 2, "3", 4));
         Map<Integer, Integer> map = new HashMap<>();
@@ -125,7 +124,6 @@ public class TestMapOperators
 
     @Test
     public void testCardinality()
-            throws Exception
     {
         assertFunction("CARDINALITY(MAP(ARRAY ['1','3'], ARRAY [2,4]))", BIGINT, 2L);
         assertFunction("CARDINALITY(MAP(ARRAY [1, 3], ARRAY[2, NULL]))", BIGINT, 2L);
@@ -141,7 +139,6 @@ public class TestMapOperators
 
     @Test
     public void testMapToJson()
-            throws Exception
     {
         // Test key ordering
         assertFunction("CAST(MAP(ARRAY[7,5,3,1], ARRAY[8,6,4,2]) AS JSON)", JSON, "{\"1\":2,\"3\":4,\"5\":6,\"7\":8}");
@@ -260,7 +257,6 @@ public class TestMapOperators
 
     @Test
     public void testJsonToMap()
-            throws Exception
     {
         // special values
         assertFunction("CAST(CAST (null AS JSON) AS MAP<BIGINT, BIGINT>)", mapType(BIGINT, BIGINT), null);
@@ -476,7 +472,6 @@ public class TestMapOperators
 
     @Test
     public void testElementAt()
-            throws Exception
     {
         // empty map
         assertFunction("element_at(MAP(CAST(ARRAY [] AS ARRAY(BIGINT)), CAST(ARRAY [] AS ARRAY(BIGINT))), 1)", BIGINT, null);
@@ -511,7 +506,6 @@ public class TestMapOperators
 
     @Test
     public void testSubscript()
-            throws Exception
     {
         assertFunction("MAP(ARRAY [1], ARRAY [null])[1]", UNKNOWN, null);
         assertFunction("MAP(ARRAY [1.0E0], ARRAY [null])[1.0E0]", UNKNOWN, null);
@@ -540,7 +534,6 @@ public class TestMapOperators
 
     @Test
     public void testMapKeys()
-            throws Exception
     {
         assertFunction("MAP_KEYS(MAP(ARRAY['1', '3'], ARRAY['2', '4']))", new ArrayType(createVarcharType(1)), ImmutableList.of("1", "3"));
         assertFunction("MAP_KEYS(MAP(ARRAY[1.0E0, 2.0E0], ARRAY[ARRAY[1, 2], ARRAY[3]]))", new ArrayType(DOUBLE), ImmutableList.of(1.0, 2.0));
@@ -563,7 +556,6 @@ public class TestMapOperators
 
     @Test
     public void testMapValues()
-            throws Exception
     {
         assertFunction("MAP_VALUES(MAP(ARRAY['1'], ARRAY[ARRAY[TRUE, FALSE, NULL]]))",
                 new ArrayType(new ArrayType(BOOLEAN)),
@@ -607,7 +599,6 @@ public class TestMapOperators
 
     @Test
     public void testEquals()
-            throws Exception
     {
         // single item
         assertFunction("MAP(ARRAY[1], ARRAY[2]) = MAP(ARRAY[1], ARRAY[2])", BOOLEAN, true);
@@ -654,7 +645,6 @@ public class TestMapOperators
 
     @Test
     public void testNotEquals()
-            throws Exception
     {
         // single item
         assertFunction("MAP(ARRAY[1], ARRAY[2]) != MAP(ARRAY[1], ARRAY[2])", BOOLEAN, false);
@@ -698,7 +688,6 @@ public class TestMapOperators
 
     @Test
     public void testDistinctFrom()
-            throws Exception
     {
         assertFunction("CAST(NULL AS MAP<INTEGER, VARCHAR>) IS DISTINCT FROM CAST(NULL AS MAP<INTEGER, VARCHAR>)", BOOLEAN, false);
         assertFunction("MAP(ARRAY[1], ARRAY[2]) IS DISTINCT FROM NULL", BOOLEAN, true);
@@ -719,7 +708,6 @@ public class TestMapOperators
 
     @Test
     public void testMapConcat()
-            throws Exception
     {
         assertFunction("MAP_CONCAT(MAP (ARRAY [TRUE], ARRAY [1]), MAP (CAST(ARRAY [] AS ARRAY(BOOLEAN)), CAST(ARRAY [] AS ARRAY(INTEGER))))", mapType(BOOLEAN, INTEGER), ImmutableMap.of(true, 1));
         // <BOOLEAN, INTEGER> Tests

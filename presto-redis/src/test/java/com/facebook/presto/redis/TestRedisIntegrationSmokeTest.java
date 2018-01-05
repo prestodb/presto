@@ -35,7 +35,6 @@ public class TestRedisIntegrationSmokeTest
     }
 
     public TestRedisIntegrationSmokeTest(EmbeddedRedis embeddedRedis)
-            throws Exception
     {
         super(() -> createRedisQueryRunner(embeddedRedis, "string", ORDERS));
         this.embeddedRedis = embeddedRedis;

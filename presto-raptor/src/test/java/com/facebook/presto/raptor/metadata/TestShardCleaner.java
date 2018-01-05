@@ -36,7 +36,6 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
-import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
@@ -71,7 +70,6 @@ public class TestShardCleaner
 
     @BeforeMethod
     public void setup()
-            throws Exception
     {
         dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
         dummyHandle = dbi.open();
@@ -118,7 +116,6 @@ public class TestShardCleaner
 
     @Test
     public void testAbortOldTransactions()
-            throws Exception
     {
         TestingDao dao = dbi.onDemand(TestingDao.class);
 
@@ -146,7 +143,6 @@ public class TestShardCleaner
 
     @Test
     public void testDeleteOldShards()
-            throws Exception
     {
         assertEquals(cleaner.getBackupShardsQueued().getTotalCount(), 0);
 
@@ -341,7 +337,6 @@ public class TestShardCleaner
 
     @Test
     public void testDeleteOldCompletedTransactions()
-            throws Exception
     {
         TestingDao dao = dbi.onDemand(TestingDao.class);
         ShardDao shardDao = dbi.onDemand(ShardDao.class);
@@ -420,13 +415,11 @@ public class TestShardCleaner
 
     @SafeVarargs
     private final void assertQuery(@Language("SQL") String sql, List<Object>... rows)
-            throws SQLException
     {
         assertEqualsIgnoreOrder(select(sql), asList(rows));
     }
 
     private List<List<Object>> select(@Language("SQL") String sql)
-            throws SQLException
     {
         return dbi.withHandle(handle -> handle.createQuery(sql)
                 .map((index, rs, context) -> {

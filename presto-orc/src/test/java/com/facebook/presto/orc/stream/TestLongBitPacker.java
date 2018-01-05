@@ -66,7 +66,6 @@ public class TestLongBitPacker
 
         @Override
         public int read()
-                throws IOException
         {
             readBytes++;
             return rand.nextInt(256);

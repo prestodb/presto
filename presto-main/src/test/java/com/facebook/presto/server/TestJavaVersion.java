@@ -23,7 +23,6 @@ public class TestJavaVersion
 {
     @Test
     public void testParseLegacy()
-            throws Exception
     {
         assertEquals(JavaVersion.parse("1.8"), new JavaVersion(8, 0));
         assertEquals(JavaVersion.parse("1.8.0"), new JavaVersion(8, 0));
@@ -35,7 +34,6 @@ public class TestJavaVersion
 
     @Test
     public void testParseNew()
-            throws Exception
     {
         assertEquals(JavaVersion.parse("9-ea+19"), new JavaVersion(9, 0));
         assertEquals(JavaVersion.parse("9+100"), new JavaVersion(9, 0));

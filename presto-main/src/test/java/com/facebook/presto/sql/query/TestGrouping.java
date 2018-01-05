@@ -23,7 +23,6 @@ public class TestGrouping
 
     @BeforeClass
     public void init()
-            throws Exception
     {
         assertions = new QueryAssertions();
     }
@@ -36,7 +35,6 @@ public class TestGrouping
 
     @Test
     public void testImplicitCoercions()
-            throws Exception
     {
         // GROUPING + implicit coercions (issue #8738)
         assertions.assertQuery(
@@ -54,7 +52,6 @@ public class TestGrouping
 
     @Test
     public void testFilter()
-            throws Exception
     {
         assertions.assertQuery(
                 "SELECT a, b, grouping(a, b) " +

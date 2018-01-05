@@ -34,14 +34,12 @@ public class TestArrayReduceFunction
 
     @Test
     public void testEmpty()
-            throws Exception
     {
         assertFunction("reduce(ARRAY [], CAST (0 AS BIGINT), (s, x) -> s + x, s -> s)", BIGINT, 0L);
     }
 
     @Test
     public void testBasic()
-            throws Exception
     {
         assertFunction("reduce(ARRAY [5, 20, 50], CAST (0 AS BIGINT), (s, x) -> s + x, s -> s)", BIGINT, 75L);
         assertFunction("reduce(ARRAY [5 + RANDOM(1), 20, 50], CAST (0 AS BIGINT), (s, x) -> s + x, s -> s)", BIGINT, 75L);
@@ -50,7 +48,6 @@ public class TestArrayReduceFunction
 
     @Test
     public void testNulls()
-            throws Exception
     {
         assertFunction("reduce(ARRAY [NULL], CAST (0 AS BIGINT), (s, x) -> s + x, s -> s)", BIGINT, null);
         assertFunction("reduce(ARRAY [NULL, NULL, NULL], CAST (0 AS BIGINT), (s, x) -> coalesce(x, 1) + s, s -> s)", BIGINT, 3L);
@@ -67,7 +64,6 @@ public class TestArrayReduceFunction
 
     @Test
     public void testTwoValueState()
-            throws Exception
     {
         assertFunction(
                 "reduce(" +

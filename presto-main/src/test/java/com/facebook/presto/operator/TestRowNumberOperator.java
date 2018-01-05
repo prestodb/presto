@@ -99,7 +99,6 @@ public class TestRowNumberOperator
 
     @Test
     public void testRowNumberUnpartitioned()
-            throws Exception
     {
         DriverContext driverContext = getDriverContext();
         List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
@@ -186,7 +185,6 @@ public class TestRowNumberOperator
 
     @Test(dataProvider = "hashEnabledValues")
     public void testRowNumberPartitioned(boolean hashEnabled)
-            throws Exception
     {
         DriverContext driverContext = getDriverContext();
         RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), BIGINT, DOUBLE);
@@ -253,7 +251,6 @@ public class TestRowNumberOperator
 
     @Test(dataProvider = "hashEnabledValues")
     public void testRowNumberPartitionedLimit(boolean hashEnabled)
-            throws Exception
     {
         DriverContext driverContext = getDriverContext();
         RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), BIGINT, DOUBLE);
@@ -324,7 +321,6 @@ public class TestRowNumberOperator
 
     @Test
     public void testRowNumberUnpartitionedLimit()
-            throws Exception
     {
         DriverContext driverContext = getDriverContext();
         List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)

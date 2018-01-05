@@ -61,7 +61,6 @@ public class TestPageProcessor
 
     @Test
     public void testProjectNoColumns()
-            throws Exception
     {
         PageProcessor pageProcessor = new PageProcessor(Optional.empty(), ImmutableList.of());
 
@@ -79,7 +78,6 @@ public class TestPageProcessor
 
     @Test
     public void testFilterNoColumns()
-            throws Exception
     {
         PageProcessor pageProcessor = new PageProcessor(Optional.of(new TestingPageFilter(positionsRange(0, 50))), ImmutableList.of());
 
@@ -97,7 +95,6 @@ public class TestPageProcessor
 
     @Test
     public void testPartialFilter()
-            throws Exception
     {
         PageProcessor pageProcessor = new PageProcessor(Optional.of(new TestingPageFilter(positionsRange(25, 50))), ImmutableList.of(new InputPageProjection(0, BIGINT)));
 
@@ -113,7 +110,6 @@ public class TestPageProcessor
 
     @Test
     public void testSelectAllFilter()
-            throws Exception
     {
         PageProcessor pageProcessor = new PageProcessor(Optional.of(new SelectAllFilter()), ImmutableList.of(new InputPageProjection(0, BIGINT)));
 
@@ -129,7 +125,6 @@ public class TestPageProcessor
 
     @Test
     public void testSelectNoneFilter()
-            throws Exception
     {
         PageProcessor pageProcessor = new PageProcessor(Optional.of(new SelectNoneFilter()), ImmutableList.of(new InputPageProjection(0, BIGINT)));
 
@@ -144,7 +139,6 @@ public class TestPageProcessor
 
     @Test
     public void testProjectEmptyPage()
-            throws Exception
     {
         PageProcessor pageProcessor = new PageProcessor(Optional.of(new SelectAllFilter()), ImmutableList.of(new InputPageProjection(0, BIGINT)));
 
@@ -160,7 +154,6 @@ public class TestPageProcessor
 
     @Test
     public void testSelectNoneFilterLazyLoad()
-            throws Exception
     {
         PageProcessor pageProcessor = new PageProcessor(Optional.of(new SelectNoneFilter()), ImmutableList.of(new InputPageProjection(1, BIGINT)));
 
@@ -178,7 +171,6 @@ public class TestPageProcessor
 
     @Test
     public void testProjectLazyLoad()
-            throws Exception
     {
         PageProcessor pageProcessor = new PageProcessor(Optional.of(new SelectAllFilter()), ImmutableList.of(new LazyPagePageProjection()));
 
@@ -197,7 +189,6 @@ public class TestPageProcessor
 
     @Test
     public void testBatchedOutput()
-            throws Exception
     {
         PageProcessor pageProcessor = new PageProcessor(Optional.empty(), ImmutableList.of(new InputPageProjection(0, BIGINT)));
 
@@ -218,7 +209,6 @@ public class TestPageProcessor
 
     @Test
     public void testAdaptiveBatchSize()
-            throws Exception
     {
         PageProcessor pageProcessor = new PageProcessor(Optional.empty(), ImmutableList.of(new InputPageProjection(0, VARCHAR)));
 
@@ -261,7 +251,6 @@ public class TestPageProcessor
 
     @Test
     public void testOptimisticProcessing()
-            throws Exception
     {
         InvocationCountPageProjection firstProjection = new InvocationCountPageProjection(new InputPageProjection(0, VARCHAR));
         InvocationCountPageProjection secondProjection = new InvocationCountPageProjection(new InputPageProjection(0, VARCHAR));
@@ -304,7 +293,6 @@ public class TestPageProcessor
 
     @Test
     public void testRetainedSize()
-            throws Exception
     {
         PageProcessor pageProcessor = new PageProcessor(Optional.of(new SelectAllFilter()), ImmutableList.of(new InputPageProjection(0, VARCHAR), new InputPageProjection(1, VARCHAR)));
 
@@ -326,7 +314,6 @@ public class TestPageProcessor
 
     @Test
     public void testYieldProjection()
-            throws Exception
     {
         // each projection can finish without yield
         // while between two projections, there is a yield

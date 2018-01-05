@@ -50,7 +50,6 @@ public abstract class TestTimeBase
 
     @Test
     public void testLiteral()
-            throws Exception
     {
         assertFunction("TIME '03:04:05.321'", TIME, new SqlTime(new DateTime(1970, 1, 1, 3, 4, 5, 321, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY));
         assertFunction("TIME '03:04:05'", TIME, new SqlTime(new DateTime(1970, 1, 1, 3, 4, 5, 0, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY));
@@ -59,7 +58,6 @@ public abstract class TestTimeBase
 
     @Test
     public void testSubstract()
-            throws Exception
     {
         functionAssertions.assertFunctionString("TIME '14:15:16.432' - TIME '03:04:05.321'", INTERVAL_DAY_TIME, "0 11:11:11.111");
 
@@ -68,7 +66,6 @@ public abstract class TestTimeBase
 
     @Test
     public void testEqual()
-            throws Exception
     {
         assertFunction("TIME '03:04:05.321' = TIME '03:04:05.321'", BOOLEAN, true);
 
@@ -77,7 +74,6 @@ public abstract class TestTimeBase
 
     @Test
     public void testNotEqual()
-            throws Exception
     {
         assertFunction("TIME '03:04:05.321' <> TIME '03:04:05.333'", BOOLEAN, true);
 
@@ -86,7 +82,6 @@ public abstract class TestTimeBase
 
     @Test
     public void testLessThan()
-            throws Exception
     {
         assertFunction("TIME '03:04:05.321' < TIME '03:04:05.333'", BOOLEAN, true);
 
@@ -96,7 +91,6 @@ public abstract class TestTimeBase
 
     @Test
     public void testLessThanOrEqual()
-            throws Exception
     {
         assertFunction("TIME '03:04:05.321' <= TIME '03:04:05.333'", BOOLEAN, true);
         assertFunction("TIME '03:04:05.321' <= TIME '03:04:05.321'", BOOLEAN, true);
@@ -106,7 +100,6 @@ public abstract class TestTimeBase
 
     @Test
     public void testGreaterThan()
-            throws Exception
     {
         assertFunction("TIME '03:04:05.321' > TIME '03:04:05.111'", BOOLEAN, true);
 
@@ -116,7 +109,6 @@ public abstract class TestTimeBase
 
     @Test
     public void testGreaterThanOrEqual()
-            throws Exception
     {
         assertFunction("TIME '03:04:05.321' >= TIME '03:04:05.111'", BOOLEAN, true);
         assertFunction("TIME '03:04:05.321' >= TIME '03:04:05.321'", BOOLEAN, true);
@@ -126,7 +118,6 @@ public abstract class TestTimeBase
 
     @Test
     public void testBetween()
-            throws Exception
     {
         assertFunction("TIME '03:04:05.321' between TIME '03:04:05.111' and TIME '03:04:05.333'", BOOLEAN, true);
         assertFunction("TIME '03:04:05.321' between TIME '03:04:05.321' and TIME '03:04:05.333'", BOOLEAN, true);
@@ -148,7 +139,6 @@ public abstract class TestTimeBase
 
     @Test
     public void testCastToTimestamp()
-            throws Exception
     {
         assertFunction("cast(TIME '03:04:05.321' as timestamp)",
                 TIMESTAMP,
@@ -157,7 +147,6 @@ public abstract class TestTimeBase
 
     @Test
     public void testCastToTimestampWithTimeZone()
-            throws Exception
     {
         assertFunction("cast(TIME '03:04:05.321' as timestamp with time zone)",
                 TIMESTAMP_WITH_TIME_ZONE,
@@ -166,7 +155,6 @@ public abstract class TestTimeBase
 
     @Test
     public void testCastToSlice()
-            throws Exception
     {
         assertFunction("cast(TIME '03:04:05.321' as varchar)", VARCHAR, "03:04:05.321");
         assertFunction("cast(TIME '03:04:05' as varchar)", VARCHAR, "03:04:05.000");
@@ -175,7 +163,6 @@ public abstract class TestTimeBase
 
     @Test
     public void testCastFromSlice()
-            throws Exception
     {
         assertFunction("cast('03:04:05.321' as time) = TIME '03:04:05.321'", BOOLEAN, true);
         assertFunction("cast('03:04:05' as time) = TIME '03:04:05.000'", BOOLEAN, true);

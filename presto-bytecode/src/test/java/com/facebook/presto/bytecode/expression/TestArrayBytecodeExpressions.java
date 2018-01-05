@@ -52,7 +52,6 @@ public class TestArrayBytecodeExpressions
 
     @BeforeClass
     public void setUp()
-            throws Exception
     {
         for (Class<?> aClass : ImmutableList.of(boolean[].class, char[].class, float[].class, double[].class, byte[].class, short[].class, int[].class, long[].class, String[].class)) {
             MethodDefinition methodDefinition = defineSetAndGetMethod(aClass);
