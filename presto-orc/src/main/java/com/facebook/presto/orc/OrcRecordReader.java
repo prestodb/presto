@@ -130,7 +130,6 @@ public class OrcRecordReader
             Map<String, Slice> userMetadata,
             AggregatedMemoryContext systemMemoryUsage,
             Optional<OrcWriteValidation> writeValidation)
-            throws IOException
     {
         requireNonNull(includedColumns, "includedColumns is null");
         requireNonNull(predicate, "predicate is null");
@@ -498,7 +497,6 @@ public class OrcRecordReader
     }
 
     private void validateWriteStripe(int rowCount)
-            throws IOException
     {
         if (writeChecksumBuilder.isPresent()) {
             writeChecksumBuilder.get().addStripe(rowCount);

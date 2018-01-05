@@ -36,7 +36,6 @@ import io.airlift.log.Logger;
 import javax.annotation.Nullable;
 
 import java.io.Closeable;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -332,7 +331,6 @@ public class ThriftIndexPageSource
 
     @Override
     public void close()
-            throws IOException
     {
         // cancel futures if available
         cancelQuietly(splitFuture);

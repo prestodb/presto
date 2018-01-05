@@ -334,7 +334,6 @@ public class PrestoS3FileSystem
 
     @Override
     public FSDataInputStream open(Path path, int bufferSize)
-            throws IOException
     {
         return new FSDataInputStream(
                 new BufferedFSInputStream(

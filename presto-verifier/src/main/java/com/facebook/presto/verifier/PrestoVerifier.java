@@ -23,7 +23,6 @@ public class PrestoVerifier
     }
 
     public static void main(String[] args)
-            throws Exception
     {
         Cli<Runnable> verifierParser = Cli.<Runnable>builder("verifier")
                 .withDescription("Presto Verifier")

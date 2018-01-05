@@ -36,7 +36,6 @@ public class PostgreSqlClient
 {
     @Inject
     public PostgreSqlClient(JdbcConnectorId connectorId, BaseJdbcConfig config)
-            throws SQLException
     {
         super(connectorId, config, "\"", new DriverConnectionFactory(new Driver(), config));
     }

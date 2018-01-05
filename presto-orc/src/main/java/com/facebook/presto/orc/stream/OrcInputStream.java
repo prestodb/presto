@@ -81,7 +81,6 @@ public final class OrcInputStream
 
     @Override
     public void close()
-            throws IOException
     {
         current = null;
         fixedMemoryUsage.setBytes(compressedSliceInput.length()); // see comments above for fixedMemoryUsage
@@ -92,7 +91,6 @@ public final class OrcInputStream
 
     @Override
     public int available()
-            throws IOException
     {
         if (current == null) {
             return 0;

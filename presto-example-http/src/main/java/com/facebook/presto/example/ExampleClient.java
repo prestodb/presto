@@ -47,7 +47,6 @@ public class ExampleClient
 
     @Inject
     public ExampleClient(ExampleConfig config, JsonCodec<Map<String, List<ExampleTable>>> catalogCodec)
-            throws IOException
     {
         requireNonNull(config, "config is null");
         requireNonNull(catalogCodec, "catalogCodec is null");

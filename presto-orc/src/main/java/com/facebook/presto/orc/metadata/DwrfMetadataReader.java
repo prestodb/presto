@@ -80,7 +80,6 @@ public class DwrfMetadataReader
 
     @Override
     public Metadata readMetadata(HiveWriterVersion hiveWriterVersion, InputStream inputStream)
-            throws IOException
     {
         return new Metadata(ImmutableList.of());
     }
@@ -167,7 +166,6 @@ public class DwrfMetadataReader
 
     @Override
     public List<HiveBloomFilter> readBloomFilterIndexes(InputStream inputStream)
-            throws IOException
     {
         // DWRF does not have bloom filters
         return ImmutableList.of();

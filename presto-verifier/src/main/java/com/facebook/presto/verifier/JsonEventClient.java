@@ -47,7 +47,6 @@ public class JsonEventClient
 
     @Override
     public <T> void postEvent(T event)
-            throws IOException
     {
         try {
             ByteArrayOutputStream buffer = new ByteArrayOutputStream();

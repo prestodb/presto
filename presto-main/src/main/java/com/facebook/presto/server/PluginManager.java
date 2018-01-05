@@ -157,7 +157,6 @@ public class PluginManager
     }
 
     private void loadPlugin(URLClassLoader pluginClassLoader)
-            throws Exception
     {
         ServiceLoader<Plugin> serviceLoader = ServiceLoader.load(Plugin.class, pluginClassLoader);
         List<Plugin> plugins = ImmutableList.copyOf(serviceLoader);

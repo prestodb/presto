@@ -52,7 +52,6 @@ public class QueryPairMapper
     }
 
     private static List<String> fromJsonString(String jsonString)
-            throws SQLException
     {
         return jsonString == null ? ImmutableList.of() : queriesJsonCodec.fromJson(jsonString);
     }

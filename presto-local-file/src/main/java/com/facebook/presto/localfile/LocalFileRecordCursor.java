@@ -302,7 +302,6 @@ public class LocalFileRecordCursor
         }
 
         public static boolean isGZipped(File file)
-                throws IOException
         {
             try (RandomAccessFile inputFile = new RandomAccessFile(file, "r")) {
                 int magic = inputFile.read() & 0xff | ((inputFile.read() << 8) & 0xff00);

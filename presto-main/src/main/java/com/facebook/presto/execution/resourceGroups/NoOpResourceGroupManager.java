@@ -54,7 +54,6 @@ public final class NoOpResourceGroupManager
 
     @Override
     public void loadConfigurationManager()
-            throws Exception
     {
         // no-op
     }

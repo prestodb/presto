@@ -226,7 +226,7 @@ public class QueryRewriter
     }
 
     private String checksumSql(List<Column> columns, QualifiedName table)
-            throws SQLException, QueryRewriteException
+            throws QueryRewriteException
     {
         if (columns.isEmpty()) {
             throw new QueryRewriteException("Table " + table + " has no columns");

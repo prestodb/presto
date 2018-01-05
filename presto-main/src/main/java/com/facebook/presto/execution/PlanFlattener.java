@@ -241,7 +241,6 @@ public class PlanFlattener
 
         @Override
         public void serialize(PlanNode value, JsonGenerator jgen, SerializerProvider provider)
-                throws IOException
         {
             throw new UnsupportedOperationException();
         }

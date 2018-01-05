@@ -30,7 +30,6 @@ import org.bson.types.Binary;
 import org.bson.types.ObjectId;
 import org.joda.time.chrono.ISOChronology;
 
-import java.io.IOException;
 import java.util.Collection;
 import java.util.Date;
 import java.util.List;
@@ -293,7 +292,6 @@ public class MongoPageSource
 
     @Override
     public void close()
-            throws IOException
     {
         cursor.close();
     }

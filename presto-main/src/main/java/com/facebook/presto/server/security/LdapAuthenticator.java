@@ -157,7 +157,6 @@ public class LdapAuthenticator
     }
 
     private static AuthenticationException needAuthentication(String message)
-            throws AuthenticationException
     {
         return new AuthenticationException(message, "Basic realm=\"presto\"");
     }

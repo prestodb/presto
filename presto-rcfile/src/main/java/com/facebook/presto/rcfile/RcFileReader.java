@@ -486,7 +486,6 @@ public class RcFileReader
     }
 
     private void validateWriteRowGroupChecksum()
-            throws IOException
     {
         if (writeChecksumBuilder.isPresent()) {
             writeChecksumBuilder.get().addRowGroup(rowGroupRowCount);

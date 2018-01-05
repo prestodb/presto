@@ -72,7 +72,6 @@ public class DwrfMetadataWriter
 
     @Override
     public int writeMetadata(SliceOutput output, Metadata metadata)
-            throws IOException
     {
         return 0;
     }
