@@ -78,7 +78,7 @@ public final class PartitionedLookupSourceFactory
     private SpillingInfo spillingInfo = new SpillingInfo(0, ImmutableSet.of());
 
     @GuardedBy("lock")
-    private Map<Integer, SpilledLookupSourceHandle> spilledPartitions = new HashMap<>();
+    private final Map<Integer, SpilledLookupSourceHandle> spilledPartitions = new HashMap<>();
 
     @GuardedBy("lock")
     private TrackingLookupSourceSupplier lookupSourceSupplier;
@@ -93,7 +93,7 @@ public final class PartitionedLookupSourceFactory
     private OptionalInt partitionedConsumptionParticipants = OptionalInt.empty();
 
     @GuardedBy("lock")
-    private SettableFuture<PartitionedConsumption<Supplier<LookupSource>>> partitionedConsumption = SettableFuture.create();
+    private final SettableFuture<PartitionedConsumption<Supplier<LookupSource>>> partitionedConsumption = SettableFuture.create();
 
     /**
      * Cached LookupSource on behalf of LookupJoinOperator (represented by SpillAwareLookupSourceProvider). LookupSource instantiation has non-negligible cost.
@@ -136,6 +136,8 @@ public final class PartitionedLookupSourceFactory
         return layout;
     }
 
+    // partitions is final, so we don't need a lock to read its length here
+    @SuppressWarnings("FieldAccessNotGuarded")
     @Override
     public int partitions()
     {
@@ -405,6 +407,7 @@ public final class PartitionedLookupSourceFactory
         }
     }
 
+    @SuppressWarnings("FieldAccessNotGuarded")
     @Override
     public ListenableFuture<?> isDestroyed()
     {
