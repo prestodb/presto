@@ -65,13 +65,13 @@ public class PrestoCliLauncher
     }
 
     protected void launchPrestoCli(String... arguments)
-            throws IOException, InterruptedException
+            throws IOException
     {
         launchPrestoCli(asList(arguments));
     }
 
     protected void launchPrestoCli(List<String> arguments)
-            throws IOException, InterruptedException
+            throws IOException
     {
         presto = new PrestoCliProcess(getProcessBuilder(arguments).start());
     }

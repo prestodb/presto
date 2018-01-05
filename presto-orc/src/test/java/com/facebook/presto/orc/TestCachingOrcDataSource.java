@@ -88,7 +88,6 @@ public class TestCachingOrcDataSource
 
     @Test
     public void testWrapWithCacheIfTinyStripes()
-            throws IOException
     {
         DataSize maxMergeDistance = new DataSize(1, Unit.MEGABYTE);
         DataSize maxReadSize = new DataSize(8, Unit.MEGABYTE);
@@ -280,21 +279,18 @@ public class TestCachingOrcDataSource
 
         @Override
         public void readFully(long position, byte[] buffer)
-                throws IOException
         {
             // do nothing
         }
 
         @Override
         public void readFully(long position, byte[] buffer, int bufferOffset, int bufferLength)
-                throws IOException
         {
             // do nothing
         }
 
         @Override
         public <K> Map<K, FixedLengthSliceInput> readFully(Map<K, DiskRange> diskRanges)
-                throws IOException
         {
             throw new UnsupportedOperationException();
         }

@@ -45,7 +45,6 @@ public class TestExpressionEquivalence
 
     @Test
     public void testEquivalent()
-            throws Exception
     {
         assertEquivalent("a_bigint < b_double", "b_double > a_bigint");
         assertEquivalent("true", "true");
@@ -116,7 +115,6 @@ public class TestExpressionEquivalence
 
     @Test
     public void testNotEquivalent()
-            throws Exception
     {
         assertNotEquivalent("true", "false");
         assertNotEquivalent("4", "5");

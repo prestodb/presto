@@ -127,14 +127,12 @@ public abstract class AbstractTestHiveClientS3
 
     @BeforeClass
     public void setUp()
-            throws Exception
     {
         executor = newCachedThreadPool(daemonThreadsNamed("hive-%s"));
     }
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
-            throws Exception
     {
         if (executor != null) {
             executor.shutdownNow();

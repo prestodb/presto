@@ -25,7 +25,6 @@ public class TestApproximateCountDistinctAggregations
 {
     @Test
     public void testStandardErrorToBuckets()
-            throws Exception
     {
         assertEquals(standardErrorToBuckets(0.0326), 1024);
         assertEquals(standardErrorToBuckets(0.0325), 1024);
@@ -51,7 +50,6 @@ public class TestApproximateCountDistinctAggregations
 
     @Test
     public void testStandardErrorToBucketsBounds()
-            throws Exception
     {
         try {
             // Lower bound

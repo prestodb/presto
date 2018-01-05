@@ -152,7 +152,6 @@ public class TestPrestoDriver
 
     @AfterClass(alwaysRun = true)
     public void teardown()
-            throws Exception
     {
         closeQuietly(server);
         executorService.shutdownNow();

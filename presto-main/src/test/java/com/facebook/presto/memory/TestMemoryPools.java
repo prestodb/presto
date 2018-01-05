@@ -129,7 +129,6 @@ public class TestMemoryPools
 
     @AfterMethod(alwaysRun = true)
     public void tearDown()
-            throws Exception
     {
         if (localQueryRunner != null) {
             localQueryRunner.close();
@@ -139,7 +138,6 @@ public class TestMemoryPools
 
     @Test
     public void testBlockingOnUserMemory()
-            throws Exception
     {
         setUpCountStarFromOrdersWithJoin();
         assertTrue(userPool.tryReserve(fakeQueryId, TEN_MEGABYTES.toBytes()));
@@ -184,7 +182,6 @@ public class TestMemoryPools
 
     @Test
     public void testBlockingOnRevocableMemoryFreeUser()
-            throws Exception
     {
         setupConsumeRevocableMemory(ONE_BYTE, 10);
         assertTrue(userPool.tryReserve(fakeQueryId, TEN_MEGABYTES_WITHOUT_TWO_BYTES.toBytes()));
@@ -206,7 +203,6 @@ public class TestMemoryPools
 
     @Test
     public void testBlockingOnRevocableMemoryFreeViaRevoke()
-            throws Exception
     {
         RevocableMemoryOperator revocableMemoryOperator = setupConsumeRevocableMemory(ONE_BYTE, 5);
         assertTrue(userPool.tryReserve(fakeQueryId, TEN_MEGABYTES_WITHOUT_TWO_BYTES.toBytes()));

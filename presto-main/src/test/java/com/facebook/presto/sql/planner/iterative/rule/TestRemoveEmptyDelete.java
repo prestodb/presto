@@ -31,7 +31,6 @@ public class TestRemoveEmptyDelete
 {
     @Test
     public void testDoesNotFire()
-            throws Exception
     {
         tester().assertThat(new RemoveEmptyDelete())
                 .on(p -> p.tableDelete(

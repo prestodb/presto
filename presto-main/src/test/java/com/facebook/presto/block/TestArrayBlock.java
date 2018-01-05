@@ -106,7 +106,6 @@ public class TestArrayBlock
 
     @Test
     public void testLazyBlockBuilderInitialization()
-            throws Exception
     {
         long[][] expectedValues = new long[ARRAY_SIZES.length][];
         Random rand = new Random(47);

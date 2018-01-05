@@ -46,7 +46,6 @@ public class TestGeoQueries
 
     @Test
     public void testGeometryGetObjectValue()
-            throws Exception
     {
         BlockBuilder builder = GEOMETRY.createBlockBuilder(new BlockBuilderStatus(), 1);
         GEOMETRY.writeSlice(builder, GeoFunctions.stPoint(1.2, 3.4));
@@ -57,7 +56,6 @@ public class TestGeoQueries
 
     @Test
     public void testSTPoint()
-            throws Exception
     {
         assertFunction("ST_AsText(ST_Point(1, 4))", VARCHAR, "POINT (1 4)");
         assertFunction("ST_AsText(ST_Point(122.3, 10.55))", VARCHAR, "POINT (122.3 10.55)");
@@ -65,7 +63,6 @@ public class TestGeoQueries
 
     @Test
     public void testSTLineFromText()
-            throws Exception
     {
         assertFunction("ST_AsText(ST_LineFromText('LINESTRING EMPTY'))", VARCHAR, "MULTILINESTRING EMPTY");
         assertFunction("ST_AsText(ST_LineFromText('LINESTRING (1 1, 2 2, 1 3)'))", VARCHAR, "LINESTRING (1 1, 2 2, 1 3)");
@@ -75,7 +72,6 @@ public class TestGeoQueries
 
     @Test
     public void testSTPolygon()
-            throws Exception
     {
         assertFunction("ST_AsText(ST_Polygon('POLYGON EMPTY'))", VARCHAR, "MULTIPOLYGON EMPTY");
         assertFunction("ST_AsText(ST_Polygon('POLYGON ((1 1, 1 4, 4 4, 4 1))'))", VARCHAR, "POLYGON ((1 1, 4 1, 4 4, 1 4, 1 1))");
@@ -84,7 +80,6 @@ public class TestGeoQueries
 
     @Test
     public void testSTArea()
-            throws Exception
     {
         assertFunction("ST_Area(ST_GeometryFromText('POLYGON ((2 2, 2 6, 6 6, 6 2))'))", DOUBLE, 16.0);
         assertFunction("ST_Area(ST_GeometryFromText('POLYGON EMPTY'))", DOUBLE, 0.0);
@@ -93,7 +88,6 @@ public class TestGeoQueries
 
     @Test
     public void testSTBuffer()
-            throws Exception
     {
         assertFunction("ST_AsText(ST_Buffer(ST_Point(0, 0), 0.5))", VARCHAR, "POLYGON ((0.5 0, 0.4989294616193014 0.03270156461507146, 0.49572243068690486 0.0652630961100257, 0.4903926402016149 0.09754516100806403, 0.4829629131445338 0.12940952255126026, 0.47346506474755257 0.16071973265158065, 0.46193976625564315 0.19134171618254472, 0.4484363707663439 0.22114434510950046, 0.43301270189221913 0.2499999999999998, 0.41573480615127245 0.2777851165098009, 0.39667667014561747 0.30438071450436016, 0.3759199037394886 0.32967290755003426, 0.3535533905932737 0.3535533905932736, 0.32967290755003437 0.3759199037394886, 0.3043807145043603 0.39667667014561747, 0.2777851165098011 0.4157348061512725, 0.24999999999999997 0.43301270189221924, 0.22114434510950062 0.4484363707663441, 0.19134171618254486 0.4619397662556433, 0.16071973265158077 0.4734650647475528, 0.12940952255126037 0.48296291314453416, 0.09754516100806412 0.4903926402016152, 0.06526309611002579 0.4957224306869052, 0.03270156461507153 0.49892946161930174, 0 0.5, -0.03270156461507146 0.4989294616193014, -0.0652630961100257 0.49572243068690486, -0.09754516100806403 0.4903926402016149, -0.12940952255126026 0.4829629131445338, -0.16071973265158065 0.47346506474755257, -0.19134171618254472 0.46193976625564315, -0.22114434510950046 0.4484363707663439, -0.2499999999999998 0.43301270189221913, -0.2777851165098009 0.41573480615127245, -0.30438071450436016 0.39667667014561747, -0.32967290755003426 0.3759199037394886, -0.3535533905932736 0.3535533905932737, -0.3759199037394886 0.32967290755003437, -0.39667667014561747 0.3043807145043603, -0.4157348061512725 0.2777851165098011, -0.43301270189221924 0.24999999999999997, -0.4484363707663441 0.22114434510950062, -0.4619397662556433 0.19134171618254486, -0.4734650647475528 0.16071973265158077, -0.48296291314453416 0.12940952255126037, -0.4903926402016152 0.09754516100806412, -0.4957224306869052 0.06526309611002579, -0.49892946161930174 0.03270156461507153, -0.5 0, -0.4989294616193014 -0.03270156461507146, -0.49572243068690486 -0.0652630961100257, -0.4903926402016149 -0.09754516100806403, -0.4829629131445338 -0.12940952255126026, -0.47346506474755257 -0.16071973265158065, -0.46193976625564315 -0.19134171618254472, -0.4484363707663439 -0.22114434510950046, -0.43301270189221913 -0.2499999999999998, -0.41573480615127245 -0.2777851165098009, -0.39667667014561747 -0.30438071450436016, -0.3759199037394886 -0.32967290755003426, -0.3535533905932737 -0.3535533905932736, -0.32967290755003437 -0.3759199037394886, -0.3043807145043603 -0.39667667014561747, -0.2777851165098011 -0.4157348061512725, -0.24999999999999997 -0.43301270189221924, -0.22114434510950062 -0.4484363707663441, -0.19134171618254486 -0.4619397662556433, -0.16071973265158077 -0.4734650647475528, -0.12940952255126037 -0.48296291314453416, -0.09754516100806412 -0.4903926402016152, -0.06526309611002579 -0.4957224306869052, -0.03270156461507153 -0.49892946161930174, 0 -0.5, 0.03270156461507146 -0.4989294616193014, 0.0652630961100257 -0.49572243068690486, 0.09754516100806403 -0.4903926402016149, 0.12940952255126026 -0.4829629131445338, 0.16071973265158065 -0.47346506474755257, 0.19134171618254472 -0.46193976625564315, 0.22114434510950046 -0.4484363707663439, 0.2499999999999998 -0.43301270189221913, 0.2777851165098009 -0.41573480615127245, 0.30438071450436016 -0.39667667014561747, 0.32967290755003426 -0.3759199037394886, 0.3535533905932736 -0.3535533905932737, 0.3759199037394886 -0.32967290755003437, 0.39667667014561747 -0.3043807145043603, 0.4157348061512725 -0.2777851165098011, 0.43301270189221924 -0.24999999999999997, 0.4484363707663441 -0.22114434510950062, 0.4619397662556433 -0.19134171618254486, 0.4734650647475528 -0.16071973265158077, 0.48296291314453416 -0.12940952255126037, 0.4903926402016152 -0.09754516100806412, 0.4957224306869052 -0.06526309611002579, 0.49892946161930174 -0.03270156461507153, 0.5 0))");
         assertFunction("ST_AsText(ST_Buffer(ST_LineFromText('LINESTRING (0 0, 1 1, 2 0.5)'), 0.2))", VARCHAR, "POLYGON ((0 -0.19999999999999996, 0.013080625846028537 -0.19957178464772052, 0.02610523844401036 -0.19828897227476194, 0.03901806440322564 -0.19615705608064593, 0.05176380902050415 -0.1931851652578136, 0.06428789306063232 -0.18938602589902098, 0.07653668647301792 -0.18477590650225728, 0.0884577380438003 -0.17937454830653754, 0.09999999999999987 -0.17320508075688767, 0.11111404660392044 -0.166293922460509, 0.12175228580174413 -0.15867066805824703, 0.13186916302001372 -0.15036796149579545, 0.14142135623730945 -0.14142135623730945, 1.0394906098164265 0.7566478973418078, 1.9105572809000084 0.32111456180001685, 1.9115422619561997 0.32062545169346235, 1.923463313526982 0.31522409349774266, 1.9357121069393677 0.3106139741009789, 1.9482361909794959 0.3068148347421863, 1.9609819355967744 0.3038429439193539, 1.9738947615559896 0.30171102772523795, 1.9869193741539715 0.30042821535227926, 2 0.3, 2.0130806258460288 0.3004282153522794, 2.02610523844401 0.30171102772523806, 2.0390180644032254 0.30384294391935407, 2.051763809020504 0.30681483474218646, 2.0642878930606323 0.31061397410097896, 2.076536686473018 0.3152240934977427, 2.0884577380438003 0.32062545169346246, 2.1 0.3267949192431123, 2.1111140466039204 0.333706077539491, 2.121752285801744 0.34132933194175297, 2.1318691630200135 0.34963203850420455, 2.1414213562373092 0.35857864376269055, 2.1503679614957956 0.3681308369799863, 2.158670668058247 0.37824771419825587, 2.166293922460509 0.38888595339607956, 2.1732050807568877 0.4, 2.1793745483065377 0.41154226195619975, 2.1847759065022574 0.4234633135269821, 2.189386025899021 0.4357121069393677, 2.193185165257814 0.44823619097949585, 2.1961570560806463 0.46098193559677436, 2.1982889722747623 0.4738947615559897, 2.1995717846477207 0.4869193741539714, 2.2 0.5, 2.1995717846477207 0.5130806258460285, 2.198288972274762 0.5261052384440102, 2.196157056080646 0.5390180644032256, 2.1931851652578134 0.5517638090205041, 2.189386025899021 0.5642878930606323, 2.1847759065022574 0.5765366864730179, 2.1793745483065377 0.5884577380438002, 2.1732050807568877 0.5999999999999999, 2.166293922460509 0.6111140466039204, 2.158670668058247 0.6217522858017441, 2.1503679614957956 0.6318691630200137, 2.1414213562373097 0.6414213562373094, 2.131869163020014 0.6503679614957955, 2.121752285801744 0.658670668058247, 2.1111140466039204 0.666293922460509, 2.1 0.6732050807568877, 2.0894427190999916 0.6788854381999831, 1.0894427190999916 1.1788854381999831, 1.0884577380438003 1.1793745483065377, 1.076536686473018 1.1847759065022574, 1.0642878930606323 1.189386025899021, 1.0517638090205041 1.1931851652578138, 1.0390180644032256 1.196157056080646, 1.0261052384440104 1.198288972274762, 1.0130806258460288 1.1995717846477207, 1 1.2, 0.9869193741539715 1.1995717846477205, 0.9738947615559896 1.1982889722747618, 0.9609819355967744 1.1961570560806458, 0.9482361909794959 1.1931851652578136, 0.9357121069393677 1.189386025899021, 0.9234633135269821 1.1847759065022574, 0.9115422619561997 1.1793745483065377, 0.9000000000000001 1.1732050807568877, 0.8888859533960796 1.166293922460509, 0.8782477141982559 1.158670668058247, 0.8681308369799863 1.1503679614957956, 0.8585786437626906 1.1414213562373094, -0.14142135623730967 0.1414213562373095, -0.15036796149579557 0.13186916302001372, -0.1586706680582468 0.12175228580174413, -0.1662939224605089 0.11111404660392044, -0.17320508075688767 0.09999999999999998, -0.17937454830653765 0.08845773804380025, -0.1847759065022574 0.07653668647301792, -0.18938602589902098 0.06428789306063232, -0.19318516525781382 0.05176380902050415, -0.19615705608064626 0.03901806440322564, -0.19828897227476228 0.026105238444010304, -0.19957178464772074 0.013080625846028593, -0.20000000000000018 0, -0.19957178464772074 -0.013080625846028537, -0.19828897227476183 -0.026105238444010248, -0.19615705608064582 -0.03901806440322564, -0.19318516525781337 -0.05176380902050415, -0.18938602589902098 -0.06428789306063232, -0.1847759065022574 -0.07653668647301792, -0.17937454830653765 -0.0884577380438002, -0.17320508075688767 -0.09999999999999987, -0.1662939224605089 -0.11111404660392044, -0.1586706680582468 -0.12175228580174413, -0.15036796149579557 -0.13186916302001372, -0.14142135623730967 -0.14142135623730945, -0.13186916302001395 -0.15036796149579545, -0.12175228580174391 -0.15867066805824703, -0.11111404660392044 -0.166293922460509, -0.10000000000000009 -0.17320508075688767, -0.0884577380438003 -0.17937454830653765, -0.07653668647301792 -0.1847759065022574, -0.06428789306063232 -0.1893860258990211, -0.05176380902050415 -0.1931851652578137, -0.03901806440322586 -0.19615705608064604, -0.026105238444010137 -0.19828897227476205, -0.01308062584602876 -0.19957178464772074, 0 -0.19999999999999996))");
@@ -121,7 +115,6 @@ public class TestGeoQueries
 
     @Test
     public void testSTCentroid()
-            throws Exception
     {
         assertFunction("ST_AsText(ST_Centroid(ST_GeometryFromText('LINESTRING EMPTY')))", VARCHAR, "POINT EMPTY");
         assertFunction("ST_AsText(ST_Centroid(ST_GeometryFromText('POINT (3 5)')))", VARCHAR, "POINT (3 5)");
@@ -136,7 +129,6 @@ public class TestGeoQueries
 
     @Test
     public void testSTCoordDim()
-            throws Exception
     {
         assertFunction("ST_CoordDim(ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 4, 4 1))'))", TINYINT, (byte) 2);
         assertFunction("ST_CoordDim(ST_GeometryFromText('POLYGON EMPTY'))", TINYINT, (byte) 2);
@@ -146,7 +138,6 @@ public class TestGeoQueries
 
     @Test
     public void testSTDimension()
-            throws Exception
     {
         assertFunction("ST_Dimension(ST_GeometryFromText('POLYGON EMPTY'))", TINYINT, (byte) 2);
         assertFunction("ST_Dimension(ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 4, 4 1))'))", TINYINT, (byte) 2);
@@ -156,7 +147,6 @@ public class TestGeoQueries
 
     @Test
     public void testSTIsClosed()
-            throws Exception
     {
         assertFunction("ST_IsClosed(ST_GeometryFromText('LINESTRING (1 1, 2 2, 1 3, 1 1)'))", BOOLEAN, true);
         assertFunction("ST_IsClosed(ST_GeometryFromText('LINESTRING (1 1, 2 2, 1 3)'))", BOOLEAN, false);
@@ -165,7 +155,6 @@ public class TestGeoQueries
 
     @Test
     public void testSTIsEmpty()
-            throws Exception
     {
         assertFunction("ST_IsEmpty(ST_GeometryFromText('POINT (1.5 2.5)'))", BOOLEAN, false);
         assertFunction("ST_IsEmpty(ST_GeometryFromText('POLYGON EMPTY'))", BOOLEAN, true);
@@ -173,7 +162,6 @@ public class TestGeoQueries
 
     @Test
     public void testSTLength()
-            throws Exception
     {
         assertFunction("ST_Length(ST_GeometryFromText('LINESTRING EMPTY'))", DOUBLE, 0.0);
         assertFunction("ST_Length(ST_GeometryFromText('LINESTRING (0 0, 2 2)'))", DOUBLE, 2.8284271247461903);
@@ -183,7 +171,6 @@ public class TestGeoQueries
 
     @Test
     public void testSTMax()
-            throws Exception
     {
         assertFunction("ST_XMax(ST_GeometryFromText('POINT (1.5 2.5)'))", DOUBLE, 1.5);
         assertFunction("ST_YMax(ST_GeometryFromText('POINT (1.5 2.5)'))", DOUBLE, 2.5);
@@ -201,7 +188,6 @@ public class TestGeoQueries
 
     @Test
     public void testSTMin()
-            throws Exception
     {
         assertFunction("ST_XMin(ST_GeometryFromText('POINT (1.5 2.5)'))", DOUBLE, 1.5);
         assertFunction("ST_YMin(ST_GeometryFromText('POINT (1.5 2.5)'))", DOUBLE, 2.5);
@@ -219,7 +205,6 @@ public class TestGeoQueries
 
     @Test
     public void testSTNumInteriorRing()
-            throws Exception
     {
         assertFunction("ST_NumInteriorRing(ST_GeometryFromText('POLYGON ((0 0, 0 5, 5 5, 5 0, 0 0))'))", BIGINT, 0L);
         assertFunction("ST_NumInteriorRing(ST_GeometryFromText('POLYGON ((0 0, 8 0, 0 8, 0 0), (1 1, 1 5, 5 1, 1 1))'))", BIGINT, 1L);
@@ -228,7 +213,6 @@ public class TestGeoQueries
 
     @Test
     public void testSTNumPoints()
-            throws Exception
     {
         assertFunction("ST_NumPoints(ST_GeometryFromText('POLYGON ((0 0, 8 0, 0 8, 0 0), (1 1, 1 5, 5 1, 1 1))'))", BIGINT, 6L);
         assertFunction("ST_NumPoints(ST_GeometryFromText('MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1)), ((2 4, 2 6, 6 6, 6 4)))'))", BIGINT, 8L);
@@ -241,7 +225,6 @@ public class TestGeoQueries
 
     @Test
     public void testSTIsRing()
-            throws Exception
     {
         assertFunction("ST_IsRing(ST_GeometryFromText('LINESTRING (8 4, 4 8)'))", BOOLEAN, false);
         assertFunction("ST_IsRing(ST_GeometryFromText('LINESTRING (0 0, 1 1, 0 2, 0 0)'))", BOOLEAN, true);
@@ -250,7 +233,6 @@ public class TestGeoQueries
 
     @Test
     public void testSTStartEndPoint()
-            throws Exception
     {
         assertFunction("ST_AsText(ST_StartPoint(ST_GeometryFromText('LINESTRING (8 4, 4 8, 5 6)')))", VARCHAR, "POINT (8 4)");
         assertFunction("ST_AsText(ST_EndPoint(ST_GeometryFromText('LINESTRING (8 4, 4 8, 5 6)')))", VARCHAR, "POINT (5 6)");
@@ -260,7 +242,6 @@ public class TestGeoQueries
 
     @Test
     public void testSTXY()
-            throws Exception
     {
         assertFunction("ST_Y(ST_GeometryFromText('POINT EMPTY'))", DOUBLE, null);
         assertFunction("ST_X(ST_GeometryFromText('POINT (1 2)'))", DOUBLE, 1.0);
@@ -270,7 +251,6 @@ public class TestGeoQueries
 
     @Test
     public void testSTBoundary()
-            throws Exception
     {
         assertFunction("ST_AsText(ST_Boundary(ST_GeometryFromText('POINT (1 2)')))", VARCHAR, "POINT EMPTY");
         assertFunction("ST_AsText(ST_Boundary(ST_GeometryFromText('MULTIPOINT (1 2, 2 4, 3 6, 4 8)')))", VARCHAR, "POINT EMPTY");
@@ -284,7 +264,6 @@ public class TestGeoQueries
 
     @Test
     public void testSTEnvelope()
-            throws Exception
     {
         assertFunction("ST_AsText(ST_Envelope(ST_GeometryFromText('MULTIPOINT (1 2, 2 4, 3 6, 4 8)')))", VARCHAR, "POLYGON ((1 2, 4 2, 4 8, 1 8, 1 2))");
         assertFunction("ST_AsText(ST_Envelope(ST_GeometryFromText('LINESTRING EMPTY')))", VARCHAR, "MULTIPOLYGON EMPTY");
@@ -297,7 +276,6 @@ public class TestGeoQueries
 
     @Test
     public void testSTDifference()
-            throws Exception
     {
         assertFunction("ST_AsText(ST_Difference(ST_GeometryFromText('POINT (50 100)'), ST_GeometryFromText('POINT (150 150)')))", VARCHAR, "POINT (50 100)");
         assertFunction("ST_AsText(ST_Difference(ST_GeometryFromText('MULTIPOINT (50 100, 50 200)'), ST_GeometryFromText('POINT (50 100)')))", VARCHAR, "POINT (50 200)");
@@ -309,7 +287,6 @@ public class TestGeoQueries
 
     @Test
     public void testSTDistance()
-            throws Exception
     {
         assertFunction("ST_Distance(ST_Point(50, 100), ST_Point(150, 150))", DOUBLE, 111.80339887498948);
         assertFunction("ST_Distance(ST_Point(50, 100), ST_GeometryFromText('POINT (150 150)'))", DOUBLE, 111.80339887498948);
@@ -323,7 +300,6 @@ public class TestGeoQueries
 
     @Test
     public void testSTExteriorRing()
-            throws Exception
     {
         assertFunction("ST_AsText(ST_ExteriorRing(ST_GeometryFromText('POLYGON EMPTY')))", VARCHAR, null);
         assertFunction("ST_AsText(ST_ExteriorRing(ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 1))')))", VARCHAR, "LINESTRING (1 1, 4 1, 1 4, 1 1)");
@@ -333,7 +309,6 @@ public class TestGeoQueries
 
     @Test
     public void testSTIntersection()
-            throws Exception
     {
         assertFunction("ST_AsText(ST_Intersection(ST_GeometryFromText('POINT (50 100)'), ST_GeometryFromText('POINT (150 150)')))", VARCHAR, "MULTIPOLYGON EMPTY");
         assertFunction("ST_AsText(ST_Intersection(ST_GeometryFromText('MULTIPOINT (50 100, 50 200)'), ST_GeometryFromText('Point (50 100)')))", VARCHAR, "POINT (50 100)");
@@ -347,7 +322,6 @@ public class TestGeoQueries
 
     @Test
     public void testSTSymmetricDifference()
-            throws Exception
     {
         assertFunction("ST_AsText(ST_SymDifference(ST_GeometryFromText('POINT (50 100)'), ST_GeometryFromText('POINT (50 150)')))", VARCHAR, "MULTIPOINT ((50 100), (50 150))");
         assertFunction("ST_AsText(ST_SymDifference(ST_GeometryFromText('MULTIPOINT (50 100, 60 200)'), ST_GeometryFromText('MULTIPOINT (60 200, 70 150)')))", VARCHAR, "MULTIPOINT ((50 100), (70 150))");
@@ -359,7 +333,6 @@ public class TestGeoQueries
 
     @Test
     public void testStContains()
-            throws Exception
     {
         assertFunction("ST_Contains(ST_GeometryFromText(null), ST_GeometryFromText('POINT (25 25)'))", BOOLEAN, null);
         assertFunction("ST_Contains(ST_GeometryFromText('POINT (20 20)'), ST_GeometryFromText('POINT (25 25)'))", BOOLEAN, false);
@@ -376,7 +349,6 @@ public class TestGeoQueries
 
     @Test
     public void testSTCrosses()
-            throws Exception
     {
         assertFunction("ST_Crosses(ST_GeometryFromText('POINT (20 20)'), ST_GeometryFromText('POINT (25 25)'))", BOOLEAN, false);
         assertFunction("ST_Crosses(ST_GeometryFromText('LINESTRING (20 20, 30 30)'), ST_GeometryFromText('POINT (25 25)'))", BOOLEAN, false);
@@ -389,7 +361,6 @@ public class TestGeoQueries
 
     @Test
     public void testSTDisjoint()
-            throws Exception
     {
         assertFunction("ST_Disjoint(ST_GeometryFromText('POINT (50 100)'), ST_GeometryFromText('POINT (150 150)'))", BOOLEAN, true);
         assertFunction("ST_Disjoint(ST_GeometryFromText('MULTIPOINT (50 100, 50 200)'), ST_GeometryFromText('POINT (50 100)'))", BOOLEAN, false);
@@ -402,7 +373,6 @@ public class TestGeoQueries
 
     @Test
     public void testSTEquals()
-            throws Exception
     {
         assertFunction("ST_Equals(ST_GeometryFromText('POINT (50 100)'), ST_GeometryFromText('POINT (150 150)'))", BOOLEAN, false);
         assertFunction("ST_Equals(ST_GeometryFromText('MULTIPOINT (50 100, 50 200)'), ST_GeometryFromText('POINT (50 100)'))", BOOLEAN, false);
@@ -415,7 +385,6 @@ public class TestGeoQueries
 
     @Test
     public void testSTIntersects()
-            throws Exception
     {
         assertFunction("ST_Intersects(ST_GeometryFromText('POINT (50 100)'), ST_GeometryFromText('POINT (150 150)'))", BOOLEAN, false);
         assertFunction("ST_Intersects(ST_GeometryFromText('MULTIPOINT (50 100, 50 200)'), ST_GeometryFromText('POINT (50 100)'))", BOOLEAN, true);
@@ -428,7 +397,6 @@ public class TestGeoQueries
 
     @Test
     public void testSTOverlaps()
-            throws Exception
     {
         assertFunction("ST_Overlaps(ST_GeometryFromText('POINT (50 100)'), ST_GeometryFromText('POINT (150 150)'))", BOOLEAN, false);
         assertFunction("ST_Overlaps(ST_GeometryFromText('MULTIPOINT (50 100, 50 200)'), ST_GeometryFromText('POINT (50 100)'))", BOOLEAN, false);
@@ -441,7 +409,6 @@ public class TestGeoQueries
 
     @Test
     public void testSTRelate()
-            throws Exception
     {
         assertFunction("ST_Relate(ST_GeometryFromText('LINESTRING (0 0, 3 3)'), ST_GeometryFromText('LINESTRING (1 1, 4 1)'), '****T****')", BOOLEAN, false);
         assertFunction("ST_Relate(ST_GeometryFromText('POLYGON ((2 0, 2 1, 3 1))'), ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 4, 4 1))'), '****T****')", BOOLEAN, true);
@@ -450,7 +417,6 @@ public class TestGeoQueries
 
     @Test
     public void testSTTouches()
-            throws Exception
     {
         assertFunction("ST_Touches(ST_GeometryFromText('POINT (50 100)'), ST_GeometryFromText('POINT (150 150)'))", BOOLEAN, false);
         assertFunction("ST_Touches(ST_GeometryFromText('MULTIPOINT (50 100, 50 200)'), ST_GeometryFromText('POINT (50 100)'))", BOOLEAN, false);
@@ -465,7 +431,6 @@ public class TestGeoQueries
 
     @Test
     public void testSTWithin()
-            throws Exception
     {
         assertFunction("ST_Within(ST_GeometryFromText('POINT (50 100)'), ST_GeometryFromText('POINT (150 150)'))", BOOLEAN, false);
         assertFunction("ST_Within(ST_GeometryFromText('POINT (50 100)'), ST_GeometryFromText('MULTIPOINT (50 100, 50 200)'))", BOOLEAN, true);
@@ -479,7 +444,6 @@ public class TestGeoQueries
 
     @Test
     public void testInvalidWKT()
-            throws Exception
     {
         assertInvalidFunction("ST_LineFromText('LINESTRING (0 0, 1)')", INVALID_FUNCTION_ARGUMENT, "Invalid WKT: LINESTRING (0 0, 1)");
         assertInvalidFunction("ST_GeometryFromText('POLYGON(0 0)')", INVALID_FUNCTION_ARGUMENT, "Invalid WKT: POLYGON(0 0)");

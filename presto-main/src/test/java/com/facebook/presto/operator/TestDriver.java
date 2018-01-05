@@ -42,7 +42,6 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.io.Closeable;
-import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
@@ -79,7 +78,6 @@ public class TestDriver
 
     @BeforeMethod
     public void setUp()
-            throws Exception
     {
         executor = newCachedThreadPool(daemonThreadsNamed("test-executor-%s"));
         scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
@@ -196,7 +194,6 @@ public class TestDriver
         {
             @Override
             public Boolean call()
-                    throws Exception
             {
                 return driver.processFor(new Duration(1, TimeUnit.MILLISECONDS)).isDone();
             }
@@ -229,7 +226,6 @@ public class TestDriver
         {
             @Override
             public Boolean call()
-                    throws Exception
             {
                 driver.close();
                 return true;
@@ -247,7 +243,6 @@ public class TestDriver
 
     @Test
     public void testMemoryRevocationRace()
-            throws Exception
     {
         List<Type> types = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
         TableScanOperator source = new AlwaysBlockedMemoryRevokingTableScanOperator(driverContext.addOperatorContext(99, new PlanNodeId("test"), "scan"),
@@ -302,7 +297,6 @@ public class TestDriver
         {
             @Override
             public Boolean call()
-                    throws Exception
             {
                 return driver.processFor(new Duration(1, TimeUnit.MILLISECONDS)).isDone();
             }
@@ -462,7 +456,6 @@ public class TestDriver
 
         @Override
         public void close()
-                throws IOException
         {
             if (lockForClose) {
                 waitForUnlock();

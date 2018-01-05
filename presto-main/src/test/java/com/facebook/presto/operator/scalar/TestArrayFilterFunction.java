@@ -30,7 +30,6 @@ public class TestArrayFilterFunction
 {
     @Test
     public void testBasic()
-            throws Exception
     {
         assertFunction("filter(ARRAY [5, 6], x -> x = 5)", new ArrayType(INTEGER), ImmutableList.of(5));
         assertFunction("filter(ARRAY [5 + RANDOM(1), 6 + RANDOM(1)], x -> x = 5)", new ArrayType(INTEGER), ImmutableList.of(5));
@@ -40,7 +39,6 @@ public class TestArrayFilterFunction
 
     @Test
     public void testEmpty()
-            throws Exception
     {
         assertFunction("filter(ARRAY [], x -> true)", new ArrayType(UNKNOWN), ImmutableList.of());
         assertFunction("filter(ARRAY [], x -> false)", new ArrayType(UNKNOWN), ImmutableList.of());
@@ -50,7 +48,6 @@ public class TestArrayFilterFunction
 
     @Test
     public void testNull()
-            throws Exception
     {
         assertFunction("filter(ARRAY [NULL], x -> x IS NULL)", new ArrayType(UNKNOWN), singletonList(null));
         assertFunction("filter(ARRAY [NULL], x -> x IS NOT NULL)", new ArrayType(UNKNOWN), ImmutableList.of());
@@ -70,7 +67,6 @@ public class TestArrayFilterFunction
 
     @Test
     public void testTypeCombinations()
-            throws Exception
     {
         assertFunction("filter(ARRAY [25, 26, 27], x -> x % 2 = 1)", new ArrayType(INTEGER), ImmutableList.of(25, 27));
         assertFunction("filter(ARRAY [25.6E0, 37.3E0, 28.6E0], x -> x < 30.0E0)", new ArrayType(DOUBLE), ImmutableList.of(25.6, 28.6));

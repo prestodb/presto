@@ -54,7 +54,6 @@ public class TestAccumuloClient
 
     @Test
     public void testCreateTableEmptyAccumuloColumn()
-            throws Exception
     {
         SchemaTableName tableName = new SchemaTableName("default", "test_create_table_empty_accumulo_column");
 

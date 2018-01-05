@@ -34,7 +34,6 @@ public class TestExpressionUtils
 {
     @Test
     public void testAnd()
-            throws Exception
     {
         Expression a = name("a");
         Expression b = name("b");
@@ -53,7 +52,6 @@ public class TestExpressionUtils
 
     @Test
     public void testNormalize()
-            throws Exception
     {
         assertNormalize(new ComparisonExpression(EQUAL, name("a"), new LongLiteral("1")));
         assertNormalize(new IsNullPredicate(name("a")));

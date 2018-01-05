@@ -142,7 +142,6 @@ public class TestRaptorSplitManager
 
     @Test
     public void testSanity()
-            throws InterruptedException
     {
         List<ConnectorTableLayoutResult> layouts = metadata.getTableLayouts(SESSION, tableHandle, Constraint.alwaysTrue(), Optional.empty());
         assertEquals(layouts.size(), 1);
@@ -159,7 +158,6 @@ public class TestRaptorSplitManager
 
     @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "No host for shard .* found: \\[\\]")
     public void testNoHostForShard()
-            throws InterruptedException
     {
         deleteShardNodes();
 
@@ -170,7 +168,7 @@ public class TestRaptorSplitManager
 
     @Test
     public void testAssignRandomNodeWhenBackupAvailable()
-            throws InterruptedException, URISyntaxException
+            throws URISyntaxException
     {
         TestingNodeManager nodeManager = new TestingNodeManager();
         RaptorConnectorId connectorId = new RaptorConnectorId("raptor");
@@ -189,7 +187,6 @@ public class TestRaptorSplitManager
 
     @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "No nodes available to run query")
     public void testNoNodes()
-            throws InterruptedException, URISyntaxException
     {
         deleteShardNodes();
 

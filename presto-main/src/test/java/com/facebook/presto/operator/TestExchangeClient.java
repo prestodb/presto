@@ -81,7 +81,6 @@ public class TestExchangeClient
 
     @Test
     public void testHappyPath()
-            throws Exception
     {
         DataSize maxResponseSize = new DataSize(10, Unit.MEGABYTE);
         MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(maxResponseSize);
@@ -174,7 +173,6 @@ public class TestExchangeClient
 
     @Test
     public void testBufferLimit()
-            throws Exception
     {
         DataSize maxResponseSize = new DataSize(1, Unit.BYTE);
         MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(maxResponseSize);
@@ -292,7 +290,6 @@ public class TestExchangeClient
     }
 
     private static SerializedPage getNextPage(ExchangeClient exchangeClient)
-            throws InterruptedException
     {
         ListenableFuture<SerializedPage> futurePage = Futures.transform(exchangeClient.isBlocked(), ignored -> exchangeClient.pollPage());
         return tryGetFutureValue(futurePage, 100, TimeUnit.SECONDS).orElse(null);

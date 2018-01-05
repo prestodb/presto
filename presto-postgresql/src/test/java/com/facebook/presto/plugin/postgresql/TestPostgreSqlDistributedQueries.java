@@ -36,7 +36,6 @@ public class TestPostgreSqlDistributedQueries
     }
 
     public TestPostgreSqlDistributedQueries(TestingPostgreSqlServer postgreSqlServer)
-            throws Exception
     {
         super(() -> createPostgreSqlQueryRunner(postgreSqlServer, TpchTable.getTables()));
         this.postgreSqlServer = postgreSqlServer;

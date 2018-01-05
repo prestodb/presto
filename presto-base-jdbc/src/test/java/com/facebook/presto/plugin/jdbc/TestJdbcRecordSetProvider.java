@@ -80,7 +80,6 @@ public class TestJdbcRecordSetProvider
 
     @Test
     public void testGetRecordSet()
-            throws Exception
     {
         ConnectorTransactionHandle transaction = new JdbcTransactionHandle();
         JdbcRecordSetProvider recordSetProvider = new JdbcRecordSetProvider(jdbcClient);
@@ -107,7 +106,6 @@ public class TestJdbcRecordSetProvider
 
     @Test
     public void testTupleDomain()
-            throws Exception
     {
         // single value
         getCursor(table, ImmutableList.of(textColumn, valueColumn), TupleDomain.withColumnDomains(
@@ -178,7 +176,6 @@ public class TestJdbcRecordSetProvider
     }
 
     private RecordCursor getCursor(JdbcTableHandle jdbcTableHandle, List<JdbcColumnHandle> columns, TupleDomain<ColumnHandle> domain)
-            throws InterruptedException
     {
         JdbcTableLayoutHandle layoutHandle = new JdbcTableLayoutHandle(jdbcTableHandle, domain);
         ConnectorSplitSource splits = jdbcClient.getSplits(layoutHandle);

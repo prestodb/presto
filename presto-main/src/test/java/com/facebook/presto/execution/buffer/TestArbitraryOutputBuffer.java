@@ -74,14 +74,12 @@ public class TestArbitraryOutputBuffer
 
     @BeforeClass
     public void setUp()
-            throws Exception
     {
         stateNotificationExecutor = newScheduledThreadPool(5, daemonThreadsNamed("test-%s"));
     }
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
-            throws Exception
     {
         if (stateNotificationExecutor != null) {
             stateNotificationExecutor.shutdownNow();

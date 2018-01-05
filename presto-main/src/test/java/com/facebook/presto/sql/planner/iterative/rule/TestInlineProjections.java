@@ -69,7 +69,6 @@ public class TestInlineProjections
 
     @Test
     public void testIdentityProjections()
-            throws Exception
     {
         tester().assertThat(new InlineProjections())
                 .on(p ->
@@ -83,7 +82,6 @@ public class TestInlineProjections
 
     @Test
     public void testSubqueryProjections()
-            throws Exception
     {
         tester().assertThat(new InlineProjections())
                 .on(p ->

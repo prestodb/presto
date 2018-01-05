@@ -30,7 +30,6 @@ public class TestVerifyOnlyOneOutputNode
 
     @Test
     public void testValidateSuccessful()
-            throws Exception
     {
         // random seemingly valid plan
         PlanNode root =
@@ -45,7 +44,6 @@ public class TestVerifyOnlyOneOutputNode
 
     @Test(expectedExceptions = IllegalStateException.class)
     public void testValidateFailed()
-            throws Exception
     {
         // random plan with 2 output nodes
         PlanNode root =

@@ -34,7 +34,6 @@ public class TestMongoDistributedQueries
 
     @BeforeClass
     public void setUp()
-            throws Exception
     {
         mongoQueryRunner = (MongoQueryRunner) getQueryRunner();
     }

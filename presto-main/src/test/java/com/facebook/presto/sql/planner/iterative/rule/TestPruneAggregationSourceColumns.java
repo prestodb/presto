@@ -40,7 +40,6 @@ public class TestPruneAggregationSourceColumns
 {
     @Test
     public void testNotAllInputsReferenced()
-            throws Exception
     {
         tester().assertThat(new PruneAggregationSourceColumns())
                 .on(p -> buildAggregation(p, alwaysTrue()))
@@ -64,7 +63,6 @@ public class TestPruneAggregationSourceColumns
 
     @Test
     public void testAllInputsReferenced()
-            throws Exception
     {
         tester().assertThat(new PruneAggregationSourceColumns())
                 .on(p -> buildAggregation(p, symbol -> !symbol.getName().equals("unused")))

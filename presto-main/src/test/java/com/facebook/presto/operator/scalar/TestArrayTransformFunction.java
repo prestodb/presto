@@ -43,7 +43,6 @@ public class TestArrayTransformFunction
 
     @Test
     public void testBasic()
-            throws Exception
     {
         assertFunction("transform(ARRAY [5, 6], x -> 9)", new ArrayType(INTEGER), ImmutableList.of(9, 9));
         assertFunction("transform(ARRAY [5, 6], x -> x + 1)", new ArrayType(INTEGER), ImmutableList.of(6, 7));
@@ -52,7 +51,6 @@ public class TestArrayTransformFunction
 
     @Test
     public void testNull()
-            throws Exception
     {
         assertFunction("transform(ARRAY [3], x -> x + 1)", new ArrayType(INTEGER), ImmutableList.of(4));
         assertFunction("transform(ARRAY [NULL, NULL], x -> x + 1)", new ArrayType(INTEGER), asList(null, null));
@@ -65,7 +63,6 @@ public class TestArrayTransformFunction
 
     @Test
     public void testSessionDependent()
-            throws Exception
     {
         assertFunction("transform(ARRAY['timezone: ', 'tz: '], x -> x || current_timezone())", new ArrayType(VARCHAR), ImmutableList.of("timezone: Pacific/Kiritimati", "tz: Pacific/Kiritimati"));
     }
@@ -79,7 +76,6 @@ public class TestArrayTransformFunction
 
     @Test
     public void testTypeCombinations()
-            throws Exception
     {
         assertFunction("transform(ARRAY [25, 26], x -> x + 1)", new ArrayType(INTEGER), ImmutableList.of(26, 27));
         assertFunction("transform(ARRAY [25, 26], x -> x + 1.0E0)", new ArrayType(DOUBLE), ImmutableList.of(26.0, 27.0));

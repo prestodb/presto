@@ -41,7 +41,6 @@ public class TestMapTransformValueFunction
 
     @Test
     public void testEmpty()
-            throws Exception
     {
         assertFunction("transform_values(map(ARRAY[], ARRAY[]), (k, v) -> NULL)", mapType(UNKNOWN, UNKNOWN), ImmutableMap.of());
         assertFunction("transform_values(map(ARRAY[], ARRAY[]), (k, v) -> k)", mapType(UNKNOWN, UNKNOWN), ImmutableMap.of());
@@ -56,7 +55,6 @@ public class TestMapTransformValueFunction
 
     @Test
     public void testNullValue()
-            throws Exception
     {
         Map<Integer, Void> sequenceToNullMap = new HashMap<>();
         sequenceToNullMap.put(1, null);
@@ -84,7 +82,6 @@ public class TestMapTransformValueFunction
 
     @Test
     public void testBasic()
-            throws Exception
     {
         assertFunction(
                 "transform_values(map(ARRAY [1, 2, 3, 4], ARRAY [10, 20, 30, 40]), (k, v) -> k + v)",
@@ -109,7 +106,6 @@ public class TestMapTransformValueFunction
 
     @Test
     public void testTypeCombinations()
-            throws Exception
     {
         assertFunction(
                 "transform_values(map(ARRAY [25, 26, 27], ARRAY [25, 26, 27]), (k, v) -> k + v)",

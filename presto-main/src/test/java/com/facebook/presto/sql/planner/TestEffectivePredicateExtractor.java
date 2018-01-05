@@ -106,7 +106,6 @@ public class TestEffectivePredicateExtractor
 
     @BeforeMethod
     public void setUp()
-            throws Exception
     {
         scanAssignments = ImmutableMap.<Symbol, ColumnHandle>builder()
                 .put(A, new TestingColumnHandle("a"))
@@ -132,7 +131,6 @@ public class TestEffectivePredicateExtractor
 
     @Test
     public void testAggregation()
-            throws Exception
     {
         PlanNode node = new AggregationNode(newId(),
                 filter(baseTableScan,
@@ -164,7 +162,6 @@ public class TestEffectivePredicateExtractor
 
     @Test
     public void testGroupByEmpty()
-            throws Exception
     {
         PlanNode node = new AggregationNode(
                 newId(),
@@ -182,7 +179,6 @@ public class TestEffectivePredicateExtractor
 
     @Test
     public void testFilter()
-            throws Exception
     {
         PlanNode node = filter(baseTableScan,
                 and(
@@ -198,7 +194,6 @@ public class TestEffectivePredicateExtractor
 
     @Test
     public void testProject()
-            throws Exception
     {
         PlanNode node = new ProjectNode(newId(),
                 filter(baseTableScan,
@@ -219,7 +214,6 @@ public class TestEffectivePredicateExtractor
 
     @Test
     public void testTopN()
-            throws Exception
     {
         PlanNode node = new TopNNode(newId(),
                 filter(baseTableScan,
@@ -241,7 +235,6 @@ public class TestEffectivePredicateExtractor
 
     @Test
     public void testLimit()
-            throws Exception
     {
         PlanNode node = new LimitNode(newId(),
                 filter(baseTableScan,
@@ -264,7 +257,6 @@ public class TestEffectivePredicateExtractor
 
     @Test
     public void testSort()
-            throws Exception
     {
         PlanNode node = new SortNode(newId(),
                 filter(baseTableScan,
@@ -286,7 +278,6 @@ public class TestEffectivePredicateExtractor
 
     @Test
     public void testWindow()
-            throws Exception
     {
         PlanNode node = new WindowNode(newId(),
                 filter(baseTableScan,
@@ -315,7 +306,6 @@ public class TestEffectivePredicateExtractor
 
     @Test
     public void testTableScan()
-            throws Exception
     {
         // Effective predicate is True if there is no effective predicate
         Map<Symbol, ColumnHandle> assignments = Maps.filterKeys(scanAssignments, Predicates.in(ImmutableList.of(A, B, C, D)));
@@ -379,7 +369,6 @@ public class TestEffectivePredicateExtractor
 
     @Test
     public void testUnion()
-            throws Exception
     {
         ImmutableListMultimap<Symbol, Symbol> symbolMapping = ImmutableListMultimap.of(A, B, A, C, A, E);
         PlanNode node = new UnionNode(newId(),
@@ -399,7 +388,6 @@ public class TestEffectivePredicateExtractor
 
     @Test
     public void testInnerJoin()
-            throws Exception
     {
         ImmutableList.Builder<JoinNode.EquiJoinClause> criteriaBuilder = ImmutableList.builder();
         criteriaBuilder.add(new JoinNode.EquiJoinClause(A, D));
@@ -464,7 +452,6 @@ public class TestEffectivePredicateExtractor
 
     @Test
     public void testLeftJoin()
-            throws Exception
     {
         ImmutableList.Builder<JoinNode.EquiJoinClause> criteriaBuilder = ImmutableList.builder();
         criteriaBuilder.add(new JoinNode.EquiJoinClause(A, D));
@@ -528,7 +515,6 @@ public class TestEffectivePredicateExtractor
 
     @Test
     public void testLeftJoinWithFalseInner()
-            throws Exception
     {
         List<JoinNode.EquiJoinClause> criteria = ImmutableList.of(new JoinNode.EquiJoinClause(A, D));
 
@@ -583,7 +569,6 @@ public class TestEffectivePredicateExtractor
 
     @Test
     public void testRightJoin()
-            throws Exception
     {
         ImmutableList.Builder<JoinNode.EquiJoinClause> criteriaBuilder = ImmutableList.builder();
         criteriaBuilder.add(new JoinNode.EquiJoinClause(A, D));
@@ -647,7 +632,6 @@ public class TestEffectivePredicateExtractor
 
     @Test
     public void testRightJoinWithFalseInner()
-            throws Exception
     {
         List<JoinNode.EquiJoinClause> criteria = ImmutableList.of(new JoinNode.EquiJoinClause(A, D));
 
@@ -701,7 +685,6 @@ public class TestEffectivePredicateExtractor
 
     @Test
     public void testSemiJoin()
-            throws Exception
     {
         PlanNode node = new SemiJoinNode(newId(),
                 filter(baseTableScan, and(greaterThan(AE, bigintLiteral(10)), lessThan(AE, bigintLiteral(100)))),

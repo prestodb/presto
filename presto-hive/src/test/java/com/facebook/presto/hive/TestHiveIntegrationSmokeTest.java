@@ -630,7 +630,6 @@ public class TestHiveIntegrationSmokeTest
 
     @Test
     public void testCreatePartitionedBucketedTableAs()
-            throws Exception
     {
         testCreatePartitionedBucketedTableAs(HiveStorageFormat.RCBINARY);
     }
@@ -665,7 +664,6 @@ public class TestHiveIntegrationSmokeTest
 
     @Test
     public void testCreatePartitionedBucketedTableAsWithUnionAll()
-            throws Exception
     {
         testCreatePartitionedBucketedTableAsWithUnionAll(HiveStorageFormat.RCBINARY);
     }
@@ -2079,7 +2077,6 @@ public class TestHiveIntegrationSmokeTest
 
     @Test
     public void testRcTextCharDecoding()
-            throws Exception
     {
         testRcTextCharDecoding(false);
         testRcTextCharDecoding(true);

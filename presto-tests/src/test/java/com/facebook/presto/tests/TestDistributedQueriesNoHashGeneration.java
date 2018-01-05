@@ -21,7 +21,6 @@ public class TestDistributedQueriesNoHashGeneration
         extends AbstractTestQueries
 {
     public TestDistributedQueriesNoHashGeneration()
-            throws Exception
     {
         super(() -> createQueryRunner(ImmutableMap.of(), ImmutableMap.of("optimizer.optimize-hash-generation", "false")));
     }

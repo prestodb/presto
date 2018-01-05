@@ -38,7 +38,6 @@ public class TestArrayAggregation
 
     @Test
     public void testEmpty()
-            throws Exception
     {
         InternalAggregationFunction bigIntAgg = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
                 new Signature("array_agg", AGGREGATE, parseTypeSignature("array(bigint)"), parseTypeSignature(StandardTypes.BIGINT)));
@@ -50,7 +49,6 @@ public class TestArrayAggregation
 
     @Test
     public void testNullOnly()
-            throws Exception
     {
         InternalAggregationFunction bigIntAgg = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
                 new Signature("array_agg", AGGREGATE, parseTypeSignature("array(bigint)"), parseTypeSignature(StandardTypes.BIGINT)));
@@ -62,7 +60,6 @@ public class TestArrayAggregation
 
     @Test
     public void testNullPartial()
-            throws Exception
     {
         InternalAggregationFunction bigIntAgg = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
                 new Signature("array_agg", AGGREGATE, parseTypeSignature("array(bigint)"), parseTypeSignature(StandardTypes.BIGINT)));
@@ -74,7 +71,6 @@ public class TestArrayAggregation
 
     @Test
     public void testBoolean()
-            throws Exception
     {
         InternalAggregationFunction booleanAgg = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
                 new Signature("array_agg", AGGREGATE, parseTypeSignature("array(boolean)"), parseTypeSignature(StandardTypes.BOOLEAN)));
@@ -86,7 +82,6 @@ public class TestArrayAggregation
 
     @Test
     public void testBigInt()
-            throws Exception
     {
         InternalAggregationFunction bigIntAgg = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
                 new Signature("array_agg", AGGREGATE, parseTypeSignature("array(bigint)"), parseTypeSignature(StandardTypes.BIGINT)));
@@ -98,7 +93,6 @@ public class TestArrayAggregation
 
     @Test
     public void testVarchar()
-            throws Exception
     {
         InternalAggregationFunction varcharAgg = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
                 new Signature("array_agg", AGGREGATE, parseTypeSignature("array(varchar)"), parseTypeSignature(StandardTypes.VARCHAR)));
@@ -110,7 +104,6 @@ public class TestArrayAggregation
 
     @Test
     public void testDate()
-            throws Exception
     {
         InternalAggregationFunction varcharAgg = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
                 new Signature("array_agg", AGGREGATE, parseTypeSignature("array(date)"), parseTypeSignature(StandardTypes.DATE)));
@@ -122,7 +115,6 @@ public class TestArrayAggregation
 
     @Test
     public void testArray()
-            throws Exception
     {
         InternalAggregationFunction varcharAgg = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
                 new Signature("array_agg", AGGREGATE, parseTypeSignature("array(array(bigint))"), parseTypeSignature("array(bigint)")));

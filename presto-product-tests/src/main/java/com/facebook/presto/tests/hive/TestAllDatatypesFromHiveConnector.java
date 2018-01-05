@@ -30,7 +30,6 @@ import org.testng.annotations.Test;
 import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.Date;
-import java.sql.SQLException;
 
 import static com.facebook.presto.tests.TemptoProductTestRunner.PRODUCT_TESTS_TIME_ZONE;
 import static com.facebook.presto.tests.TestGroups.HIVE_CONNECTOR;
@@ -135,7 +134,6 @@ public class TestAllDatatypesFromHiveConnector
     @Requires(TextRequirements.class)
     @Test(groups = {HIVE_CONNECTOR, SMOKE})
     public void testSelectAllDatatypesTextFile()
-            throws SQLException
     {
         String tableName = ALL_HIVE_SIMPLE_TYPES_TEXTFILE.getName();
 
@@ -165,7 +163,6 @@ public class TestAllDatatypesFromHiveConnector
     @Requires(OrcRequirements.class)
     @Test(groups = {HIVE_CONNECTOR, JDBC})
     public void testSelectAllDatatypesOrc()
-            throws SQLException
     {
         String tableName = mutableTableInstanceOf(ALL_HIVE_SIMPLE_TYPES_ORC).getNameInDatabase();
 
@@ -197,7 +194,6 @@ public class TestAllDatatypesFromHiveConnector
     @Requires(RcfileRequirements.class)
     @Test(groups = {HIVE_CONNECTOR, JDBC})
     public void testSelectAllDatatypesRcfile()
-            throws SQLException
     {
         String tableName = mutableTableInstanceOf(ALL_HIVE_SIMPLE_TYPES_RCFILE).getNameInDatabase();
 
@@ -229,7 +225,6 @@ public class TestAllDatatypesFromHiveConnector
     @Requires(AvroRequirements.class)
     @Test(groups = {HIVE_CONNECTOR, JDBC, SKIP_ON_CDH})
     public void testSelectAllDatatypesAvro()
-            throws SQLException
     {
         String tableName = mutableTableInstanceOf(ALL_HIVE_SIMPLE_TYPES_AVRO).getNameInDatabase();
 
@@ -384,7 +379,6 @@ public class TestAllDatatypesFromHiveConnector
     @Requires(ParquetRequirements.class)
     @Test(groups = {HIVE_CONNECTOR, POST_HIVE_1_0_1})
     public void testSelectAllDatatypesParquetFile()
-            throws SQLException
     {
         String tableName = mutableTableInstanceOf(ALL_HIVE_SIMPLE_TYPES_PARQUET).getNameInDatabase();
 

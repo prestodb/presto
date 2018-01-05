@@ -217,7 +217,6 @@ public abstract class AbstractTestQueries
 
     @Test
     public void testLambdaCapture()
-            throws Exception
     {
         // Test for lambda expression without capture can be found in TestLambdaExpression
 
@@ -1203,7 +1202,6 @@ public abstract class AbstractTestQueries
 
     @Test
     public void testOrderByWithAggregation()
-            throws Exception
     {
         assertQuery("" +
                         "SELECT x, sum(cast(x AS double))\n" +
@@ -1896,7 +1894,6 @@ public abstract class AbstractTestQueries
 
     @Test
     public void testGrouping()
-            throws Exception
     {
         assertQuery(
                 "SELECT a, b as t, sum(c), grouping(a, b) + grouping(a) " +
@@ -1952,7 +1949,6 @@ public abstract class AbstractTestQueries
 
     @Test
     public void testGroupingInWindowFunction()
-            throws Exception
     {
         assertQuery(
                 "SELECT orderkey, custkey, sum(totalprice), grouping(orderkey)+grouping(custkey) as g, " +
@@ -1976,7 +1972,6 @@ public abstract class AbstractTestQueries
 
     @Test
     public void testGroupingInTableSubquery()
-            throws Exception
     {
         // In addition to testing grouping() in subqueries, the following tests also
         // ensure correct behavior in the case of alternating GROUPING SETS and GROUP BY
@@ -2309,7 +2304,6 @@ public abstract class AbstractTestQueries
 
     @Test
     public void testJoinWithLessThanInJoinClause()
-            throws Exception
     {
         assertQuery("SELECT n.nationkey, r.regionkey FROM region r JOIN nation n ON n.regionkey = r.regionkey AND n.name < r.name");
         assertQuery("SELECT l.suppkey, n.nationkey, l.partkey, n.regionkey FROM nation n JOIN lineitem l ON l.suppkey = n.nationkey AND l.partkey < n.regionkey");
@@ -2342,7 +2336,6 @@ public abstract class AbstractTestQueries
 
     @Test
     public void testJoinWithGreaterThanInJoinClause()
-            throws Exception
     {
         assertQuery("SELECT n.nationkey, r.regionkey FROM region r JOIN nation n ON n.regionkey = r.regionkey AND n.name > r.name AND r.regionkey = 0");
         assertQuery("SELECT l.suppkey, n.nationkey, l.partkey, n.regionkey FROM nation n JOIN lineitem l ON l.suppkey = n.nationkey AND l.partkey > n.regionkey");
@@ -2401,7 +2394,6 @@ public abstract class AbstractTestQueries
 
     @Test
     public void testJoinWithLessThanOnDatesInJoinClause()
-            throws Exception
     {
         assertQuery(
                 "SELECT o.orderkey, o.orderdate, l.shipdate FROM orders o JOIN lineitem l ON l.orderkey = o.orderkey AND l.shipdate < o.orderdate + INTERVAL '10' DAY",
@@ -2583,7 +2575,6 @@ public abstract class AbstractTestQueries
 
     @Test
     public void testJoinOnDecimalColumn()
-            throws Exception
     {
         assertQuery(
                 "SELECT * FROM (VALUES (1.0, 2.0)) x (a, b) JOIN (VALUES (1.0, 3.0)) y (a, b) USING(a)",
@@ -4175,7 +4166,6 @@ public abstract class AbstractTestQueries
 
     @Test
     public void testWindowsSameOrdering()
-            throws Exception
     {
         MaterializedResult actual = computeActual("SELECT " +
                 "sum(quantity) OVER(PARTITION BY suppkey ORDER BY orderkey)," +
@@ -4202,7 +4192,6 @@ public abstract class AbstractTestQueries
 
     @Test
     public void testWindowsPrefixPartitioning()
-            throws Exception
     {
         MaterializedResult actual = computeActual("SELECT " +
                 "max(tax) OVER(PARTITION BY suppkey, tax ORDER BY receiptdate)," +
@@ -4229,7 +4218,6 @@ public abstract class AbstractTestQueries
 
     @Test
     public void testWindowsDifferentPartitions()
-            throws Exception
     {
         MaterializedResult actual = computeActual("SELECT " +
                 "sum(quantity) OVER(PARTITION BY suppkey ORDER BY orderkey)," +
@@ -4257,7 +4245,6 @@ public abstract class AbstractTestQueries
 
     @Test
     public void testWindowsConstantExpression()
-            throws Exception
     {
         assertQueryOrdered(
                 "SELECT " +
@@ -4281,7 +4268,6 @@ public abstract class AbstractTestQueries
 
     @Test
     public void testDependentWindows()
-            throws Exception
     {
         // For such query as below generated plan has two adjacent window nodes where second depends on output of first.
 
@@ -9167,7 +9153,6 @@ public abstract class AbstractTestQueries
 
     @Test
     public void testDefaultDecimalLiteralSwitch()
-            throws Exception
     {
         Session decimalLiteral = Session.builder(getSession())
                 .setSystemProperty(SystemSessionProperties.PARSE_DECIMAL_LITERALS_AS_DOUBLE, "false")

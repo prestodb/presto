@@ -90,7 +90,6 @@ public class TestLikeFunctions
 
     @Test
     public void testBackslashesNoSpecialTreatment()
-            throws Exception
     {
         Regex regex = likePattern(utf8Slice("\\abc\\/\\\\"));
         assertTrue(like(utf8Slice("\\abc\\/\\\\"), regex));
@@ -98,7 +97,6 @@ public class TestLikeFunctions
 
     @Test
     public void testSelfEscaping()
-            throws Exception
     {
         Regex regex = likePattern(utf8Slice("\\\\abc\\%"), utf8Slice("\\"));
         assertTrue(like(utf8Slice("\\abc%"), regex));
@@ -106,7 +104,6 @@ public class TestLikeFunctions
 
     @Test
     public void testAlternateEscapedCharacters()
-            throws Exception
     {
         Regex regex = likePattern(utf8Slice("xxx%x_abcxx"), utf8Slice("x"));
         assertTrue(like(utf8Slice("x%_abcx"), regex));

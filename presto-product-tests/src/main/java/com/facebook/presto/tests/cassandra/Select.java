@@ -21,8 +21,6 @@ import com.teradata.tempto.configuration.Configuration;
 import com.teradata.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
-import java.sql.SQLException;
-
 import static com.facebook.presto.tests.TemptoProductTestRunner.PRODUCT_TESTS_TIME_ZONE;
 import static com.facebook.presto.tests.TestGroups.CASSANDRA;
 import static com.facebook.presto.tests.TpchTableResults.PRESTO_NATION_RESULT;
@@ -63,7 +61,6 @@ public class Select
 
     @Test(groups = CASSANDRA)
     public void testSelectNation()
-            throws SQLException
     {
         String sql = format(
                 "SELECT n_nationkey, n_name, n_regionkey, n_comment FROM %s.%s.%s",
@@ -78,7 +75,6 @@ public class Select
 
     @Test(groups = CASSANDRA)
     public void testSelectWithEqualityFilterOnPartitioningKey()
-            throws SQLException
     {
         String sql = format(
                 "SELECT n_nationkey FROM %s.%s.%s WHERE n_nationkey = 0",
@@ -93,7 +89,6 @@ public class Select
 
     @Test(groups = CASSANDRA)
     public void testSelectWithFilterOnPartitioningKey()
-            throws SQLException
     {
         String sql = format(
                 "SELECT n_nationkey FROM %s.%s.%s WHERE n_nationkey > 23",
@@ -108,7 +103,6 @@ public class Select
 
     @Test(groups = CASSANDRA)
     public void testSelectWithEqualityFilterOnNonPartitioningKey()
-            throws SQLException
     {
         String sql = format(
                 "SELECT n_name FROM %s.%s.%s WHERE n_name = 'UNITED STATES'",
@@ -123,7 +117,6 @@ public class Select
 
     @Test(groups = CASSANDRA)
     public void testSelectWithNonEqualityFilterOnNonPartitioningKey()
-            throws SQLException
     {
         String sql = format(
                 "SELECT n_name FROM %s.%s.%s WHERE n_name < 'B'",
@@ -138,7 +131,6 @@ public class Select
 
     @Test(groups = CASSANDRA)
     public void testSelectWithMorePartitioningKeysThanLimit()
-            throws SQLException
     {
         String sql = format(
                 "SELECT s_suppkey FROM %s.%s.%s WHERE s_suppkey = 10",
@@ -153,7 +145,6 @@ public class Select
 
     @Test(groups = CASSANDRA)
     public void testSelectWithMorePartitioningKeysThanLimitNonPK()
-            throws SQLException
     {
         String sql = format(
                 "SELECT s_suppkey FROM %s.%s.%s WHERE s_name = 'Supplier#000000010'",
@@ -168,7 +159,6 @@ public class Select
 
     @Test(groups = CASSANDRA)
     public void testAllDatatypes()
-            throws SQLException
     {
         // NOTE: DECIMAL is treated like DOUBLE
         QueryResult query = query(format(
@@ -197,7 +187,6 @@ public class Select
 
     @Test(groups = CASSANDRA)
     public void testNationJoinNation()
-            throws SQLException
     {
         String tableName = format("%s.%s.%s", CONNECTOR_NAME, KEY_SPACE, CASSANDRA_NATION.getName());
         String sql = format(
@@ -219,7 +208,6 @@ public class Select
 
     @Test(groups = CASSANDRA)
     public void testNationJoinRegion()
-            throws SQLException
     {
         String sql = format(
                 "SELECT c.n_name, t.name FROM %s.%s.%s c JOIN " +

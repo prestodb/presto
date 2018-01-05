@@ -35,7 +35,6 @@ public class TestPrestoThriftEquatableValueSet
 
     @Test
     public void testFromValueSetAll()
-            throws Exception
     {
         PrestoThriftValueSet thriftValueSet = fromValueSet(ValueSet.all(JSON));
         assertNotNull(thriftValueSet.getEquatableValueSet());
@@ -45,7 +44,6 @@ public class TestPrestoThriftEquatableValueSet
 
     @Test
     public void testFromValueSetNone()
-            throws Exception
     {
         PrestoThriftValueSet thriftValueSet = fromValueSet(ValueSet.none(JSON));
         assertNotNull(thriftValueSet.getEquatableValueSet());
@@ -55,7 +53,6 @@ public class TestPrestoThriftEquatableValueSet
 
     @Test
     public void testFromValueSetOf()
-            throws Exception
     {
         PrestoThriftValueSet thriftValueSet = fromValueSet(ValueSet.of(JSON, utf8Slice(JSON1), utf8Slice(JSON2)));
         assertNotNull(thriftValueSet.getEquatableValueSet());

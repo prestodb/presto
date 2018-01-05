@@ -41,7 +41,6 @@ public class TestJmxMetadata
 
     @Test
     public void testListSchemas()
-            throws Exception
     {
         assertEquals(metadata.listSchemaNames(SESSION), ImmutableList.of(JMX_SCHEMA_NAME, HISTORY_SCHEMA_NAME));
     }
@@ -55,7 +54,6 @@ public class TestJmxMetadata
 
     @Test
     public void testGetTableHandle()
-            throws Exception
     {
         JmxTableHandle handle = metadata.getTableHandle(SESSION, RUNTIME_TABLE);
         assertEquals(handle.getObjectName(), RUNTIME_OBJECT);
@@ -68,7 +66,6 @@ public class TestJmxMetadata
 
     @Test
     public void testGetTimeTableHandle()
-            throws Exception
     {
         JmxTableHandle handle = metadata.getTableHandle(SESSION, RUNTIME_HISTORY_TABLE);
         assertEquals(handle.getObjectName(), RUNTIME_OBJECT);

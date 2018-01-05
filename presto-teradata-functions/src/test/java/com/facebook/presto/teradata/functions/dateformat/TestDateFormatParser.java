@@ -29,7 +29,6 @@ public class TestDateFormatParser
 {
     @Test
     public void testTokenize()
-            throws Exception
     {
         assertEquals(
                 DateFormatParser.tokenize("yyyy mm").stream().map(Token::getType).collect(Collectors.toList()),

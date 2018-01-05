@@ -83,7 +83,6 @@ public class TestApproximatePercentileAggregation
 
     @Test
     public void testLongPartialStep()
-            throws Exception
     {
         // regular approx_percentile
         assertAggregation(
@@ -206,7 +205,6 @@ public class TestApproximatePercentileAggregation
 
     @Test
     public void testFloatPartialStep()
-            throws Exception
     {
         // regular approx_percentile
         assertAggregation(
@@ -343,7 +341,6 @@ public class TestApproximatePercentileAggregation
 
     @Test
     public void testDoublePartialStep()
-            throws Exception
     {
         // regular approx_percentile
         assertAggregation(

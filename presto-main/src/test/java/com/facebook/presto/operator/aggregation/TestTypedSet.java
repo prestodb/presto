@@ -42,7 +42,6 @@ public class TestTypedSet
 
     @Test
     public void testConstructor()
-            throws Exception
     {
         for (int i = -2; i <= -1; i++) {
             try {
@@ -67,7 +66,6 @@ public class TestTypedSet
 
     @Test
     public void testGetElementPosition()
-            throws Exception
     {
         int elementCount = 100;
         TypedSet typedSet = new TypedSet(BIGINT, elementCount, FUNCTION_NAME);
@@ -83,7 +81,6 @@ public class TestTypedSet
 
     @Test
     public void testGetElementPositionRandom()
-            throws Exception
     {
         BlockBuilder keys = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 5);
         VARCHAR.writeSlice(keys, utf8Slice("hello"));
@@ -109,7 +106,6 @@ public class TestTypedSet
 
     @Test
     public void testBigintSimpleTypedSet()
-            throws Exception
     {
         List<Integer> expectedSetSizes = ImmutableList.of(1, 10, 100, 1000);
         List<Block> longBlocks =
@@ -136,7 +132,6 @@ public class TestTypedSet
 
     @Test
     public void testMemoryExceeded()
-            throws Exception
     {
         try {
             TypedSet typedSet = new TypedSet(BIGINT, 10, FUNCTION_NAME);

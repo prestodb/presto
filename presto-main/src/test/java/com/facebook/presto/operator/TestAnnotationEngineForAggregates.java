@@ -108,7 +108,6 @@ public class TestAnnotationEngineForAggregates
 
     @Test
     public void testSimpleExactAggregationParse()
-            throws Exception
     {
         Signature expectedSignature = new Signature(
                 "simple_exact_aggregate",
@@ -161,7 +160,6 @@ public class TestAnnotationEngineForAggregates
 
     @Test
     public void testStateOnDifferentThanFirstPositionAggregationParse()
-            throws Exception
     {
         Signature expectedSignature = new Signature(
                 "simple_exact_aggregate_aggregation_state_moved",
@@ -203,7 +201,6 @@ public class TestAnnotationEngineForAggregates
 
     @Test
     public void testNotAnnotatedAggregateStateAggregationParse()
-            throws Exception
     {
         ParametricAggregation aggregation = parseFunctionDefinition(NotAnnotatedAggregateStateAggregationFunction.class);
 
@@ -257,7 +254,6 @@ public class TestAnnotationEngineForAggregates
 
     @Test
     public void testCustomStateSerializerAggregationParse()
-            throws Exception
     {
         ParametricAggregation aggregation = parseFunctionDefinition(CustomStateSerializerAggregationFunction.class);
         AggregationImplementation implementation = getOnlyElement(aggregation.getImplementations().getExactImplementations().values());
@@ -307,7 +303,6 @@ public class TestAnnotationEngineForAggregates
 
     @Test
     public void testNotDecomposableAggregationParse()
-            throws Exception
     {
         Signature expectedSignature = new Signature(
                 "custom_decomposable_aggregate",
@@ -383,7 +378,6 @@ public class TestAnnotationEngineForAggregates
 
     @Test
     public void testSimpleGenericAggregationFunctionParse()
-            throws Exception
     {
         Signature expectedSignature = new Signature(
                 "simple_generic_implementations",
@@ -460,7 +454,6 @@ public class TestAnnotationEngineForAggregates
 
     @Test
     public void testSimpleBlockInputAggregationParse()
-            throws Exception
     {
         Signature expectedSignature = new Signature(
                 "block_input_aggregate",
@@ -545,7 +538,6 @@ public class TestAnnotationEngineForAggregates
 
     // @Test - this is not yet supported
     public void testSimpleImplicitSpecializedAggregationParse()
-            throws Exception
     {
         Signature expectedSignature = new Signature(
                 "implicit_specialized_aggregate",
@@ -638,7 +630,6 @@ public class TestAnnotationEngineForAggregates
 
     // @Test - this is not yet supported
     public void testSimpleExplicitSpecializedAggregationParse()
-            throws Exception
     {
         Signature expectedSignature = new Signature(
                 "explicit_specialized_aggregate",
@@ -800,7 +791,6 @@ public class TestAnnotationEngineForAggregates
 
     @Test
     public void testInjectOperatorAggregateParse()
-            throws Exception
     {
         Signature expectedSignature = new Signature(
                 "inject_operator_aggregate",
@@ -881,7 +871,6 @@ public class TestAnnotationEngineForAggregates
 
     @Test
     public void testInjectTypeAggregateParse()
-            throws Exception
     {
         Signature expectedSignature = new Signature(
                 "inject_type_aggregate",
@@ -966,7 +955,6 @@ public class TestAnnotationEngineForAggregates
 
     @Test
     public void testInjectLiteralAggregateParse()
-            throws Exception
     {
         Signature expectedSignature = new Signature(
                 "inject_literal_aggregate",
@@ -1117,7 +1105,6 @@ public class TestAnnotationEngineForAggregates
 
     @Test
     public void testFixedTypeParameterInjectionAggregateFunctionParse()
-            throws Exception
     {
         Signature expectedSignature = new Signature(
                 "fixed_type_parameter_injection",
@@ -1184,7 +1171,6 @@ public class TestAnnotationEngineForAggregates
 
     @Test
     public void testPartiallyFixedTypeParameterInjectionAggregateFunctionParse()
-            throws Exception
     {
         Signature expectedSignature = new Signature(
                 "partially_fixed_type_parameter_injection",

@@ -180,7 +180,6 @@ public class TestRaptorConnector
 
     @Test
     public void testMaintenanceUnblockedOnStart()
-            throws Exception
     {
         long tableId = createTable("test");
 

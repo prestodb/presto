@@ -35,7 +35,6 @@ public class TestMinMaxByNAggregation
 
     @Test
     public void testMaxDoubleDouble()
-            throws Exception
     {
         InternalAggregationFunction function = METADATA.getFunctionRegistry().getAggregateFunctionImplementation(
                 new Signature("max_by",
@@ -96,7 +95,6 @@ public class TestMinMaxByNAggregation
 
     @Test
     public void testMinDoubleDouble()
-            throws Exception
     {
         InternalAggregationFunction function = METADATA.getFunctionRegistry().getAggregateFunctionImplementation(
                 new Signature("min_by",

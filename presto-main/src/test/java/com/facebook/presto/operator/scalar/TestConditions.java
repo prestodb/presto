@@ -74,7 +74,6 @@ public class TestConditions
 
     @Test
     public void testDistinctFrom()
-            throws Exception
     {
         assertFunction("NULL IS DISTINCT FROM NULL", BOOLEAN, false);
         assertFunction("NULL IS DISTINCT FROM 1", BOOLEAN, true);

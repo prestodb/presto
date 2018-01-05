@@ -74,7 +74,6 @@ public class TestUnnestOperator
 
     @Test
     public void testUnnest()
-            throws Exception
     {
         MetadataManager metadata = createTestMetadataManager();
         Type arrayType = metadata.getType(parseTypeSignature("array(bigint)"));
@@ -104,7 +103,6 @@ public class TestUnnestOperator
 
     @Test
     public void testUnnestWithArray()
-            throws Exception
     {
         MetadataManager metadata = createTestMetadataManager();
         Type arrayType = metadata.getType(parseTypeSignature("array(array(bigint))"));
@@ -140,7 +138,6 @@ public class TestUnnestOperator
 
     @Test
     public void testUnnestWithOrdinality()
-            throws Exception
     {
         MetadataManager metadata = createTestMetadataManager();
         Type arrayType = metadata.getType(parseTypeSignature("array(bigint)"));
@@ -170,7 +167,6 @@ public class TestUnnestOperator
 
     @Test
     public void testUnnestNonNumericDoubles()
-            throws Exception
     {
         MetadataManager metadata = createTestMetadataManager();
         Type arrayType = metadata.getType(parseTypeSignature("array(double)"));

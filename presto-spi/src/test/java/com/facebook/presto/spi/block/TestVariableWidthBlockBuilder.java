@@ -36,7 +36,6 @@ public class TestVariableWidthBlockBuilder
 
     @Test
     public void testFixedBlockIsFull()
-            throws Exception
     {
         testIsFull(new PageBuilderStatus(VARCHAR_ENTRY_SIZE * EXPECTED_ENTRY_COUNT, 1024));
         testIsFull(new PageBuilderStatus(1024, VARCHAR_ENTRY_SIZE * EXPECTED_ENTRY_COUNT));
@@ -44,7 +43,6 @@ public class TestVariableWidthBlockBuilder
 
     @Test
     public void testNewBlockBuilderLike()
-            throws Exception
     {
         int entries = 12345;
         double resetSkew = 1.25;
