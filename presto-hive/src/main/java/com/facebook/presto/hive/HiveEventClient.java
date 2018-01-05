@@ -16,8 +16,6 @@ package com.facebook.presto.hive;
 import io.airlift.event.client.AbstractEventClient;
 import io.airlift.log.Logger;
 
-import java.io.IOException;
-
 public class HiveEventClient
         extends AbstractEventClient
 {
