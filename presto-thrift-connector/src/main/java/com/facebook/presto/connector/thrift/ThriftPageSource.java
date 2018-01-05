@@ -25,7 +25,6 @@ import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
@@ -188,7 +187,6 @@ public class ThriftPageSource
 
     @Override
     public void close()
-            throws IOException
     {
         if (future != null) {
             future.cancel(true);

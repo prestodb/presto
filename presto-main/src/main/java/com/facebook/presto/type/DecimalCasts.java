@@ -611,14 +611,12 @@ public final class DecimalCasts
 
     @UsedByGeneratedCode
     public static Slice shortDecimalToJson(long decimal, long precision, long scale, long tenToScale)
-            throws IOException
     {
         return decimalToJson(BigDecimal.valueOf(decimal, intScale(scale)));
     }
 
     @UsedByGeneratedCode
     public static Slice longDecimalToJson(Slice decimal, long precision, long scale, BigInteger tenToScale)
-            throws IOException
     {
         return decimalToJson(new BigDecimal(decodeUnscaledValue(decimal), intScale(scale)));
     }
@@ -639,7 +637,6 @@ public final class DecimalCasts
 
     @UsedByGeneratedCode
     public static Slice jsonToLongDecimal(Slice json, long precision, long scale, BigInteger tenToScale)
-            throws IOException
     {
         try (JsonParser parser = createJsonParser(JSON_FACTORY, json)) {
             parser.nextToken();
@@ -654,7 +651,6 @@ public final class DecimalCasts
 
     @UsedByGeneratedCode
     public static Long jsonToShortDecimal(Slice json, long precision, long scale, long tenToScale)
-            throws IOException
     {
         try (JsonParser parser = createJsonParser(JSON_FACTORY, json)) {
             parser.nextToken();

@@ -91,7 +91,6 @@ final class PluginDiscovery
         {
             @Override
             public FileVisitResult visitFile(Path file, BasicFileAttributes attributes)
-                    throws IOException
             {
                 if (file.getFileName().toString().endsWith(CLASS_FILE_SUFFIX)) {
                     String name = file.subpath(base.getNameCount(), file.getNameCount()).toString();

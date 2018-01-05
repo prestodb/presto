@@ -33,7 +33,6 @@ public class SqlServerClient
 {
     @Inject
     public SqlServerClient(JdbcConnectorId connectorId, BaseJdbcConfig config)
-            throws SQLException
     {
         super(connectorId, config, "\"", new DriverConnectionFactory(new SQLServerDriver(), config));
     }

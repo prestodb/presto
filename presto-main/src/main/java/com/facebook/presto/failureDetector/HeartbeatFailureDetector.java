@@ -367,7 +367,6 @@ public class HeartbeatFailureDetector
 
                     @Override
                     public Object handle(Request request, Response response)
-                            throws Exception
                     {
                         stats.recordSuccess();
                         return null;

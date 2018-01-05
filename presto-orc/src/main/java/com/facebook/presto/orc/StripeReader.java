@@ -413,7 +413,6 @@ public class StripeReader
     }
 
     private Set<Integer> selectRowGroups(StripeInformation stripe, Map<Integer, List<RowGroupIndex>> columnIndexes)
-            throws IOException
     {
         int rowsInStripe = toIntExact(stripe.getNumberOfRows());
         int groupsInStripe = ceil(rowsInStripe, rowsInRowGroup);

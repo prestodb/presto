@@ -115,7 +115,6 @@ public class SpnegoHandler
 
     @Override
     public Request authenticate(Route route, Response response)
-            throws IOException
     {
         // skip if we already tried or were not asked for Kerberos
         if (response.request().headers(AUTHORIZATION).stream().anyMatch(SpnegoHandler::isNegotiate) ||
@@ -304,7 +303,6 @@ public class SpnegoHandler
         private final GSSCredential clientCredential;
 
         public Session(LoginContext loginContext, GSSCredential clientCredential)
-                throws LoginException
         {
             requireNonNull(loginContext, "loginContext is null");
             requireNonNull(clientCredential, "gssCredential is null");
