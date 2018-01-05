@@ -75,7 +75,6 @@ public class BenchmarkMapConcat
     @Benchmark
     @OperationsPerInvocation(POSITIONS)
     public List<Optional<Page>> mapConcat(BenchmarkData data)
-            throws Throwable
     {
         return ImmutableList.copyOf(data.getPageProcessor().process(SESSION, new DriverYieldSignal(), data.getPage()));
     }

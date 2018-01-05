@@ -1040,7 +1040,6 @@ public class TestMathFunctions
 
     @Test
     public void testGreatest()
-            throws Exception
     {
         // tinyint
         assertFunction("greatest(TINYINT'1', TINYINT'2')", TINYINT, (byte) 2);
@@ -1112,7 +1111,6 @@ public class TestMathFunctions
 
     @Test
     public void testLeast()
-            throws Exception
     {
         // integer
         assertFunction("least(TINYINT'1', TINYINT'2')", TINYINT, (byte) 1);
@@ -1178,7 +1176,6 @@ public class TestMathFunctions
 
     @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "\\QInvalid argument to greatest(): NaN\\E")
     public void testGreatestWithNaN()
-            throws Exception
     {
         functionAssertions.tryEvaluate("greatest(1.5E0, 0.0E0 / 0.0E0)", DOUBLE);
         functionAssertions.tryEvaluate("greatest(1.5E0, REAL '0.0' / REAL '0.0')", DOUBLE);
@@ -1186,7 +1183,6 @@ public class TestMathFunctions
 
     @Test
     public void testToBase()
-            throws Exception
     {
         VarcharType toBaseReturnType = VarcharType.createVarcharType(64);
         assertFunction("to_base(2147483648, 16)", toBaseReturnType, "80000000");
@@ -1200,7 +1196,6 @@ public class TestMathFunctions
 
     @Test
     public void testFromBase()
-            throws Exception
     {
         assertFunction("from_base('80000000', 16)", BIGINT, 2147483648L);
         assertFunction("from_base('11111111', 2)", BIGINT, 255L);
@@ -1220,7 +1215,6 @@ public class TestMathFunctions
 
     @Test
     public void testWidthBucket()
-            throws Exception
     {
         assertFunction("width_bucket(3.14E0, 0, 4, 3)", BIGINT, 3L);
         assertFunction("width_bucket(2, 0, 4, 3)", BIGINT, 2L);
@@ -1246,7 +1240,6 @@ public class TestMathFunctions
 
     @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Bucket for value Infinity is out of range")
     public void testWidthBucketOverflowAscending()
-            throws Exception
     {
         functionAssertions.tryEvaluate("width_bucket(infinity(), 0, 4, " + Long.MAX_VALUE + ")", DOUBLE);
         functionAssertions.tryEvaluate("width_bucket(CAST(infinity() as REAL), 0, 4, " + Long.MAX_VALUE + ")", DOUBLE);
@@ -1254,7 +1247,6 @@ public class TestMathFunctions
 
     @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Bucket for value Infinity is out of range")
     public void testWidthBucketOverflowDescending()
-            throws Exception
     {
         functionAssertions.tryEvaluate("width_bucket(infinity(), 4, 0, " + Long.MAX_VALUE + ")", DOUBLE);
         functionAssertions.tryEvaluate("width_bucket(CAST(infinity() as REAL), 4, 0, " + Long.MAX_VALUE + ")", DOUBLE);
@@ -1262,7 +1254,6 @@ public class TestMathFunctions
 
     @Test
     public void testWidthBucketArray()
-            throws Exception
     {
         assertFunction("width_bucket(3.14E0, array[0.0E0, 2.0E0, 4.0E0])", BIGINT, 2L);
         assertFunction("width_bucket(infinity(), array[0.0E0, 2.0E0, 4.0E0])", BIGINT, 3L);
@@ -1312,7 +1303,6 @@ public class TestMathFunctions
 
     @Test
     public void testInverseNormalCdf()
-            throws Exception
     {
         assertFunction("inverse_normal_cdf(0, 1, 0.3)", DOUBLE, -0.52440051270804089);
         assertFunction("inverse_normal_cdf(10, 9, 0.9)", DOUBLE, 21.533964089901406);

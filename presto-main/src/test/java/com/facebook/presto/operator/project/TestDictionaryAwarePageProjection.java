@@ -59,7 +59,6 @@ public class TestDictionaryAwarePageProjection
 
     @Test
     public void testDelegateMethods()
-            throws Exception
     {
         DictionaryAwarePageProjection projection = createProjection();
         assertEquals(projection.isDeterministic(), true);
@@ -69,7 +68,6 @@ public class TestDictionaryAwarePageProjection
 
     @Test(dataProvider = "forceYield")
     public void testSimpleBlock(boolean forceYield)
-            throws Exception
     {
         Block block = createLongSequenceBlock(0, 100);
         testProject(block, block.getClass(), forceYield);
@@ -77,7 +75,6 @@ public class TestDictionaryAwarePageProjection
 
     @Test(dataProvider = "forceYield")
     public void testRleBlock(boolean forceYield)
-            throws Exception
     {
         Block value = createLongSequenceBlock(42, 43);
         RunLengthEncodedBlock block = new RunLengthEncodedBlock(value, 100);
@@ -87,7 +84,6 @@ public class TestDictionaryAwarePageProjection
 
     @Test(dataProvider = "forceYield")
     public void testRleBlockWithFailure(boolean forceYield)
-            throws Exception
     {
         Block value = createLongSequenceBlock(-43, -42);
         RunLengthEncodedBlock block = new RunLengthEncodedBlock(value, 100);
@@ -97,7 +93,6 @@ public class TestDictionaryAwarePageProjection
 
     @Test(dataProvider = "forceYield")
     public void testDictionaryBlock(boolean forceYield)
-            throws Exception
     {
         DictionaryBlock block = createDictionaryBlock(10, 100);
 
@@ -106,7 +101,6 @@ public class TestDictionaryAwarePageProjection
 
     @Test(dataProvider = "forceYield")
     public void testDictionaryBlockWithFailure(boolean forceYield)
-            throws Exception
     {
         DictionaryBlock block = createDictionaryBlockWithFailure(10, 100);
 
@@ -115,7 +109,6 @@ public class TestDictionaryAwarePageProjection
 
     @Test(dataProvider = "forceYield")
     public void testDictionaryBlockProcessingWithUnusedFailure(boolean forceYield)
-            throws Exception
     {
         DictionaryBlock block = createDictionaryBlockWithUnusedEntries(10, 100);
 
@@ -125,7 +118,6 @@ public class TestDictionaryAwarePageProjection
 
     @Test
     public void testDictionaryProcessingIgnoreYield()
-            throws Exception
     {
         DictionaryAwarePageProjection projection = createProjection();
 
@@ -139,7 +131,6 @@ public class TestDictionaryAwarePageProjection
 
     @Test(dataProvider = "forceYield")
     public void testDictionaryProcessingEnableDisable(boolean forceYield)
-            throws Exception
     {
         DictionaryAwarePageProjection projection = createProjection();
 

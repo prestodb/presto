@@ -63,7 +63,6 @@ public class TestBinaryFileSpiller
 
     @BeforeMethod
     public void setUp()
-            throws Exception
     {
         blockEncodingSerde = new BlockEncodingManager(new TypeRegistry(ImmutableSet.of(BIGINT, DOUBLE, VARBINARY)));
         spillerStats = new SpillerStats();

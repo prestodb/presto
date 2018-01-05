@@ -80,7 +80,6 @@ public class TestShardOrganizationManager
 
     @Test
     public void testOrganizationEligibleTables()
-            throws Exception
     {
         long table1 = metadataDao.insertTable("schema", "table1", false, true, null, 0);
         metadataDao.insertColumn(table1, 1, "foo", 1, "bigint", 1, null);
@@ -125,7 +124,6 @@ public class TestShardOrganizationManager
 
     @Test
     public void testSimple()
-            throws Exception
     {
         long timestamp = 1L;
         int day = 1;
@@ -145,7 +143,6 @@ public class TestShardOrganizationManager
 
     @Test
     public void testSimpleTemporal()
-            throws Exception
     {
         List<Type> temporalType = ImmutableList.of(DATE);
         List<Type> types = ImmutableList.of(BIGINT);

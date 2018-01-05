@@ -244,7 +244,6 @@ public class TestDbResourceGroupConfigurationManager
 
     @Test
     public void testSelectorPriority()
-            throws Throwable
     {
         H2DaoProvider daoProvider = setup("selectors");
         H2ResourceGroupsDao dao = daoProvider.get();

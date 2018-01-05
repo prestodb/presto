@@ -41,28 +41,24 @@ public class PrestoResultSetMetaData
 
     @Override
     public int getColumnCount()
-            throws SQLException
     {
         return columnInfo.size();
     }
 
     @Override
     public boolean isAutoIncrement(int column)
-            throws SQLException
     {
         return false;
     }
 
     @Override
     public boolean isCaseSensitive(int column)
-            throws SQLException
     {
         return false;
     }
 
     @Override
     public boolean isSearchable(int column)
-            throws SQLException
     {
         return true;
     }
@@ -169,21 +165,18 @@ public class PrestoResultSetMetaData
 
     @Override
     public boolean isReadOnly(int column)
-            throws SQLException
     {
         return true;
     }
 
     @Override
     public boolean isWritable(int column)
-            throws SQLException
     {
         return false;
     }
 
     @Override
     public boolean isDefinitelyWritable(int column)
-            throws SQLException
     {
         return false;
     }
@@ -246,7 +239,6 @@ public class PrestoResultSetMetaData
 
     @Override
     public boolean isWrapperFor(Class<?> iface)
-            throws SQLException
     {
         return iface.isInstance(this);
     }

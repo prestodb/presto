@@ -33,7 +33,6 @@ public class TestInstanceFunction
 
     @Test
     public void test()
-            throws Exception
     {
         assertFunction("precomputed()", BIGINT, 42L);
     }

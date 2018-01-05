@@ -47,7 +47,6 @@ public final class ReservedIdentifiers
 
     @SuppressWarnings("CallToPrintStackTrace")
     public static void main(String[] args)
-            throws IOException
     {
         if ((args.length == 2) && args[0].equals("validateDocs")) {
             try {

@@ -20,7 +20,6 @@ import io.airlift.units.Duration;
 import javax.inject.Inject;
 
 import java.io.Closeable;
-import java.io.IOException;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
@@ -59,7 +58,6 @@ public class HumanReadableEventClient
 
     @Override
     public <T> void postEvent(T event)
-            throws IOException
     {
         VerifierQueryEvent queryEvent = (VerifierQueryEvent) event;
 

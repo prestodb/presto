@@ -507,14 +507,12 @@ public class PrestoStatement
 
     @Override
     public int getResultSetHoldability()
-            throws SQLException
     {
         return ResultSet.CLOSE_CURSORS_AT_COMMIT;
     }
 
     @Override
     public boolean isClosed()
-            throws SQLException
     {
         return connection.get() == null;
     }
@@ -564,7 +562,6 @@ public class PrestoStatement
 
     @Override
     public boolean isWrapperFor(Class<?> iface)
-            throws SQLException
     {
         return iface.isInstance(this);
     }

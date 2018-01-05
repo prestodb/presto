@@ -40,7 +40,6 @@ public class PrestoPreparedStatement
         implements PreparedStatement
 {
     PrestoPreparedStatement(PrestoConnection connection, String sql)
-            throws SQLException
     {
         super(connection);
     }

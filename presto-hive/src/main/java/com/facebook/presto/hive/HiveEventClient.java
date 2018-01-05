@@ -25,7 +25,6 @@ public class HiveEventClient
 
     @Override
     public <T> void postEvent(T event)
-            throws IOException
     {
         if (!(event instanceof WriteCompletedEvent)) {
             return;

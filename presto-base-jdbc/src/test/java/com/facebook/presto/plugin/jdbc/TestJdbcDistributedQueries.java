@@ -22,7 +22,6 @@ public class TestJdbcDistributedQueries
         extends AbstractTestQueries
 {
     public TestJdbcDistributedQueries()
-            throws Exception
     {
         super(() -> createJdbcQueryRunner(TpchTable.getTables()));
     }

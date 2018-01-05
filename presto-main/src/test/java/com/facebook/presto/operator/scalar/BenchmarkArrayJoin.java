@@ -69,7 +69,6 @@ public class BenchmarkArrayJoin
     @Benchmark
     @OperationsPerInvocation(POSITIONS * ARRAY_SIZE)
     public List<Optional<Page>> benchmark(BenchmarkData data)
-            throws Throwable
     {
         return ImmutableList.copyOf(data.getPageProcessor().process(SESSION, new DriverYieldSignal(), data.getPage()));
     }
@@ -127,7 +126,6 @@ public class BenchmarkArrayJoin
 
     @Test
     public void verify()
-            throws Throwable
     {
         BenchmarkData data = new BenchmarkData();
         data.setup();

@@ -73,7 +73,6 @@ public final class RaptorQueryRunner
     }
 
     public static void copyTables(QueryRunner queryRunner, String catalog, Session session, boolean bucketed)
-            throws Exception
     {
         String schema = TINY_SCHEMA_NAME;
         if (!bucketed) {

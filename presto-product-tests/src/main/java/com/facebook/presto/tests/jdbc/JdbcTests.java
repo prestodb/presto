@@ -76,7 +76,6 @@ public class JdbcTests
 
     @BeforeTestWithContext
     public void setup()
-            throws SQLException
     {
         connection = defaultQueryExecutor().getConnection();
     }
@@ -204,7 +203,6 @@ public class JdbcTests
 
     @Test(groups = {JDBC, SIMBA_JDBC})
     public void testSqlEscapeFunctions()
-            throws SQLException
     {
         if (usingTeradataJdbcDriver(connection)) {
             // These functions, which are defined in the ODBC standard, are implemented within

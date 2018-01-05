@@ -93,7 +93,6 @@ public class PrestoDriver
 
     @Override
     public boolean acceptsURL(String url)
-            throws SQLException
     {
         return url.startsWith(DRIVER_URL_START);
     }

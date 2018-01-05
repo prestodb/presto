@@ -83,7 +83,6 @@ public class TestRowOperators
 
     @Test
     public void testRowTypeLookup()
-            throws Exception
     {
         functionAssertions.getMetadata().getType(parseTypeSignature("row(a bigint)"));
         Type type = functionAssertions.getMetadata().getType(parseTypeSignature("row(b bigint)"));
@@ -93,7 +92,6 @@ public class TestRowOperators
 
     @Test
     public void testRowToJson()
-            throws Exception
     {
         assertFunction("cast(cast (null as ROW(BIGINT, VARCHAR)) AS JSON)", JSON, null);
         assertFunction("cast(ROW(null, null) as json)", JSON, "[null,null]");
@@ -152,7 +150,6 @@ public class TestRowOperators
 
     @Test
     public void testJsonToRow()
-            throws Exception
     {
         // special values
         assertFunction("CAST(CAST (null AS JSON) AS ROW(BIGINT))", new RowType(ImmutableList.of(BIGINT), Optional.empty()), null);
@@ -319,7 +316,6 @@ public class TestRowOperators
 
     @Test
     public void testFieldAccessor()
-            throws Exception
     {
         assertFunction("CAST(row(1, CAST(NULL AS DOUBLE)) AS ROW(col0 integer, col1 double)).col1", DOUBLE, null);
         assertFunction("CAST(row(TRUE, CAST(NULL AS BOOLEAN)) AS ROW(col0 boolean, col1 boolean)).col1", BOOLEAN, null);
@@ -377,7 +373,6 @@ public class TestRowOperators
 
     @Test
     public void testIsDistinctFrom()
-            throws Exception
     {
         assertFunction("CAST(NULL AS ROW(UNKNOWN)) IS DISTINCT FROM CAST(NULL AS ROW(UNKNOWN))", BOOLEAN, false);
         assertFunction("row(NULL) IS DISTINCT FROM row(NULL)", BOOLEAN, false);
@@ -394,7 +389,6 @@ public class TestRowOperators
 
     @Test
     public void testRowComparison()
-            throws Exception
     {
         assertFunction("row(TIMESTAMP '2002-01-02 03:04:05.321 +08:10', TIMESTAMP '2002-01-02 03:04:05.321 +08:10') = " +
                 "row(TIMESTAMP '2002-01-02 02:04:05.321 +07:10', TIMESTAMP '2002-01-02 03:05:05.321 +08:11')", BOOLEAN, true);

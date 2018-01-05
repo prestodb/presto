@@ -19,5 +19,5 @@ import org.apache.thrift.transport.TTransportException;
 public interface HiveMetastoreAuthentication
 {
     TTransport authenticate(TTransport rawTransport, String hiveMetastoreHost)
-            throws TTransportException;
+            ;
 }

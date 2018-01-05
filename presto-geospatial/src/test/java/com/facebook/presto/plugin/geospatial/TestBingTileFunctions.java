@@ -63,7 +63,6 @@ public class TestBingTileFunctions
 
     @Test
     public void testBingTile()
-            throws Exception
     {
         assertFunction("bing_tile_quadkey(bing_tile('213'))", VARCHAR, "213");
         assertFunction("bing_tile_quadkey(bing_tile('123030123010121'))", VARCHAR, "123030123010121");
@@ -87,7 +86,6 @@ public class TestBingTileFunctions
 
     @Test
     public void testPointToBingTile()
-            throws Exception
     {
         assertFunction("bing_tile_at(30.12, 60, 15)", BING_TILE, BingTile.fromCoordinates(21845, 13506, 15));
         assertFunction("bing_tile_at(0, -0.002, 1)", BING_TILE, BingTile.fromCoordinates(0, 1, 1));
@@ -106,7 +104,6 @@ public class TestBingTileFunctions
 
     @Test
     public void testBingTileCoordinates()
-            throws Exception
     {
         assertFunction("bing_tile_coordinates(bing_tile('213')).x", INTEGER, 3);
         assertFunction("bing_tile_coordinates(bing_tile('213')).y", INTEGER, 5);
@@ -116,7 +113,6 @@ public class TestBingTileFunctions
 
     @Test
     public void testBingTileZoomLevel()
-            throws Exception
     {
         assertFunction("bing_tile_zoom_level(bing_tile('213'))", TINYINT, (byte) 3);
         assertFunction("bing_tile_zoom_level(bing_tile('123030123010121'))", TINYINT, (byte) 15);
@@ -124,7 +120,6 @@ public class TestBingTileFunctions
 
     @Test
     public void testBingTilePolygon()
-            throws Exception
     {
         assertFunction("ST_AsText(bing_tile_polygon(bing_tile('123030123010121')))", VARCHAR, "POLYGON ((59.996337890625 30.12612436422458, 59.996337890625 30.11662158281937, 60.00732421875 30.11662158281937, 60.00732421875 30.12612436422458, 59.996337890625 30.12612436422458))");
         assertFunction("ST_AsText(ST_Centroid(bing_tile_polygon(bing_tile('123030123010121'))))", VARCHAR, "POINT (60.00183104425149 30.121372968273892)");
@@ -214,7 +209,6 @@ public class TestBingTileFunctions
 
     @Test
     public void testEqual()
-            throws Exception
     {
         assertFunction("bing_tile(3, 5, 3) = bing_tile(3, 5, 3)", BOOLEAN, true);
         assertFunction("bing_tile('213') = bing_tile(3, 5, 3)", BOOLEAN, true);
@@ -226,7 +220,6 @@ public class TestBingTileFunctions
 
     @Test
     public void testNotEqual()
-            throws Exception
     {
         assertFunction("bing_tile(3, 5, 3) <> bing_tile(3, 5, 3)", BOOLEAN, false);
         assertFunction("bing_tile('213') <> bing_tile(3, 5, 3)", BOOLEAN, false);

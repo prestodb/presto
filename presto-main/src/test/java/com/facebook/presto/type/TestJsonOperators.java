@@ -56,7 +56,6 @@ public class TestJsonOperators
 
     @BeforeClass
     public void setUp()
-            throws Exception
     {
         runner = new LocalQueryRunner(TEST_SESSION);
     }
@@ -171,7 +170,6 @@ public class TestJsonOperators
 
     @Test
     public void testTypeConstructor()
-            throws Exception
     {
         assertFunction("JSON '123'", JSON, "123");
         assertFunction("JSON '[4,5,6]'", JSON, "[4,5,6]");
@@ -193,7 +191,6 @@ public class TestJsonOperators
 
     @Test
     public void testCastToDouble()
-            throws Exception
     {
         assertFunction("cast(JSON 'null' as DOUBLE)", DOUBLE, null);
         assertFunction("cast(JSON '128' as DOUBLE)", DOUBLE, 128.0);
@@ -220,7 +217,6 @@ public class TestJsonOperators
 
     @Test
     public void testCastFromDouble()
-            throws Exception
     {
         assertFunction("cast(cast(null as double) as JSON)", JSON, null);
         assertFunction("cast(3.14E0 as JSON)", JSON, "3.14");
@@ -231,7 +227,6 @@ public class TestJsonOperators
 
     @Test
     public void testCastFromReal()
-            throws Exception
     {
         assertFunction("cast(cast(null as REAL) as JSON)", JSON, null);
         assertFunction("cast(REAL '3.14' as JSON)", JSON, "3.14");
@@ -242,7 +237,6 @@ public class TestJsonOperators
 
     @Test
     public void testCastToReal()
-            throws Exception
     {
         assertFunction("cast(JSON 'null' as REAL)", REAL, null);
         assertFunction("cast(JSON '-128' as REAL)", REAL, -128.0f);
@@ -270,7 +264,6 @@ public class TestJsonOperators
 
     @Test
     public void testCastToDecimal()
-            throws Exception
     {
         assertFunction("cast(JSON 'null' as DECIMAL(10,3))", createDecimalType(10, 3), null);
         assertFunction("cast(JSON '128' as DECIMAL(10,3))", createDecimalType(10, 3), decimal("128.000"));
@@ -285,7 +278,6 @@ public class TestJsonOperators
 
     @Test
     public void testCastFromDecimal()
-            throws Exception
     {
         assertFunction("cast(cast(null as decimal(5,2)) as JSON)", JSON, null);
         assertFunction("cast(DECIMAL '3.14' as JSON)", JSON, "3.14");

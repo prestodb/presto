@@ -22,7 +22,6 @@ public class TestNameValidationUtils
 {
     @Test
     public void testCheckValidColumnName()
-            throws Exception
     {
         checkValidName("abc01_def2");
         assertThrows(() -> checkValidName(null));

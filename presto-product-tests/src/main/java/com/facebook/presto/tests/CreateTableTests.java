@@ -29,7 +29,6 @@ public class CreateTableTests
 {
     @Test(groups = CREATE_TABLE)
     public void shouldCreateTableAsSelect()
-            throws Exception
     {
         String tableName = "create_table_as_select";
         query(format("DROP TABLE IF EXISTS %s", tableName));
@@ -39,7 +38,6 @@ public class CreateTableTests
 
     @Test(groups = CREATE_TABLE)
     public void shouldCreateTableAsEmptySelect()
-            throws Exception
     {
         String tableName = "create_table_as_empty_select";
         query(format("DROP TABLE IF EXISTS %s", tableName));

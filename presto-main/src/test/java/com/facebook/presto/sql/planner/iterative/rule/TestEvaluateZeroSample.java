@@ -28,7 +28,6 @@ public class TestEvaluateZeroSample
 {
     @Test
     public void testDoesNotFire()
-            throws Exception
     {
         tester().assertThat(new EvaluateZeroSample())
                 .on(p ->
@@ -41,7 +40,6 @@ public class TestEvaluateZeroSample
 
     @Test
     public void test()
-            throws Exception
     {
         tester().assertThat(new EvaluateZeroSample())
                 .on(p ->

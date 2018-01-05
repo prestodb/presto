@@ -38,7 +38,6 @@ public class TestTimeZoneKey
 
     @Test
     public void testUTC()
-            throws Exception
     {
         assertEquals(UTC_KEY.getKey(), 0);
         assertEquals(UTC_KEY.getId(), "UTC");
@@ -75,7 +74,6 @@ public class TestTimeZoneKey
 
     @Test
     public void testHourOffsetZone()
-            throws Exception
     {
         assertSame(TimeZoneKey.getTimeZoneKey("GMT0"), UTC_KEY);
         assertSame(TimeZoneKey.getTimeZoneKey("GMT+0"), UTC_KEY);
@@ -146,7 +144,6 @@ public class TestTimeZoneKey
 
     @Test
     public void testZoneKeyLookup()
-            throws Exception
     {
         for (TimeZoneKey timeZoneKey : TimeZoneKey.getTimeZoneKeys()) {
             assertSame(TimeZoneKey.getTimeZoneKey(timeZoneKey.getKey()), timeZoneKey);
@@ -169,7 +166,6 @@ public class TestTimeZoneKey
 
     @Test
     public void testZoneKeyIdRange()
-            throws Exception
     {
         boolean[] hasValue = new boolean[MAX_TIME_ZONE_KEY + 1];
 
@@ -187,7 +183,6 @@ public class TestTimeZoneKey
 
     @Test
     public void testZoneKeyData()
-            throws Exception
     {
         Hasher hasher = Hashing.murmur3_128().newHasher();
 

@@ -358,7 +358,7 @@ public class TestOrcReaderPositions
     }
 
     private static void createSequentialFile(File file, int count)
-            throws IOException, ReflectiveOperationException, SerDeException
+            throws IOException, SerDeException
     {
         FileSinkOperator.RecordWriter writer = createOrcRecordWriter(file, ORC_12, CompressionKind.NONE, BIGINT);
 
@@ -377,7 +377,7 @@ public class TestOrcReaderPositions
     }
 
     private static void createGrowingSequentialFile(File file, int count, int step, int initialLength)
-            throws IOException, ReflectiveOperationException, SerDeException
+            throws IOException, SerDeException
     {
         FileSinkOperator.RecordWriter writer = createOrcRecordWriter(file, ORC_12, CompressionKind.NONE, VARCHAR);
 

@@ -22,7 +22,6 @@ public class TestPrestoThriftId
 {
     @Test
     public void testSummarize()
-            throws Exception
     {
         assertEquals(summarize(bytes()), "");
         assertEquals(summarize(bytes(1)), "01");

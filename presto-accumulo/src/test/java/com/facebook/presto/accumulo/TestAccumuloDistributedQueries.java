@@ -38,7 +38,6 @@ public class TestAccumuloDistributedQueries
         extends AbstractTestDistributedQueries
 {
     public TestAccumuloDistributedQueries()
-            throws Exception
     {
         super(() -> createAccumuloQueryRunner(ImmutableMap.of()));
     }

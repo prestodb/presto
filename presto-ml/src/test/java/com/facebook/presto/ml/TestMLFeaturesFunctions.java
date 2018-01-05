@@ -20,7 +20,6 @@ public class TestMLFeaturesFunctions
 {
     @Test
     public void testFeatures()
-            throws Exception
     {
         // More tests related to `features` function can be found in TestMLQueries
         assertCachedInstanceHasBoundedRetainedSize("features(1, 2)");

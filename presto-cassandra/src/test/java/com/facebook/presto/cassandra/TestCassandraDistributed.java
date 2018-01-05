@@ -28,7 +28,6 @@ public class TestCassandraDistributed
         extends AbstractTestDistributedQueries
 {
     public TestCassandraDistributed()
-            throws Exception
     {
         super(CassandraQueryRunner::createCassandraQueryRunner);
     }

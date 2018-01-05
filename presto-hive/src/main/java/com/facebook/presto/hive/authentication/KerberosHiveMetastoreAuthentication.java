@@ -53,7 +53,6 @@ public class KerberosHiveMetastoreAuthentication
 
     @Override
     public TTransport authenticate(TTransport rawTransport, String hiveMetastoreHost)
-            throws TTransportException
     {
         try {
             String serverPrincipal = getServerPrincipal(hiveMetastoreServicePrincipal, hiveMetastoreHost);

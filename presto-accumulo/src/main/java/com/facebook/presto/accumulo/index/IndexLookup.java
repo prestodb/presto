@@ -25,8 +25,6 @@ import com.google.common.collect.Multimap;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
-import org.apache.accumulo.core.client.AccumuloException;
-import org.apache.accumulo.core.client.AccumuloSecurityException;
 import org.apache.accumulo.core.client.BatchScanner;
 import org.apache.accumulo.core.client.Connector;
 import org.apache.accumulo.core.client.Scanner;
@@ -181,7 +179,6 @@ public class IndexLookup
     }
 
     private static Multimap<AccumuloColumnConstraint, Range> getIndexedConstraintRanges(Collection<AccumuloColumnConstraint> constraints, AccumuloRowSerializer serializer)
-            throws AccumuloSecurityException, AccumuloException
     {
         ImmutableListMultimap.Builder<AccumuloColumnConstraint, Range> builder = ImmutableListMultimap.builder();
         for (AccumuloColumnConstraint columnConstraint : constraints) {
@@ -318,7 +315,6 @@ public class IndexLookup
     }
 
     private List<Range> getIndexRanges(String indexTable, Multimap<AccumuloColumnConstraint, Range> constraintRanges, Collection<Range> rowIDRanges, Authorizations auths)
-            throws TableNotFoundException, InterruptedException
     {
         Set<Range> finalRanges = new HashSet<>();
         // For each column/constraint pair we submit a task to scan the index ranges

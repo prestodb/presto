@@ -21,7 +21,6 @@ public class NoHiveMetastoreAuthentication
 {
     @Override
     public TTransport authenticate(TTransport rawTransport, String hiveMetastoreHost)
-            throws TTransportException
     {
         return rawTransport;
     }

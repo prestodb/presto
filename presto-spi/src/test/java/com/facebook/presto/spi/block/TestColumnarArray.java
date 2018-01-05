@@ -36,7 +36,6 @@ public class TestColumnarArray
 
     @Test
     public void test()
-            throws Exception
     {
         Slice[][] expectedValues = new Slice[ARRAY_SIZES.length][];
         for (int i = 0; i < ARRAY_SIZES.length; i++) {

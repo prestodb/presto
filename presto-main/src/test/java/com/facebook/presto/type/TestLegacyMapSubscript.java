@@ -29,7 +29,6 @@ public class TestLegacyMapSubscript
 
     @Test
     public void testSubscript()
-            throws Exception
     {
         assertFunction("MAP(ARRAY [1], ARRAY [1.5E0])[2]", DOUBLE, null);
     }

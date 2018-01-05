@@ -94,14 +94,12 @@ public class TestSetSessionTask
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
-            throws Exception
     {
         executor.shutdownNow();
     }
 
     @Test
     public void testSetSession()
-            throws Exception
     {
         testSetSession(new StringLiteral("baz"), "baz");
         testSetSession(new FunctionCall(QualifiedName.of("concat"), ImmutableList.of(
@@ -111,7 +109,6 @@ public class TestSetSessionTask
 
     @Test
     public void testSetSessionWithParameters()
-            throws Exception
     {
         List<Expression> expressionList = new ArrayList<>();
         expressionList.add(new StringLiteral("ban"));
@@ -120,13 +117,11 @@ public class TestSetSessionTask
     }
 
     private void testSetSession(Expression expression, String expectedValue)
-            throws Exception
     {
         testSetSessionWithParameters(expression, expectedValue, emptyList());
     }
 
     private void testSetSessionWithParameters(Expression expression, String expectedValue, List<Expression> parameters)
-            throws Exception
     {
         QueryStateMachine stateMachine = QueryStateMachine.begin(new QueryId("query"), "set foo.bar = 'baz'", TEST_SESSION, URI.create("fake://uri"), false, transactionManager, accessControl, executor, metadata);
         getFutureValue(new SetSessionTask().execute(new SetSession(QualifiedName.of(CATALOG_NAME, "bar"), expression), transactionManager, metadata, accessControl, stateMachine, parameters));

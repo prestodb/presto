@@ -98,7 +98,6 @@ public class TestExchangeOperator
     @SuppressWarnings("resource")
     @BeforeClass
     public void setUp()
-            throws Exception
     {
         scheduler = newScheduledThreadPool(4, daemonThreadsNamed("test-%s"));
         scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
@@ -119,7 +118,6 @@ public class TestExchangeOperator
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
-            throws Exception
     {
         httpClient.close();
         httpClient = null;

@@ -81,7 +81,6 @@ public class TestFilterAndProjectOperator
 
     @Test
     public void test()
-            throws Exception
     {
         List<Page> input = rowPagesBuilder(VARCHAR, BIGINT)
                 .addSequencePage(100, 0, 0)
@@ -131,7 +130,6 @@ public class TestFilterAndProjectOperator
 
     @Test
     public void testMergeOutput()
-            throws Exception
     {
         List<Page> input = rowPagesBuilder(VARCHAR, BIGINT)
                 .addSequencePage(100, 0, 0)

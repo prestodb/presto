@@ -186,7 +186,6 @@ public class TestExpressionCompiler
 
     @AfterMethod
     public void tearDown(Method method)
-            throws Exception
     {
         assertTrue(Futures.allAsList(futures).isDone(), "Expression test futures are not complete");
         log.info("FINISHED %s in %s verified %s expressions", method.getName(), Duration.nanosSince(start), futures.size());
@@ -1837,7 +1836,6 @@ public class TestExpressionCompiler
 
         @Override
         public Void call()
-                throws Exception
         {
             try {
                 functionAssertions.assertFunction(expression, expectedType, expected);
@@ -1877,7 +1875,6 @@ public class TestExpressionCompiler
 
         @Override
         public Void call()
-                throws Exception
         {
             try {
                 functionAssertions.assertFilter(filter, expected, withNoInputColumns);

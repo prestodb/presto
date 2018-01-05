@@ -67,7 +67,6 @@ public class TestNestedLoopJoinOperator
 
     @Test
     public void testNestedLoopJoin()
-            throws Exception
     {
         TaskContext taskContext = createTaskContext();
         // build
@@ -121,7 +120,6 @@ public class TestNestedLoopJoinOperator
 
     @Test
     public void testCrossJoinWithNullProbe()
-            throws Exception
     {
         TaskContext taskContext = createTaskContext();
 
@@ -164,7 +162,6 @@ public class TestNestedLoopJoinOperator
 
     @Test
     public void testCrossJoinWithNullBuild()
-            throws Exception
     {
         TaskContext taskContext = createTaskContext();
 
@@ -206,7 +203,6 @@ public class TestNestedLoopJoinOperator
 
     @Test
     public void testCrossJoinWithNullOnBothSides()
-            throws Exception
     {
         TaskContext taskContext = createTaskContext();
 
@@ -260,7 +256,6 @@ public class TestNestedLoopJoinOperator
 
     @Test
     public void testBuildMultiplePages()
-            throws Exception
     {
         TaskContext taskContext = createTaskContext();
 
@@ -304,7 +299,6 @@ public class TestNestedLoopJoinOperator
 
     @Test
     public void testProbeMultiplePages()
-            throws Exception
     {
         TaskContext taskContext = createTaskContext();
 
@@ -348,7 +342,6 @@ public class TestNestedLoopJoinOperator
 
     @Test
     public void testProbeAndBuildMultiplePages()
-            throws Exception
     {
         TaskContext taskContext = createTaskContext();
 
@@ -399,7 +392,6 @@ public class TestNestedLoopJoinOperator
 
     @Test
     public void testEmptyProbePage()
-            throws Exception
     {
         TaskContext taskContext = createTaskContext();
 
@@ -429,7 +421,6 @@ public class TestNestedLoopJoinOperator
 
     @Test
     public void testEmptyBuildPage()
-            throws Exception
     {
         TaskContext taskContext = createTaskContext();
 
@@ -458,7 +449,6 @@ public class TestNestedLoopJoinOperator
 
     @Test
     public void testCount()
-            throws Exception
     {
         // normal case
         Page buildPage = new Page(100);

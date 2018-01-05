@@ -39,7 +39,6 @@ public class TestRaptorIntegrationSmokeTestMySql
     }
 
     private TestRaptorIntegrationSmokeTestMySql(TestingMySqlServer mysqlServer)
-            throws Exception
     {
         super(() -> createRaptorMySqlQueryRunner(mysqlServer.getJdbcUrl("testdb")));
         this.mysqlServer = mysqlServer;

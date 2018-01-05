@@ -56,7 +56,6 @@ public class TestJdbcClient
 
     @Test
     public void testMetadata()
-            throws Exception
     {
         assertTrue(jdbcClient.getSchemaNames().containsAll(ImmutableSet.of("example", "tpch")));
         assertEquals(jdbcClient.getTableNames("example"), ImmutableList.of(
@@ -82,7 +81,6 @@ public class TestJdbcClient
 
     @Test
     public void testMetadataWithSchemaPattern()
-            throws Exception
     {
         SchemaTableName schemaTableName = new SchemaTableName("exa_ple", "num_ers");
         JdbcTableHandle table = jdbcClient.getTableHandle(schemaTableName);
@@ -94,7 +92,6 @@ public class TestJdbcClient
 
     @Test
     public void testMetadataWithFloatAndDoubleCol()
-            throws Exception
     {
         SchemaTableName schemaTableName = new SchemaTableName("exa_ple", "table_with_float_col");
         JdbcTableHandle table = jdbcClient.getTableHandle(schemaTableName);

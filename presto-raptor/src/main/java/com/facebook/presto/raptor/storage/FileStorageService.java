@@ -65,7 +65,6 @@ public class FileStorageService
     @Override
     @PostConstruct
     public void start()
-            throws IOException
     {
         deleteStagingFilesAsync();
         createParents(new File(baseStagingDir, "."));

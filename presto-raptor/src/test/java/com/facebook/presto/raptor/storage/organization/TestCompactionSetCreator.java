@@ -48,7 +48,6 @@ public class TestCompactionSetCreator
 
     @Test
     public void testNonTemporalOrganizationSetSimple()
-            throws Exception
     {
         List<ShardIndexInfo> inputShards = ImmutableList.of(
                 shardWithSize(10, 10),
@@ -62,7 +61,6 @@ public class TestCompactionSetCreator
 
     @Test
     public void testNonTemporalSizeBasedOrganizationSet()
-            throws Exception
     {
         List<ShardIndexInfo> inputShards = ImmutableList.of(
                 shardWithSize(10, 70),
@@ -81,7 +79,6 @@ public class TestCompactionSetCreator
 
     @Test
     public void testNonTemporalRowCountBasedOrganizationSet()
-            throws Exception
     {
         List<ShardIndexInfo> inputShards = ImmutableList.of(
                 shardWithSize(50, 10),
@@ -101,7 +98,6 @@ public class TestCompactionSetCreator
 
     @Test
     public void testTemporalCompactionNoCompactionAcrossDays()
-            throws Exception
     {
         long day1 = Duration.ofDays(Duration.ofNanos(System.nanoTime()).toDays()).toMillis();
         long day2 = Duration.ofDays(Duration.ofMillis(day1).toDays() + 1).toMillis();
@@ -125,7 +121,6 @@ public class TestCompactionSetCreator
 
     @Test
     public void testTemporalCompactionSpanningDays()
-            throws Exception
     {
         long day1 = Duration.ofDays(Duration.ofNanos(System.nanoTime()).toDays()).toMillis();
         long day2 = Duration.ofDays(Duration.ofMillis(day1).toDays() + 1).toMillis();
@@ -154,7 +149,6 @@ public class TestCompactionSetCreator
 
     @Test
     public void testTemporalCompactionDate()
-            throws Exception
     {
         long day1 = Duration.ofNanos(System.nanoTime()).toDays();
         long day2 = day1 + 1;
@@ -181,7 +175,6 @@ public class TestCompactionSetCreator
 
     @Test
     public void testBucketedTableCompaction()
-            throws Exception
     {
         List<ShardIndexInfo> inputShards = ImmutableList.of(
                 shardWithBucket(1),
@@ -213,7 +206,6 @@ public class TestCompactionSetCreator
 
     @Test
     public void testBucketedTemporalTableCompaction()
-            throws Exception
     {
         long day1 = 1;
         long day2 = 2;

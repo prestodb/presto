@@ -42,70 +42,60 @@ public class PrestoDatabaseMetaData
 
     @Override
     public boolean allProceduresAreCallable()
-            throws SQLException
     {
         return false;
     }
 
     @Override
     public boolean allTablesAreSelectable()
-            throws SQLException
     {
         return false;
     }
 
     @Override
     public String getURL()
-            throws SQLException
     {
         return connection.getURI().toString();
     }
 
     @Override
     public String getUserName()
-            throws SQLException
     {
         return connection.getUser();
     }
 
     @Override
     public boolean isReadOnly()
-            throws SQLException
     {
         return connection.isReadOnly();
     }
 
     @Override
     public boolean nullsAreSortedHigh()
-            throws SQLException
     {
         return false;
     }
 
     @Override
     public boolean nullsAreSortedLow()
-            throws SQLException
     {
         return false;
     }
 
     @Override
     public boolean nullsAreSortedAtStart()
-            throws SQLException
     {
         return false;
     }
 
     @Override
     public boolean nullsAreSortedAtEnd()
-            throws SQLException
     {
         return true;
     }
 
     @Override
     public String getDatabaseProductName()
-            throws SQLException
     {
         return "Presto";
     }
@@ -119,14 +109,12 @@ public class PrestoDatabaseMetaData
 
     @Override
     public String getDriverName()
-            throws SQLException
     {
         return PrestoDriver.DRIVER_NAME;
     }
 
     @Override
     public String getDriverVersion()
-            throws SQLException
     {
         return PrestoDriver.DRIVER_VERSION;
     }
@@ -145,49 +133,42 @@ public class PrestoDatabaseMetaData
 
     @Override
     public boolean usesLocalFiles()
-            throws SQLException
     {
         return false;
     }
 
     @Override
     public boolean usesLocalFilePerTable()
-            throws SQLException
     {
         return false;
     }
 
     @Override
     public boolean supportsMixedCaseIdentifiers()
-            throws SQLException
     {
         return false;
     }
 
     @Override
     public boolean storesUpperCaseIdentifiers()
-            throws SQLException
     {
         return false;
     }
 
     @Override
     public boolean storesLowerCaseIdentifiers()
-            throws SQLException
     {
         return true;
     }
 
     @Override
     public boolean storesMixedCaseIdentifiers()
-            throws SQLException
     {
         return false;
     }
 
     @Override
     public boolean supportsMixedCaseQuotedIdentifiers()
-            throws SQLException
     {
         // TODO: support quoted identifiers properly
         return false;
@@ -195,14 +176,12 @@ public class PrestoDatabaseMetaData
 
     @Override
     public boolean storesUpperCaseQuotedIdentifiers()
-            throws SQLException
     {
         return false;
     }
 
     @Override
     public boolean storesLowerCaseQuotedIdentifiers()
-            throws SQLException
     {
         // TODO: support quoted identifiers properly
         return true;
@@ -210,7 +189,6 @@ public class PrestoDatabaseMetaData
 
     @Override
     public boolean storesMixedCaseQuotedIdentifiers()
-            throws SQLException
     {
         // TODO: support quoted identifiers properly
         return false;
@@ -218,91 +196,78 @@ public class PrestoDatabaseMetaData
 
     @Override
     public String getIdentifierQuoteString()
-            throws SQLException
     {
         return "\"";
     }
 
     @Override
     public String getSQLKeywords()
-            throws SQLException
     {
         return "LIMIT";
     }
 
     @Override
     public String getNumericFunctions()
-            throws SQLException
     {
         return "";
     }
 
     @Override
     public String getStringFunctions()
-            throws SQLException
     {
         return "";
     }
 
     @Override
     public String getSystemFunctions()
-            throws SQLException
     {
         return "";
     }
 
     @Override
     public String getTimeDateFunctions()
-            throws SQLException
     {
         return "";
     }
 
     @Override
     public String getSearchStringEscape()
-            throws SQLException
     {
         return SEARCH_STRING_ESCAPE;
     }
 
     @Override
     public String getExtraNameCharacters()
-            throws SQLException
     {
         return "";
     }
 
     @Override
     public boolean supportsAlterTableWithAddColumn()
-            throws SQLException
     {
         return false;
     }
 
     @Override
     public boolean supportsAlterTableWithDropColumn()
-            throws SQLException
     {
         return false;
     }
 
     @Override
     public boolean supportsColumnAliasing()
-            throws SQLException
     {
         return true;
     }
 
     @Override
     public boolean nullPlusNonNullIsNull()
-            throws SQLException
     {
         return true;
     }
 
     @Override
     public boolean supportsConvert()
-            throws SQLException
     {
         // TODO: support convert
         return false;
@@ -310,7 +275,6 @@ public class PrestoDatabaseMetaData
 
     @Override
     public boolean supportsConvert(int fromType, int toType)
-            throws SQLException
     {
         // TODO: support convert
         return false;
@@ -318,91 +282,78 @@ public class PrestoDatabaseMetaData
 
     @Override
     public boolean supportsTableCorrelationNames()
-            throws SQLException
     {
         return true;
     }
 
     @Override
     public boolean supportsDifferentTableCorrelationNames()
-            throws SQLException
     {
         return false;
     }
 
     @Override
     public boolean supportsExpressionsInOrderBy()
-            throws SQLException
     {
         return true;
     }
 
     @Override
     public boolean supportsOrderByUnrelated()
-            throws SQLException
     {
         return true;
     }
 
     @Override
     public boolean supportsGroupBy()
-            throws SQLException
     {
         return true;
     }
 
     @Override
     public boolean supportsGroupByUnrelated()
-            throws SQLException
     {
         return true;
     }
 
     @Override
     public boolean supportsGroupByBeyondSelect()
-            throws SQLException
     {
         return true;
     }
 
     @Override
     public boolean supportsLikeEscapeClause()
-            throws SQLException
     {
         return true;
     }
 
     @Override
     public boolean supportsMultipleResultSets()
-            throws SQLException
     {
         return false;
     }
 
     @Override
     public boolean supportsMultipleTransactions()
-            throws SQLException
     {
         return true;
     }
 
     @Override
     public boolean supportsNonNullableColumns()
-            throws SQLException
     {
         return true;
     }
 
     @Override
     public boolean supportsMinimumSQLGrammar()
-            throws SQLException
     {
         return true;
     }
 
     @Override
     public boolean supportsCoreSQLGrammar()
-            throws SQLException
     {
         // TODO: support this
         return false;
@@ -410,7 +361,6 @@ public class PrestoDatabaseMetaData
 
     @Override
     public boolean supportsExtendedSQLGrammar()
-            throws SQLException
     {
         // TODO: support this
         return false;
@@ -418,7 +368,6 @@ public class PrestoDatabaseMetaData
 
     @Override
     public boolean supportsANSI92EntryLevelSQL()
-            throws SQLException
     {
         // TODO: verify this
         return true;
@@ -426,7 +375,6 @@ public class PrestoDatabaseMetaData
 
     @Override
     public boolean supportsANSI92IntermediateSQL()
-            throws SQLException
     {
         // TODO: support this
         return false;
@@ -434,7 +382,6 @@ public class PrestoDatabaseMetaData
 
     @Override
     public boolean supportsANSI92FullSQL()
-            throws SQLException
     {
         // TODO: support this
         return false;
@@ -442,161 +389,138 @@ public class PrestoDatabaseMetaData
 
     @Override
     public boolean supportsIntegrityEnhancementFacility()
-            throws SQLException
     {
         return false;
     }
 
     @Override
     public boolean supportsOuterJoins()
-            throws SQLException
     {
         return true;
     }
 
     @Override
     public boolean supportsFullOuterJoins()
-            throws SQLException
     {
         return true;
     }
 
     @Override
     public boolean supportsLimitedOuterJoins()
-            throws SQLException
     {
         return true;
     }
 
     @Override
     public String getSchemaTerm()
-            throws SQLException
     {
         return "schema";
     }
 
     @Override
     public String getProcedureTerm()
-            throws SQLException
     {
         return "procedure";
     }
 
     @Override
     public String getCatalogTerm()
-            throws SQLException
     {
         return "catalog";
     }
 
     @Override
     public boolean isCatalogAtStart()
-            throws SQLException
     {
         return true;
     }
 
     @Override
     public String getCatalogSeparator()
-            throws SQLException
     {
         return ".";
     }
 
     @Override
     public boolean supportsSchemasInDataManipulation()
-            throws SQLException
     {
         return true;
     }
 
     @Override
     public boolean supportsSchemasInProcedureCalls()
-            throws SQLException
     {
         return true;
     }
 
     @Override
     public boolean supportsSchemasInTableDefinitions()
-            throws SQLException
     {
         return true;
     }
 
     @Override
     public boolean supportsSchemasInIndexDefinitions()
-            throws SQLException
     {
         return true;
     }
 
     @Override
     public boolean supportsSchemasInPrivilegeDefinitions()
-            throws SQLException
     {
         return true;
     }
 
     @Override
     public boolean supportsCatalogsInDataManipulation()
-            throws SQLException
     {
         return true;
     }
 
     @Override
     public boolean supportsCatalogsInProcedureCalls()
-            throws SQLException
     {
         return true;
     }
 
     @Override
     public boolean supportsCatalogsInTableDefinitions()
-            throws SQLException
     {
         return true;
     }
 
     @Override
     public boolean supportsCatalogsInIndexDefinitions()
-            throws SQLException
     {
         return true;
     }
 
     @Override
     public boolean supportsCatalogsInPrivilegeDefinitions()
-            throws SQLException
     {
         return true;
     }
 
     @Override
     public boolean supportsPositionedDelete()
-            throws SQLException
     {
         return false;
     }
 
     @Override
     public boolean supportsPositionedUpdate()
-            throws SQLException
     {
         return false;
     }
 
     @Override
     public boolean supportsSelectForUpdate()
-            throws SQLException
     {
         return false;
     }
 
     @Override
     public boolean supportsStoredProcedures()
-            throws SQLException
     {
         // TODO: support stored procedure escape syntax
         return false;
@@ -604,98 +528,84 @@ public class PrestoDatabaseMetaData
 
     @Override
     public boolean supportsSubqueriesInComparisons()
-            throws SQLException
     {
         return true;
     }
 
     @Override
     public boolean supportsSubqueriesInExists()
-            throws SQLException
     {
         return true;
     }
 
     @Override
     public boolean supportsSubqueriesInIns()
-            throws SQLException
     {
         return true;
     }
 
     @Override
     public boolean supportsSubqueriesInQuantifieds()
-            throws SQLException
     {
         return true;
     }
 
     @Override
     public boolean supportsCorrelatedSubqueries()
-            throws SQLException
     {
         return true;
     }
 
     @Override
     public boolean supportsUnion()
-            throws SQLException
     {
         return true;
     }
 
     @Override
     public boolean supportsUnionAll()
-            throws SQLException
     {
         return true;
     }
 
     @Override
     public boolean supportsOpenCursorsAcrossCommit()
-            throws SQLException
     {
         return false;
     }
 
     @Override
     public boolean supportsOpenCursorsAcrossRollback()
-            throws SQLException
     {
         return false;
     }
 
     @Override
     public boolean supportsOpenStatementsAcrossCommit()
-            throws SQLException
     {
         return false;
     }
 
     @Override
     public boolean supportsOpenStatementsAcrossRollback()
-            throws SQLException
     {
         return false;
     }
 
     @Override
     public int getMaxBinaryLiteralLength()
-            throws SQLException
     {
         return 0;
     }
 
     @Override
     public int getMaxCharLiteralLength()
-            throws SQLException
     {
         return 0;
     }
 
     @Override
     public int getMaxColumnNameLength()
-            throws SQLException
     {
         // TODO: define max identifier length
         return 0;
@@ -703,63 +613,54 @@ public class PrestoDatabaseMetaData
 
     @Override
     public int getMaxColumnsInGroupBy()
-            throws SQLException
     {
         return 0;
     }
 
     @Override
     public int getMaxColumnsInIndex()
-            throws SQLException
     {
         return 0;
     }
 
     @Override
     public int getMaxColumnsInOrderBy()
-            throws SQLException
     {
         return 0;
     }
 
     @Override
     public int getMaxColumnsInSelect()
-            throws SQLException
     {
         return 0;
     }
 
     @Override
     public int getMaxColumnsInTable()
-            throws SQLException
     {
         return 0;
     }
 
     @Override
     public int getMaxConnections()
-            throws SQLException
     {
         return 0;
     }
 
     @Override
     public int getMaxCursorNameLength()
-            throws SQLException
     {
         return 0;
     }
 
     @Override
     public int getMaxIndexLength()
-            throws SQLException
     {
         return 0;
     }
 
     @Override
     public int getMaxSchemaNameLength()
-            throws SQLException
     {
         // TODO: define max identifier length
         return 0;
@@ -767,7 +668,6 @@ public class PrestoDatabaseMetaData
 
     @Override
     public int getMaxProcedureNameLength()
-            throws SQLException
     {
         // TODO: define max identifier length
         return 0;
@@ -775,7 +675,6 @@ public class PrestoDatabaseMetaData
 
     @Override
     public int getMaxCatalogNameLength()
-            throws SQLException
     {
         // TODO: define max identifier length
         return 0;
@@ -783,35 +682,30 @@ public class PrestoDatabaseMetaData
 
     @Override
     public int getMaxRowSize()
-            throws SQLException
     {
         return 0;
     }
 
     @Override
     public boolean doesMaxRowSizeIncludeBlobs()
-            throws SQLException
     {
         return true;
     }
 
     @Override
     public int getMaxStatementLength()
-            throws SQLException
     {
         return 0;
     }
 
     @Override
     public int getMaxStatements()
-            throws SQLException
     {
         return 0;
     }
 
     @Override
     public int getMaxTableNameLength()
-            throws SQLException
     {
         // TODO: define max identifier length
         return 0;
@@ -819,14 +713,12 @@ public class PrestoDatabaseMetaData
 
     @Override
     public int getMaxTablesInSelect()
-            throws SQLException
     {
         return 0;
     }
 
     @Override
     public int getMaxUserNameLength()
-            throws SQLException
     {
         // TODO: define max identifier length
         return 0;
@@ -834,49 +726,42 @@ public class PrestoDatabaseMetaData
 
     @Override
     public int getDefaultTransactionIsolation()
-            throws SQLException
     {
         return Connection.TRANSACTION_READ_UNCOMMITTED;
     }
 
     @Override
     public boolean supportsTransactions()
-            throws SQLException
     {
         return true;
     }
 
     @Override
     public boolean supportsTransactionIsolationLevel(int level)
-            throws SQLException
     {
         return true;
     }
 
     @Override
     public boolean supportsDataDefinitionAndDataManipulationTransactions()
-            throws SQLException
     {
         return true;
     }
 
     @Override
     public boolean supportsDataManipulationTransactionsOnly()
-            throws SQLException
     {
         return false;
     }
 
     @Override
     public boolean dataDefinitionCausesTransactionCommit()
-            throws SQLException
     {
         return false;
     }
 
     @Override
     public boolean dataDefinitionIgnoredInTransactions()
-            throws SQLException
     {
         return false;
     }
@@ -1061,14 +946,12 @@ public class PrestoDatabaseMetaData
 
     @Override
     public boolean supportsResultSetType(int type)
-            throws SQLException
     {
         return type == ResultSet.TYPE_FORWARD_ONLY;
     }
 
     @Override
     public boolean supportsResultSetConcurrency(int type, int concurrency)
-            throws SQLException
     {
         return (type == ResultSet.TYPE_FORWARD_ONLY) &&
                 (concurrency == ResultSet.CONCUR_READ_ONLY);
@@ -1076,70 +959,60 @@ public class PrestoDatabaseMetaData
 
     @Override
     public boolean ownUpdatesAreVisible(int type)
-            throws SQLException
     {
         return false;
     }
 
     @Override
     public boolean ownDeletesAreVisible(int type)
-            throws SQLException
     {
         return false;
     }
 
     @Override
     public boolean ownInsertsAreVisible(int type)
-            throws SQLException
     {
         return false;
     }
 
     @Override
     public boolean othersUpdatesAreVisible(int type)
-            throws SQLException
     {
         return false;
     }
 
     @Override
     public boolean othersDeletesAreVisible(int type)
-            throws SQLException
     {
         return false;
     }
 
     @Override
     public boolean othersInsertsAreVisible(int type)
-            throws SQLException
     {
         return false;
     }
 
     @Override
     public boolean updatesAreDetected(int type)
-            throws SQLException
     {
         return false;
     }
 
     @Override
     public boolean deletesAreDetected(int type)
-            throws SQLException
     {
         return false;
     }
 
     @Override
     public boolean insertsAreDetected(int type)
-            throws SQLException
     {
         return false;
     }
 
     @Override
     public boolean supportsBatchUpdates()
-            throws SQLException
     {
         // TODO: support batch updates
         return false;
@@ -1158,35 +1031,30 @@ public class PrestoDatabaseMetaData
 
     @Override
     public Connection getConnection()
-            throws SQLException
     {
         return connection;
     }
 
     @Override
     public boolean supportsSavepoints()
-            throws SQLException
     {
         return false;
     }
 
     @Override
     public boolean supportsNamedParameters()
-            throws SQLException
     {
         return true;
     }
 
     @Override
     public boolean supportsMultipleOpenResults()
-            throws SQLException
     {
         return false;
     }
 
     @Override
     public boolean supportsGetGeneratedKeys()
-            throws SQLException
     {
         return false;
     }
@@ -1228,14 +1096,12 @@ public class PrestoDatabaseMetaData
 
     @Override
     public boolean supportsResultSetHoldability(int holdability)
-            throws SQLException
     {
         return holdability == ResultSet.HOLD_CURSORS_OVER_COMMIT;
     }
 
     @Override
     public int getResultSetHoldability()
-            throws SQLException
     {
         return ResultSet.HOLD_CURSORS_OVER_COMMIT;
     }
@@ -1269,42 +1135,36 @@ public class PrestoDatabaseMetaData
 
     @Override
     public int getJDBCMajorVersion()
-            throws SQLException
     {
         return 4;
     }
 
     @Override
     public int getJDBCMinorVersion()
-            throws SQLException
     {
         return 2;
     }
 
     @Override
     public int getSQLStateType()
-            throws SQLException
     {
         return DatabaseMetaData.sqlStateSQL;
     }
 
     @Override
     public boolean locatorsUpdateCopy()
-            throws SQLException
     {
         return true;
     }
 
     @Override
     public boolean supportsStatementPooling()
-            throws SQLException
     {
         return false;
     }
 
     @Override
     public RowIdLifetime getRowIdLifetime()
-            throws SQLException
     {
         return RowIdLifetime.ROWID_UNSUPPORTED;
     }
@@ -1329,14 +1189,12 @@ public class PrestoDatabaseMetaData
 
     @Override
     public boolean supportsStoredFunctionsUsingCallSyntax()
-            throws SQLException
     {
         return false;
     }
 
     @Override
     public boolean autoCommitFailureClosesAllResultSets()
-            throws SQLException
     {
         return false;
     }
@@ -1379,7 +1237,6 @@ public class PrestoDatabaseMetaData
 
     @Override
     public boolean generatedKeyAlwaysReturned()
-            throws SQLException
     {
         return false;
     }
@@ -1397,7 +1254,6 @@ public class PrestoDatabaseMetaData
 
     @Override
     public boolean isWrapperFor(Class<?> iface)
-            throws SQLException
     {
         return iface.isInstance(this);
     }
