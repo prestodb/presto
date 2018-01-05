@@ -15,6 +15,7 @@ package com.facebook.presto.plugin.jdbc;
 
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
 
 import javax.annotation.Nullable;
@@ -43,6 +44,11 @@ public interface JdbcClient
 
     PreparedStatement buildSql(Connection connection, JdbcSplit split, List<JdbcColumnHandle> columnHandles)
             throws SQLException;
+
+    default RecordCursor createRecordCursor(JdbcSplit split, List<JdbcColumnHandle> columnHandles)
+    {
+        return new JdbcRecordCursor(this, split, columnHandles);
+    }
 
     JdbcOutputTableHandle beginCreateTable(ConnectorTableMetadata tableMetadata);
 
