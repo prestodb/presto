@@ -40,6 +40,7 @@ import java.util.function.Consumer;
 
 import static com.facebook.presto.benchmark.driver.BenchmarkQueryResult.failResult;
 import static com.facebook.presto.benchmark.driver.BenchmarkQueryResult.passResult;
+import static com.facebook.presto.client.OkHttpUtil.setupCookieJar;
 import static com.facebook.presto.client.OkHttpUtil.setupSocksProxy;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
@@ -88,6 +89,7 @@ public class BenchmarkQueryRunner
         this.httpClient = new JettyHttpClient(httpClientConfig.setConnectTimeout(new Duration(10, TimeUnit.SECONDS)));
 
         OkHttpClient.Builder builder = new OkHttpClient.Builder();
+        setupCookieJar(builder);
         setupSocksProxy(builder, socksProxy);
         this.okHttpClient = builder.build();
 
