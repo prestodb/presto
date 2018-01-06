@@ -27,6 +27,7 @@ import java.util.function.Consumer;
 
 import static com.facebook.presto.client.ClientSession.stripTransactionId;
 import static com.facebook.presto.client.OkHttpUtil.basicAuth;
+import static com.facebook.presto.client.OkHttpUtil.setupCookieJar;
 import static com.facebook.presto.client.OkHttpUtil.setupHttpProxy;
 import static com.facebook.presto.client.OkHttpUtil.setupKerberos;
 import static com.facebook.presto.client.OkHttpUtil.setupSocksProxy;
@@ -68,6 +69,7 @@ public class QueryRunner
         OkHttpClient.Builder builder = new OkHttpClient.Builder();
 
         setupTimeouts(builder, 5, SECONDS);
+        setupCookieJar(builder);
         setupSocksProxy(builder, socksProxy);
         setupHttpProxy(builder, httpProxy);
         setupBasicAuth(builder, session, user, password);
