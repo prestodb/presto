@@ -18,14 +18,16 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinCompiler;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.SystemSessionProperties.isDictionaryAggregationEnabled;
 import static com.facebook.presto.operator.GroupByHash.createGroupByHash;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
-import static com.google.common.base.Verify.verify;
+import static java.util.Objects.requireNonNull;
 
 public class ChannelSet
 {
@@ -76,13 +78,22 @@ public class ChannelSet
 
         private final GroupByHash hash;
         private final Page nullBlockPage;
+        private final OperatorContext operatorContext;
         private final LocalMemoryContext localMemoryContext;
 
         public ChannelSetBuilder(Type type, Optional<Integer> hashChannel, int expectedPositions, OperatorContext operatorContext, JoinCompiler joinCompiler)
         {
             List<Type> types = ImmutableList.of(type);
-            this.hash = createGroupByHash(operatorContext.getSession(), types, HASH_CHANNELS, hashChannel, expectedPositions, joinCompiler);
+            this.hash = createGroupByHash(
+                    types,
+                    HASH_CHANNELS,
+                    hashChannel,
+                    expectedPositions,
+                    isDictionaryAggregationEnabled(operatorContext.getSession()),
+                    joinCompiler,
+                    this::updateMemoryReservation);
             this.nullBlockPage = new Page(type.createBlockBuilder(new BlockBuilderStatus(), 1, UNKNOWN.getFixedSize()).appendNull().build());
+            this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
             this.localMemoryContext = operatorContext.localUserMemoryContext();
         }
 
@@ -101,13 +112,25 @@ public class ChannelSet
             return hash.getGroupCount();
         }
 
-        public void addPage(Page page)
+        public Work<?> addPage(Page page)
         {
-            Work<?> work = hash.addPage(page);
-            boolean done = work.process();
-            // TODO: this class does not yield wrt memory limit; enable it
-            verify(done);
+            // Just add the page to the pending work, which will be processed later.
+            return hash.addPage(page);
+        }
+
+        public boolean updateMemoryReservation()
+        {
+            // If memory is not available, once we return, this operator will be blocked until memory is available.
             localMemoryContext.setBytes(hash.getEstimatedSize());
+
+            // If memory is not available, inform the caller that we cannot proceed for allocation.
+            return operatorContext.isWaitingForMemory().isDone();
+        }
+
+        @VisibleForTesting
+        public int getCapacity()
+        {
+            return hash.getCapacity();
         }
     }
 }
