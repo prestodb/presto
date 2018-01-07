@@ -109,6 +109,7 @@ public final class GroupByHashYieldAssertion
 
             // add a page and verify different behaviors
             operator.addInput(page);
+
             // get output to consume the input
             Page output = operator.getOutput();
             if (output != null) {
@@ -172,11 +173,12 @@ public final class GroupByHashYieldAssertion
                 // Free the pool to unblock
                 memoryPool.free(queryId, reservedMemoryInBytes);
 
-                // Trigger a process
+                // Trigger a process through getOutput() or needsInput()
                 output = operator.getOutput();
                 if (output != null) {
                     result.add(output);
                 }
+                assertTrue(operator.needsInput());
 
                 // Hash table capacity has increased
                 assertGreaterThan(getHashCapacity.apply(operator), oldCapacity);
