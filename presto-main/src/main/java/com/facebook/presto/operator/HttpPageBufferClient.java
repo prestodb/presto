@@ -77,6 +77,7 @@ import static io.airlift.http.client.ResponseHandlerUtils.propagate;
 import static io.airlift.http.client.StatusResponseHandler.StatusResponse;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -536,7 +537,7 @@ public final class HttpPageBufferClient
                 // otherwise we must have gotten an OK response, everything else is considered fatal
                 if (response.getStatusCode() != HttpStatus.OK.code()) {
                     StringBuilder body = new StringBuilder();
-                    try (BufferedReader reader = new BufferedReader(new InputStreamReader(response.getInputStream()))) {
+                    try (BufferedReader reader = new BufferedReader(new InputStreamReader(response.getInputStream(), UTF_8))) {
                         // Get up to 1000 lines for debugging
                         for (int i = 0; i < 1000; i++) {
                             String line = reader.readLine();
