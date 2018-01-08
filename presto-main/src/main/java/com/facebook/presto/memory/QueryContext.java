@@ -155,6 +155,7 @@ public class QueryContext
 
     public synchronized void freeMemory(long bytes)
     {
+        checkArgument(bytes >= 0, "bytes is negative");
         checkArgument(reserved - bytes >= 0, "tried to free more memory than is reserved");
         reserved -= bytes;
         memoryPool.free(queryId, bytes);
@@ -178,6 +179,7 @@ public class QueryContext
 
     public synchronized void freeSpill(long bytes)
     {
+        checkArgument(bytes >= 0, "bytes is negative");
         checkArgument(spillUsed - bytes >= 0, "tried to free more memory than is reserved");
         spillUsed -= bytes;
         spillSpaceTracker.free(bytes);
