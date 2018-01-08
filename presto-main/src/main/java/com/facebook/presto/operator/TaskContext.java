@@ -20,6 +20,7 @@ import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.execution.TaskStateMachine;
 import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.memory.QueryContextVisitor;
+import com.facebook.presto.memory.Reservations;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.AtomicDouble;
@@ -208,7 +209,7 @@ public class TaskContext
     {
         checkReservedBytes(bytes);
         ListenableFuture<?> future = queryContext.reserveMemory(bytes);
-        memoryReservation.getAndAdd(bytes);
+        memoryReservation.accumulateAndGet(bytes, Reservations::sum);
         return future;
     }
 
@@ -216,7 +217,7 @@ public class TaskContext
     {
         checkReservedBytes(bytes);
         ListenableFuture<?> future = queryContext.reserveRevocableMemory(bytes);
-        revocableMemoryReservation.getAndAdd(bytes);
+        revocableMemoryReservation.accumulateAndGet(bytes, Reservations::sum);
         return future;
     }
 
@@ -224,7 +225,7 @@ public class TaskContext
     {
         checkReservedBytes(bytes);
         ListenableFuture<?> future = queryContext.reserveSystemMemory(bytes);
-        systemMemoryReservation.getAndAdd(bytes);
+        systemMemoryReservation.accumulateAndGet(bytes, Reservations::sum);
         return future;
     }
 
@@ -238,7 +239,7 @@ public class TaskContext
     {
         checkReservedBytes(bytes);
         if (queryContext.tryReserveMemory(bytes)) {
-            memoryReservation.getAndAdd(bytes);
+            memoryReservation.accumulateAndGet(bytes, Reservations::sum);
             return true;
         }
         return false;

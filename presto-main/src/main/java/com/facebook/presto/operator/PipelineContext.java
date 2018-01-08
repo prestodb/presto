@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.memory.QueryContextVisitor;
+import com.facebook.presto.memory.Reservations;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -233,14 +234,14 @@ public class PipelineContext
     public synchronized ListenableFuture<?> reserveMemory(long bytes)
     {
         ListenableFuture<?> future = taskContext.reserveMemory(bytes);
-        memoryReservation.getAndAdd(bytes);
+        memoryReservation.accumulateAndGet(bytes, Reservations::sum);
         return future;
     }
 
     public synchronized ListenableFuture<?> reserveRevocableMemory(long bytes)
     {
         ListenableFuture<?> future = taskContext.reserveRevocableMemory(bytes);
-        revocableMemoryReservation.getAndAdd(bytes);
+        revocableMemoryReservation.accumulateAndGet(bytes, Reservations::sum);
         return future;
     }
 
@@ -248,7 +249,7 @@ public class PipelineContext
     {
         checkReservedBytes(bytes);
         ListenableFuture<?> future = taskContext.reserveSystemMemory(bytes);
-        systemMemoryReservation.getAndAdd(bytes);
+        systemMemoryReservation.accumulateAndGet(bytes, Reservations::sum);
         return future;
     }
 
@@ -260,7 +261,7 @@ public class PipelineContext
     public synchronized boolean tryReserveMemory(long bytes)
     {
         if (taskContext.tryReserveMemory(bytes)) {
-            memoryReservation.getAndAdd(bytes);
+            memoryReservation.accumulateAndGet(bytes, Reservations::sum);
             return true;
         }
         return false;

@@ -95,9 +95,9 @@ public class MemoryPool
         ListenableFuture<?> result;
         synchronized (this) {
             if (bytes != 0) {
-                queryMemoryReservations.merge(queryId, bytes, Long::sum);
+                queryMemoryReservations.merge(queryId, bytes, Reservations::sum);
             }
-            reservedBytes += bytes;
+            reservedBytes = Reservations.sum(reservedBytes, bytes);
             if (getFreeBytes() <= 0) {
                 if (future == null) {
                     future = SettableFuture.create();
@@ -126,9 +126,9 @@ public class MemoryPool
         ListenableFuture<?> result;
         synchronized (this) {
             if (bytes != 0) {
-                queryMemoryRevocableReservations.merge(queryId, bytes, Long::sum);
+                queryMemoryRevocableReservations.merge(queryId, bytes, Reservations::sum);
             }
-            reservedRevocableBytes += bytes;
+            reservedRevocableBytes = Reservations.sum(reservedRevocableBytes, bytes);
             if (getFreeBytes() <= 0) {
                 if (future == null) {
                     future = SettableFuture.create();
@@ -155,9 +155,9 @@ public class MemoryPool
             if (getFreeBytes() - bytes < 0) {
                 return false;
             }
-            reservedBytes += bytes;
+            reservedBytes = Reservations.sum(reservedBytes, bytes);
             if (bytes != 0) {
-                queryMemoryReservations.merge(queryId, bytes, Long::sum);
+                queryMemoryReservations.merge(queryId, bytes, Reservations::sum);
             }
         }
 

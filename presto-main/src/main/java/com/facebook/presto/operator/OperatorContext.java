@@ -17,6 +17,7 @@ import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.Session;
 import com.facebook.presto.memory.AbstractAggregatedMemoryContext;
 import com.facebook.presto.memory.QueryContextVisitor;
+import com.facebook.presto.memory.Reservations;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -261,13 +262,13 @@ public class OperatorContext
     public void reserveMemory(long bytes)
     {
         updateMemoryFuture(driverContext.reserveMemory(bytes), memoryFuture);
-        memoryReservation.addAndGet(bytes);
+        memoryReservation.accumulateAndGet(bytes, Reservations::sum);
     }
 
     public synchronized void reserveRevocableMemory(long bytes)
     {
         updateMemoryFuture(driverContext.reserveRevocableMemory(bytes), revocableMemoryFuture);
-        revocableMemoryReservation += bytes;
+        revocableMemoryReservation = Reservations.sum(revocableMemoryReservation, bytes);
     }
 
     public synchronized long getReservedRevocableBytes()
@@ -402,7 +403,7 @@ public class OperatorContext
                 return false;
             }
 
-            memoryReservation.addAndGet(delta);
+            memoryReservation.accumulateAndGet(delta, Reservations::sum);
         }
         else {
             freeMemory(-delta);
@@ -669,7 +670,7 @@ public class OperatorContext
         public void updateBytes(long bytes)
         {
             if (bytes >= 0) {
-                reservedBytes.addAndGet(bytes);
+                reservedBytes.accumulateAndGet(bytes, Reservations::sum);
                 driverContext.reserveSpill(bytes);
             }
             else {

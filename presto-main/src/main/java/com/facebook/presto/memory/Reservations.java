@@ -14,6 +14,7 @@
 package com.facebook.presto.memory;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.String.format;
 
 public class Reservations
 {
@@ -28,5 +29,15 @@ public class Reservations
     {
         checkArgument(bytes >= 0, "bytes is negative: %s", bytes);
         checkArgument(bytes <= currentReservation, "tried to free %s, more than is reserved, %s", bytes, currentReservation);
+    }
+
+    public static long sum(long reservation, long bytes)
+    {
+        try {
+            return Math.addExact(reservation, bytes);
+        }
+        catch (ArithmeticException e) {
+            throw new IllegalStateException(format("Overflow when adding %s and %s", reservation, bytes));
+        }
     }
 }

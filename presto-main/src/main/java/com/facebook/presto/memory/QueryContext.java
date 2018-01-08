@@ -41,6 +41,7 @@ import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.airlift.units.DataSize.succinctBytes;
+import static java.lang.Math.addExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -104,7 +105,7 @@ public class QueryContext
             throw exceededLocalLimit(succinctBytes(maxMemory));
         }
         ListenableFuture<?> future = memoryPool.reserve(queryId, bytes);
-        reserved += bytes;
+        reserved = Reservations.sum(reserved, bytes);
         // Never block queries using a trivial amount of memory
         if (reserved < GUARANTEED_MEMORY) {
             return NOT_BLOCKED;
@@ -116,7 +117,7 @@ public class QueryContext
     {
         checkReservedBytes(bytes);
         ListenableFuture<?> future = memoryPool.reserveRevocable(queryId, bytes);
-        revocableReserved += bytes;
+        revocableReserved = Reservations.sum(revocableReserved, bytes);
         return future;
     }
 
@@ -124,7 +125,7 @@ public class QueryContext
     {
         checkReservedBytes(bytes);
         ListenableFuture<?> future = systemMemoryPool.reserve(queryId, bytes);
-        systemReserved += bytes;
+        systemReserved = Reservations.sum(systemReserved, bytes);
         return future;
     }
 
@@ -135,7 +136,7 @@ public class QueryContext
             throw exceededPerQueryLocalLimit(succinctBytes(maxSpill));
         }
         ListenableFuture<?> future = spillSpaceTracker.reserve(bytes);
-        spillUsed += bytes;
+        spillUsed = Reservations.sum(spillUsed, bytes);
         return future;
     }
 
@@ -147,7 +148,7 @@ public class QueryContext
             return false;
         }
         if (memoryPool.tryReserve(queryId, bytes)) {
-            reserved += bytes;
+            reserved = Reservations.sum(reserved, bytes);
             return true;
         }
         return false;
@@ -189,7 +190,7 @@ public class QueryContext
             return;
         }
         MemoryPool originalPool = memoryPool;
-        long originalReserved = reserved + revocableReserved;
+        long originalReserved = addExact(reserved, revocableReserved);
         memoryPool = pool;
         ListenableFuture<?> future = pool.reserve(queryId, originalReserved);
         Futures.addCallback(future, new FutureCallback<Object>()
