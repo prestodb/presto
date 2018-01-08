@@ -36,6 +36,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.memory.Reservations.checkFreedBytes;
+import static com.facebook.presto.memory.Reservations.checkReservedBytes;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getFirst;
 import static com.google.common.collect.Iterables.getLast;
@@ -213,7 +215,7 @@ public class DriverContext
 
     public ListenableFuture<?> reserveSystemMemory(long bytes)
     {
-        checkArgument(bytes >= 0, "bytes is negative");
+        checkReservedBytes(bytes);
         ListenableFuture<?> future = pipelineContext.reserveSystemMemory(bytes);
         systemMemoryReservation.getAndAdd(bytes);
         return future;
@@ -238,8 +240,7 @@ public class DriverContext
         if (bytes == 0) {
             return;
         }
-        checkArgument(bytes > 0, "bytes is negative");
-        checkArgument(bytes <= memoryReservation.get(), "tried to free more memory than is reserved");
+        checkFreedBytes(bytes, memoryReservation.get());
         pipelineContext.freeMemory(bytes);
         memoryReservation.getAndAdd(-bytes);
     }
@@ -249,8 +250,7 @@ public class DriverContext
         if (bytes == 0) {
             return;
         }
-        checkArgument(bytes >= 0, "bytes is negative");
-        checkArgument(bytes <= revocableMemoryReservation.get(), "tried to free more revocable memory than is reserved");
+        checkFreedBytes(bytes, revocableMemoryReservation.get());
         pipelineContext.freeRevocableMemory(bytes);
         revocableMemoryReservation.getAndAdd(-bytes);
     }
@@ -260,8 +260,7 @@ public class DriverContext
         if (bytes == 0) {
             return;
         }
-        checkArgument(bytes > 0, "bytes is negative");
-        checkArgument(bytes <= systemMemoryReservation.get(), "tried to free more system memory than is reserved");
+        checkFreedBytes(bytes, systemMemoryReservation.get());
         pipelineContext.freeSystemMemory(bytes);
         systemMemoryReservation.getAndAdd(-bytes);
     }

@@ -44,6 +44,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.memory.Reservations.checkFreedBytes;
+import static com.facebook.presto.memory.Reservations.checkReservedBytes;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.transform;
@@ -244,7 +246,7 @@ public class PipelineContext
 
     public synchronized ListenableFuture<?> reserveSystemMemory(long bytes)
     {
-        checkArgument(bytes >= 0, "bytes is negative");
+        checkReservedBytes(bytes);
         ListenableFuture<?> future = taskContext.reserveSystemMemory(bytes);
         systemMemoryReservation.getAndAdd(bytes);
         return future;
@@ -266,24 +268,21 @@ public class PipelineContext
 
     public synchronized void freeMemory(long bytes)
     {
-        checkArgument(bytes >= 0, "bytes is negative");
-        checkArgument(bytes <= memoryReservation.get(), "tried to free more memory than is reserved");
+        checkFreedBytes(bytes, memoryReservation.get());
         taskContext.freeMemory(bytes);
         memoryReservation.getAndAdd(-bytes);
     }
 
     public synchronized void freeRevocableMemory(long bytes)
     {
-        checkArgument(bytes >= 0, "bytes is negative");
-        checkArgument(bytes <= revocableMemoryReservation.get(), "tried to free more revocable memory than is reserved");
+        checkFreedBytes(bytes, revocableMemoryReservation.get());
         taskContext.freeRevocableMemory(bytes);
         revocableMemoryReservation.getAndAdd(-bytes);
     }
 
     public synchronized void freeSystemMemory(long bytes)
     {
-        checkArgument(bytes >= 0, "bytes is negative");
-        checkArgument(bytes <= systemMemoryReservation.get(), "tried to free more system memory than is reserved");
+        checkFreedBytes(bytes, systemMemoryReservation.get());
         taskContext.freeSystemMemory(bytes);
         systemMemoryReservation.getAndAdd(-bytes);
     }

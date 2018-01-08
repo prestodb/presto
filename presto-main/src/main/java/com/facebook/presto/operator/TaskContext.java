@@ -40,6 +40,8 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.memory.Reservations.checkFreedBytes;
+import static com.facebook.presto.memory.Reservations.checkReservedBytes;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.transform;
@@ -204,8 +206,7 @@ public class TaskContext
 
     public synchronized ListenableFuture<?> reserveMemory(long bytes)
     {
-        checkArgument(bytes >= 0, "bytes is negative");
-
+        checkReservedBytes(bytes);
         ListenableFuture<?> future = queryContext.reserveMemory(bytes);
         memoryReservation.getAndAdd(bytes);
         return future;
@@ -213,8 +214,7 @@ public class TaskContext
 
     public synchronized ListenableFuture<?> reserveRevocableMemory(long bytes)
     {
-        checkArgument(bytes >= 0, "bytes is negative");
-
+        checkReservedBytes(bytes);
         ListenableFuture<?> future = queryContext.reserveRevocableMemory(bytes);
         revocableMemoryReservation.getAndAdd(bytes);
         return future;
@@ -222,7 +222,7 @@ public class TaskContext
 
     public synchronized ListenableFuture<?> reserveSystemMemory(long bytes)
     {
-        checkArgument(bytes >= 0, "bytes is negative");
+        checkReservedBytes(bytes);
         ListenableFuture<?> future = queryContext.reserveSystemMemory(bytes);
         systemMemoryReservation.getAndAdd(bytes);
         return future;
@@ -230,14 +230,13 @@ public class TaskContext
 
     public synchronized ListenableFuture<?> reserveSpill(long bytes)
     {
-        checkArgument(bytes >= 0, "bytes is negative");
+        checkReservedBytes(bytes);
         return queryContext.reserveSpill(bytes);
     }
 
     public synchronized boolean tryReserveMemory(long bytes)
     {
-        checkArgument(bytes >= 0, "bytes is negative");
-
+        checkReservedBytes(bytes);
         if (queryContext.tryReserveMemory(bytes)) {
             memoryReservation.getAndAdd(bytes);
             return true;
@@ -247,24 +246,21 @@ public class TaskContext
 
     public synchronized void freeMemory(long bytes)
     {
-        checkArgument(bytes >= 0, "bytes is negative");
-        checkArgument(bytes <= memoryReservation.get(), "tried to free more memory than is reserved");
+        checkFreedBytes(bytes, memoryReservation.get());
         memoryReservation.getAndAdd(-bytes);
         queryContext.freeMemory(bytes);
     }
 
     public synchronized void freeRevocableMemory(long bytes)
     {
-        checkArgument(bytes >= 0, "bytes is negative");
-        checkArgument(bytes <= revocableMemoryReservation.get(), "tried to free more revocable memory than is reserved");
+        checkFreedBytes(bytes, revocableMemoryReservation.get());
         revocableMemoryReservation.getAndAdd(-bytes);
         queryContext.freeRevocableMemory(bytes);
     }
 
     public synchronized void freeSystemMemory(long bytes)
     {
-        checkArgument(bytes >= 0, "bytes is negative");
-        checkArgument(bytes <= systemMemoryReservation.get(), "tried to free more system memory than is reserved");
+        checkFreedBytes(bytes, systemMemoryReservation.get());
         systemMemoryReservation.getAndAdd(-bytes);
         queryContext.freeSystemMemory(bytes);
     }

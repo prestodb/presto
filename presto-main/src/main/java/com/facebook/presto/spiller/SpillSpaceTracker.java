@@ -22,9 +22,10 @@ import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
 import static com.facebook.presto.ExceededSpillLimitException.exceededLocalLimit;
+import static com.facebook.presto.memory.Reservations.checkFreedBytes;
+import static com.facebook.presto.memory.Reservations.checkReservedBytes;
 import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.succinctBytes;
 import static java.util.Objects.requireNonNull;
 
@@ -50,7 +51,7 @@ public class SpillSpaceTracker
      */
     public synchronized ListenableFuture<?> reserve(long bytes)
     {
-        checkArgument(bytes >= 0, "bytes is negative");
+        checkReservedBytes(bytes);
 
         if ((currentBytes + bytes) >= maxBytes) {
             throw exceededLocalLimit(succinctBytes(maxBytes));
@@ -62,8 +63,7 @@ public class SpillSpaceTracker
 
     public synchronized void free(long bytes)
     {
-        checkArgument(bytes >= 0, "bytes is negative");
-        checkArgument(currentBytes - bytes >= 0, "tried to free more disk space than is reserved");
+        checkFreedBytes(bytes, currentBytes);
         currentBytes -= bytes;
     }
 

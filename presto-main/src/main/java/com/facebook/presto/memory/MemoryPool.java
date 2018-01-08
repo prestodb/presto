@@ -29,9 +29,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 
+import static com.facebook.presto.memory.Reservations.checkFreedBytes;
+import static com.facebook.presto.memory.Reservations.checkReservedBytes;
 import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
@@ -89,7 +90,7 @@ public class MemoryPool
      */
     public ListenableFuture<?> reserve(QueryId queryId, long bytes)
     {
-        checkArgument(bytes >= 0, "bytes is negative");
+        checkReservedBytes(bytes);
 
         ListenableFuture<?> result;
         synchronized (this) {
@@ -120,7 +121,7 @@ public class MemoryPool
 
     public ListenableFuture<?> reserveRevocable(QueryId queryId, long bytes)
     {
-        checkArgument(bytes >= 0, "bytes is negative");
+        checkReservedBytes(bytes);
 
         ListenableFuture<?> result;
         synchronized (this) {
@@ -149,7 +150,7 @@ public class MemoryPool
      */
     public boolean tryReserve(QueryId queryId, long bytes)
     {
-        checkArgument(bytes >= 0, "bytes is negative");
+        checkReservedBytes(bytes);
         synchronized (this) {
             if (getFreeBytes() - bytes < 0) {
                 return false;
@@ -166,16 +167,14 @@ public class MemoryPool
 
     public synchronized void free(QueryId queryId, long bytes)
     {
-        checkArgument(bytes >= 0, "bytes is negative");
-        checkArgument(reservedBytes >= bytes, "tried to free more memory than is reserved");
+        checkFreedBytes(bytes, reservedBytes);
         if (bytes == 0) {
             // Freeing zero bytes is a no-op
             return;
         }
 
-        Long queryReservation = queryMemoryReservations.get(queryId);
-        requireNonNull(queryReservation, "queryReservation is null");
-        checkArgument(queryReservation - bytes >= 0, "tried to free more memory than is reserved by query");
+        long queryReservation = requireNonNull(queryMemoryReservations.get(queryId), "queryReservation is null");
+        checkFreedBytes(bytes, queryReservation);
         queryReservation -= bytes;
         if (queryReservation == 0) {
             queryMemoryReservations.remove(queryId);
@@ -192,16 +191,14 @@ public class MemoryPool
 
     public synchronized void freeRevocable(QueryId queryId, long bytes)
     {
-        checkArgument(bytes >= 0, "bytes is negative");
-        checkArgument(reservedRevocableBytes >= bytes, "tried to free more revocable memory than is reserved");
+        checkFreedBytes(bytes, reservedRevocableBytes);
         if (bytes == 0) {
             // Freeing zero bytes is a no-op
             return;
         }
 
-        Long queryReservation = queryMemoryRevocableReservations.get(queryId);
-        requireNonNull(queryReservation, "queryReservation is null");
-        checkArgument(queryReservation - bytes >= 0, "tried to free more revocable memory than is reserved by query");
+        long queryReservation = requireNonNull(queryMemoryRevocableReservations.get(queryId), "queryReservation is null");
+        checkFreedBytes(bytes, queryReservation);
         queryReservation -= bytes;
         if (queryReservation == 0) {
             queryMemoryRevocableReservations.remove(queryId);
