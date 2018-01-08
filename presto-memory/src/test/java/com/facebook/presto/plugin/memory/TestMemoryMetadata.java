@@ -36,6 +36,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static org.testng.Assert.assertEquals;
@@ -180,6 +181,7 @@ public class TestMemoryMetadata
     public void testCreateViewWithoutReplace()
     {
         SchemaTableName test = new SchemaTableName("test", "test_view");
+        metadata.createSchema(SESSION, "test", ImmutableMap.of());
         try {
             metadata.createView(SESSION, test, "test", false);
         }
@@ -194,6 +196,7 @@ public class TestMemoryMetadata
     {
         SchemaTableName test = new SchemaTableName("test", "test_view");
 
+        metadata.createSchema(SESSION, "test", ImmutableMap.of());
         metadata.createView(SESSION, test, "aaa", true);
         metadata.createView(SESSION, test, "bbb", true);
 
@@ -205,6 +208,9 @@ public class TestMemoryMetadata
     {
         SchemaTableName test1 = new SchemaTableName("test", "test_view1");
         SchemaTableName test2 = new SchemaTableName("test", "test_view2");
+
+        // create schema
+        metadata.createSchema(SESSION, "test", ImmutableMap.of());
 
         // create views
         metadata.createView(SESSION, test1, "test1", false);
@@ -251,6 +257,47 @@ public class TestMemoryMetadata
         // verify listing everything
         views = metadata.getViews(SESSION, new SchemaTablePrefix());
         assertTrue(views.isEmpty());
+    }
+
+    @Test
+    public void testCreateTableAndViewInNotExistSchema()
+    {
+        assertEquals(metadata.listSchemaNames(SESSION), ImmutableList.of("default"));
+
+        SchemaTableName table1 = new SchemaTableName("test1", "test_schema_table1");
+        try {
+            metadata.beginCreateTable(SESSION, new ConnectorTableMetadata(table1, ImmutableList.of(), ImmutableMap.of()), Optional.empty());
+            fail("Should fail because schema does not exist");
+        }
+        catch (PrestoException ex) {
+            assertEquals(ex.getErrorCode(), NOT_FOUND.toErrorCode());
+            assertEquals(ex.getMessage(), "Schema test1 not found");
+        }
+        assertEquals(metadata.getTableHandle(SESSION, table1), null);
+
+        SchemaTableName view2 = new SchemaTableName("test2", "test_schema_view2");
+        try {
+            metadata.createView(SESSION, view2, "aaa", false);
+            fail("Should fail because schema does not exist");
+        }
+        catch (PrestoException ex) {
+            assertEquals(ex.getErrorCode(), NOT_FOUND.toErrorCode());
+            assertEquals(ex.getMessage(), "Schema test2 not found");
+        }
+        assertEquals(metadata.getTableHandle(SESSION, view2), null);
+
+        SchemaTableName view3 = new SchemaTableName("test3", "test_schema_view3");
+        try {
+            metadata.createView(SESSION, view3, "bbb", true);
+            fail("Should fail because schema does not exist");
+        }
+        catch (PrestoException ex) {
+            assertEquals(ex.getErrorCode(), NOT_FOUND.toErrorCode());
+            assertEquals(ex.getMessage(), "Schema test3 not found");
+        }
+        assertEquals(metadata.getTableHandle(SESSION, view3), null);
+
+        assertEquals(metadata.listSchemaNames(SESSION), ImmutableList.of("default"));
     }
 
     private void assertNoTables()
