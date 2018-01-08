@@ -148,10 +148,10 @@ final class WeightedFairQueue<E>
         // relative number that is used to determine fraction of resources a group should get
         // for example, if there are two eligible groups with shares 1 and 2, the first group
         // should get 1/(1+2) fraction of resources.
-        private int share;
+        private final int share;
 
         // a number that represents the current utilization of resources by a group
-        private int utilization;
+        private final int utilization;
 
         public Usage(int share, int utilization)
         {
@@ -184,7 +184,8 @@ final class WeightedFairQueue<E>
 
     private static final class Node<E>
     {
-        private E value;
+        private final E value;
+
         private Usage usage;
 
         private Node(E value, Usage usage)
