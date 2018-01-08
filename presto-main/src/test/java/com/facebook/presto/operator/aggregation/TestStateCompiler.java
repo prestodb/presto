@@ -17,6 +17,7 @@ import com.facebook.presto.array.BlockBigArray;
 import com.facebook.presto.array.BooleanBigArray;
 import com.facebook.presto.array.ByteBigArray;
 import com.facebook.presto.array.DoubleBigArray;
+import com.facebook.presto.array.IntBigArray;
 import com.facebook.presto.array.LongBigArray;
 import com.facebook.presto.array.ReferenceCountMap;
 import com.facebook.presto.array.SliceBigArray;
@@ -51,6 +52,7 @@ import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -214,6 +216,7 @@ public class TestStateCompiler
         singleState.setLong(1);
         singleState.setDouble(2.0);
         singleState.setByte((byte) 3);
+        singleState.setInt(4);
         singleState.setSlice(utf8Slice("test"));
         singleState.setAnotherSlice(wrappedDoubleArray(1.0, 2.0, 3.0));
         singleState.setYetAnotherSlice(null);
@@ -221,7 +224,7 @@ public class TestStateCompiler
         singleState.setBlock(array);
         singleState.setAnotherBlock(mapBlockOf(BIGINT, VARCHAR, ImmutableMap.of(123L, "testBlock")));
 
-        BlockBuilder builder = new RowType(ImmutableList.of(BOOLEAN, TINYINT, DOUBLE, BIGINT, mapType, VARBINARY, arrayType, VARBINARY, VARBINARY), Optional.empty())
+        BlockBuilder builder = new RowType(ImmutableList.of(BOOLEAN, TINYINT, DOUBLE, INTEGER, BIGINT, mapType, VARBINARY, arrayType, VARBINARY, VARBINARY), Optional.empty())
                 .createBlockBuilder(new BlockBuilderStatus(), 1);
         serializer.serialize(singleState, builder);
 
@@ -232,6 +235,7 @@ public class TestStateCompiler
         assertEquals(deserializedState.getLong(), singleState.getLong());
         assertEquals(deserializedState.getDouble(), singleState.getDouble());
         assertEquals(deserializedState.getByte(), singleState.getByte());
+        assertEquals(deserializedState.getInt(), singleState.getInt());
         assertEquals(deserializedState.getSlice(), singleState.getSlice());
         assertEquals(deserializedState.getAnotherSlice(), singleState.getAnotherSlice());
         assertEquals(deserializedState.getYetAnotherSlice(), singleState.getYetAnotherSlice());
@@ -250,7 +254,7 @@ public class TestStateCompiler
                 Class type = field.getType();
                 field.setAccessible(true);
                 if (type == BlockBigArray.class || type == BooleanBigArray.class || type == SliceBigArray.class ||
-                        type == ByteBigArray.class || type == DoubleBigArray.class || type == LongBigArray.class) {
+                        type == ByteBigArray.class || type == DoubleBigArray.class || type == LongBigArray.class || type == IntBigArray.class) {
                     MethodHandle sizeOf = Reflection.methodHandle(type, "sizeOf", null);
                     retainedSize += (long) sizeOf.invokeWithArguments(field.get(state));
                 }
@@ -309,6 +313,7 @@ public class TestStateCompiler
             groupedState.setLong(1);
             groupedState.setDouble(2.0);
             groupedState.setByte((byte) 3);
+            groupedState.setInt(4);
             Slice slice = utf8Slice("test");
             retainedSize += slice.getRetainedSize();
             groupedState.setSlice(slice);
@@ -337,6 +342,7 @@ public class TestStateCompiler
             groupedState.setLong(1);
             groupedState.setDouble(2.0);
             groupedState.setByte((byte) 3);
+            groupedState.setInt(4);
             Slice slice = utf8Slice("test");
             retainedSize += slice.getRetainedSize();
             groupedState.setSlice(slice);
@@ -377,6 +383,10 @@ public class TestStateCompiler
         byte getByte();
 
         void setByte(byte value);
+
+        int getInt();
+
+        void setInt(int value);
 
         Slice getSlice();
 
