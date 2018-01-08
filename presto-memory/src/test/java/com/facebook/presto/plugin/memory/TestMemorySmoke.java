@@ -130,6 +130,19 @@ public class TestMemorySmoke
     }
 
     @Test
+    public void testSchemaAfterCreateTableAndView()
+    {
+        assertQueryResult(format("SHOW SCHEMAS FROM %s", CATALOG), "default", "information_schema", "schema1", "schema2");
+        assertUpdate("CREATE TABLE schema3.test_table3 (x date)");
+        assertUpdate("CREATE VIEW schema4.test_view4 AS SELECT 123 x");
+        assertUpdate("CREATE OR REPLACE VIEW schema5.test_view5 AS SELECT 123 x");
+        assertQueryResult(format("SHOW SCHEMAS FROM %s", CATALOG), "default", "information_schema", "schema1", "schema2", "schema3", "schema4", "schema5");
+        assertQueryResult(format("SHOW TABLES FROM %s.schema3", CATALOG), "test_table3");
+        assertQueryResult(format("SHOW TABLES FROM %s.schema4", CATALOG), "test_view4");
+        assertQueryResult(format("SHOW TABLES FROM %s.schema5", CATALOG), "test_view5");
+    }
+
+    @Test
     public void testViews()
     {
         @Language("SQL") String query = "SELECT orderkey, orderstatus, totalprice / 2 half FROM orders";
