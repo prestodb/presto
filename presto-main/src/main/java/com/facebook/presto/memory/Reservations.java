@@ -21,12 +21,12 @@ public class Reservations
 
     public static void checkReservedBytes(long bytes)
     {
-        checkArgument(bytes >= 0, "bytes is negative");
+        checkArgument(bytes >= 0, "bytes is negative: %s", bytes);
     }
 
     public static void checkFreedBytes(long bytes, long currentReservation)
     {
-        checkArgument(bytes >= 0, "bytes is negative");
-        checkArgument(bytes <= currentReservation, "tried to free more than is reserved");
+        checkArgument(bytes >= 0, "bytes is negative: %s", bytes);
+        checkArgument(bytes <= currentReservation, "tried to free %s, more than is reserved, %s", bytes, currentReservation);
     }
 }
