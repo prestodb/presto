@@ -253,6 +253,30 @@ public class TestMemoryMetadata
         assertTrue(views.isEmpty());
     }
 
+    @Test
+    public void testSchemaWhensCreateTableAndView()
+    {
+        assertEquals(metadata.listSchemaNames(SESSION), ImmutableList.of("default"));
+
+        SchemaTableName table1 = new SchemaTableName("test1", "test_schema_table1");
+        ConnectorOutputTableHandle table = metadata.beginCreateTable(
+                SESSION,
+                new ConnectorTableMetadata(table1, ImmutableList.of(), ImmutableMap.of()),
+                Optional.empty());
+        metadata.finishCreateTable(SESSION, table, ImmutableList.of());
+
+        SchemaTableName view2 = new SchemaTableName("test2", "test_schema_view2");
+        metadata.createView(SESSION, view2, "aaa", false);
+
+        SchemaTableName view3 = new SchemaTableName("test3", "test_schema_view3");
+        metadata.createView(SESSION, view3, "bbb", true);
+
+        assertEquals(metadata.listSchemaNames(SESSION), ImmutableList.of("default", "test1", "test2", "test3"));
+        assertEquals(metadata.listTables(SESSION, "test1"), ImmutableList.of(table1));
+        assertEquals(metadata.listViews(SESSION, "test2"), ImmutableList.of(view2));
+        assertEquals(metadata.listViews(SESSION, "test3"), ImmutableList.of(view3));
+    }
+
     private void assertNoTables()
     {
         assertEquals(metadata.listTables(SESSION, null), ImmutableList.of(), "No table was expected");

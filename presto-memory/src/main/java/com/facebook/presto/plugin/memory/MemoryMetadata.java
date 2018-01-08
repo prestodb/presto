@@ -193,6 +193,7 @@ public class MemoryMetadata
         Set<Node> nodes = nodeManager.getRequiredWorkerNodes();
         checkState(!nodes.isEmpty(), "No Memory nodes available");
 
+        addSchemaIfNotExists(tableMetadata.getTable());
         tableIds.put(tableMetadata.getTable(), nextId);
         MemoryTableHandle table = new MemoryTableHandle(
                 connectorId,
@@ -202,6 +203,14 @@ public class MemoryMetadata
         tableDataFragments.put(table.getTableId(), new HashMap<>());
 
         return new MemoryOutputTableHandle(table, ImmutableSet.copyOf(tableIds.values()));
+    }
+
+    private void addSchemaIfNotExists(SchemaTableName tableName)
+    {
+        String schemaName = tableName.getSchemaName();
+        if (!schemas.contains(schemaName)) {
+            schemas.add(schemaName);
+        }
     }
 
     private void checkTableNotExists(SchemaTableName tableName)
@@ -256,6 +265,7 @@ public class MemoryMetadata
         else if (views.putIfAbsent(viewName, viewData) != null) {
             throw new PrestoException(ALREADY_EXISTS, "View already exists: " + viewName);
         }
+        addSchemaIfNotExists(viewName);
     }
 
     @Override
