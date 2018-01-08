@@ -130,6 +130,19 @@ public class TestMemorySmoke
     }
 
     @Test
+    public void testCreateTableAndViewInNotExistSchema()
+    {
+        int tablesBeforeCreate = listMemoryTables().size();
+
+        assertQueryFails("CREATE TABLE schema3.test_table3 (x date)", "Schema schema3 not found");
+        assertQueryFails("CREATE VIEW schema4.test_view4 AS SELECT 123 x", "Schema schema4 not found");
+        assertQueryFails("CREATE OR REPLACE VIEW schema5.test_view5 AS SELECT 123 x", "Schema schema5 not found");
+
+        int tablesAfterCreate = listMemoryTables().size();
+        assertEquals(tablesBeforeCreate, tablesAfterCreate);
+    }
+
+    @Test
     public void testViews()
     {
         @Language("SQL") String query = "SELECT orderkey, orderstatus, totalprice / 2 half FROM orders";
