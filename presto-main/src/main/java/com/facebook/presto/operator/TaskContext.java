@@ -271,7 +271,6 @@ public class TaskContext
 
     public synchronized void freeSpill(long bytes)
     {
-        checkArgument(bytes >= 0, "bytes is negative");
         queryContext.freeSpill(bytes);
     }
 

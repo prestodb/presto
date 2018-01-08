@@ -290,7 +290,6 @@ public class PipelineContext
 
     public synchronized void freeSpill(long bytes)
     {
-        checkArgument(bytes >= 0, "bytes is negative");
         taskContext.freeSpill(bytes);
     }
 

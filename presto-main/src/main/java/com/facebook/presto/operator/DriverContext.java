@@ -271,7 +271,6 @@ public class DriverContext
         if (bytes == 0) {
             return;
         }
-        checkArgument(bytes > 0, "bytes is negative");
         pipelineContext.freeSpill(bytes);
     }
 
