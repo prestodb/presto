@@ -54,9 +54,8 @@ To enable SSL/TLS for Presto internal communication, do the following:
    any other node within the same cluster. It is possible to create unique
    certificates for every node using the fully-qualified hostname of each host,
    create a keystore that contains all the public keys for all of the hosts,
-   and specify it for the client (``http-client.https.keystore.path``). In most
-   cases it will be simpler to use a wildcard in the certificate as shown
-   below.
+   and specify it for the client (see step #8 below). In most cases it will be
+   simpler to use a wildcard in the certificate as shown below.
 
     .. code-block:: none
 
