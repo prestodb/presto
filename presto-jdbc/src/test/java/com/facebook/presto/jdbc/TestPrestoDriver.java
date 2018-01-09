@@ -137,6 +137,7 @@ public class TestPrestoDriver
     {
         try (Connection connection = createConnection("blackhole", "blackhole");
                 Statement statement = connection.createStatement()) {
+            assertEquals(statement.executeUpdate("CREATE SCHEMA blackhole.blackhole"), 0);
             assertEquals(statement.executeUpdate("CREATE TABLE test_table (x bigint)"), 0);
 
             assertEquals(statement.executeUpdate("CREATE TABLE slow_test_table (x bigint) " +
@@ -428,6 +429,7 @@ public class TestPrestoDriver
         List<List<String>> blackhole = new ArrayList<>();
         blackhole.add(list("blackhole", "information_schema"));
         blackhole.add(list("blackhole", "default"));
+        blackhole.add(list("blackhole", "blackhole"));
 
         List<List<String>> test = new ArrayList<>();
         test.add(list(TEST_CATALOG, "information_schema"));

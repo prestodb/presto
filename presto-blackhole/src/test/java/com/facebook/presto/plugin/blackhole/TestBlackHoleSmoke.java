@@ -143,6 +143,24 @@ public class TestBlackHoleSmoke
     }
 
     @Test
+    public void testCreateTableInNotExistSchema()
+    {
+        int tablesBeforeCreate = listBlackHoleTables().size();
+
+        String createTableSql = "CREATE TABLE schema1.test_table (x date)";
+        try {
+            queryRunner.execute(createTableSql);
+            fail("Expected exception to be thrown here!");
+        }
+        catch (RuntimeException ex) {
+            assertTrue(ex.getMessage().equals("Schema schema1 not found"));
+        }
+
+        int tablesAfterCreate = listBlackHoleTables().size();
+        assertEquals(tablesBeforeCreate, tablesAfterCreate);
+    }
+
+    @Test
     public void dataGenerationUsage()
     {
         Session session = testSessionBuilder()
