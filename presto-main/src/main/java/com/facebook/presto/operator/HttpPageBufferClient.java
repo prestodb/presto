@@ -69,6 +69,7 @@ import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
 import static com.facebook.presto.util.Failures.REMOTE_TASK_MISMATCH_ERROR;
 import static com.facebook.presto.util.Failures.WORKER_NODE_ERROR;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static io.airlift.http.client.Request.Builder.prepareDelete;
@@ -315,7 +316,7 @@ public final class HttpPageBufferClient
             @Override
             public void onSuccess(PagesResponse result)
             {
-                checkNotHoldsLock();
+                checkNotHoldsLock(this);
 
                 backoff.success();
 
@@ -377,7 +378,7 @@ public final class HttpPageBufferClient
             public void onFailure(Throwable t)
             {
                 log.debug("Request to %s failed %s", uri, t);
-                checkNotHoldsLock();
+                checkNotHoldsLock(this);
 
                 t = rewriteException(t);
                 if (!(t instanceof PrestoException) && backoff.failure()) {
@@ -402,7 +403,7 @@ public final class HttpPageBufferClient
             @Override
             public void onSuccess(@Nullable StatusResponse result)
             {
-                checkNotHoldsLock();
+                checkNotHoldsLock(this);
                 backoff.success();
                 synchronized (HttpPageBufferClient.this) {
                     closed = true;
@@ -418,7 +419,7 @@ public final class HttpPageBufferClient
             @Override
             public void onFailure(Throwable t)
             {
-                checkNotHoldsLock();
+                checkNotHoldsLock(this);
 
                 log.error("Request to delete %s failed %s", location, t);
                 if (!(t instanceof PrestoException) && backoff.failure()) {
@@ -433,17 +434,15 @@ public final class HttpPageBufferClient
         }, pageBufferClientCallbackExecutor);
     }
 
-    private void checkNotHoldsLock()
+    private static void checkNotHoldsLock(Object lock)
     {
-        if (Thread.holdsLock(HttpPageBufferClient.this)) {
-            log.error("Can not handle callback while holding a lock on this");
-        }
+        checkState(!Thread.holdsLock(lock), "Cannot execute this method while holding a lock");
     }
 
     private void handleFailure(Throwable t, HttpResponseFuture<?> expectedFuture)
     {
         // Can not delegate to other callback while holding a lock on this
-        checkNotHoldsLock();
+        checkNotHoldsLock(this);
 
         requestsFailed.incrementAndGet();
         requestsCompleted.incrementAndGet();
