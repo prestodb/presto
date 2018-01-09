@@ -100,8 +100,8 @@ import static com.facebook.presto.SystemSessionProperties.isColocatedJoinEnabled
 import static com.facebook.presto.SystemSessionProperties.isForceSingleNodeOutput;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
-import static com.facebook.presto.sql.ExpressionUtils.stripDeterministicConjuncts;
-import static com.facebook.presto.sql.ExpressionUtils.stripNonDeterministicConjuncts;
+import static com.facebook.presto.sql.ExpressionUtils.filterDeterministicConjuncts;
+import static com.facebook.presto.sql.ExpressionUtils.filterNonDeterministicConjuncts;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.planner.FragmentTableScanCounter.countSources;
 import static com.facebook.presto.sql.planner.FragmentTableScanCounter.hasMultipleSources;
@@ -568,7 +568,7 @@ public class AddExchanges
         private PlanWithProperties planTableScan(TableScanNode node, Expression predicate, Context context)
         {
             // don't include non-deterministic predicates
-            Expression deterministicPredicate = stripNonDeterministicConjuncts(predicate);
+            Expression deterministicPredicate = filterDeterministicConjuncts(predicate);
 
             DomainTranslator.ExtractionResult decomposedPredicate = DomainTranslator.fromPredicate(
                     metadata,
@@ -623,7 +623,7 @@ public class AddExchanges
 
                         Expression resultingPredicate = combineConjuncts(
                                 DomainTranslator.toPredicate(layout.getUnenforcedConstraint().transform(assignments::get)),
-                                stripDeterministicConjuncts(predicate),
+                                filterNonDeterministicConjuncts(predicate),
                                 decomposedPredicate.getRemainingExpression());
 
                         if (!BooleanLiteral.TRUE_LITERAL.equals(resultingPredicate)) {
