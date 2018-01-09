@@ -54,7 +54,7 @@ import java.util.function.Predicate;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.expressionOrNullSymbols;
 import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
-import static com.facebook.presto.sql.ExpressionUtils.stripNonDeterministicConjuncts;
+import static com.facebook.presto.sql.ExpressionUtils.filterDeterministicConjuncts;
 import static com.facebook.presto.sql.planner.EqualityInference.createEqualityInference;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.google.common.base.Predicates.in;
@@ -116,7 +116,7 @@ public class EffectivePredicateExtractor
         Expression predicate = node.getPredicate();
 
         // Remove non-deterministic conjuncts
-        predicate = stripNonDeterministicConjuncts(predicate);
+        predicate = filterDeterministicConjuncts(predicate);
 
         return combineConjuncts(predicate, underlyingPredicate);
     }

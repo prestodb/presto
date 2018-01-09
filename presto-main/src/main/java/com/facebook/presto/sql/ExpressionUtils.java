@@ -226,7 +226,7 @@ public final class ExpressionUtils
         return disjuncts.isEmpty() ? emptyDefault : or(disjuncts);
     }
 
-    public static Expression stripNonDeterministicConjuncts(Expression expression)
+    public static Expression filterDeterministicConjuncts(Expression expression)
     {
         List<Expression> conjuncts = extractConjuncts(expression).stream()
                 .filter(DeterminismEvaluator::isDeterministic)
@@ -235,7 +235,7 @@ public final class ExpressionUtils
         return combineConjuncts(conjuncts);
     }
 
-    public static Expression stripDeterministicConjuncts(Expression expression)
+    public static Expression filterNonDeterministicConjuncts(Expression expression)
     {
         return combineConjuncts(extractConjuncts(expression)
                 .stream()

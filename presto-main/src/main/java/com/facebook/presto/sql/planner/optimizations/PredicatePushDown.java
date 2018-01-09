@@ -70,7 +70,7 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
-import static com.facebook.presto.sql.ExpressionUtils.stripNonDeterministicConjuncts;
+import static com.facebook.presto.sql.ExpressionUtils.filterDeterministicConjuncts;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.planner.DeterminismEvaluator.isDeterministic;
 import static com.facebook.presto.sql.planner.EqualityInference.createEqualityInference;
@@ -451,12 +451,12 @@ public class PredicatePushDown
 
             // Strip out non-deterministic conjuncts
             postJoinConjuncts.addAll(filter(extractConjuncts(inheritedPredicate), not(DeterminismEvaluator::isDeterministic)));
-            inheritedPredicate = stripNonDeterministicConjuncts(inheritedPredicate);
+            inheritedPredicate = filterDeterministicConjuncts(inheritedPredicate);
 
-            outerEffectivePredicate = stripNonDeterministicConjuncts(outerEffectivePredicate);
-            innerEffectivePredicate = stripNonDeterministicConjuncts(innerEffectivePredicate);
+            outerEffectivePredicate = filterDeterministicConjuncts(outerEffectivePredicate);
+            innerEffectivePredicate = filterDeterministicConjuncts(innerEffectivePredicate);
             joinConjuncts.addAll(filter(extractConjuncts(joinPredicate), not(DeterminismEvaluator::isDeterministic)));
-            joinPredicate = stripNonDeterministicConjuncts(joinPredicate);
+            joinPredicate = filterDeterministicConjuncts(joinPredicate);
 
             // Generate equality inferences
             EqualityInference inheritedInference = createEqualityInference(inheritedPredicate);
@@ -571,13 +571,13 @@ public class PredicatePushDown
 
             // Strip out non-deterministic conjuncts
             joinConjuncts.addAll(filter(extractConjuncts(inheritedPredicate), not(DeterminismEvaluator::isDeterministic)));
-            inheritedPredicate = stripNonDeterministicConjuncts(inheritedPredicate);
+            inheritedPredicate = filterDeterministicConjuncts(inheritedPredicate);
 
             joinConjuncts.addAll(filter(extractConjuncts(joinPredicate), not(DeterminismEvaluator::isDeterministic)));
-            joinPredicate = stripNonDeterministicConjuncts(joinPredicate);
+            joinPredicate = filterDeterministicConjuncts(joinPredicate);
 
-            leftEffectivePredicate = stripNonDeterministicConjuncts(leftEffectivePredicate);
-            rightEffectivePredicate = stripNonDeterministicConjuncts(rightEffectivePredicate);
+            leftEffectivePredicate = filterDeterministicConjuncts(leftEffectivePredicate);
+            rightEffectivePredicate = filterDeterministicConjuncts(rightEffectivePredicate);
 
             // Generate equality inferences
             EqualityInference allInference = createEqualityInference(inheritedPredicate, leftEffectivePredicate, rightEffectivePredicate, joinPredicate);
@@ -854,7 +854,7 @@ public class PredicatePushDown
 
             // Strip out non-deterministic conjuncts
             postAggregationConjuncts.addAll(ImmutableList.copyOf(filter(extractConjuncts(inheritedPredicate), not(DeterminismEvaluator::isDeterministic))));
-            inheritedPredicate = stripNonDeterministicConjuncts(inheritedPredicate);
+            inheritedPredicate = filterDeterministicConjuncts(inheritedPredicate);
 
             // Sort non-equality predicates by those that can be pushed down and those that cannot
             for (Expression conjunct : EqualityInference.nonInferrableConjuncts(inheritedPredicate)) {
@@ -912,7 +912,7 @@ public class PredicatePushDown
 
             // Strip out non-deterministic conjuncts
             postUnnestConjuncts.addAll(ImmutableList.copyOf(filter(extractConjuncts(inheritedPredicate), not(DeterminismEvaluator::isDeterministic))));
-            inheritedPredicate = stripNonDeterministicConjuncts(inheritedPredicate);
+            inheritedPredicate = filterDeterministicConjuncts(inheritedPredicate);
 
             // Sort non-equality predicates by those that can be pushed down and those that cannot
             for (Expression conjunct : EqualityInference.nonInferrableConjuncts(inheritedPredicate)) {
