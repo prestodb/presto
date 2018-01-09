@@ -95,7 +95,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
-import java.util.function.Predicate;
 
 import static com.facebook.presto.SystemSessionProperties.isColocatedJoinEnabled;
 import static com.facebook.presto.SystemSessionProperties.isForceSingleNodeOutput;
@@ -605,7 +604,7 @@ public class AddExchanges
 
             // Filter out layouts that cannot supply all the required columns
             layouts = layouts.stream()
-                    .filter(layoutHasAllNeededOutputs(node))
+                    .filter(layout -> hasAllNeededOutputs(layout, node))
                     .collect(toList());
             checkState(!layouts.isEmpty(), "No usable layouts for %s", node);
 
@@ -640,12 +639,12 @@ public class AddExchanges
             return pickPlan(possiblePlans, context);
         }
 
-        private Predicate<TableLayoutResult> layoutHasAllNeededOutputs(TableScanNode node)
+        private boolean hasAllNeededOutputs(TableLayoutResult layout, TableScanNode node)
         {
             List<ColumnHandle> nodeColumnHandles = node.getOutputSymbols().stream()
                     .map(node.getAssignments()::get)
                     .collect(toImmutableList());
-            return layout -> layout.getLayout().getColumns()
+            return layout.getLayout().getColumns()
                     .map(columnHandles -> columnHandles.containsAll(nodeColumnHandles))
                     .orElse(true);
         }
