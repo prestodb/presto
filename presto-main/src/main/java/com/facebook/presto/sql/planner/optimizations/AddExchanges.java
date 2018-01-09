@@ -645,7 +645,9 @@ public class AddExchanges
             List<ColumnHandle> nodeColumnHandles = node.getOutputSymbols().stream()
                     .map(node.getAssignments()::get)
                     .collect(toImmutableList());
-            return layout -> !layout.getLayout().getColumns().isPresent() || layout.getLayout().getColumns().get().containsAll(nodeColumnHandles);
+            return layout -> layout.getLayout().getColumns()
+                    .map(columnHandles -> columnHandles.containsAll(nodeColumnHandles))
+                    .orElse(true);
         }
 
         /**
