@@ -167,11 +167,6 @@ public class AddExchanges
             return new Context(preferredProperties, correlations);
         }
 
-        Context withCorrelations(List<Symbol> correlations)
-        {
-            return new Context(preferredProperties, correlations);
-        }
-
         PreferredProperties getPreferredProperties()
         {
             return preferredProperties;
