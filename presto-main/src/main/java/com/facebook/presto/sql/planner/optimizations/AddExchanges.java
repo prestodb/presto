@@ -83,7 +83,6 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
-import com.google.common.collect.Lists;
 import com.google.common.collect.SetMultimap;
 
 import java.util.ArrayList;
@@ -643,8 +642,10 @@ public class AddExchanges
 
         private Predicate<TableLayoutResult> layoutHasAllNeededOutputs(TableScanNode node)
         {
-            return layout -> !layout.getLayout().getColumns().isPresent()
-                    || layout.getLayout().getColumns().get().containsAll(Lists.transform(node.getOutputSymbols(), node.getAssignments()::get));
+            List<ColumnHandle> nodeColumnHandles = node.getOutputSymbols().stream()
+                    .map(node.getAssignments()::get)
+                    .collect(toImmutableList());
+            return layout -> !layout.getLayout().getColumns().isPresent() || layout.getLayout().getColumns().get().containsAll(nodeColumnHandles);
         }
 
         /**
@@ -760,8 +761,12 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitJoin(JoinNode node, Context context)
         {
-            List<Symbol> leftSymbols = Lists.transform(node.getCriteria(), JoinNode.EquiJoinClause::getLeft);
-            List<Symbol> rightSymbols = Lists.transform(node.getCriteria(), JoinNode.EquiJoinClause::getRight);
+            List<Symbol> leftSymbols = node.getCriteria().stream()
+                    .map(JoinNode.EquiJoinClause::getLeft)
+                    .collect(toImmutableList());
+            List<Symbol> rightSymbols = node.getCriteria().stream()
+                    .map(JoinNode.EquiJoinClause::getRight)
+                    .collect(toImmutableList());
             JoinNode.Type type = node.getType();
 
             PlanWithProperties left;
@@ -946,7 +951,9 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitIndexJoin(IndexJoinNode node, Context context)
         {
-            List<Symbol> joinColumns = Lists.transform(node.getCriteria(), IndexJoinNode.EquiJoinClause::getProbe);
+            List<Symbol> joinColumns = node.getCriteria().stream()
+                    .map(IndexJoinNode.EquiJoinClause::getProbe)
+                    .collect(toImmutableList());
 
             // Only prefer grouping on join columns if no parent local property preferences
             List<LocalProperty<Symbol>> desiredLocalProperties = context.getPreferredProperties().getLocalProperties().isEmpty() ? grouped(joinColumns) : ImmutableList.of();
