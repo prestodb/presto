@@ -80,6 +80,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.airlift.units.Duration.succinctNanos;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 @ThreadSafe
@@ -361,10 +362,10 @@ public class QueryStateMachine
             totalMemoryReservation += stageStats.getTotalMemoryReservation().toBytes();
             peakMemoryReservation = getPeakMemoryInBytes();
 
-            totalScheduledTime += stageStats.getTotalScheduledTime().roundTo(NANOSECONDS);
-            totalCpuTime += stageStats.getTotalCpuTime().roundTo(NANOSECONDS);
-            totalUserTime += stageStats.getTotalUserTime().roundTo(NANOSECONDS);
-            totalBlockedTime += stageStats.getTotalBlockedTime().roundTo(NANOSECONDS);
+            totalScheduledTime += stageStats.getTotalScheduledTime().roundTo(MILLISECONDS);
+            totalCpuTime += stageStats.getTotalCpuTime().roundTo(MILLISECONDS);
+            totalUserTime += stageStats.getTotalUserTime().roundTo(MILLISECONDS);
+            totalBlockedTime += stageStats.getTotalBlockedTime().roundTo(MILLISECONDS);
             if (!stageInfo.getState().isDone()) {
                 fullyBlocked &= stageStats.isFullyBlocked();
                 blockedReasons.addAll(stageStats.getBlockedReasons());
@@ -422,10 +423,10 @@ public class QueryStateMachine
 
                 isScheduled,
 
-                new Duration(totalScheduledTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                new Duration(totalCpuTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                new Duration(totalUserTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                new Duration(totalBlockedTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
+                new Duration(totalScheduledTime, MILLISECONDS).convertToMostSuccinctTimeUnit(),
+                new Duration(totalCpuTime, MILLISECONDS).convertToMostSuccinctTimeUnit(),
+                new Duration(totalUserTime, MILLISECONDS).convertToMostSuccinctTimeUnit(),
+                new Duration(totalBlockedTime, MILLISECONDS).convertToMostSuccinctTimeUnit(),
                 fullyBlocked,
                 blockedReasons,
 
