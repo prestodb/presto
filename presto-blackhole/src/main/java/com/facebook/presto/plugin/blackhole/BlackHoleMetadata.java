@@ -26,6 +26,7 @@ import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
@@ -184,6 +185,7 @@ public class BlackHoleMetadata
     @Override
     public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
     {
+        checkSchemaExists(tableMetadata.getTable().getSchemaName());
         int splitCount = (Integer) tableMetadata.getProperties().get(SPLIT_COUNT_PROPERTY);
         int pagesPerSplit = (Integer) tableMetadata.getProperties().get(PAGES_PER_SPLIT_PROPERTY);
         int rowsPerPage = (Integer) tableMetadata.getProperties().get(ROWS_PER_PAGE_PROPERTY);
@@ -260,5 +262,12 @@ public class BlackHoleMetadata
     public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle)
     {
         return new ConnectorTableLayout(handle);
+    }
+
+    private void checkSchemaExists(String schemaName)
+    {
+        if (!schemas.contains(schemaName)) {
+            throw new SchemaNotFoundException(schemaName);
+        }
     }
 }
