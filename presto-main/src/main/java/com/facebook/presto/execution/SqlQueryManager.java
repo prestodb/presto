@@ -636,14 +636,19 @@ public class SqlQueryManager
     public void failAbandonedQueries()
     {
         for (QueryExecution queryExecution : queries.values()) {
-            QueryInfo queryInfo = queryExecution.getQueryInfo();
-            if (queryInfo.getState().isDone()) {
-                continue;
-            }
+            try {
+                QueryInfo queryInfo = queryExecution.getQueryInfo();
+                if (queryInfo.getState().isDone()) {
+                    continue;
+                }
 
-            if (isAbandoned(queryInfo)) {
-                log.info("Failing abandoned query %s", queryExecution.getQueryId());
-                queryExecution.fail(new PrestoException(ABANDONED_QUERY, format("Query %s has not been accessed since %s: currentTime %s", queryInfo.getQueryId(), queryInfo.getQueryStats().getLastHeartbeat(), DateTime.now())));
+                if (isAbandoned(queryInfo)) {
+                    log.info("Failing abandoned query %s", queryExecution.getQueryId());
+                    queryExecution.fail(new PrestoException(ABANDONED_QUERY, format("Query %s has not been accessed since %s: currentTime %s", queryInfo.getQueryId(), queryInfo.getQueryStats().getLastHeartbeat(), DateTime.now())));
+                }
+            }
+            catch (RuntimeException e) {
+                log.error(e, "Exception failing abandoned query %s", queryExecution.getQueryId());
             }
         }
     }
