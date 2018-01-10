@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
+
 source ${BASH_SOURCE%/*}/../common/compose-commons.sh
 
 docker-compose \
