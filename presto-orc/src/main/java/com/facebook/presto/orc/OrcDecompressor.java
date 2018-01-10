@@ -39,6 +39,8 @@ public interface OrcDecompressor
                 return Optional.of(new OrcZlibDecompressor(orcDataSourceId, bufferSize));
             case SNAPPY:
                 return Optional.of(new OrcSnappyDecompressor(orcDataSourceId, bufferSize));
+            case LZ4:
+                return Optional.of(new OrcLz4Decompressor(orcDataSourceId, bufferSize));
             case ZSTD:
                 return Optional.of(new OrcZstdDecompressor(orcDataSourceId, bufferSize));
             default:

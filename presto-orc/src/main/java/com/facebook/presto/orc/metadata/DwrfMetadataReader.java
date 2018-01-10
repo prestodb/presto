@@ -38,6 +38,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.orc.metadata.CompressionKind.LZ4;
 import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
 import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
 import static com.facebook.presto.orc.metadata.CompressionKind.ZLIB;
@@ -414,6 +415,8 @@ public class DwrfMetadataReader
                 return ZLIB;
             case SNAPPY:
                 return SNAPPY;
+            case LZ4:
+                return LZ4;
             case ZSTD:
                 return ZSTD;
             default:
