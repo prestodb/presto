@@ -128,10 +128,11 @@ public class UnnestOperator
         this.unnesters = new ArrayList<>(unnestTypes.size());
         for (Type type : unnestTypes) {
             if (type instanceof ArrayType) {
-                unnesters.add(new ArrayUnnester((ArrayType) type, null));
+                unnesters.add(new ArrayUnnester(((ArrayType) type).getElementType()));
             }
             else if (type instanceof MapType) {
-                unnesters.add(new MapUnnester((MapType) type, null));
+                MapType mapType = (MapType) type;
+                unnesters.add(new MapUnnester(mapType.getKeyType(), mapType.getValueType()));
             }
             else {
                 throw new IllegalArgumentException("Cannot unnest type: " + type);

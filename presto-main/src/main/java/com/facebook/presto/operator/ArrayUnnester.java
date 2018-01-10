@@ -16,11 +16,11 @@ package com.facebook.presto.operator;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.Type;
 
 import javax.annotation.Nullable;
 
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class ArrayUnnester
@@ -28,25 +28,13 @@ public class ArrayUnnester
 {
     private final Type elementType;
     private Block arrayBlock;
-    private final int channelCount;
 
     private int position;
     private int positionCount;
 
-    public ArrayUnnester(ArrayType arrayType, @Nullable Block arrayBlock)
+    public ArrayUnnester(Type elementType)
     {
-        this.channelCount = 1;
-        this.elementType = requireNonNull(arrayType, "arrayType is null").getElementType();
-
-        this.arrayBlock = arrayBlock;
-        this.positionCount = arrayBlock == null ? 0 : arrayBlock.getPositionCount();
-    }
-
-    protected void appendTo(PageBuilder pageBuilder, int outputChannelOffset)
-    {
-        BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(outputChannelOffset);
-        elementType.appendTo(arrayBlock, position, blockBuilder);
-        position++;
+        this.elementType = requireNonNull(elementType, "elementType is null");
     }
 
     @Override
@@ -58,13 +46,16 @@ public class ArrayUnnester
     @Override
     public final int getChannelCount()
     {
-        return channelCount;
+        return 1;
     }
 
     @Override
     public final void appendNext(PageBuilder pageBuilder, int outputChannelOffset)
     {
-        appendTo(pageBuilder, outputChannelOffset);
+        checkState(arrayBlock != null, "arrayBlock is null");
+        BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(outputChannelOffset);
+        elementType.appendTo(arrayBlock, position, blockBuilder);
+        position++;
     }
 
     @Override
