@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.tests.convention;
 
+import com.google.common.math.IntMath;
 import com.teradata.tempto.ProductTest;
 import com.teradata.tempto.Requirement;
 import com.teradata.tempto.RequirementsProvider;
@@ -23,11 +24,16 @@ import com.teradata.tempto.fulfillment.table.TableDefinition;
 import com.teradata.tempto.fulfillment.table.hive.HiveDataSource;
 import com.teradata.tempto.fulfillment.table.hive.HiveTableDefinition;
 import com.teradata.tempto.query.QueryResult;
+import org.assertj.core.api.AbstractThrowableAssert;
+import org.assertj.core.api.Assertions;
 import org.testng.annotations.Test;
 
 import javax.inject.Inject;
 
+import java.math.RoundingMode;
+import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.IntStream;
 
 import static com.facebook.presto.tests.TestGroups.BASIC_SQL;
 import static com.teradata.tempto.Requirements.compose;
@@ -37,12 +43,20 @@ import static com.teradata.tempto.fulfillment.table.TableRequirements.mutableTab
 import static com.teradata.tempto.fulfillment.table.hive.InlineDataSource.createResourceDataSource;
 import static com.teradata.tempto.fulfillment.table.hive.InlineDataSource.createStringDataSource;
 import static com.teradata.tempto.query.QueryExecutor.query;
+import static java.lang.Math.min;
+import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
+import static org.testng.Assert.assertEquals;
 
 public class TestShowPartitions
         extends ProductTest
         implements RequirementsProvider
 {
+    // We use hive.max-partitions-per-scan=100 in tests, so this many partitions is too many
+    private static final int TOO_MANY_PARTITIONS = 105;
+
     private static final String PARTITIONED_TABLE = "partitioned_table";
+    private static final String PARTITIONED_TABLE_WITH_VARIABLE_PARTITIONS = "partitioned_table_with_variable_partitions";
 
     @Inject
     private MutableTablesState tablesState;
@@ -50,7 +64,9 @@ public class TestShowPartitions
     @Override
     public Requirement getRequirements(Configuration configuration)
     {
-        return compose(mutableTable(partitionedTableDefinition(), PARTITIONED_TABLE, MutableTableRequirement.State.CREATED));
+        return compose(
+                mutableTable(partitionedTableDefinition(), PARTITIONED_TABLE, MutableTableRequirement.State.CREATED),
+                mutableTable(partitionedTableWithVariablePartitionsDefinition(), PARTITIONED_TABLE_WITH_VARIABLE_PARTITIONS, MutableTableRequirement.State.CREATED));
     }
 
     private static TableDefinition partitionedTableDefinition()
@@ -68,13 +84,98 @@ public class TestShowPartitions
                 .build();
     }
 
+    private static TableDefinition partitionedTableWithVariablePartitionsDefinition()
+    {
+        String createTableDdl = "CREATE TABLE %NAME%(col INT) " +
+                "PARTITIONED BY (part_col INT) " +
+                "STORED AS ORC";
+
+        return HiveTableDefinition.builder(PARTITIONED_TABLE_WITH_VARIABLE_PARTITIONS)
+                .setCreateTableDDLTemplate(createTableDdl)
+                .setNoData()
+                .build();
+    }
+
     @Test(groups = {BASIC_SQL})
     public void testShowPartitionsFromHiveTable()
     {
         String tableNameInDatabase = tablesState.get(PARTITIONED_TABLE).getNameInDatabase();
 
-        String selectFromOnePartitionsSql = "show partitions from " + tableNameInDatabase;
-        QueryResult partitionListResult = query(selectFromOnePartitionsSql);
+        QueryResult partitionListResult;
+
+        partitionListResult = query("SHOW PARTITIONS FROM " + tableNameInDatabase);
         assertThat(partitionListResult).containsExactly(row(1), row(2));
+        assertColumnNames(partitionListResult, "part_col");
+
+        partitionListResult = query(format("SHOW PARTITIONS FROM %s WHERE part_col = 1", tableNameInDatabase));
+        assertThat(partitionListResult).containsExactly(row(1));
+        assertColumnNames(partitionListResult, "part_col");
+
+        assertThat(() -> query(format("SHOW PARTITIONS FROM %s WHERE no_such_column = 1", tableNameInDatabase)))
+                .failsWithMessage("Column 'no_such_column' cannot be resolved");
+        assertThat(() -> query(format("SHOW PARTITIONS FROM %s WHERE col = 1", tableNameInDatabase)))
+                .failsWithMessage("Column 'col' cannot be resolved");
+    }
+
+    @Test(groups = {BASIC_SQL})
+    public void testShowPartitionsFromHiveTableWithTooManyPartitions()
+    {
+        String tableName = tablesState.get(PARTITIONED_TABLE_WITH_VARIABLE_PARTITIONS).getNameInDatabase();
+        createPartitions(tableName, TOO_MANY_PARTITIONS);
+
+        // Verify we created enough partitions for the test to be meaningful
+        assertExceptionThrownBy(() -> query("SELECT * FROM " + tableName))
+                .hasMessageMatching(".*: Query over table '\\S+' can potentially read more than \\d+ partitions");
+
+        QueryResult partitionListResult;
+
+        partitionListResult = query(format("SHOW PARTITIONS FROM %s WHERE part_col < 7", tableName));
+        assertThat(partitionListResult).containsExactly(row(0), row(1), row(2), row(3), row(4), row(5), row(6));
+        assertColumnNames(partitionListResult, "part_col");
+
+        partitionListResult = query(format("SHOW PARTITIONS FROM %s WHERE part_col < -10", tableName));
+        assertThat(partitionListResult).hasNoRows();
+    }
+
+    private void createPartitions(String tableName, int partitionsToCreate)
+    {
+        // This is done in tests rather than as a requirement, because TableRequirements.immutableTable cannot be partitioned
+        // and mutable table is recreated before every test (and this takes a lot of time).
+        // TODO convert to immutableTable + TableDefinition once immutableTable supports partitioned tables
+
+        requireNonNull(tableName, "tableName is null");
+
+        int maxPartitionsAtOnce = 100;
+
+        IntStream.range(0, IntMath.divide(partitionsToCreate, maxPartitionsAtOnce, RoundingMode.UP))
+                .forEach(batch -> {
+                    int rangeStart = batch * maxPartitionsAtOnce;
+                    int rangeEndInclusive = min((batch + 1) * maxPartitionsAtOnce, partitionsToCreate) - 1;
+                    query(format(
+                            "INSERT INTO %s (part_col, col) " +
+                                    "SELECT CAST(id AS integer), 42 FROM UNNEST (sequence(%s, %s)) AS u(id)",
+                            tableName,
+                            rangeStart,
+                            rangeEndInclusive));
+                });
+    }
+
+    private static AbstractThrowableAssert<?, ? extends Throwable> assertExceptionThrownBy(Runnable runnable)
+    {
+        try {
+            runnable.run();
+        }
+        catch (RuntimeException expected) {
+            return Assertions.assertThat(expected);
+        }
+        throw new AssertionError("Failure was expected");
+    }
+
+    private static void assertColumnNames(QueryResult queryResult, String... columnNames)
+    {
+        for (int i = 0; i < columnNames.length; i++) {
+            assertEquals(queryResult.tryFindColumnIndex(columnNames[i]), Optional.of(i + 1), "Index of column " + columnNames[i]);
+        }
+        assertEquals(queryResult.getColumnsCount(), columnNames.length);
     }
 }
