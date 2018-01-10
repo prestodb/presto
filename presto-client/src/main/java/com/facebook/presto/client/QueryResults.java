@@ -37,6 +37,7 @@ import java.util.Set;
 
 import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
 import static com.facebook.presto.spi.type.StandardTypes.BIGINT;
+import static com.facebook.presto.spi.type.StandardTypes.BING_TILE;
 import static com.facebook.presto.spi.type.StandardTypes.BOOLEAN;
 import static com.facebook.presto.spi.type.StandardTypes.CHAR;
 import static com.facebook.presto.spi.type.StandardTypes.DATE;
@@ -332,6 +333,10 @@ public class QueryResults
             case CHAR:
             case GEOMETRY:
                 return String.class.cast(value);
+            case BING_TILE:
+                // Bing tiles are serialized as strings when used as map keys,
+                // they are serialized as json otherwise (value will be a LinkedHashMap).
+                return value;
             default:
                 // for now we assume that only the explicit types above are passed
                 // as a plain text and everything else is base64 encoded binary
