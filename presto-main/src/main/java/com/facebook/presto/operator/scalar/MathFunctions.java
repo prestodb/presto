@@ -612,6 +612,18 @@ public final class MathFunctions
         return mean + sd * 1.4142135623730951 * Erf.erfInv(2 * p - 1);
     }
 
+    @Description("normal cdf given a mean, standard deviation, and value")
+    @ScalarFunction
+    @SqlType(StandardTypes.DOUBLE)
+    public static double normalCdf(
+            @SqlType(StandardTypes.DOUBLE) double mean,
+            @SqlType(StandardTypes.DOUBLE) double standardDeviation,
+            @SqlType(StandardTypes.DOUBLE) double value)
+    {
+        checkCondition(standardDeviation > 0, INVALID_FUNCTION_ARGUMENT, "standardDeviation must > 0");
+        return 0.5 * (1 + Erf.erf((value - mean) / (standardDeviation * Math.sqrt(2))));
+    }
+
     @Description("round to nearest integer")
     @ScalarFunction("round")
     @SqlType(StandardTypes.TINYINT)
