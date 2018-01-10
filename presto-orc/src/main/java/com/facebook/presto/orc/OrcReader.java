@@ -63,6 +63,7 @@ public class OrcReader
     private final DataSize maxBlockSize;
     private final HiveWriterVersion hiveWriterVersion;
     private final int bufferSize;
+    private final CompressionKind compressionKind;
     private final Optional<OrcDecompressor> decompressor;
     private final Footer footer;
     private final Metadata metadata;
@@ -133,7 +134,7 @@ public class OrcReader
         this.bufferSize = toIntExact(postScript.getCompressionBlockSize());
 
         // check compression codec is supported
-        CompressionKind compressionKind = postScript.getCompression();
+        this.compressionKind = postScript.getCompression();
         this.decompressor = createOrcDecompressor(orcDataSource.getId(), compressionKind, bufferSize);
         validateWrite(validation -> validation.getCompression() == compressionKind, "Unexpected compression");
 
@@ -200,6 +201,11 @@ public class OrcReader
     public int getBufferSize()
     {
         return bufferSize;
+    }
+
+    public CompressionKind getCompressionKind()
+    {
+        return compressionKind;
     }
 
     public OrcRecordReader createRecordReader(Map<Integer, Type> includedColumns, OrcPredicate predicate, DateTimeZone hiveStorageTimeZone, AggregatedMemoryContext systemMemoryUsage)

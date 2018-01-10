@@ -113,6 +113,7 @@ import static com.facebook.presto.orc.OrcTester.Format.DWRF;
 import static com.facebook.presto.orc.OrcTester.Format.ORC_11;
 import static com.facebook.presto.orc.OrcTester.Format.ORC_12;
 import static com.facebook.presto.orc.TestingOrcPredicate.createOrcPredicate;
+import static com.facebook.presto.orc.metadata.CompressionKind.LZ4;
 import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
 import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
 import static com.facebook.presto.orc.metadata.CompressionKind.ZLIB;
@@ -267,7 +268,7 @@ public class OrcTester
         orcTester.skipBatchTestsEnabled = true;
         orcTester.skipStripeTestsEnabled = true;
         orcTester.formats = ImmutableSet.copyOf(Format.values());
-        orcTester.compressions = ImmutableSet.of(NONE, SNAPPY, ZLIB);
+        orcTester.compressions = ImmutableSet.of(NONE, SNAPPY, ZLIB, LZ4);
         return orcTester;
     }
 
@@ -446,17 +447,21 @@ public class OrcTester
 
             OrcEncoding orcEncoding = format.getOrcEncoding();
             for (CompressionKind compression : compressions) {
+                boolean oldSupported = (compression != LZ4);
+
                 // write old, read new
-                try (TempFile tempFile = new TempFile()) {
-                    writeOrcColumnOld(tempFile.getFile(), format, compression, type, readValues.iterator());
-                    assertFileContentsNew(type, tempFile, readValues, false, false, orcEncoding, format, true);
+                if (oldSupported) {
+                    try (TempFile tempFile = new TempFile()) {
+                        writeOrcColumnOld(tempFile.getFile(), format, compression, type, readValues.iterator());
+                        assertFileContentsNew(type, tempFile, readValues, false, false, orcEncoding, format, true);
+                    }
                 }
 
                 // write new, read old and new
                 try (TempFile tempFile = new TempFile()) {
                     writeOrcColumnNew(tempFile.getFile(), format, compression, type, readValues.iterator());
 
-                    if (verifyWithOldReader) {
+                    if (verifyWithOldReader && oldSupported) {
                         assertFileContentsOld(type, tempFile, format, readValues);
                     }
 
