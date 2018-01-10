@@ -231,8 +231,9 @@ public class Query
                 // ignore the user pressing ctrl-C while in the pager
                 ignoreUserInterrupt.set(true);
                 pager.getFinishFuture().thenRun(() -> {
-                    userAbortedQuery.set(true);
                     ignoreUserInterrupt.set(false);
+                    userAbortedQuery.set(true);
+                    client.close();
                     clientThread.interrupt();
                 });
             }
