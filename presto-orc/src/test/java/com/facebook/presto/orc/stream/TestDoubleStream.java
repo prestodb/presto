@@ -26,7 +26,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.orc.OrcDecompressor.createOrcDecompressor;
-import static com.facebook.presto.orc.OrcWriter.DEFAULT_BUFFER_SIZE;
+import static com.facebook.presto.orc.OrcWriter.COMPRESSION_BLOCK_SIZE;
 import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
 
 public class TestDoubleStream
@@ -50,7 +50,7 @@ public class TestDoubleStream
     @Override
     protected DoubleOutputStream createValueOutputStream()
     {
-        return new DoubleOutputStream(SNAPPY, DEFAULT_BUFFER_SIZE);
+        return new DoubleOutputStream(SNAPPY, COMPRESSION_BLOCK_SIZE);
     }
 
     @Override
@@ -63,7 +63,7 @@ public class TestDoubleStream
     protected DoubleInputStream createValueStream(Slice slice)
             throws OrcCorruptionException
     {
-        Optional<OrcDecompressor> orcDecompressor = createOrcDecompressor(ORC_DATA_SOURCE_ID, SNAPPY, DEFAULT_BUFFER_SIZE);
+        Optional<OrcDecompressor> orcDecompressor = createOrcDecompressor(ORC_DATA_SOURCE_ID, SNAPPY, COMPRESSION_BLOCK_SIZE);
         return new DoubleInputStream(new OrcInputStream(ORC_DATA_SOURCE_ID, slice.getInput(), orcDecompressor, newSimpleAggregatedMemoryContext()));
     }
 
