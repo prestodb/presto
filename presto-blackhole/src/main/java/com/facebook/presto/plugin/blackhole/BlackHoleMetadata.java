@@ -36,6 +36,7 @@ import com.google.common.collect.Sets;
 import io.airlift.slice.Slice;
 import io.airlift.units.Duration;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -49,6 +50,7 @@ import static com.facebook.presto.plugin.blackhole.BlackHoleConnector.PAGES_PER_
 import static com.facebook.presto.plugin.blackhole.BlackHoleConnector.PAGE_PROCESSING_DELAY;
 import static com.facebook.presto.plugin.blackhole.BlackHoleConnector.ROWS_PER_PAGE_PROPERTY;
 import static com.facebook.presto.plugin.blackhole.BlackHoleConnector.SPLIT_COUNT_PROPERTY;
+import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static java.text.MessageFormat.format;
 import static java.util.stream.Collectors.toList;
@@ -60,12 +62,27 @@ public class BlackHoleMetadata
 {
     public static final String SCHEMA_NAME = "default";
 
+    private final List<String> schemas = new ArrayList<>();
     private final Map<String, BlackHoleTableHandle> tables = new ConcurrentHashMap<>();
+
+    public BlackHoleMetadata()
+    {
+        schemas.add(SCHEMA_NAME);
+    }
 
     @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
-        return ImmutableList.of(SCHEMA_NAME);
+        return ImmutableList.copyOf(schemas);
+    }
+
+    @Override
+    public synchronized void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties)
+    {
+        if (schemas.contains(schemaName)) {
+            throw new PrestoException(ALREADY_EXISTS, String.format("Schema [%s] already exists", schemaName));
+        }
+        schemas.add(schemaName);
     }
 
     @Override
@@ -84,10 +101,8 @@ public class BlackHoleMetadata
     @Override
     public List<SchemaTableName> listTables(ConnectorSession session, String schemaNameOrNull)
     {
-        if (schemaNameOrNull != null && !schemaNameOrNull.equals(SCHEMA_NAME)) {
-            return ImmutableList.of();
-        }
         return tables.values().stream()
+                .filter(table -> schemaNameOrNull == null || table.getSchemaName().equals(schemaNameOrNull))
                 .map(BlackHoleTableHandle::toSchemaTableName)
                 .collect(toList());
     }
