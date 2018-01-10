@@ -562,6 +562,7 @@ public class PlanBuilder
                 filter,
                 Optional.empty(),
                 Optional.empty(),
+                Optional.empty(),
                 Assignments.of());
     }
 

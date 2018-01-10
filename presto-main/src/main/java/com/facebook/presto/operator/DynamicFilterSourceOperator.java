@@ -101,6 +101,7 @@ public class DynamicFilterSourceOperator
     }
 
     private static final int DEFAULT_POSITIONS_LIMIT = 1000;
+    private static final long DEFAULT_SIZE_LIMIT = 100000L;
 
     private final OperatorContext operatorContext;
     private final List<Type> types;
@@ -112,6 +113,7 @@ public class DynamicFilterSourceOperator
     private Page page;
     private boolean finishing;
     private long positionCount;
+    private long valueSize;
     private List<ImmutableList.Builder<Object>> valuesBuilder;
     private boolean[] nullsAllowed;
 
@@ -199,7 +201,7 @@ public class DynamicFilterSourceOperator
         positionCount += page.getPositionCount();
 
         // we don't want to filter if there're too many values
-        if (positionCount > positionsLimit) {
+        if (positionCount > positionsLimit || valueSize > DEFAULT_SIZE_LIMIT) {
             return;
         }
 
@@ -212,6 +214,7 @@ public class DynamicFilterSourceOperator
                 }
                 else {
                     valuesBuilder.get(channelIndex).add(value);
+                    valueSize += value.toString().getBytes().length;
                 }
             }
         }
@@ -220,7 +223,7 @@ public class DynamicFilterSourceOperator
     private void sendTupleDomain()
     {
         // we don't want to filter if there're too many values
-        if (positionCount > positionsLimit) {
+        if (positionCount > positionsLimit || valueSize > DEFAULT_SIZE_LIMIT) {
             client.storeSummary(new DynamicFilterSummary(TupleDomain.all()));
             return;
         }

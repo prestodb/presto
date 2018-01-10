@@ -109,6 +109,7 @@ public class TestApplyDynamicFilters
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
+                        Optional.empty(),
                         Assignments.of(new Symbol("COL2_ALIAS"), new SymbolReference("COL2"))))
                 .doesNotFire();
     }
@@ -127,14 +128,16 @@ public class TestApplyDynamicFilters
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
+                        Optional.empty(),
                         Assignments.of()))
                 .matches(
                         join(
-                                INNER,
-                                ImmutableList.of(equiJoinClause("COL1", "COL2")),
-                                ImmutableMap.of("COL1", "COL2"),
-                                values("COL1"),
-                                values("COL2")));
+                            INNER,
+                            ImmutableList.of(equiJoinClause("COL1", "COL2")),
+                            ImmutableMap.of("COL1", "COL2"),
+                            Optional.empty(),
+                            values("COL1"),
+                            values("COL2")));
     }
 
     @Test
@@ -153,6 +156,7 @@ public class TestApplyDynamicFilters
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
+                        Optional.empty(),
                         Assignments.of()))
                 .matches(
                         join(
@@ -161,6 +165,7 @@ public class TestApplyDynamicFilters
                                         equiJoinClause("L_COL1", "R_COL1"),
                                         equiJoinClause("L_COL2", "R_COL2")),
                                 ImmutableMap.of("L_COL1", "R_COL1", "L_COL2", "R_COL2"),
+                                Optional.empty(),
                                 values("L_COL1", "L_COL2"),
                                 values("R_COL1", "R_COL2")));
     }
@@ -181,6 +186,7 @@ public class TestApplyDynamicFilters
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
+                        Optional.empty(),
                         Assignments.of(new Symbol("R_COL2_ALIAS"), new Symbol("R_COL2").toSymbolReference())))
                 .matches(
                         join(
@@ -189,6 +195,7 @@ public class TestApplyDynamicFilters
                                         equiJoinClause("L_COL1", "R_COL1"),
                                         equiJoinClause("L_COL2", "R_COL2")),
                                 ImmutableMap.of("L_COL1", "R_COL1"),
+                                Optional.empty(),
                                 values("L_COL1", "L_COL2"),
                                 values("R_COL1", "R_COL2")));
     }

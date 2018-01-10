@@ -165,6 +165,12 @@ public class HiveSplitManager
     }
 
     @Override
+    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableLayoutHandle layout, SplitSchedulingStrategy splitSchedulingStrategy)
+    {
+        return getSplits(transactionHandle, session, layout, splitSchedulingStrategy, ImmutableList.of());
+    }
+
+    @Override
     public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableLayoutHandle layoutHandle, SplitSchedulingStrategy splitSchedulingStrategy, List<Future<DynamicFilterDescription>> dynamicFilters)
     {
         HiveTableLayoutHandle layout = (HiveTableLayoutHandle) layoutHandle;
