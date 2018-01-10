@@ -29,7 +29,6 @@ import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.facebook.presto.orc.metadata.statistics.StripeStatistics;
 import com.facebook.presto.orc.stream.OutputDataStream;
 import com.facebook.presto.orc.writer.ColumnWriter;
-import com.facebook.presto.orc.writer.ColumnWriters;
 import com.facebook.presto.orc.writer.SliceDictionaryColumnWriter;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
@@ -61,6 +60,7 @@ import static com.facebook.presto.orc.OrcWriterStats.FlushReason.MAX_BYTES;
 import static com.facebook.presto.orc.OrcWriterStats.FlushReason.MAX_ROWS;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
 import static com.facebook.presto.orc.metadata.PostScript.MAGIC;
+import static com.facebook.presto.orc.writer.ColumnWriters.createColumnWriter;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -72,8 +72,7 @@ import static java.util.stream.Collectors.toList;
 public class OrcWriter
         implements Closeable
 {
-    private static final int COMPRESSION_BLOCK_SIZE = 262_144;
-    public static final int DEFAULT_BUFFER_SIZE = 256 * 1024;
+    public static final int COMPRESSION_BLOCK_SIZE = 256 * 1024;
 
     static final String PRESTO_ORC_WRITER_VERSION_METADATA_KEY = "presto.writer.version";
     static final String PRESTO_ORC_WRITER_VERSION;
@@ -141,7 +140,7 @@ public class OrcWriter
                 .putAll(requireNonNull(userMetadata, "userMetadata is null"))
                 .put(PRESTO_ORC_WRITER_VERSION_METADATA_KEY, PRESTO_ORC_WRITER_VERSION)
                 .build();
-        this.metadataWriter = new CompressedMetadataWriter(orcEncoding.createMetadataWriter(), compression, DEFAULT_BUFFER_SIZE);
+        this.metadataWriter = new CompressedMetadataWriter(orcEncoding.createMetadataWriter(), compression, COMPRESSION_BLOCK_SIZE);
         this.hiveStorageTimeZone = requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
         this.stats = requireNonNull(stats, "stats is null");
 
@@ -157,7 +156,7 @@ public class OrcWriter
         for (int fieldId = 0; fieldId < types.size(); fieldId++) {
             int fieldColumnIndex = rootType.getFieldTypeIndex(fieldId);
             Type fieldType = types.get(fieldId);
-            ColumnWriter columnWriter = ColumnWriters.createColumnWriter(fieldColumnIndex, orcTypes, fieldType, compression, DEFAULT_BUFFER_SIZE, orcEncoding, hiveStorageTimeZone);
+            ColumnWriter columnWriter = createColumnWriter(fieldColumnIndex, orcTypes, fieldType, compression, COMPRESSION_BLOCK_SIZE, orcEncoding, hiveStorageTimeZone);
             columnWriters.add(columnWriter);
 
             if (columnWriter instanceof SliceDictionaryColumnWriter) {
