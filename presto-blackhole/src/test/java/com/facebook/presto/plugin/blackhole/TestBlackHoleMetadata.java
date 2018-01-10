@@ -41,6 +41,14 @@ public class TestBlackHoleMetadata
             BlackHoleConnector.PAGE_PROCESSING_DELAY, new Duration(0, SECONDS));
 
     @Test
+    public void testCreateSchema()
+    {
+        assertEquals(metadata.listSchemaNames(SESSION), ImmutableList.of("default"));
+        metadata.createSchema(SESSION, "test", ImmutableMap.of());
+        assertEquals(metadata.listSchemaNames(SESSION), ImmutableList.of("default", "test"));
+    }
+
+    @Test
     public void tableIsCreatedAfterCommits()
     {
         assertThatNoTableIsCreated();

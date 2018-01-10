@@ -66,6 +66,15 @@ public class TestBlackHoleSmoke
     }
 
     @Test
+    public void testCreateSchema()
+            throws SQLException
+    {
+        assertEquals(queryRunner.execute("SHOW SCHEMAS FROM blackhole").getRowCount(), 2);
+        queryRunner.execute("CREATE SCHEMA blackhole.test");
+        assertEquals(queryRunner.execute("SHOW SCHEMAS FROM blackhole").getRowCount(), 3);
+    }
+
+    @Test
     public void createTableWhenTableIsAlreadyCreated()
             throws SQLException
     {
