@@ -16,6 +16,7 @@ package com.facebook.presto.orc;
 import com.facebook.presto.orc.checkpoint.InputStreamCheckpoint;
 import com.facebook.presto.orc.metadata.CompressionKind;
 import io.airlift.compress.Compressor;
+import io.airlift.compress.lz4.Lz4Compressor;
 import io.airlift.compress.snappy.SnappyCompressor;
 import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
@@ -85,6 +86,10 @@ public class OrcOutputBuffer
         }
         else if (compression == CompressionKind.ZLIB) {
             this.compressor = new DeflateCompressor();
+            this.compressionBuffer = new byte[compressor.maxCompressedLength(bufferSize)];
+        }
+        else if (compression == CompressionKind.LZ4) {
+            this.compressor = new Lz4Compressor();
             this.compressionBuffer = new byte[compressor.maxCompressedLength(bufferSize)];
         }
         else {

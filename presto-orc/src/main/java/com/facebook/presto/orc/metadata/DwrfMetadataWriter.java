@@ -313,6 +313,8 @@ public class DwrfMetadataWriter
                 return DwrfProto.CompressionKind.ZLIB;
             case SNAPPY:
                 return DwrfProto.CompressionKind.SNAPPY;
+            case LZ4:
+                return DwrfProto.CompressionKind.LZ4;
         }
         throw new IllegalArgumentException("Unsupported compression kind: " + compressionKind);
     }
