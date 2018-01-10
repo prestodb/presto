@@ -270,6 +270,13 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testLambdaInValuesAndUnnest()
+    {
+        assertQuery("SELECT * FROM UNNEST(transform(sequence(1, 5), x -> x * x))", "SELECT * FROM (VALUES 1, 4, 9, 16, 25)");
+        assertQuery("SELECT x[5] FROM (VALUES transform(sequence(1, 5), x -> x * x)) t(x)", "SELECT 25");
+    }
+
+    @Test
     public void testTryLambdaRepeated()
     {
         assertQuery("SELECT x + x FROM (SELECT apply(a, i -> i * i) x FROM (VALUES 3) t(a))", "SELECT 18");
