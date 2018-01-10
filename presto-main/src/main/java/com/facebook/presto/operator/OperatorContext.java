@@ -17,6 +17,7 @@ import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.Session;
 import com.facebook.presto.memory.AbstractAggregatedMemoryContext;
 import com.facebook.presto.memory.QueryContextVisitor;
+import com.facebook.presto.memory.Reservations;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -39,6 +40,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.memory.Reservations.checkFreedBytes;
+import static com.facebook.presto.memory.Reservations.checkReservedBytes;
 import static com.facebook.presto.operator.BlockedReason.WAITING_FOR_MEMORY;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -259,13 +262,13 @@ public class OperatorContext
     public void reserveMemory(long bytes)
     {
         updateMemoryFuture(driverContext.reserveMemory(bytes), memoryFuture);
-        memoryReservation.addAndGet(bytes);
+        memoryReservation.accumulateAndGet(bytes, Reservations::sum);
     }
 
     public synchronized void reserveRevocableMemory(long bytes)
     {
         updateMemoryFuture(driverContext.reserveRevocableMemory(bytes), revocableMemoryFuture);
-        revocableMemoryReservation += bytes;
+        revocableMemoryReservation = Reservations.sum(revocableMemoryReservation, bytes);
     }
 
     public synchronized long getReservedRevocableBytes()
@@ -309,7 +312,7 @@ public class OperatorContext
 
     public synchronized void setRevocableMemoryReservation(long newRevocableMemoryReservation)
     {
-        checkArgument(newRevocableMemoryReservation >= 0, "newRevocableMemoryReservation is negative");
+        checkReservedBytes(newRevocableMemoryReservation);
 
         long delta = newRevocableMemoryReservation - revocableMemoryReservation;
 
@@ -323,16 +326,14 @@ public class OperatorContext
 
     public synchronized void freeRevocableMemory(long bytes)
     {
-        checkArgument(bytes >= 0, "bytes is negative");
-        checkArgument(bytes <= revocableMemoryReservation, "tried to free more revocable memory than is reserved");
+        checkFreedBytes(bytes, revocableMemoryReservation);
         driverContext.freeRevocableMemory(bytes);
         revocableMemoryReservation -= bytes;
     }
 
     public void freeMemory(long bytes)
     {
-        checkArgument(bytes >= 0, "bytes is negative");
-        checkArgument(bytes <= memoryReservation.get(), "tried to free more memory than is reserved");
+        checkFreedBytes(bytes, memoryReservation.get());
         driverContext.freeMemory(bytes);
         memoryReservation.getAndAdd(-bytes);
     }
@@ -379,7 +380,7 @@ public class OperatorContext
 
     public void setMemoryReservation(long newMemoryReservation)
     {
-        checkArgument(newMemoryReservation >= 0, "newMemoryReservation is negative");
+        checkReservedBytes(newMemoryReservation);
 
         long delta = newMemoryReservation - memoryReservation.get();
 
@@ -393,7 +394,7 @@ public class OperatorContext
 
     public boolean trySetMemoryReservation(long newMemoryReservation)
     {
-        checkArgument(newMemoryReservation >= 0, "newMemoryReservation is negative");
+        checkReservedBytes(newMemoryReservation);
 
         long delta = newMemoryReservation - memoryReservation.get();
 
@@ -402,7 +403,7 @@ public class OperatorContext
                 return false;
             }
 
-            memoryReservation.addAndGet(delta);
+            memoryReservation.accumulateAndGet(delta, Reservations::sum);
         }
         else {
             freeMemory(-delta);
@@ -632,7 +633,7 @@ public class OperatorContext
                 driverContext.reserveSystemMemory(bytes);
             }
             else {
-                checkArgument(reservedBytes + bytes >= 0, "tried to free %s bytes of system memory from %s bytes reserved", -bytes, reservedBytes);
+                checkFreedBytes(-bytes, reservedBytes);
                 driverContext.freeSystemMemory(-bytes);
             }
             reservedBytes += bytes;
@@ -669,7 +670,7 @@ public class OperatorContext
         public void updateBytes(long bytes)
         {
             if (bytes >= 0) {
-                reservedBytes.addAndGet(bytes);
+                reservedBytes.accumulateAndGet(bytes, Reservations::sum);
                 driverContext.reserveSpill(bytes);
             }
             else {
@@ -680,8 +681,7 @@ public class OperatorContext
 
         private long decrementSpilledReservation(long reservedBytes, long bytesBeingFreed)
         {
-            checkArgument(bytesBeingFreed >= 0);
-            checkArgument(bytesBeingFreed <= reservedBytes, "tried to free %s spilled bytes from %s bytes reserved", bytesBeingFreed, reservedBytes);
+            checkFreedBytes(bytesBeingFreed, reservedBytes);
             return reservedBytes - bytesBeingFreed;
         }
 

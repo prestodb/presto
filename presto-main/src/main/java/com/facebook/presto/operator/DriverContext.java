@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.memory.QueryContextVisitor;
+import com.facebook.presto.memory.Reservations;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -36,6 +37,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.memory.Reservations.checkFreedBytes;
+import static com.facebook.presto.memory.Reservations.checkReservedBytes;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getFirst;
 import static com.google.common.collect.Iterables.getLast;
@@ -200,22 +203,22 @@ public class DriverContext
     public ListenableFuture<?> reserveMemory(long bytes)
     {
         ListenableFuture<?> future = pipelineContext.reserveMemory(bytes);
-        memoryReservation.addAndGet(bytes);
+        memoryReservation.accumulateAndGet(bytes, Reservations::sum);
         return future;
     }
 
     public ListenableFuture<?> reserveRevocableMemory(long bytes)
     {
         ListenableFuture<?> future = pipelineContext.reserveRevocableMemory(bytes);
-        revocableMemoryReservation.getAndAdd(bytes);
+        revocableMemoryReservation.accumulateAndGet(bytes, Reservations::sum);
         return future;
     }
 
     public ListenableFuture<?> reserveSystemMemory(long bytes)
     {
-        checkArgument(bytes >= 0, "bytes is negative");
+        checkReservedBytes(bytes);
         ListenableFuture<?> future = pipelineContext.reserveSystemMemory(bytes);
-        systemMemoryReservation.getAndAdd(bytes);
+        systemMemoryReservation.accumulateAndGet(bytes, Reservations::sum);
         return future;
     }
 
@@ -227,7 +230,7 @@ public class DriverContext
     public boolean tryReserveMemory(long bytes)
     {
         if (pipelineContext.tryReserveMemory(bytes)) {
-            memoryReservation.addAndGet(bytes);
+            memoryReservation.accumulateAndGet(bytes, Reservations::sum);
             return true;
         }
         return false;
@@ -238,8 +241,7 @@ public class DriverContext
         if (bytes == 0) {
             return;
         }
-        checkArgument(bytes > 0, "bytes is negative");
-        checkArgument(bytes <= memoryReservation.get(), "tried to free more memory than is reserved");
+        checkFreedBytes(bytes, memoryReservation.get());
         pipelineContext.freeMemory(bytes);
         memoryReservation.getAndAdd(-bytes);
     }
@@ -249,8 +251,7 @@ public class DriverContext
         if (bytes == 0) {
             return;
         }
-        checkArgument(bytes >= 0, "bytes is negative");
-        checkArgument(bytes <= revocableMemoryReservation.get(), "tried to free more revocable memory than is reserved");
+        checkFreedBytes(bytes, revocableMemoryReservation.get());
         pipelineContext.freeRevocableMemory(bytes);
         revocableMemoryReservation.getAndAdd(-bytes);
     }
@@ -260,8 +261,7 @@ public class DriverContext
         if (bytes == 0) {
             return;
         }
-        checkArgument(bytes > 0, "bytes is negative");
-        checkArgument(bytes <= systemMemoryReservation.get(), "tried to free more system memory than is reserved");
+        checkFreedBytes(bytes, systemMemoryReservation.get());
         pipelineContext.freeSystemMemory(bytes);
         systemMemoryReservation.getAndAdd(-bytes);
     }
@@ -271,7 +271,6 @@ public class DriverContext
         if (bytes == 0) {
             return;
         }
-        checkArgument(bytes > 0, "bytes is negative");
         pipelineContext.freeSpill(bytes);
     }
 

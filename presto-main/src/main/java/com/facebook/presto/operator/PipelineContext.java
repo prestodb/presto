@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.memory.QueryContextVisitor;
+import com.facebook.presto.memory.Reservations;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -44,6 +45,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.memory.Reservations.checkFreedBytes;
+import static com.facebook.presto.memory.Reservations.checkReservedBytes;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.transform;
@@ -231,22 +234,22 @@ public class PipelineContext
     public synchronized ListenableFuture<?> reserveMemory(long bytes)
     {
         ListenableFuture<?> future = taskContext.reserveMemory(bytes);
-        memoryReservation.getAndAdd(bytes);
+        memoryReservation.accumulateAndGet(bytes, Reservations::sum);
         return future;
     }
 
     public synchronized ListenableFuture<?> reserveRevocableMemory(long bytes)
     {
         ListenableFuture<?> future = taskContext.reserveRevocableMemory(bytes);
-        revocableMemoryReservation.getAndAdd(bytes);
+        revocableMemoryReservation.accumulateAndGet(bytes, Reservations::sum);
         return future;
     }
 
     public synchronized ListenableFuture<?> reserveSystemMemory(long bytes)
     {
-        checkArgument(bytes >= 0, "bytes is negative");
+        checkReservedBytes(bytes);
         ListenableFuture<?> future = taskContext.reserveSystemMemory(bytes);
-        systemMemoryReservation.getAndAdd(bytes);
+        systemMemoryReservation.accumulateAndGet(bytes, Reservations::sum);
         return future;
     }
 
@@ -258,7 +261,7 @@ public class PipelineContext
     public synchronized boolean tryReserveMemory(long bytes)
     {
         if (taskContext.tryReserveMemory(bytes)) {
-            memoryReservation.getAndAdd(bytes);
+            memoryReservation.accumulateAndGet(bytes, Reservations::sum);
             return true;
         }
         return false;
@@ -266,31 +269,27 @@ public class PipelineContext
 
     public synchronized void freeMemory(long bytes)
     {
-        checkArgument(bytes >= 0, "bytes is negative");
-        checkArgument(bytes <= memoryReservation.get(), "tried to free more memory than is reserved");
+        checkFreedBytes(bytes, memoryReservation.get());
         taskContext.freeMemory(bytes);
         memoryReservation.getAndAdd(-bytes);
     }
 
     public synchronized void freeRevocableMemory(long bytes)
     {
-        checkArgument(bytes >= 0, "bytes is negative");
-        checkArgument(bytes <= revocableMemoryReservation.get(), "tried to free more revocable memory than is reserved");
+        checkFreedBytes(bytes, revocableMemoryReservation.get());
         taskContext.freeRevocableMemory(bytes);
         revocableMemoryReservation.getAndAdd(-bytes);
     }
 
     public synchronized void freeSystemMemory(long bytes)
     {
-        checkArgument(bytes >= 0, "bytes is negative");
-        checkArgument(bytes <= systemMemoryReservation.get(), "tried to free more system memory than is reserved");
+        checkFreedBytes(bytes, systemMemoryReservation.get());
         taskContext.freeSystemMemory(bytes);
         systemMemoryReservation.getAndAdd(-bytes);
     }
 
     public synchronized void freeSpill(long bytes)
     {
-        checkArgument(bytes >= 0, "bytes is negative");
         taskContext.freeSpill(bytes);
     }
 

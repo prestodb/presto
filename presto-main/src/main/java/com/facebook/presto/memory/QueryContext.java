@@ -35,11 +35,13 @@ import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalLimit;
 import static com.facebook.presto.ExceededSpillLimitException.exceededPerQueryLocalLimit;
+import static com.facebook.presto.memory.Reservations.checkFreedBytes;
+import static com.facebook.presto.memory.Reservations.checkReservedBytes;
 import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.airlift.units.DataSize.succinctBytes;
+import static java.lang.Math.addExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -97,13 +99,13 @@ public class QueryContext
 
     public synchronized ListenableFuture<?> reserveMemory(long bytes)
     {
-        checkArgument(bytes >= 0, "bytes is negative");
+        checkReservedBytes(bytes);
 
         if (reserved + bytes > maxMemory) {
             throw exceededLocalLimit(succinctBytes(maxMemory));
         }
         ListenableFuture<?> future = memoryPool.reserve(queryId, bytes);
-        reserved += bytes;
+        reserved = Reservations.sum(reserved, bytes);
         // Never block queries using a trivial amount of memory
         if (reserved < GUARANTEED_MEMORY) {
             return NOT_BLOCKED;
@@ -113,41 +115,40 @@ public class QueryContext
 
     public synchronized ListenableFuture<?> reserveRevocableMemory(long bytes)
     {
-        checkArgument(bytes >= 0, "bytes is negative");
+        checkReservedBytes(bytes);
         ListenableFuture<?> future = memoryPool.reserveRevocable(queryId, bytes);
-        revocableReserved += bytes;
+        revocableReserved = Reservations.sum(revocableReserved, bytes);
         return future;
     }
 
     public synchronized ListenableFuture<?> reserveSystemMemory(long bytes)
     {
-        checkArgument(bytes >= 0, "bytes is negative");
-
+        checkReservedBytes(bytes);
         ListenableFuture<?> future = systemMemoryPool.reserve(queryId, bytes);
-        systemReserved += bytes;
+        systemReserved = Reservations.sum(systemReserved, bytes);
         return future;
     }
 
     public synchronized ListenableFuture<?> reserveSpill(long bytes)
     {
-        checkArgument(bytes >= 0, "bytes is negative");
+        checkReservedBytes(bytes);
         if (spillUsed + bytes > maxSpill) {
             throw exceededPerQueryLocalLimit(succinctBytes(maxSpill));
         }
         ListenableFuture<?> future = spillSpaceTracker.reserve(bytes);
-        spillUsed += bytes;
+        spillUsed = Reservations.sum(spillUsed, bytes);
         return future;
     }
 
     public synchronized boolean tryReserveMemory(long bytes)
     {
-        checkArgument(bytes >= 0, "bytes is negative");
+        checkReservedBytes(bytes);
 
         if (reserved + bytes > maxMemory) {
             return false;
         }
         if (memoryPool.tryReserve(queryId, bytes)) {
-            reserved += bytes;
+            reserved = Reservations.sum(reserved, bytes);
             return true;
         }
         return false;
@@ -155,30 +156,28 @@ public class QueryContext
 
     public synchronized void freeMemory(long bytes)
     {
-        checkArgument(reserved - bytes >= 0, "tried to free more memory than is reserved");
+        checkFreedBytes(bytes, reserved);
         reserved -= bytes;
         memoryPool.free(queryId, bytes);
     }
 
     public synchronized void freeRevocableMemory(long bytes)
     {
-        checkArgument(bytes >= 0, "bytes is negative");
-        checkArgument(revocableReserved - bytes >= 0, "tried to free more revocable memory than is reserved");
+        checkFreedBytes(bytes, revocableReserved);
         revocableReserved -= bytes;
         memoryPool.freeRevocable(queryId, bytes);
     }
 
     public synchronized void freeSystemMemory(long bytes)
     {
-        checkArgument(bytes >= 0, "bytes is negative");
-        checkArgument(systemReserved - bytes >= 0, "tried to free more system memory than is reserved");
+        checkFreedBytes(bytes, systemReserved);
         systemReserved -= bytes;
         systemMemoryPool.free(queryId, bytes);
     }
 
     public synchronized void freeSpill(long bytes)
     {
-        checkArgument(spillUsed - bytes >= 0, "tried to free more memory than is reserved");
+        checkFreedBytes(bytes, spillUsed);
         spillUsed -= bytes;
         spillSpaceTracker.free(bytes);
     }
@@ -191,7 +190,7 @@ public class QueryContext
             return;
         }
         MemoryPool originalPool = memoryPool;
-        long originalReserved = reserved + revocableReserved;
+        long originalReserved = addExact(reserved, revocableReserved);
         memoryPool = pool;
         ListenableFuture<?> future = pool.reserve(queryId, originalReserved);
         Futures.addCallback(future, new FutureCallback<Object>()
