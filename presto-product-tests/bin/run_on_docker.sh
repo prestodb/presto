@@ -33,10 +33,10 @@ function check_hadoop() {
 }
 
 function run_in_application_runner_container() {
-  local CONTAINER_NAME=$( environment_compose run -d application-runner "$@" )
+  local CONTAINER_NAME=$(environment_compose run -d application-runner "$@")
   echo "Showing logs from $CONTAINER_NAME:"
   docker logs -f $CONTAINER_NAME
-  return $( docker inspect --format '{{.State.ExitCode}}' $CONTAINER_NAME )
+  return $(docker inspect --format '{{.State.ExitCode}}' $CONTAINER_NAME)
 }
 
 function check_presto() {
@@ -62,7 +62,7 @@ function run_product_tests() {
 }
 
 function prefetch_images_silently() {
-  local IMAGES=$( docker_images_used )
+  local IMAGES=$(docker_images_used)
   for IMAGE in $IMAGES
   do
     echo "Pulling docker image [$IMAGE]"
