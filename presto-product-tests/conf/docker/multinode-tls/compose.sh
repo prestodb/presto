@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
+
 SCRIPT_DIRECTORY=${BASH_SOURCE%/*}
 
 source ${SCRIPT_DIRECTORY}/../common/compose-commons.sh
