@@ -53,6 +53,7 @@ public class TestQueryResults
         assertQueryResult("json", "{\"json\": {\"a\": 1}}", "{\"json\": {\"a\": 1}}");
         assertQueryResult("ipaddress", "1.2.3.4", "1.2.3.4");
         assertQueryResult("Geometry", "POINT (1.2 3.4)", "POINT (1.2 3.4)");
+        assertQueryResult("map(BingTile,bigint)", ImmutableMap.of("BingTile{x=1, y=2, zoom_level=10}", 1), ImmutableMap.of("BingTile{x=1, y=2, zoom_level=10}", 1L));
     }
 
     private void assertQueryResult(String type, Object data, Object expected)
