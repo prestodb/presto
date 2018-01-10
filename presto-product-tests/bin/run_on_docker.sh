@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -e
+set -euo pipefail
 
 source "${BASH_SOURCE%/*}/lib.sh"
 
@@ -77,7 +77,7 @@ function docker_images_used() {
 function cleanup() {
   stop_application_runner_containers ${ENVIRONMENT}
 
-  if [[ "${LEAVE_CONTAINERS_ALIVE_ON_EXIT}" != "true" ]]; then
+  if [[ "${LEAVE_CONTAINERS_ALIVE_ON_EXIT:-false}" = "true" ]]; then
     stop_docker_compose_containers ${ENVIRONMENT}
   fi
 
@@ -139,7 +139,7 @@ docker version
 
 stop_all_containers
 
-if [[ "$CONTINUOUS_INTEGRATION" == 'true' ]]; then
+if [[ ${CONTINUOUS_INTEGRATION:-false} = true ]]; then
     prefetch_images_silently
     # This has to be done after fetching the images
     # or will present stale / no data for images that changed.
