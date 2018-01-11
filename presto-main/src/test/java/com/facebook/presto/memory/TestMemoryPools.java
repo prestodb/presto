@@ -57,6 +57,7 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
 public class TestMemoryPools
@@ -162,6 +163,23 @@ public class TestMemoryPools
         userPool.reserve(fakeQueryId, 3);
         assertEquals(notifiedPool.get(), userPool);
         assertEquals(notifiedBytes.get(), 3L);
+    }
+
+    @Test
+    public void testMemoryFutureCancellation()
+    {
+        setUpCountStarFromOrdersWithJoin();
+        ListenableFuture future = userPool.reserve(fakeQueryId, TEN_MEGABYTES.toBytes());
+        assertTrue(!future.isDone());
+        try {
+            future.cancel(true);
+            fail("cancel should fail");
+        }
+        catch (UnsupportedOperationException e) {
+            assertEquals(e.getMessage(), "cancellation is not supported");
+        }
+        userPool.free(fakeQueryId, TEN_MEGABYTES.toBytes());
+        assertTrue(future.isDone());
     }
 
     @Test
