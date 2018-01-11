@@ -91,10 +91,10 @@ public class PickTableLayout
         public Result apply(FilterNode filterNode, Captures captures, Context context)
         {
             TableLayoutRewriter tableLayoutRewriter = new TableLayoutRewriter(metadata, context.getSession(), context.getSymbolAllocator(), context.getIdAllocator());
-            PlanNode rewrittenTableScan = tableLayoutRewriter.planTableScan(captures.get(TABLE_SCAN), filterNode.getPredicate());
+            PlanNode rewritten = tableLayoutRewriter.planTableScan(captures.get(TABLE_SCAN), filterNode.getPredicate());
 
-            if (rewrittenTableScan instanceof TableScanNode || rewrittenTableScan instanceof ValuesNode || (((FilterNode) rewrittenTableScan).getPredicate() != filterNode.getPredicate())) {
-                return Result.ofPlanNode(rewrittenTableScan);
+            if (rewritten instanceof TableScanNode || rewritten instanceof ValuesNode || (((FilterNode) rewritten).getPredicate() != filterNode.getPredicate())) {
+                return Result.ofPlanNode(rewritten);
             }
 
             return Result.empty();
