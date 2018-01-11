@@ -53,6 +53,7 @@ public class StorageManagerConfig
     private int recoveryThreads = 10;
     private int organizationThreads = 5;
     private boolean organizationEnabled = true;
+    private boolean asyncRollbackEnabled;
     private Duration organizationInterval = new Duration(7, TimeUnit.DAYS);
 
     private long maxShardRows = 1_000_000;
@@ -334,6 +335,19 @@ public class StorageManagerConfig
     public StorageManagerConfig setOneSplitPerBucketThreshold(int oneSplitPerBucketThreshold)
     {
         this.oneSplitPerBucketThreshold = oneSplitPerBucketThreshold;
+        return this;
+    }
+
+    public boolean isAsyncRollbackEnabled()
+    {
+        return asyncRollbackEnabled;
+    }
+
+    @Config("storage.async-rollback-enabled")
+    @ConfigDescription("Experimental: Enable async backup cleanup when rolling back")
+    public StorageManagerConfig setAsyncRollbackEnabled(boolean asyncRollbackEnabled)
+    {
+        this.asyncRollbackEnabled = asyncRollbackEnabled;
         return this;
     }
 }

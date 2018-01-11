@@ -42,6 +42,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 import static org.testng.FileAssert.assertFile;
@@ -51,6 +52,7 @@ public class TestBackupManager
 {
     private static final UUID FAILURE_UUID = randomUUID();
     private static final UUID CORRUPTION_UUID = randomUUID();
+    private static final UUID BLOCKING_UUID = randomUUID();
 
     private File temporary;
     private BackupStore backupStore;
@@ -70,7 +72,7 @@ public class TestBackupManager
         storageService = new FileStorageService(new File(temporary, "data"));
         storageService.start();
 
-        backupManager = new BackupManager(Optional.of(backupStore), storageService, 5);
+        backupManager = new BackupManager(Optional.of(backupStore), storageService, 5, 1);
     }
 
     @AfterMethod(alwaysRun = true)
@@ -86,38 +88,51 @@ public class TestBackupManager
             throws Exception
     {
         assertEmptyStagingDirectory();
-        assertBackupStats(0, 0, 0);
+        assertBackupStats(0, 0, 0, 0, 0);
 
-        List<CompletableFuture<?>> futures = new ArrayList<>();
+        // create some backup files
+        List<CompletableFuture<?>> backupFutures = new ArrayList<>();
         List<UUID> uuids = new ArrayList<>(5);
         for (int i = 0; i < 5; i++) {
             File file = new File(temporary, "file" + i);
             Files.write("hello world", file, UTF_8);
             uuids.add(randomUUID());
 
-            futures.add(backupManager.submit(uuids.get(i), file));
+            backupFutures.add(backupManager.submitBackup(uuids.get(i), file));
         }
-        futures.forEach(CompletableFuture::join);
+        backupFutures.forEach(CompletableFuture::join);
         for (UUID uuid : uuids) {
             assertTrue(backupStore.shardExists(uuid));
         }
 
-        assertBackupStats(5, 0, 0);
+        assertBackupStats(5, 0, 0, 0, 0);
         assertEmptyStagingDirectory();
+
+        // delete the new created backup files
+        List<CompletableFuture<?>> deleteFutures = new ArrayList<>();
+        for (UUID uuid : uuids) {
+            deleteFutures.add(backupManager.submitDelete(uuid));
+        }
+
+        deleteFutures.forEach(CompletableFuture::join);
+        for (UUID uuid : uuids) {
+            assertFalse(backupStore.shardExists(uuid));
+        }
+        assertBackupStats(5, 0, 0, 5, 0);
     }
 
     @Test
-    public void testFailure()
+    public void testFailureDelete()
             throws Exception
     {
         assertEmptyStagingDirectory();
-        assertBackupStats(0, 0, 0);
+        assertBackupStats(0, 0, 0, 0, 0);
 
         File file = new File(temporary, "failure");
         Files.write("hello world", file, UTF_8);
 
         try {
-            backupManager.submit(FAILURE_UUID, file).get(1, SECONDS);
+            backupManager.submitDelete(FAILURE_UUID).get(1, SECONDS);
             fail("expected exception");
         }
         catch (ExecutionException wrapper) {
@@ -126,7 +141,30 @@ public class TestBackupManager
             assertEquals(e.getMessage(), "Backup failed for testing");
         }
 
-        assertBackupStats(0, 1, 0);
+        assertBackupStats(0, 0, 0, 0, 1);
+    }
+
+    @Test
+    public void testFailureBackup()
+            throws Exception
+    {
+        assertEmptyStagingDirectory();
+        assertBackupStats(0, 0, 0, 0, 0);
+
+        File file = new File(temporary, "failure");
+        Files.write("hello world", file, UTF_8);
+
+        try {
+            backupManager.submitBackup(FAILURE_UUID, file).get(1, SECONDS);
+            fail("expected exception");
+        }
+        catch (ExecutionException wrapper) {
+            PrestoException e = (PrestoException) wrapper.getCause();
+            assertEquals(e.getErrorCode(), RAPTOR_BACKUP_ERROR.toErrorCode());
+            assertEquals(e.getMessage(), "Backup failed for testing");
+        }
+
+        assertBackupStats(0, 1, 0, 0, 0);
         assertEmptyStagingDirectory();
     }
 
@@ -135,13 +173,13 @@ public class TestBackupManager
             throws Exception
     {
         assertEmptyStagingDirectory();
-        assertBackupStats(0, 0, 0);
+        assertBackupStats(0, 0, 0, 0, 0);
 
         File file = new File(temporary, "corrupt");
         Files.write("hello world", file, UTF_8);
 
         try {
-            backupManager.submit(CORRUPTION_UUID, file).get(1, SECONDS);
+            backupManager.submitBackup(CORRUPTION_UUID, file).get(1, SECONDS);
             fail("expected exception");
         }
         catch (ExecutionException wrapper) {
@@ -154,8 +192,35 @@ public class TestBackupManager
         assertFile(new File(quarantineBase.getPath() + ".original"));
         assertFile(new File(quarantineBase.getPath() + ".restored"));
 
-        assertBackupStats(0, 1, 1);
+        assertBackupStats(0, 1, 1, 0, 0);
         assertEmptyStagingDirectory();
+    }
+
+    @Test
+    public void testQueueingThreshold()
+            throws Exception
+    {
+        assertEmptyStagingDirectory();
+
+        assertEquals(backupManager.getPendingBackupCount(), 0);
+        assertTrue(backupManager.getBelowThresholdFuture().isDone());
+
+        File file = new File(temporary, "blocking");
+        Files.write("hello world", file, UTF_8);
+
+        // take up a slot in the queue
+        CompletableFuture<?> future = backupManager.submitBackup(BLOCKING_UUID, file);
+
+        assertEquals(backupManager.getPendingBackupCount(), 1);
+        CompletableFuture<?> blockingFuture = backupManager.getBelowThresholdFuture();
+        assertFalse(blockingFuture.isDone());
+
+        // free the slot
+        future.cancel(true);
+
+        assertEquals(backupManager.getPendingBackupCount(), 0);
+        assertTrue(blockingFuture.isDone());
+        assertTrue(backupManager.getBelowThresholdFuture().isDone());
     }
 
     private void assertEmptyStagingDirectory()
@@ -164,12 +229,14 @@ public class TestBackupManager
         assertEquals(staging.list(), new String[] {});
     }
 
-    private void assertBackupStats(int successCount, int failureCount, int corruptionCount)
+    private void assertBackupStats(int successBackupCount, int failureBackupCount, int corruptionCount, int successDeleteCount, int failureDeleteCount)
     {
         BackupStats stats = backupManager.getStats();
-        assertEquals(stats.getBackupSuccess().getTotalCount(), successCount);
-        assertEquals(stats.getBackupFailure().getTotalCount(), failureCount);
+        assertEquals(stats.getBackupSuccess().getTotalCount(), successBackupCount);
+        assertEquals(stats.getBackupFailure().getTotalCount(), failureBackupCount);
         assertEquals(stats.getBackupCorruption().getTotalCount(), corruptionCount);
+        assertEquals(stats.getDeleteSuccess().getTotalCount(), successDeleteCount);
+        assertEquals(stats.getDeleteFailure().getTotalCount(), failureDeleteCount);
     }
 
     private static class TestingBackupStore
@@ -188,6 +255,13 @@ public class TestBackupManager
             if (uuid.equals(FAILURE_UUID)) {
                 throw new PrestoException(RAPTOR_BACKUP_ERROR, "Backup failed for testing");
             }
+            else if (uuid.equals(BLOCKING_UUID)) {
+                try {
+                    Thread.sleep(10_000);
+                }
+                catch (InterruptedException ignore) {
+                }
+            }
             delegate.backupShard(uuid, source);
         }
 
@@ -203,6 +277,9 @@ public class TestBackupManager
         @Override
         public boolean deleteShard(UUID uuid)
         {
+            if (uuid.equals(FAILURE_UUID)) {
+                throw new PrestoException(RAPTOR_BACKUP_ERROR, "Backup failed for testing");
+            }
             return delegate.deleteShard(uuid);
         }
 

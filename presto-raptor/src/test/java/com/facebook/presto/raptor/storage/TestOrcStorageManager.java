@@ -611,7 +611,7 @@ public class TestOrcStorageManager
                 storageService,
                 backupStore,
                 READER_ATTRIBUTES,
-                new BackupManager(backupStore, storageService, 1),
+                new BackupManager(backupStore, storageService, 1, 0),
                 recoveryManager,
                 shardRecorder,
                 new TypeRegistry(),
@@ -620,7 +620,8 @@ public class TestOrcStorageManager
                 SHARD_RECOVERY_TIMEOUT,
                 maxShardRows,
                 maxFileSize,
-                new DataSize(0, BYTE));
+                new DataSize(0, BYTE),
+                false);
     }
 
     private static void assertFileEquals(File actual, File expected)

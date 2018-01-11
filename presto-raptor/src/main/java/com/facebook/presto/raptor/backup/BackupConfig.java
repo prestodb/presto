@@ -31,6 +31,7 @@ public class BackupConfig
     private int timeoutThreads = 1000;
     private String provider;
     private int backupThreads = 5;
+    private long backupQueueThreshold;
 
     @NotNull
     @MinDuration("1s")
@@ -87,6 +88,20 @@ public class BackupConfig
     public BackupConfig setBackupThreads(int backupThreads)
     {
         this.backupThreads = backupThreads;
+        return this;
+    }
+
+    @Min(0)
+    public long getBackupQueueThreshold()
+    {
+        return backupQueueThreshold;
+    }
+
+    @Config("backup.backup-queue-threshold")
+    @ConfigDescription("Threshold of pending backup operations to block more writes. Zero means unlimited.")
+    public BackupConfig setBackupQueueThreshold(long backupQueueThreshold)
+    {
+        this.backupQueueThreshold = backupQueueThreshold;
         return this;
     }
 }

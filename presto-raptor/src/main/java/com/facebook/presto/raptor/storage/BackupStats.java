@@ -15,6 +15,7 @@ package com.facebook.presto.raptor.storage;
 
 import io.airlift.stats.CounterStat;
 import io.airlift.stats.DistributionStat;
+import io.airlift.stats.TimeStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.weakref.jmx.Managed;
@@ -23,18 +24,23 @@ import org.weakref.jmx.Nested;
 import javax.annotation.concurrent.ThreadSafe;
 
 import static com.facebook.presto.raptor.storage.ShardRecoveryManager.dataRate;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 @ThreadSafe
 public class BackupStats
 {
+    private final TimeStat queuedTimeMilliSeconds = new TimeStat(MILLISECONDS);
+
     private final DistributionStat copyToBackupBytesPerSecond = new DistributionStat();
     private final DistributionStat copyToBackupShardSizeBytes = new DistributionStat();
     private final DistributionStat copyToBackupTimeInMilliSeconds = new DistributionStat();
-    private final DistributionStat queuedTimeMilliSeconds = new DistributionStat();
 
     private final CounterStat backupSuccess = new CounterStat();
     private final CounterStat backupFailure = new CounterStat();
     private final CounterStat backupCorruption = new CounterStat();
+
+    private final CounterStat deleteSuccess = new CounterStat();
+    private final CounterStat deleteFailure = new CounterStat();
 
     public void addCopyShardDataRate(DataSize size, Duration duration)
     {
@@ -46,7 +52,7 @@ public class BackupStats
 
     public void addQueuedTime(Duration queuedTime)
     {
-        queuedTimeMilliSeconds.add(queuedTime.toMillis());
+        queuedTimeMilliSeconds.add(queuedTime);
     }
 
     public void incrementBackupSuccess()
@@ -62,6 +68,23 @@ public class BackupStats
     public void incrementBackupCorruption()
     {
         backupCorruption.update(1);
+    }
+
+    public void incrementDeleteSuccess()
+    {
+        deleteSuccess.update(1);
+    }
+
+    public void incrementDeleteFailure()
+    {
+        deleteFailure.update(1);
+    }
+
+    @Managed
+    @Nested
+    public TimeStat getQueuedTimeMilliSeconds()
+    {
+        return queuedTimeMilliSeconds;
     }
 
     @Managed
@@ -87,13 +110,6 @@ public class BackupStats
 
     @Managed
     @Nested
-    public DistributionStat getQueuedTimeMilliSeconds()
-    {
-        return queuedTimeMilliSeconds;
-    }
-
-    @Managed
-    @Nested
     public CounterStat getBackupSuccess()
     {
         return backupSuccess;
@@ -111,5 +127,19 @@ public class BackupStats
     public CounterStat getBackupCorruption()
     {
         return backupCorruption;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getDeleteSuccess()
+    {
+        return deleteSuccess;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getDeleteFailure()
+    {
+        return deleteFailure;
     }
 }
