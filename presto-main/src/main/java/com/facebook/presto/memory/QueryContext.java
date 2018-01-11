@@ -169,7 +169,7 @@ public class QueryContext
     public synchronized void setMemoryPool(MemoryPool pool)
     {
         requireNonNull(pool, "pool is null");
-        if (pool.getId().equals(memoryPool.getId())) {
+        if (memoryPool == pool) {
             // Don't unblock our tasks and thrash the pools, if this is a no-op
             return;
         }
