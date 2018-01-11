@@ -41,10 +41,6 @@ import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.ex
 public class TestPickTableLayout
         extends BaseRuleTest
 {
-    private static final TableLayoutHandle DUMMY_TABLE_LAYOUT_HANDLE = new TableLayoutHandle(new ConnectorId("tpch"),
-            TestingTransactionHandle.create(),
-            new TpchTableLayoutHandle(new TpchTableHandle("local", "nation", 1.0), Optional.empty()));
-
     private PickTableLayout pickTableLayout;
     private TableHandle nationTableHandle;
     private TableLayoutHandle nationTableLayoutHandle;
@@ -82,7 +78,7 @@ public class TestPickTableLayout
                         nationTableHandle,
                         ImmutableList.of(p.symbol("nationkey", BIGINT)),
                         ImmutableMap.of(p.symbol("nationkey", BIGINT), new TpchColumnHandle("nationkey", BIGINT)),
-                        Optional.of(DUMMY_TABLE_LAYOUT_HANDLE)))
+                        Optional.of(nationTableLayoutHandle)))
                 .doesNotFire();
     }
 
