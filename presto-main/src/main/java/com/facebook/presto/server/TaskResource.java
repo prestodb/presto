@@ -60,6 +60,7 @@ import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.Function;
 
 import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_BUFFER_COMPLETE;
@@ -240,19 +241,7 @@ public class TaskResource
             @HeaderParam(PRESTO_MAX_SIZE) DataSize maxSize,
             @Suspended AsyncResponse asyncResponse)
     {
-        requireNonNull(taskId, "taskId is null");
-        requireNonNull(bufferId, "bufferId is null");
-
-        long start = System.nanoTime();
-        ListenableFuture<BufferResult> bufferResultFuture = taskManager.getTaskResults(taskId, bufferId, token, maxSize);
-        Duration waitTime = randomizeWaitTime(DEFAULT_MAX_WAIT_TIME);
-        bufferResultFuture = addTimeout(
-                bufferResultFuture,
-                () -> BufferResult.emptyResults(taskManager.getTaskInstanceId(taskId), token, false),
-                waitTime,
-                timeoutExecutor);
-
-        ListenableFuture<Response> responseFuture = Futures.transform(bufferResultFuture, result -> {
+        getTaskResults(taskId, bufferId, token, maxSize, asyncResponse, result -> {
             List<SerializedPage> serializedPages = result.getSerializedPages();
 
             GenericEntity<?> entity = null;
@@ -273,6 +262,29 @@ public class TaskResource
                     .header(PRESTO_BUFFER_COMPLETE, result.isBufferComplete())
                     .build();
         });
+    }
+
+    private void getTaskResults(TaskId taskId,
+            OutputBufferId bufferId,
+            final long token,
+            DataSize maxSize,
+            AsyncResponse asyncResponse,
+            Function<BufferResult, Response> responseCreator)
+    {
+        requireNonNull(taskId, "taskId is null");
+        requireNonNull(bufferId, "bufferId is null");
+
+        long start = System.nanoTime();
+        ListenableFuture<BufferResult> bufferResultFuture = taskManager.getTaskResults(taskId, bufferId, token, maxSize);
+        Duration waitTime = randomizeWaitTime(DEFAULT_MAX_WAIT_TIME);
+        bufferResultFuture = addTimeout(
+                bufferResultFuture,
+                () -> BufferResult.emptyResults(taskManager.getTaskInstanceId(taskId), token, false),
+                waitTime,
+                timeoutExecutor);
+
+        // TODO: ideally, serialized page should be already in the necessary format to avoid serde
+        ListenableFuture<Response> responseFuture = Futures.transform(bufferResultFuture, responseCreator::apply);
 
         // For hard timeout, add an additional time to max wait for thread scheduling contention and GC
         Duration timeout = new Duration(waitTime.toMillis() + ADDITIONAL_WAIT_TIME.toMillis(), MILLISECONDS);
