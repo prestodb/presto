@@ -125,7 +125,6 @@ public class ColumnCardinalityCache
      * @throws ExecutionException If another error occurs; I really don't even know anymore.
      */
     public Multimap<Long, AccumuloColumnConstraint> getCardinalities(String schema, String table, Authorizations auths, Multimap<AccumuloColumnConstraint, Range> idxConstraintRangePairs, long earlyReturnThreshold, Duration pollingDuration)
-            throws ExecutionException, TableNotFoundException
     {
         // Submit tasks to the executor to fetch column cardinality, adding it to the Guava cache if necessary
         CompletionService<Pair<Long, AccumuloColumnConstraint>> executor = new ExecutorCompletionService<>(executorService);

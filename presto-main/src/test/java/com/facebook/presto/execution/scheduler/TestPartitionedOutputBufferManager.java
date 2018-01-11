@@ -31,7 +31,6 @@ public class TestPartitionedOutputBufferManager
 {
     @Test
     public void test()
-            throws Exception
     {
         AtomicReference<OutputBuffers> outputBufferTarget = new AtomicReference<>();
 

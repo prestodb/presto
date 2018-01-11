@@ -80,7 +80,6 @@ public class TestSqlTaskManager
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
-            throws Exception
     {
         taskExecutor.stop();
         taskManagementExecutor.close();
@@ -88,7 +87,6 @@ public class TestSqlTaskManager
 
     @Test
     public void testEmptyQuery()
-            throws Exception
     {
         try (SqlTaskManager sqlTaskManager = createSqlTaskManager(new TaskManagerConfig())) {
             TaskId taskId = TASK_ID;
@@ -158,7 +156,6 @@ public class TestSqlTaskManager
 
     @Test
     public void testCancel()
-            throws Exception
     {
         try (SqlTaskManager sqlTaskManager = createSqlTaskManager(new TaskManagerConfig())) {
             TaskId taskId = TASK_ID;
@@ -188,7 +185,6 @@ public class TestSqlTaskManager
 
     @Test
     public void testAbort()
-            throws Exception
     {
         try (SqlTaskManager sqlTaskManager = createSqlTaskManager(new TaskManagerConfig())) {
             TaskId taskId = TASK_ID;

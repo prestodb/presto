@@ -167,7 +167,6 @@ public class TestSqlParser
 
     @Test
     public void testPosition()
-            throws Exception
     {
         assertExpression("position('a' in 'b')",
                 new FunctionCall(QualifiedName.of("strpos"), ImmutableList.of(
@@ -182,14 +181,12 @@ public class TestSqlParser
 
     @Test
     public void testPossibleExponentialBacktracking()
-            throws Exception
     {
         SQL_PARSER.createExpression("(((((((((((((((((((((((((((true)))))))))))))))))))))))))))");
     }
 
     @Test(timeOut = 2_000)
     public void testPotentialUnboundedLookahead()
-            throws Exception
     {
         SQL_PARSER.createExpression("(\n" +
                 "      1 * -1 +\n" +
@@ -221,7 +218,6 @@ public class TestSqlParser
 
     @Test
     public void testGenericLiteral()
-            throws Exception
     {
         assertGenericLiteral("VARCHAR");
         assertGenericLiteral("BIGINT");
@@ -233,7 +229,6 @@ public class TestSqlParser
 
     @Test
     public void testBinaryLiteral()
-            throws Exception
     {
         assertExpression("x' '", new BinaryLiteral(""));
         assertExpression("x''", new BinaryLiteral(""));
@@ -254,7 +249,6 @@ public class TestSqlParser
 
     @Test
     public void testLiterals()
-            throws Exception
     {
         assertExpression("TIME" + " 'abc'", new TimeLiteral("abc"));
         assertExpression("TIMESTAMP" + " 'abc'", new TimestampLiteral("abc"));
@@ -265,7 +259,6 @@ public class TestSqlParser
 
     @Test
     public void testArrayConstructor()
-            throws Exception
     {
         assertExpression("ARRAY []", new ArrayConstructor(ImmutableList.of()));
         assertExpression("ARRAY [1, 2]", new ArrayConstructor(ImmutableList.of(new LongLiteral("1"), new LongLiteral("2"))));
@@ -276,7 +269,6 @@ public class TestSqlParser
 
     @Test
     public void testArraySubscript()
-            throws Exception
     {
         assertExpression("ARRAY [1, 2][1]", new SubscriptExpression(
                 new ArrayConstructor(ImmutableList.of(new LongLiteral("1"), new LongLiteral("2"))),
@@ -292,7 +284,6 @@ public class TestSqlParser
 
     @Test
     public void testDouble()
-            throws Exception
     {
         assertExpression("123E7", new DoubleLiteral("123E7"));
         assertExpression("123.E7", new DoubleLiteral("123E7"));
@@ -311,7 +302,6 @@ public class TestSqlParser
 
     @Test
     public void testCast()
-            throws Exception
     {
         assertCast("foo(42, 55) ARRAY", "ARRAY(foo(42,55))");
         assertCast("varchar");
@@ -471,7 +461,6 @@ public class TestSqlParser
 
     @Test
     public void testBetween()
-            throws Exception
     {
         assertExpression("1 BETWEEN 2 AND 3", new BetweenPredicate(new LongLiteral("1"), new LongLiteral("2"), new LongLiteral("3")));
         assertExpression("1 NOT BETWEEN 2 AND 3", new NotExpression(new BetweenPredicate(new LongLiteral("1"), new LongLiteral("2"), new LongLiteral("3"))));
@@ -511,7 +500,6 @@ public class TestSqlParser
 
     @Test
     public void testPrecedenceAndAssociativity()
-            throws Exception
     {
         assertExpression("1 AND 2 OR 3", new LogicalBinaryExpression(LogicalBinaryExpression.Type.OR,
                 new LogicalBinaryExpression(LogicalBinaryExpression.Type.AND,
@@ -720,7 +708,6 @@ public class TestSqlParser
 
     @Test
     public void testInterval()
-            throws Exception
     {
         assertExpression("INTERVAL '123' YEAR", new IntervalLiteral("123", Sign.POSITIVE, IntervalField.YEAR));
         assertExpression("INTERVAL '123-3' YEAR TO MONTH", new IntervalLiteral("123-3", Sign.POSITIVE, IntervalField.YEAR, Optional.of(IntervalField.MONTH)));
@@ -735,7 +722,6 @@ public class TestSqlParser
 
     @Test
     public void testDecimal()
-            throws Exception
     {
         assertExpression("DECIMAL '12.34'", new DecimalLiteral("12.34"));
         assertExpression("DECIMAL '12.'", new DecimalLiteral("12."));
@@ -756,14 +742,12 @@ public class TestSqlParser
 
     @Test
     public void testTime()
-            throws Exception
     {
         assertExpression("TIME '03:04:05'", new TimeLiteral("03:04:05"));
     }
 
     @Test
     public void testCurrentTimestamp()
-            throws Exception
     {
         assertExpression("CURRENT_TIMESTAMP", new CurrentTime(CurrentTime.Type.TIMESTAMP));
     }
@@ -786,7 +770,6 @@ public class TestSqlParser
 
     @Test
     public void testSetSession()
-            throws Exception
     {
         assertStatement("SET SESSION foo = 'bar'", new SetSession(QualifiedName.of("foo"), new StringLiteral("bar")));
         assertStatement("SET SESSION foo.bar = 'baz'", new SetSession(QualifiedName.of("foo", "bar"), new StringLiteral("baz")));
@@ -801,7 +784,6 @@ public class TestSqlParser
 
     @Test
     public void testResetSession()
-            throws Exception
     {
         assertStatement("RESET SESSION foo.bar", new ResetSession(QualifiedName.of("foo", "bar")));
         assertStatement("RESET SESSION foo", new ResetSession(QualifiedName.of("foo")));
@@ -809,14 +791,12 @@ public class TestSqlParser
 
     @Test
     public void testShowSession()
-            throws Exception
     {
         assertStatement("SHOW SESSION", new ShowSession());
     }
 
     @Test
     public void testShowCatalogs()
-            throws Exception
     {
         assertStatement("SHOW CATALOGS", new ShowCatalogs(Optional.empty()));
         assertStatement("SHOW CATALOGS LIKE '%'", new ShowCatalogs(Optional.of("%")));
@@ -824,7 +804,6 @@ public class TestSqlParser
 
     @Test
     public void testShowSchemas()
-            throws Exception
     {
         assertStatement("SHOW SCHEMAS", new ShowSchemas(Optional.empty(), Optional.empty()));
         assertStatement("SHOW SCHEMAS FROM foo", new ShowSchemas(Optional.of(identifier("foo")), Optional.empty()));
@@ -833,7 +812,6 @@ public class TestSqlParser
 
     @Test
     public void testShowTables()
-            throws Exception
     {
         assertStatement("SHOW TABLES", new ShowTables(Optional.empty(), Optional.empty()));
         assertStatement("SHOW TABLES FROM a", new ShowTables(Optional.of(QualifiedName.of("a")), Optional.empty()));
@@ -843,7 +821,6 @@ public class TestSqlParser
 
     @Test
     public void testShowColumns()
-            throws Exception
     {
         assertStatement("SHOW COLUMNS FROM a", new ShowColumns(QualifiedName.of("a")));
         assertStatement("SHOW COLUMNS FROM a.b", new ShowColumns(QualifiedName.of("a", "b")));
@@ -955,7 +932,6 @@ public class TestSqlParser
 
     @Test
     public void testSelectWithRowType()
-            throws Exception
     {
         assertStatement("SELECT col1.f1, col2, col3.f1.f2.f3 FROM table1",
                 new Query(
@@ -1011,7 +987,6 @@ public class TestSqlParser
 
     @Test
     public void testSelectWithOrderBy()
-            throws Exception
     {
         assertStatement("SELECT * FROM table1 ORDER BY a",
                 new Query(
@@ -1033,7 +1008,6 @@ public class TestSqlParser
 
     @Test
     public void testSelectWithGroupBy()
-            throws Exception
     {
         assertStatement("SELECT * FROM table1 GROUP BY a",
                 new Query(
@@ -1214,7 +1188,6 @@ public class TestSqlParser
 
     @Test
     public void testUnicodeString()
-            throws Exception
     {
         assertExpression("U&''", new StringLiteral(""));
         assertExpression("U&'' UESCAPE ')'", new StringLiteral(""));
@@ -1249,7 +1222,6 @@ public class TestSqlParser
 
     @Test
     public void testCreateTable()
-            throws Exception
     {
         assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c IPADDRESS)",
                 new CreateTable(QualifiedName.of("foo"),
@@ -1337,7 +1309,6 @@ public class TestSqlParser
 
     @Test
     public void testCreateTableAsSelect()
-            throws Exception
     {
         Query query = simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t")));
         Query querySelectColumn = simpleQuery(selectList(new Identifier("a")), table(QualifiedName.of("t")));
@@ -1436,7 +1407,6 @@ public class TestSqlParser
 
     @Test
     public void testCreateTableAsWith()
-            throws Exception
     {
         String queryParenthesizedWith = "CREATE TABLE foo " +
                 "AS " +
@@ -1476,7 +1446,6 @@ public class TestSqlParser
 
     @Test
     public void testDropTable()
-            throws Exception
     {
         assertStatement("DROP TABLE a", new DropTable(QualifiedName.of("a"), false));
         assertStatement("DROP TABLE a.b", new DropTable(QualifiedName.of("a", "b"), false));
@@ -1489,7 +1458,6 @@ public class TestSqlParser
 
     @Test
     public void testDropView()
-            throws Exception
     {
         assertStatement("DROP VIEW a", new DropView(QualifiedName.of("a"), false));
         assertStatement("DROP VIEW a.b", new DropView(QualifiedName.of("a", "b"), false));
@@ -1502,7 +1470,6 @@ public class TestSqlParser
 
     @Test
     public void testInsertInto()
-            throws Exception
     {
         QualifiedName table = QualifiedName.of("a");
         Query query = simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t")));
@@ -1528,28 +1495,24 @@ public class TestSqlParser
 
     @Test
     public void testRenameTable()
-            throws Exception
     {
         assertStatement("ALTER TABLE a RENAME TO b", new RenameTable(QualifiedName.of("a"), QualifiedName.of("b")));
     }
 
     @Test
     public void testRenameColumn()
-            throws Exception
     {
         assertStatement("ALTER TABLE foo.t RENAME COLUMN a TO b", new RenameColumn(QualifiedName.of("foo", "t"), identifier("a"), identifier("b")));
     }
 
     @Test
     public void testAddColumn()
-            throws Exception
     {
         assertStatement("ALTER TABLE foo.t ADD COLUMN c bigint", new AddColumn(QualifiedName.of("foo", "t"), new ColumnDefinition(identifier("c"), "bigint", Optional.empty())));
     }
 
     @Test
     public void testDropColumn()
-            throws Exception
     {
         assertStatement("ALTER TABLE foo.t DROP COLUMN c", new DropColumn(QualifiedName.of("foo", "t"), identifier("c")));
         assertStatement("ALTER TABLE \"t x\" DROP COLUMN \"c d\"", new DropColumn(QualifiedName.of("t x"), quotedIdentifier("c d")));
@@ -1557,7 +1520,6 @@ public class TestSqlParser
 
     @Test
     public void testCreateView()
-            throws Exception
     {
         Query query = simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t")));
 
@@ -1571,7 +1533,6 @@ public class TestSqlParser
 
     @Test
     public void testGrant()
-            throws Exception
     {
         assertStatement("GRANT INSERT, DELETE ON t TO u",
                 new Grant(Optional.of(ImmutableList.of("INSERT", "DELETE")), false, QualifiedName.of("t"), identifier("u"), false));
@@ -1585,7 +1546,6 @@ public class TestSqlParser
 
     @Test
     public void testRevoke()
-            throws Exception
     {
         assertStatement("REVOKE INSERT, DELETE ON t FROM u",
                 new Revoke(false, Optional.of(ImmutableList.of("INSERT", "DELETE")), false, QualifiedName.of("t"), identifier("u")));
@@ -1599,7 +1559,6 @@ public class TestSqlParser
 
     @Test
     public void testShowGrants()
-            throws Exception
     {
         assertStatement("SHOW GRANTS ON TABLE t",
                 new ShowGrants(true, Optional.of(QualifiedName.of("t"))));
@@ -1611,7 +1570,6 @@ public class TestSqlParser
 
     @Test
     public void testWith()
-            throws Exception
     {
         assertStatement("WITH a (t, u) AS (SELECT * FROM x), b AS (SELECT * FROM y) TABLE z",
                 new Query(Optional.of(new With(false, ImmutableList.of(
@@ -1631,7 +1589,6 @@ public class TestSqlParser
 
     @Test
     public void testImplicitJoin()
-            throws Exception
     {
         assertStatement("SELECT * FROM a, b",
                 simpleQuery(selectList(new AllColumns()),
@@ -1643,7 +1600,6 @@ public class TestSqlParser
 
     @Test
     public void testExplain()
-            throws Exception
     {
         assertStatement("EXPLAIN SELECT * FROM t",
                 new Explain(simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))), false, false, ImmutableList.of()));
@@ -1665,7 +1621,6 @@ public class TestSqlParser
 
     @Test
     public void testExplainVerbose()
-            throws Exception
     {
         assertStatement("EXPLAIN VERBOSE SELECT * FROM t",
                 new Explain(simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))), false, true, ImmutableList.of()));
@@ -1673,7 +1628,6 @@ public class TestSqlParser
 
     @Test
     public void testExplainVerboseTypeLogical()
-            throws Exception
     {
         assertStatement("EXPLAIN VERBOSE (type LOGICAL) SELECT * FROM t",
                 new Explain(simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))), false, true, ImmutableList.of(new ExplainType(ExplainType.Type.LOGICAL))));
@@ -1681,7 +1635,6 @@ public class TestSqlParser
 
     @Test
     public void testExplainAnalyze()
-            throws Exception
     {
         assertStatement("EXPLAIN ANALYZE SELECT * FROM t",
                 new Explain(simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))), true, false, ImmutableList.of()));
@@ -1689,7 +1642,6 @@ public class TestSqlParser
 
     @Test
     public void testExplainAnalyzeTypeDistributed()
-            throws Exception
     {
         assertStatement("EXPLAIN ANALYZE (type DISTRIBUTED) SELECT * FROM t",
                 new Explain(simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))), true, false, ImmutableList.of(new ExplainType(ExplainType.Type.DISTRIBUTED))));
@@ -1697,7 +1649,6 @@ public class TestSqlParser
 
     @Test
     public void testExplainAnalyzeVerbose()
-            throws Exception
     {
         assertStatement("EXPLAIN ANALYZE VERBOSE SELECT * FROM t",
                 new Explain(simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))), true, true, ImmutableList.of()));
@@ -1705,7 +1656,6 @@ public class TestSqlParser
 
     @Test
     public void testExplainAnalyzeVerboseTypeDistributed()
-            throws Exception
     {
         assertStatement("EXPLAIN ANALYZE VERBOSE (type DISTRIBUTED) SELECT * FROM t",
                 new Explain(simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))), true, true, ImmutableList.of(new ExplainType(ExplainType.Type.DISTRIBUTED))));
@@ -1750,7 +1700,6 @@ public class TestSqlParser
 
     @Test
     public void testUnnest()
-            throws Exception
     {
         assertStatement("SELECT * FROM t CROSS JOIN UNNEST(a)",
                 simpleQuery(
@@ -1780,7 +1729,6 @@ public class TestSqlParser
 
     @Test
     public void testLateral()
-            throws Exception
     {
         Lateral lateralRelation = new Lateral(new Query(
                 Optional.empty(),
@@ -1818,7 +1766,6 @@ public class TestSqlParser
 
     @Test
     public void testStartTransaction()
-            throws Exception
     {
         assertStatement("START TRANSACTION",
                 new StartTransaction(ImmutableList.of()));
@@ -1856,7 +1803,6 @@ public class TestSqlParser
 
     @Test
     public void testCommit()
-            throws Exception
     {
         assertStatement("COMMIT", new Commit());
         assertStatement("COMMIT WORK", new Commit());
@@ -1864,7 +1810,6 @@ public class TestSqlParser
 
     @Test
     public void testRollback()
-            throws Exception
     {
         assertStatement("ROLLBACK", new Rollback());
         assertStatement("ROLLBACK WORK", new Rollback());
@@ -1891,7 +1836,6 @@ public class TestSqlParser
 
     @Test
     public void testLambda()
-            throws Exception
     {
         assertExpression("() -> x",
                 new LambdaExpression(
@@ -1911,7 +1855,6 @@ public class TestSqlParser
 
     @Test
     public void testNonReserved()
-            throws Exception
     {
         assertStatement("SELECT zone FROM t",
                 simpleQuery(
@@ -1941,7 +1884,6 @@ public class TestSqlParser
 
     @Test
     public void testBinaryLiteralToHex()
-            throws Exception
     {
         // note that toHexString() always outputs in upper case
         assertEquals(new BinaryLiteral("ab 01").toHexString(), "AB01");
@@ -1949,7 +1891,6 @@ public class TestSqlParser
 
     @Test
     public void testCall()
-            throws Exception
     {
         assertStatement("CALL foo()", new Call(QualifiedName.of("foo"), ImmutableList.of()));
         assertStatement("CALL foo(123, a => 1, b => 'go', 456)", new Call(QualifiedName.of("foo"), ImmutableList.of(

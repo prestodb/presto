@@ -28,7 +28,6 @@ public class TestInput
 
     @Test
     public void testRoundTrip()
-            throws Exception
     {
         Input expected = new Input(new ConnectorId("connectorId"), "schema", "table", Optional.empty(), ImmutableList.of(
                 new Column("column1", "string"),

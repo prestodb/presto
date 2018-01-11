@@ -23,7 +23,6 @@ public class TestMissingShardComparator
 {
     @Test
     public void testOrdering()
-            throws Exception
     {
         MissingShardComparator comparator = new MissingShardComparator();
         assertEquals(comparator.compare(new DummyMissingShardRunnable(false), new DummyMissingShardRunnable(false)), 0);

@@ -41,7 +41,6 @@ public class TestCassandraClusteringPredicatesExtractor
 
     @BeforeTest
     void setUp()
-            throws Exception
     {
         col1 = new CassandraColumnHandle("cassandra", "partitionKey1", 1, CassandraType.BIGINT, null, true, false, false, false);
         col2 = new CassandraColumnHandle("cassandra", "clusteringKey1", 2, CassandraType.BIGINT, null, false, true, false, false);

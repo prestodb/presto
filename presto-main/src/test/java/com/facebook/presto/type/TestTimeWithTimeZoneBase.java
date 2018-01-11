@@ -74,7 +74,6 @@ public abstract class TestTimeWithTimeZoneBase
 
     @Test
     public void testSubstract()
-            throws Exception
     {
         functionAssertions.assertFunctionString("TIME '14:15:16.432 +07:09' - TIME '03:04:05.321 +08:09'",
                 INTERVAL_DAY_TIME,
@@ -203,7 +202,6 @@ public abstract class TestTimeWithTimeZoneBase
 
     @Test
     public void testCastToTime()
-            throws Exception
     {
         assertFunction("cast(TIME '03:04:05.321 +07:09' as time)",
                 TIME,
@@ -212,7 +210,6 @@ public abstract class TestTimeWithTimeZoneBase
 
     @Test
     public void testCastToTimestamp()
-            throws Exception
     {
         assertFunction("cast(TIME '03:04:05.321 +07:09' as timestamp)",
                 TIMESTAMP,
@@ -221,7 +218,6 @@ public abstract class TestTimeWithTimeZoneBase
 
     @Test
     public void testCastToTimestampWithTimeZone()
-            throws Exception
     {
         assertFunction("cast(TIME '03:04:05.321 +07:09' as timestamp with time zone)",
                 TIMESTAMP_WITH_TIME_ZONE,

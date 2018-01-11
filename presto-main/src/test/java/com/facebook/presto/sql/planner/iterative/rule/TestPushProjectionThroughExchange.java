@@ -32,7 +32,6 @@ public class TestPushProjectionThroughExchange
 {
     @Test
     public void testDoesNotFireNoExchange()
-            throws Exception
     {
         tester().assertThat(new PushProjectionThroughExchange())
                 .on(p ->
@@ -44,7 +43,6 @@ public class TestPushProjectionThroughExchange
 
     @Test
     public void testDoesNotFireNarrowingProjection()
-            throws Exception
     {
         tester().assertThat(new PushProjectionThroughExchange())
                 .on(p -> {
@@ -67,7 +65,6 @@ public class TestPushProjectionThroughExchange
 
     @Test
     public void testSimpleMultipleInputs()
-            throws Exception
     {
         tester().assertThat(new PushProjectionThroughExchange())
                 .on(p -> {
@@ -104,7 +101,6 @@ public class TestPushProjectionThroughExchange
 
     @Test
     public void testPartitioningColumnAndHashWithoutIdentityMappingInProjection()
-            throws Exception
     {
         tester().assertThat(new PushProjectionThroughExchange())
                 .on(p -> {

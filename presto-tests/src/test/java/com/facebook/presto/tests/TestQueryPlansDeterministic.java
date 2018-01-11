@@ -47,7 +47,6 @@ public class TestQueryPlansDeterministic
 
     @Test
     public void testTpchQ9deterministic()
-            throws Exception
     {
         //This uses a modified version of TPC-H Q9, because the tpch connector uses non-standard column names
         determinismChecker.checkPlanIsDeterministic("SELECT\n" +
@@ -85,7 +84,6 @@ public class TestQueryPlansDeterministic
 
     @Test
     public void testTpcdsQ6deterministic()
-            throws Exception
     {
         //This is a query inspired on TPC-DS Q6 that reproduces its plan nondeterminism problems
         determinismChecker.checkPlanIsDeterministic("SELECT orderdate " +

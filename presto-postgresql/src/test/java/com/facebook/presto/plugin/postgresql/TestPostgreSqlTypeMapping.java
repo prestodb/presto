@@ -27,7 +27,6 @@ import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.sql.SQLException;
 import java.util.function.Function;
 
 import static com.facebook.presto.plugin.postgresql.PostgreSqlQueryRunner.createPostgreSqlQueryRunner;
@@ -59,7 +58,6 @@ public class TestPostgreSqlTypeMapping
     }
 
     private TestPostgreSqlTypeMapping(TestingPostgreSqlServer postgreSqlServer)
-            throws Exception
     {
         super(() -> createPostgreSqlQueryRunner(postgreSqlServer, emptyList()));
         this.postgreSqlServer = postgreSqlServer;
@@ -207,13 +205,11 @@ public class TestPostgreSqlTypeMapping
 
     @Test
     public void testDecimalExceedingPrecisionMax()
-            throws SQLException
     {
         testUnsupportedDataType("decimal(50,0)");
     }
 
     private void testUnsupportedDataType(String databaseDataType)
-            throws SQLException
     {
         JdbcSqlExecutor jdbcSqlExecutor = new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl());
         jdbcSqlExecutor.execute(format("CREATE TABLE tpch.test_unsupported_data_type(key varchar(5), unsupported_column %s)", databaseDataType));

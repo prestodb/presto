@@ -39,7 +39,6 @@ public class TestPruneAggregationColumns
 {
     @Test
     public void testNotAllInputsReferenced()
-            throws Exception
     {
         tester().assertThat(new PruneAggregationColumns())
                 .on(p -> buildProjectedAggregation(p, symbol -> symbol.getName().equals("b")))
@@ -59,7 +58,6 @@ public class TestPruneAggregationColumns
 
     @Test
     public void testAllOutputsReferenced()
-            throws Exception
     {
         tester().assertThat(new PruneAggregationColumns())
                 .on(p -> buildProjectedAggregation(p, alwaysTrue()))

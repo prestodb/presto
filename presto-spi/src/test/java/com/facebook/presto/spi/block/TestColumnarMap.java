@@ -37,7 +37,6 @@ public class TestColumnarMap
 
     @Test
     public void test()
-            throws Exception
     {
         Slice[][][] expectedValues = new Slice[MAP_SIZES.length][][];
         for (int mapIndex = 0; mapIndex < MAP_SIZES.length; mapIndex++) {

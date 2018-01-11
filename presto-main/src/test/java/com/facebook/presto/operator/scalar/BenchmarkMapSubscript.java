@@ -80,7 +80,6 @@ public class BenchmarkMapSubscript
     @Benchmark
     @OperationsPerInvocation(POSITIONS)
     public List<Optional<Page>> mapSubscript(BenchmarkData data)
-            throws Throwable
     {
         return ImmutableList.copyOf(data.getPageProcessor().process(SESSION, new DriverYieldSignal(), data.getPage()));
     }

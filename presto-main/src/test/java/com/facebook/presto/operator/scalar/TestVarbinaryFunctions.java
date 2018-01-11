@@ -46,14 +46,12 @@ public class TestVarbinaryFunctions
 
     @Test
     public void testBinaryLiteral()
-            throws Exception
     {
         assertFunction("X'58F7'", VARBINARY, sqlVarbinaryHex("58F7"));
     }
 
     @Test
     public void testLength()
-            throws Exception
     {
         assertFunction("length(CAST('' AS VARBINARY))", BIGINT, 0L);
         assertFunction("length(CAST('a' AS VARBINARY))", BIGINT, 1L);
@@ -62,7 +60,6 @@ public class TestVarbinaryFunctions
 
     @Test
     public void testConcat()
-            throws Exception
     {
         assertInvalidFunction("CONCAT(X'')", "There must be two or more concatenation arguments");
 
@@ -98,7 +95,6 @@ public class TestVarbinaryFunctions
 
     @Test
     public void testToBase64()
-            throws Exception
     {
         assertFunction("to_base64(CAST('' AS VARBINARY))", VARCHAR, encodeBase64(""));
         assertFunction("to_base64(CAST('a' AS VARBINARY))", VARCHAR, encodeBase64("a"));
@@ -108,7 +104,6 @@ public class TestVarbinaryFunctions
 
     @Test
     public void testFromBase64()
-            throws Exception
     {
         assertFunction("from_base64(to_base64(CAST('' AS VARBINARY)))", VARBINARY, sqlVarbinary(""));
         assertFunction("from_base64(to_base64(CAST('a' AS VARBINARY)))", VARBINARY, sqlVarbinary("a"));
@@ -121,7 +116,6 @@ public class TestVarbinaryFunctions
 
     @Test
     public void testToBase64Url()
-            throws Exception
     {
         assertFunction("to_base64url(CAST('' AS VARBINARY))", VARCHAR, encodeBase64Url(""));
         assertFunction("to_base64url(CAST('a' AS VARBINARY))", VARCHAR, encodeBase64Url("a"));
@@ -131,7 +125,6 @@ public class TestVarbinaryFunctions
 
     @Test
     public void testFromBase64Url()
-            throws Exception
     {
         assertFunction("from_base64url(to_base64url(CAST('' AS VARBINARY)))", VARBINARY, sqlVarbinary(""));
         assertFunction("from_base64url(to_base64url(CAST('a' AS VARBINARY)))", VARBINARY, sqlVarbinary("a"));
@@ -144,7 +137,6 @@ public class TestVarbinaryFunctions
 
     @Test
     public void testToHex()
-            throws Exception
     {
         assertFunction("to_hex(CAST('' AS VARBINARY))", VARCHAR, encodeHex(""));
         assertFunction("to_hex(CAST('a' AS VARBINARY))", VARCHAR, encodeHex("a"));
@@ -154,7 +146,6 @@ public class TestVarbinaryFunctions
 
     @Test
     public void testFromHex()
-            throws Exception
     {
         assertFunction("from_hex('')", VARBINARY, sqlVarbinary(""));
         assertFunction("from_hex('61')", VARBINARY, sqlVarbinary("a"));
@@ -175,7 +166,6 @@ public class TestVarbinaryFunctions
 
     @Test
     public void testToBigEndian64()
-            throws Exception
     {
         assertFunction("to_big_endian_64(0)", VARBINARY, sqlVarbinaryHex("0000000000000000"));
         assertFunction("to_big_endian_64(1)", VARBINARY, sqlVarbinaryHex("0000000000000001"));
@@ -185,7 +175,6 @@ public class TestVarbinaryFunctions
 
     @Test
     public void testFromBigEndian64()
-            throws Exception
     {
         assertFunction("from_big_endian_64(from_hex('0000000000000000'))", BIGINT, 0L);
         assertFunction("from_big_endian_64(from_hex('0000000000000001'))", BIGINT, 1L);
@@ -198,7 +187,6 @@ public class TestVarbinaryFunctions
 
     @Test
     public void testToIEEE754Binary32()
-            throws Exception
     {
         assertFunction("to_ieee754_32(CAST(0.0 AS REAL))", VARBINARY, sqlVarbinaryHex("00000000"));
         assertFunction("to_ieee754_32(CAST(1.0 AS REAL))", VARBINARY, sqlVarbinaryHex("3F800000"));
@@ -214,7 +202,6 @@ public class TestVarbinaryFunctions
 
     @Test
     public void testToIEEE754Binary64()
-            throws Exception
     {
         assertFunction("to_ieee754_64(0.0)", VARBINARY, sqlVarbinaryHex("0000000000000000"));
         assertFunction("to_ieee754_64(1.0)", VARBINARY, sqlVarbinaryHex("3FF0000000000000"));
@@ -230,7 +217,6 @@ public class TestVarbinaryFunctions
 
     @Test
     public void testMd5()
-            throws Exception
     {
         assertFunction("md5(CAST('' AS VARBINARY))", VARBINARY, sqlVarbinaryHex("D41D8CD98F00B204E9800998ECF8427E"));
         assertFunction("md5(CAST('hashme' AS VARBINARY))", VARBINARY, sqlVarbinaryHex("533F6357E0210E67D91F651BC49E1278"));
@@ -238,7 +224,6 @@ public class TestVarbinaryFunctions
 
     @Test
     public void testSha1()
-            throws Exception
     {
         assertFunction("sha1(CAST('' AS VARBINARY))", VARBINARY, sqlVarbinaryHex("DA39A3EE5E6B4B0D3255BFEF95601890AFD80709"));
         assertFunction("sha1(CAST('hashme' AS VARBINARY))", VARBINARY, sqlVarbinaryHex("FB78992E561929A6967D5328F49413FA99048D06"));
@@ -246,7 +231,6 @@ public class TestVarbinaryFunctions
 
     @Test
     public void testSha256()
-            throws Exception
     {
         assertFunction("sha256(CAST('' AS VARBINARY))", VARBINARY, sqlVarbinaryHex("E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"));
         assertFunction("sha256(CAST('hashme' AS VARBINARY))", VARBINARY, sqlVarbinaryHex("02208B9403A87DF9F4ED6B2EE2657EFAA589026B4CCE9ACCC8E8A5BF3D693C86"));
@@ -254,7 +238,6 @@ public class TestVarbinaryFunctions
 
     @Test
     public void testSha512()
-            throws Exception
     {
         assertFunction("sha512(CAST('' AS VARBINARY))", VARBINARY, sqlVarbinaryHex("CF83E1357EEFB8BDF1542850D66D8007D620E4050B5715DC83F4A921D36CE9CE47D0D13C5D85F2B0FF8318D2877EEC2F63B931BD47417A81A538327AF927DA3E"));
         assertFunction("sha512(CAST('hashme' AS VARBINARY))", VARBINARY, sqlVarbinaryHex("8A4B59FB9188D09B989FF596AC9CEFBF2ED91DED8DCD9498E8BF2236814A92B23BE6867E7FC340880E514F8FDF97E1F147EA4B0FD6C2DA3557D0CF1C0B58A204"));
@@ -262,7 +245,6 @@ public class TestVarbinaryFunctions
 
     @Test
     public void testXxhash64()
-            throws Exception
     {
         assertFunction("xxhash64(CAST('' AS VARBINARY))", VARBINARY, sqlVarbinaryHex("EF46DB3751D8E999"));
         assertFunction("xxhash64(CAST('hashme' AS VARBINARY))", VARBINARY, sqlVarbinaryHex("F9D96E0E1165E892"));
@@ -270,7 +252,6 @@ public class TestVarbinaryFunctions
 
     @Test
     public void testHashCode()
-            throws Exception
     {
         Slice data = Slices.wrappedBuffer(ALL_BYTES);
 
@@ -284,7 +265,6 @@ public class TestVarbinaryFunctions
 
     @Test
     public void testCrc32()
-            throws Exception
     {
         assertFunction("crc32(to_utf8('CRC me!'))", BIGINT, 38028046L);
         assertFunction("crc32(to_utf8('1234567890'))", BIGINT, 639479525L);

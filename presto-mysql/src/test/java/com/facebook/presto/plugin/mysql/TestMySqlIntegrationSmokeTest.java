@@ -48,7 +48,6 @@ public class TestMySqlIntegrationSmokeTest
     }
 
     public TestMySqlIntegrationSmokeTest(TestingMySqlServer mysqlServer)
-            throws Exception
     {
         super(() -> createMySqlQueryRunner(mysqlServer, ORDERS));
         this.mysqlServer = mysqlServer;
@@ -62,7 +61,6 @@ public class TestMySqlIntegrationSmokeTest
 
     @Override
     public void testDescribeTable()
-            throws Exception
     {
         // we need specific implementation of this tests due to specific Presto<->Mysql varchar length mapping.
         MaterializedResult actualColumns = computeActual("DESC ORDERS").toTestTypes();
@@ -113,7 +111,6 @@ public class TestMySqlIntegrationSmokeTest
 
     @Test
     public void testNameEscaping()
-            throws Exception
     {
         Session session = testSessionBuilder()
                 .setCatalog("mysql")

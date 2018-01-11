@@ -29,7 +29,6 @@ import com.teradata.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
 import java.sql.Connection;
-import java.sql.SQLException;
 import java.util.Locale;
 import java.util.Optional;
 
@@ -195,7 +194,6 @@ public class TestHiveCoercion
     @Requires(TextRequirements.class)
     @Test(groups = {HIVE_COERCION, HIVE_CONNECTOR, JDBC})
     public void testHiveCoercionTextFile()
-            throws SQLException
     {
         doTestHiveCoercion(HIVE_COERCION_TEXTFILE);
     }
@@ -203,7 +201,6 @@ public class TestHiveCoercion
     @Requires(OrcRequirements.class)
     @Test(groups = {HIVE_COERCION, HIVE_CONNECTOR, JDBC})
     public void testHiveCoercionOrc()
-            throws SQLException
     {
         doTestHiveCoercion(HIVE_COERCION_ORC);
     }
@@ -211,7 +208,6 @@ public class TestHiveCoercion
     @Requires(RcTextRequirements.class)
     @Test(groups = {HIVE_COERCION, HIVE_CONNECTOR, JDBC})
     public void testHiveCoercionRcText()
-            throws SQLException
     {
         doTestHiveCoercion(HIVE_COERCION_RCTEXT);
     }
@@ -219,7 +215,6 @@ public class TestHiveCoercion
     @Requires(RcBinaryRequirements.class)
     @Test(groups = {HIVE_COERCION, HIVE_CONNECTOR, JDBC})
     public void testHiveCoercionRcBinary()
-            throws SQLException
     {
         doTestHiveCoercion(HIVE_COERCION_RCBINARY);
     }
@@ -227,7 +222,6 @@ public class TestHiveCoercion
     @Requires(ParquetRequirements.class)
     @Test(groups = {HIVE_COERCION, HIVE_CONNECTOR, JDBC})
     public void testHiveCoercionParquet()
-            throws SQLException
     {
         doTestHiveCoercion(HIVE_COERCION_PARQUET);
     }
@@ -235,7 +229,6 @@ public class TestHiveCoercion
     @Requires(AvroRequirements.class)
     @Test(groups = {HIVE_COERCION, HIVE_CONNECTOR, JDBC})
     public void testHiveCoercionAvro()
-            throws SQLException
     {
         HiveTableDefinition tableDefinition = HIVE_COERCION_AVRO;
         String tableName = mutableTableInstanceOf(tableDefinition).getNameInDatabase();
@@ -264,7 +257,6 @@ public class TestHiveCoercion
     }
 
     private void doTestHiveCoercion(HiveTableDefinition tableDefinition)
-            throws SQLException
     {
         String tableName = mutableTableInstanceOf(tableDefinition).getNameInDatabase();
 

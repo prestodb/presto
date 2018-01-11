@@ -45,7 +45,6 @@ public class TestHiveSplitSource
 {
     @Test
     public void testOutstandingSplitCount()
-            throws Exception
     {
         HiveSplitSource hiveSplitSource = HiveSplitSource.allAtOnce(
                 SESSION,
@@ -80,7 +79,6 @@ public class TestHiveSplitSource
 
     @Test
     public void testFail()
-            throws Exception
     {
         HiveSplitSource hiveSplitSource = HiveSplitSource.allAtOnce(
                 SESSION,
@@ -197,7 +195,6 @@ public class TestHiveSplitSource
 
     @Test(enabled = false)
     public void testOutstandingSplitSize()
-            throws Exception
     {
         DataSize maxOutstandingSplitsSize = new DataSize(1, MEGABYTE);
         HiveSplitSource hiveSplitSource = HiveSplitSource.allAtOnce(

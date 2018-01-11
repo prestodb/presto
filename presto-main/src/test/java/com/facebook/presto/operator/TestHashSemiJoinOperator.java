@@ -76,7 +76,6 @@ public class TestHashSemiJoinOperator
 
     @Test(dataProvider = "hashEnabledValues")
     public void testSemiJoin(boolean hashEnabled)
-            throws Exception
     {
         DriverContext driverContext = taskContext.addPipelineContext(0, true, true).addDriverContext();
 
@@ -132,7 +131,6 @@ public class TestHashSemiJoinOperator
 
     @Test(dataProvider = "hashEnabledValues")
     public void testBuildSideNulls(boolean hashEnabled)
-            throws Exception
     {
         DriverContext driverContext = taskContext.addPipelineContext(0, true, true).addDriverContext();
 
@@ -182,7 +180,6 @@ public class TestHashSemiJoinOperator
 
     @Test(dataProvider = "hashEnabledValues")
     public void testProbeSideNulls(boolean hashEnabled)
-            throws Exception
     {
         DriverContext driverContext = taskContext.addPipelineContext(0, true, true).addDriverContext();
 
@@ -232,7 +229,6 @@ public class TestHashSemiJoinOperator
 
     @Test(dataProvider = "hashEnabledValues")
     public void testProbeAndBuildNulls(boolean hashEnabled)
-            throws Exception
     {
         DriverContext driverContext = taskContext.addPipelineContext(0, true, true).addDriverContext();
 
@@ -283,7 +279,6 @@ public class TestHashSemiJoinOperator
 
     @Test(dataProvider = "hashEnabledValues", expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded local memory limit of.*")
     public void testMemoryLimit(boolean hashEnabled)
-            throws Exception
     {
         DriverContext driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION, new DataSize(100, BYTE))
                 .addPipelineContext(0, true, true)

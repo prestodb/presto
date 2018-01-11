@@ -52,7 +52,6 @@ public class ImpersonationTests
 
     @Test(groups = {HDFS_NO_IMPERSONATION, PROFILE_SPECIFIC_TESTS})
     public void testHdfsImpersonationDisabled()
-            throws Exception
     {
         String tableName = "check_hdfs_impersonation_disabled";
         checkTableOwner(tableName, configuredHdfsUser);
@@ -60,7 +59,6 @@ public class ImpersonationTests
 
     @Test(groups = {HDFS_IMPERSONATION, PROFILE_SPECIFIC_TESTS})
     public void testHdfsImpersonationEnabled()
-            throws Exception
     {
         String tableName = "check_hdfs_impersonation_enabled";
         checkTableOwner(tableName, prestoJdbcUser);

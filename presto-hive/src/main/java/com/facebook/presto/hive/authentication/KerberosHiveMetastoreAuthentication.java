@@ -19,7 +19,6 @@ import org.apache.hadoop.hive.thrift.client.TUGIAssumingTransport;
 import org.apache.hadoop.security.SaslRpcServer;
 import org.apache.thrift.transport.TSaslClientTransport;
 import org.apache.thrift.transport.TTransport;
-import org.apache.thrift.transport.TTransportException;
 
 import javax.inject.Inject;
 import javax.security.sasl.Sasl;
@@ -53,7 +52,6 @@ public class KerberosHiveMetastoreAuthentication
 
     @Override
     public TTransport authenticate(TTransport rawTransport, String hiveMetastoreHost)
-            throws TTransportException
     {
         try {
             String serverPrincipal = getServerPrincipal(hiveMetastoreServicePrincipal, hiveMetastoreHost);

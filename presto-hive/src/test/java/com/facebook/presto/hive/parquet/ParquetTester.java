@@ -181,7 +181,7 @@ public class ParquetTester
             TempFile tempFile,
             Iterable<?> expectedValues,
             Type type)
-            throws IOException, InterruptedException
+            throws IOException
     {
         Path path = new Path(tempFile.getFile().toURI());
         FileSystem fileSystem = path.getFileSystem(jobConf);

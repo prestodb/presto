@@ -66,7 +66,6 @@ public class TestHiveBucketing
 {
     @Test
     public void testHashingBooleanLong()
-            throws Exception
     {
         List<Entry<ObjectInspector, Object>> bindings = ImmutableList.<Entry<ObjectInspector, Object>>builder()
                 .add(entry(javaBooleanObjectInspector, true))
@@ -81,7 +80,6 @@ public class TestHiveBucketing
 
     @Test
     public void testHashingString()
-            throws Exception
     {
         List<Entry<ObjectInspector, Object>> bindings = ImmutableList.<Entry<ObjectInspector, Object>>builder()
                 .add(entry(javaStringObjectInspector, utf8Slice("sequencefile test")))

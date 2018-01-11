@@ -154,14 +154,12 @@ public class PrestoResultSet
 
     @Override
     public void close()
-            throws SQLException
     {
         client.close();
     }
 
     @Override
     public boolean wasNull()
-            throws SQLException
     {
         return wasNull.get();
     }
@@ -498,7 +496,6 @@ public class PrestoResultSet
 
     @Override
     public ResultSetMetaData getMetaData()
-            throws SQLException
     {
         return resultSetMetaData;
     }
@@ -1309,7 +1306,6 @@ public class PrestoResultSet
 
     @Override
     public boolean isClosed()
-            throws SQLException
     {
         return client.isClosed();
     }
@@ -1635,7 +1631,6 @@ public class PrestoResultSet
 
     @Override
     public boolean isWrapperFor(Class<?> iface)
-            throws SQLException
     {
         return iface.isInstance(this);
     }

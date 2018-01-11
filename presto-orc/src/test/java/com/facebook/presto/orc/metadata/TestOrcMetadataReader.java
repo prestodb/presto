@@ -47,7 +47,6 @@ public class TestOrcMetadataReader
 {
     @Test
     public void testGetMinSlice()
-            throws Exception
     {
         int startCodePoint = MIN_CODE_POINT;
         int endCodePoint = MAX_CODE_POINT;
@@ -84,7 +83,6 @@ public class TestOrcMetadataReader
 
     @Test
     public void testGetMaxSlice()
-            throws Exception
     {
         int startCodePoint = MIN_CODE_POINT;
         int endCodePoint = MAX_CODE_POINT;
@@ -283,7 +281,6 @@ public class TestOrcMetadataReader
 
     @Test
     public void testMinStringTruncateAtFirstReplacementCharacter()
-            throws Exception
     {
         for (Slice prefix : VALID_UTF8_SEQUENCES) {
             for (Slice suffix : VALID_UTF8_SEQUENCES) {
@@ -316,7 +313,6 @@ public class TestOrcMetadataReader
 
     @Test
     public void testMaxStringTruncateAtFirstReplacementCharacter()
-            throws Exception
     {
         for (Slice prefix : VALID_UTF8_SEQUENCES) {
             for (Slice suffix : VALID_UTF8_SEQUENCES) {

@@ -14,14 +14,12 @@
 package com.facebook.presto.hive.authentication;
 
 import org.apache.thrift.transport.TTransport;
-import org.apache.thrift.transport.TTransportException;
 
 public class NoHiveMetastoreAuthentication
         implements HiveMetastoreAuthentication
 {
     @Override
     public TTransport authenticate(TTransport rawTransport, String hiveMetastoreHost)
-            throws TTransportException
     {
         return rawTransport;
     }

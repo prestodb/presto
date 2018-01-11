@@ -31,7 +31,6 @@ import java.sql.DatabaseMetaData;
 import java.sql.NClob;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.sql.SQLClientInfoException;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.SQLWarning;
@@ -190,14 +189,12 @@ public class PrestoConnection
 
     @Override
     public boolean isClosed()
-            throws SQLException
     {
         return closed.get();
     }
 
     @Override
     public DatabaseMetaData getMetaData()
-            throws SQLException
     {
         return new PrestoDatabaseMetaData(this);
     }
@@ -212,7 +209,6 @@ public class PrestoConnection
 
     @Override
     public boolean isReadOnly()
-            throws SQLException
     {
         return readOnly.get();
     }
@@ -438,7 +434,6 @@ public class PrestoConnection
 
     @Override
     public void setClientInfo(String name, String value)
-            throws SQLClientInfoException
     {
         requireNonNull(name, "name is null");
         if (value != null) {
@@ -451,21 +446,18 @@ public class PrestoConnection
 
     @Override
     public void setClientInfo(Properties properties)
-            throws SQLClientInfoException
     {
         clientInfo.putAll(fromProperties(properties));
     }
 
     @Override
     public String getClientInfo(String name)
-            throws SQLException
     {
         return clientInfo.get(name);
     }
 
     @Override
     public Properties getClientInfo()
-            throws SQLException
     {
         Properties properties = new Properties();
         for (Map.Entry<String, String> entry : clientInfo.entrySet()) {
@@ -576,7 +568,6 @@ public class PrestoConnection
 
     @Override
     public boolean isWrapperFor(Class<?> iface)
-            throws SQLException
     {
         return iface.isInstance(this);
     }

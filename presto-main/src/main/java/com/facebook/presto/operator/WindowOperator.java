@@ -540,7 +540,6 @@ public class WindowOperator
 
     @Override
     public void close()
-            throws Exception
     {
         driverWindowInfo.set(Optional.of(windowInfo.build()));
     }

@@ -186,7 +186,6 @@ public abstract class AbstractOrcDataSource
     }
 
     private <K> Map<K, FixedLengthSliceInput> readLargeDiskRanges(Map<K, DiskRange> diskRanges)
-            throws IOException
     {
         if (diskRanges.isEmpty()) {
             return ImmutableMap.of();

@@ -400,7 +400,6 @@ public class TestHttpPageBufferClient
 
     @Test
     public void testErrorCodes()
-            throws Exception
     {
         assertEquals(new PageTooLargeException().getErrorCode(), PAGE_TOO_LARGE.toErrorCode());
         assertEquals(new PageTransportErrorException("").getErrorCode(), PAGE_TRANSPORT_ERROR.toErrorCode());

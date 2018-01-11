@@ -39,7 +39,6 @@ public class TestTupleFilterProcessor
 {
     @Test
     public void testFilter()
-            throws Exception
     {
         Page tuplePage = Iterables.getOnlyElement(rowPagesBuilder(BIGINT, VARCHAR, DOUBLE)
                 .row(1L, "a", 0.1)

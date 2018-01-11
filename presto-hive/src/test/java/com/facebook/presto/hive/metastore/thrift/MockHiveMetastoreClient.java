@@ -70,7 +70,6 @@ public class MockHiveMetastoreClient
 
     @Override
     public List<String> getAllDatabases()
-            throws TException
     {
         accessCount.incrementAndGet();
         if (throwException) {
@@ -81,7 +80,6 @@ public class MockHiveMetastoreClient
 
     @Override
     public List<String> getAllTables(String dbName)
-            throws TException
     {
         accessCount.incrementAndGet();
         if (throwException) {
@@ -135,14 +133,12 @@ public class MockHiveMetastoreClient
 
     @Override
     public List<ColumnStatisticsObj> getTableColumnStatistics(String databaseName, String tableName, List<String> columnNames)
-            throws TException
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
     public Map<String, List<ColumnStatisticsObj>> getPartitionColumnStatistics(String databaseName, String tableName, List<String> columnNames, List<String> partitionValues)
-            throws TException
     {
         throw new UnsupportedOperationException();
     }
@@ -155,7 +151,6 @@ public class MockHiveMetastoreClient
 
     @Override
     public List<String> getPartitionNames(String dbName, String tableName)
-            throws TException
     {
         accessCount.incrementAndGet();
         if (throwException) {
@@ -266,7 +261,6 @@ public class MockHiveMetastoreClient
 
     @Override
     public void alterPartition(String databaseName, String tableName, Partition partition)
-            throws TException
     {
         throw new UnsupportedOperationException();
     }
@@ -285,7 +279,6 @@ public class MockHiveMetastoreClient
 
     @Override
     public List<HiveObjectPrivilege> listPrivileges(String principalName, PrincipalType principalType, HiveObjectRef hiveObjectRef)
-            throws TException
     {
         throw new UnsupportedOperationException();
     }

@@ -32,7 +32,6 @@ public class TestLongDecimalType
 
     @Test
     public void testCompareTo()
-            throws Exception
     {
         testCompare("0", "-1234567891.1234567890", 1);
         testCompare("1234567890.1234567890", "1234567890.1234567890", 0);

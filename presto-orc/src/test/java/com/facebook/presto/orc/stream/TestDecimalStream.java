@@ -62,14 +62,12 @@ public class TestDecimalStream
 
     @Test
     public void testShouldFailWhenShortDecimalDoesNotFit()
-            throws IOException
     {
         assertShortValueReadFails(BigInteger.valueOf(Long.MAX_VALUE).add(ONE));
     }
 
     @Test
     public void testShouldFailWhenExceeds128Bits()
-            throws IOException
     {
         assertLongValueReadFails(BigInteger.valueOf(1).shiftLeft(127));
         assertLongValueReadFails(BigInteger.valueOf(-2).shiftLeft(127));
@@ -121,7 +119,6 @@ public class TestDecimalStream
     }
 
     private static void assertShortValueReadFails(BigInteger value)
-            throws IOException
     {
         assertThrows(OrcCorruptionException.class, () -> {
             DecimalInputStream stream = new DecimalInputStream(decimalInputStream(value));
@@ -130,7 +127,6 @@ public class TestDecimalStream
     }
 
     private static void assertLongValueReadFails(BigInteger value)
-            throws IOException
     {
         Slice decimal = unscaledDecimal();
         assertThrows(OrcCorruptionException.class, () -> {

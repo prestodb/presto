@@ -47,7 +47,6 @@ public class TestMongoIntegrationSmokeTest
 
     @BeforeClass
     public void setUp()
-            throws Exception
     {
         mongoQueryRunner = (MongoQueryRunner) getQueryRunner();
     }
@@ -61,7 +60,6 @@ public class TestMongoIntegrationSmokeTest
 
     @Test
     public void createTableWithEveryType()
-            throws Exception
     {
         String query = "" +
                 "CREATE TABLE test_types_table AS " +
@@ -94,7 +92,6 @@ public class TestMongoIntegrationSmokeTest
 
     @Test
     public void testArrays()
-            throws Exception
     {
         assertUpdate("CREATE TABLE tmp_array1 AS SELECT ARRAY[1, 2, NULL] AS col", 1);
         assertQuery("SELECT col[2] FROM tmp_array1", "SELECT 2");
@@ -121,7 +118,6 @@ public class TestMongoIntegrationSmokeTest
 
     @Test
     public void testTemporalArrays()
-            throws Exception
     {
         assertUpdate("CREATE TABLE tmp_array7 AS SELECT ARRAY[DATE '2014-09-30'] AS col", 1);
         assertOneNotNullResult("SELECT col[1] FROM tmp_array7");
@@ -131,7 +127,6 @@ public class TestMongoIntegrationSmokeTest
 
     @Test
     public void testMaps()
-            throws Exception
     {
         assertUpdate("CREATE TABLE tmp_map1 AS SELECT MAP(ARRAY[0,1], ARRAY[2,NULL]) AS col", 1);
         assertQuery("SELECT col[0] FROM tmp_map1", "SELECT 2");
@@ -183,7 +178,6 @@ public class TestMongoIntegrationSmokeTest
 
     @Test
     public void testCollectionNameContainsDots()
-            throws Exception
     {
         assertUpdate("CREATE TABLE \"tmp.dot1\" AS SELECT 'foo' _varchar", 1);
         assertQuery("SELECT _varchar FROM \"tmp.dot1\"", "SELECT 'foo'");
@@ -192,7 +186,6 @@ public class TestMongoIntegrationSmokeTest
 
     @Test
     public void testObjectIds()
-            throws Exception
     {
         assertUpdate("CREATE TABLE tmp_objectid AS SELECT ObjectId('ffffffffffffffffffffffff') AS id", 1);
         assertOneNotNullResult("SELECT id FROM tmp_objectid WHERE id = ObjectId('ffffffffffffffffffffffff')");

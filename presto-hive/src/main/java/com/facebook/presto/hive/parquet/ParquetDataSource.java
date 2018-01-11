@@ -23,11 +23,9 @@ public interface ParquetDataSource
 
     long getSize();
 
-    void readFully(long position, byte[] buffer)
-            throws IOException;
+    void readFully(long position, byte[] buffer);
 
-    void readFully(long position, byte[] buffer, int bufferOffset, int bufferLength)
-            throws IOException;
+    void readFully(long position, byte[] buffer, int bufferOffset, int bufferLength);
 
     @Override
     default void close()

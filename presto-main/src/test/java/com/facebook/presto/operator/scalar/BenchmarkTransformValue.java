@@ -84,7 +84,6 @@ public class BenchmarkTransformValue
     @Benchmark
     @OperationsPerInvocation(POSITIONS * NUM_TYPES)
     public List<Optional<Page>> benchmark(BenchmarkData data)
-            throws Throwable
     {
         return ImmutableList.copyOf(data.getPageProcessor().process(SESSION, new DriverYieldSignal(), data.getPage()));
     }

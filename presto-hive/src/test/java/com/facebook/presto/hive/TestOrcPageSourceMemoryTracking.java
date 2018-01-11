@@ -77,7 +77,6 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.File;
-import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -162,7 +161,6 @@ public class TestOrcPageSourceMemoryTracking
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
-            throws Exception
     {
         tempFile.delete();
     }
@@ -303,7 +301,6 @@ public class TestOrcPageSourceMemoryTracking
 
     @Test
     public void testTableScanOperator()
-            throws Exception
     {
         // Numbers used in assertions in this test may change when implementation is modified,
         // feel free to change them if they break in the future
@@ -366,7 +363,6 @@ public class TestOrcPageSourceMemoryTracking
 
     @Test
     public void testScanFilterAndProjectOperator()
-            throws Exception
     {
         // Numbers used in assertions in this test may change when implementation is modified,
         // feel free to change them if they break in the future
@@ -604,7 +600,6 @@ public class TestOrcPageSourceMemoryTracking
     }
 
     private static RecordWriter createRecordWriter(Path target, Configuration conf)
-            throws IOException
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(FileSystem.class.getClassLoader())) {
             WriterOptions options = new OrcWriterOptions(conf)

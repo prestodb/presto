@@ -52,14 +52,12 @@ public class TestField
 {
     @Test(expectedExceptions = NullPointerException.class, expectedExceptionsMessageRegExp = "type is null")
     public void testTypeIsNull()
-            throws Exception
     {
         new Field(null, null);
     }
 
     @Test
     public void testArray()
-            throws Exception
     {
         Type type = new ArrayType(VARCHAR);
         Block expected = AccumuloRowSerializer.getBlockFromArray(VARCHAR, ImmutableList.of("a", "b", "c"));
@@ -75,7 +73,6 @@ public class TestField
 
     @Test
     public void testBoolean()
-            throws Exception
     {
         Type type = BOOLEAN;
         Field f1 = new Field(true, type);
@@ -96,7 +93,6 @@ public class TestField
 
     @Test
     public void testDate()
-            throws Exception
     {
         Type type = DATE;
         Date expected = new Date(new GregorianCalendar(1999, 0, 1).getTime().getTime());
@@ -112,7 +108,6 @@ public class TestField
 
     @Test
     public void testDouble()
-            throws Exception
     {
         Type type = DOUBLE;
         Double expected = 123.45678;
@@ -128,7 +123,6 @@ public class TestField
 
     @Test
     public void testFloat()
-            throws Exception
     {
         Type type = REAL;
         Float expected = 123.45678f;
@@ -144,7 +138,6 @@ public class TestField
 
     @Test
     public void testInt()
-            throws Exception
     {
         Type type = INTEGER;
         Integer expected = 12345678;
@@ -160,7 +153,6 @@ public class TestField
 
     @Test
     public void testLong()
-            throws Exception
     {
         Type type = BIGINT;
         Long expected = 12345678L;
@@ -176,7 +168,6 @@ public class TestField
 
     @Test
     public void testMap()
-            throws Exception
     {
         TypeManager typeManager = new TypeRegistry();
         // associate typeManager with a function registry
@@ -195,7 +186,6 @@ public class TestField
 
     @Test
     public void testSmallInt()
-            throws Exception
     {
         Type type = SMALLINT;
         Short expected = 12345;
@@ -211,7 +201,6 @@ public class TestField
 
     @Test
     public void testTime()
-            throws Exception
     {
         Type type = TIME;
         Time expected = new Time(new GregorianCalendar(1999, 0, 1, 12, 30, 0).getTime().getTime());
@@ -227,7 +216,6 @@ public class TestField
 
     @Test
     public void testTimestamp()
-            throws Exception
     {
         Type type = TIMESTAMP;
         Timestamp expected = new Timestamp(new GregorianCalendar(1999, 0, 1, 12, 30, 0).getTime().getTime());
@@ -243,7 +231,6 @@ public class TestField
 
     @Test
     public void testTinyInt()
-            throws Exception
     {
         Type type = TINYINT;
         Byte expected = 123;
@@ -259,7 +246,6 @@ public class TestField
 
     @Test
     public void testVarbinary()
-            throws Exception
     {
         Type type = VARBINARY;
         byte[] expected = "O'Leary".getBytes(UTF_8);
@@ -275,7 +261,6 @@ public class TestField
 
     @Test
     public void testVarchar()
-            throws Exception
     {
         Type type = VARCHAR;
         String expected = "O'Leary";

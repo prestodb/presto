@@ -24,7 +24,6 @@ import io.airlift.log.Logger;
 import org.testng.annotations.Test;
 
 import java.sql.Date;
-import java.sql.SQLException;
 import java.sql.Timestamp;
 
 import static com.facebook.presto.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
@@ -83,7 +82,6 @@ public class Select
 
     @Test(groups = {SQL_SERVER, PROFILE_SPECIFIC_TESTS})
     public void testSelectNation()
-            throws SQLException
     {
         String sql = format(
                 "SELECT n_nationkey, n_name, n_regionkey, n_comment FROM %s",
@@ -96,7 +94,6 @@ public class Select
 
     @Test(groups = {SQL_SERVER, PROFILE_SPECIFIC_TESTS})
     public void testNationSelfInnerJoin()
-            throws SQLException
     {
         String sql = format(
                 "SELECT n1.n_name, n2.n_regionkey FROM %s n1 JOIN " +
@@ -117,7 +114,6 @@ public class Select
 
     @Test(groups = {SQL_SERVER, PROFILE_SPECIFIC_TESTS})
     public void testNationJoinRegion()
-            throws SQLException
     {
         String sql = format(
                 "SELECT c.n_name, t.name FROM %s c JOIN " +
@@ -132,7 +128,6 @@ public class Select
 
     @Test(groups = {SQL_SERVER, PROFILE_SPECIFIC_TESTS})
     public void testAllDatatypes()
-            throws SQLException
     {
         String sql = format(
                 "SELECT bi, si, i, ti, f, r, c, vc, te, nc, nvc, nt, d, dt, dt2, sdt, pf30, pf22 " +
@@ -159,7 +154,6 @@ public class Select
 
     @Test(groups = {SQL_SERVER, PROFILE_SPECIFIC_TESTS})
     public void testCreateTableAsSelect()
-            throws SQLException
     {
         String sql = format(
                 "CREATE TABLE %s AS SELECT * FROM %s", CREATE_TABLE_AS_SELECT, NATION_TABLE_NAME);

@@ -57,7 +57,6 @@ public class TestJdbcRecordSet
 
     @Test
     public void testGetColumnTypes()
-            throws Exception
     {
         RecordSet recordSet = new JdbcRecordSet(jdbcClient, split, ImmutableList.of(
                 new JdbcColumnHandle("test", "text", VARCHAR),
@@ -82,7 +81,6 @@ public class TestJdbcRecordSet
 
     @Test
     public void testCursorSimple()
-            throws Exception
     {
         RecordSet recordSet = new JdbcRecordSet(jdbcClient, split, ImmutableList.of(
                 columnHandles.get("text"),
@@ -116,7 +114,6 @@ public class TestJdbcRecordSet
 
     @Test
     public void testCursorMixedOrder()
-            throws Exception
     {
         RecordSet recordSet = new JdbcRecordSet(jdbcClient, split, ImmutableList.of(
                 columnHandles.get("value"),

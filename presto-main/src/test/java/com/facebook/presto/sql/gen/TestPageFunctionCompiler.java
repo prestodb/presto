@@ -65,7 +65,6 @@ public class TestPageFunctionCompiler
 
     @Test(dataProvider = "forceYield")
     public void testFailureDoesNotCorruptFutureResults(boolean forceYield)
-            throws Exception
     {
         PageFunctionCompiler functionCompiler = new PageFunctionCompiler(createTestMetadataManager(), 0);
 
