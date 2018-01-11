@@ -21,8 +21,6 @@ import com.facebook.presto.memory.context.MemoryTrackingContext;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spiller.SpillSpaceTracker;
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 
@@ -43,6 +41,7 @@ import static com.facebook.presto.memory.context.AggregatedMemoryContext.newRoot
 import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.airlift.units.DataSize.succinctBytes;
 import static java.util.Objects.requireNonNull;
@@ -178,24 +177,11 @@ public class QueryContext
         long originalReserved = queryMemoryContext.getUserMemory() + queryMemoryContext.getRevocableMemory();
         memoryPool = pool;
         ListenableFuture<?> future = pool.reserve(queryId, originalReserved);
-        Futures.addCallback(future, new FutureCallback<Object>()
-        {
-            @Override
-            public void onSuccess(Object result)
-            {
-                originalPool.free(queryId, originalReserved);
-                // Unblock all the tasks, if they were waiting for memory, since we're in a new pool.
-                taskContexts.values().forEach(TaskContext::moreMemoryAvailable);
-            }
-
-            @Override
-            public void onFailure(Throwable t)
-            {
-                originalPool.free(queryId, originalReserved);
-                // Unblock all the tasks, if they were waiting for memory, since we're in a new pool.
-                taskContexts.values().forEach(TaskContext::moreMemoryAvailable);
-            }
-        });
+        originalPool.free(queryId, originalReserved);
+        future.addListener(() -> {
+            // Unblock all the tasks, if they were waiting for memory, since we're in a new pool.
+            taskContexts.values().forEach(TaskContext::moreMemoryAvailable);
+        }, directExecutor());
     }
 
     public synchronized MemoryPool getMemoryPool()
