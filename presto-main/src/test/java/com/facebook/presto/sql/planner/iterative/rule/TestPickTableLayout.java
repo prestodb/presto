@@ -17,9 +17,9 @@ import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableLayoutHandle;
 import com.facebook.presto.spi.predicate.Domain;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
-import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.testing.TestingTransactionHandle;
 import com.facebook.presto.tpch.TpchColumnHandle;
 import com.facebook.presto.tpch.TpchTableHandle;
@@ -82,13 +82,12 @@ public class TestPickTableLayout
                         nationTableHandle,
                         ImmutableList.of(p.symbol("nationkey", BIGINT)),
                         ImmutableMap.of(p.symbol("nationkey", BIGINT), new TpchColumnHandle("nationkey", BIGINT)),
-                        BooleanLiteral.TRUE_LITERAL,
                         Optional.of(DUMMY_TABLE_LAYOUT_HANDLE)))
                 .doesNotFire();
     }
 
     @Test
-    public void doesNotFireIfTableScanHasConstraint()
+    public void doesNotFireIfTableScanNonDefaultConstraint()
     {
         tester().assertThat(pickTableLayout.pickTableLayoutForPredicate())
                 .on(p -> p.filter(expression("nationkey = BIGINT '44'"),
@@ -96,8 +95,8 @@ public class TestPickTableLayout
                                 nationTableHandle,
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),
                                 ImmutableMap.of(p.symbol("nationkey", BIGINT), new TpchColumnHandle("nationkey", BIGINT)),
-                                expression("nationkey = BIGINT '44'"),
-                                Optional.of(nationTableLayoutHandle))))
+                                Optional.of(nationTableLayoutHandle),
+                                TupleDomain.none())))
                 .doesNotFire();
     }
 
@@ -147,7 +146,6 @@ public class TestPickTableLayout
                                 nationTableHandle,
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),
                                 ImmutableMap.of(p.symbol("nationkey", BIGINT), new TpchColumnHandle("nationkey", BIGINT)),
-                                BooleanLiteral.TRUE_LITERAL,
                                 Optional.of(nationTableLayoutHandle))))
                 .matches(
                         filter("nationkey = BIGINT '44'",

@@ -299,25 +299,40 @@ public class PlanBuilder
     public TableScanNode tableScan(List<Symbol> symbols, Map<Symbol, ColumnHandle> assignments, Expression originalConstraint)
     {
         TableHandle tableHandle = new TableHandle(new ConnectorId("testConnector"), new TestingTableHandle());
-        return tableScan(tableHandle, symbols, assignments, originalConstraint);
+        return tableScan(tableHandle, symbols, assignments, Optional.empty(), TupleDomain.all(), originalConstraint);
     }
 
     public TableScanNode tableScan(TableHandle tableHandle, List<Symbol> symbols, Map<Symbol, ColumnHandle> assignments)
     {
-        return tableScan(tableHandle, symbols, assignments, null);
-    }
-
-    public TableScanNode tableScan(TableHandle tableHandle, List<Symbol> symbols, Map<Symbol, ColumnHandle> assignments, Expression originalConstraint)
-    {
-        return tableScan(tableHandle, symbols, assignments, originalConstraint, Optional.empty());
+        return tableScan(tableHandle, symbols, assignments, Optional.empty());
     }
 
     public TableScanNode tableScan(
             TableHandle tableHandle,
             List<Symbol> symbols,
             Map<Symbol, ColumnHandle> assignments,
-            Expression originalConstraint,
             Optional<TableLayoutHandle> tableLayout)
+    {
+        return tableScan(tableHandle, symbols, assignments, tableLayout, TupleDomain.all());
+    }
+
+    public TableScanNode tableScan(
+            TableHandle tableHandle,
+            List<Symbol> symbols,
+            Map<Symbol, ColumnHandle> assignments,
+            Optional<TableLayoutHandle> tableLayout,
+            TupleDomain<ColumnHandle> tupleDomain)
+    {
+        return tableScan(tableHandle, symbols, assignments, tableLayout, tupleDomain, null);
+    }
+
+    public TableScanNode tableScan(
+            TableHandle tableHandle,
+            List<Symbol> symbols,
+            Map<Symbol, ColumnHandle> assignments,
+            Optional<TableLayoutHandle> tableLayout,
+            TupleDomain<ColumnHandle> tupleDomain,
+            Expression originalConstraint)
     {
         return new TableScanNode(
                 idAllocator.getNextId(),
@@ -325,7 +340,7 @@ public class PlanBuilder
                 symbols,
                 assignments,
                 tableLayout,
-                TupleDomain.all(),
+                tupleDomain,
                 originalConstraint);
     }
 
