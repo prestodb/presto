@@ -22,10 +22,10 @@ import com.facebook.presto.sql.planner.optimizations.TableLayoutRewriter;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
-import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.google.common.collect.ImmutableSet;
 
+import java.util.Objects;
 import java.util.Set;
 
 import static com.facebook.presto.matching.Capture.newCapture;
@@ -90,14 +90,35 @@ public class PickTableLayout
         @Override
         public Result apply(FilterNode filterNode, Captures captures, Context context)
         {
+            TableScanNode tableScan = captures.get(TABLE_SCAN);
+
             TableLayoutRewriter tableLayoutRewriter = new TableLayoutRewriter(metadata, context.getSession(), context.getSymbolAllocator(), context.getIdAllocator());
             PlanNode rewritten = tableLayoutRewriter.planTableScan(captures.get(TABLE_SCAN), filterNode.getPredicate());
 
-            if (rewritten instanceof TableScanNode || rewritten instanceof ValuesNode || (((FilterNode) rewritten).getPredicate() != filterNode.getPredicate())) {
-                return Result.ofPlanNode(rewritten);
+            if (arePlansSame(filterNode, tableScan, rewritten)) {
+                return Result.empty();
             }
 
-            return Result.empty();
+            return Result.ofPlanNode(rewritten);
+        }
+
+        private boolean arePlansSame(FilterNode filter, TableScanNode tableScan, PlanNode rewritten)
+        {
+            if (!(rewritten instanceof FilterNode)) {
+                return false;
+            }
+
+            FilterNode rewrittenFilter = (FilterNode) rewritten;
+            if (!Objects.equals(filter.getPredicate(), rewrittenFilter.getPredicate())) {
+                return false;
+            }
+
+            if (!(rewrittenFilter.getSource() instanceof TableScanNode)) {
+                return false;
+            }
+
+            TableScanNode rewrittenTableScan = (TableScanNode) rewrittenFilter.getSource();
+            return Objects.equals(tableScan.getCurrentConstraint(), rewrittenTableScan.getCurrentConstraint());
         }
     }
 

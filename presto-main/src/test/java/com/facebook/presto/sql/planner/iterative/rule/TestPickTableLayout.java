@@ -97,6 +97,20 @@ public class TestPickTableLayout
     }
 
     @Test
+    public void doesNotFireIfRuleNotChangePlan()
+    {
+        tester().assertThat(pickTableLayout.pickTableLayoutForPredicate())
+                .on(p -> p.filter(expression("nationkey % 17 =  BIGINT '44' AND nationkey % 15 =  BIGINT '43'"),
+                        p.tableScan(
+                                nationTableHandle,
+                                ImmutableList.of(p.symbol("nationkey", BIGINT)),
+                                ImmutableMap.of(p.symbol("nationkey", BIGINT), new TpchColumnHandle("nationkey", BIGINT)),
+                                Optional.of(nationTableLayoutHandle),
+                                TupleDomain.all())))
+                .doesNotFire();
+    }
+
+    @Test
     public void ruleAddedTableLayoutToTableScan()
     {
         // The TPCH connector returns a TableLayout, but that TableLayout doesn't handle any of the constraints.
