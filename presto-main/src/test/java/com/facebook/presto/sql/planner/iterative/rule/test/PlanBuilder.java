@@ -312,7 +312,12 @@ public class PlanBuilder
         return tableScan(tableHandle, symbols, assignments, originalConstraint, Optional.empty());
     }
 
-    public TableScanNode tableScan(TableHandle tableHandle, List<Symbol> symbols, Map<Symbol, ColumnHandle> assignments, Expression originalConstraint, Optional<TableLayoutHandle> tableLayout)
+    public TableScanNode tableScan(
+            TableHandle tableHandle,
+            List<Symbol> symbols,
+            Map<Symbol, ColumnHandle> assignments,
+            Expression originalConstraint,
+            Optional<TableLayoutHandle> tableLayout)
     {
         return new TableScanNode(
                 idAllocator.getNextId(),
@@ -435,12 +440,19 @@ public class PlanBuilder
 
         public ExchangeBuilder fixedHashDistributionParitioningScheme(List<Symbol> outputSymbols, List<Symbol> partitioningSymbols)
         {
-            return partitioningScheme(new PartitioningScheme(Partitioning.create(FIXED_HASH_DISTRIBUTION, ImmutableList.copyOf(partitioningSymbols)), ImmutableList.copyOf(outputSymbols)));
+            return partitioningScheme(new PartitioningScheme(Partitioning.create(
+                    FIXED_HASH_DISTRIBUTION,
+                    ImmutableList.copyOf(partitioningSymbols)),
+                    ImmutableList.copyOf(outputSymbols)));
         }
 
         public ExchangeBuilder fixedHashDistributionParitioningScheme(List<Symbol> outputSymbols, List<Symbol> partitioningSymbols, Symbol hashSymbol)
         {
-            return partitioningScheme(new PartitioningScheme(Partitioning.create(FIXED_HASH_DISTRIBUTION, ImmutableList.copyOf(partitioningSymbols)), ImmutableList.copyOf(outputSymbols), Optional.of(hashSymbol)));
+            return partitioningScheme(new PartitioningScheme(Partitioning.create(
+                    FIXED_HASH_DISTRIBUTION,
+                    ImmutableList.copyOf(partitioningSymbols)),
+                    ImmutableList.copyOf(outputSymbols),
+                    Optional.of(hashSymbol)));
         }
 
         public ExchangeBuilder partitioningScheme(PartitioningScheme partitioningScheme)
