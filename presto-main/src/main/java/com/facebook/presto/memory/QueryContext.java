@@ -21,6 +21,7 @@ import com.facebook.presto.memory.context.MemoryTrackingContext;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spiller.SpillSpaceTracker;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 
@@ -104,6 +105,12 @@ public class QueryContext
         maxMemory = memoryPool.getMaxBytes();
     }
 
+    @VisibleForTesting
+    MemoryTrackingContext getQueryMemoryContext()
+    {
+        return queryMemoryContext;
+    }
+
     private synchronized ListenableFuture<?> updateUserMemory(long delta)
     {
         if (delta >= 0) {
@@ -174,10 +181,13 @@ public class QueryContext
             return;
         }
         MemoryPool originalPool = memoryPool;
-        long originalReserved = queryMemoryContext.getUserMemory() + queryMemoryContext.getRevocableMemory();
+        long originalReserved = queryMemoryContext.getUserMemory();
+        long originalRevocableReserved = queryMemoryContext.getRevocableMemory();
         memoryPool = pool;
         ListenableFuture<?> future = pool.reserve(queryId, originalReserved);
         originalPool.free(queryId, originalReserved);
+        pool.reserveRevocable(queryId, originalRevocableReserved);
+        originalPool.freeRevocable(queryId, originalRevocableReserved);
         future.addListener(() -> {
             // Unblock all the tasks, if they were waiting for memory, since we're in a new pool.
             taskContexts.values().forEach(TaskContext::moreMemoryAvailable);
