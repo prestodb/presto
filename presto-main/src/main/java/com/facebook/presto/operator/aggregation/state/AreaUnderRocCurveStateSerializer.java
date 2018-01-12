@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator.aggregation.state;
 
-import com.facebook.presto.operator.aggregation.MultiKeyValuePairs;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
@@ -41,17 +40,12 @@ public class AreaUnderRocCurveStateSerializer
     @Override
     public void serialize(AreaUnderRocCurveState state, BlockBuilder out)
     {
-        if (state.get() == null) {
-            out.appendNull();
-        }
-        else {
-            state.get().serialize(out);
-        }
+        state.get().serialize(out);
     }
 
     @Override
     public void deserialize(Block block, int index, AreaUnderRocCurveState state)
     {
-        state.set(new MultiKeyValuePairs(SERIALIZED_TYPE.getObject(block, index), BOOLEAN, DOUBLE));
+        state.deserialize(SERIALIZED_TYPE.getObject(block, index));
     }
 }

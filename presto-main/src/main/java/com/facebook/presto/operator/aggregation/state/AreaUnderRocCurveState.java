@@ -13,7 +13,8 @@
  */
 package com.facebook.presto.operator.aggregation.state;
 
-import com.facebook.presto.operator.aggregation.MultiKeyValuePairs;
+import com.facebook.presto.operator.aggregation.GroupedAreaUnderRocCurve;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.AccumulatorState;
 import com.facebook.presto.spi.function.AccumulatorStateMetadata;
 
@@ -21,9 +22,11 @@ import com.facebook.presto.spi.function.AccumulatorStateMetadata;
 public interface AreaUnderRocCurveState
         extends AccumulatorState
 {
-    MultiKeyValuePairs get();
+    GroupedAreaUnderRocCurve get();
 
-    void set(MultiKeyValuePairs value);
+    void set(GroupedAreaUnderRocCurve value);
+
+    void deserialize(Block serialized);
 
     void addMemoryUsage(long memory);
 }

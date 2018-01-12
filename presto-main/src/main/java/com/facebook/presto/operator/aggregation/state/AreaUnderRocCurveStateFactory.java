@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.operator.aggregation.state;
 
-import com.facebook.presto.array.ObjectBigArray;
-import com.facebook.presto.operator.aggregation.MultiKeyValuePairs;
+import com.facebook.presto.operator.aggregation.GroupedAreaUnderRocCurve;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.AccumulatorStateFactory;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -52,33 +52,44 @@ public class AreaUnderRocCurveStateFactory
             implements AreaUnderRocCurveState
     {
         private static final int INSTANCE_SIZE = ClassLayout.parseClass(GroupedState.class).instanceSize();
-        private final ObjectBigArray<MultiKeyValuePairs> pairs = new ObjectBigArray<>();
+        private GroupedAreaUnderRocCurve auc;
         private long size;
+
+        public GroupedState()
+        {
+            auc = new GroupedAreaUnderRocCurve();
+        }
 
         @Override
         public void ensureCapacity(long size)
         {
-            pairs.ensureCapacity(size);
+            auc.ensureCapacity(size);
         }
 
         @Override
-        public MultiKeyValuePairs get()
+        public GroupedAreaUnderRocCurve get()
         {
-            return pairs.get(getGroupId());
+            return auc.setGroupId(getGroupId());
         }
 
         @Override
-        public void set(MultiKeyValuePairs value)
+        public void set(GroupedAreaUnderRocCurve value)
         {
             requireNonNull(value, "value is null");
 
-            MultiKeyValuePairs previous = get();
+            GroupedAreaUnderRocCurve previous = get();
             if (previous != null) {
                 size -= previous.estimatedInMemorySize();
             }
 
-            pairs.set(getGroupId(), value);
+            auc = value;
             size += value.estimatedInMemorySize();
+        }
+
+        @Override
+        public void deserialize(Block serialized)
+        {
+            this.auc = new GroupedAreaUnderRocCurve(getGroupId(), serialized);
         }
 
         @Override
@@ -90,7 +101,7 @@ public class AreaUnderRocCurveStateFactory
         @Override
         public long getEstimatedSize()
         {
-            return INSTANCE_SIZE + size + pairs.sizeOf();
+            return INSTANCE_SIZE + size + auc.estimatedInMemorySize();
         }
     }
 
@@ -98,18 +109,32 @@ public class AreaUnderRocCurveStateFactory
             implements AreaUnderRocCurveState
     {
         private static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleState.class).instanceSize();
-        private MultiKeyValuePairs pair;
+        private GroupedAreaUnderRocCurve auc;
 
-        @Override
-        public MultiKeyValuePairs get()
+        public SingleState()
         {
-            return pair;
+            auc = new GroupedAreaUnderRocCurve();
+
+            // set synthetic, unique group id to use GroupAreaUnderRocCurve from the single state
+            auc.setGroupId(0);
         }
 
         @Override
-        public void set(MultiKeyValuePairs value)
+        public GroupedAreaUnderRocCurve get()
         {
-            pair = value;
+            return auc;
+        }
+
+        @Override
+        public void set(GroupedAreaUnderRocCurve value)
+        {
+            auc = value;
+        }
+
+        @Override
+        public void deserialize(Block serialized)
+        {
+            auc = new GroupedAreaUnderRocCurve(0, serialized);
         }
 
         @Override
@@ -121,8 +146,8 @@ public class AreaUnderRocCurveStateFactory
         public long getEstimatedSize()
         {
             long estimatedSize = INSTANCE_SIZE;
-            if (pair != null) {
-                estimatedSize += pair.estimatedInMemorySize();
+            if (auc != null) {
+                estimatedSize += auc.estimatedInMemorySize();
             }
             return estimatedSize;
         }
