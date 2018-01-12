@@ -93,6 +93,51 @@ public class TestMongoIntegrationSmokeTest
     }
 
     @Test
+    public void testInsertWithEveryType()
+            throws Exception
+    {
+        String createSql = "" +
+                "CREATE TABLE test_insert_types_table " +
+                "(" +
+                "  vc varchar" +
+                ", vb varbinary" +
+                ", bi bigint" +
+                ", d double" +
+                ", b boolean" +
+                ", dt  date" +
+                ", ts  timestamp" +
+                ", objid objectid" +
+                ")";
+        getQueryRunner().execute(getSession(), createSql);
+
+        String insertSql = "" +
+                "INSERT INTO test_insert_types_table " +
+                "SELECT" +
+                " 'foo' _varchar" +
+                ", cast('bar' as varbinary) _varbinary" +
+                ", cast(1 as bigint) _bigint" +
+                ", 3.14E0 _double" +
+                ", true _boolean" +
+                ", DATE '1980-05-07' _date" +
+                ", TIMESTAMP '1980-05-07 11:22:33.456' _timestamp" +
+                ", ObjectId('ffffffffffffffffffffffff') _objectid";
+        getQueryRunner().execute(getSession(), insertSql);
+
+        MaterializedResult results = getQueryRunner().execute(getSession(), "SELECT * FROM test_insert_types_table").toTestTypes();
+        assertEquals(results.getRowCount(), 1);
+        MaterializedRow row = results.getMaterializedRows().get(0);
+        assertEquals(row.getField(0), "foo");
+        assertEquals(row.getField(1), "bar".getBytes(UTF_8));
+        assertEquals(row.getField(2), 1L);
+        assertEquals(row.getField(3), 3.14);
+        assertEquals(row.getField(4), true);
+        assertEquals(row.getField(5), LocalDate.of(1980, 5, 7));
+        assertEquals(row.getField(6), LocalDateTime.of(1980, 5, 7, 11, 22, 33, 456_000_000));
+        assertUpdate("DROP TABLE test_insert_types_table");
+        assertFalse(getQueryRunner().tableExists(getSession(), "test_insert_types_table"));
+    }
+
+    @Test
     public void testArrays()
             throws Exception
     {
