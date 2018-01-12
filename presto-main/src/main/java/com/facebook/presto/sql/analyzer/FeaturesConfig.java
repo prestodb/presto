@@ -407,6 +407,7 @@ public class FeaturesConfig
         return this;
     }
 
+    @Min(1)
     public int getSpillerThreads()
     {
         return spillerThreads;
