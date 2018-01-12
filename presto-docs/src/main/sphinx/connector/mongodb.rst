@@ -237,7 +237,7 @@ MongoDB collection has the special field ``_id``. The connector tries to follow 
 
     INSERT INTO orders VALUES(1, 'bad', 50.0, current_date);
     INSERT INTO orders VALUES(2, 'good', 100.0, current_date);
-    SELECT _id, * FROM orders3;
+    SELECT _id, * FROM orders;
 
 .. code-block:: none
 
@@ -249,7 +249,7 @@ MongoDB collection has the special field ``_id``. The connector tries to follow 
 
 .. code-block:: sql
 
-    SELECT _id, * FROM orders3 WHERE _id = ObjectId('55b151633864d6438c61a9ce');
+    SELECT _id, * FROM orders WHERE _id = ObjectId('55b151633864d6438c61a9ce');
 
 .. code-block:: none
 
