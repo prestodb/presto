@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-source ${BASH_SOURCE%/*}/../common/compose-commons.sh
+source "${BASH_SOURCE%/*}/../common/compose-commons.sh"
 
 docker-compose \
 -f ${BASH_SOURCE%/*}/../common/standard.yml \
