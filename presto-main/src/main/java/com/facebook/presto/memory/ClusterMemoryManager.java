@@ -13,11 +13,9 @@
  */
 package com.facebook.presto.memory;
 
-import com.facebook.presto.ExceededCpuLimitException;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.QueryExecution;
 import com.facebook.presto.execution.QueryIdGenerator;
-import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.memory.LowMemoryKiller.QueryMemoryInfo;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.server.ServerConfig;
@@ -60,7 +58,6 @@ import java.util.function.Consumer;
 
 import static com.facebook.presto.ExceededMemoryLimitException.exceededGlobalLimit;
 import static com.facebook.presto.SystemSessionProperties.RESOURCE_OVERCOMMIT;
-import static com.facebook.presto.SystemSessionProperties.getQueryMaxCpuTime;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxMemory;
 import static com.facebook.presto.SystemSessionProperties.resourceOvercommit;
 import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
@@ -89,7 +86,6 @@ public class ClusterMemoryManager
     private final JsonCodec<MemoryInfo> memoryInfoCodec;
     private final JsonCodec<MemoryPoolAssignmentsRequest> assignmentsRequestJsonCodec;
     private final DataSize maxQueryMemory;
-    private final Duration maxQueryCpuTime;
     private final boolean enabled;
     private final LowMemoryKiller lowMemoryKiller;
     private final Duration killOnOutOfMemoryDelay;
@@ -123,8 +119,7 @@ public class ClusterMemoryManager
             QueryIdGenerator queryIdGenerator,
             LowMemoryKiller lowMemoryKiller,
             ServerConfig serverConfig,
-            MemoryManagerConfig config,
-            QueryManagerConfig queryManagerConfig)
+            MemoryManagerConfig config)
     {
         requireNonNull(config, "config is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
@@ -135,7 +130,6 @@ public class ClusterMemoryManager
         this.assignmentsRequestJsonCodec = requireNonNull(assignmentsRequestJsonCodec, "assignmentsRequestJsonCodec is null");
         this.lowMemoryKiller = requireNonNull(lowMemoryKiller, "lowMemoryKiller is null");
         this.maxQueryMemory = config.getMaxQueryMemory();
-        this.maxQueryCpuTime = queryManagerConfig.getQueryMaxCpuTime();
         this.coordinatorId = queryIdGenerator.getCoordinatorId();
         this.enabled = serverConfig.isCoordinator();
         this.killOnOutOfMemoryDelay = config.getKillOnOutOfMemoryDelay();
@@ -215,16 +209,6 @@ public class ClusterMemoryManager
         updatePools(countByPool);
 
         updateNodes(updateAssignments(queries));
-
-        // check if CPU usage is over limit
-        for (QueryExecution query : queries) {
-            Duration cpuTime = query.getTotalCpuTime();
-            Duration sessionLimit = getQueryMaxCpuTime(query.getSession());
-            Duration limit = maxQueryCpuTime.compareTo(sessionLimit) < 0 ? maxQueryCpuTime : sessionLimit;
-            if (cpuTime.compareTo(limit) > 0) {
-                query.fail(new ExceededCpuLimitException(limit));
-            }
-        }
     }
 
     @GuardedBy("this")

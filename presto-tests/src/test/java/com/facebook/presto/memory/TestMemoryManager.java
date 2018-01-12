@@ -307,18 +307,6 @@ public class TestMemoryManager
         }
     }
 
-    @Test(timeOut = 60_000, expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Exceeded CPU limit of .*")
-    public void testQueryCpuLimit()
-            throws Exception
-    {
-        Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("query.max-cpu-time", "1ms")
-                .build();
-        try (QueryRunner queryRunner = createQueryRunner(SESSION, properties)) {
-            queryRunner.execute(SESSION, "SELECT COUNT(*), repeat(orderstatus, 1000) FROM orders GROUP BY 2");
-        }
-    }
-
     @Test(timeOut = 60_000, expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Query exceeded local memory limit of 1kB.*")
     public void testQueryMemoryPerNodeLimit()
             throws Exception
