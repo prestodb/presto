@@ -116,6 +116,40 @@ public class TestNthValueFunction
     }
 
     @Test
+    public void testNthValueUnboundedIgnoreNulls() {
+        assertUnboundedWindowQueryWithNulls("nth_value(orderkey, 3) IGNORE NULLS OVER (PARTITION BY orderstatus ORDER BY orderkey)",
+                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, VARCHAR)
+                        .row(3L, "F", 6L)
+                        .row(5L, "F", 6L)
+                        .row(6L, "F", 6L)
+                        .row(null, "F", 6L)
+                        .row(34L, "O", null)
+                        .row(null, "O", null)
+                        .row(1L, null, null)
+                        .row(7L, null, null)
+                        .row(null, null, null)
+                        .row(null, null, null)
+                        .build());
+    }
+
+    @Test
+    public void testNthValueUnboundedRespectNulls() {
+        assertUnboundedWindowQueryWithNulls("nth_value(orderkey, 3) RESPECT NULLS OVER (PARTITION BY orderstatus ORDER BY orderkey)",
+                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, VARCHAR)
+                        .row(3L, "F", 6L)
+                        .row(5L, "F", 6L)
+                        .row(6L, "F", 6L)
+                        .row(null, "F", 6L)
+                        .row(34L, "O", null)
+                        .row(null, "O", null)
+                        .row(1L, null, null)
+                        .row(7L, null, null)
+                        .row(null, null, null)
+                        .row(null, null, null)
+                        .build());
+    }
+
+    @Test
     public void testNthValueBounded()
     {
         assertWindowQuery("nth_value(orderkey, 4) OVER (PARTITION BY orderstatus ORDER BY orderkey " +
@@ -160,6 +194,42 @@ public class TestNthValueFunction
                         .row(7, "O", "1996-12-01")
                         .row(32, "O", "1996-12-01")
                         .row(34, "O", "1996-12-01")
+                        .build());
+    }
+
+    @Test
+    public void testNthValueBoundedIgnoreNulls() {
+        assertWindowQueryWithNulls("nth_value(orderkey, 3) IGNORE NULLS OVER (PARTITION BY orderstatus ORDER BY orderkey " +
+                        "ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING)",
+                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
+                        .row(3L, "F", 6L)
+                        .row(5L, "F", 6L)
+                        .row(6L, "F", 6L)
+                        .row(null, "F", null)
+                        .row(34L, "O", null)
+                        .row(null, "O", null)
+                        .row(1L, null, null)
+                        .row(7L, null, null)
+                        .row(null, null, null)
+                        .row(null, null, null)
+                        .build());
+    }
+
+    @Test
+    public void testNthValueBoundedRespectNulls() {
+        assertWindowQueryWithNulls("nth_value(orderkey, 4) RESPECT NULLS OVER (PARTITION BY orderstatus ORDER BY orderkey " +
+                        "ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING)",
+                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
+                        .row(3L, "F", null)
+                        .row(5L, "F", null)
+                        .row(6L, "F", null)
+                        .row(null, "F", null)
+                        .row(34L, "O", null)
+                        .row(null, "O", null)
+                        .row(1L, null, null)
+                        .row(7L, null, null)
+                        .row(null, null, null)
+                        .row(null, null, null)
                         .build());
     }
 }

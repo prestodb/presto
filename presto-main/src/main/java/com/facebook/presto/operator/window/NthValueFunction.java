@@ -52,6 +52,21 @@ public class NthValueFunction
             long valuePosition = frameStart + (offset - 1);
 
             if ((valuePosition >= frameStart) && (valuePosition <= frameEnd)) {
+                if (ignoreNulls) {
+                    while (valuePosition >= 0 && valuePosition <= frameEnd) {
+                        if (!windowIndex.isNull(valueChannel, (int) valuePosition)) {
+                            break;
+                        }
+
+                        valuePosition++;
+                    }
+
+                    if (valuePosition > frameEnd) {
+                        output.appendNull();
+                        return;
+                    }
+                }
+
                 windowIndex.appendTo(valueChannel, toIntExact(valuePosition), output);
             }
             else {
