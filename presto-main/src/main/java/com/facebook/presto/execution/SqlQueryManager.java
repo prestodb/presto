@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.ExceededCpuLimitException;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.event.query.QueryMonitor;
@@ -39,6 +40,7 @@ import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.transaction.TransactionManager;
+import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.log.Logger;
@@ -71,6 +73,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
+import static com.facebook.presto.SystemSessionProperties.getQueryMaxCpuTime;
 import static com.facebook.presto.execution.ParameterExtractor.getParameterCount;
 import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.spi.NodeState.ACTIVE;
@@ -114,6 +117,7 @@ public class SqlQueryManager
     private final int initializationRequiredWorkers;
     private final Duration initializationTimeout;
     private final long initialNanos;
+    private final Duration maxQueryCpuTime;
 
     private final ConcurrentMap<QueryId, QueryExecution> queries = new ConcurrentHashMap<>();
     private final Queue<QueryExecution> expirationQueue = new LinkedBlockingQueue<>();
@@ -186,6 +190,7 @@ public class SqlQueryManager
         this.maxQueryHistory = queryManagerConfig.getMaxQueryHistory();
         this.clientTimeout = queryManagerConfig.getClientTimeout();
         this.maxQueryLength = queryManagerConfig.getMaxQueryLength();
+        this.maxQueryCpuTime = queryManagerConfig.getQueryMaxCpuTime();
         this.initializationRequiredWorkers = queryManagerConfig.getInitializationRequiredWorkers();
         this.initializationTimeout = queryManagerConfig.getInitializationTimeout();
         this.initialNanos = System.nanoTime();
@@ -206,35 +211,42 @@ public class SqlQueryManager
                     failAbandonedQueries();
                 }
                 catch (Throwable e) {
-                    log.warn(e, "Error cancelling abandoned queries");
+                    log.error(e, "Error cancelling abandoned queries");
                 }
 
                 try {
                     enforceMemoryLimits();
                 }
                 catch (Throwable e) {
-                    log.warn(e, "Error enforcing memory limits");
+                    log.error(e, "Error enforcing memory limits");
                 }
 
                 try {
                     enforceTimeLimits();
                 }
                 catch (Throwable e) {
-                    log.warn(e, "Error enforcing query timeout limits");
+                    log.error(e, "Error enforcing query timeout limits");
+                }
+
+                try {
+                    enforceCpuLimits();
+                }
+                catch (Throwable e) {
+                    log.error(e, "Error enforcing query CPU time limits");
                 }
 
                 try {
                     removeExpiredQueries();
                 }
                 catch (Throwable e) {
-                    log.warn(e, "Error removing expired queries");
+                    log.error(e, "Error removing expired queries");
                 }
 
                 try {
                     pruneExpiredQueries();
                 }
                 catch (Throwable e) {
-                    log.warn(e, "Error pruning expired queries");
+                    log.error(e, "Error pruning expired queries");
                 }
             }
         }, 1, 1, TimeUnit.SECONDS);
@@ -588,6 +600,21 @@ public class SqlQueryManager
             }
             if (createTime.plus(queryMaxRunTime.toMillis()).isBeforeNow()) {
                 query.fail(new PrestoException(EXCEEDED_TIME_LIMIT, "Query exceeded maximum time limit of " + queryMaxRunTime));
+            }
+        }
+    }
+
+    /**
+     * Enforce query CPU time limits
+     */
+    public void enforceCpuLimits()
+    {
+        for (QueryExecution query : queries.values()) {
+            Duration cpuTime = query.getTotalCpuTime();
+            Duration sessionLimit = getQueryMaxCpuTime(query.getSession());
+            Duration limit = Ordering.natural().min(maxQueryCpuTime, sessionLimit);
+            if (cpuTime.compareTo(limit) > 0) {
+                query.fail(new ExceededCpuLimitException(limit));
             }
         }
     }
