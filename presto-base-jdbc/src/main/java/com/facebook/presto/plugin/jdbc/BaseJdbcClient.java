@@ -477,14 +477,6 @@ public class BaseJdbcClient
             case Types.CHAR:
             case Types.NCHAR:
                 return createCharType(min(columnSize, CharType.MAX_LENGTH));
-            case Types.VARCHAR:
-            case Types.NVARCHAR:
-            case Types.LONGVARCHAR:
-            case Types.LONGNVARCHAR:
-                if (columnSize > VarcharType.MAX_LENGTH) {
-                    return createUnboundedVarcharType();
-                }
-                return createVarcharType(columnSize);
             case Types.BINARY:
             case Types.VARBINARY:
             case Types.LONGVARBINARY:
@@ -495,8 +487,16 @@ public class BaseJdbcClient
                 return TIME;
             case Types.TIMESTAMP:
                 return TIMESTAMP;
+            case Types.VARCHAR:
+            case Types.NVARCHAR:
+            case Types.LONGVARCHAR:
+            case Types.LONGNVARCHAR:
+            default:
+                if (columnSize > VarcharType.MAX_LENGTH) {
+                    return createUnboundedVarcharType();
+                }
+                return createVarcharType(columnSize);
         }
-        return null;
     }
 
     protected String toSqlType(Type type)
