@@ -19,9 +19,13 @@ import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.TestingSessionContext;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.testing.QueryRunner;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
+
+import java.util.Map;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.execution.QueryState.RUNNING;
@@ -76,5 +80,17 @@ public class TestQueryManager
         assertEquals(queryInfo.getErrorCode(), GENERIC_INTERNAL_ERROR.toErrorCode());
         assertNotNull(queryInfo.getFailureInfo());
         assertEquals(queryInfo.getFailureInfo().getMessage(), "mock exception");
+    }
+
+    @Test(timeOut = 60_000, expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Exceeded CPU limit of .*")
+    public void testQueryCpuLimit()
+            throws Exception
+    {
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
+                .put("query.max-cpu-time", "1ms")
+                .build();
+        try (QueryRunner queryRunner = createQueryRunner(properties)) {
+            queryRunner.execute(TEST_SESSION, "SELECT COUNT(*), repeat(orderstatus, 1000) FROM orders GROUP BY 2");
+        }
     }
 }
