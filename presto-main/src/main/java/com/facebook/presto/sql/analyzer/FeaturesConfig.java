@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.analyzer;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
@@ -22,6 +23,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDataSize;
 
+import javax.validation.constraints.AssertTrue;
 import javax.validation.constraints.DecimalMax;
 import javax.validation.constraints.DecimalMin;
 import javax.validation.constraints.Min;
@@ -43,6 +45,11 @@ import static java.util.concurrent.TimeUnit.MINUTES;
         "optimizer.processing-optimization"})
 public class FeaturesConfig
 {
+    @VisibleForTesting
+    static final String SPILL_ENABLED = "experimental.spill-enabled";
+    @VisibleForTesting
+    static final String SPILLER_SPILL_PATH = "experimental.spiller-spill-path";
+
     private boolean distributedIndexJoinsEnabled;
     private boolean distributedJoinsEnabled = true;
     private boolean colocatedJoinsEnabled;
@@ -351,7 +358,7 @@ public class FeaturesConfig
         return spillEnabled;
     }
 
-    @Config("experimental.spill-enabled")
+    @Config(SPILL_ENABLED)
     public FeaturesConfig setSpillEnabled(boolean spillEnabled)
     {
         this.spillEnabled = spillEnabled;
@@ -399,12 +406,18 @@ public class FeaturesConfig
         return spillerSpillPaths;
     }
 
-    @Config("experimental.spiller-spill-path")
+    @Config(SPILLER_SPILL_PATH)
     public FeaturesConfig setSpillerSpillPaths(String spillPaths)
     {
         List<String> spillPathsSplit = ImmutableList.copyOf(Splitter.on(",").trimResults().omitEmptyStrings().split(spillPaths));
         this.spillerSpillPaths = spillPathsSplit.stream().map(path -> Paths.get(path)).collect(toImmutableList());
         return this;
+    }
+
+    @AssertTrue(message = SPILLER_SPILL_PATH + " must be configured when " + SPILL_ENABLED + " is set to true")
+    public boolean isSpillerSpillPathsConfiguredIfSpillEnabled()
+    {
+        return !isSpillEnabled() || !spillerSpillPaths.isEmpty();
     }
 
     @Min(1)
