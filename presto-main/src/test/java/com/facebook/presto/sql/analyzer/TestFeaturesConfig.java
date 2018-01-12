@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.configuration.ConfigurationFactory;
 import io.airlift.configuration.testing.ConfigAssertions;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -21,6 +22,8 @@ import org.testng.annotations.Test;
 
 import java.util.Map;
 
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.SPILLER_SPILL_PATH;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.SPILL_ENABLED;
 import static com.facebook.presto.sql.analyzer.RegexLibrary.JONI;
 import static com.facebook.presto.sql.analyzer.RegexLibrary.RE2J;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
@@ -165,5 +168,12 @@ public class TestFeaturesConfig
                 .setFilterAndProjectMinOutputPageRowCount(2048);
 
         assertFullMapping(properties, expected);
+    }
+
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*\\Q" + SPILLER_SPILL_PATH + " must be configured when " + SPILL_ENABLED + " is set to true\\E.*")
+    public void testValidateSpillConfiguredIfEnabled()
+    {
+        new ConfigurationFactory(ImmutableMap.of(SPILL_ENABLED, "true"))
+                .build(FeaturesConfig.class);
     }
 }
