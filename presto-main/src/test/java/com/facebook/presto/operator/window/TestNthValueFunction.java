@@ -116,7 +116,8 @@ public class TestNthValueFunction
     }
 
     @Test
-    public void testNthValueUnboundedIgnoreNulls() {
+    public void testNthValueUnboundedIgnoreNulls()
+    {
         assertUnboundedWindowQueryWithNulls("nth_value(orderkey, 3) IGNORE NULLS OVER (PARTITION BY orderstatus ORDER BY orderkey)",
                 resultBuilder(TEST_SESSION, BIGINT, VARCHAR, VARCHAR)
                         .row(3L, "F", 6L)
@@ -133,7 +134,8 @@ public class TestNthValueFunction
     }
 
     @Test
-    public void testNthValueUnboundedRespectNulls() {
+    public void testNthValueUnboundedRespectNulls()
+    {
         assertUnboundedWindowQueryWithNulls("nth_value(orderkey, 3) RESPECT NULLS OVER (PARTITION BY orderstatus ORDER BY orderkey)",
                 resultBuilder(TEST_SESSION, BIGINT, VARCHAR, VARCHAR)
                         .row(3L, "F", 6L)
@@ -198,7 +200,8 @@ public class TestNthValueFunction
     }
 
     @Test
-    public void testNthValueBoundedIgnoreNulls() {
+    public void testNthValueBoundedIgnoreNulls()
+    {
         assertWindowQueryWithNulls("nth_value(orderkey, 3) IGNORE NULLS OVER (PARTITION BY orderstatus ORDER BY orderkey " +
                         "ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING)",
                 resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
@@ -216,7 +219,8 @@ public class TestNthValueFunction
     }
 
     @Test
-    public void testNthValueBoundedRespectNulls() {
+    public void testNthValueBoundedRespectNulls()
+    {
         assertWindowQueryWithNulls("nth_value(orderkey, 4) RESPECT NULLS OVER (PARTITION BY orderstatus ORDER BY orderkey " +
                         "ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING)",
                 resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
