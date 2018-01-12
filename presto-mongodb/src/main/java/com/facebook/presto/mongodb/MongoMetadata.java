@@ -238,6 +238,12 @@ public class MongoMetadata
                 columns.stream().filter(c -> !c.isHidden()).collect(toList()));
     }
 
+    @Override
+    public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments)
+    {
+        return Optional.empty();
+    }
+
     private void setRollback(Runnable action)
     {
         checkState(rollbackAction.compareAndSet(null, action), "rollback action is already set");
