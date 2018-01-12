@@ -154,6 +154,9 @@ public class FileSingleStreamSpillerFactory
                 return path;
             }
         }
+        if (spillPaths.isEmpty()) {
+            throw new PrestoException(OUT_OF_SPILL_SPACE, "No spill paths configured");
+        }
         throw new PrestoException(OUT_OF_SPILL_SPACE, "No free space available for spill");
     }
 
