@@ -42,7 +42,6 @@ Keyword                        SQL:2016      SQL-92
 ``GROUP``                      reserved      reserved
 ``GROUPING``                   reserved
 ``HAVING``                     reserved      reserved
-``IGNORE``                     reserved
 ``IN``                         reserved      reserved
 ``INNER``                      reserved      reserved
 ``INSERT``                     reserved      reserved
@@ -64,7 +63,6 @@ Keyword                        SQL:2016      SQL-92
 ``OUTER``                      reserved      reserved
 ``PREPARE``                    reserved      reserved
 ``RECURSIVE``                  reserved
-``RESPECT``                    reserved
 ``RIGHT``                      reserved      reserved
 ``ROLLUP``                     reserved
 ``SELECT``                     reserved      reserved
