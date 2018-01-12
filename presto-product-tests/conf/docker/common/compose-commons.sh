@@ -21,7 +21,7 @@ function export_canonical_path() {
     export $PATH_REFERENCE=$PATH
 }
 
-source ${BASH_SOURCE%/*}/../../../bin/locations.sh
+source "${BASH_SOURCE%/*}/../../../bin/locations.sh"
 
 export DOCKER_IMAGES_VERSION=${DOCKER_IMAGES_VERSION:-5}
 export HADOOP_BASE_IMAGE=${HADOOP_BASE_IMAGE:-"prestodb/hdp2.6-hive"}

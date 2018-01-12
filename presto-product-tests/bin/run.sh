@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-source ${BASH_SOURCE%/*}/locations.sh
+source "${BASH_SOURCE%/*}/locations.sh"
 REPORT_DIR="${PRODUCT_TESTS_ROOT}/target/test-reports"
 
 rm -rf "${REPORT_DIR}"
