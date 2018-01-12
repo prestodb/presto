@@ -223,7 +223,7 @@ public class SourcePartitionedScheduler
                 splitAssignment = splitPlacementResult.getAssignments();
 
                 // remove splits with successful placements
-                pendingSplits.removeAll(splitAssignment.values());
+                splitAssignment.values().forEach(pendingSplits::remove); // AbstractSet.removeAll performs terribly here.
                 overallSplitAssignmentCount += splitAssignment.size();
 
                 // if not completed placed, mark scheduleGroup as blocked on placement
