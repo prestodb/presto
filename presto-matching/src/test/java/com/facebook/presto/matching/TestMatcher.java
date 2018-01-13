@@ -34,6 +34,8 @@ import static com.facebook.presto.matching.example.rel.Patterns.project;
 import static com.facebook.presto.matching.example.rel.Patterns.scan;
 import static com.facebook.presto.matching.example.rel.Patterns.source;
 import static com.facebook.presto.matching.example.rel.Patterns.tableName;
+import static com.google.common.collect.MoreCollectors.onlyElement;
+import static com.google.common.collect.MoreCollectors.toOptional;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
@@ -148,16 +150,15 @@ public class TestMatcher
     }
 
     @Test
-    public void noMatchMeansNoCaptures()
+    public void noMatch()
     {
         Capture<Void> impossible = newCapture();
         Pattern<Void> pattern = typeOf(Void.class).capturedAs(impossible);
 
-        Match<Void> match = DEFAULT_MATCHER.match(pattern, 42);
+        Optional<Match<Void>> match = DEFAULT_MATCHER.match(pattern, 42)
+                .collect(toOptional());
 
-        assertTrue(match.isEmpty());
-        Throwable throwable = expectThrows(NoSuchElementException.class, () -> match.capture(impossible));
-        assertTrue(throwable.getMessage().contains("Captures are undefined for an empty Match"));
+        assertTrue(!match.isPresent());
     }
 
     @Test
@@ -166,7 +167,8 @@ public class TestMatcher
         Pattern<?> pattern = any();
         Capture<?> unknownCapture = newCapture();
 
-        Match<?> match = DEFAULT_MATCHER.match(pattern, 42);
+        Match<?> match = DEFAULT_MATCHER.match(pattern, 42)
+                .collect(onlyElement());
 
         Throwable throwable = expectThrows(NoSuchElementException.class, () -> match.capture(unknownCapture));
         assertTrue(throwable.getMessage().contains("unknown Capture"));
@@ -186,14 +188,16 @@ public class TestMatcher
 
     private <T, R> Match<R> assertMatch(Pattern<R> pattern, T matchedAgainst, R expectedMatch)
     {
-        Match<R> match = DEFAULT_MATCHER.match(pattern, matchedAgainst);
+        Match<R> match = DEFAULT_MATCHER.match(pattern, matchedAgainst)
+                .collect(onlyElement());
         assertEquals(expectedMatch, match.value());
         return match;
     }
 
     private <T> void assertNoMatch(Pattern<T> pattern, Object expectedNoMatch)
     {
-        Match<T> match = DEFAULT_MATCHER.match(pattern, expectedNoMatch);
-        assertEquals(Match.empty(), match);
+        Optional<Match<T>> match = DEFAULT_MATCHER.match(pattern, expectedNoMatch)
+                .collect(toOptional());
+        assertEquals(false, match.isPresent());
     }
 }

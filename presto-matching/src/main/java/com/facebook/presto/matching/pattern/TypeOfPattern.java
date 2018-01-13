@@ -19,6 +19,8 @@ import com.facebook.presto.matching.Matcher;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.matching.PatternVisitor;
 
+import java.util.stream.Stream;
+
 public class TypeOfPattern<T>
         extends Pattern<T>
 {
@@ -35,7 +37,7 @@ public class TypeOfPattern<T>
     }
 
     @Override
-    public Match<T> accept(Matcher matcher, Object object, Captures captures)
+    public Stream<Match<T>> accept(Matcher matcher, Object object, Captures captures)
     {
         return matcher.matchTypeOf(this, object, captures);
     }

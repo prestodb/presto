@@ -36,12 +36,14 @@ import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.sql.planner.assertions.PlanAssert.assertPlan;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.MoreCollectors.toOptional;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.fail;
 
@@ -156,14 +158,14 @@ public class RuleAssert
     private static <T> RuleApplication applyRule(Rule<T> rule, PlanNode planNode, Rule.Context context)
     {
         PlanNodeMatcher matcher = new PlanNodeMatcher(context.getLookup());
-        Match<T> match = matcher.match(rule.getPattern(), planNode);
+        Optional<Match<T>> match = matcher.match(rule.getPattern(), planNode).collect(toOptional());
 
         Rule.Result result;
-        if (!rule.isEnabled(context.getSession()) || match.isEmpty()) {
+        if (!rule.isEnabled(context.getSession()) || !match.isPresent()) {
             result = Rule.Result.empty();
         }
         else {
-            result = rule.apply(match.value(), match.captures(), context);
+            result = rule.apply(match.get().value(), match.get().captures(), context);
         }
 
         return new RuleApplication(context.getLookup(), context.getSymbolAllocator().getTypes(), result);

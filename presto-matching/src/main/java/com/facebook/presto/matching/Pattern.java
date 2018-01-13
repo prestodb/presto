@@ -20,6 +20,7 @@ import com.facebook.presto.matching.pattern.WithPattern;
 import com.google.common.collect.Iterables;
 
 import java.util.function.Predicate;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Predicates.not;
 
@@ -80,7 +81,7 @@ public abstract class Pattern<T>
         return previous;
     }
 
-    public abstract Match<T> accept(Matcher matcher, Object object, Captures captures);
+    public abstract Stream<Match<T>> accept(Matcher matcher, Object object, Captures captures);
 
     public abstract void accept(PatternVisitor patternVisitor);
 

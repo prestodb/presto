@@ -19,22 +19,24 @@ import com.facebook.presto.matching.pattern.FilterPattern;
 import com.facebook.presto.matching.pattern.TypeOfPattern;
 import com.facebook.presto.matching.pattern.WithPattern;
 
+import java.util.stream.Stream;
+
 public interface Matcher
 {
-    default <T> Match<T> match(Pattern<T> pattern, Object object)
+    default <T> Stream<Match<T>> match(Pattern<T> pattern, Object object)
     {
         return match(pattern, object, Captures.empty());
     }
 
-    <T> Match<T> match(Pattern<T> pattern, Object object, Captures captures);
+    <T> Stream<Match<T>> match(Pattern<T> pattern, Object object, Captures captures);
 
-    <T> Match<T> matchTypeOf(TypeOfPattern<T> typeOfPattern, Object object, Captures captures);
+    <T> Stream<Match<T>> matchTypeOf(TypeOfPattern<T> typeOfPattern, Object object, Captures captures);
 
-    <T> Match<T> matchWith(WithPattern<T> withPattern, Object object, Captures captures);
+    <T> Stream<Match<T>> matchWith(WithPattern<T> withPattern, Object object, Captures captures);
 
-    <T> Match<T> matchCapture(CapturePattern<T> capturePattern, Object object, Captures captures);
+    <T> Stream<Match<T>> matchCapture(CapturePattern<T> capturePattern, Object object, Captures captures);
 
-    <T> Match<T> matchEquals(EqualsPattern<T> equalsPattern, Object object, Captures captures);
+    <T> Stream<Match<T>> matchEquals(EqualsPattern<T> equalsPattern, Object object, Captures captures);
 
-    <T> Match<T> matchFilter(FilterPattern<T> filterPattern, Object object, Captures captures);
+    <T> Stream<Match<T>> matchFilter(FilterPattern<T> filterPattern, Object object, Captures captures);
 }

@@ -20,6 +20,7 @@ import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.matching.PatternVisitor;
 
 import java.util.function.Predicate;
+import java.util.stream.Stream;
 
 public class FilterPattern<T>
         extends Pattern<T>
@@ -38,7 +39,7 @@ public class FilterPattern<T>
     }
 
     @Override
-    public Match<T> accept(Matcher matcher, Object object, Captures captures)
+    public Stream<Match<T>> accept(Matcher matcher, Object object, Captures captures)
     {
         return matcher.matchFilter(this, object, captures);
     }

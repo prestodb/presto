@@ -19,6 +19,8 @@ import com.facebook.presto.matching.Matcher;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.matching.PatternVisitor;
 
+import java.util.stream.Stream;
+
 import static java.util.Objects.requireNonNull;
 
 public class EqualsPattern<T>
@@ -39,7 +41,7 @@ public class EqualsPattern<T>
     }
 
     @Override
-    public Match<T> accept(Matcher matcher, Object object, Captures captures)
+    public Stream<Match<T>> accept(Matcher matcher, Object object, Captures captures)
     {
         return matcher.matchEquals(this, object, captures);
     }
