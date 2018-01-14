@@ -23,12 +23,12 @@ import com.facebook.presto.matching.PropertyPattern;
 
 import java.util.stream.Stream;
 
-public class WithPattern<T>
+public class WithPropertyPattern<T>
         extends Pattern<T>
 {
     private final PropertyPattern<? super T, ?> propertyPattern;
 
-    public WithPattern(PropertyPattern<? super T, ?> propertyPattern, Pattern<T> previous)
+    public WithPropertyPattern(PropertyPattern<? super T, ?> propertyPattern, Pattern<T> previous)
     {
         super(previous);
         this.propertyPattern = propertyPattern;
@@ -47,12 +47,12 @@ public class WithPattern<T>
     @Override
     public Stream<Match<T>> accept(Matcher matcher, Object object, Captures captures)
     {
-        return matcher.matchWith(this, object, captures);
+        return matcher.matchWithProperty(this, object, captures);
     }
 
     @Override
     public void accept(PatternVisitor patternVisitor)
     {
-        patternVisitor.visitWith(this);
+        patternVisitor.visitWithProperty(this);
     }
 }

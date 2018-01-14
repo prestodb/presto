@@ -17,7 +17,7 @@ import com.facebook.presto.matching.pattern.CapturePattern;
 import com.facebook.presto.matching.pattern.EqualsPattern;
 import com.facebook.presto.matching.pattern.FilterPattern;
 import com.facebook.presto.matching.pattern.TypeOfPattern;
-import com.facebook.presto.matching.pattern.WithPattern;
+import com.facebook.presto.matching.pattern.WithPropertyPattern;
 
 public class DefaultPrinter
         implements PatternVisitor
@@ -38,7 +38,7 @@ public class DefaultPrinter
     }
 
     @Override
-    public void visitWith(WithPattern<?> pattern)
+    public void visitWithProperty(WithPropertyPattern<?> pattern)
     {
         visitPrevious(pattern);
         appendLine("with(%s)", pattern.getProperty().getName());

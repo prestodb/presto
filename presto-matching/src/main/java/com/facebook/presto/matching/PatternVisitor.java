@@ -17,13 +17,13 @@ import com.facebook.presto.matching.pattern.CapturePattern;
 import com.facebook.presto.matching.pattern.EqualsPattern;
 import com.facebook.presto.matching.pattern.FilterPattern;
 import com.facebook.presto.matching.pattern.TypeOfPattern;
-import com.facebook.presto.matching.pattern.WithPattern;
+import com.facebook.presto.matching.pattern.WithPropertyPattern;
 
 public interface PatternVisitor
 {
     void visitTypeOf(TypeOfPattern<?> pattern);
 
-    void visitWith(WithPattern<?> pattern);
+    void visitWithProperty(WithPropertyPattern<?> pattern);
 
     void visitCapture(CapturePattern<?> pattern);
 

@@ -17,7 +17,7 @@ import com.facebook.presto.matching.pattern.CapturePattern;
 import com.facebook.presto.matching.pattern.EqualsPattern;
 import com.facebook.presto.matching.pattern.FilterPattern;
 import com.facebook.presto.matching.pattern.TypeOfPattern;
-import com.facebook.presto.matching.pattern.WithPattern;
+import com.facebook.presto.matching.pattern.WithPropertyPattern;
 
 import java.util.Optional;
 import java.util.function.Function;
@@ -51,11 +51,11 @@ public class DefaultMatcher
     }
 
     @Override
-    public <T> Stream<Match<T>> matchWith(WithPattern<T> withPattern, Object object, Captures captures)
+    public <T> Stream<Match<T>> matchWithProperty(WithPropertyPattern<T> withPropertyPattern, Object object, Captures captures)
     {
-        Function<? super T, Optional<?>> property = withPattern.getProperty().getFunction();
+        Function<? super T, Optional<?>> property = withPropertyPattern.getProperty().getFunction();
         Optional<?> propertyValue = property.apply((T) object);
-        return propertyValue.map(value -> match(withPattern.getPattern(), value, captures))
+        return propertyValue.map(value -> match(withPropertyPattern.getPattern(), value, captures))
                 .map(matchStream -> matchStream.map(match -> Match.of((T) object, match.captures())))
                 .orElse(Stream.of());
     }

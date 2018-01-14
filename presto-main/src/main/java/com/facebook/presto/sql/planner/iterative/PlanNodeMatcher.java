@@ -16,7 +16,7 @@ package com.facebook.presto.sql.planner.iterative;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.DefaultMatcher;
 import com.facebook.presto.matching.Match;
-import com.facebook.presto.matching.pattern.WithPattern;
+import com.facebook.presto.matching.pattern.WithPropertyPattern;
 
 import java.util.Optional;
 import java.util.function.Function;
@@ -33,9 +33,9 @@ public class PlanNodeMatcher
     }
 
     @Override
-    public <T> Stream<Match<T>> matchWith(WithPattern<T> withPattern, Object object, Captures captures)
+    public <T> Match<T> matchWithProperty(WithPropertyPattern<T> withPropertyPattern, Object object, Captures captures)
     {
-        Function<? super T, Optional<?>> property = withPattern.getProperty().getFunction();
+        Function<? super T, Optional<?>> property = withPropertyPattern.getProperty().getFunction();
         Optional<?> propertyValue = property.apply((T) object);
 
         Optional<?> resolvedValue = propertyValue
