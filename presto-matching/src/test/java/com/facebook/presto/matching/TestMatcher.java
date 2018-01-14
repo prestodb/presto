@@ -18,14 +18,19 @@ import com.facebook.presto.matching.example.rel.JoinNode;
 import com.facebook.presto.matching.example.rel.ProjectNode;
 import com.facebook.presto.matching.example.rel.RelNode;
 import com.facebook.presto.matching.example.rel.ScanNode;
+import com.google.common.collect.ImmutableList;
+import jdk.nashorn.internal.ir.annotations.Immutable;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.matching.DefaultMatcher.DEFAULT_MATCHER;
+import static com.facebook.presto.matching.Explore.explore;
 import static com.facebook.presto.matching.Pattern.any;
 import static com.facebook.presto.matching.Pattern.typeOf;
 import static com.facebook.presto.matching.example.rel.Patterns.filter;
@@ -34,6 +39,7 @@ import static com.facebook.presto.matching.example.rel.Patterns.project;
 import static com.facebook.presto.matching.example.rel.Patterns.scan;
 import static com.facebook.presto.matching.example.rel.Patterns.source;
 import static com.facebook.presto.matching.example.rel.Patterns.tableName;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static org.testng.Assert.assertEquals;
@@ -179,6 +185,23 @@ public class TestMatcher
     {
         assertNoMatch(any(), null);
         assertNoMatch(typeOf(Integer.class), null);
+    }
+
+    @Test
+    public void exploreList()
+    {
+        Capture<String> nameWithE = newCapture();
+        Pattern<List> findNamesWithE = typeOf(List.class).with(
+                explore("element", (Function<List, Stream<String>>) List::stream).matching(
+                        typeOf(String.class).matching(s -> s.contains("e")).capturedAs(nameWithE)));
+
+        List<String> names = ImmutableList.of("Alice", "Bob", "Celine", "David", "Elize");
+
+        List<String> namesWithE = DEFAULT_MATCHER.match(findNamesWithE, names)
+                .map(match -> match.capture(nameWithE))
+                .collect(toImmutableList());
+
+        assertEquals(namesWithE, ImmutableList.of("Alice", "Celine", "Elize"));
     }
 
     private <T> Match<T> assertMatch(Pattern<T> pattern, T expectedMatch)

@@ -17,6 +17,7 @@ import com.facebook.presto.matching.pattern.CapturePattern;
 import com.facebook.presto.matching.pattern.EqualsPattern;
 import com.facebook.presto.matching.pattern.FilterPattern;
 import com.facebook.presto.matching.pattern.TypeOfPattern;
+import com.facebook.presto.matching.pattern.WithExplorePattern;
 import com.facebook.presto.matching.pattern.WithPropertyPattern;
 
 public class DefaultPrinter
@@ -42,6 +43,16 @@ public class DefaultPrinter
     {
         visitPrevious(pattern);
         appendLine("with(%s)", pattern.getProperty().getName());
+        level += 1;
+        pattern.getPattern().accept(this);
+        level -= 1;
+    }
+
+    @Override
+    public void visitWithExplore(WithExplorePattern<?> pattern)
+    {
+        visitPrevious(pattern);
+        appendLine("explore(%s)", pattern.getExplore().getName());
         level += 1;
         pattern.getPattern().accept(this);
         level -= 1;

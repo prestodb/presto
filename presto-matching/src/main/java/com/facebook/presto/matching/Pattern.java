@@ -16,9 +16,11 @@ package com.facebook.presto.matching;
 import com.facebook.presto.matching.pattern.CapturePattern;
 import com.facebook.presto.matching.pattern.FilterPattern;
 import com.facebook.presto.matching.pattern.TypeOfPattern;
+import com.facebook.presto.matching.pattern.WithExplorePattern;
 import com.facebook.presto.matching.pattern.WithPropertyPattern;
 import com.google.common.collect.Iterables;
 
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
@@ -74,6 +76,11 @@ public abstract class Pattern<T>
     public Pattern<T> with(PropertyPattern<? super T, ?> pattern)
     {
         return new WithPropertyPattern<>(pattern, this);
+    }
+
+    public Pattern<T> with(ExplorePattern<? super T, ?> pattern)
+    {
+        return new WithExplorePattern<>(pattern, this);
     }
 
     public Pattern<?> previous()

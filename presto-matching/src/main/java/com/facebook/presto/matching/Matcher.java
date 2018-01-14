@@ -17,6 +17,7 @@ import com.facebook.presto.matching.pattern.CapturePattern;
 import com.facebook.presto.matching.pattern.EqualsPattern;
 import com.facebook.presto.matching.pattern.FilterPattern;
 import com.facebook.presto.matching.pattern.TypeOfPattern;
+import com.facebook.presto.matching.pattern.WithExplorePattern;
 import com.facebook.presto.matching.pattern.WithPropertyPattern;
 
 import java.util.stream.Stream;
@@ -34,9 +35,12 @@ public interface Matcher
 
     <T> Stream<Match<T>> matchWithProperty(WithPropertyPattern<T> withPropertyPattern, Object object, Captures captures);
 
+    <T> Stream<Match<T>> matchWithExplore(WithExplorePattern<T> withExplorePattern, Object object, Captures captures);
+
     <T> Stream<Match<T>> matchCapture(CapturePattern<T> capturePattern, Object object, Captures captures);
 
     <T> Stream<Match<T>> matchEquals(EqualsPattern<T> equalsPattern, Object object, Captures captures);
 
     <T> Stream<Match<T>> matchFilter(FilterPattern<T> filterPattern, Object object, Captures captures);
+
 }
