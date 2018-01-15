@@ -19,12 +19,12 @@ import com.facebook.presto.matching.example.rel.ProjectNode;
 import com.facebook.presto.matching.example.rel.RelNode;
 import com.facebook.presto.matching.example.rel.ScanNode;
 import com.google.common.collect.ImmutableList;
-import jdk.nashorn.internal.ir.annotations.Immutable;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
@@ -76,7 +76,7 @@ public class TestMatcher
     public void propertyMatchers()
     {
         Pattern<String> aString = typeOf(String.class);
-        Property<String, Integer> length = Property.property("length", String::length);
+        Property<String, ?, Integer> length = Property.property("length", String::length);
         String string = "a";
 
         assertMatch(aString.with(length.equalTo(1)), string);
@@ -120,7 +120,7 @@ public class TestMatcher
     @Test
     public void optionalProperties()
     {
-        Property<RelNode, RelNode> onlySource = Property.optionalProperty("onlySource", node ->
+        Property<RelNode, ?, RelNode> onlySource = Property.optionalProperty("onlySource", node ->
                 Optional.of(node.getSources())
                         .filter(sources -> sources.size() == 1)
                         .map((List<RelNode> sources) -> sources.get(0)));
@@ -202,6 +202,60 @@ public class TestMatcher
                 .collect(toImmutableList());
 
         assertEquals(namesWithE, ImmutableList.of("Alice", "Celine", "Elize"));
+    }
+
+    @Test
+    public void contextIsPassedToPropertyFunction()
+    {
+        AtomicBoolean wasContextUsed = new AtomicBoolean();
+
+        Pattern pattern = any().with(
+                Property.property(
+                        "non null",
+                        (Object value, AtomicBoolean context) -> {
+                            context.set(true);
+                            return value != null;
+                        }).equalTo(true));
+
+        DEFAULT_MATCHER.match(pattern, "object", wasContextUsed)
+                .collect(onlyElement());
+
+        assertEquals(wasContextUsed.get(), true);
+    }
+
+    @Test
+    public void contextIsPassedToPredicate()
+    {
+        AtomicBoolean wasContextUsed = new AtomicBoolean();
+
+        Pattern pattern = any().matching(
+                (Object value, AtomicBoolean context) -> {
+                    context.set(true);
+                    return value != null;
+                });
+
+        DEFAULT_MATCHER.match(pattern, "object", wasContextUsed)
+                .collect(onlyElement());
+
+        assertEquals(wasContextUsed.get(), true);
+    }
+
+    @Test
+    public void contextIsPassedToExploreFunction()
+    {
+        AtomicBoolean wasContextUsed = new AtomicBoolean();
+
+        Pattern pattern = any().with(Explore.explore(
+                "explore",
+                (Object value, AtomicBoolean context) -> {
+                    context.set(true);
+                    return Stream.of(value);
+                }).equalTo("object"));
+
+        DEFAULT_MATCHER.match(pattern, "object", wasContextUsed)
+                .collect(onlyElement());
+
+        assertEquals(wasContextUsed.get(), true);
     }
 
     private <T> Match<T> assertMatch(Pattern<T> pattern, T expectedMatch)

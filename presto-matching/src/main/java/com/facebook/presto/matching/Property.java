@@ -17,25 +17,37 @@ import com.facebook.presto.matching.pattern.EqualsPattern;
 import com.facebook.presto.matching.pattern.FilterPattern;
 
 import java.util.Optional;
+import java.util.function.BiFunction;
+import java.util.function.BiPredicate;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
-public class Property<F, T>
+public class Property<F, C, T>
 {
     private final String name;
-    private final Function<F, Optional<T>> function;
+    private final BiFunction<F, C, Optional<T>> function;
 
-    public static <F, T> Property<F, T> property(String name, Function<F, T> function)
+    public static <F, C, T> Property<F, C, T> property(String name, Function<F, T> function)
     {
-        return optionalProperty(name, source -> Optional.of(function.apply(source)));
+        return property(name, (source, context) -> function.apply(source));
     }
 
-    public static <F, T> Property<F, T> optionalProperty(String name, Function<F, Optional<T>> function)
+    public static <F, C, T> Property<F, C, T> property(String name, BiFunction<F, C, T> function)
+    {
+        return optionalProperty(name, (source, context) -> Optional.of(function.apply(source, context)));
+    }
+
+    public static <F, C, T> Property<F, C, T> optionalProperty(String name, Function<F, Optional<T>> function)
+    {
+        return new Property<>(name, (source, context) -> function.apply(source));
+    }
+
+    public static <F, C, T> Property<F, C, T> optionalProperty(String name, BiFunction<F, C, Optional<T>> function)
     {
         return new Property<>(name, function);
     }
 
-    public Property(String name, Function<F, Optional<T>> function)
+    public Property(String name, BiFunction<F, C, Optional<T>> function)
     {
         this.name = name;
         this.function = function;
@@ -46,29 +58,34 @@ public class Property<F, T>
         return name;
     }
 
-    public Function<F, Optional<?>> getFunction()
+    public BiFunction<F, C, Optional<?>> getFunction()
     {
         //without the ::apply below, the type system is unable to drop the R type from Optional
         return function::apply;
     }
 
-    public <R> PropertyPattern<F, R> matching(Pattern<R> pattern)
+    public <R> PropertyPattern<F, C, R> matching(Pattern<R> pattern)
     {
         return PropertyPattern.of(this, pattern);
     }
 
-    public PropertyPattern<F, T> capturedAs(Capture<T> capture)
+    public PropertyPattern<F, C, T> capturedAs(Capture<T> capture)
     {
         Pattern<T> matchAll = (Pattern<T>) Pattern.any();
         return matching(matchAll.capturedAs(capture));
     }
 
-    public PropertyPattern<F, T> equalTo(T expectedValue)
+    public PropertyPattern<F, C, T> equalTo(T expectedValue)
     {
         return matching(new EqualsPattern<>(expectedValue, null));
     }
 
-    public PropertyPattern<F, T> matching(Predicate<? super T> predicate)
+    public PropertyPattern<F, C, T> matching(Predicate<? super T> predicate)
+    {
+        return matching((t, context) -> predicate.test(t));
+    }
+
+    public PropertyPattern<F, C, T> matching(BiPredicate<? super T, ?> predicate)
     {
         return matching(new FilterPattern<>(predicate, null));
     }

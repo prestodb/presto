@@ -26,9 +26,9 @@ import java.util.stream.Stream;
 public class WithPropertyPattern<T>
         extends Pattern<T>
 {
-    private final PropertyPattern<? super T, ?> propertyPattern;
+    private final PropertyPattern<? super T, ?, ?> propertyPattern;
 
-    public WithPropertyPattern(PropertyPattern<? super T, ?> propertyPattern, Pattern<T> previous)
+    public WithPropertyPattern(PropertyPattern<? super T, ?, ?> propertyPattern, Pattern<T> previous)
     {
         super(previous);
         this.propertyPattern = propertyPattern;
@@ -39,15 +39,15 @@ public class WithPropertyPattern<T>
         return propertyPattern.getPattern();
     }
 
-    public Property<? super T, ?> getProperty()
+    public Property<? super T, ?, ?> getProperty()
     {
         return propertyPattern.getProperty();
     }
 
     @Override
-    public Stream<Match<T>> accept(Matcher matcher, Object object, Captures captures)
+    public <C> Stream<Match<T>> accept(Matcher matcher, Object object, Captures captures, C context)
     {
-        return matcher.matchWithProperty(this, object, captures);
+        return matcher.matchWithProperty(this, object, captures, context);
     }
 
     @Override

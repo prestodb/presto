@@ -15,23 +15,23 @@ package com.facebook.presto.matching;
 
 import static java.util.Objects.requireNonNull;
 
-public class ExplorePattern<F, R>
+public class ExplorePattern<F, C, R>
 {
-    private final Explore<F, ?> explore;
+    private final Explore<F, C, ?> explore;
     private final Pattern<R> pattern;
 
-    public static <F, T, R> ExplorePattern<F, R> of(Explore<F, T> explore, Pattern<R> pattern)
+    public static <F, C, T, R> ExplorePattern<F, C, R> of(Explore<F, C, T> explore, Pattern<R> pattern)
     {
         return new ExplorePattern<>(explore, pattern);
     }
 
-    private ExplorePattern(Explore<F, ?> explore, Pattern<R> pattern)
+    private ExplorePattern(Explore<F, C, ?> explore, Pattern<R> pattern)
     {
         this.explore = requireNonNull(explore, "explore is null");
         this.pattern = requireNonNull(pattern, "pattern is null");
     }
 
-    public Explore<F, ?> getExplore()
+    public Explore<F, C, ?> getExplore()
     {
         return explore;
     }

@@ -26,9 +26,9 @@ import java.util.stream.Stream;
 public class WithExplorePattern<T>
         extends Pattern<T>
 {
-    private final ExplorePattern<? super T, ?> explorePattern;
+    private final ExplorePattern<? super T, ?, ?> explorePattern;
 
-    public WithExplorePattern(ExplorePattern<? super T, ?> explorePattern, Pattern<T> previous)
+    public WithExplorePattern(ExplorePattern<? super T, ?, ?> explorePattern, Pattern<T> previous)
     {
         super(previous);
         this.explorePattern = explorePattern;
@@ -39,15 +39,15 @@ public class WithExplorePattern<T>
         return explorePattern.getPattern();
     }
 
-    public Explore<? super T, ?> getExplore()
+    public Explore<? super T, ?, ?> getExplore()
     {
         return explorePattern.getExplore();
     }
 
     @Override
-    public Stream<Match<T>> accept(Matcher matcher, Object object, Captures captures)
+    public <C> Stream<Match<T>> accept(Matcher matcher, Object object, Captures captures, C context)
     {
-        return matcher.matchWithExplore(this, object, captures);
+        return matcher.matchWithExplore(this, object, captures, context);
     }
 
     @Override

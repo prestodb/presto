@@ -20,7 +20,7 @@ import com.facebook.presto.matching.pattern.WithExplorePattern;
 import com.facebook.presto.matching.pattern.WithPropertyPattern;
 import com.google.common.collect.Iterables;
 
-import java.util.function.Function;
+import java.util.function.BiPredicate;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
@@ -53,12 +53,12 @@ public abstract class Pattern<T>
     //FIXME make sure there's a proper toString,
     // like with(propName)\n\tfilter(isEmpty)
     // or with(propName) map(isEmpty) equalTo(true)
-    public static <F, T extends Iterable<S>, S> PropertyPattern<F, T> empty(Property<F, T> property)
+    public static <F, C, T extends Iterable<S>, S> PropertyPattern<F, C, T> empty(Property<F, C, T> property)
     {
         return PropertyPattern.upcast(property.matching(Iterables::isEmpty));
     }
 
-    public static <F, T extends Iterable<S>, S> PropertyPattern<F, T> nonEmpty(Property<F, T> property)
+    public static <F, C, T extends Iterable<S>, S> PropertyPattern<F, C, T> nonEmpty(Property<F, C, T> property)
     {
         return PropertyPattern.upcast(property.matching(not(Iterables::isEmpty)));
     }
@@ -70,15 +70,20 @@ public abstract class Pattern<T>
 
     public Pattern<T> matching(Predicate<? super T> predicate)
     {
+        return matching((t, context) -> predicate.test(t));
+    }
+
+    public Pattern<T> matching(BiPredicate<? super T, ?> predicate)
+    {
         return new FilterPattern<>(predicate, this);
     }
 
-    public Pattern<T> with(PropertyPattern<? super T, ?> pattern)
+    public Pattern<T> with(PropertyPattern<? super T, ?, ?> pattern)
     {
-        return new WithPropertyPattern<>(pattern, this);
+        return new WithPropertyPattern<T>(pattern, this);
     }
 
-    public Pattern<T> with(ExplorePattern<? super T, ?> pattern)
+    public Pattern<T> with(ExplorePattern<? super T, ?, ?> pattern)
     {
         return new WithExplorePattern<>(pattern, this);
     }
@@ -88,7 +93,7 @@ public abstract class Pattern<T>
         return previous;
     }
 
-    public abstract Stream<Match<T>> accept(Matcher matcher, Object object, Captures captures);
+    public abstract <C> Stream<Match<T>> accept(Matcher matcher, Object object, Captures captures, C context);
 
     public abstract void accept(PatternVisitor patternVisitor);
 

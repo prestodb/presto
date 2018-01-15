@@ -16,23 +16,30 @@ package com.facebook.presto.matching;
 import com.facebook.presto.matching.pattern.EqualsPattern;
 import com.facebook.presto.matching.pattern.FilterPattern;
 
+import java.util.function.BiFunction;
+import java.util.function.BiPredicate;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 import static java.util.Objects.requireNonNull;
 
-public class Explore<F, T>
+public class Explore<F, C, T>
 {
     private final String name;
-    private final Function<F, Stream<T>> function;
+    private final BiFunction<F, C, Stream<T>> function;
 
-    public static <F, T> Explore<F, T> explore(String name, Function<F, Stream<T>> function)
+    public static <F, C, T> Explore<F, C, T> explore(String name, Function<F, Stream<T>> function)
     {
-        return new Explore<>(name, function);
+        return new Explore<F, C, T>(name, (t, context) -> function.apply(t));
     }
 
-    public Explore(String name, Function<F, Stream<T>> function)
+    public static <F, C, T> Explore<F, C, T> explore(String name, BiFunction<F, C, Stream<T>> function)
+    {
+        return new Explore<F, C, T>(name, function);
+    }
+
+    public Explore(String name, BiFunction<F, C, Stream<T>> function)
     {
         this.name = requireNonNull(name, "name is null");
         this.function = requireNonNull(function, "function is null");
@@ -43,29 +50,34 @@ public class Explore<F, T>
         return name;
     }
 
-    public Function<F, Stream<?>> getFunction()
+    public BiFunction<F, C, Stream<?>> getFunction()
     {
         //without the ::apply below, the type system is unable to drop the R type from Optional
         return function::apply;
     }
 
-    public <R> ExplorePattern<F, R> matching(Pattern<R> pattern)
+    public <R> ExplorePattern<F, C, R> matching(Pattern<R> pattern)
     {
         return ExplorePattern.of(this, pattern);
     }
 
-    public ExplorePattern<F, T> capturedAs(Capture<T> capture)
+    public ExplorePattern<F, C, T> capturedAs(Capture<T> capture)
     {
         Pattern<T> matchAll = (Pattern<T>) Pattern.any();
         return matching(matchAll.capturedAs(capture));
     }
 
-    public ExplorePattern<F, T> equalTo(T expectedValue)
+    public ExplorePattern<F, C, T> equalTo(T expectedValue)
     {
         return matching(new EqualsPattern<>(expectedValue, null));
     }
 
-    public ExplorePattern<F, T> matching(Predicate<? super T> predicate)
+    public ExplorePattern<F, C, T> matching(Predicate<? super T> predicate)
+    {
+        return matching((t, context) -> predicate.test(t));
+    }
+
+    public ExplorePattern<F, C, T> matching(BiPredicate<? super T, ?> predicate)
     {
         return matching(new FilterPattern<>(predicate, null));
     }
