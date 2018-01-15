@@ -22,6 +22,7 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.testing.TestingNodeManager;
@@ -42,6 +43,7 @@ import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.expectThrows;
 import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
@@ -298,6 +300,36 @@ public class TestMemoryMetadata
         assertEquals(metadata.getTableHandle(SESSION, view3), null);
 
         assertEquals(metadata.listSchemaNames(SESSION), ImmutableList.of("default"));
+    }
+
+    @Test
+    public void testRenameTable()
+    {
+        SchemaTableName tableName = new SchemaTableName("test_schema", "test_talbe_to_be_renamed");
+        metadata.createSchema(SESSION, "test_schema", ImmutableMap.of());
+        ConnectorOutputTableHandle table = metadata.beginCreateTable(
+                SESSION,
+                new ConnectorTableMetadata(tableName, ImmutableList.of(), ImmutableMap.of()),
+                Optional.empty());
+        metadata.finishCreateTable(SESSION, table, ImmutableList.of());
+
+        // rename table to schema which does not exist
+        SchemaTableName invalidSchemaTableName = new SchemaTableName("test_schema_not_exist", "test_table_renamed");
+        ConnectorTableHandle tableHandle = metadata.getTableHandle(SESSION, tableName);
+        Throwable throwable = expectThrows(SchemaNotFoundException.class, () -> metadata.renameTable(SESSION, tableHandle, invalidSchemaTableName));
+        assertTrue(throwable.getMessage().equals("Schema test_schema_not_exist not found"));
+
+        // rename table to same schema
+        SchemaTableName sameSchemaTableName = new SchemaTableName("test_schema", "test_renamed");
+        metadata.renameTable(SESSION, metadata.getTableHandle(SESSION, tableName), sameSchemaTableName);
+        assertEquals(metadata.listTables(SESSION, "test_schema"), ImmutableList.of(sameSchemaTableName));
+
+        // rename table to different schema
+        metadata.createSchema(SESSION, "test_different_schema", ImmutableMap.of());
+        SchemaTableName differentSchemaTableName = new SchemaTableName("test_different_schema", "test_renamed");
+        metadata.renameTable(SESSION, metadata.getTableHandle(SESSION, sameSchemaTableName), differentSchemaTableName);
+        assertEquals(metadata.listTables(SESSION, "test_schema"), ImmutableList.of());
+        assertEquals(metadata.listTables(SESSION, "test_different_schema"), ImmutableList.of(differentSchemaTableName));
     }
 
     private void assertNoTables()
