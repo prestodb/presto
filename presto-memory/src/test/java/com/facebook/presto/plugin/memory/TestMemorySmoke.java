@@ -143,6 +143,19 @@ public class TestMemorySmoke
     }
 
     @Test
+    public void testRenameTable()
+    {
+        assertUpdate("CREATE TABLE test_table_to_be_renamed (a BIGINT)");
+        assertQueryFails("ALTER TABLE test_table_to_be_renamed RENAME TO memory.test_schema_not_exist.test_table_renamed", "Schema test_schema_not_exist not found");
+        assertUpdate("ALTER TABLE test_table_to_be_renamed RENAME TO test_table_renamed");
+        assertQueryResult("SELECT count(*) FROM test_table_renamed", 0L);
+
+        assertUpdate("CREATE SCHEMA test_different_schema");
+        assertUpdate("ALTER TABLE test_table_renamed RENAME TO test_different_schema.test_table_renamed");
+        assertQueryResult("SELECT count(*) FROM test_different_schema.test_table_renamed", 0L);
+    }
+
+    @Test
     public void testViews()
     {
         @Language("SQL") String query = "SELECT orderkey, orderstatus, totalprice / 2 half FROM orders";

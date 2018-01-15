@@ -165,11 +165,12 @@ public class MemoryMetadata
     @Override
     public synchronized void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTableName)
     {
+        checkSchemaExists(newTableName.getSchemaName());
         checkTableNotExists(newTableName);
         MemoryTableHandle oldTableHandle = (MemoryTableHandle) tableHandle;
         MemoryTableHandle newTableHandle = new MemoryTableHandle(
                 oldTableHandle.getConnectorId(),
-                oldTableHandle.getSchemaName(),
+                newTableName.getSchemaName(),
                 newTableName.getTableName(),
                 oldTableHandle.getTableId(),
                 oldTableHandle.getColumnHandles());
