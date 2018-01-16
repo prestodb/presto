@@ -32,6 +32,7 @@ import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
 import static java.util.Objects.requireNonNull;
 
+@Deprecated
 public class DetermineJoinDistributionType
         implements PlanOptimizer
 {
