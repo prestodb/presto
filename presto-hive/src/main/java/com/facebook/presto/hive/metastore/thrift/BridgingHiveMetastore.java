@@ -213,11 +213,7 @@ public class BridgingHiveMetastore
         verifyCanDropColumn(this, databaseName, tableName, columnName);
         org.apache.hadoop.hive.metastore.api.Table table = delegate.getTable(databaseName, tableName)
                 .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
-        for (FieldSchema fieldSchema : table.getSd().getCols()) {
-            if (fieldSchema.getName().equals(columnName)) {
-                table.getSd().getCols().remove(fieldSchema);
-            }
-        }
+        table.getSd().getCols().removeIf(fieldSchema -> fieldSchema.getName().equals(columnName));
         alterTable(databaseName, tableName, table);
     }
 
