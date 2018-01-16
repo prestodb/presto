@@ -134,6 +134,7 @@ public class TestDetermineJoinDistributionType
     public void testReplicateNoEquiCriteria()
     {
         testReplicateNoEquiCriteria(INNER);
+        testReplicateNoEquiCriteria(LEFT);
     }
 
     private void testReplicateNoEquiCriteria(Type joinType)
