@@ -18,21 +18,18 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
-import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 
 import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.isDistributedJoinEnabled;
-import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isAtMostScalar;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
 import static java.util.Objects.requireNonNull;
 
-public class DetermineJoinDistributionType
+public class DetermineSemiJoinDistributionType
         implements PlanOptimizer
 {
     @Override
@@ -48,6 +45,7 @@ public class DetermineJoinDistributionType
             extends SimplePlanRewriter<Void>
     {
         private final Session session;
+        private boolean isDeleteQuery;
 
         public Rewriter(Session session)
         {
@@ -55,43 +53,45 @@ public class DetermineJoinDistributionType
         }
 
         @Override
-        public PlanNode visitJoin(JoinNode node, RewriteContext<Void> context)
+        public PlanNode visitSemiJoin(SemiJoinNode node, RewriteContext<Void> context)
         {
-            PlanNode leftRewritten = context.rewrite(node.getLeft(), context.get());
-            PlanNode rightRewritten = context.rewrite(node.getRight(), context.get());
-            JoinNode.DistributionType targetJoinDistributionType = getTargetJoinDistributionType(node);
-            return new JoinNode(
+            PlanNode sourceRewritten = context.rewrite(node.getSource(), context.get());
+            PlanNode filteringSourceRewritten = context.rewrite(node.getFilteringSource(), context.get());
+            SemiJoinNode.DistributionType targetJoinDistributionType = getTargetSemiJoinDistributionType(isDeleteQuery);
+            return new SemiJoinNode(
                     node.getId(),
-                    node.getType(),
-                    leftRewritten,
-                    rightRewritten,
-                    node.getCriteria(),
-                    node.getOutputSymbols(),
-                    node.getFilter(),
-                    node.getLeftHashSymbol(),
-                    node.getRightHashSymbol(),
+                    sourceRewritten,
+                    filteringSourceRewritten,
+                    node.getSourceJoinSymbol(),
+                    node.getFilteringSourceJoinSymbol(),
+                    node.getSemiJoinOutput(),
+                    node.getSourceHashSymbol(),
+                    node.getFilteringSourceHashSymbol(),
                     Optional.of(targetJoinDistributionType));
         }
 
-        private JoinNode.DistributionType getTargetJoinDistributionType(JoinNode node)
+        @Override
+        public PlanNode visitDelete(DeleteNode node, RewriteContext<Void> context)
         {
-            // The implementation of full outer join only works if the data is hash partitioned. See LookupJoinOperators#buildSideOuterJoinUnvisitedPositions
-            JoinNode.Type type = node.getType();
-            if (type == RIGHT || type == FULL || (isDistributedJoinEnabled(session) && !mustBroadcastJoin(node))) {
-                return JoinNode.DistributionType.PARTITIONED;
+            // For delete queries, the TableScan node that corresponds to the table being deleted must be collocated with the Delete node,
+            // so you can't do a distributed semi-join
+            isDeleteQuery = true;
+            PlanNode rewrittenSource = context.rewrite(node.getSource());
+            return new DeleteNode(
+                    node.getId(),
+                    rewrittenSource,
+                    node.getTarget(),
+                    node.getRowId(),
+                    node.getOutputSymbols());
+        }
+
+        private SemiJoinNode.DistributionType getTargetSemiJoinDistributionType(boolean isDeleteQuery)
+        {
+            if (isDistributedJoinEnabled(session) && !isDeleteQuery) {
+                return SemiJoinNode.DistributionType.PARTITIONED;
             }
 
-            return JoinNode.DistributionType.REPLICATED;
-        }
-
-        private static boolean mustBroadcastJoin(JoinNode node)
-        {
-            return isAtMostScalar(node.getRight()) || isCrossJoin(node);
-        }
-
-        private static boolean isCrossJoin(JoinNode node)
-        {
-            return node.getType() == INNER && node.getCriteria().isEmpty();
+            return SemiJoinNode.DistributionType.REPLICATED;
         }
     }
 }
