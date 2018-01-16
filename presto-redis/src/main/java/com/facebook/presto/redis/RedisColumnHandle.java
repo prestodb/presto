@@ -85,7 +85,6 @@ public final class RedisColumnHandle
             @JsonProperty("keyDecoder") boolean keyDecoder,
             @JsonProperty("hidden") boolean hidden,
             @JsonProperty("internal") boolean internal)
-
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.ordinalPosition = ordinalPosition;
