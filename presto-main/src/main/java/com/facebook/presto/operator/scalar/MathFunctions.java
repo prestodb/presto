@@ -797,7 +797,6 @@ public final class MathFunctions
                 @LiteralParameter("rp") Long resultPrecision,
                 @SqlType("decimal(p, s)") Slice num,
                 @SqlType(StandardTypes.BIGINT) long decimals)
-
         {
             if (numScale == 0) {
                 return num;
@@ -824,7 +823,6 @@ public final class MathFunctions
                 @LiteralParameter("rp") Long resultPrecision,
                 @SqlType("decimal(p, s)") long num,
                 @SqlType(StandardTypes.BIGINT) long decimals)
-
         {
             return roundNLong(numScale, resultPrecision, unscaledDecimal(num), decimals);
         }

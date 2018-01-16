@@ -164,7 +164,6 @@ final class ShowQueriesRewrite
         private Optional<QueryExplainer> queryExplainer;
 
         public Visitor(Metadata metadata, SqlParser sqlParser, Session session, List<Expression> parameters, AccessControl accessControl, Optional<QueryExplainer> queryExplainer)
-
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
