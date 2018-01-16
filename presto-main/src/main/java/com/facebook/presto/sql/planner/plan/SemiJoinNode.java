@@ -140,7 +140,7 @@ public class SemiJoinNode
     }
 
     @Override
-    public PlanNode replaceChildren(List<PlanNode> newChildren)
+    public SemiJoinNode replaceChildren(List<PlanNode> newChildren)
     {
         checkArgument(newChildren.size() == 2, "expected newChildren to contain 2 nodes");
         return new SemiJoinNode(
@@ -153,5 +153,19 @@ public class SemiJoinNode
                 sourceHashSymbol,
                 filteringSourceHashSymbol,
                 distributionType);
+    }
+
+    public SemiJoinNode withDistributionType(DistributionType distributionType)
+    {
+        return new SemiJoinNode(
+                getId(),
+                source,
+                filteringSource,
+                sourceJoinSymbol,
+                filteringSourceJoinSymbol,
+                semiJoinOutput,
+                sourceHashSymbol,
+                filteringSourceHashSymbol,
+                Optional.of(distributionType));
     }
 }
