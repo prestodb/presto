@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.iterative;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.matching.DefaultMatcher;
 import com.facebook.presto.matching.Match;
 import com.facebook.presto.matching.Matcher;
 import com.facebook.presto.spi.PrestoException;
@@ -77,7 +78,7 @@ public class IterativeOptimizer
 
         Memo memo = new Memo(idAllocator, plan);
         Lookup lookup = Lookup.from(planNode -> Stream.of(memo.resolve(planNode)));
-        Matcher matcher = new PlanNodeMatcher(lookup);
+        Matcher matcher = new DefaultMatcher();
 
         Duration timeout = SystemSessionProperties.getOptimizerTimeout(session);
         Context context = new Context(memo, lookup, idAllocator, symbolAllocator, System.nanoTime(), timeout.toMillis(), session);
