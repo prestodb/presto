@@ -13,18 +13,23 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
+import com.facebook.presto.matching.Explore;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.matching.Property;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.tree.Expression;
+import com.google.common.collect.AbstractIterator;
+import com.google.common.collect.Streams;
 
 import java.util.List;
-import java.util.Optional;
+import java.util.stream.Stream;
 
+import static com.facebook.presto.matching.Explore.explore;
 import static com.facebook.presto.matching.Pattern.typeOf;
-import static com.facebook.presto.matching.Property.optionalProperty;
 import static com.facebook.presto.matching.Property.property;
-import static java.util.Optional.empty;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.getOnlyElement;
 
 public class Patterns
 {
@@ -140,16 +145,43 @@ public class Patterns
         return typeOf(WindowNode.class);
     }
 
-    public static <C> Property<PlanNode, C, PlanNode> source()
+    public static Explore<PlanNode, Rule.Context, PlanNode> source()
     {
-        return optionalProperty("source", node -> node.getSources().size() == 1 ?
-                Optional.of(node.getSources().get(0)) :
-                empty());
+        return explore(
+                "source",
+                (node, context) -> {
+                    if (node.getSources().size() != 1) {
+                        return Stream.of();
+                    }
+                    return context.getLookup().resolveGroup(getOnlyElement(node.getSources()));
+                });
     }
 
-    public static <C> Property<PlanNode, C, List<PlanNode>> sources()
+    public static Explore<PlanNode, Rule.Context, List<PlanNode>> sources()
     {
-        return property("sources", PlanNode::getSources);
+        return explore(
+                "sources",
+                (PlanNode node, Rule.Context context) -> {
+                    List<Stream<PlanNode>> sourceStreams = node.getSources().stream()
+                            .map(source -> context.getLookup().resolveGroup(source))
+                            .collect(toImmutableList());
+
+                    return Streams.stream(new AbstractIterator<List<PlanNode>>() {
+                        @Override
+                        protected List<PlanNode> computeNext()
+                        {
+                            List<PlanNode> sources = sourceStreams.stream()
+                                    .map(source -> source.findFirst()
+                                            .orElse(null)).collect(toImmutableList());
+                            sourceStreams.stream().forEach(sourceStream -> sourceStream.skip(1));
+
+                            if (sources.contains(null)) {
+                                return endOfData();
+                            }
+                            return sources;
+                        }
+                    });
+                });
     }
 
     public static class Aggregation

@@ -34,7 +34,6 @@ public interface PatternVisitor
 
     void visitFilter(FilterPattern<?> pattern);
 
-
     default void visitPrevious(Pattern pattern)
     {
         Pattern previous = pattern.previous();

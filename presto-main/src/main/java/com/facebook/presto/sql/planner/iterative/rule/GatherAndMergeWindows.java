@@ -15,8 +15,8 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
+import com.facebook.presto.matching.ExplorePattern;
 import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.matching.PropertyPattern;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.iterative.Rule;
@@ -74,7 +74,7 @@ public class GatherAndMergeWindows
 
         protected ManipulateAdjacentWindowsOverProjects(int numProjects)
         {
-            PropertyPattern<PlanNode, ?> childPattern = source().matching(window().capturedAs(childCapture));
+            ExplorePattern<PlanNode, ?, ?> childPattern = source().matching(window().capturedAs(childCapture));
             ImmutableList.Builder<Capture<ProjectNode>> projectCapturesBuilder = ImmutableList.builder();
             for (int i = 0; i < numProjects; ++i) {
                 Capture<ProjectNode> projectCapture = newCapture();

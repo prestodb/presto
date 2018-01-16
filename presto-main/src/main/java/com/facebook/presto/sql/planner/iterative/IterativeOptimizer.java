@@ -142,7 +142,7 @@ public class IterativeOptimizer
 
     private <T> Rule.Result transform(PlanNode node, Rule<T> rule, Matcher matcher, Context context)
     {
-        Iterator<Match<T>> matches = matcher.match(rule.getPattern(), node).iterator();
+        Iterator<Match<T>> matches = matcher.match(rule.getPattern(), node, context).iterator();
         while (matches.hasNext()) {
             Match<T> match = matches.next();
             long duration;

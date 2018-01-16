@@ -158,7 +158,7 @@ public class RuleAssert
     private static <T> RuleApplication applyRule(Rule<T> rule, PlanNode planNode, Rule.Context context)
     {
         PlanNodeMatcher matcher = new PlanNodeMatcher(context.getLookup());
-        Optional<Match<T>> match = matcher.match(rule.getPattern(), planNode).collect(toOptional());
+        Optional<Match<T>> match = matcher.match(rule.getPattern(), planNode, context).collect(toOptional());
 
         Rule.Result result;
         if (!rule.isEnabled(context.getSession()) || !match.isPresent()) {
