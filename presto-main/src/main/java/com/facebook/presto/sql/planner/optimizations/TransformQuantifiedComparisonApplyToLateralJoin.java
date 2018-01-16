@@ -88,7 +88,6 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
 
     private static class Rewriter
             extends SimplePlanRewriter<PlanNode>
-
     {
         private static final QualifiedName MIN = QualifiedName.of("min");
         private static final QualifiedName MAX = QualifiedName.of("max");

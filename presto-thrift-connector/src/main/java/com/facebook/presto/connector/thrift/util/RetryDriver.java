@@ -319,7 +319,6 @@ public class RetryDriver
         @Managed
         @Nested
         public TimeStat getFailureLatency()
-
         {
             return failureLatency;
         }
