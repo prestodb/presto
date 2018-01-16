@@ -60,11 +60,13 @@ public class MetricComparison
 
     public Result result()
     {
-        return estimatedCost
-                .map(estimate -> executionCost
-                        .map(execution -> estimateMatchesReality(estimate, execution) ? MATCH : DIFFER)
-                        .orElse(NO_BASELINE))
-                .orElse(NO_ESTIMATE);
+        if (!estimatedCost.isPresent()) {
+            return NO_ESTIMATE;
+        }
+        if (!executionCost.isPresent()) {
+            return NO_BASELINE;
+        }
+        return estimateMatchesReality(estimatedCost.get(), executionCost.get()) ? MATCH : DIFFER;
     }
 
     private String print(Optional<Double> cost)
