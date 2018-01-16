@@ -56,7 +56,7 @@ public class DetermineJoinDistributionType
             return PARTITIONED;
         }
 
-        if (node.getCriteria().isEmpty() && type == INNER) {
+        if (node.getCriteria().isEmpty() && (type == INNER || type == LEFT)) {
             // There is nothing to partition on
             return REPLICATED;
         }
