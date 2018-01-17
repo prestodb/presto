@@ -32,7 +32,7 @@ public final class ColumnarRow
         }
 
         if (!(block instanceof AbstractRowBlock)) {
-            throw new IllegalArgumentException("Invalid row block");
+            throw new IllegalArgumentException("Invalid row block: " + block.getClass().getName());
         }
 
         AbstractRowBlock rowBlock = (AbstractRowBlock) block;
