@@ -15,6 +15,7 @@ package com.facebook.presto.plugin.jdbc;
 
 import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.base.CharMatcher;
 import org.joda.time.chrono.ISOChronology;
@@ -22,12 +23,16 @@ import org.joda.time.chrono.ISOChronology;
 import java.sql.ResultSet;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.sql.Types;
+import java.util.Optional;
 
 import static com.facebook.presto.plugin.jdbc.ReadMapping.longReadMapping;
 import static com.facebook.presto.plugin.jdbc.ReadMapping.sliceReadMapping;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.CharType.createCharType;
 import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.Decimals.encodeScaledValue;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
@@ -37,9 +42,13 @@ import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
+import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.Float.floatToRawIntBits;
+import static java.lang.Math.max;
+import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.joda.time.DateTimeZone.UTC;
@@ -93,7 +102,7 @@ public final class StandardReadMappings
         return sliceReadMapping(decimalType, (resultSet, columnIndex) -> encodeScaledValue(resultSet.getBigDecimal(columnIndex)));
     }
 
-    protected static ReadMapping charReadMapping(CharType charType)
+    public static ReadMapping charReadMapping(CharType charType)
     {
         requireNonNull(charType, "charType is null");
         return sliceReadMapping(charType, (resultSet, columnIndex) -> utf8Slice(CharMatcher.is(' ').trimTrailingFrom(resultSet.getString(columnIndex))));
@@ -135,5 +144,73 @@ public final class StandardReadMappings
             Timestamp timestamp = resultSet.getTimestamp(columnIndex);
             return timestamp.getTime();
         });
+    }
+
+    public static Optional<ReadMapping> jdbcTypeToPrestoType(JdbcTypeHandle type)
+    {
+        int columnSize = type.getColumnSize();
+        switch (type.getJdbcType()) {
+            case Types.BIT:
+            case Types.BOOLEAN:
+                return Optional.of(booleanReadMapping());
+
+            case Types.TINYINT:
+                return Optional.of(tinyintReadMapping());
+
+            case Types.SMALLINT:
+                return Optional.of(smallintReadMapping());
+
+            case Types.INTEGER:
+                return Optional.of(integerReadMapping());
+
+            case Types.BIGINT:
+                return Optional.of(bigintReadMapping());
+
+            case Types.REAL:
+                return Optional.of(realReadMapping());
+
+            case Types.FLOAT:
+            case Types.DOUBLE:
+                return Optional.of(doubleReadMapping());
+
+            case Types.NUMERIC:
+            case Types.DECIMAL:
+                int decimalDigits = type.getDecimalDigits();
+                int precision = columnSize + max(-decimalDigits, 0); // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
+                if (precision > Decimals.MAX_PRECISION) {
+                    return Optional.empty();
+                }
+                return Optional.of(decimalReadMapping(createDecimalType(precision, max(decimalDigits, 0))));
+
+            case Types.CHAR:
+            case Types.NCHAR:
+                // TODO this is wrong, we're going to construct malformed Slice representation if source > charLength
+                int charLength = min(columnSize, CharType.MAX_LENGTH);
+                return Optional.of(charReadMapping(createCharType(charLength)));
+
+            case Types.VARCHAR:
+            case Types.NVARCHAR:
+            case Types.LONGVARCHAR:
+            case Types.LONGNVARCHAR:
+                if (columnSize > VarcharType.MAX_LENGTH) {
+                    return Optional.of(varcharReadMapping(createUnboundedVarcharType()));
+                }
+                return Optional.of(varcharReadMapping(createVarcharType(columnSize)));
+
+            case Types.BINARY:
+            case Types.VARBINARY:
+            case Types.LONGVARBINARY:
+                return Optional.of(varbinaryReadMapping());
+
+            case Types.DATE:
+                return Optional.of(dateReadMapping());
+
+            case Types.TIME:
+                return Optional.of(timeReadMapping());
+
+            case Types.TIMESTAMP:
+                return Optional.of(timestampReadMapping());
+        }
+        return Optional.empty();
     }
 }

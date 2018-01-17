@@ -22,7 +22,6 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DecimalType;
-import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.base.Joiner;
@@ -39,7 +38,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -48,27 +46,12 @@ import java.util.Set;
 import java.util.UUID;
 
 import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
-import static com.facebook.presto.plugin.jdbc.StandardReadMappings.bigintReadMapping;
-import static com.facebook.presto.plugin.jdbc.StandardReadMappings.booleanReadMapping;
-import static com.facebook.presto.plugin.jdbc.StandardReadMappings.charReadMapping;
-import static com.facebook.presto.plugin.jdbc.StandardReadMappings.dateReadMapping;
-import static com.facebook.presto.plugin.jdbc.StandardReadMappings.decimalReadMapping;
-import static com.facebook.presto.plugin.jdbc.StandardReadMappings.doubleReadMapping;
-import static com.facebook.presto.plugin.jdbc.StandardReadMappings.integerReadMapping;
-import static com.facebook.presto.plugin.jdbc.StandardReadMappings.realReadMapping;
-import static com.facebook.presto.plugin.jdbc.StandardReadMappings.smallintReadMapping;
-import static com.facebook.presto.plugin.jdbc.StandardReadMappings.timeReadMapping;
-import static com.facebook.presto.plugin.jdbc.StandardReadMappings.timestampReadMapping;
-import static com.facebook.presto.plugin.jdbc.StandardReadMappings.tinyintReadMapping;
-import static com.facebook.presto.plugin.jdbc.StandardReadMappings.varbinaryReadMapping;
-import static com.facebook.presto.plugin.jdbc.StandardReadMappings.varcharReadMapping;
+import static com.facebook.presto.plugin.jdbc.StandardReadMappings.jdbcTypeToPrestoType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.CharType.createCharType;
 import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
@@ -79,14 +62,10 @@ import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
-import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static java.lang.Math.max;
-import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static java.util.Locale.ENGLISH;
@@ -230,6 +209,12 @@ public class BaseJdbcClient
         catch (SQLException e) {
             throw new PrestoException(JDBC_ERROR, e);
         }
+    }
+
+    @Override
+    public Optional<ReadMapping> toPrestoType(JdbcTypeHandle typeHandle)
+    {
+        return jdbcTypeToPrestoType(typeHandle);
     }
 
     @Override
@@ -462,77 +447,6 @@ public class BaseJdbcClient
             log.debug("Execute: %s", query);
             statement.execute(query);
         }
-    }
-
-    @Override
-    public Optional<ReadMapping> toPrestoType(JdbcTypeHandle typeHandle)
-    {
-        int columnSize = typeHandle.getColumnSize();
-        switch (typeHandle.getJdbcType()) {
-            case Types.BIT:
-            case Types.BOOLEAN:
-                return Optional.of(booleanReadMapping());
-
-            case Types.TINYINT:
-                return Optional.of(tinyintReadMapping());
-
-            case Types.SMALLINT:
-                return Optional.of(smallintReadMapping());
-
-            case Types.INTEGER:
-                return Optional.of(integerReadMapping());
-
-            case Types.BIGINT:
-                return Optional.of(bigintReadMapping());
-
-            case Types.REAL:
-                return Optional.of(realReadMapping());
-
-            case Types.FLOAT:
-            case Types.DOUBLE:
-                return Optional.of(doubleReadMapping());
-
-            case Types.NUMERIC:
-            case Types.DECIMAL:
-                int decimalDigits = typeHandle.getDecimalDigits();
-                int precision = columnSize + max(-decimalDigits, 0); // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
-                if (precision > Decimals.MAX_PRECISION) {
-                    return Optional.empty();
-                }
-                return Optional.of(decimalReadMapping(createDecimalType(precision, max(decimalDigits, 0))));
-
-            case Types.CHAR:
-            case Types.NCHAR:
-                // TODO this is wrong, we're going to construct malformed Slice representation if source > charLength
-                int charLength = min(columnSize, CharType.MAX_LENGTH);
-                return Optional.of(charReadMapping(createCharType(charLength)));
-
-            case Types.VARCHAR:
-            case Types.NVARCHAR:
-            case Types.LONGVARCHAR:
-            case Types.LONGNVARCHAR:
-                if (columnSize > VarcharType.MAX_LENGTH) {
-                    return Optional.of(varcharReadMapping(createUnboundedVarcharType()));
-                }
-                else {
-                    return Optional.of(varcharReadMapping(createVarcharType(columnSize)));
-                }
-
-            case Types.BINARY:
-            case Types.VARBINARY:
-            case Types.LONGVARBINARY:
-                return Optional.of(varbinaryReadMapping());
-
-            case Types.DATE:
-                return Optional.of(dateReadMapping());
-
-            case Types.TIME:
-                return Optional.of(timeReadMapping());
-
-            case Types.TIMESTAMP:
-                return Optional.of(timestampReadMapping());
-        }
-        return Optional.empty();
     }
 
     protected String toSqlType(Type type)
