@@ -35,7 +35,7 @@ public class ColumnarMap
         }
 
         if (!(block instanceof AbstractMapBlock)) {
-            throw new IllegalArgumentException("Invalid map block");
+            throw new IllegalArgumentException("Invalid map block: " + block.getClass().getName());
         }
 
         AbstractMapBlock mapBlock = (AbstractMapBlock) block;
