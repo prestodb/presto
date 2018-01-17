@@ -34,7 +34,7 @@ public class ColumnarArray
         }
 
         if (!(block instanceof AbstractArrayBlock)) {
-            throw new IllegalArgumentException("Invalid array block");
+            throw new IllegalArgumentException("Invalid array block: " + block.getClass().getName());
         }
 
         AbstractArrayBlock arrayBlock = (AbstractArrayBlock) block;
