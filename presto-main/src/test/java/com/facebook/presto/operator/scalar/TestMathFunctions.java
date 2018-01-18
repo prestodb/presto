@@ -1311,4 +1311,23 @@ public class TestMathFunctions
         assertInvalidFunction("inverse_normal_cdf(4, 48, 1)", "p must be 0 > p > 1");
         assertInvalidFunction("inverse_normal_cdf(4, 0, 0.4)", "sd must > 0");
     }
+
+    @Test
+    public void testNormalCdf()
+            throws Exception
+    {
+        assertFunction("normal_cdf(0, 1, 1.96)", DOUBLE, 0.9750021048517796);
+        assertFunction("normal_cdf(10, 9, 10)", DOUBLE, 0.5);
+        assertFunction("normal_cdf(-1.5, 2.1, -7.8)", DOUBLE, 0.0013498980316301035);
+        assertFunction("normal_cdf(0, 1, infinity())", DOUBLE, 1.0);
+        assertFunction("normal_cdf(0, 1, -infinity())", DOUBLE, 0.0);
+        assertFunction("normal_cdf(infinity(), 1, 0)", DOUBLE, 0.0);
+        assertFunction("normal_cdf(-infinity(), 1, 0)", DOUBLE, 1.0);
+        assertFunction("normal_cdf(0, infinity(), 0)", DOUBLE, 0.5);
+        assertFunction("normal_cdf(nan(), 1, 0)", DOUBLE, Double.NaN);
+        assertFunction("normal_cdf(0, 1, nan())", DOUBLE, Double.NaN);
+
+        assertInvalidFunction("normal_cdf(0, 0, 0.1985)", "sd must > 0");
+        assertInvalidFunction("normal_cdf(0, nan(), 0.1985)", "sd must > 0");
+    }
 }
