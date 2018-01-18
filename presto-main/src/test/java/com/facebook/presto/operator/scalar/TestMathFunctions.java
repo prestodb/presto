@@ -1327,7 +1327,7 @@ public class TestMathFunctions
         assertFunction("normal_cdf(nan(), 1, 0)", DOUBLE, Double.NaN);
         assertFunction("normal_cdf(0, 1, nan())", DOUBLE, Double.NaN);
 
-        assertInvalidFunction("normal_cdf(0, 0, 0.1985)", "sd must > 0");
-        assertInvalidFunction("normal_cdf(0, nan(), 0.1985)", "sd must > 0");
+        assertInvalidFunction("normal_cdf(0, 0, 0.1985)", "standardDeviation must > 0");
+        assertInvalidFunction("normal_cdf(0, nan(), 0.1985)", "standardDeviation must > 0");
     }
 }
