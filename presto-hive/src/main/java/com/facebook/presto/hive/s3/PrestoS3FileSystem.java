@@ -668,6 +668,7 @@ public class PrestoS3FileSystem
 
         if (!regionOrEndpointSet) {
             clientBuilder = clientBuilder.withRegion(US_EAST_1);
+            clientBuilder.setForceGlobalBucketAccessEnabled(true);
         }
 
         return clientBuilder.build();
