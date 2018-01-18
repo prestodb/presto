@@ -171,14 +171,14 @@ public final class LiteralInterpreter
         }
 
         if (type instanceof VarcharType) {
+            VarcharType varcharType = (VarcharType) type;
             Slice value = (Slice) object;
-            int length = SliceUtf8.countCodePoints(value);
+            StringLiteral stringLiteral = new StringLiteral(value.toStringUtf8());
 
-            if (length == ((VarcharType) type).getLength()) {
-                return new StringLiteral(value.toStringUtf8());
+            if (!varcharType.isUnbounded() && varcharType.getLengthSafe() == SliceUtf8.countCodePoints(value)) {
+                return stringLiteral;
             }
-
-            return new Cast(new StringLiteral(value.toStringUtf8()), type.getDisplayName(), false, true);
+            return new Cast(stringLiteral, type.getDisplayName(), false, true);
         }
 
         if (type instanceof CharType) {
