@@ -32,6 +32,12 @@ public class AuthenticationException
         this.authenticateHeader = Optional.of(authenticateHeader);
     }
 
+    public AuthenticationException(String message, Throwable cause)
+    {
+        super(message, cause);
+        this.authenticateHeader = Optional.empty();
+    }
+
     public Optional<String> getAuthenticateHeader()
     {
         return authenticateHeader;

@@ -27,19 +27,23 @@
  */
 package com.facebook.presto.server.security;
 
+import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.units.Duration;
 
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Pattern;
+import javax.validation.constraints.Size;
 
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 public class LdapConfig
 {
     private String ldapUrl;
-    private String userBindSearchPattern;
+    private List<String> userBindSearchPatterns = ImmutableList.of();
     private String groupAuthorizationSearchPattern;
     private String userBaseDistinguishedName;
     private Duration ldapCacheTtl = new Duration(1, TimeUnit.HOURS);
@@ -60,16 +64,17 @@ public class LdapConfig
     }
 
     @NotNull
-    public String getUserBindSearchPattern()
+    @Size(min = 1)
+    public List<String> getUserBindSearchPatterns()
     {
-        return userBindSearchPattern;
+        return userBindSearchPatterns;
     }
 
     @Config("authentication.ldap.user-bind-pattern")
-    @ConfigDescription("Custom user bind pattern. Example: ${USER}@example.com")
-    public LdapConfig setUserBindSearchPattern(String userBindSearchPattern)
+    @ConfigDescription("Custom user bind patterns. Example: ${USER}@example.com. You may specify multiple bind patterns separated by a semicolon.")
+    public LdapConfig setUserBindSearchPatterns(String bindPatterns)
     {
-        this.userBindSearchPattern = userBindSearchPattern;
+        this.userBindSearchPatterns = ImmutableList.copyOf(Splitter.on(";").trimResults().omitEmptyStrings().split(bindPatterns));
         return this;
     }
 

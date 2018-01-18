@@ -20,6 +20,7 @@ import org.testng.annotations.Test;
 
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Pattern;
+import javax.validation.constraints.Size;
 
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -36,7 +37,7 @@ public class TestLdapConfig
     {
         assertRecordedDefaults(ConfigAssertions.recordDefaults(LdapConfig.class)
                 .setLdapUrl(null)
-                .setUserBindSearchPattern(null)
+                .setUserBindSearchPatterns("")
                 .setUserBaseDistinguishedName(null)
                 .setGroupAuthorizationSearchPattern(null)
                 .setLdapCacheTtl(new Duration(1, TimeUnit.HOURS)));
@@ -47,7 +48,7 @@ public class TestLdapConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("authentication.ldap.url", "ldaps://localhost:636")
-                .put("authentication.ldap.user-bind-pattern", "uid=${USER},ou=org,dc=test,dc=com")
+                .put("authentication.ldap.user-bind-pattern", "uid=${USER},ou=org,dc=test,dc=com;uid=${USER},ou=com,dc=test,dc=com")
                 .put("authentication.ldap.user-base-dn", "dc=test,dc=com")
                 .put("authentication.ldap.group-auth-pattern", "&(objectClass=user)(memberOf=cn=group)(user=username)")
                 .put("authentication.ldap.cache-ttl", "2m")
@@ -55,7 +56,7 @@ public class TestLdapConfig
 
         LdapConfig expected = new LdapConfig()
                 .setLdapUrl("ldaps://localhost:636")
-                .setUserBindSearchPattern("uid=${USER},ou=org,dc=test,dc=com")
+                .setUserBindSearchPatterns("uid=${USER},ou=org,dc=test,dc=com;uid=${USER},ou=com,dc=test,dc=com")
                 .setUserBaseDistinguishedName("dc=test,dc=com")
                 .setGroupAuthorizationSearchPattern("&(objectClass=user)(memberOf=cn=group)(user=username)")
                 .setLdapCacheTtl(new Duration(2, TimeUnit.MINUTES));
@@ -68,7 +69,7 @@ public class TestLdapConfig
     {
         assertValidates(new LdapConfig()
                 .setLdapUrl("ldaps://localhost")
-                .setUserBindSearchPattern("uid=${USER},ou=org,dc=test,dc=com")
+                .setUserBindSearchPatterns("uid=${USER},ou=org,dc=test,dc=com;uid=${USER},ou=com,dc=test,dc=com")
                 .setUserBaseDistinguishedName("dc=test,dc=com")
                 .setGroupAuthorizationSearchPattern("&(objectClass=user)(memberOf=cn=group)(user=username)"));
 
@@ -77,6 +78,6 @@ public class TestLdapConfig
         assertFailsValidation(new LdapConfig().setLdapUrl("ldaps:/localhost"), "ldapUrl", "LDAP without SSL/TLS unsupported. Expected ldaps://", Pattern.class);
 
         assertFailsValidation(new LdapConfig(), "ldapUrl", "may not be null", NotNull.class);
-        assertFailsValidation(new LdapConfig(), "userBindSearchPattern", "may not be null", NotNull.class);
+        assertFailsValidation(new LdapConfig(), "userBindSearchPatterns", "size must be between 1 and 2147483647", Size.class);
     }
 }

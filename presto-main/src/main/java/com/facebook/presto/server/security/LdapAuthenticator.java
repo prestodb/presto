@@ -41,6 +41,7 @@ import java.util.concurrent.ExecutionException;
 import static com.facebook.presto.server.security.util.jndi.JndiUtils.getInitialDirContext;
 import static com.google.common.base.CharMatcher.javaIsoControl;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
@@ -64,7 +65,7 @@ public class LdapAuthenticator
     private static final String LDAP_CONTEXT_FACTORY = "com.sun.jndi.ldap.LdapCtxFactory";
 
     private final String ldapUrl;
-    private final String userBindSearchPattern;
+    private List<String> userBindSearchPatterns;
     private final Optional<String> groupAuthorizationSearchPattern;
     private final Optional<String> userBaseDistinguishedName;
     private final Map<String, String> basicEnvironment;
@@ -74,7 +75,8 @@ public class LdapAuthenticator
     public LdapAuthenticator(LdapConfig serverConfig)
     {
         this.ldapUrl = requireNonNull(serverConfig.getLdapUrl(), "ldapUrl is null");
-        this.userBindSearchPattern = requireNonNull(serverConfig.getUserBindSearchPattern(), "userBindSearchPattern is null");
+        this.userBindSearchPatterns = serverConfig.getUserBindSearchPatterns();
+        checkArgument(!this.userBindSearchPatterns.isEmpty(), "userBindSearchPatterns is empty");
         this.groupAuthorizationSearchPattern = Optional.ofNullable(serverConfig.getGroupAuthorizationSearchPattern());
         this.userBaseDistinguishedName = Optional.ofNullable(serverConfig.getUserBaseDistinguishedName());
         if (groupAuthorizationSearchPattern.isPresent()) {
@@ -188,7 +190,32 @@ public class LdapAuthenticator
     private Principal authenticate(String user, String password)
             throws AuthenticationException
     {
-        Map<String, String> environment = createEnvironment(user, password);
+        AuthenticationException ex = null;
+        for (String bindPattern : userBindSearchPatterns) {
+            try {
+                return authenticateBind(user, password, bindPattern);
+            }
+            catch (AuthenticationException err) {
+                if (ex == null) {
+                    ex = new AuthenticationException("Authentication failed", err);
+                }
+                else {
+                    ex.addSuppressed(err);
+                }
+            }
+        }
+
+        if (ex != null) {
+            throw ex;
+        }
+
+        throw new IllegalStateException("Authentication failed");
+    }
+
+    private Principal authenticateBind(String user, String password, String bindPattern)
+            throws AuthenticationException
+    {
+        Map<String, String> environment = createEnvironment(user, password, bindPattern);
         InitialDirContext context = null;
         try {
             context = createDirContext(environment);
@@ -198,11 +225,11 @@ public class LdapAuthenticator
             return new LdapPrincipal(user);
         }
         catch (javax.naming.AuthenticationException e) {
-            log.debug("Authentication failed for user [%s]: %s", user, e.getMessage());
+            log.debug("Authentication failed for user [%s]: %s", environment.get(SECURITY_PRINCIPAL), e.getMessage());
             throw needAuthentication("Invalid credentials: " + javaIsoControl().removeFrom(e.getMessage()));
         }
         catch (NamingException e) {
-            log.debug("Authentication failed for user [%s]: %s", user, e.getMessage());
+            log.debug("Authentication failed for user [%s]: %s", environment.get(SECURITY_PRINCIPAL), e.getMessage());
             throw new AuthenticationException("Authentication failed");
         }
         finally {
@@ -210,19 +237,19 @@ public class LdapAuthenticator
         }
     }
 
-    private Map<String, String> createEnvironment(String user, String password)
+    private Map<String, String> createEnvironment(String user, String password, String bindPattern)
     {
         return ImmutableMap.<String, String>builder()
                 .putAll(basicEnvironment)
                 .put(SECURITY_AUTHENTICATION, "simple")
-                .put(SECURITY_PRINCIPAL, createPrincipal(user))
+                .put(SECURITY_PRINCIPAL, createPrincipal(user, bindPattern))
                 .put(SECURITY_CREDENTIALS, password)
                 .build();
     }
 
-    private String createPrincipal(String user)
+    private String createPrincipal(String user, String bindPattern)
     {
-        return replaceUser(userBindSearchPattern, user);
+        return replaceUser(bindPattern, user);
     }
 
     private String replaceUser(String pattern, String user)
