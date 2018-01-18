@@ -25,6 +25,7 @@ import com.facebook.presto.hive.util.ResumableTasks;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
@@ -86,8 +87,6 @@ import static org.apache.hadoop.hive.common.FileUtils.HIDDEN_FILES_PATH_FILTER;
 public class BackgroundHiveSplitLoader
         implements HiveSplitLoader
 {
-    private static final String CORRUPT_BUCKETING = "Hive table is corrupt. It is declared as being bucketed, but the files do not match the bucketing declaration.";
-
     private static final ListenableFuture<?> COMPLETED_FUTURE = immediateFuture(null);
 
     private final Table table;
@@ -343,14 +342,22 @@ public class BackgroundHiveSplitLoader
         }
         catch (NestedDirectoryNotAllowedException e) {
             // Fail here to be on the safe side. This seems to be the same as what Hive does
-            throw new PrestoException(HIVE_INVALID_BUCKET_FILES, format("%s Found sub-directory in bucket directory for partition: %s", CORRUPT_BUCKETING, splitFactory.getPartitionName()));
+            throw new PrestoException(
+                    HIVE_INVALID_BUCKET_FILES,
+                    format("Hive table '%s' is corrupt. Found sub-directory in bucket directory for partition: %s",
+                            new SchemaTableName(table.getDatabaseName(), table.getTableName()),
+                            splitFactory.getPartitionName()));
         }
 
         // verify we found one file per bucket
         if (files.size() != bucketCount) {
-            throw new PrestoException(HIVE_INVALID_BUCKET_FILES, format("%s The number of files in the directory (%s) does not match the declared bucket count (%s) for partition: %s", CORRUPT_BUCKETING, files.size(),
-                    bucketCount,
-                    splitFactory.getPartitionName()));
+            throw new PrestoException(
+                    HIVE_INVALID_BUCKET_FILES,
+                    format("Hive table '%s' is corrupt. The number of files in the directory (%s) does not match the declared bucket count (%s) for partition: %s",
+                            new SchemaTableName(table.getDatabaseName(), table.getTableName()),
+                            files.size(),
+                            bucketCount,
+                            splitFactory.getPartitionName()));
         }
 
         // Sort FileStatus objects (instead of, e.g., fileStatus.getPath().toString). This matches org.apache.hadoop.hive.ql.metadata.Table.getSortedPaths
