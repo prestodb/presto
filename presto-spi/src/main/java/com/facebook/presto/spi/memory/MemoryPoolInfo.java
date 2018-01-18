@@ -43,7 +43,7 @@ public final class MemoryPoolInfo
         this.reservedBytes = reservedBytes;
         this.reservedRevocableBytes = reservedRevocableBytes;
         this.queryMemoryReservations = unmodifiableMap(new HashMap<>(queryMemoryReservations));
-        this.queryMemoryRevocableReservations = unmodifiableMap(new HashMap<>(queryMemoryReservations));
+        this.queryMemoryRevocableReservations = unmodifiableMap(new HashMap<>(queryMemoryRevocableReservations));
     }
 
     @JsonProperty
