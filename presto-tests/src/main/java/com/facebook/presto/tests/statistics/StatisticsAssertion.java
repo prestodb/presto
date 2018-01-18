@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Predicate;
 
+import static com.facebook.presto.tests.statistics.MetricComparator.createMetricComparisons;
 import static com.facebook.presto.tests.statistics.MetricComparison.Result.MATCH;
 import static com.facebook.presto.tests.statistics.MetricComparison.Result.NO_BASELINE;
 import static com.facebook.presto.tests.statistics.MetricComparison.Result.NO_ESTIMATE;
@@ -60,7 +61,7 @@ public class StatisticsAssertion
         String queryId = runner.executeWithQueryId(runner.getDefaultSession(), query).getQueryId();
         Plan queryPlan = runner.getQueryPlan(new QueryId(queryId));
         StageInfo stageInfo = runner.getQueryInfo(new QueryId(queryId)).getOutputStage().get();
-        return new MetricComparator().getMetricComparisons(queryPlan, stageInfo);
+        return createMetricComparisons(queryPlan, stageInfo);
     }
 
     public static class Result
