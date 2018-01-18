@@ -193,9 +193,9 @@ public class HiveColumnHandle
         return new HiveColumnHandle(BUCKET_COLUMN_NAME, BUCKET_HIVE_TYPE, BUCKET_TYPE_SIGNATURE, BUCKET_COLUMN_INDEX, HIDDEN, Optional.empty());
     }
 
-    public static HiveColumnHandle partitionColumnHandle(String connectorId)
+    public static HiveColumnHandle partitionColumnHandle()
     {
-        return new HiveColumnHandle(connectorId, PARTITION_COLUMN_NAME, PARTITION_HIVE_TYPE, PARTITION_TYPE_SIGNATURE, PARTITION_COLUMN_INDEX, HIDDEN, Optional.empty());
+        return new HiveColumnHandle(PARTITION_COLUMN_NAME, PARTITION_HIVE_TYPE, PARTITION_TYPE_SIGNATURE, PARTITION_COLUMN_INDEX, HIDDEN, Optional.empty());
     }
 
     public static boolean isPathColumnHandle(HiveColumnHandle column)

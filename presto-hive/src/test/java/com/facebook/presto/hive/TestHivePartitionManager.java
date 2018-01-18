@@ -57,7 +57,6 @@ import static org.testng.Assert.assertEquals;
 public class TestHivePartitionManager
 {
     private static final String EXPECTED_PARTITION_VALUE = "ds=2017-06-28";
-    private static final HiveConnectorId TEST_CONNECTOR_ID = new HiveConnectorId("test_connector");
 
     private static final SemiTransactionalHiveMetastore HIVE_METASTORE = new SemiTransactionalHiveMetastore(
             new TestingHdfsEnvironment(),
@@ -102,7 +101,7 @@ public class TestHivePartitionManager
                 new Constraint(
                         TupleDomain.fromFixedValues(
                                 ImmutableMap.of(
-                                        partitionColumnHandle(TEST_CONNECTOR_ID.toString()),
+                                        partitionColumnHandle(),
                                         NullableValue.of(
                                                 createUnboundedVarcharType(),
                                                 utf8Slice(EXPECTED_PARTITION_VALUE)))),

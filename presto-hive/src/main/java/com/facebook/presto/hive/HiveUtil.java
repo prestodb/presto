@@ -732,7 +732,7 @@ public final class HiveUtil
             columns.add(bucketColumnHandle());
         }
         if (!table.getPartitionColumns().isEmpty()) {
-            columns.add(partitionColumnHandle(connectorId));
+            columns.add(partitionColumnHandle());
         }
 
         return columns.build();
