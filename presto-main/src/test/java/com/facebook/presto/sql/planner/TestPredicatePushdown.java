@@ -14,17 +14,23 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
+import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.util.List;
+
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.any;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.columnReference;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.exchange;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.output;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.semiJoin;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
@@ -216,5 +222,37 @@ public class TestPredicatePushdown
                                 anyTree(
                                         filter("ORDERS_ORDER_KEY > BIGINT '2'",
                                                 tableScan("orders", ImmutableMap.of("ORDERS_ORDER_KEY", "orderkey")))))));
+    }
+
+    @Test
+    public void testFilteredSelectFromPartitionedTable()
+    {
+        // use all optimizers, including AddExchanges
+        List<PlanOptimizer> allOptimizers = getQueryRunner().getPlanOptimizers(false);
+
+        assertPlan(
+                "SELECT DISTINCT orderstatus FROM orders",
+                // TODO this could be optimized to VALUES with values from partitions
+                anyTree(
+                        tableScan("orders")),
+                allOptimizers);
+
+        assertPlan(
+                "SELECT orderstatus FROM orders WHERE orderstatus = 'O'",
+                // predicate matches exactly single partition, no FilterNode needed
+                output(
+                        exchange(
+                                tableScan("orders"))),
+                allOptimizers);
+
+        assertPlan(
+                "SELECT orderstatus FROM orders WHERE orderstatus = 'no_such_partition_value'",
+                // TODO this could be optimized to VALUES
+                output(
+                        exchange(
+                                filter(
+                                        "cast(OS AS varchar(23)) = 'no_such_partition_value'",
+                                        tableScan("orders").withAlias("OS", columnReference("orders", "orderstatus"))))),
+                allOptimizers);
     }
 }
