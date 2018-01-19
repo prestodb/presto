@@ -94,7 +94,7 @@ Spilling Properties
     to the drive on which the JVM logs are written, as disk overutilization might
     cause JVM to pause for lengthy periods, causing queries to fail.
 
-``experimental.spiller-minimum-free-space-threshold``
+``experimental.spiller-max-used-space-threshold``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     * **Type:** ``double``
