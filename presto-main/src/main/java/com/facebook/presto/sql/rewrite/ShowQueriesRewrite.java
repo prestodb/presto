@@ -372,34 +372,9 @@ final class ShowQueriesRewrite
 
             TableLayout layout = getLayout(showPartitions, showPartitions.getTable(), showPartitions.getWhere())
                     .orElseThrow(() -> new SemanticException(NOT_SUPPORTED, showPartitions, "Could not find layout for table: %s", table));
+            List<Expression> rows = getPartitionsAsValuesRows(showPartitions, table, layout);
+            List<String> partitioningColumns = getPartitioningColumns(showPartitions, table, tableHandle, layout);
 
-            Map<ColumnHandle, String> columnHandleNames = ImmutableBiMap.copyOf(metadata.getColumnHandles(session, tableHandle)).inverse();
-
-            DiscretePredicates discretePredicates = layout.getDiscretePredicates()
-                    .orElseThrow(() -> new SemanticException(NOT_SUPPORTED, showPartitions, "Table does not have partition columns: %s", table));
-
-            List<String> partitioningColumns = discretePredicates.getColumns().stream()
-                    .map(columnHandle -> requireNonNull(columnHandleNames.get(columnHandle), "no column name for handle"))
-                    .collect(toImmutableList());
-
-            Map<ColumnHandle, Integer> partitioningColumnIndex = IntStream.range(0, discretePredicates.getColumns().size())
-                    .boxed()
-                    .collect(toMap(index -> discretePredicates.getColumns().get(index), index -> index));
-
-            List<TupleDomain<ColumnHandle>> predicates = ImmutableList.copyOf(discretePredicates.getPredicates());
-            ImmutableList.Builder<Expression> rowBuilder = ImmutableList.builder();
-            for (TupleDomain<ColumnHandle> domain : predicates) {
-                List<Expression> row = TupleDomain.extractFixedValues(domain).get()
-                        .entrySet().stream()
-                        .sorted(Comparator.comparing(entry -> requireNonNull(partitioningColumnIndex.get(entry.getKey()), "not a partitioning column")))
-                        .map(Entry::getValue)
-                        .map(nullableValue -> LiteralInterpreter.toExpression(nullableValue.getValue(), nullableValue.getType()))
-                        .collect(toImmutableList());
-
-                rowBuilder.add(new Row(row));
-            }
-
-            List<Expression> rows = rowBuilder.build();
             Optional<Expression> where;
             if (rows.isEmpty()) {
                 // VALUES does not allow no rows
@@ -421,6 +396,44 @@ final class ShowQueriesRewrite
                     Optional.empty(),
                     orderBy(showPartitions.getOrderBy()),
                     showPartitions.getLimit());
+        }
+
+        private List<String> getPartitioningColumns(
+                ShowPartitions showPartitions,
+                QualifiedObjectName table,
+                TableHandle tableHandle,
+                TableLayout layout)
+        {
+            Map<ColumnHandle, String> columnHandleNames = ImmutableBiMap.copyOf(metadata.getColumnHandles(session, tableHandle)).inverse();
+            DiscretePredicates discretePredicates = layout.getDiscretePredicates()
+                    .orElseThrow(() -> new SemanticException(NOT_SUPPORTED, showPartitions, "Table does not have partition columns: %s", table));
+            return discretePredicates.getColumns().stream()
+                    .map(columnHandle -> requireNonNull(columnHandleNames.get(columnHandle), "no column name for handle"))
+                    .collect(toImmutableList());
+        }
+
+        private List<Expression> getPartitionsAsValuesRows(ShowPartitions showPartitions, QualifiedObjectName table, TableLayout layout)
+        {
+            DiscretePredicates discretePredicates = layout.getDiscretePredicates()
+                    .orElseThrow(() -> new SemanticException(NOT_SUPPORTED, showPartitions, "Table does not have partition columns: %s", table));
+
+            Map<ColumnHandle, Integer> partitioningColumnIndex = IntStream.range(0, discretePredicates.getColumns().size())
+                    .boxed()
+                    .collect(toMap(index -> discretePredicates.getColumns().get(index), index -> index));
+
+            List<TupleDomain<ColumnHandle>> predicates = ImmutableList.copyOf(discretePredicates.getPredicates());
+            ImmutableList.Builder<Expression> rowBuilder = ImmutableList.builder();
+            for (TupleDomain<ColumnHandle> domain : predicates) {
+                List<Expression> row = TupleDomain.extractFixedValues(domain).get()
+                        .entrySet().stream()
+                        .sorted(Comparator.comparing(entry -> requireNonNull(partitioningColumnIndex.get(entry.getKey()), "not a partitioning column")))
+                        .map(Entry::getValue)
+                        .map(nullableValue -> LiteralInterpreter.toExpression(nullableValue.getValue(), nullableValue.getType()))
+                        .collect(toImmutableList());
+
+                rowBuilder.add(new Row(row));
+            }
+            return rowBuilder.build();
         }
 
         private Optional<TableLayout> getLayout(Node node, QualifiedName tableName, Optional<Expression> where)
