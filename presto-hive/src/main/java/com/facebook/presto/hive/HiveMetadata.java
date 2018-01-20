@@ -995,7 +995,8 @@ public class HiveMetadata
                                 table.getStorage().getStorageFormat() :
                                 fromHiveStorageFormat(defaultStorageFormat))
                         .setLocation(partitionUpdate.getTargetPath().toString())
-                        .setBucketProperty(table.getStorage().getBucketProperty()))
+                        .setBucketProperty(table.getStorage().getBucketProperty())
+                        .setSerdeParameters(table.getStorage().getSerdeParameters()))
                 .build();
     }
 
