@@ -38,6 +38,9 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
+import static com.facebook.presto.sql.ExpressionUtils.filterDeterministicConjuncts;
+import static com.facebook.presto.sql.ExpressionUtils.filterNonDeterministicConjuncts;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class TableLayoutRewriter
 {
@@ -56,10 +59,11 @@ public class TableLayoutRewriter
 
     public PlanNode planTableScan(TableScanNode node, Expression predicate)
     {
+        Expression deterministicPredicate = filterDeterministicConjuncts(predicate);
         DomainTranslator.ExtractionResult decomposedPredicate = DomainTranslator.fromPredicate(
                 metadata,
                 session,
-                predicate,
+                deterministicPredicate,
                 symbolAllocator.getTypes());
 
         TupleDomain<ColumnHandle> simplifiedConstraint = decomposedPredicate.getTupleDomain()
@@ -70,10 +74,12 @@ public class TableLayoutRewriter
                 session, node.getTable(),
                 new Constraint<>(simplifiedConstraint, bindings -> true),
                 Optional.of(ImmutableSet.copyOf(node.getAssignments().values())));
-
         if (layouts.isEmpty()) {
             return new ValuesNode(idAllocator.getNextId(), node.getOutputSymbols(), ImmutableList.of());
         }
+        layouts = layouts.stream()
+                .filter(layout -> layout.hasAllOutputs(node))
+                .collect(toImmutableList());
 
         TableLayoutResult layout = layouts.get(0);
 
@@ -89,6 +95,7 @@ public class TableLayoutRewriter
         Map<ColumnHandle, Symbol> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
         Expression resultingPredicate = combineConjuncts(
                 decomposedPredicate.getRemainingExpression(),
+                filterNonDeterministicConjuncts(predicate),
                 DomainTranslator.toPredicate(layout.getUnenforcedConstraint().transform(assignments::get)));
 
         if (!BooleanLiteral.TRUE_LITERAL.equals(resultingPredicate)) {
