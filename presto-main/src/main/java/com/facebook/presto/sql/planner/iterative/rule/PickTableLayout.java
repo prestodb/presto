@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
@@ -28,12 +29,17 @@ import com.google.common.collect.ImmutableSet;
 import java.util.Objects;
 import java.util.Set;
 
+import static com.facebook.presto.SystemSessionProperties.isNewOptimizerEnabled;
 import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.sql.planner.plan.Patterns.filter;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
 import static com.facebook.presto.sql.planner.plan.Patterns.tableScan;
 import static java.util.Objects.requireNonNull;
 
+/**
+ * These rules should not be run after AddExchanges so as not to overwrite the TableLayout
+ * chosen by AddExchanges
+ */
 public class PickTableLayout
 {
     private final Metadata metadata;
@@ -73,18 +79,18 @@ public class PickTableLayout
         private static final Capture<TableScanNode> TABLE_SCAN = newCapture();
 
         private static final Pattern<FilterNode> PATTERN = filter().with(source().matching(
-                tableScan().matching(PickTableLayoutForPredicate::shouldRewriteTableLayout)
-                        .capturedAs(TABLE_SCAN)));
-
-        private static boolean shouldRewriteTableLayout(TableScanNode source)
-        {
-            return !source.getLayout().isPresent() || source.getCurrentConstraint().isAll();
-        }
+                tableScan().capturedAs(TABLE_SCAN)));
 
         @Override
         public Pattern<FilterNode> getPattern()
         {
             return PATTERN;
+        }
+
+        @Override
+        public boolean isEnabled(Session session)
+        {
+            return isNewOptimizerEnabled(session);
         }
 
         @Override
@@ -138,6 +144,12 @@ public class PickTableLayout
         public Pattern<TableScanNode> getPattern()
         {
             return PATTERN;
+        }
+
+        @Override
+        public boolean isEnabled(Session session)
+        {
+            return isNewOptimizerEnabled(session);
         }
 
         @Override
