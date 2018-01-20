@@ -235,10 +235,10 @@ public class WindowFilterPushDown
                 upperBound--;
             }
 
-            if (upperBound > Integer.MAX_VALUE) {
-                return OptionalInt.empty();
+            if (upperBound > 0 && upperBound <= Integer.MAX_VALUE) {
+                return OptionalInt.of(toIntExact(upperBound));
             }
-            return OptionalInt.of(toIntExact(upperBound));
+            return OptionalInt.empty();
         }
 
         private static RowNumberNode mergeLimit(RowNumberNode node, int newRowCountPerPartition)
