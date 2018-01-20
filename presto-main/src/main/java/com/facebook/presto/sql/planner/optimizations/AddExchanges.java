@@ -604,7 +604,7 @@ public class AddExchanges
 
             // Filter out layouts that cannot supply all the required columns
             layouts = layouts.stream()
-                    .filter(layout -> hasAllNeededOutputs(layout, node))
+                    .filter(layout -> layout.hasAllOutputs(node))
                     .collect(toList());
             checkState(!layouts.isEmpty(), "No usable layouts for %s", node);
 
@@ -637,16 +637,6 @@ public class AddExchanges
                     .collect(toList());
 
             return pickPlan(possiblePlans, context);
-        }
-
-        private boolean hasAllNeededOutputs(TableLayoutResult layout, TableScanNode node)
-        {
-            List<ColumnHandle> nodeColumnHandles = node.getOutputSymbols().stream()
-                    .map(node.getAssignments()::get)
-                    .collect(toImmutableList());
-            return layout.getLayout().getColumns()
-                    .map(columnHandles -> columnHandles.containsAll(nodeColumnHandles))
-                    .orElse(true);
         }
 
         /**
