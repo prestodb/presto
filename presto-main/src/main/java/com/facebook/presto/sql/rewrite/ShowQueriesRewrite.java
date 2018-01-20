@@ -23,11 +23,13 @@ import com.facebook.presto.metadata.SqlFunction;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.metadata.TableLayoutHandle;
+import com.facebook.presto.metadata.TableLayoutResult;
 import com.facebook.presto.metadata.ViewDefinition;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.DiscretePredicates;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
@@ -96,6 +98,7 @@ import static com.facebook.presto.connector.informationSchema.InformationSchemaM
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_SCHEMATA;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLES;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLE_PRIVILEGES;
+import static com.facebook.presto.matching.Pattern.empty;
 import static com.facebook.presto.metadata.MetadataListing.listCatalogs;
 import static com.facebook.presto.metadata.MetadataListing.listSchemas;
 import static com.facebook.presto.metadata.MetadataUtil.createCatalogSchemaName;
@@ -126,12 +129,19 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_PARSE_ERROR;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
+import static com.facebook.presto.sql.planner.plan.Patterns.Values.rows;
+import static com.facebook.presto.sql.planner.plan.Patterns.output;
+import static com.facebook.presto.sql.planner.plan.Patterns.source;
+import static com.facebook.presto.sql.planner.plan.Patterns.values;
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.facebook.presto.sql.tree.ShowCreate.Type.TABLE;
 import static com.facebook.presto.sql.tree.ShowCreate.Type.VIEW;
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Predicates.alwaysFalse;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -370,8 +380,8 @@ final class ShowQueriesRewrite
             TableHandle tableHandle = metadata.getTableHandle(session, table)
                     .orElseThrow(() -> new SemanticException(MISSING_TABLE, showPartitions, "Table '%s' does not exist", table));
 
-            TableLayout layout = getLayout(showPartitions, showPartitions.getTable(), showPartitions.getWhere())
-                    .orElseThrow(() -> new SemanticException(NOT_SUPPORTED, showPartitions, "Could not find layout for table: %s", table));
+            TableLayout layout = getLayoutFromFilterScanQuery(showPartitions, showPartitions.getTable(), showPartitions.getWhere())
+                    .orElseGet(() -> getLayoutWithoutPartitionsFromMetadata(showPartitions, showPartitions.getTable(), tableHandle));
             List<Expression> rows = getPartitionsAsValuesRows(showPartitions, table, layout);
             List<String> partitioningColumns = getPartitioningColumns(showPartitions, table, tableHandle, layout);
 
@@ -436,7 +446,7 @@ final class ShowQueriesRewrite
             return rowBuilder.build();
         }
 
-        private Optional<TableLayout> getLayout(Node node, QualifiedName tableName, Optional<Expression> where)
+        private Optional<TableLayout> getLayoutFromFilterScanQuery(Node node, QualifiedName tableName, Optional<Expression> where)
         {
             QualifiedObjectName table = createQualifiedObjectName(session, node, tableName);
             QuerySpecification querySpecification = new QuerySpecification(
@@ -455,7 +465,11 @@ final class ShowQueriesRewrite
                     .findSingle();
 
             if (!scanNode.isPresent()) {
-                // Probably WHERE clause caused scan to be optimized away
+                checkState(
+                        output().with(
+                                source().matching(values().with(empty(rows()))))
+                                .matches(plan.getRoot()),
+                        "Expected query with optimized table scan");
                 return Optional.empty();
             }
             TableLayoutHandle tableLayoutHandle = scanNode.get()
@@ -463,6 +477,15 @@ final class ShowQueriesRewrite
                     .orElseThrow(() -> new SemanticException(NOT_SUPPORTED, node, "Table does not have a layout: %s", table));
 
             return Optional.of(metadata.getLayout(session, tableLayoutHandle));
+        }
+
+        private TableLayout getLayoutWithoutPartitionsFromMetadata(ShowPartitions showPartitions, QualifiedName table, TableHandle tableHandle)
+        {
+            List<TableLayoutResult> layouts = metadata.getLayouts(session, tableHandle, new Constraint<>(TupleDomain.all(), alwaysFalse()), Optional.empty());
+            if (layouts.size() != 1) {
+                throw new SemanticException(NOT_SUPPORTED, showPartitions, "Table does not have exactly one layout: %s", table);
+            }
+            return getOnlyElement(layouts).getLayout();
         }
 
         @Override
