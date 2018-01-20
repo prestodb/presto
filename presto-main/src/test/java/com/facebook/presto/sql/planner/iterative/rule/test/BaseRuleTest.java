@@ -20,12 +20,23 @@ import static io.airlift.testing.Closeables.closeAllRuntimeException;
 
 public abstract class BaseRuleTest
 {
+    private final boolean tpchPredicatePushdownEnabled;
     private RuleTester tester;
+
+    protected BaseRuleTest()
+    {
+        this(false);
+    }
+
+    protected BaseRuleTest(boolean tpchPredicatePushdownEnabled)
+    {
+        this.tpchPredicatePushdownEnabled = tpchPredicatePushdownEnabled;
+    }
 
     @BeforeClass
     public final void setUp()
     {
-        tester = new RuleTester();
+        tester = new RuleTester(tpchPredicatePushdownEnabled);
     }
 
     @AfterClass(alwaysRun = true)

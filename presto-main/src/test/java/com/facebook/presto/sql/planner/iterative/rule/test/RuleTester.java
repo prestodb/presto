@@ -41,7 +41,7 @@ public class RuleTester
     private final TransactionManager transactionManager;
     private final AccessControl accessControl;
 
-    public RuleTester()
+    public RuleTester(boolean tpchPredicatePushdownEnabled)
     {
         session = testSessionBuilder()
                 .setCatalog(CATALOG_ID)
@@ -51,7 +51,7 @@ public class RuleTester
 
         queryRunner = new LocalQueryRunner(session);
         queryRunner.createCatalog(session.getCatalog().get(),
-                new TpchConnectorFactory(1),
+                new TpchConnectorFactory(1, tpchPredicatePushdownEnabled),
                 ImmutableMap.of());
 
         this.metadata = queryRunner.getMetadata();
