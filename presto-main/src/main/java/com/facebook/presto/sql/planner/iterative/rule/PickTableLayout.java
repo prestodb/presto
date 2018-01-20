@@ -31,6 +31,7 @@ import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.isNewOptimizerEnabled;
 import static com.facebook.presto.matching.Capture.newCapture;
+import static com.facebook.presto.sql.planner.iterative.rule.PreconditionRules.checkRulesAreFiredBeforeAddExchangesRule;
 import static com.facebook.presto.sql.planner.plan.Patterns.filter;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
 import static com.facebook.presto.sql.planner.plan.Patterns.tableScan;
@@ -52,6 +53,7 @@ public class PickTableLayout
     public Set<Rule<?>> rules()
     {
         return ImmutableSet.of(
+                checkRulesAreFiredBeforeAddExchangesRule(),
                 pickTableLayoutForPredicate(),
                 pickTableLayoutWithoutPredicate());
     }
