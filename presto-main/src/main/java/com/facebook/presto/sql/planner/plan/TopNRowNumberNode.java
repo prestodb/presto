@@ -57,7 +57,7 @@ public final class TopNRowNumberNode
         requireNonNull(source, "source is null");
         requireNonNull(specification, "specification is null");
         requireNonNull(rowNumberSymbol, "rowNumberSymbol is null");
-        checkArgument(maxRowCountPerPartition > 0, "maxRowCountPerPartition must be > 0");
+        //checkArgument(maxRowCountPerPartition > 0, "maxRowCountPerPartition must be > 0");
         requireNonNull(hashSymbol, "hashSymbol is null");
 
         this.source = source;
@@ -66,6 +66,10 @@ public final class TopNRowNumberNode
         this.maxRowCountPerPartition = maxRowCountPerPartition;
         this.partial = partial;
         this.hashSymbol = hashSymbol;
+
+        if (maxRowCountPerPartition < 0) {
+            maxRowCountPerPartition = 0;
+        }
     }
 
     @Override
