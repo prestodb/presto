@@ -1207,6 +1207,28 @@ public class TestDomainTranslator
     }
 
     @Test
+    public void testConjunctExpression()
+            throws Exception
+    {
+        Expression originalExpression = and(
+                comparison(GREATER_THAN, C_DOUBLE.toSymbolReference(), doubleLiteral(0)),
+                comparison(GREATER_THAN, C_BIGINT.toSymbolReference(), bigintLiteral(0)));
+
+        ExtractionResult result = fromPredicate(originalExpression);
+        assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
+        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(
+                C_BIGINT, Domain.create(ValueSet.ofRanges(Range.greaterThan(BIGINT, 0L)), false),
+                C_DOUBLE, Domain.create(ValueSet.ofRanges(Range.greaterThan(DOUBLE, .0)), false))));
+
+        Expression expression = toPredicate(result.getTupleDomain());
+        assertEquals(
+                expression,
+                and(
+                        comparison(GREATER_THAN, C_BIGINT.toSymbolReference(), bigintLiteral(0)),
+                        comparison(GREATER_THAN, C_DOUBLE.toSymbolReference(), doubleLiteral(0))));
+    }
+
+    @Test
     void testMultipleCoercionsOnSymbolSide()
     {
         ComparisonExpression originalExpression = comparison(GREATER_THAN, cast(cast(C_SMALLINT, REAL), DOUBLE), doubleLiteral(3.7));

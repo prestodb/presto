@@ -28,6 +28,7 @@ import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.predicate.Utils;
 import com.facebook.presto.spi.predicate.ValueSet;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.FunctionInvoker;
 import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -75,10 +76,13 @@ import static com.facebook.presto.sql.tree.ComparisonExpressionType.LESS_THAN_OR
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.NOT_EQUAL;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterators.peekingIterator;
 import static java.util.Collections.emptyList;
+import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.toList;
 
 public final class DomainTranslator
@@ -92,13 +96,12 @@ public final class DomainTranslator
         if (tupleDomain.isNone()) {
             return FALSE_LITERAL;
         }
-        ImmutableList.Builder<Expression> conjunctBuilder = ImmutableList.builder();
-        for (Map.Entry<Symbol, Domain> entry : tupleDomain.getDomains().get().entrySet()) {
-            Symbol symbol = entry.getKey();
-            SymbolReference reference = symbol.toSymbolReference();
-            conjunctBuilder.add(toPredicate(entry.getValue(), reference));
-        }
-        return combineConjuncts(conjunctBuilder.build());
+
+        Map<Symbol, Domain> domains = tupleDomain.getDomains().get();
+        return domains.entrySet().stream()
+                .sorted(comparing(entry -> entry.getKey().getName()))
+                .map(entry -> toPredicate(entry.getValue(), entry.getKey().toSymbolReference()))
+                .collect(collectingAndThen(toImmutableList(), ExpressionUtils::combineConjuncts));
     }
 
     private static Expression toPredicate(Domain domain, SymbolReference reference)
