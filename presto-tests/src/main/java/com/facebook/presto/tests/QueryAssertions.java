@@ -215,6 +215,18 @@ public final class QueryAssertions
         }
     }
 
+    protected static void assertQueryReturnsEmptyResult(QueryRunner queryRunner, Session session, @Language("SQL") String sql)
+    {
+        try {
+            MaterializedResult results = queryRunner.execute(session, sql).toTestTypes();
+            assertNotNull(results);
+            assertEquals(results.getRowCount(), 0);
+        }
+        catch (RuntimeException ex) {
+            fail("Execution of query failed: " + sql, ex);
+        }
+    }
+
     private static void assertExceptionMessage(String sql, Exception exception, @Language("RegExp") String regex)
     {
         if (!nullToEmpty(exception.getMessage()).matches(regex)) {

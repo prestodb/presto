@@ -4554,6 +4554,52 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testRowNumberSpecialFilters()
+    {
+        // Test "row_number() = negative number" filter with ORDER BY. This should create a Window Node with a Filter Node on top and return 0 rows.
+        assertQueryReturnsEmptyResult("" +
+                "SELECT * FROM (" +
+                "   SELECT a, row_number() OVER (PARTITION BY a ORDER BY a) rn\n" +
+                "   FROM (VALUES (1), (1), (1), (2), (2), (3)) t (a)) t " +
+                "WHERE rn = -1");
+
+        // Test "row_number() <= negative number" filter with ORDER BY. This should create a Window Node with a Filter Node on top and return 0 rows.
+        assertQueryReturnsEmptyResult("" +
+                "SELECT * FROM (" +
+                "   SELECT a, row_number() OVER (PARTITION BY a ORDER BY a) rn\n" +
+                "   FROM (VALUES (1), (1), (1), (2), (2), (3)) t (a)) t " +
+                "WHERE rn <= -1");
+
+        // Test "row_number() = 0" filter with ORDER BY. This should create a Window Node with a Filter Node on top and return 0 rows.
+        assertQueryReturnsEmptyResult("" +
+                "SELECT * FROM (" +
+                "   SELECT a, row_number() OVER (PARTITION BY a ORDER BY a) rn\n" +
+                "   FROM (VALUES (1), (1), (1), (2), (2), (3)) t (a)) t " +
+                "WHERE rn = 0");
+
+        // Test "row_number() = negative number" filter without ORDER BY. This should create a RowNumber Node with a Filter Node on top and return 0 rows.
+        assertQueryReturnsEmptyResult("" +
+                "SELECT * FROM (" +
+                "   SELECT a, row_number() OVER (PARTITION BY a) rn\n" +
+                "   FROM (VALUES (1), (1), (1), (2), (2), (3)) t (a)) t " +
+                "WHERE rn = -1");
+
+        // Test "row_number() <= negative number" filter without ORDER BY. This should create a RowNumber Node with a Filter Node on top and return 0 rows.
+        assertQueryReturnsEmptyResult("" +
+                "SELECT * FROM (" +
+                "   SELECT a, row_number() OVER (PARTITION BY a) rn\n" +
+                "   FROM (VALUES (1), (1), (1), (2), (2), (3)) t (a)) t " +
+                "WHERE rn <= -1");
+
+        // Test "row_number() = 0" filter without ORDER BY. This should create a RowNumber Node with a Filter Node on top and return 0 rows.
+        assertQueryReturnsEmptyResult("" +
+                "SELECT * FROM (" +
+                "   SELECT a, row_number() OVER (PARTITION BY a) rn\n" +
+                "   FROM (VALUES (1), (1), (1), (2), (2), (3)) t (a)) t " +
+                "WHERE rn = 0");
+    }
+
+    @Test
     public void testRowNumberFilterAndLimit()
     {
         MaterializedResult actual = computeActual("" +
