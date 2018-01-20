@@ -246,6 +246,9 @@ public class PlanOptimizers
                 new TransformCorrelatedSingleRowSubqueryToProject(),
                 new CheckSubqueryNodesAreRewritten(),
                 new PredicatePushDown(metadata, sqlParser),
+                new IterativeOptimizer(
+                        stats,
+                        new PickTableLayout(metadata).rules()),
                 new PruneUnreferencedOutputs(),
                 new IterativeOptimizer(
                         stats,
@@ -279,6 +282,9 @@ public class PlanOptimizers
                         stats,
                         ImmutableSet.of(new EliminateCrossJoins())), // This can pull up Filter and Project nodes from between Joins, so we need to push them down again
                 new PredicatePushDown(metadata, sqlParser),
+                new IterativeOptimizer(
+                        stats,
+                        new PickTableLayout(metadata).rules()),
                 projectionPushDown);
 
         if (featuresConfig.isOptimizeSingleDistinct()) {
@@ -308,11 +314,6 @@ public class PlanOptimizers
                             ImmutableSet.of(new PushTableWriteThroughUnion()))); // Must run before AddExchanges
             builder.add(new AddExchanges(metadata, sqlParser));
         }
-
-        builder.add(
-                new IterativeOptimizer(
-                        stats,
-                        new PickTableLayout(metadata).rules()));
 
         builder.add(
                 new IterativeOptimizer(
