@@ -74,7 +74,7 @@ public class GatherAndMergeWindows
 
         protected ManipulateAdjacentWindowsOverProjects(int numProjects)
         {
-            PropertyPattern<PlanNode, ?> childPattern = source().matching(window().capturedAs(childCapture));
+            PropertyPattern<PlanNode, ?, ?> childPattern = source().matching(window().capturedAs(childCapture));
             ImmutableList.Builder<Capture<ProjectNode>> projectCapturesBuilder = ImmutableList.builder();
             for (int i = 0; i < numProjects; ++i) {
                 Capture<ProjectNode> projectCapture = newCapture();

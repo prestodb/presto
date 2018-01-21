@@ -41,9 +41,9 @@ public class CapturePattern<T>
     }
 
     @Override
-    public Stream<Match<T>> accept(Matcher matcher, Object object, Captures captures)
+    public <C> Stream<Match<T>> accept(Matcher matcher, Object object, Captures captures, C context)
     {
-        return matcher.matchCapture(this, object, captures);
+        return matcher.matchCapture(this, object, captures, context);
     }
 
     @Override

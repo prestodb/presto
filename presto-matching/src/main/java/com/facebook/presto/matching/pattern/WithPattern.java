@@ -28,9 +28,9 @@ import static java.util.Objects.requireNonNull;
 public class WithPattern<T>
         extends Pattern<T>
 {
-    private final PropertyPattern<? super T, ?> propertyPattern;
+    private final PropertyPattern<? super T, ?, ?> propertyPattern;
 
-    public WithPattern(PropertyPattern<? super T, ?> propertyPattern, Pattern<T> previous)
+    public WithPattern(PropertyPattern<? super T, ?, ?> propertyPattern, Pattern<T> previous)
     {
         super(previous);
         this.propertyPattern = requireNonNull(propertyPattern, "propertyPattern is null");
@@ -41,15 +41,15 @@ public class WithPattern<T>
         return propertyPattern.getPattern();
     }
 
-    public Property<? super T, ?> getProperty()
+    public Property<? super T, ?, ?> getProperty()
     {
         return propertyPattern.getProperty();
     }
 
     @Override
-    public Stream<Match<T>> accept(Matcher matcher, Object object, Captures captures)
+    public <C> Stream<Match<T>> accept(Matcher matcher, Object object, Captures captures, C context)
     {
-        return matcher.matchWith(this, object, captures);
+        return matcher.matchWith(this, object, captures, context);
     }
 
     @Override

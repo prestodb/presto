@@ -28,12 +28,12 @@ public class Patterns
         return typeOf(JoinNode.class);
     }
 
-    public static Property<JoinNode, RelNode> build()
+    public static Property<JoinNode, ?, RelNode> build()
     {
         return property("build", JoinNode::getBuild);
     }
 
-    public static Property<JoinNode, RelNode> probe()
+    public static Property<JoinNode, ?, RelNode> probe()
     {
         return property("probe", JoinNode::getProbe);
     }
@@ -58,12 +58,12 @@ public class Patterns
         return typeOf(ProjectNode.class);
     }
 
-    public static Property<ScanNode, String> tableName()
+    public static Property<ScanNode, ?, String> tableName()
     {
         return property("tableName", ScanNode::getTableName);
     }
 
-    public static Property<SingleSourceRelNode, RelNode> source()
+    public static Property<SingleSourceRelNode, ?, RelNode> source()
     {
         return property("source", SingleSourceRelNode::getSource);
     }

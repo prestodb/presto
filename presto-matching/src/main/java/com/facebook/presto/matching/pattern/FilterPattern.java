@@ -20,7 +20,7 @@ import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.matching.PatternVisitor;
 
 import java.util.Optional;
-import java.util.function.Predicate;
+import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 
 import static java.util.Objects.requireNonNull;
@@ -28,23 +28,23 @@ import static java.util.Objects.requireNonNull;
 public class FilterPattern<T>
         extends Pattern<T>
 {
-    private final Predicate<? super T> predicate;
+    private final BiPredicate<? super T, ?> predicate;
 
-    public FilterPattern(Predicate<? super T> predicate, Optional<Pattern<?>> previous)
+    public FilterPattern(BiPredicate<? super T, ?> predicate, Optional<Pattern<?>> previous)
     {
         super(previous);
         this.predicate = requireNonNull(predicate, "predicate is null");
     }
 
-    public Predicate<? super T> predicate()
+    public BiPredicate<? super T, ?> predicate()
     {
         return predicate;
     }
 
     @Override
-    public Stream<Match<T>> accept(Matcher matcher, Object object, Captures captures)
+    public <C> Stream<Match<T>> accept(Matcher matcher, Object object, Captures captures, C context)
     {
-        return matcher.matchFilter(this, object, captures);
+        return matcher.matchFilter(this, object, captures, context);
     }
 
     @Override

@@ -19,7 +19,7 @@ import com.facebook.presto.matching.Match;
 import com.facebook.presto.matching.pattern.WithPattern;
 
 import java.util.Optional;
-import java.util.function.Function;
+import java.util.function.BiFunction;
 import java.util.stream.Stream;
 
 public class PlanNodeMatcher
@@ -33,10 +33,11 @@ public class PlanNodeMatcher
     }
 
     @Override
-    public <T> Stream<Match<T>> matchWith(WithPattern<T> withPattern, Object object, Captures captures)
+    public <T, C> Stream<Match<T>> matchWith(WithPattern<T> withPattern, Object object, Captures captures, C context)
     {
-        Function<? super T, Optional<?>> property = withPattern.getProperty().getFunction();
-        Optional<?> propertyValue = property.apply((T) object);
+        //TODO remove cast
+        BiFunction<? super T, C, Optional<?>> property = (BiFunction<? super T, C, Optional<?>>) withPattern.getProperty().getFunction();
+        Optional<?> propertyValue = property.apply((T) object, context);
 
         Optional<?> resolvedValue = propertyValue
                 .map(value -> value instanceof GroupReference ? lookup.resolve(((GroupReference) value)) : value);

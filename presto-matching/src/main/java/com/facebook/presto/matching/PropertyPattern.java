@@ -15,23 +15,23 @@ package com.facebook.presto.matching;
 
 import static java.util.Objects.requireNonNull;
 
-public class PropertyPattern<F, R>
+public class PropertyPattern<F, C, R>
 {
-    private final Property<F, ?> property;
+    private final Property<F, C, ?> property;
     private final Pattern<R> pattern;
 
-    public static <F, T, R> PropertyPattern<F, R> of(Property<F, T> property, Pattern<R> pattern)
+    public static <F, C, T, R> PropertyPattern<F, C, R> of(Property<F, C, T> property, Pattern<R> pattern)
     {
         return new PropertyPattern<>(property, pattern);
     }
 
-    private PropertyPattern(Property<F, ?> property, Pattern<R> pattern)
+    private PropertyPattern(Property<F, C, ?> property, Pattern<R> pattern)
     {
         this.property = requireNonNull(property, "property is null");
         this.pattern = requireNonNull(pattern, "pattern is null");
     }
 
-    public Property<F, ?> getProperty()
+    public Property<F, C, ?> getProperty()
     {
         return property;
     }
@@ -41,10 +41,10 @@ public class PropertyPattern<F, R>
         return pattern;
     }
 
-    //This expresses the fact that PropertyPattern<F, T> is covariant on T.
+    //This expresses the fact that PropertyPattern<F, C, T> is covariant on T.
     @SuppressWarnings("unchecked cast")
-    public static <F, T> PropertyPattern<F, T> upcast(PropertyPattern<F, ? extends T> propertyPattern)
+    public static <F, C, T> PropertyPattern<F, C, T> upcast(PropertyPattern<F, C, ? extends T> propertyPattern)
     {
-        return (PropertyPattern<F, T>) propertyPattern;
+        return (PropertyPattern<F, C, T>) propertyPattern;
     }
 }

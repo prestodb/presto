@@ -20,7 +20,8 @@ import com.facebook.presto.matching.pattern.TypeOfPattern;
 import com.facebook.presto.matching.pattern.WithPattern;
 
 import java.util.Optional;
-import java.util.function.Function;
+import java.util.function.BiFunction;
+import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 
 public class DefaultMatcher
@@ -29,19 +30,19 @@ public class DefaultMatcher
     public static final Matcher DEFAULT_MATCHER = new DefaultMatcher();
 
     @Override
-    public <T> Stream<Match<T>> match(Pattern<T> pattern, Object object, Captures captures)
+    public <T, C> Stream<Match<T>> match(Pattern<T> pattern, Object object, Captures captures, C context)
     {
         if (pattern.previous().isPresent()) {
-            return match(pattern.previous().get(), object, captures)
-                    .flatMap(match -> pattern.accept(this, match.value(), match.captures()));
+            return match(pattern.previous().get(), object, captures, context)
+                    .flatMap(match -> pattern.accept(this, match.value(), match.captures(), context));
         }
         else {
-            return pattern.accept(this, object, captures);
+            return pattern.accept(this, object, captures, context);
         }
     }
 
     @Override
-    public <T> Stream<Match<T>> matchTypeOf(TypeOfPattern<T> typeOfPattern, Object object, Captures captures)
+    public <T, C> Stream<Match<T>> matchTypeOf(TypeOfPattern<T> typeOfPattern, Object object, Captures captures, C context)
     {
         Class<T> expectedClass = typeOfPattern.expectedClass();
         if (expectedClass.isInstance(object)) {
@@ -51,33 +52,38 @@ public class DefaultMatcher
     }
 
     @Override
-    public <T> Stream<Match<T>> matchWith(WithPattern<T> withPattern, Object object, Captures captures)
+    public <T, C> Stream<Match<T>> matchWith(WithPattern<T> withPattern, Object object, Captures captures, C context)
     {
-        Function<? super T, Optional<?>> property = withPattern.getProperty().getFunction();
-        Optional<?> propertyValue = property.apply((T) object);
-        return propertyValue.map(value -> match(withPattern.getPattern(), value, captures))
+        //TODO remove cast
+        BiFunction<? super T, C, Optional<?>> property = (BiFunction<? super T, C, Optional<?>>) withPattern.getProperty().getFunction();
+        Optional<?> propertyValue = property.apply((T) object, context);
+        return propertyValue.map(value -> match(withPattern.getPattern(), value, captures, context))
                 .map(matchStream -> matchStream.map(match -> Match.of((T) object, match.captures())))
                 .orElse(Stream.of());
     }
 
     @Override
-    public <T> Stream<Match<T>> matchCapture(CapturePattern<T> capturePattern, Object object, Captures captures)
+    public <T, C> Stream<Match<T>> matchCapture(CapturePattern<T> capturePattern, Object object, Captures captures, C context)
     {
         Captures newCaptures = captures.addAll(Captures.ofNullable(capturePattern.capture(), (T) object));
         return Stream.of(Match.of((T) object, newCaptures));
     }
 
     @Override
-    public <T> Stream<Match<T>> matchEquals(EqualsPattern<T> equalsPattern, Object object, Captures captures)
+    public <T, C> Stream<Match<T>> matchEquals(EqualsPattern<T> equalsPattern, Object object, Captures captures, C context)
     {
         return Stream.of(Match.of((T) object, captures))
                 .filter(match -> equalsPattern.expectedValue().equals(match.value()));
     }
 
     @Override
-    public <T> Stream<Match<T>> matchFilter(FilterPattern<T> filterPattern, Object object, Captures captures)
+    public <T, C> Stream<Match<T>> matchFilter(FilterPattern<T> filterPattern, Object object, Captures captures, C context)
     {
         return Stream.of(Match.of((T) object, captures))
-            .filter(match -> filterPattern.predicate().test(match.value()));
+                .filter(match -> {
+                    //TODO remove cast
+                    BiPredicate<? super T, C> predicate = (BiPredicate<? super T, C>) filterPattern.predicate();
+                    return predicate.test(match.value(), context);
+                });
     }
 }
