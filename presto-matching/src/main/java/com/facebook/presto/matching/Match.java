@@ -32,7 +32,6 @@ public abstract class Match<T>
 
     public static <S> Match<S> of(S value, Captures captures)
     {
-        Captures result;
         requireNonNull(captures);
         return new Match.Present<>(value, captures);
     }
