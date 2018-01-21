@@ -30,8 +30,8 @@ public class DefaultMatcher
     @Override
     public <T> Match<T> match(Pattern<T> pattern, Object object, Captures captures)
     {
-        if (pattern.previous() != null) {
-            Match<?> match = match(pattern.previous(), object, captures);
+        if (pattern.previous().isPresent()) {
+            Match<?> match = match(pattern.previous().get(), object, captures);
             return match.flatMap((value) -> pattern.accept(this, value, match.captures()));
         }
         else {

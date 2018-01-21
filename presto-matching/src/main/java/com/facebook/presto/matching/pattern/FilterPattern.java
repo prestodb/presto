@@ -19,6 +19,7 @@ import com.facebook.presto.matching.Matcher;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.matching.PatternVisitor;
 
+import java.util.Optional;
 import java.util.function.Predicate;
 
 public class FilterPattern<T>
@@ -26,7 +27,7 @@ public class FilterPattern<T>
 {
     private final Predicate<? super T> predicate;
 
-    public FilterPattern(Predicate<? super T> predicate, Pattern<T> previous)
+    public FilterPattern(Predicate<? super T> predicate, Optional<Pattern<?>> previous)
     {
         super(previous);
         this.predicate = predicate;

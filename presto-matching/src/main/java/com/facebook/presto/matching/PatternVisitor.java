@@ -19,6 +19,8 @@ import com.facebook.presto.matching.pattern.FilterPattern;
 import com.facebook.presto.matching.pattern.TypeOfPattern;
 import com.facebook.presto.matching.pattern.WithPattern;
 
+import java.util.Optional;
+
 public interface PatternVisitor
 {
     void visitTypeOf(TypeOfPattern<?> pattern);
@@ -33,9 +35,9 @@ public interface PatternVisitor
 
     default void visitPrevious(Pattern pattern)
     {
-        Pattern previous = pattern.previous();
-        if (previous != null) {
-            previous.accept(this);
+        Optional<Pattern> previous = pattern.previous();
+        if (previous.isPresent()) {
+            previous.get().accept(this);
         }
     }
 }

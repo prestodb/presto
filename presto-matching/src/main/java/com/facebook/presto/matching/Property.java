@@ -65,11 +65,11 @@ public class Property<F, T>
 
     public PropertyPattern<F, T> equalTo(T expectedValue)
     {
-        return matching(new EqualsPattern<>(expectedValue, null));
+        return matching(new EqualsPattern<>(expectedValue, Optional.empty()));
     }
 
     public PropertyPattern<F, T> matching(Predicate<? super T> predicate)
     {
-        return matching(new FilterPattern<>(predicate, null));
+        return matching(new FilterPattern<>(predicate, Optional.empty()));
     }
 }

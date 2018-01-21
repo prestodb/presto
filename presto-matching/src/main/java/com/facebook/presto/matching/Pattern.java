@@ -19,14 +19,16 @@ import com.facebook.presto.matching.pattern.TypeOfPattern;
 import com.facebook.presto.matching.pattern.WithPattern;
 import com.google.common.collect.Iterables;
 
+import java.util.Optional;
 import java.util.function.Predicate;
 
 import static com.facebook.presto.matching.DefaultMatcher.DEFAULT_MATCHER;
 import static com.google.common.base.Predicates.not;
+import static java.util.Objects.requireNonNull;
 
 public abstract class Pattern<T>
 {
-    private final Pattern<?> previous;
+    private final Optional<Pattern<?>> previous;
 
     public static Pattern<Object> any()
     {
@@ -38,14 +40,14 @@ public abstract class Pattern<T>
         return new TypeOfPattern<>(expectedClass);
     }
 
-    protected Pattern()
-    {
-        this(null);
-    }
-
     protected Pattern(Pattern<?> previous)
     {
-        this.previous = previous;
+        this(Optional.of(requireNonNull(previous, "previous is null")));
+    }
+
+    protected Pattern(Optional<Pattern<?>> previous)
+    {
+        this.previous = requireNonNull(previous, "previous is null");
     }
 
     //FIXME make sure there's a proper toString,
@@ -68,7 +70,7 @@ public abstract class Pattern<T>
 
     public Pattern<T> matching(Predicate<? super T> predicate)
     {
-        return new FilterPattern<>(predicate, this);
+        return new FilterPattern<>(predicate, Optional.of(this));
     }
 
     public Pattern<T> with(PropertyPattern<? super T, ?> pattern)
@@ -76,7 +78,7 @@ public abstract class Pattern<T>
         return new WithPattern<>(pattern, this);
     }
 
-    public Pattern<?> previous()
+    public Optional<Pattern<?>> previous()
     {
         return previous;
     }

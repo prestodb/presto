@@ -19,6 +19,10 @@ import com.facebook.presto.matching.Matcher;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.matching.PatternVisitor;
 
+import java.util.Optional;
+
+import static java.util.Objects.requireNonNull;
+
 public class TypeOfPattern<T>
         extends Pattern<T>
 {
@@ -26,7 +30,13 @@ public class TypeOfPattern<T>
 
     public TypeOfPattern(Class<T> expectedClass)
     {
-        this.expectedClass = expectedClass;
+        this(expectedClass, Optional.empty());
+    }
+
+    public TypeOfPattern(Class<T> expectedClass, Optional<Pattern<?>> previous)
+    {
+        super(previous);
+        this.expectedClass = requireNonNull(expectedClass, "expectedClass is null");
     }
 
     public Class<T> expectedClass()

@@ -73,8 +73,8 @@ public class RuleIndex
 
         private Pattern<?> getFirstPattern(Pattern<?> pattern)
         {
-            while (pattern.previous() != null) {
-                pattern = pattern.previous();
+            while (pattern.previous().isPresent()) {
+                pattern = pattern.previous().get();
             }
             return pattern;
         }
