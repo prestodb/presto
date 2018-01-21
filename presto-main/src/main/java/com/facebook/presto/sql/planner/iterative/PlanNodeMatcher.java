@@ -20,6 +20,7 @@ import com.facebook.presto.matching.pattern.WithPattern;
 
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.stream.Stream;
 
 public class PlanNodeMatcher
         extends DefaultMatcher
@@ -32,7 +33,7 @@ public class PlanNodeMatcher
     }
 
     @Override
-    public <T> Match<T> matchWith(WithPattern<T> withPattern, Object object, Captures captures)
+    public <T> Stream<Match<T>> matchWith(WithPattern<T> withPattern, Object object, Captures captures)
     {
         Function<? super T, Optional<?>> property = withPattern.getProperty().getFunction();
         Optional<?> propertyValue = property.apply((T) object);
@@ -40,9 +41,8 @@ public class PlanNodeMatcher
         Optional<?> resolvedValue = propertyValue
                 .map(value -> value instanceof GroupReference ? lookup.resolve(((GroupReference) value)) : value);
 
-        Match<?> propertyMatch = resolvedValue
-                .map(value -> match(withPattern.getPattern(), value, captures))
-                .orElse(Match.empty());
-        return propertyMatch.map(ignored -> (T) object);
+        return resolvedValue.map(value -> match(withPattern.getPattern(), value, captures))
+                .map(matchStream -> matchStream.map(match -> Match.of((T) object, match.captures())))
+                .orElse(Stream.of());
     }
 }

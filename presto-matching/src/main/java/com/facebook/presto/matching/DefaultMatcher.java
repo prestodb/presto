@@ -21,6 +21,7 @@ import com.facebook.presto.matching.pattern.WithPattern;
 
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.stream.Stream;
 
 public class DefaultMatcher
         implements Matcher
@@ -28,11 +29,11 @@ public class DefaultMatcher
     public static final Matcher DEFAULT_MATCHER = new DefaultMatcher();
 
     @Override
-    public <T> Match<T> match(Pattern<T> pattern, Object object, Captures captures)
+    public <T> Stream<Match<T>> match(Pattern<T> pattern, Object object, Captures captures)
     {
         if (pattern.previous().isPresent()) {
-            Match<?> match = match(pattern.previous().get(), object, captures);
-            return match.flatMap((value) -> pattern.accept(this, value, match.captures()));
+            return match(pattern.previous().get(), object, captures)
+                    .flatMap(match -> pattern.accept(this, match.value(), match.captures()));
         }
         else {
             return pattern.accept(this, object, captures);
@@ -40,43 +41,43 @@ public class DefaultMatcher
     }
 
     @Override
-    public <T> Match<T> matchTypeOf(TypeOfPattern<T> typeOfPattern, Object object, Captures captures)
+    public <T> Stream<Match<T>> matchTypeOf(TypeOfPattern<T> typeOfPattern, Object object, Captures captures)
     {
         Class<T> expectedClass = typeOfPattern.expectedClass();
         if (expectedClass.isInstance(object)) {
-            return Match.of(expectedClass.cast(object), captures);
+            return Stream.of(Match.of(expectedClass.cast(object), captures));
         }
-        else {
-            return Match.empty();
-        }
+        return Stream.of();
     }
 
     @Override
-    public <T> Match<T> matchWith(WithPattern<T> withPattern, Object object, Captures captures)
+    public <T> Stream<Match<T>> matchWith(WithPattern<T> withPattern, Object object, Captures captures)
     {
         Function<? super T, Optional<?>> property = withPattern.getProperty().getFunction();
         Optional<?> propertyValue = property.apply((T) object);
-        Match<?> propertyMatch = propertyValue
-                .map(value -> match(withPattern.getPattern(), value, captures))
-                .orElse(Match.empty());
-        return propertyMatch.map(ignored -> (T) object);
+        return propertyValue.map(value -> match(withPattern.getPattern(), value, captures))
+                .map(matchStream -> matchStream.map(match -> Match.of((T) object, match.captures())))
+                .orElse(Stream.of());
     }
 
     @Override
-    public <T> Match<T> matchCapture(CapturePattern<T> capturePattern, Object object, Captures captures)
+    public <T> Stream<Match<T>> matchCapture(CapturePattern<T> capturePattern, Object object, Captures captures)
     {
-        return Match.of((T) object, captures.addAll(Captures.ofNullable(capturePattern.capture(), (T) object)));
+        Captures newCaptures = captures.addAll(Captures.ofNullable(capturePattern.capture(), (T) object));
+        return Stream.of(Match.of((T) object, newCaptures));
     }
 
     @Override
-    public <T> Match<T> matchEquals(EqualsPattern<T> equalsPattern, Object object, Captures captures)
+    public <T> Stream<Match<T>> matchEquals(EqualsPattern<T> equalsPattern, Object object, Captures captures)
     {
-        return Match.of((T) object, captures).filter(equalsPattern.expectedValue()::equals);
+        return Stream.of(Match.of((T) object, captures))
+                .filter(match -> equalsPattern.expectedValue().equals(match.value()));
     }
 
     @Override
-    public <T> Match<T> matchFilter(FilterPattern<T> filterPattern, Object object, Captures captures)
+    public <T> Stream<Match<T>> matchFilter(FilterPattern<T> filterPattern, Object object, Captures captures)
     {
-        return Match.of((T) object, captures).filter(filterPattern.predicate());
+        return Stream.of(Match.of((T) object, captures))
+            .filter(match -> filterPattern.predicate().test(match.value()));
     }
 }

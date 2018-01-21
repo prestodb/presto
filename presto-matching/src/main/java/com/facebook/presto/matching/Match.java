@@ -13,43 +13,30 @@
  */
 package com.facebook.presto.matching;
 
-import java.util.NoSuchElementException;
-import java.util.function.Function;
-import java.util.function.Predicate;
+import java.util.Objects;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public abstract class Match<T>
+public final class Match<T>
 {
-    public abstract boolean isPresent();
-
-    public abstract T value();
-
-    public final boolean isEmpty()
+    public static <T> Match<T> of(T value, Captures captures)
     {
-        return !isPresent();
+        return new Match<>(value, captures);
     }
 
-    public static <S> Match<S> of(S value, Captures captures)
+    private final T value;
+    private final Captures captures;
+
+    private Match(T value, Captures captures)
     {
-        requireNonNull(captures);
-        return new Match.Present<>(value, captures);
+        this.value = requireNonNull(value, "value is null");
+        this.captures = requireNonNull(captures, "captures is null");
     }
 
-    public static <S> Match<S> empty()
+    public T value()
     {
-        return new Match.Empty<>();
-    }
-
-    public abstract Match<T> filter(Predicate<? super T> predicate);
-
-    public abstract <U> Match<U> map(Function<? super T, ? extends U> mapper);
-
-    public abstract <U> Match<U> flatMap(Function<? super T, Match<U>> mapper);
-
-    public T orElse(T fallback)
-    {
-        return isPresent() ? value() : fallback;
+        return value;
     }
 
     public <S> S capture(Capture<S> capture)
@@ -57,146 +44,37 @@ public abstract class Match<T>
         return captures().get(capture);
     }
 
-    public abstract Captures captures();
-
-    private static class Present<T>
-            extends Match<T>
+    public Captures captures()
     {
-        private final T value;
-        private final Captures captures;
-
-        private Present(T value, Captures captures)
-        {
-            this.value = value;
-            this.captures = captures;
-        }
-
-        @Override
-        public boolean isPresent()
-        {
-            return true;
-        }
-
-        @Override
-        public T value()
-        {
-            return value;
-        }
-
-        @Override
-        public Match<T> filter(Predicate<? super T> predicate)
-        {
-            return predicate.test(value) ? this : empty();
-        }
-
-        @Override
-        public <U> Match<U> map(Function<? super T, ? extends U> mapper)
-        {
-            return Match.of(mapper.apply(value), captures());
-        }
-
-        @Override
-        public <U> Match<U> flatMap(Function<? super T, Match<U>> mapper)
-        {
-            return mapper.apply(value);
-        }
-
-        @Override
-        public Captures captures()
-        {
-            return captures;
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-
-            Present<?> present = (Present<?>) o;
-
-            if (value != null ? !value.equals(present.value) : present.value != null) {
-                return false;
-            }
-            return captures.equals(present.captures);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            int result = value != null ? value.hashCode() : 0;
-            result = 31 * result + captures.hashCode();
-            return result;
-        }
-
-        @Override
-        public String toString()
-        {
-            return "Match.Present(" +
-                    "value=" + value +
-                    ", captures=" + captures +
-                    ')';
-        }
+        return captures;
     }
 
-    private static class Empty<T>
-            extends Match<T>
+    @Override
+    public boolean equals(Object o)
     {
-        @Override
-        public boolean isPresent()
-        {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
             return false;
         }
+        Match<?> match = (Match<?>) o;
+        return Objects.equals(value, match.value) &&
+                Objects.equals(captures, match.captures);
+    }
 
-        @Override
-        public T value()
-        {
-            throw new NoSuchElementException("Empty match contains no value");
-        }
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(value, captures);
+    }
 
-        @Override
-        public Match<T> filter(Predicate<? super T> predicate)
-        {
-            return this;
-        }
-
-        @Override
-        public <U> Match<U> map(Function<? super T, ? extends U> mapper)
-        {
-            return empty();
-        }
-
-        @Override
-        public <U> Match<U> flatMap(Function<? super T, Match<U>> mapper)
-        {
-            return empty();
-        }
-
-        @Override
-        public Captures captures()
-        {
-            throw new NoSuchElementException("Captures are undefined for an empty Match");
-        }
-
-        public boolean equals(Object o)
-        {
-            return this == o || (o != null && getClass() == o.getClass());
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return 42;
-        }
-
-        @Override
-        public String toString()
-        {
-            return "Match.Empty()";
-        }
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("value", value)
+                .add("captures", captures)
+                .toString();
     }
 }

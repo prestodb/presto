@@ -143,27 +143,28 @@ public class IterativeOptimizer
 
     private <T> Rule.Result transform(PlanNode node, Rule<T> rule, Matcher matcher, Context context)
     {
-        Rule.Result result;
+        Iterator<Match<T>> matches = matcher.match(rule.getPattern(), node).iterator();
+        while (matches.hasNext()) {
+            Match<T> match = matches.next();
+            long duration;
+            Rule.Result result;
+            try {
+                long start = System.nanoTime();
+                result = rule.apply(match.value(), match.captures(), context);
+                duration = System.nanoTime() - start;
+            }
+            catch (RuntimeException e) {
+                stats.recordFailure(rule);
+                throw e;
+            }
+            stats.record(rule, duration, !result.isEmpty());
 
-        Match<T> match = matcher.match(rule.getPattern(), node);
-
-        if (match.isEmpty()) {
-            return Rule.Result.empty();
+            if (result.getTransformedPlan().isPresent()) {
+                return result;
+            }
         }
 
-        long duration;
-        try {
-            long start = System.nanoTime();
-            result = rule.apply(match.value(), match.captures(), context);
-            duration = System.nanoTime() - start;
-        }
-        catch (RuntimeException e) {
-            stats.recordFailure(rule);
-            throw e;
-        }
-        stats.record(rule, duration, !result.isEmpty());
-
-        return result;
+        return Rule.Result.empty();
     }
 
     private boolean isTimeLimitExhausted(Context context)
