@@ -94,9 +94,9 @@ public abstract class Pattern<T>
 
     public abstract void accept(PatternVisitor patternVisitor);
 
-    public boolean matches(Object object)
+    public <C> boolean matches(Object object, C context)
     {
-        return DEFAULT_MATCHER.match(this, object)
+        return DEFAULT_MATCHER.match(this, object, context)
                 .findFirst()
                 .isPresent();
     }

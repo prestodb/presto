@@ -128,6 +128,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_SCHEMA;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_PARSE_ERROR;
+import static com.facebook.presto.sql.planner.iterative.Lookup.noLookup;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.facebook.presto.sql.planner.plan.Patterns.Values.rows;
 import static com.facebook.presto.sql.planner.plan.Patterns.output;
@@ -468,7 +469,7 @@ final class ShowQueriesRewrite
                 checkState(
                         output().with(
                                 source().matching(values().with(empty(rows()))))
-                                .matches(plan.getRoot()),
+                                .matches(plan.getRoot(), noLookup()),
                         "Expected query with optimized table scan");
                 return Optional.empty();
             }
