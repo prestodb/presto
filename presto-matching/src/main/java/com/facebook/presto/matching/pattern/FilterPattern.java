@@ -22,6 +22,8 @@ import com.facebook.presto.matching.PatternVisitor;
 import java.util.Optional;
 import java.util.function.Predicate;
 
+import static java.util.Objects.requireNonNull;
+
 public class FilterPattern<T>
         extends Pattern<T>
 {
@@ -30,7 +32,7 @@ public class FilterPattern<T>
     public FilterPattern(Predicate<? super T> predicate, Optional<Pattern<?>> previous)
     {
         super(previous);
-        this.predicate = predicate;
+        this.predicate = requireNonNull(predicate, "predicate is null");
     }
 
     public Predicate<? super T> predicate()

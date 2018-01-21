@@ -20,6 +20,8 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
+import static java.util.Objects.requireNonNull;
+
 public class Property<F, T>
 {
     private final String name;
@@ -37,8 +39,8 @@ public class Property<F, T>
 
     public Property(String name, Function<F, Optional<T>> function)
     {
-        this.name = name;
-        this.function = function;
+        this.name = requireNonNull(name, "name is null");
+        this.function = requireNonNull(function, "function is null");
     }
 
     public String getName()

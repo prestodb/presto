@@ -21,6 +21,8 @@ import com.facebook.presto.matching.PatternVisitor;
 import com.facebook.presto.matching.Property;
 import com.facebook.presto.matching.PropertyPattern;
 
+import static java.util.Objects.requireNonNull;
+
 public class WithPattern<T>
         extends Pattern<T>
 {
@@ -29,7 +31,7 @@ public class WithPattern<T>
     public WithPattern(PropertyPattern<? super T, ?> propertyPattern, Pattern<T> previous)
     {
         super(previous);
-        this.propertyPattern = propertyPattern;
+        this.propertyPattern = requireNonNull(propertyPattern, "propertyPattern is null");
     }
 
     public Pattern<?> getPattern()

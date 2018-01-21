@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.matching;
 
+import static java.util.Objects.requireNonNull;
+
 public class PropertyPattern<F, R>
 {
     private final Property<F, ?> property;
@@ -25,8 +27,8 @@ public class PropertyPattern<F, R>
 
     private PropertyPattern(Property<F, ?> property, Pattern<R> pattern)
     {
-        this.property = property;
-        this.pattern = pattern;
+        this.property = requireNonNull(property, "property is null");
+        this.pattern = requireNonNull(pattern, "pattern is null");
     }
 
     public Property<F, ?> getProperty()

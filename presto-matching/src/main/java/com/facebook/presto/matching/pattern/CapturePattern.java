@@ -20,6 +20,8 @@ import com.facebook.presto.matching.Matcher;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.matching.PatternVisitor;
 
+import static java.util.Objects.requireNonNull;
+
 public class CapturePattern<T>
         extends Pattern<T>
 {
@@ -28,7 +30,7 @@ public class CapturePattern<T>
     public CapturePattern(Capture<T> capture, Pattern<T> previous)
     {
         super(previous);
-        this.capture = capture;
+        this.capture = requireNonNull(capture, "capture is null");
     }
 
     public Capture<T> capture()
