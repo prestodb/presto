@@ -18,7 +18,6 @@ import com.facebook.presto.sql.planner.LogicalPlanner;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.assertions.PlanAssert;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
-import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.tpch.TpchConnectorFactory;
@@ -56,26 +55,24 @@ public class TestCoefficientBasedStatsCalculator
     {
         assertPlan("SELECT orderstatus FROM orders WHERE orderstatus = 'P'",
                 anyTree(
-                        node(FilterNode.class,
-                                node(TableScanNode.class)
-                                        .withStats(PlanNodeStatsEstimate.builder()
-                                                .setOutputRowCount(new Estimate(363.0))
-                                                .setOutputSizeInBytes(unknownValue())
-                                                .build()))));
+                        node(TableScanNode.class)
+                                .withStats(PlanNodeStatsEstimate.builder()
+                                        .setOutputRowCount(new Estimate(363.0))
+                                        .setOutputSizeInBytes(unknownValue())
+                                        .build())));
 
         assertPlan("SELECT orderstatus FROM orders WHERE orderkey = 42",
                 anyTree(
-                        node(FilterNode.class,
-                                node(TableScanNode.class)
-                                        .withStats(PlanNodeStatsEstimate.builder()
-                                                .setOutputRowCount(new Estimate(15000.0))
-                                                .setOutputSizeInBytes(unknownValue())
-                                                .build()))));
+                        node(TableScanNode.class)
+                                .withStats(PlanNodeStatsEstimate.builder()
+                                        .setOutputRowCount(new Estimate(15000.0))
+                                        .setOutputSizeInBytes(unknownValue())
+                                        .build())));
     }
 
     private void assertPlan(String sql, PlanMatchPattern pattern)
     {
-        assertPlan(sql, LogicalPlanner.Stage.CREATED, pattern);
+        assertPlan(sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, pattern);
     }
 
     private void assertPlan(String sql, LogicalPlanner.Stage stage, PlanMatchPattern pattern)
