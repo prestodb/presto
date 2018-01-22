@@ -38,13 +38,14 @@ import static com.facebook.presto.spi.StandardErrorCode.OPTIMIZER_TIMEOUT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public class IterativeOptimizer
         implements PlanOptimizer
 {
+    private final StatsRecorder stats;
     private final List<PlanOptimizer> legacyRules;
     private final RuleIndex ruleIndex;
-    private final StatsRecorder stats;
 
     public IterativeOptimizer(StatsRecorder stats, Set<Rule<?>> rules)
     {
@@ -53,12 +54,11 @@ public class IterativeOptimizer
 
     public IterativeOptimizer(StatsRecorder stats, List<PlanOptimizer> legacyRules, Set<Rule<?>> newRules)
     {
+        this.stats = requireNonNull(stats, "stats is null");
         this.legacyRules = ImmutableList.copyOf(legacyRules);
         this.ruleIndex = RuleIndex.builder()
                 .register(newRules)
                 .build();
-
-        this.stats = stats;
 
         stats.registerAll(newRules);
     }

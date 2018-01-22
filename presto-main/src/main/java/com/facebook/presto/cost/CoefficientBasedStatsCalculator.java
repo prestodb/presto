@@ -51,6 +51,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.cost.PlanNodeStatsEstimate.UNKNOWN_STATS;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Simple implementation of StatsCalculator. It make many arbitrary decisions (e.g filtering selectivity, join matching).
@@ -85,14 +86,14 @@ public class CoefficientBasedStatsCalculator
             extends PlanVisitor<PlanNodeStatsEstimate, Void>
     {
         private final Session session;
-        private final Map<PlanNodeId, PlanNodeStatsEstimate> stats;
         private final Map<Symbol, Type> types;
+        private final Map<PlanNodeId, PlanNodeStatsEstimate> stats;
 
         public Visitor(Session session, Map<Symbol, Type> types)
         {
-            this.stats = new HashMap<>();
-            this.session = session;
+            this.session = requireNonNull(session, "session is null");
             this.types = ImmutableMap.copyOf(types);
+            this.stats = new HashMap<>();
         }
 
         public Map<PlanNodeId, PlanNodeStatsEstimate> getStats()
