@@ -404,7 +404,8 @@ public class TestHttpRemoteTask
                     initialTaskStatus.getRunningPartitionedDrivers(),
                     initialTaskStatus.isOutputBufferOverutilized(),
                     initialTaskStatus.getPhysicalWrittenDataSize(),
-                    initialTaskStatus.getMemoryReservation());
+                    initialTaskStatus.getMemoryReservation(),
+                    initialTaskStatus.getSystemMemoryReservation());
         }
     }
 }

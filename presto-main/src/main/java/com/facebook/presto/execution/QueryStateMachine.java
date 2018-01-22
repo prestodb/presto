@@ -104,8 +104,9 @@ public class QueryStateMachine
 
     private final AtomicReference<VersionedMemoryPoolId> memoryPool = new AtomicReference<>(new VersionedMemoryPoolId(GENERAL_POOL, 0));
 
-    private final AtomicLong peakMemory = new AtomicLong();
-    private final AtomicLong currentMemory = new AtomicLong();
+    private final AtomicLong peakUserMemory = new AtomicLong();
+    // peak of the user + system memory reservation
+    private final AtomicLong peakTotalMemory = new AtomicLong();
     private final AtomicReference<DateTime> lastHeartbeat = new AtomicReference<>(DateTime.now());
     private final AtomicReference<DateTime> executionStartTime = new AtomicReference<>();
     private final AtomicReference<DateTime> endTime = new AtomicReference<>();
@@ -255,17 +256,20 @@ public class QueryStateMachine
         return autoCommit;
     }
 
-    public long getPeakMemoryInBytes()
+    public long getPeakUserMemoryInBytes()
     {
-        return peakMemory.get();
+        return peakUserMemory.get();
     }
 
-    public void updateMemoryUsage(long deltaMemoryInBytes)
+    public long getPeakTotalMemoryInBytes()
     {
-        long currentMemoryValue = currentMemory.addAndGet(deltaMemoryInBytes);
-        if (currentMemoryValue > peakMemory.get()) {
-            peakMemory.updateAndGet(x -> currentMemoryValue > x ? currentMemoryValue : x);
-        }
+        return peakTotalMemory.get();
+    }
+
+    public void updateMemoryUsage(long currentUserMemoryValue, long currentSystemMemory)
+    {
+        peakUserMemory.accumulateAndGet(currentUserMemoryValue, Math::max);
+        peakTotalMemory.accumulateAndGet(currentUserMemoryValue + currentSystemMemory, Math::max);
     }
 
     public void setResourceGroup(ResourceGroupId group)
@@ -323,7 +327,8 @@ public class QueryStateMachine
 
         long cumulativeMemory = 0;
         long totalMemoryReservation = 0;
-        long peakMemoryReservation = 0;
+        long peakUserMemoryReservation = 0;
+        long peakTotalMemoryReservation = 0;
 
         long totalScheduledTime = 0;
         long totalCpuTime = 0;
@@ -360,7 +365,8 @@ public class QueryStateMachine
 
             cumulativeMemory += stageStats.getCumulativeMemory();
             totalMemoryReservation += stageStats.getTotalMemoryReservation().toBytes();
-            peakMemoryReservation = getPeakMemoryInBytes();
+            peakUserMemoryReservation = getPeakUserMemoryInBytes();
+            peakTotalMemoryReservation = getPeakTotalMemoryInBytes();
 
             totalScheduledTime += stageStats.getTotalScheduledTime().roundTo(MILLISECONDS);
             totalCpuTime += stageStats.getTotalCpuTime().roundTo(MILLISECONDS);
@@ -419,7 +425,8 @@ public class QueryStateMachine
 
                 cumulativeMemory,
                 succinctBytes(totalMemoryReservation),
-                succinctBytes(peakMemoryReservation),
+                succinctBytes(peakUserMemoryReservation),
+                succinctBytes(peakTotalMemoryReservation),
 
                 isScheduled,
 
@@ -867,7 +874,8 @@ public class QueryStateMachine
                 queryStats.getCompletedDrivers(),
                 queryStats.getCumulativeMemory(),
                 queryStats.getTotalMemoryReservation(),
-                queryStats.getPeakMemoryReservation(),
+                queryStats.getPeakUserMemoryReservation(),
+                queryStats.getPeakTotalMemoryReservation(),
                 queryStats.isScheduled(),
                 queryStats.getTotalScheduledTime(),
                 queryStats.getTotalCpuTime(),

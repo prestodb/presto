@@ -233,6 +233,7 @@ public class MockRemoteTaskFactory
                             0,
                             false,
                             new DataSize(0, BYTE),
+                            new DataSize(0, BYTE),
                             new DataSize(0, BYTE)),
                     DateTime.now(),
                     outputBuffer.getInfo(),
@@ -258,7 +259,8 @@ public class MockRemoteTaskFactory
                     stats.getRunningPartitionedDrivers(),
                     false,
                     stats.getPhysicalWrittenDataSize(),
-                    stats.getMemoryReservation());
+                    stats.getMemoryReservation(),
+                    stats.getSystemMemoryReservation());
         }
 
         private synchronized void updateSplitQueueSpace()
