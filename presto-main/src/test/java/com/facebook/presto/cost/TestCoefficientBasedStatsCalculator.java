@@ -26,7 +26,6 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
-import static java.lang.Double.NaN;
 
 public class TestCoefficientBasedStatsCalculator
 {
@@ -57,7 +56,6 @@ public class TestCoefficientBasedStatsCalculator
                         node(TableScanNode.class)
                                 .withStats(PlanNodeStatsEstimate.builder()
                                         .setOutputRowCount(363.0)
-                                        .setOutputSizeInBytes(NaN)
                                         .build())));
 
         assertPlan("SELECT orderstatus FROM orders WHERE orderkey = 42",
@@ -65,7 +63,6 @@ public class TestCoefficientBasedStatsCalculator
                         node(TableScanNode.class)
                                 .withStats(PlanNodeStatsEstimate.builder()
                                         .setOutputRowCount(15000.0)
-                                        .setOutputSizeInBytes(NaN)
                                         .build())));
     }
 
