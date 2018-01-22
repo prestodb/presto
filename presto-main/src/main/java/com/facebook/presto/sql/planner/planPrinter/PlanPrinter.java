@@ -551,8 +551,10 @@ public class PlanPrinter
             node.getFilter().ifPresent(expression -> joinExpressions.add(expression));
 
             // Check if the node is actually a cross join node
-            if (node.getType() == JoinNode.Type.INNER && joinExpressions.isEmpty()) {
-                print(indent, "- CrossJoin => [%s]", formatOutputs(node.getOutputSymbols()));
+            if (node.isCrossJoin()) {
+                print(indent, "- CrossJoin[%s] => [%s]",
+                        Joiner.on(" AND ").join(joinExpressions),
+                        formatOutputs(node.getOutputSymbols()));
             }
             else {
                 print(indent, "- %s[%s]%s => [%s]",

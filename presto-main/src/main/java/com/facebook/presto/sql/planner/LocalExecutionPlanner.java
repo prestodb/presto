@@ -221,6 +221,7 @@ import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.CreateHandle;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.InsertHandle;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
+import static com.facebook.presto.sql.relational.Expressions.field;
 import static com.google.common.base.Functions.forMap;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -1566,12 +1567,68 @@ public class LocalExecutionPlanner
 
         private PhysicalOperation createNestedLoopJoin(JoinNode node, LocalExecutionPlanContext context)
         {
+            List<Symbol> inputSymbols = ImmutableList.<Symbol>builder()
+                    .addAll(node.getLeft().getOutputSymbols())
+                    .addAll(node.getRight().getOutputSymbols())
+                    .build();
+            checkArgument(inputSymbols.equals(node.getOutputSymbols()), "Cross join does not support output symbols pruning or reordering");
+
             PhysicalOperation probeSource = node.getLeft().accept(this, context);
+            Map<Symbol, Integer> probeLayout = probeSource.getLayout();
 
             LocalExecutionPlanContext buildContext = context.createSubContext();
             PhysicalOperation buildSource = node.getRight().accept(this, buildContext);
 
             checkState(buildSource.getPipelineExecutionStrategy() == probeSource.getPipelineExecutionStrategy(), "build and probe have different pipelineExecutionStrategy");
+
+            Map<Symbol, Integer> buildLayout = buildSource.getLayout();
+
+            Optional<Supplier<PageFilter>> pageFilterSupplier = node.getFilter()
+                    .map(filterExpression -> compileNestedLoopJoinPageFilterSupplier(
+                            filterExpression,
+                            probeLayout,
+                            buildLayout,
+                            context.getTypes(),
+                            context.getSession()));
+
+            ImmutableMap.Builder<Symbol, Integer> outputLayoutBuilder = ImmutableMap.builder();
+            outputLayoutBuilder.putAll(probeLayout);
+
+            // inputs from build side of the join are laid out following the input from the probe side,
+            // so adjust the channel ids but keep the field layouts intact
+            int offset = probeSource.getTypes().size();
+            for (Map.Entry<Symbol, Integer> entry : buildLayout.entrySet()) {
+                outputLayoutBuilder.put(entry.getKey(), offset + entry.getValue());
+            }
+
+            ImmutableMap<Symbol, Integer> outputLayout = outputLayoutBuilder.build();
+
+            ImmutableMap.Builder<Integer, Type> outputTypesBuilder = ImmutableMap.builder();
+            for (int i = 0; i < probeSource.getTypes().size(); i++) {
+                outputTypesBuilder.put(i, probeSource.getTypes().get(i));
+            }
+            for (int i = 0; i < buildSource.getTypes().size(); i++) {
+                outputTypesBuilder.put(offset + i, buildSource.getTypes().get(i));
+            }
+            ImmutableMap<Integer, Type> outputTypes = outputTypesBuilder.build();
+
+            SymbolToInputRewriter symbolToInputRewriter = new SymbolToInputRewriter(outputLayout);
+            Optional<Expression> rewrittenFilter = node.getFilter().map(symbolToInputRewriter::rewrite);
+            Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypesFromInput(
+                    context.getSession(),
+                    metadata,
+                    sqlParser,
+                    outputTypes,
+                    rewrittenFilter.map(ImmutableList::of).orElse(ImmutableList.of()),
+                    emptyList());
+
+            Optional<RowExpression> translatedFilter = rewrittenFilter.map(filter -> toRowExpression(filter, expressionTypes));
+            List<RowExpression> identityProjections = outputTypes.entrySet().stream().map(entry -> field(entry.getKey(), entry.getValue())).collect(toImmutableList());
+
+            Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(
+                    translatedFilter,
+                    identityProjections,
+                    Optional.of(context.getStageId() + "_" + node.getId()));
 
             NestedLoopBuildOperatorFactory nestedLoopBuildOperatorFactory = new NestedLoopBuildOperatorFactory(
                     buildContext.getNextOperatorId(),
@@ -1590,18 +1647,16 @@ public class LocalExecutionPlanner
                     buildSource.getPipelineExecutionStrategy());
 
             NestedLoopJoinPagesSupplier nestedLoopJoinPagesSupplier = nestedLoopBuildOperatorFactory.getNestedLoopJoinPagesSupplier();
-            ImmutableMap.Builder<Symbol, Integer> outputMappings = ImmutableMap.builder();
-            outputMappings.putAll(probeSource.getLayout());
 
-            // inputs from build side of the join are laid out following the input from the probe side,
-            // so adjust the channel ids but keep the field layouts intact
-            int offset = probeSource.getTypes().size();
-            for (Map.Entry<Symbol, Integer> entry : buildSource.getLayout().entrySet()) {
-                outputMappings.put(entry.getKey(), offset + entry.getValue());
-            }
-
-            OperatorFactory operatorFactory = new NestedLoopJoinOperatorFactory(context.getNextOperatorId(), node.getId(), nestedLoopJoinPagesSupplier, probeSource.getTypes());
-            PhysicalOperation operation = new PhysicalOperation(operatorFactory, outputMappings.build(), probeSource);
+            OperatorFactory operatorFactory = new NestedLoopJoinOperatorFactory(
+                    context.getNextOperatorId(),
+                    node.getId(),
+                    nestedLoopJoinPagesSupplier,
+                    probeSource.getTypes(),
+                    pageProcessor,
+                    getFilterAndProjectMinOutputPageSize(session),
+                    getFilterAndProjectMinOutputPageRowCount(session));
+            PhysicalOperation operation = new PhysicalOperation(operatorFactory, outputLayout, probeSource);
             return operation;
         }
 
@@ -1745,10 +1800,33 @@ public class LocalExecutionPlanner
         {
             Map<Symbol, Integer> joinSourcesLayout = createJoinSourcesLayout(buildLayout, probeLayout);
 
-            Map<Integer, Type> sourceTypes = joinSourcesLayout.entrySet().stream()
+            RowExpression translatedFilter = toRowExpression(filterExpression, joinSourcesLayout, types, session);
+            return joinFilterFunctionCompiler.compileJoinFilterFunction(translatedFilter, buildLayout.size());
+        }
+
+        private Supplier<PageFilter> compileNestedLoopJoinPageFilterSupplier(
+                Expression filterExpression,
+                Map<Symbol, Integer> probeLayout,
+                Map<Symbol, Integer> buildLayout,
+                Map<Symbol, Type> types,
+                Session session)
+        {
+            Map<Symbol, Integer> joinSourcesLayout = createJoinSourcesLayout(probeLayout, buildLayout);
+
+            RowExpression translatedFilter = toRowExpression(filterExpression, joinSourcesLayout, types, session);
+            return pageFunctionCompiler.compileFilter(translatedFilter, Optional.empty());
+        }
+
+        private RowExpression toRowExpression(
+                Expression filterExpression,
+                Map<Symbol, Integer> layout,
+                Map<Symbol, Type> types,
+                Session session)
+        {
+            Map<Integer, Type> sourceTypes = layout.entrySet().stream()
                     .collect(toImmutableMap(Map.Entry::getValue, entry -> types.get(entry.getKey())));
 
-            Expression rewrittenFilter = new SymbolToInputRewriter(joinSourcesLayout).rewrite(filterExpression);
+            Expression rewrittenFilter = new SymbolToInputRewriter(layout).rewrite(filterExpression);
             Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypesFromInput(
                     session,
                     metadata,
@@ -1757,8 +1835,7 @@ public class LocalExecutionPlanner
                     rewrittenFilter,
                     emptyList() /* parameters have already been replaced */);
 
-            RowExpression translatedFilter = toRowExpression(rewrittenFilter, expressionTypes);
-            return joinFilterFunctionCompiler.compileJoinFilterFunction(translatedFilter, buildLayout.size());
+            return toRowExpression(rewrittenFilter, expressionTypes);
         }
 
         private int sortExpressionAsSortChannel(
