@@ -139,9 +139,9 @@ public class PlanPrinter
     private final Optional<Map<PlanNodeId, PlanNodeStats>> stats;
     private final boolean verbose;
 
-    private PlanPrinter(PlanNode plan, Map<Symbol, Type> types, Metadata metadata, StatsCalculator statsCalculator, Session sesion)
+    private PlanPrinter(PlanNode plan, Map<Symbol, Type> types, Metadata metadata, StatsCalculator statsCalculator, Session session)
     {
-        this(plan, types, metadata, statsCalculator, sesion, 0, false);
+        this(plan, types, metadata, statsCalculator, session, 0, false);
     }
 
     private PlanPrinter(PlanNode plan, Map<Symbol, Type> types, Metadata metadata, StatsCalculator statsCalculator, Session session, int indent, boolean verbose)
