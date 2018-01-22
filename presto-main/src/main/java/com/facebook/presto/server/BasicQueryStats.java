@@ -112,7 +112,7 @@ public class BasicQueryStats
                 queryStats.getCompletedDrivers(),
                 queryStats.getCumulativeMemory(),
                 queryStats.getTotalMemoryReservation(),
-                queryStats.getPeakMemoryReservation(),
+                queryStats.getPeakUserMemoryReservation(),
                 queryStats.getTotalCpuTime(),
                 queryStats.isFullyBlocked(),
                 queryStats.getBlockedReasons(),

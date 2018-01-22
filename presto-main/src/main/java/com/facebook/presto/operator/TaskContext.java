@@ -191,6 +191,11 @@ public class TaskContext
         return new DataSize(taskMemoryContext.getUserMemory(), BYTE);
     }
 
+    public DataSize getSystemMemoryReservation()
+    {
+        return new DataSize(taskMemoryContext.getSystemMemory(), BYTE);
+    }
+
     /**
      * Returns the completed driver groups (excluding taskWide).
      * A driver group is considered complete if all drivers associated with it
