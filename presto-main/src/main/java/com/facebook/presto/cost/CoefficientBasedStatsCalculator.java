@@ -18,7 +18,6 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Constraint;
-import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.Symbol;
@@ -134,11 +133,8 @@ public class CoefficientBasedStatsCalculator
             PlanNodeStatsEstimate rightStats = sourceStats.get(1);
 
             PlanNodeStatsEstimate.Builder joinStats = PlanNodeStatsEstimate.builder();
-            if (!leftStats.getOutputRowCount().isValueUnknown() && !rightStats.getOutputRowCount().isValueUnknown()) {
-                double rowCount = Math.max(leftStats.getOutputRowCount().getValue(), rightStats.getOutputRowCount().getValue()) * JOIN_MATCHING_COEFFICIENT;
-                joinStats.setOutputRowCount(new Estimate(rowCount));
-            }
-
+            double rowCount = Math.max(leftStats.getOutputRowCount(), rightStats.getOutputRowCount()) * JOIN_MATCHING_COEFFICIENT;
+            joinStats.setOutputRowCount(rowCount);
             stats.put(node.getId(), joinStats.build());
             return joinStats.build();
         }
@@ -147,14 +143,9 @@ public class CoefficientBasedStatsCalculator
         public PlanNodeStatsEstimate visitExchange(ExchangeNode node, Void context)
         {
             List<PlanNodeStatsEstimate> sourceStats = visitSources(node);
-            Estimate rowCount = new Estimate(0);
+            double rowCount = 0;
             for (PlanNodeStatsEstimate sourceStat : sourceStats) {
-                if (sourceStat.getOutputRowCount().isValueUnknown()) {
-                    rowCount = Estimate.unknownValue();
-                }
-                else {
-                    rowCount = rowCount.map(value -> value + sourceStat.getOutputRowCount().getValue());
-                }
+                rowCount = rowCount + sourceStat.getOutputRowCount();
             }
 
             PlanNodeStatsEstimate exchangeStats = PlanNodeStatsEstimate.builder()
@@ -170,7 +161,7 @@ public class CoefficientBasedStatsCalculator
             Constraint<ColumnHandle> constraint = new Constraint<>(node.getCurrentConstraint(), bindings -> true);
             TableStatistics tableStatistics = metadata.getTableStatistics(session, node.getTable(), constraint);
             PlanNodeStatsEstimate tableScanStats = PlanNodeStatsEstimate.builder()
-                    .setOutputRowCount(tableStatistics.getRowCount())
+                    .setOutputRowCount(tableStatistics.getRowCount().getValue())
                     .build();
 
             stats.put(node.getId(), tableScanStats);
@@ -180,7 +171,7 @@ public class CoefficientBasedStatsCalculator
         @Override
         public PlanNodeStatsEstimate visitValues(ValuesNode node, Void context)
         {
-            Estimate valuesCount = new Estimate(node.getRows().size());
+            int valuesCount = node.getRows().size();
             PlanNodeStatsEstimate valuesStats = PlanNodeStatsEstimate.builder()
                     .setOutputRowCount(valuesCount)
                     .build();
@@ -193,7 +184,7 @@ public class CoefficientBasedStatsCalculator
         {
             visitSources(node);
             PlanNodeStatsEstimate nodeStats = PlanNodeStatsEstimate.builder()
-                    .setOutputRowCount(new Estimate(1.0))
+                    .setOutputRowCount(1.0)
                     .build();
             stats.put(node.getId(), nodeStats);
             return nodeStats;
@@ -214,11 +205,11 @@ public class CoefficientBasedStatsCalculator
         {
             PlanNodeStatsEstimate sourceStats = visitSource(node);
             PlanNodeStatsEstimate.Builder limitStats = PlanNodeStatsEstimate.builder();
-            if (sourceStats.getOutputRowCount().getValue() < node.getCount()) {
+            if (sourceStats.getOutputRowCount() < node.getCount()) {
                 limitStats.setOutputRowCount(sourceStats.getOutputRowCount());
             }
             else {
-                limitStats.setOutputRowCount(new Estimate(node.getCount()));
+                limitStats.setOutputRowCount(node.getCount());
             }
             stats.put(node.getId(), limitStats.build());
             return limitStats.build();

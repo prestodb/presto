@@ -14,7 +14,6 @@
 package com.facebook.presto.tests.statistics;
 
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
-import com.facebook.presto.spi.statistics.Estimate;
 
 import java.util.function.Function;
 
@@ -23,14 +22,14 @@ public enum Metric
     OUTPUT_ROW_COUNT(PlanNodeStatsEstimate::getOutputRowCount),
     OUTPUT_SIZE_BYTES(PlanNodeStatsEstimate::getOutputSizeInBytes);
 
-    private final Function<PlanNodeStatsEstimate, Estimate> extractor;
+    private final Function<PlanNodeStatsEstimate, Double> extractor;
 
-    Metric(Function<PlanNodeStatsEstimate, Estimate> extractor)
+    Metric(Function<PlanNodeStatsEstimate, Double> extractor)
     {
         this.extractor = extractor;
     }
 
-    Estimate getValue(PlanNodeStatsEstimate stats)
+    double getValue(PlanNodeStatsEstimate stats)
     {
         return extractor.apply(stats);
     }
