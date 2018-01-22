@@ -29,7 +29,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 
-public class TestReorderJoins
+public class TestEliminateCrossJoins
         extends BasePlanTest
 {
     private static final PlanMatchPattern ORDERS_TABLESCAN = tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey"));
@@ -57,7 +57,7 @@ public class TestReorderJoins
                     "L_ORDERKEY", "orderkey",
                     "L_COMMENT", "comment"));
 
-    public TestReorderJoins()
+    public TestEliminateCrossJoins()
     {
         super(ImmutableMap.of(SystemSessionProperties.REORDER_JOINS, "true"));
     }
