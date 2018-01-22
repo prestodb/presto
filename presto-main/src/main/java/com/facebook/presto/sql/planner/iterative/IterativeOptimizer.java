@@ -31,6 +31,7 @@ import io.airlift.units.Duration;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -42,18 +43,23 @@ import static java.lang.String.format;
 public class IterativeOptimizer
         implements PlanOptimizer
 {
-    private final List<PlanOptimizer> legacyRules;
+    private final Optional<List<PlanOptimizer>> legacyRules;
     private final RuleIndex ruleIndex;
     private final StatsRecorder stats;
 
     public IterativeOptimizer(StatsRecorder stats, Set<Rule<?>> rules)
     {
-        this(stats, ImmutableList.of(), rules);
+        this(stats, Optional.empty(), rules);
     }
 
     public IterativeOptimizer(StatsRecorder stats, List<PlanOptimizer> legacyRules, Set<Rule<?>> newRules)
     {
-        this.legacyRules = ImmutableList.copyOf(legacyRules);
+        this(stats, Optional.of(legacyRules), newRules);
+    }
+
+    private IterativeOptimizer(StatsRecorder stats, Optional<List<PlanOptimizer>> legacyRules, Set<Rule<?>> newRules)
+    {
+        this.legacyRules = legacyRules.map(ImmutableList::copyOf);
         this.ruleIndex = RuleIndex.builder()
                 .register(newRules)
                 .build();
@@ -67,8 +73,8 @@ public class IterativeOptimizer
     public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
         // only disable new rules if we have legacy rules to fall back to
-        if (!SystemSessionProperties.isNewOptimizerEnabled(session) && !legacyRules.isEmpty()) {
-            for (PlanOptimizer optimizer : legacyRules) {
+        if (!SystemSessionProperties.isNewOptimizerEnabled(session) && legacyRules.isPresent()) {
+            for (PlanOptimizer optimizer : legacyRules.get()) {
                 plan = optimizer.optimize(plan, session, symbolAllocator.getTypes(), symbolAllocator, idAllocator);
             }
 
