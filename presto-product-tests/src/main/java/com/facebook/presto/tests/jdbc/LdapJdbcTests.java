@@ -15,12 +15,12 @@ package com.facebook.presto.tests.jdbc;
 
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
-import com.teradata.tempto.ProductTest;
-import com.teradata.tempto.Requirement;
-import com.teradata.tempto.RequirementsProvider;
-import com.teradata.tempto.configuration.Configuration;
-import com.teradata.tempto.fulfillment.ldap.LdapObjectRequirement;
-import com.teradata.tempto.query.QueryResult;
+import io.prestodb.tempto.ProductTest;
+import io.prestodb.tempto.Requirement;
+import io.prestodb.tempto.RequirementsProvider;
+import io.prestodb.tempto.configuration.Configuration;
+import io.prestodb.tempto.fulfillment.ldap.LdapObjectRequirement;
+import io.prestodb.tempto.query.QueryResult;
 
 import java.sql.Connection;
 import java.sql.DriverManager;

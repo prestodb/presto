@@ -18,11 +18,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.io.Files;
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
-import com.teradata.tempto.AfterTestWithContext;
-import com.teradata.tempto.Requirement;
-import com.teradata.tempto.RequirementsProvider;
-import com.teradata.tempto.configuration.Configuration;
-import com.teradata.tempto.fulfillment.table.ImmutableTableRequirement;
+import io.prestodb.tempto.AfterTestWithContext;
+import io.prestodb.tempto.Requirement;
+import io.prestodb.tempto.RequirementsProvider;
+import io.prestodb.tempto.configuration.Configuration;
+import io.prestodb.tempto.fulfillment.table.ImmutableTableRequirement;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -31,8 +31,8 @@ import java.util.List;
 
 import static com.facebook.presto.tests.TestGroups.CLI;
 import static com.google.common.base.MoreObjects.firstNonNull;
-import static com.teradata.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
-import static com.teradata.tempto.process.CliProcess.trimLines;
+import static io.prestodb.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
+import static io.prestodb.tempto.process.CliProcess.trimLines;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
