@@ -74,6 +74,12 @@ public class BenchmarkSTContains
     }
 
     @Benchmark
+    public Object deserializeEnvelopeSimpleGeometry(BenchmarkData data)
+    {
+        return GeometryUtils.deserializeEnvelope(data.simpleGeometry);
+    }
+
+    @Benchmark
     public Object stContainsInnerPoint(BenchmarkData data)
     {
         return GeoFunctions.stContains(data.geometry, data.innerPoint);
@@ -113,6 +119,12 @@ public class BenchmarkSTContains
     public Object deserialize(BenchmarkData data)
     {
         return GeometryUtils.deserialize(data.geometry);
+    }
+
+    @Benchmark
+    public Object deserializeEnvelope(BenchmarkData data)
+    {
+        return GeometryUtils.deserializeEnvelope(data.geometry);
     }
 
     @State(Scope.Thread)
