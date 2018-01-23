@@ -34,11 +34,9 @@ public class HiveMetadataFactory
     private static final Logger log = Logger.get(HiveMetadataFactory.class);
 
     private final boolean allowCorruptWritesForTesting;
-    private final boolean respectTableFormat;
     private final boolean bucketWritingEnabled;
     private final boolean skipDeletionForAlter;
     private final boolean writesToNonManagedTablesEnabled;
-    private final HiveStorageFormat defaultStorageFormat;
     private final long perTransactionCacheMaximumSize;
     private final ExtendedHiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
@@ -74,11 +72,9 @@ public class HiveMetadataFactory
                 hiveClientConfig.getDateTimeZone(),
                 hiveClientConfig.getMaxConcurrentFileRenames(),
                 hiveClientConfig.getAllowCorruptWritesForTesting(),
-                hiveClientConfig.isRespectTableFormat(),
                 hiveClientConfig.isSkipDeletionForAlter(),
                 hiveClientConfig.isBucketWritingEnabled(),
                 hiveClientConfig.getWritesToNonManagedTablesEnabled(),
-                hiveClientConfig.getHiveStorageFormat(),
                 hiveClientConfig.getPerTransactionMetastoreCacheMaximumSize(),
                 typeManager,
                 locationService,
@@ -96,11 +92,9 @@ public class HiveMetadataFactory
             DateTimeZone timeZone,
             int maxConcurrentFileRenames,
             boolean allowCorruptWritesForTesting,
-            boolean respectTableFormat,
             boolean skipDeletionForAlter,
             boolean bucketWritingEnabled,
             boolean writesToNonManagedTablesEnabled,
-            HiveStorageFormat defaultStorageFormat,
             long perTransactionCacheMaximumSize,
             TypeManager typeManager,
             LocationService locationService,
@@ -111,11 +105,9 @@ public class HiveMetadataFactory
             String prestoVersion)
     {
         this.allowCorruptWritesForTesting = allowCorruptWritesForTesting;
-        this.respectTableFormat = respectTableFormat;
         this.skipDeletionForAlter = skipDeletionForAlter;
         this.bucketWritingEnabled = bucketWritingEnabled;
         this.writesToNonManagedTablesEnabled = writesToNonManagedTablesEnabled;
-        this.defaultStorageFormat = requireNonNull(defaultStorageFormat, "defaultStorageFormat is null");
         this.perTransactionCacheMaximumSize = perTransactionCacheMaximumSize;
 
         this.metastore = requireNonNull(metastore, "metastore is null");
@@ -153,10 +145,8 @@ public class HiveMetadataFactory
                 partitionManager,
                 timeZone,
                 allowCorruptWritesForTesting,
-                respectTableFormat,
                 bucketWritingEnabled,
                 writesToNonManagedTablesEnabled,
-                defaultStorageFormat,
                 typeManager,
                 locationService,
                 tableParameterCodec,
