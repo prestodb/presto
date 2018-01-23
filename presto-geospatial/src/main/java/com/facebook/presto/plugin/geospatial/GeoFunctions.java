@@ -49,6 +49,7 @@ import static com.facebook.presto.geospatial.GeometryUtils.GeometryTypeName.MULT
 import static com.facebook.presto.geospatial.GeometryUtils.GeometryTypeName.POINT;
 import static com.facebook.presto.geospatial.GeometryUtils.GeometryTypeName.POLYGON;
 import static com.facebook.presto.geospatial.GeometryUtils.deserialize;
+import static com.facebook.presto.geospatial.GeometryUtils.deserializeEnvelope;
 import static com.facebook.presto.geospatial.GeometryUtils.serialize;
 import static com.facebook.presto.plugin.geospatial.GeometryType.GEOMETRY_TYPE_NAME;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -461,6 +462,12 @@ public final class GeoFunctions
     @SqlType(StandardTypes.BOOLEAN)
     public static Boolean stContains(@SqlType(GEOMETRY_TYPE_NAME) Slice left, @SqlType(GEOMETRY_TYPE_NAME) Slice right)
     {
+        Envelope leftEnvelope = deserializeEnvelope(left);
+        Envelope rightEnvelope = deserializeEnvelope(right);
+        if (leftEnvelope == null || rightEnvelope == null || !leftEnvelope.contains(rightEnvelope)) {
+            return false;
+        }
+
         OGCGeometry leftGeometry = deserialize(left);
         OGCGeometry rightGeometry = deserialize(right);
         verifySameSpatialReference(leftGeometry, rightGeometry);
