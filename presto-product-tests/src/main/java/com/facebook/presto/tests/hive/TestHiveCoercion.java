@@ -50,7 +50,7 @@ import static java.sql.JDBCType.DOUBLE;
 import static java.sql.JDBCType.INTEGER;
 import static java.sql.JDBCType.LONGNVARCHAR;
 import static java.sql.JDBCType.SMALLINT;
-import static java.sql.JDBCType.VARBINARY;
+import static java.sql.JDBCType.VARCHAR;
 
 public class TestHiveCoercion
         extends ProductTest
@@ -332,7 +332,7 @@ public class TestHiveCoercion
                     INTEGER,
                     BIGINT,
                     BIGINT,
-                    VARBINARY,
+                    VARCHAR,
                     DOUBLE,
                     BIGINT);
         }
