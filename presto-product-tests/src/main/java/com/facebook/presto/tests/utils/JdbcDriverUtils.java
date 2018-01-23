@@ -14,7 +14,9 @@
 package com.facebook.presto.tests.utils;
 
 import com.facebook.presto.jdbc.PrestoConnection;
+import io.airlift.log.Logger;
 
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -22,6 +24,9 @@ import java.sql.Statement;
 
 public class JdbcDriverUtils
 {
+    private static final Logger LOGGER = Logger.get(JdbcDriverUtils.class);
+    private static final String IS_NUMERIC_REGEX = "-?\\d*[\\.\\d]*";
+
     public static String getSessionProperty(Connection connection, String key)
             throws SQLException
     {
@@ -57,12 +62,36 @@ public class JdbcDriverUtils
         }
         else if (usingTeradataJdbcDriver(connection)) {
             try (Statement statement = connection.createStatement()) {
+                if (shouldValueBeQuoted(value)) {
+                    value = "'" + value + "'";
+                }
                 statement.execute(String.format("set session %s=%s", key, value));
             }
         }
         else {
             throw new IllegalStateException();
         }
+    }
+
+    private static boolean shouldValueBeQuoted(String value)
+    {
+        if (value.equalsIgnoreCase("true") || value.equalsIgnoreCase("false")) {
+            return false;
+        }
+
+        if (value.matches(IS_NUMERIC_REGEX)) {
+            return false;
+        }
+
+        try {
+            new BigDecimal(value);
+            return false;
+        }
+        catch (NumberFormatException e) {
+            LOGGER.info("'%s' is not a number", value, e);
+        }
+
+        return true;
     }
 
     public static void resetSessionProperty(Connection connection, String key)
@@ -88,12 +117,12 @@ public class JdbcDriverUtils
 
     public static boolean usingTeradataJdbcDriver(Connection connection)
     {
-        return getClassNameForJdbcDriver(connection).startsWith("com.teradata.jdbc.");
+        return getClassNameForJdbcDriver(connection).startsWith("com.teradata.presto.");
     }
 
     public static boolean usingTeradataJdbc4Driver(Connection connection)
     {
-        return getClassNameForJdbcDriver(connection).startsWith("com.teradata.jdbc.jdbc4.");
+        return getClassNameForJdbcDriver(connection).startsWith("com.teradata.presto.jdbc.jdbc4.");
     }
 
     private static String getClassNameForJdbcDriver(Connection connection)
