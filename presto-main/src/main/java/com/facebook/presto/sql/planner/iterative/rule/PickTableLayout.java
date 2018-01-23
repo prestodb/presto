@@ -43,7 +43,6 @@ import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.filterDeterministicConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.filterNonDeterministicConjuncts;
-import static com.facebook.presto.sql.planner.iterative.rule.PreconditionRules.checkRulesAreFiredBeforeAddExchangesRule;
 import static com.facebook.presto.sql.planner.plan.Patterns.filter;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
 import static com.facebook.presto.sql.planner.plan.Patterns.tableScan;
@@ -63,7 +62,8 @@ public class PickTableLayout
     public Set<Rule<?>> rules()
     {
         return ImmutableSet.of(
-                checkRulesAreFiredBeforeAddExchangesRule(),
+                //TODO enable after issue #9800 is fixed
+//                checkRulesAreFiredBeforeAddExchangesRule(),
                 pickTableLayoutForPredicate(),
                 pickTableLayoutWithoutPredicate());
     }
