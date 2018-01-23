@@ -15,7 +15,7 @@ package com.facebook.presto.tests;
 
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
-import com.teradata.tempto.query.QueryResult;
+import io.prestodb.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
 import java.io.IOException;

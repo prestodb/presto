@@ -13,21 +13,21 @@
  */
 package com.facebook.presto.tests.mysql;
 
-import com.teradata.tempto.AfterTestWithContext;
-import com.teradata.tempto.BeforeTestWithContext;
-import com.teradata.tempto.ProductTest;
-import com.teradata.tempto.Requires;
-import com.teradata.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableNationTable;
-import com.teradata.tempto.query.QueryResult;
 import io.airlift.log.Logger;
+import io.prestodb.tempto.AfterTestWithContext;
+import io.prestodb.tempto.BeforeTestWithContext;
+import io.prestodb.tempto.ProductTest;
+import io.prestodb.tempto.Requires;
+import io.prestodb.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableNationTable;
+import io.prestodb.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.tests.TestGroups.JDBC;
 import static com.facebook.presto.tests.TestGroups.MYSQL;
 import static com.facebook.presto.tests.utils.QueryExecutors.onMySql;
-import static com.teradata.tempto.assertions.QueryAssert.Row.row;
-import static com.teradata.tempto.assertions.QueryAssert.assertThat;
-import static com.teradata.tempto.query.QueryExecutor.query;
+import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
+import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
+import static io.prestodb.tempto.query.QueryExecutor.query;
 import static java.lang.String.format;
 
 public class CreateTableAsSelect

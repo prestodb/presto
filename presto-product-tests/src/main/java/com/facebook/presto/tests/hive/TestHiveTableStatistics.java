@@ -13,28 +13,28 @@
  */
 package com.facebook.presto.tests.hive;
 
-import com.teradata.tempto.ProductTest;
-import com.teradata.tempto.Requirement;
-import com.teradata.tempto.Requirements;
-import com.teradata.tempto.RequirementsProvider;
-import com.teradata.tempto.Requires;
-import com.teradata.tempto.configuration.Configuration;
-import com.teradata.tempto.fulfillment.table.MutableTableRequirement;
-import com.teradata.tempto.query.QueryExecutor;
+import io.prestodb.tempto.ProductTest;
+import io.prestodb.tempto.Requirement;
+import io.prestodb.tempto.Requirements;
+import io.prestodb.tempto.RequirementsProvider;
+import io.prestodb.tempto.Requires;
+import io.prestodb.tempto.configuration.Configuration;
+import io.prestodb.tempto.fulfillment.table.MutableTableRequirement;
+import io.prestodb.tempto.query.QueryExecutor;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.tests.TestGroups.HIVE_CONNECTOR;
 import static com.facebook.presto.tests.TestGroups.SKIP_ON_CDH;
 import static com.facebook.presto.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_TEXTFILE;
 import static com.facebook.presto.tests.hive.HiveTableDefinitions.NATION_PARTITIONED_BY_REGIONKEY;
-import static com.teradata.tempto.assertions.QueryAssert.Row.row;
-import static com.teradata.tempto.assertions.QueryAssert.anyOf;
-import static com.teradata.tempto.assertions.QueryAssert.assertThat;
-import static com.teradata.tempto.context.ThreadLocalTestContextHolder.testContext;
-import static com.teradata.tempto.fulfillment.table.MutableTablesState.mutableTablesState;
-import static com.teradata.tempto.fulfillment.table.TableRequirements.mutableTable;
-import static com.teradata.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
-import static com.teradata.tempto.query.QueryExecutor.query;
+import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
+import static io.prestodb.tempto.assertions.QueryAssert.anyOf;
+import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
+import static io.prestodb.tempto.context.ThreadLocalTestContextHolder.testContext;
+import static io.prestodb.tempto.fulfillment.table.MutableTablesState.mutableTablesState;
+import static io.prestodb.tempto.fulfillment.table.TableRequirements.mutableTable;
+import static io.prestodb.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
+import static io.prestodb.tempto.query.QueryExecutor.query;
 
 public class TestHiveTableStatistics
         extends ProductTest
