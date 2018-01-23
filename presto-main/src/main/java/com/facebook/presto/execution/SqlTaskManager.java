@@ -22,16 +22,21 @@ import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.execution.executor.TaskExecutor;
 import com.facebook.presto.memory.LocalMemoryManager;
+import com.facebook.presto.memory.MemoryInfo;
+import com.facebook.presto.memory.MemoryPool;
 import com.facebook.presto.memory.MemoryPoolAssignment;
 import com.facebook.presto.memory.MemoryPoolAssignmentsRequest;
 import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.memory.MemoryPoolId;
+import com.facebook.presto.spi.memory.MemoryPoolInfo;
 import com.facebook.presto.spiller.LocalSpillManager;
 import com.facebook.presto.spiller.NodeSpillConfig;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -55,6 +60,7 @@ import javax.inject.Inject;
 
 import java.io.Closeable;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
@@ -64,6 +70,7 @@ import java.util.concurrent.TimeUnit;
 import static com.facebook.presto.SystemSessionProperties.resourceOvercommit;
 import static com.facebook.presto.spi.StandardErrorCode.ABANDONED_TASK;
 import static com.facebook.presto.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.notNull;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
@@ -366,10 +373,32 @@ public class SqlTaskManager
                 DateTime endTime = taskInfo.getStats().getEndTime();
                 if (endTime != null && endTime.isBefore(oldestAllowedTask)) {
                     tasks.asMap().remove(taskId);
+                    removeOrphanMemoryReservation(taskInfo); // TODO: Use a different threshold
                 }
             }
             catch (RuntimeException e) {
                 log.warn(e, "Error while inspecting age of complete task %s", taskId);
+            }
+        }
+    }
+
+    @VisibleForTesting
+    void removeOrphanMemoryReservation(TaskInfo taskInfo)
+    {
+        checkState(taskInfo.getTaskStatus().getState().isDone(), "Task %s is not done yet", taskInfo.getTaskStatus().getTaskId());
+        QueryId queryId = taskInfo.getTaskStatus().getTaskId().getQueryId();
+        MemoryInfo memoryInfo = localMemoryManager.getInfo();
+        for (Map.Entry<MemoryPoolId, MemoryPoolInfo> entry : memoryInfo.getPools().entrySet()) {
+            MemoryPool pool = localMemoryManager.getPool(entry.getKey());
+            MemoryPoolInfo info = entry.getValue();
+            // guess there's no reserved bytes change after done
+            long bytes = info.getQueryMemoryReservations().getOrDefault(queryId, 0L);
+            if (bytes > 0) {
+                pool.free(queryId, bytes);
+            }
+            bytes = info.getQueryMemoryRevocableReservations().getOrDefault(queryId, 0L);
+            if (bytes > 0) {
+                pool.freeRevocable(queryId, bytes);
             }
         }
     }
