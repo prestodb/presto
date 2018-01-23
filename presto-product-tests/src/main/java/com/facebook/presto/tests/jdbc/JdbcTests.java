@@ -24,10 +24,14 @@ import io.prestodb.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequire
 import io.prestodb.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
+import javax.inject.Inject;
+import javax.inject.Named;
+
 import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.Date;
+import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
 
@@ -61,6 +65,18 @@ public class JdbcTests
 {
     private static final Logger LOGGER = Logger.get(JdbcTests.class);
     private static final String TABLE_NAME = "nation_table_name";
+
+    @Inject
+    @Named("databases.presto.jdbc_url")
+    private String prestoJdbcURL;
+
+    @Inject
+    @Named("databases.presto.jdbc_user")
+    private String prestoJdbcUser;
+
+    @Inject
+    @Named("databases.presto.jdbc_password")
+    private String prestoJdbcPassword;
 
     private static class ImmutableAndMutableNationTable
             implements RequirementsProvider
@@ -120,16 +136,34 @@ public class JdbcTests
     public void shouldSetTimezone()
             throws SQLException
     {
+        String timeZoneId = "Indian/Kerguelen";
         if (usingPrestoJdbcDriver(connection())) {
-            String timeZoneId = "Indian/Kerguelen";
             ((PrestoConnection) connection()).setTimeZoneId(timeZoneId);
-            try (Statement statement = connection().createStatement()) {
-                QueryResult result = queryResult(statement, "select current_timezone()");
-                assertThat(result).contains(row(timeZoneId));
+            assertConnectionTimezone(connection(), timeZoneId);
+        }
+        else if (usingTeradataJdbcDriver(connection())) {
+            String prestoJdbcURLTestTimeZone;
+            String testTimeZone = "TimeZoneID=" + timeZoneId + ";";
+            if (prestoJdbcURL.contains("TimeZoneID=")) {
+                prestoJdbcURLTestTimeZone = prestoJdbcURL.replaceFirst("TimeZoneID=[\\w/]*;", testTimeZone);
             }
+            else {
+                prestoJdbcURLTestTimeZone = prestoJdbcURL + ";" + testTimeZone;
+            }
+            Connection testConnection = DriverManager.getConnection(prestoJdbcURLTestTimeZone, prestoJdbcUser, prestoJdbcPassword);
+            assertConnectionTimezone(testConnection, timeZoneId);
         }
         else {
             LOGGER.warn("shouldSetTimezone() only applies to PrestoJdbcDriver");
+        }
+    }
+
+    private void assertConnectionTimezone(Connection connection, String timeZoneId)
+            throws SQLException
+    {
+        try (Statement statement = connection.createStatement()) {
+            QueryResult result = queryResult(statement, "select current_timezone()");
+            assertThat(result).contains(row(timeZoneId));
         }
     }
 
