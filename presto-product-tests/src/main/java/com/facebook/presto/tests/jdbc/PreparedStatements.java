@@ -133,6 +133,44 @@ public class PreparedStatements
 
     @Test(groups = {JDBC, SIMBA_JDBC})
     @Requires(MutableAllTypesTable.class)
+    public void preparedInsertVarbinaryApi()
+    {
+        if (usingTeradataJdbcDriver(connection())) {
+            String tableNameInDatabase = mutableTablesState().get(TABLE_NAME_MUTABLE).getNameInDatabase();
+            String insertSqlWithTable = String.format(INSERT_SQL, tableNameInDatabase);
+            String selectSqlWithTable = String.format(SELECT_STAR_SQL, tableNameInDatabase);
+
+            defaultQueryExecutor().executeQuery(
+                    insertSqlWithTable,
+                    param(TINYINT, null),
+                    param(SMALLINT, null),
+                    param(INTEGER, null),
+                    param(BIGINT, null),
+                    param(FLOAT, null),
+                    param(DOUBLE, null),
+                    param(DECIMAL, null),
+                    param(DECIMAL, null),
+                    param(TIMESTAMP, null),
+                    param(DATE, null),
+                    param(VARCHAR, null),
+                    param(VARCHAR, null),
+                    param(CHAR, null),
+                    param(BOOLEAN, null),
+                    param(VARBINARY, "a290IGJpbmFybnk=".getBytes()));
+
+            QueryResult result = defaultQueryExecutor().executeQuery(selectSqlWithTable);
+            assertColumnTypes(result);
+            assertThat(result).containsOnly(
+                    row(null, null, null, null, null, null, null, null, null, null, null, null, null, null,
+                            "a290IGJpbmFybnk=".getBytes()));
+        }
+        else {
+            LOGGER.warn("preparedInsertVarbinaryApi() only applies to TeradataJdbcDriver");
+        }
+    }
+
+    @Test(groups = {JDBC, SIMBA_JDBC})
+    @Requires(MutableAllTypesTable.class)
     public void preparedInsertApi()
     {
         if (usingTeradataJdbcDriver(connection())) {

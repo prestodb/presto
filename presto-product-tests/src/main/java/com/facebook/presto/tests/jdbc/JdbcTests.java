@@ -112,11 +112,16 @@ public class JdbcTests
     public void shouldExecuteQueryWithSelectedCatalogAndSchema()
             throws SQLException
     {
-        connection.setCatalog("hive");
-        connection.setSchema("default");
-        try (Statement statement = connection.createStatement()) {
-            QueryResult result = queryResult(statement, "select * from nation");
-            assertThat(result).matches(PRESTO_NATION_RESULT);
+        if (usingTeradataJdbc4Driver(connection)) {
+            LOGGER.warn("connection.setSchema() is not supported in JDBC 4");
+        }
+        else {
+            connection.setCatalog("hive");
+            connection.setSchema("default");
+            try (Statement statement = connection.createStatement()) {
+                QueryResult result = queryResult(statement, "select * from nation");
+                assertThat(result).matches(PRESTO_NATION_RESULT);
+            }
         }
     }
 
