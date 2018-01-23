@@ -14,29 +14,29 @@
 package com.facebook.presto.tests.hive;
 
 import com.google.inject.Inject;
-import com.teradata.tempto.ProductTest;
-import com.teradata.tempto.Requirement;
-import com.teradata.tempto.RequirementsProvider;
-import com.teradata.tempto.configuration.Configuration;
-import com.teradata.tempto.fulfillment.table.MutableTablesState;
-import com.teradata.tempto.fulfillment.table.hive.HiveDataSource;
-import com.teradata.tempto.fulfillment.table.hive.HiveTableDefinition;
-import com.teradata.tempto.query.QueryExecutionException;
-import com.teradata.tempto.query.QueryResult;
+import io.prestodb.tempto.ProductTest;
+import io.prestodb.tempto.Requirement;
+import io.prestodb.tempto.RequirementsProvider;
+import io.prestodb.tempto.configuration.Configuration;
+import io.prestodb.tempto.fulfillment.table.MutableTablesState;
+import io.prestodb.tempto.fulfillment.table.hive.HiveDataSource;
+import io.prestodb.tempto.fulfillment.table.hive.HiveTableDefinition;
+import io.prestodb.tempto.query.QueryExecutionException;
+import io.prestodb.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.presto.tests.TestGroups.HIVE_CONNECTOR;
-import static com.teradata.tempto.Requirements.allOf;
-import static com.teradata.tempto.assertions.QueryAssert.Row.row;
-import static com.teradata.tempto.assertions.QueryAssert.assertThat;
-import static com.teradata.tempto.fulfillment.table.MutableTableRequirement.State.LOADED;
-import static com.teradata.tempto.fulfillment.table.TableRequirements.mutableTable;
-import static com.teradata.tempto.fulfillment.table.hive.InlineDataSource.createResourceDataSource;
-import static com.teradata.tempto.fulfillment.table.hive.InlineDataSource.createStringDataSource;
-import static com.teradata.tempto.query.QueryExecutor.query;
+import static io.prestodb.tempto.Requirements.allOf;
+import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
+import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
+import static io.prestodb.tempto.fulfillment.table.MutableTableRequirement.State.LOADED;
+import static io.prestodb.tempto.fulfillment.table.TableRequirements.mutableTable;
+import static io.prestodb.tempto.fulfillment.table.hive.InlineDataSource.createResourceDataSource;
+import static io.prestodb.tempto.fulfillment.table.hive.InlineDataSource.createStringDataSource;
+import static io.prestodb.tempto.query.QueryExecutor.query;
 
 public class TestTablePartitioningSelect
         extends ProductTest

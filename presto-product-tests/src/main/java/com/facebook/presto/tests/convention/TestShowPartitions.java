@@ -14,16 +14,16 @@
 package com.facebook.presto.tests.convention;
 
 import com.google.common.math.IntMath;
-import com.teradata.tempto.ProductTest;
-import com.teradata.tempto.Requirement;
-import com.teradata.tempto.RequirementsProvider;
-import com.teradata.tempto.configuration.Configuration;
-import com.teradata.tempto.fulfillment.table.MutableTableRequirement;
-import com.teradata.tempto.fulfillment.table.MutableTablesState;
-import com.teradata.tempto.fulfillment.table.TableDefinition;
-import com.teradata.tempto.fulfillment.table.hive.HiveDataSource;
-import com.teradata.tempto.fulfillment.table.hive.HiveTableDefinition;
-import com.teradata.tempto.query.QueryResult;
+import io.prestodb.tempto.ProductTest;
+import io.prestodb.tempto.Requirement;
+import io.prestodb.tempto.RequirementsProvider;
+import io.prestodb.tempto.configuration.Configuration;
+import io.prestodb.tempto.fulfillment.table.MutableTableRequirement;
+import io.prestodb.tempto.fulfillment.table.MutableTablesState;
+import io.prestodb.tempto.fulfillment.table.TableDefinition;
+import io.prestodb.tempto.fulfillment.table.hive.HiveDataSource;
+import io.prestodb.tempto.fulfillment.table.hive.HiveTableDefinition;
+import io.prestodb.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
 import javax.inject.Inject;
@@ -34,13 +34,13 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.tests.TestGroups.BASIC_SQL;
-import static com.teradata.tempto.Requirements.compose;
-import static com.teradata.tempto.assertions.QueryAssert.Row.row;
-import static com.teradata.tempto.assertions.QueryAssert.assertThat;
-import static com.teradata.tempto.fulfillment.table.TableRequirements.mutableTable;
-import static com.teradata.tempto.fulfillment.table.hive.InlineDataSource.createResourceDataSource;
-import static com.teradata.tempto.fulfillment.table.hive.InlineDataSource.createStringDataSource;
-import static com.teradata.tempto.query.QueryExecutor.query;
+import static io.prestodb.tempto.Requirements.compose;
+import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
+import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
+import static io.prestodb.tempto.fulfillment.table.TableRequirements.mutableTable;
+import static io.prestodb.tempto.fulfillment.table.hive.InlineDataSource.createResourceDataSource;
+import static io.prestodb.tempto.fulfillment.table.hive.InlineDataSource.createStringDataSource;
+import static io.prestodb.tempto.query.QueryExecutor.query;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;

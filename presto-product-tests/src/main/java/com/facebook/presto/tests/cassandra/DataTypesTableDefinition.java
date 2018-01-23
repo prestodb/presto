@@ -17,8 +17,8 @@ import com.datastax.driver.core.utils.Bytes;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.teradata.tempto.fulfillment.table.jdbc.RelationalDataSource;
-import com.teradata.tempto.internal.fulfillment.table.cassandra.CassandraTableDefinition;
+import io.prestodb.tempto.fulfillment.table.jdbc.RelationalDataSource;
+import io.prestodb.tempto.internal.fulfillment.table.cassandra.CassandraTableDefinition;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -31,7 +31,7 @@ import java.util.UUID;
 import static com.facebook.presto.tests.TemptoProductTestRunner.PRODUCT_TESTS_TIME_ZONE;
 import static com.facebook.presto.tests.cassandra.TestConstants.CONNECTOR_NAME;
 import static com.facebook.presto.tests.cassandra.TestConstants.KEY_SPACE;
-import static com.teradata.tempto.util.DateTimeUtils.parseTimestampInLocalTime;
+import static io.prestodb.tempto.util.DateTimeUtils.parseTimestampInLocalTime;
 
 public class DataTypesTableDefinition
 {

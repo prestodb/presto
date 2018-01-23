@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.tests;
 
-import com.teradata.tempto.runner.TemptoRunner;
-import com.teradata.tempto.runner.TemptoRunnerCommandLineParser;
+import io.prestodb.tempto.runner.TemptoRunner;
+import io.prestodb.tempto.runner.TemptoRunnerCommandLineParser;
 import org.joda.time.DateTimeZone;
 
 public class TemptoProductTestRunner

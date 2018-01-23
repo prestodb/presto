@@ -13,17 +13,17 @@
  */
 package com.facebook.presto.tests;
 
-import com.teradata.tempto.ProductTest;
-import com.teradata.tempto.Requires;
-import com.teradata.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableNationTable;
+import io.prestodb.tempto.ProductTest;
+import io.prestodb.tempto.Requires;
+import io.prestodb.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableNationTable;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.tests.TestGroups.CREATE_DROP_VIEW;
 import static com.facebook.presto.tests.TestGroups.SMOKE;
-import static com.teradata.tempto.assertions.QueryAssert.assertThat;
-import static com.teradata.tempto.context.ContextDsl.executeWith;
-import static com.teradata.tempto.query.QueryExecutor.query;
-import static com.teradata.tempto.sql.SqlContexts.createViewAs;
+import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
+import static io.prestodb.tempto.context.ContextDsl.executeWith;
+import static io.prestodb.tempto.query.QueryExecutor.query;
+import static io.prestodb.tempto.sql.SqlContexts.createViewAs;
 import static java.lang.String.format;
 
 @Requires(ImmutableNationTable.class)

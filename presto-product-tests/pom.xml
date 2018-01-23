@@ -26,15 +26,15 @@
             <artifactId>presto-main</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.teradata.tempto</groupId>
+            <groupId>io.prestodb.tempto</groupId>
             <artifactId>tempto-core</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.teradata.tempto</groupId>
+            <groupId>io.prestodb.tempto</groupId>
             <artifactId>tempto-ldap</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.teradata.tempto</groupId>
+            <groupId>io.prestodb.tempto</groupId>
             <artifactId>tempto-runner</artifactId>
         </dependency>
         <dependency>

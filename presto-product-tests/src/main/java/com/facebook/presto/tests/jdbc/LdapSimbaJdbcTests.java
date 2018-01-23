@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.tests.jdbc;
 
-import com.teradata.tempto.Requires;
-import com.teradata.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableNationTable;
+import io.prestodb.tempto.Requires;
+import io.prestodb.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableNationTable;
 import org.testng.annotations.Test;
 
 import java.sql.Connection;
@@ -29,7 +29,7 @@ import static com.facebook.presto.tests.TestGroups.LDAP;
 import static com.facebook.presto.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static com.facebook.presto.tests.TestGroups.SIMBA_JDBC;
 import static com.facebook.presto.tests.TpchTableResults.PRESTO_NATION_RESULT;
-import static com.teradata.tempto.assertions.QueryAssert.assertThat;
+import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
