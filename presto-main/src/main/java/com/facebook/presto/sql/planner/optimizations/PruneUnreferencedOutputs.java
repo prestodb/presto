@@ -76,6 +76,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
@@ -289,12 +290,8 @@ public class PruneUnreferencedOutputs
                     .filter(context.get()::contains)
                     .collect(toImmutableSet());
 
-            Set<Symbol> requiredAssignmentSymbols = context.get();
-            if (!node.getCurrentConstraint().isNone()) {
-                Set<Symbol> requiredSymbols = Maps.filterValues(node.getAssignments(), in(node.getCurrentConstraint().getDomains().get().keySet())).keySet();
-                requiredAssignmentSymbols = Sets.union(context.get(), requiredSymbols);
-            }
-            Map<Symbol, ColumnHandle> newAssignments = Maps.filterKeys(node.getAssignments(), in(requiredAssignmentSymbols));
+            Map<Symbol, ColumnHandle> newAssignments = newOutputSymbols.stream()
+                    .collect(Collectors.toMap(Function.identity(), node.getAssignments()::get));
 
             return new IndexSourceNode(node.getId(), node.getIndexHandle(), node.getTableHandle(), node.getLayout(), newLookupSymbols, newOutputSymbols, newAssignments, node.getCurrentConstraint());
         }
