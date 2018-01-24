@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.jdbc;
 
+import java.net.URI;
 import java.sql.DriverPropertyInfo;
 import java.sql.SQLException;
 import java.util.Optional;
@@ -40,6 +41,13 @@ interface ConnectionProperty<T>
     {
         return getValue(properties).orElseThrow(() ->
                 new SQLException(format("Connection property '%s' is required", getKey())));
+    }
+
+    // Required value can be decided dynamically by given URI and properties.
+    default T getRequiredValue(URI uri, Properties properties)
+            throws SQLException
+    {
+        return getRequiredValue(properties);
     }
 
     void validate(Properties properties)

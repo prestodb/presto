@@ -18,6 +18,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
 
 import java.io.File;
+import java.net.URI;
+import java.sql.SQLException;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
@@ -143,6 +145,23 @@ final class ConnectionProperties
         public Ssl()
         {
             super("SSL", Optional.of("false"), NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
+        }
+
+        @Override
+        public Boolean getRequiredValue(URI uri, Properties properties) throws SQLException
+        {
+            if (uri.getPort() == 443) {
+                // Always enable SSL in case of using port 443 unless disabling SSL explicitly.
+                if (uri.getQuery() != null && uri.getQuery().contains("SSL=false")) {
+                    return false;
+                }
+                else {
+                    return true;
+                }
+            }
+            else {
+                return getRequiredValue(properties);
+            }
         }
     }
 
