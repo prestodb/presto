@@ -213,7 +213,7 @@ public class PickTableLayout
                 node.getOutputSymbols(),
                 node.getAssignments(),
                 Optional.of(layout.getLayout().getHandle()),
-                simplifiedConstraint.intersect(layout.getLayout().getPredicate()),
+                TupleDomains.filter(simplifiedConstraint.intersect(layout.getLayout().getPredicate()), node.getAssignments().values()),
                 Optional.ofNullable(node.getOriginalConstraint()).orElse(predicate));
 
         Map<ColumnHandle, Symbol> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
