@@ -389,15 +389,11 @@ public class PruneUnreferencedOutputs
         @Override
         public PlanNode visitTableScan(TableScanNode node, RewriteContext<Set<Symbol>> context)
         {
-            Set<Symbol> requiredTableScanOutputs = context.get().stream()
-                    .filter(node.getOutputSymbols()::contains)
-                    .collect(toImmutableSet());
-
             List<Symbol> newOutputSymbols = node.getOutputSymbols().stream()
-                    .filter(requiredTableScanOutputs::contains)
+                    .filter(context.get()::contains)
                     .collect(toImmutableList());
 
-            Map<Symbol, ColumnHandle> newAssignments = Maps.filterKeys(node.getAssignments(), in(requiredTableScanOutputs));
+            Map<Symbol, ColumnHandle> newAssignments = Maps.filterKeys(node.getAssignments(), in(context.get()));
 
             return new TableScanNode(
                     node.getId(),
