@@ -81,7 +81,7 @@ public class BlackHoleMetadata
     public synchronized void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties)
     {
         if (schemas.contains(schemaName)) {
-            throw new PrestoException(ALREADY_EXISTS, String.format("Schema [%s] already exists", schemaName));
+            throw new PrestoException(ALREADY_EXISTS, format("Schema [%s] already exists", schemaName));
         }
         schemas.add(schemaName);
     }
