@@ -23,6 +23,7 @@ import com.facebook.presto.sql.planner.DomainTranslator;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
+import com.facebook.presto.sql.planner.iterative.rule.TupleDomains;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.FilterNode;
@@ -276,6 +277,7 @@ public class IndexJoinOptimizer
             TupleDomain<ColumnHandle> simplifiedConstraint = decomposedPredicate.getTupleDomain()
                     .transform(node.getAssignments()::get)
                     .intersect(node.getCurrentConstraint());
+            simplifiedConstraint = TupleDomains.filter(simplifiedConstraint, node.getAssignments().values());
 
             checkState(node.getOutputSymbols().containsAll(context.getLookupSymbols()));
 
