@@ -48,7 +48,7 @@ public class PruneIndexSourceColumns
         Map<Symbol, ColumnHandle> prunedAssignments = Maps.filterEntries(
                 indexSourceNode.getAssignments(),
                 entry -> referencedOutputs.contains(entry.getKey()) ||
-                        tupleDomainReferencesColumnHandle(indexSourceNode.getEffectiveTupleDomain(), entry.getValue()));
+                        tupleDomainReferencesColumnHandle(indexSourceNode.getCurrentConstraint(), entry.getValue()));
 
         List<Symbol> prunedOutputList =
                 indexSourceNode.getOutputSymbols().stream()
@@ -64,7 +64,7 @@ public class PruneIndexSourceColumns
                         prunedLookupSymbols,
                         prunedOutputList,
                         prunedAssignments,
-                        indexSourceNode.getEffectiveTupleDomain()));
+                        indexSourceNode.getCurrentConstraint()));
     }
 
     private static boolean tupleDomainReferencesColumnHandle(

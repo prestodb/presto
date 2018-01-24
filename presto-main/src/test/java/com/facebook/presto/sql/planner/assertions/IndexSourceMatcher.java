@@ -72,7 +72,7 @@ final class IndexSourceMatcher
         if (expectedConstraint.isPresent() &&
                 !domainsMatch(
                         expectedConstraint,
-                        indexSourceNode.getEffectiveTupleDomain(),
+                        indexSourceNode.getCurrentConstraint(),
                         indexSourceNode.getTableHandle(),
                         session,
                         metadata)) {
