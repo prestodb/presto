@@ -112,4 +112,11 @@ public interface HiveMetastoreClient
 
     boolean revokePrivileges(PrivilegeBag privilegeBag)
             throws TException;
+
+    /**
+     * send UGI(UserGroupInformation , abbreviated in hadoop) to Hive Metastore,
+     * tell Hive Metastore who am i
+     */
+    List<String> setUGI(String userName, List<String> groupNames)
+            throws TException;
 }

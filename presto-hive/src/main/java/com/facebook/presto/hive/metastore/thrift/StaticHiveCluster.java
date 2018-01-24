@@ -15,7 +15,7 @@ package com.facebook.presto.hive.metastore.thrift;
 
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.net.HostAndPort;
-import org.apache.thrift.transport.TTransportException;
+import org.apache.thrift.TException;
 
 import javax.inject.Inject;
 
@@ -27,6 +27,7 @@ import java.util.List;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -35,14 +36,16 @@ public class StaticHiveCluster
 {
     private final List<HostAndPort> addresses;
     private final HiveMetastoreClientFactory clientFactory;
+    private final String hiveUserName;
 
     @Inject
     public StaticHiveCluster(StaticMetastoreConfig config, HiveMetastoreClientFactory clientFactory)
     {
-        this(config.getMetastoreUris(), clientFactory);
+        this(config.getMetastoreUris(), clientFactory, config.getHiveUserName());
     }
 
-    public StaticHiveCluster(List<URI> metastoreUris, HiveMetastoreClientFactory clientFactory)
+    public StaticHiveCluster(List<URI> metastoreUris, HiveMetastoreClientFactory clientFactory,
+                             String hiveUserName)
     {
         requireNonNull(metastoreUris, "metastoreUris is null");
         checkArgument(!metastoreUris.isEmpty(), "metastoreUris must specify at least one URI");
@@ -51,6 +54,7 @@ public class StaticHiveCluster
                 .map(uri -> HostAndPort.fromParts(uri.getHost(), uri.getPort()))
                 .collect(toList());
         this.clientFactory = requireNonNull(clientFactory, "clientFactory is null");
+        this.hiveUserName = hiveUserName;
     }
 
     /**
@@ -67,14 +71,23 @@ public class StaticHiveCluster
         List<HostAndPort> metastores = new ArrayList<>(addresses);
         Collections.shuffle(metastores.subList(1, metastores.size()));
 
-        TTransportException lastException = null;
+        TException lastException = null;
         for (HostAndPort metastore : metastores) {
             try {
-                return clientFactory.create(metastore);
+                HiveMetastoreClient hiveMetastoreClient = clientFactory.create(metastore);
+                if (!isNullOrEmpty(hiveUserName)) {
+                    hiveMetastoreClient.setUGI(hiveUserName, new ArrayList<String>());
+                }
+                return hiveMetastoreClient;
             }
-            catch (TTransportException e) {
+            catch (TException e) {
                 lastException = e;
             }
+        }
+
+        if (!isNullOrEmpty(hiveUserName)) {
+            throw new PrestoException(HIVE_METASTORE_ERROR, format("Failed connecting to Hive metastore: %s , HiveUserName is %s ",
+                    addresses, hiveUserName), lastException);
         }
 
         throw new PrestoException(HIVE_METASTORE_ERROR, "Failed connecting to Hive metastore: " + addresses, lastException);

@@ -37,6 +37,7 @@ import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.thrift.TException;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -305,5 +306,13 @@ public class MockHiveMetastoreClient
     public void close()
     {
         // No-op
+    }
+
+    @Override
+    public List<String> setUGI(String userName, List<String> groupNames)
+    {
+        List<String> result = new ArrayList(groupNames);
+        result.add(userName);
+        return result;
     }
 }

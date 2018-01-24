@@ -243,4 +243,11 @@ public class ThriftHiveMetastoreClient
     {
         return client.revoke_privileges(privilegeBag);
     }
+
+    @Override
+    public List<String> setUGI(String userName, List<String> groupNames)
+            throws TException
+    {
+        return client.set_ugi(userName, groupNames);
+    }
 }
