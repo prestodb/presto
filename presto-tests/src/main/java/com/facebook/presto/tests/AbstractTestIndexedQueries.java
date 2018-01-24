@@ -118,6 +118,12 @@ public abstract class AbstractTestIndexedQueries
     }
 
     @Test
+    public void testJoinWithNonJoinExpression()
+    {
+        assertQuery("SELECT COUNT(*) FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.custkey = 1");
+    }
+
+    @Test
     public void testPredicateDerivedKey()
     {
         assertQuery("" +

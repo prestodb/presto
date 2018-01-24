@@ -84,6 +84,7 @@ import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.primitives.Primitives;
 
 import java.util.Comparator;
 import java.util.List;
@@ -536,7 +537,7 @@ final class ShowQueriesRewrite
                     }
 
                     PropertyMetadata<?> property = allTableProperties.get(propertyName);
-                    if (!property.getJavaType().isInstance(value)) {
+                    if (!Primitives.wrap(property.getJavaType()).isInstance(value)) {
                         throw new PrestoException(INVALID_TABLE_PROPERTY, format(
                                 "Property %s for table %s should have value of type %s, not %s",
                                 propertyName,
