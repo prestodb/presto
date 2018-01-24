@@ -393,7 +393,12 @@ public class PruneUnreferencedOutputs
                     .filter(context.get()::contains)
                     .collect(toImmutableList());
 
-            Map<Symbol, ColumnHandle> newAssignments = Maps.filterKeys(node.getAssignments(), in(context.get()));
+            Set<Symbol> requiredAssignmentSymbols = context.get();
+            if (!node.getCurrentConstraint().isNone()) {
+                Set<Symbol> requiredSymbols = Maps.filterValues(node.getAssignments(), in(node.getCurrentConstraint().getDomains().get().keySet())).keySet();
+                requiredAssignmentSymbols = Sets.union(context.get(), requiredSymbols);
+            }
+            Map<Symbol, ColumnHandle> newAssignments = Maps.filterKeys(node.getAssignments(), in(requiredAssignmentSymbols));
 
             return new TableScanNode(
                     node.getId(),
