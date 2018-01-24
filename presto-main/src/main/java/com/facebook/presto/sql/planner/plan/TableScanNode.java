@@ -23,6 +23,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
@@ -30,6 +31,7 @@ import javax.annotation.concurrent.Immutable;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -77,6 +79,14 @@ public class TableScanNode
         requireNonNull(tableLayout, "tableLayout is null");
         requireNonNull(currentConstraint, "currentConstraint is null");
         checkArgument(currentConstraint.isAll() || tableLayout.isPresent(), "currentConstraint present without layout");
+        currentConstraint.getDomains()
+                .map(Map::keySet)
+                .ifPresent(constraintColumnHandles -> {
+                    Set<ColumnHandle> assignmentsColumnHandles = ImmutableSet.copyOf(assignments.values());
+                    checkArgument(
+                            assignmentsColumnHandles.containsAll(constraintColumnHandles),
+                            "Tuple domain handles must have assigned symbols");
+                });
 
         this.table = table;
         this.outputSymbols = ImmutableList.copyOf(outputs);
