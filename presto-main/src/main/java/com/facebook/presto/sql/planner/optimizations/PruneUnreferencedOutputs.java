@@ -15,12 +15,14 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
+import com.facebook.presto.sql.planner.iterative.rule.TupleDomains;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
@@ -398,6 +400,7 @@ public class PruneUnreferencedOutputs
                     .collect(toImmutableList());
 
             Map<Symbol, ColumnHandle> newAssignments = Maps.filterKeys(node.getAssignments(), in(requiredTableScanOutputs));
+            TupleDomain<ColumnHandle> newCurrentConstraint = TupleDomains.filter(node.getCurrentConstraint(), newAssignments.values());
 
             return new TableScanNode(
                     node.getId(),
@@ -405,7 +408,7 @@ public class PruneUnreferencedOutputs
                     newOutputSymbols,
                     newAssignments,
                     node.getLayout(),
-                    node.getCurrentConstraint(),
+                    newCurrentConstraint,
                     node.getOriginalConstraint());
         }
 
