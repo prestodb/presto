@@ -35,6 +35,7 @@ import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
+import com.facebook.presto.sql.planner.iterative.rule.TupleDomains;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.Assignments;
@@ -616,7 +617,7 @@ public class AddExchanges
                                 node.getOutputSymbols(),
                                 node.getAssignments(),
                                 Optional.of(layout.getLayout().getHandle()),
-                                simplifiedConstraint.intersect(layout.getLayout().getPredicate()),
+                                TupleDomains.filter(simplifiedConstraint.intersect(layout.getLayout().getPredicate()), node.getAssignments().values()),
                                 Optional.ofNullable(node.getOriginalConstraint()).orElse(predicate));
 
                         PlanWithProperties result = new PlanWithProperties(tableScan, deriveProperties(tableScan, ImmutableList.of()));

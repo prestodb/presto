@@ -95,6 +95,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
@@ -609,7 +610,9 @@ class PropertyDerivations
             checkArgument(node.getLayout().isPresent(), "table layout has not yet been chosen");
 
             TableLayout layout = metadata.getLayout(session, node.getLayout().get());
-            Map<ColumnHandle, Symbol> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
+            Map<Symbol, ColumnHandle> outputAssignemnts = node.getOutputSymbols().stream()
+                    .collect(toImmutableMap(symbol -> symbol, symbol -> node.getAssignments().get(symbol)));
+            Map<ColumnHandle, Symbol> assignments = ImmutableBiMap.copyOf(outputAssignemnts).inverse();
 
             ActualProperties.Builder properties = ActualProperties.builder();
 
