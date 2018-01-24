@@ -15,6 +15,8 @@ package com.facebook.presto.tpch;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.predicate.NullableValue;
@@ -29,15 +31,18 @@ import io.airlift.tpch.TpchTable;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.spi.Constraint.alwaysFalse;
 import static com.facebook.presto.spi.Constraint.alwaysTrue;
-import static com.facebook.presto.spi.predicate.TupleDomain.fromFixedValues;
 import static com.facebook.presto.spi.statistics.Estimate.unknownValue;
 import static com.facebook.presto.spi.statistics.Estimate.zeroValue;
+import static com.facebook.presto.tpch.ColumnNaming.SIMPLIFIED;
+import static com.facebook.presto.tpch.TpchMetadata.getPrestoType;
 import static com.facebook.presto.tpch.TpchRecordSet.convertToPredicate;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.tpch.CustomerColumn.MARKET_SEGMENT;
 import static io.airlift.tpch.CustomerColumn.NAME;
@@ -57,11 +62,14 @@ import static io.airlift.tpch.TpchTable.PART;
 import static io.airlift.tpch.TpchTable.PART_SUPPLIER;
 import static io.airlift.tpch.TpchTable.REGION;
 import static io.airlift.tpch.TpchTable.SUPPLIER;
+import static java.lang.String.format;
 import static java.util.Arrays.stream;
+import static java.util.Objects.requireNonNull;
 import static java.util.Optional.empty;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 public class TestTpchMetadata
 {
@@ -70,6 +78,7 @@ public class TestTpchMetadata
     private static final List<String> SUPPORTED_SCHEMAS = ImmutableList.of("tiny", "sf1");
 
     private final TpchMetadata tpchMetadata = new TpchMetadata("tpch");
+    private final TpchMetadata tpchMetadataWithPredicatePushdown = new TpchMetadata("tpch", true, SIMPLIFIED);
     private final ConnectorSession session = null;
 
     @Test
@@ -256,20 +265,62 @@ public class TestTpchMetadata
                 "highValue-s differ");
     }
 
+    @Test
+    public void testPredicatePushdown()
+    {
+        TpchMetadata tpchMetadata = tpchMetadataWithPredicatePushdown;
+        TpchTableHandle tableHandle = tpchMetadata.getTableHandle(session, new SchemaTableName("sf1", ORDERS.getTableName()));
+
+        TupleDomain<ColumnHandle> domain;
+        ConnectorTableLayoutResult tableLayout;
+
+        domain = fixedValueTupleDomain(tpchMetadata, ORDER_STATUS, utf8Slice("P"));
+        tableLayout = getTableOnlyLayout(tpchMetadata, session, tableHandle, new Constraint<>(domain, convertToPredicate(domain)));
+        assertTupleDomainEquals(tableLayout.getUnenforcedConstraint(), TupleDomain.all(), session);
+        assertTupleDomainEquals(tableLayout.getTableLayout().getPredicate(), domain, session);
+
+        domain = fixedValueTupleDomain(tpchMetadata, ORDER_KEY, 42L);
+        tableLayout = getTableOnlyLayout(tpchMetadata, session, tableHandle, new Constraint<>(domain, convertToPredicate(domain)));
+        assertTupleDomainEquals(tableLayout.getUnenforcedConstraint(), domain, session);
+        assertTupleDomainEquals(
+                tableLayout.getTableLayout().getPredicate(),
+                // The most important thing about the expected value that it is NOT TupleDomain.none() (or equivalent).
+                // Using concrete expected value instead of checking TupleDomain::isNone to make sure the test doesn't pass on some other wrong value.
+                TupleDomain.columnWiseUnion(
+                        fixedValueTupleDomain(tpchMetadata, ORDER_STATUS, utf8Slice("F")),
+                        fixedValueTupleDomain(tpchMetadata, ORDER_STATUS, utf8Slice("O")),
+                        fixedValueTupleDomain(tpchMetadata, ORDER_STATUS, utf8Slice("P"))),
+                session);
+    }
+
+    private void assertTupleDomainEquals(TupleDomain<?> actual, TupleDomain<?> expected, ConnectorSession session)
+    {
+        if (!Objects.equals(actual, expected)) {
+            fail(format("expected [%s] but found [%s]", expected.toString(session), actual.toString(session)));
+        }
+    }
+
     private Constraint<ColumnHandle> constraint(TpchColumn<?> column, String... values)
     {
         List<TupleDomain<ColumnHandle>> valueDomains = stream(values)
-                .map(value -> fromFixedValues(valueBinding(column, value)))
+                .map(value -> fixedValueTupleDomain(tpchMetadata, column, utf8Slice(value)))
                 .collect(toList());
         TupleDomain<ColumnHandle> domain = TupleDomain.columnWiseUnion(valueDomains);
         return new Constraint<>(domain, convertToPredicate(domain));
     }
 
-    private ImmutableMap<ColumnHandle, NullableValue> valueBinding(TpchColumn<?> column, String value)
+    private static TupleDomain<ColumnHandle> fixedValueTupleDomain(TpchMetadata tpchMetadata, TpchColumn<?> column, Object value)
     {
-        return ImmutableMap.of(
-                tpchMetadata.toColumnHandle(column),
-                new NullableValue(TpchMetadata.getPrestoType(column), utf8Slice(value)));
+        requireNonNull(column, "column is null");
+        requireNonNull(value, "value is null");
+        return TupleDomain.fromFixedValues(
+                ImmutableMap.of(tpchMetadata.toColumnHandle(column), new NullableValue(getPrestoType(column), value)));
+    }
+
+    private static ConnectorTableLayoutResult getTableOnlyLayout(TpchMetadata tpchMetadata, ConnectorSession session, ConnectorTableHandle tableHandle, Constraint<ColumnHandle> constraint)
+    {
+        List<ConnectorTableLayoutResult> tableLayouts = tpchMetadata.getTableLayouts(session, tableHandle, constraint, Optional.empty());
+        return getOnlyElement(tableLayouts);
     }
 
     private ColumnStatistics noColumnStatistics()
