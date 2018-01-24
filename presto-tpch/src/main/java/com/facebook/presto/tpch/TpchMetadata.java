@@ -408,7 +408,9 @@ public class TpchMetadata
 
     private Predicate<NullableValue> convertToPredicate(TupleDomain<ColumnHandle> predicate, TpchColumn column)
     {
-        return nullableValue -> predicate.contains(TupleDomain.fromFixedValues(ImmutableMap.of(toColumnHandle(column), nullableValue)));
+        TpchColumnHandle columnHandle = toColumnHandle(column);
+        TupleDomain<ColumnHandle> columnPredicate = filterColumns(predicate, columnHandle::equals);
+        return nullableValue -> columnPredicate.contains(TupleDomain.fromFixedValues(ImmutableMap.of(columnHandle, nullableValue)));
     }
 
     private TupleDomain<ColumnHandle> filterOutColumnFromPredicate(TupleDomain<ColumnHandle> predicate, TpchColumn column)
