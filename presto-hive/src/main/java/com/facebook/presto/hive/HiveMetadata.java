@@ -1166,6 +1166,10 @@ public class HiveMetadata
         HiveTableHandle handle = (HiveTableHandle) tableHandle;
         HivePartitionResult hivePartitionResult = partitionManager.getPartitions(metastore, tableHandle, constraint);
 
+        if (hivePartitionResult.getPartitions().isEmpty()) {
+            return ImmutableList.of();
+        }
+
         return ImmutableList.of(new ConnectorTableLayoutResult(
                 getTableLayout(
                         session,
