@@ -62,7 +62,7 @@ public class TpchIndexMetadata
 
         Map<ColumnHandle, NullableValue> fixedValues = TupleDomain.extractFixedValues(tupleDomain).orElse(ImmutableMap.of())
                 .entrySet().stream()
-                .filter(entry -> !indexableColumns.contains(entry.getKey()))
+//                .filter(entry -> !indexableColumns.contains(entry.getKey()))
                 .filter(entry -> !entry.getValue().isNull()) // strip nulls since meaningless in index join lookups
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 

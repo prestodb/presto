@@ -71,6 +71,7 @@ import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Maps.asMap;
+import static io.airlift.tpch.OrderColumn.ORDER_PRIORITY;
 import static io.airlift.tpch.OrderColumn.ORDER_STATUS;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
@@ -198,6 +199,22 @@ public class TpchMetadata
             localProperties = ImmutableList.of(
                     new SortingProperty<>(orderKeyColumn, SortOrder.ASC_NULLS_FIRST),
                     new SortingProperty<>(columns.get(columnNaming.getName(LineItemColumn.LINE_NUMBER)), SortOrder.ASC_NULLS_FIRST));
+        }
+
+        TupleDomain<ColumnHandle> tableConstraints;
+        if (tableHandle.getTableName().matches("orders")) {
+            tableConstraints = TupleDomain.withColumnDomains(ImmutableMap.of(
+                    toColumnHandle(ORDER_PRIORITY), Domain.singleValue(BIGINT, 10L)
+            ));
+        } else {
+            tableConstraints = TupleDomain.all();
+        }
+
+        if (predicate.isPresent()) {
+            predicate = predicate.map(tupleDomain -> tupleDomain.intersect(tableConstraints));
+        }
+        else {
+            predicate = Optional.of(tableConstraints);
         }
 
         ConnectorTableLayout layout = new ConnectorTableLayout(
