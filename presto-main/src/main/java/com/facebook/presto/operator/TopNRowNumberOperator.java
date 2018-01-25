@@ -200,7 +200,9 @@ public class TopNRowNumberOperator
             this.groupByHash = Optional.empty();
         }
         else {
-            this.groupByHash = Optional.of(createGroupByHash(operatorContext.getSession(), partitionTypes, Ints.toArray(partitionChannels), hashChannel, expectedPositions, joinCompiler));
+            GroupByHash groupByHash = createGroupByHash(operatorContext.getSession(), partitionTypes, Ints.toArray(partitionChannels), hashChannel, expectedPositions, joinCompiler);
+            this.groupByHash = Optional.of(groupByHash);
+            localUserMemoryContext.setBytes(groupByHash.getEstimatedSize());
         }
         this.flushingPartition = Optional.empty();
         this.pageBuilder = new PageBuilder(types);
@@ -256,15 +258,17 @@ public class TopNRowNumberOperator
 
     private void processPage(Page page)
     {
+        long currentMemoryBytes = localUserMemoryContext.getBytes();
         Optional<GroupByIdBlock> partitionIds = Optional.empty();
         if (groupByHash.isPresent()) {
             GroupByHash hash = groupByHash.get();
+            long groupByHashSize = hash.getEstimatedSize();
             Work<GroupByIdBlock> work = hash.getGroupIds(page);
             boolean done = work.process();
             // TODO: this class does not yield wrt memory limit; enable it
             verify(done);
             partitionIds = Optional.of(work.getResult());
-            localUserMemoryContext.setBytes(hash.getEstimatedSize());
+            currentMemoryBytes += (hash.getEstimatedSize() - groupByHashSize);
         }
 
         long sizeDelta = 0;
@@ -284,7 +288,8 @@ public class TopNRowNumberOperator
                 sizeDelta += partitionBuilder.replaceRow(row);
             }
         }
-        localUserMemoryContext.setBytes(localUserMemoryContext.getBytes() + sizeDelta);
+        currentMemoryBytes += sizeDelta;
+        localUserMemoryContext.setBytes(currentMemoryBytes);
     }
 
     private int compare(int position, Block[] blocks, Block[] currentMax)
