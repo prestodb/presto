@@ -22,6 +22,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.testing.TestingConnectorSession;
+import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.stats.CounterStat;
@@ -56,12 +57,14 @@ import static com.facebook.presto.hive.HiveUtil.getRegularColumnHandles;
 import static com.facebook.presto.spi.predicate.TupleDomain.withColumnDomains;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertThrows;
 
 public class TestBackgroundHiveSplitLoader
 {
@@ -180,6 +183,18 @@ public class TestBackgroundHiveSplitLoader
         assertEquals(splits.get(0).getLength(), 0);
     }
 
+    @Test
+    public void testNoHangIfPartitionIsOffline()
+            throws Exception
+    {
+        BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoaderOfflinePartitions();
+        HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader, TupleDomain.all());
+        backgroundHiveSplitLoader.start(hiveSplitSource);
+
+        assertThrows(RuntimeException.class, () -> drain(hiveSplitSource));
+        assertThrows(RuntimeException.class, () -> hiveSplitSource.isFinished());
+    }
+
     private static List<String> drain(HiveSplitSource source)
             throws Exception
     {
@@ -241,6 +256,53 @@ public class TestBackgroundHiveSplitLoader
                 EXECUTOR,
                 2,
                 false);
+    }
+
+    private static BackgroundHiveSplitLoader backgroundHiveSplitLoaderOfflinePartitions()
+    {
+        ConnectorSession connectorSession = new TestingConnectorSession(
+                new HiveSessionProperties(new HiveClientConfig().setMaxSplitSize(new DataSize(1.0, GIGABYTE))).getSessionProperties());
+
+        return new BackgroundHiveSplitLoader(
+                SIMPLE_TABLE,
+                createPartitionMetadataWithOfflinePartitions(),
+                TupleDomain.all(),
+                createBucketSplitInfo(Optional.empty(), ImmutableList.of()),
+                connectorSession,
+                new TestingHdfsEnvironment(),
+                new NamenodeStats(),
+                new TestingDirectoryLister(TEST_FILES),
+                directExecutor(),
+                2,
+                false);
+    }
+
+    private static Iterable<HivePartitionMetadata> createPartitionMetadataWithOfflinePartitions()
+            throws RuntimeException
+    {
+        return () -> new AbstractIterator<HivePartitionMetadata>()
+        {
+            // This iterator is crafted to return a valid partition for the first calls to
+            // hasNext() and next(), and then it should throw for the second call to hasNext()
+            private int position = -1;
+
+            @Override
+            protected HivePartitionMetadata computeNext()
+            {
+                position++;
+                switch (position) {
+                    case 0:
+                        return new HivePartitionMetadata(
+                                new HivePartition(new SchemaTableName("testSchema", "table_name"), ImmutableList.of()),
+                                Optional.empty(),
+                                ImmutableMap.of());
+                    case 1:
+                        throw new RuntimeException("OFFLINE");
+                    default:
+                        return endOfData();
+                }
+            }
+        };
     }
 
     private static HiveSplitSource hiveSplitSource(

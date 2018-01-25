@@ -104,9 +104,13 @@ public class BackgroundHiveSplitLoader
     private final Deque<Iterator<InternalHiveSplit>> fileIterators = new ConcurrentLinkedDeque<>();
 
     // Purpose of this lock:
+    // * Write lock: when you need a consistent view across partitions, fileIterators, and hiveSplitSource.
+    // * Read lock: when you need to modify any of the above.
+    //   Make sure the lock is held throughout the period during which they may not be consistent with each other.
+    // Details:
     // * When write lock is acquired, except the holder, no one can do any of the following:
-    // ** poll from partitions
-    // ** poll from or push to fileIterators
+    // ** poll from (or check empty) partitions
+    // ** poll from (or check empty) or push to fileIterators
     // ** push to hiveSplitSource
     // * When any of the above three operations is carried out, either a read lock or a write lock must be held.
     // * When a series of operations involving two or more of the above three operations are carried out, the lock
@@ -196,19 +200,37 @@ public class BackgroundHiveSplitLoader
 
     private void invokeNoMoreSplitsIfNecessary()
     {
-        if (partitions.isEmpty() && fileIterators.isEmpty()) {
-            taskExecutionLock.writeLock().lock();
-            try {
-                // the write lock guarantees that no one is operating on the partitions, fileIterators, or hiveSplitSource, or half way through doing so.
-                if (partitions.isEmpty() && fileIterators.isEmpty()) {
-                    // It is legal to call `noMoreSplits` multiple times or after `stop` was called.
-                    // Nothing bad will happen if `noMoreSplits` implementation calls methods that will try to obtain a read lock because the lock is re-entrant.
-                    hiveSplitSource.noMoreSplits();
-                }
+        taskExecutionLock.readLock().lock();
+        try {
+            // This is an opportunistic check to avoid getting the write lock unnecessarily
+            if (!partitions.isEmpty() || !fileIterators.isEmpty()) {
+                return;
             }
-            finally {
-                taskExecutionLock.writeLock().unlock();
+        }
+        catch (Exception e) {
+            hiveSplitSource.fail(e);
+            checkState(stopped, "Task is not marked as stopped even though it failed");
+            return;
+        }
+        finally {
+            taskExecutionLock.readLock().unlock();
+        }
+
+        taskExecutionLock.writeLock().lock();
+        try {
+            // the write lock guarantees that no one is operating on the partitions, fileIterators, or hiveSplitSource, or half way through doing so.
+            if (partitions.isEmpty() && fileIterators.isEmpty()) {
+                // It is legal to call `noMoreSplits` multiple times or after `stop` was called.
+                // Nothing bad will happen if `noMoreSplits` implementation calls methods that will try to obtain a read lock because the lock is re-entrant.
+                hiveSplitSource.noMoreSplits();
             }
+        }
+        catch (Exception e) {
+            hiveSplitSource.fail(e);
+            checkState(stopped, "Task is not marked as stopped even though it failed");
+        }
+        finally {
+            taskExecutionLock.writeLock().unlock();
         }
     }
 
