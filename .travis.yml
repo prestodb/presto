@@ -72,17 +72,17 @@ script:
     fi
   - |
     if [[ -v PRODUCT_TESTS_BASIC_ENVIRONMENT ]]; then
-      presto-product-tests/bin/run_on_docker.sh \
+      travis_wait 60 presto-product-tests/bin/run_on_docker.sh \
         multinode -x quarantine,big_query,storage_formats,profile_specific_tests,tpcds
     fi
   - |
     if [[ -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT ]]; then
-      presto-product-tests/bin/run_on_docker.sh \
+      travis_wait 60 presto-product-tests/bin/run_on_docker.sh \
         singlenode-kerberos-hdfs-impersonation -g storage_formats,cli,hdfs_impersonation,authorization
     fi
   - |
     if [[ -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT ]]; then
-      presto-product-tests/bin/run_on_docker.sh \
+      travis_wait 60 presto-product-tests/bin/run_on_docker.sh \
         singlenode-ldap -g ldap -x simba_jdbc
     fi
 # SQL server image sporadically hangs during the startup
@@ -90,17 +90,17 @@ script:
 # https://github.com/Microsoft/mssql-docker/issues/76
 #  - |
 #    if [[ -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT ]]; then
-#      presto-product-tests/bin/run_on_docker.sh \
+#      travis_wait 60 presto-product-tests/bin/run_on_docker.sh \
 #        singlenode-sqlserver -g sqlserver
 #    fi
   - |
     if [[ -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT ]]; then
-      presto-product-tests/bin/run_on_docker.sh \
+      travis_wait 60 presto-product-tests/bin/run_on_docker.sh \
         multinode-tls -g smoke,cli,group-by,join,tls
     fi
   - |
     if [[ -v HIVE_TESTS ]]; then
-      presto-hive-hadoop2/bin/run_on_docker.sh
+      travis_wait 60 presto-hive-hadoop2/bin/run_on_docker.sh
     fi
 
 before_cache:
