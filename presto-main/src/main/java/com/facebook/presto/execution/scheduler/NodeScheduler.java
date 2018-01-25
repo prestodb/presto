@@ -14,6 +14,7 @@
 package com.facebook.presto.execution.scheduler;
 
 import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.execution.FutureStateChange.StateChangeFuture;
 import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.metadata.InternalNodeManager;
@@ -30,7 +31,6 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.MoreExecutors;
 import io.airlift.stats.CounterStat;
 
 import javax.annotation.PreDestroy;
@@ -45,7 +45,6 @@ import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
@@ -55,7 +54,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
 import static java.util.Objects.requireNonNull;
 
 public class NodeScheduler
@@ -306,16 +304,22 @@ public class NodeScheduler
         for (RemoteTask task : existingTasks) {
             nodeToTaskMap.put(task.getNodeId(), task);
         }
-        List<ListenableFuture<?>> blockedFutures = blockedNodes.stream()
-                .map(Node::getNodeIdentifier)
-                .map(nodeToTaskMap::get)
-                .filter(Objects::nonNull)
-                .map(remoteTask -> remoteTask.whenSplitQueueHasSpace(spaceThreshold))
-                .collect(toImmutableList());
-        if (blockedFutures.isEmpty()) {
-            return immediateFuture(null);
+
+        ImmutableList.Builder<StateChangeFuture<?>> futures = ImmutableList.builder();
+        for (Node blockedNode : blockedNodes) {
+            RemoteTask remoteTask = nodeToTaskMap.get(blockedNode.getNodeIdentifier());
+            if (remoteTask == null) {
+                continue;
+            }
+            StateChangeFuture<?> future = remoteTask.whenSplitQueueHasSpace(spaceThreshold);
+            if (future.isCompleted()) {
+                // We only need one completed future, and we have one, don't bother with going through the rest of tasks.
+                // Let getFirstCompleteAndCancelOthers deal with cleaning up of the earlier futures.
+                break;
+            }
+            futures.add(future);
         }
-        return getFirstCompleteAndCancelOthers(blockedFutures);
+        return StateChangeFuture.getFirstCompleteAndCancelOthers(futures.build());
     }
 
     public static ListenableFuture<?> toWhenHasSplitQueueSpaceFuture(List<RemoteTask> existingTasks, int spaceThreshold)
@@ -323,23 +327,17 @@ public class NodeScheduler
         if (existingTasks.isEmpty()) {
             return immediateFuture(null);
         }
-        List<ListenableFuture<?>> stateChangeFutures = existingTasks.stream()
-                .map(remoteTask -> remoteTask.whenSplitQueueHasSpace(spaceThreshold))
-                .collect(toImmutableList());
-        return getFirstCompleteAndCancelOthers(stateChangeFutures);
-    }
 
-    private static ListenableFuture<?> getFirstCompleteAndCancelOthers(List<ListenableFuture<?>> blockedFutures)
-    {
-        // wait for the first task to unblock and then cancel all futures to free up resources
-        ListenableFuture<?> result = whenAnyComplete(blockedFutures);
-        result.addListener(
-                () -> {
-                    for (ListenableFuture<?> blockedFuture : blockedFutures) {
-                        blockedFuture.cancel(true);
-                    }
-                },
-                MoreExecutors.directExecutor());
-        return result;
+        ImmutableList.Builder<StateChangeFuture<?>> futures = ImmutableList.builder();
+        for (RemoteTask remoteTask : existingTasks) {
+            StateChangeFuture<?> future = remoteTask.whenSplitQueueHasSpace(spaceThreshold);
+            if (future.isCompleted()) {
+                // We only need one completed future, and we have one, don't bother with going through the rest of tasks.
+                // Let getFirstCompleteAndCancelOthers deal with cleaning up of the earlier futures.
+                break;
+            }
+            futures.add(future);
+        }
+        return StateChangeFuture.getFirstCompleteAndCancelOthers(futures.build());
     }
 }

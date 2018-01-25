@@ -14,11 +14,11 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.OutputBuffers;
+import com.facebook.presto.execution.FutureStateChange.StateChangeFuture;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.Multimap;
-import com.google.common.util.concurrent.ListenableFuture;
 
 public interface RemoteTask
 {
@@ -42,7 +42,11 @@ public interface RemoteTask
 
     void addStateChangeListener(StateChangeListener<TaskStatus> stateChangeListener);
 
-    ListenableFuture<?> whenSplitQueueHasSpace(int threshold);
+    /**
+     * If split queue is full, returns a listener that will fire when space in split queue becomes available,
+     * otherwise returns empty.
+     */
+    StateChangeFuture<?> whenSplitQueueHasSpace(int threshold);
 
     void cancel();
 

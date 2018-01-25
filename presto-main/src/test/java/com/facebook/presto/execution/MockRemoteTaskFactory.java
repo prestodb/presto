@@ -16,6 +16,7 @@ package com.facebook.presto.execution;
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.Session;
 import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.execution.FutureStateChange.StateChangeFuture;
 import com.facebook.presto.execution.NodeTaskMap.PartitionedSplitCountTracker;
 import com.facebook.presto.execution.buffer.LazyOutputBuffer;
 import com.facebook.presto.execution.buffer.OutputBuffer;
@@ -46,8 +47,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
 import org.joda.time.DateTime;
 
@@ -71,14 +70,13 @@ import java.util.stream.Stream;
 import static com.facebook.presto.OutputBuffers.BufferType.BROADCAST;
 import static com.facebook.presto.OutputBuffers.createInitialEmptyOutputBuffers;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.execution.StateMachine.StateChangeListener;
+import static com.facebook.presto.execution.FutureStateChange.StateChangeFuture.completedStateChangeFuture;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static com.facebook.presto.util.Failures.toFailures;
-import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -161,7 +159,8 @@ public class MockRemoteTaskFactory
         private int runningDrivers;
 
         @GuardedBy("this")
-        private SettableFuture<?> whenSplitQueueHasSpace = SettableFuture.create();
+        private FutureStateChange<?> whenSplitQueueHasSpace = new FutureStateChange<>();
+        private boolean splitQueueHasSpace;
 
         private final PartitionedSplitCountTracker partitionedSplitCountTracker;
 
@@ -266,13 +265,14 @@ public class MockRemoteTaskFactory
         private synchronized void updateSplitQueueSpace()
         {
             if (getQueuedPartitionedSplitCount() < 9) {
-                if (!whenSplitQueueHasSpace.isDone()) {
-                    whenSplitQueueHasSpace.set(null);
+                if (!splitQueueHasSpace) {
+                    splitQueueHasSpace = true;
+                    whenSplitQueueHasSpace.complete(null);
                 }
             }
             else {
-                if (whenSplitQueueHasSpace.isDone()) {
-                    whenSplitQueueHasSpace = SettableFuture.create();
+                if (splitQueueHasSpace) {
+                    splitQueueHasSpace = false;
                 }
             }
         }
@@ -353,15 +353,18 @@ public class MockRemoteTaskFactory
         }
 
         @Override
-        public void addStateChangeListener(StateChangeListener<TaskStatus> stateChangeListener)
+        public void addStateChangeListener(com.facebook.presto.execution.StateMachine.StateChangeListener stateChangeListener)
         {
             taskStateMachine.addStateChangeListener(newValue -> stateChangeListener.stateChanged(getTaskStatus()));
         }
 
         @Override
-        public synchronized ListenableFuture<?> whenSplitQueueHasSpace(int threshold)
+        public synchronized StateChangeFuture<?> whenSplitQueueHasSpace(int threshold)
         {
-            return nonCancellationPropagating(whenSplitQueueHasSpace);
+            if (splitQueueHasSpace) {
+                return completedStateChangeFuture(null);
+            }
+            return whenSplitQueueHasSpace.newStateChangeFuture();
         }
 
         @Override
