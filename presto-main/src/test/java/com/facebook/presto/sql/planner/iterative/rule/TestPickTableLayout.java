@@ -16,7 +16,6 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableLayoutHandle;
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.sql.planner.iterative.Rule;
@@ -37,28 +36,21 @@ import static com.facebook.presto.spi.predicate.Domain.singleValue;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.constrainedTableScanWithTableLayout;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
 
-public abstract class BasePickTableLayoutTest
+public class TestPickTableLayout
         extends BaseRuleTest
 {
-    protected PickTableLayout pickTableLayout;
+    private PickTableLayout pickTableLayout;
     private TableHandle nationTableHandle;
     private TableLayoutHandle nationTableLayoutHandle;
-    protected ConnectorId connectorId;
-
-    public BasePickTableLayoutTest(boolean predicatePushDownEnabled)
-    {
-        super(predicatePushDownEnabled);
-    }
 
     @BeforeMethod
     public void setUpPerMethod()
     {
         pickTableLayout = new PickTableLayout(tester().getMetadata());
 
-        connectorId = tester().getCurrentConnectorId();
+        ConnectorId connectorId = tester().getCurrentConnectorId();
         nationTableHandle = new TableHandle(
                 connectorId,
                 new TpchTableHandle(connectorId.toString(), "nation", 1.0));
@@ -91,7 +83,7 @@ public abstract class BasePickTableLayoutTest
     }
 
     @Test
-    public void eliminateTableScanWhenNoLayoutExist()
+    public void doesNotFireIfTableScanNonDefaultConstraint()
     {
         tester().assertThat(pickTableLayout.pickTableLayoutForPredicate())
                 .on(p -> p.filter(expression("nationkey = BIGINT '44'"),
@@ -99,28 +91,9 @@ public abstract class BasePickTableLayoutTest
                                 nationTableHandle,
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),
                                 ImmutableMap.of(p.symbol("nationkey", BIGINT), new TpchColumnHandle("nationkey", BIGINT)),
-                                Optional.of(nationTableLayoutHandle))))
-                .matches(
-                        filter("nationkey = BIGINT '44'",
-                                constrainedTableScanWithTableLayout(
-                                        "nation",
-                                        ImmutableMap.of("nationkey", singleValue(BIGINT, 44L)),
-                                        ImmutableMap.of("nationkey", "nationkey"))));
-    }
-
-    @Test
-    public void replaceWithExistsWhenNoLayoutExist()
-    {
-        ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
-        tester().assertThat(pickTableLayout.pickTableLayoutForPredicate())
-                .on(p -> p.filter(expression("nationkey = BIGINT '44'"),
-                        p.tableScan(
-                                nationTableHandle,
-                                ImmutableList.of(p.symbol("nationkey", BIGINT)),
-                                ImmutableMap.of(p.symbol("nationkey", BIGINT), columnHandle),
                                 Optional.of(nationTableLayoutHandle),
                                 TupleDomain.none())))
-                .matches(values("A"));
+                .doesNotFire();
     }
 
     @Test
@@ -140,18 +113,23 @@ public abstract class BasePickTableLayoutTest
     @Test
     public void ruleAddedTableLayoutToTableScan()
     {
+        // The TPCH connector returns a TableLayout, but that TableLayout doesn't handle any of the constraints.
+        // However, we know that the rule fired because the constraints and TableLayout are included in the new plan.
+        Map<String, Domain> emptyConstraint = ImmutableMap.<String, Domain>builder().build();
         tester().assertThat(pickTableLayout.pickTableLayoutWithoutPredicate())
                 .on(p -> p.tableScan(
                         nationTableHandle,
                         ImmutableList.of(p.symbol("nationkey", BIGINT)),
                         ImmutableMap.of(p.symbol("nationkey", BIGINT), new TpchColumnHandle("nationkey", BIGINT))))
                 .matches(
-                        constrainedTableScanWithTableLayout("nation", ImmutableMap.of(), ImmutableMap.of("nationkey", "nationkey")));
+                        constrainedTableScanWithTableLayout("nation", emptyConstraint, ImmutableMap.of("nationkey", "nationkey")));
     }
 
     @Test
     public void ruleAddedTableLayoutToFilterTableScan()
     {
+        // The TPCH connector returns a TableLayout, but that TableLayout doesn't handle any of the constraints.
+        // However, we know that the rule fired because the constraints and TableLayout are included in the new plan.
         Map<String, Domain> filterConstraint = ImmutableMap.<String, Domain>builder()
                 .put("nationkey", singleValue(BIGINT, 44L))
                 .build();
@@ -169,6 +147,9 @@ public abstract class BasePickTableLayoutTest
     @Test
     public void ruleAddedNewTableLayoutIfTableScanHasEmptyConstraint()
     {
+        Map<String, Domain> filterConstraint = ImmutableMap.<String, Domain>builder()
+                .put("nationkey", singleValue(BIGINT, 44L))
+                .build();
         tester().assertThat(pickTableLayout.pickTableLayoutForPredicate())
                 .on(p -> p.filter(expression("nationkey = BIGINT '44'"),
                         p.tableScan(
@@ -178,9 +159,6 @@ public abstract class BasePickTableLayoutTest
                                 Optional.of(nationTableLayoutHandle))))
                 .matches(
                         filter("nationkey = BIGINT '44'",
-                                constrainedTableScanWithTableLayout(
-                                        "nation",
-                                        ImmutableMap.of("nationkey", singleValue(BIGINT, 44L)),
-                                        ImmutableMap.of("nationkey", "nationkey"))));
+                                constrainedTableScanWithTableLayout("nation", filterConstraint, ImmutableMap.of("nationkey", "nationkey"))));
     }
 }
