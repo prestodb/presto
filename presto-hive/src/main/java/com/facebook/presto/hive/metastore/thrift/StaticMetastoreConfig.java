@@ -30,6 +30,7 @@ public class StaticMetastoreConfig
     private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
 
     private List<URI> metastoreUris;
+    private String metastoreUsername;
 
     @NotNull
     public List<URI> getMetastoreUris()
@@ -48,5 +49,18 @@ public class StaticMetastoreConfig
 
         this.metastoreUris = ImmutableList.copyOf(transform(SPLITTER.split(uris), URI::create));
         return this;
+    }
+
+    @Config("hive.metastore.username")
+    @ConfigDescription("Optional username for accessing the Hive metastore")
+    public StaticMetastoreConfig setMetastoreUsername(String metastoreUsername)
+    {
+        this.metastoreUsername = metastoreUsername;
+        return this;
+    }
+
+    public String getMetastoreUsername()
+    {
+        return metastoreUsername;
     }
 }

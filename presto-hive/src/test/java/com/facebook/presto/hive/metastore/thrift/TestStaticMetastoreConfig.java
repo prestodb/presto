@@ -31,7 +31,8 @@ public class TestStaticMetastoreConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(StaticMetastoreConfig.class)
-                .setMetastoreUris(null));
+                .setMetastoreUris(null)
+                .setMetastoreUsername(null));
     }
 
     @Test
@@ -39,13 +40,16 @@ public class TestStaticMetastoreConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("hive.metastore.uri", "thrift://localhost:9083")
+                .put("hive.metastore.username", "presto")
                 .build();
 
         StaticMetastoreConfig expected = new StaticMetastoreConfig()
-                .setMetastoreUris("thrift://localhost:9083");
+                .setMetastoreUris("thrift://localhost:9083")
+                .setMetastoreUsername("presto");
 
         assertFullMapping(properties, expected);
         assertEquals(expected.getMetastoreUris(), ImmutableList.of(URI.create("thrift://localhost:9083")));
+        assertEquals(expected.getMetastoreUsername(), "presto");
     }
 
     @Test
@@ -53,14 +57,17 @@ public class TestStaticMetastoreConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("hive.metastore.uri", "thrift://localhost:9083,thrift://192.0.2.3:8932")
+                .put("hive.metastore.username", "presto")
                 .build();
 
         StaticMetastoreConfig expected = new StaticMetastoreConfig()
-                .setMetastoreUris("thrift://localhost:9083,thrift://192.0.2.3:8932");
+                .setMetastoreUris("thrift://localhost:9083,thrift://192.0.2.3:8932")
+                .setMetastoreUsername("presto");
 
         assertFullMapping(properties, expected);
         assertEquals(expected.getMetastoreUris(), ImmutableList.of(
                 URI.create("thrift://localhost:9083"),
                 URI.create("thrift://192.0.2.3:8932")));
+        assertEquals(expected.getMetastoreUsername(), "presto");
     }
 }
