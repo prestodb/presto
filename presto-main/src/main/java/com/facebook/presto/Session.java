@@ -269,7 +269,7 @@ public final class Session
                 continue;
             }
             ConnectorId connectorId = transactionManager.getOptionalCatalogMetadata(transactionId, catalogName)
-                    .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog does not exist: " + catalogName))
+                    .orElseThrow(() -> new PrestoException(NOT_FOUND, "Session property catalog does not exist: " + catalogName))
                     .getConnectorId();
 
             for (Entry<String, String> property : catalogProperties.entrySet()) {
