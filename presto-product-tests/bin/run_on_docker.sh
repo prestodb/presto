@@ -77,7 +77,7 @@ function docker_images_used() {
 function cleanup() {
   stop_application_runner_containers ${ENVIRONMENT}
 
-  if [[ "${LEAVE_CONTAINERS_ALIVE_ON_EXIT:-false}" = "true" ]]; then
+  if [[ "${LEAVE_CONTAINERS_ALIVE_ON_EXIT:-false}" != "true" ]]; then
     stop_docker_compose_containers ${ENVIRONMENT}
   fi
 
