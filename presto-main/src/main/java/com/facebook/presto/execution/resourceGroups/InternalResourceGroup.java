@@ -801,8 +801,10 @@ public class InternalResourceGroup
         }
     }
 
+    @SuppressWarnings("FieldAccessNotGuarded")
     private void addOrUpdateSubGroup(InternalResourceGroup group)
     {
+        checkState(Thread.holdsLock(root), "Must hold lock to add/update subgroup");
         if (schedulingPolicy == WEIGHTED_FAIR) {
             ((WeightedFairQueue<InternalResourceGroup>) eligibleSubGroups).addOrUpdate(group, new Usage(group.getSchedulingWeight(), group.getRunningQueries()));
         }
@@ -821,8 +823,10 @@ public class InternalResourceGroup
         }
     }
 
+    @SuppressWarnings("FieldAccessNotGuarded")
     private long computeSchedulingWeight()
     {
+        checkState(Thread.holdsLock(root), "Must hold lock to compute scheduling weight");
         if (runningQueries.size() + descendantRunningQueries >= softConcurrencyLimit) {
             return schedulingWeight;
         }
