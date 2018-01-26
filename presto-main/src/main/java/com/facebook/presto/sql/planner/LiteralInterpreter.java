@@ -22,6 +22,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.Decimals;
+import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
@@ -59,6 +60,7 @@ import java.util.List;
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
@@ -188,6 +190,10 @@ public final class LiteralInterpreter
 
         if (type.equals(BOOLEAN)) {
             return new BooleanLiteral(object.toString());
+        }
+
+        if (type.equals(DATE)) {
+            return new GenericLiteral("DATE", new SqlDate(toIntExact((Long) object)).toString());
         }
 
         if (object instanceof Block) {
