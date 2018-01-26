@@ -15,7 +15,6 @@ package com.facebook.presto.operator.exchange;
 
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.operator.PipelineExecutionStrategy;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.google.common.collect.ImmutableList;
@@ -53,7 +52,7 @@ public class LocalExchange
 {
     private static final DataSize DEFAULT_MAX_BUFFERED_BYTES = new DataSize(32, MEGABYTE);
     private final List<Type> types;
-    private final Supplier<Consumer<Page>> exchangerSupplier;
+    private final Supplier<LocalExchanger> exchangerSupplier;
 
     private final List<LocalExchangeSource> sources;
 
@@ -106,16 +105,16 @@ public class LocalExchange
 
         this.memoryManager = new LocalExchangeMemoryManager(maxBufferedBytes.toBytes());
         if (partitioning.equals(SINGLE_DISTRIBUTION)) {
-            exchangerSupplier = () -> new BroadcastExchanger(buffers, memoryManager::updateMemoryUsage);
+            exchangerSupplier = () -> new BroadcastExchanger(buffers, memoryManager);
         }
         else if (partitioning.equals(FIXED_BROADCAST_DISTRIBUTION)) {
-            exchangerSupplier = () -> new BroadcastExchanger(buffers, memoryManager::updateMemoryUsage);
+            exchangerSupplier = () -> new BroadcastExchanger(buffers, memoryManager);
         }
         else if (partitioning.equals(FIXED_ARBITRARY_DISTRIBUTION)) {
-            exchangerSupplier = () -> new RandomExchanger(buffers, memoryManager::updateMemoryUsage);
+            exchangerSupplier = () -> new RandomExchanger(buffers, memoryManager);
         }
         else if (partitioning.equals(FIXED_HASH_DISTRIBUTION)) {
-            exchangerSupplier = () -> new PartitioningExchanger(buffers, memoryManager::updateMemoryUsage, types, partitionChannels, partitionHashChannel);
+            exchangerSupplier = () -> new PartitioningExchanger(buffers, memoryManager, types, partitionChannels, partitionHashChannel);
         }
         else {
             throw new IllegalArgumentException("Unsupported local exchange partitioning " + partitioning);
@@ -195,12 +194,12 @@ public class LocalExchange
 
             if (allSourcesFinished) {
                 // all sources have completed so return a sink that is already finished
-                return finishedLocalExchangeSink(types, memoryManager);
+                return finishedLocalExchangeSink(types);
             }
 
             // Note: exchanger can be stateful so create a new one for each sink
-            Consumer<Page> exchanger = exchangerSupplier.get();
-            LocalExchangeSink sink = new LocalExchangeSink(types, exchanger, memoryManager, this::sinkFinished);
+            LocalExchanger exchanger = exchangerSupplier.get();
+            LocalExchangeSink sink = new LocalExchangeSink(types, exchanger, this::sinkFinished);
             sinks.add(sink);
             return sink;
         }
