@@ -21,34 +21,34 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
+import com.google.common.util.concurrent.ListenableFuture;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
-import java.util.function.LongConsumer;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 class PartitioningExchanger
-        implements Consumer<Page>
+        implements LocalExchanger
 {
     private final List<Consumer<PageReference>> buffers;
-    private final LongConsumer memoryTracker;
+    private final LocalExchangeMemoryManager memoryManager;
     private final LocalPartitionGenerator partitionGenerator;
     private final IntArrayList[] partitionAssignments;
 
     public PartitioningExchanger(
             List<Consumer<PageReference>> partitions,
-            LongConsumer memoryTracker,
+            LocalExchangeMemoryManager memoryManager,
             List<? extends Type> types,
             List<Integer> partitionChannels,
             Optional<Integer> hashChannel)
     {
         this.buffers = ImmutableList.copyOf(requireNonNull(partitions, "partitions is null"));
-        this.memoryTracker = requireNonNull(memoryTracker, "memoryTracker is null");
+        this.memoryManager = requireNonNull(memoryManager, "memoryManager is null");
 
         HashGenerator hashGenerator;
         if (hashChannel.isPresent()) {
@@ -93,9 +93,15 @@ class PartitioningExchanger
                 }
 
                 Page pageSplit = new Page(positions.size(), outputBlocks);
-                memoryTracker.accept(pageSplit.getRetainedSizeInBytes());
-                buffers.get(partition).accept(new PageReference(pageSplit, 1, () -> memoryTracker.accept(-pageSplit.getRetainedSizeInBytes())));
+                memoryManager.updateMemoryUsage(pageSplit.getRetainedSizeInBytes());
+                buffers.get(partition).accept(new PageReference(pageSplit, 1, () -> memoryManager.updateMemoryUsage(-pageSplit.getRetainedSizeInBytes())));
             }
         }
+    }
+
+    @Override
+    public ListenableFuture<?> waitForWriting()
+    {
+        return memoryManager.getNotFullFuture();
     }
 }
