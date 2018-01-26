@@ -20,6 +20,7 @@ import io.prestodb.tempto.RequirementsProvider;
 import io.prestodb.tempto.Requires;
 import io.prestodb.tempto.configuration.Configuration;
 import io.prestodb.tempto.fulfillment.table.MutableTableRequirement;
+import io.prestodb.tempto.fulfillment.table.hive.HiveTableDefinition;
 import io.prestodb.tempto.query.QueryExecutor;
 import org.testng.annotations.Test;
 
@@ -45,7 +46,10 @@ public class TestHiveTableStatistics
         @Override
         public Requirement getRequirements(Configuration configuration)
         {
-            return mutableTable(NATION);
+            return mutableTable(
+                    HiveTableDefinition.from(NATION)
+                            .injectStats(false)
+                            .build());
         }
     }
 
@@ -55,7 +59,10 @@ public class TestHiveTableStatistics
         @Override
         public Requirement getRequirements(Configuration configuration)
         {
-            return mutableTable(NATION_PARTITIONED_BY_REGIONKEY);
+            return mutableTable(
+                    HiveTableDefinition.from(NATION_PARTITIONED_BY_REGIONKEY)
+                            .injectStats(false)
+                            .build());
         }
     }
 
