@@ -48,7 +48,10 @@ public class TypeOfPattern<T>
     @Override
     public <C> Stream<Match> accept(Matcher matcher, Object object, Captures captures, C context)
     {
-        return matcher.matchTypeOf(this, object, captures, context);
+        if (expectedClass.isInstance(object)) {
+            return Stream.of(Match.of(captures));
+        }
+        return Stream.of();
     }
 
     @Override

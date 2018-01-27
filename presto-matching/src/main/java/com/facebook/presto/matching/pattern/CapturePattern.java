@@ -43,7 +43,8 @@ public class CapturePattern<T>
     @Override
     public <C> Stream<Match> accept(Matcher matcher, Object object, Captures captures, C context)
     {
-        return matcher.matchCapture(this, object, captures, context);
+        Captures newCaptures = captures.addAll(Captures.ofNullable(capture, (T) object));
+        return Stream.of(Match.of(newCaptures));
     }
 
     @Override

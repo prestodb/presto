@@ -21,6 +21,8 @@ import com.facebook.presto.matching.PatternVisitor;
 import com.facebook.presto.matching.Property;
 import com.facebook.presto.matching.PropertyPattern;
 
+import java.util.Optional;
+import java.util.function.BiFunction;
 import java.util.stream.Stream;
 
 import static java.util.Objects.requireNonNull;
@@ -49,7 +51,11 @@ public class WithPattern<T>
     @Override
     public <C> Stream<Match> accept(Matcher matcher, Object object, Captures captures, C context)
     {
-        return matcher.matchWith(this, object, captures, context);
+        //TODO remove cast
+        BiFunction<? super T, C, Optional<?>> property = (BiFunction<? super T, C, Optional<?>>) propertyPattern.getProperty().getFunction();
+        Optional<?> propertyValue = property.apply((T) object, context);
+        return propertyValue.map(value -> matcher.match(propertyPattern.getPattern(), value, captures, context))
+                .orElse(Stream.of());
     }
 
     @Override

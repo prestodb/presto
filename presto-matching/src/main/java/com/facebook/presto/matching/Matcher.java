@@ -13,12 +13,6 @@
  */
 package com.facebook.presto.matching;
 
-import com.facebook.presto.matching.pattern.CapturePattern;
-import com.facebook.presto.matching.pattern.EqualsPattern;
-import com.facebook.presto.matching.pattern.FilterPattern;
-import com.facebook.presto.matching.pattern.TypeOfPattern;
-import com.facebook.presto.matching.pattern.WithPattern;
-
 import java.util.stream.Stream;
 
 public interface Matcher
@@ -39,14 +33,4 @@ public interface Matcher
     }
 
     <T, C> Stream<Match> match(Pattern<T> pattern, Object object, Captures captures, C context);
-
-    <T, C> Stream<Match> matchTypeOf(TypeOfPattern<T> typeOfPattern, Object object, Captures captures, C context);
-
-    <T, C> Stream<Match> matchWith(WithPattern<T> withPattern, Object object, Captures captures, C context);
-
-    <T, C> Stream<Match> matchCapture(CapturePattern<T> capturePattern, Object object, Captures captures, C context);
-
-    <T, C> Stream<Match> matchEquals(EqualsPattern<T> equalsPattern, Object object, Captures captures, C context);
-
-    <T, C> Stream<Match> matchFilter(FilterPattern<T> filterPattern, Object object, Captures captures, C context);
 }
