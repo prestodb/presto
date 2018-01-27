@@ -16,9 +16,7 @@ package com.facebook.presto.sql.planner.iterative;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.matching.Capture;
-import com.facebook.presto.matching.DefaultMatcher;
 import com.facebook.presto.matching.Match;
-import com.facebook.presto.matching.Matcher;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
@@ -81,27 +79,26 @@ public class IterativeOptimizer
 
         Memo memo = new Memo(idAllocator, plan);
         Lookup lookup = Lookup.from(planNode -> Stream.of(memo.resolve(planNode)));
-        Matcher matcher = new DefaultMatcher();
 
         Duration timeout = SystemSessionProperties.getOptimizerTimeout(session);
         Context context = new Context(memo, lookup, idAllocator, symbolAllocator, System.nanoTime(), timeout.toMillis(), session);
-        exploreGroup(memo.getRootGroup(), context, matcher);
+        exploreGroup(memo.getRootGroup(), context);
 
         return memo.extract();
     }
 
-    private boolean exploreGroup(int group, Context context, Matcher matcher)
+    private boolean exploreGroup(int group, Context context)
     {
         // tracks whether this group or any children groups change as
         // this method executes
-        boolean progress = exploreNode(group, context, matcher);
+        boolean progress = exploreNode(group, context);
 
-        while (exploreChildren(group, context, matcher)) {
+        while (exploreChildren(group, context)) {
             progress = true;
 
             // if children changed, try current group again
             // in case we can match additional rules
-            if (!exploreNode(group, context, matcher)) {
+            if (!exploreNode(group, context)) {
                 // no additional matches, so bail out
                 break;
             }
@@ -110,7 +107,7 @@ public class IterativeOptimizer
         return progress;
     }
 
-    private boolean exploreNode(int group, Context context, Matcher matcher)
+    private boolean exploreNode(int group, Context context)
     {
         PlanNode node = context.getMemo().getNode(group);
 
@@ -131,7 +128,7 @@ public class IterativeOptimizer
                     continue;
                 }
 
-                Rule.Result result = transform(node, rule, matcher, context);
+                Rule.Result result = transform(node, rule, context);
 
                 if (result.getTransformedPlan().isPresent()) {
                     node = context.getMemo().replace(group, result.getTransformedPlan().get(), rule.getClass().getName());
@@ -145,11 +142,11 @@ public class IterativeOptimizer
         return progress;
     }
 
-    private <T> Rule.Result transform(PlanNode node, Rule<T> rule, Matcher matcher, Context context)
+    private <T> Rule.Result transform(PlanNode node, Rule<T> rule, Context context)
     {
         Capture<T> nodeCapture = newCapture();
         Pattern<T> pattern = rule.getPattern().capturedAs(nodeCapture);
-        Iterator<Match> matches = matcher.match(pattern, node, context.lookup).iterator();
+        Iterator<Match> matches = pattern.match(node, context.lookup).iterator();
         while (matches.hasNext()) {
             Match match = matches.next();
             long duration;
@@ -178,7 +175,7 @@ public class IterativeOptimizer
         return ((System.nanoTime() - context.getStartTimeInNanos()) / 1_000_000) >= context.getTimeoutInMilliseconds();
     }
 
-    private boolean exploreChildren(int group, Context context, Matcher matcher)
+    private boolean exploreChildren(int group, Context context)
     {
         boolean progress = false;
 
@@ -186,7 +183,7 @@ public class IterativeOptimizer
         for (PlanNode child : expression.getSources()) {
             checkState(child instanceof GroupReference, "Expected child to be a group reference. Found: " + child.getClass().getName());
 
-            if (exploreGroup(((GroupReference) child).getGroupId(), context, matcher)) {
+            if (exploreGroup(((GroupReference) child).getGroupId(), context)) {
                 progress = true;
             }
         }

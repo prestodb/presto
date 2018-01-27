@@ -24,7 +24,6 @@ import java.util.function.BiPredicate;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
-import static com.facebook.presto.matching.DefaultMatcher.DEFAULT_MATCHER;
 import static com.google.common.base.Predicates.not;
 import static java.util.Objects.requireNonNull;
 
@@ -90,15 +89,36 @@ public abstract class Pattern<T>
         return previous;
     }
 
-    public abstract <C> Stream<Match> accept(Matcher matcher, Object object, Captures captures, C context);
+    public abstract <C> Stream<Match> accept(Object object, Captures captures, C context);
 
     public abstract void accept(PatternVisitor patternVisitor);
 
     public <C> boolean matches(Object object, C context)
     {
-        return DEFAULT_MATCHER.match(this, object, context)
+        return match(object, context)
                 .findFirst()
                 .isPresent();
+    }
+
+    public final Stream<Match> match(Object object)
+    {
+        return match(object, Captures.empty(), null);
+    }
+
+    public final <C> Stream<Match> match(Object object, C context)
+    {
+        return match(object, Captures.empty(), context);
+    }
+
+    public final <C> Stream<Match> match(Object object, Captures captures, C context)
+    {
+        if (previous.isPresent()) {
+            return previous.get().match(object, captures, context)
+                    .flatMap(match -> accept(object, match.captures(), context));
+        }
+        else {
+            return accept(object, captures, context);
+        }
     }
 
     @Override

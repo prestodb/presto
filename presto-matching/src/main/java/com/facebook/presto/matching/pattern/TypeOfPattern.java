@@ -15,7 +15,6 @@ package com.facebook.presto.matching.pattern;
 
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Match;
-import com.facebook.presto.matching.Matcher;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.matching.PatternVisitor;
 
@@ -46,7 +45,7 @@ public class TypeOfPattern<T>
     }
 
     @Override
-    public <C> Stream<Match> accept(Matcher matcher, Object object, Captures captures, C context)
+    public <C> Stream<Match> accept(Object object, Captures captures, C context)
     {
         if (expectedClass.isInstance(object)) {
             return Stream.of(Match.of(captures));
