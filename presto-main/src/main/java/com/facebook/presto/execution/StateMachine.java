@@ -242,7 +242,7 @@ public class StateMachine<T>
                 return immediateFuture(state);
             }
 
-            return futureStateChange.get().createNewListener();
+            return futureStateChange.get().newListenableFuture();
         }
     }
 

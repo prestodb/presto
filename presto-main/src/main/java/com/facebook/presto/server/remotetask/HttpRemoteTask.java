@@ -18,10 +18,11 @@ import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.Session;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.execution.FutureStateChange;
+import com.facebook.presto.execution.FutureStateChange.StateChangeFuture;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.NodeTaskMap.PartitionedSplitCountTracker;
 import com.facebook.presto.execution.RemoteTask;
-import com.facebook.presto.execution.StateMachine.StateChangeListener;
+import com.facebook.presto.execution.StateMachine;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskState;
@@ -74,6 +75,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.execution.FutureStateChange.StateChangeFuture.completedStateChangeFuture;
 import static com.facebook.presto.execution.TaskInfo.createInitialTask;
 import static com.facebook.presto.execution.TaskState.ABORTED;
 import static com.facebook.presto.execution.TaskState.FAILED;
@@ -84,7 +86,6 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
@@ -396,7 +397,7 @@ public final class HttpRemoteTask
     }
 
     @Override
-    public void addStateChangeListener(StateChangeListener<TaskStatus> stateChangeListener)
+    public void addStateChangeListener(StateMachine.StateChangeListener<TaskStatus> stateChangeListener)
     {
         try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             taskStatusFetcher.addStateChangeListener(stateChangeListener);
@@ -404,7 +405,7 @@ public final class HttpRemoteTask
     }
 
     @Override
-    public synchronized ListenableFuture<?> whenSplitQueueHasSpace(int threshold)
+    public synchronized StateChangeFuture<?> whenSplitQueueHasSpace(int threshold)
     {
         if (whenSplitQueueHasSpaceThreshold.isPresent()) {
             checkArgument(threshold == whenSplitQueueHasSpaceThreshold.getAsInt(), "Multiple split queue space notification thresholds not supported");
@@ -414,9 +415,9 @@ public final class HttpRemoteTask
             updateSplitQueueSpace();
         }
         if (splitQueueHasSpace) {
-            return immediateFuture(null);
+            return completedStateChangeFuture(null);
         }
-        return whenSplitQueueHasSpace.createNewListener();
+        return whenSplitQueueHasSpace.newStateChangeFuture();
     }
 
     private synchronized void updateSplitQueueSpace()
