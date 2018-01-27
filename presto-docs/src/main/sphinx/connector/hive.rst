@@ -145,6 +145,10 @@ Property Name                                      Description                  
 
 ``hive.max-partitions-per-scan``                   Maximum number of partitions for a single table scan.        100,000
 
+``hive.metastore-cache-ttl``                       The time to live Hive metadata cache                         ``0ms``
+
+``hive.metastore-refresh-interval``                Hive metadata refresh interval                               ``1s``
+
 ``hive.metastore.authentication.type``             Hive metastore authentication type.                          ``NONE``
                                                    Possible values are ``NONE`` or ``KERBEROS``.
 
