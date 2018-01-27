@@ -16,9 +16,11 @@ package com.facebook.presto.sql.planner.iterative.rule.test;
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.cost.StatsCalculator;
+import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.DefaultMatcher;
 import com.facebook.presto.matching.Match;
 import com.facebook.presto.matching.Matcher;
+import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.type.Type;
@@ -41,6 +43,7 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.sql.planner.assertions.PlanAssert.assertPlan;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -159,14 +162,16 @@ public class RuleAssert
     private static <T> RuleApplication applyRule(Rule<T> rule, PlanNode planNode, Rule.Context context)
     {
         Matcher matcher = new DefaultMatcher();
-        Optional<Match<T>> match = matcher.match(rule.getPattern(), planNode, context.getLookup()).collect(toOptional());
+        Capture<T> planNodeCapture = newCapture();
+        Pattern<T> pattern = rule.getPattern().capturedAs(planNodeCapture);
+        Optional<Match> match = matcher.match(pattern, planNode, context.getLookup()).collect(toOptional());
 
         Rule.Result result;
         if (!rule.isEnabled(context.getSession()) || !match.isPresent()) {
             result = Rule.Result.empty();
         }
         else {
-            result = rule.apply(match.get().value(), match.get().captures(), context);
+            result = rule.apply(match.get().capture(planNodeCapture), match.get().captures(), context);
         }
 
         return new RuleApplication(context.getLookup(), context.getSymbolAllocator().getTypes(), result);

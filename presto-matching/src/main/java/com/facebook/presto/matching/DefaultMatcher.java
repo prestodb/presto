@@ -30,11 +30,11 @@ public class DefaultMatcher
     public static final Matcher DEFAULT_MATCHER = new DefaultMatcher();
 
     @Override
-    public <T, C> Stream<Match<T>> match(Pattern<T> pattern, Object object, Captures captures, C context)
+    public <T, C> Stream<Match> match(Pattern<T> pattern, Object object, Captures captures, C context)
     {
         if (pattern.previous().isPresent()) {
             return match(pattern.previous().get(), object, captures, context)
-                    .flatMap(match -> pattern.accept(this, match.value(), match.captures(), context));
+                    .flatMap(match -> pattern.accept(this, object, match.captures(), context));
         }
         else {
             return pattern.accept(this, object, captures, context);
@@ -42,48 +42,47 @@ public class DefaultMatcher
     }
 
     @Override
-    public <T, C> Stream<Match<T>> matchTypeOf(TypeOfPattern<T> typeOfPattern, Object object, Captures captures, C context)
+    public <T, C> Stream<Match> matchTypeOf(TypeOfPattern<T> typeOfPattern, Object object, Captures captures, C context)
     {
         Class<T> expectedClass = typeOfPattern.expectedClass();
         if (expectedClass.isInstance(object)) {
-            return Stream.of(Match.of(expectedClass.cast(object), captures));
+            return Stream.of(Match.of(captures));
         }
         return Stream.of();
     }
 
     @Override
-    public <T, C> Stream<Match<T>> matchWith(WithPattern<T> withPattern, Object object, Captures captures, C context)
+    public <T, C> Stream<Match> matchWith(WithPattern<T> withPattern, Object object, Captures captures, C context)
     {
         //TODO remove cast
         BiFunction<? super T, C, Optional<?>> property = (BiFunction<? super T, C, Optional<?>>) withPattern.getProperty().getFunction();
         Optional<?> propertyValue = property.apply((T) object, context);
         return propertyValue.map(value -> match(withPattern.getPattern(), value, captures, context))
-                .map(matchStream -> matchStream.map(match -> Match.of((T) object, match.captures())))
                 .orElse(Stream.of());
     }
 
     @Override
-    public <T, C> Stream<Match<T>> matchCapture(CapturePattern<T> capturePattern, Object object, Captures captures, C context)
+    public <T, C> Stream<Match> matchCapture(CapturePattern<T> capturePattern, Object object, Captures captures, C context)
     {
         Captures newCaptures = captures.addAll(Captures.ofNullable(capturePattern.capture(), (T) object));
-        return Stream.of(Match.of((T) object, newCaptures));
+        return Stream.of(Match.of(newCaptures));
     }
 
     @Override
-    public <T, C> Stream<Match<T>> matchEquals(EqualsPattern<T> equalsPattern, Object object, Captures captures, C context)
+    public <T, C> Stream<Match> matchEquals(EqualsPattern<T> equalsPattern, Object object, Captures captures, C context)
     {
-        return Stream.of(Match.of((T) object, captures))
-                .filter(match -> equalsPattern.expectedValue().equals(match.value()));
+        return Stream.of(Match.of(captures))
+                .filter(match -> equalsPattern.expectedValue().equals(object));
     }
 
     @Override
-    public <T, C> Stream<Match<T>> matchFilter(FilterPattern<T> filterPattern, Object object, Captures captures, C context)
+    public <T, C> Stream<Match> matchFilter(FilterPattern<T> filterPattern, Object object, Captures captures, C context)
     {
-        return Stream.of(Match.of((T) object, captures))
+        return Stream.of(Match.of(captures))
                 .filter(match -> {
                     //TODO remove cast
                     BiPredicate<? super T, C> predicate = (BiPredicate<? super T, C>) filterPattern.predicate();
-                    return predicate.test(match.value(), context);
+                    return predicate.test((T) object, context);
                 });
     }
 }

@@ -23,7 +23,7 @@ import java.util.stream.Stream;
 
 public interface Matcher
 {
-    default <T> Stream<Match<T>> match(Pattern<T> pattern, Object object)
+    default <T> Stream<Match> match(Pattern<T> pattern, Object object)
     {
         return match(pattern, object, Captures.empty(), noContext());
     }
@@ -33,20 +33,20 @@ public interface Matcher
         return null;
     }
 
-    default <T, C> Stream<Match<T>> match(Pattern<T> pattern, Object object, C context)
+    default <T, C> Stream<Match> match(Pattern<T> pattern, Object object, C context)
     {
         return match(pattern, object, Captures.empty(), context);
     }
 
-    <T, C> Stream<Match<T>> match(Pattern<T> pattern, Object object, Captures captures, C context);
+    <T, C> Stream<Match> match(Pattern<T> pattern, Object object, Captures captures, C context);
 
-    <T, C> Stream<Match<T>> matchTypeOf(TypeOfPattern<T> typeOfPattern, Object object, Captures captures, C context);
+    <T, C> Stream<Match> matchTypeOf(TypeOfPattern<T> typeOfPattern, Object object, Captures captures, C context);
 
-    <T, C> Stream<Match<T>> matchWith(WithPattern<T> withPattern, Object object, Captures captures, C context);
+    <T, C> Stream<Match> matchWith(WithPattern<T> withPattern, Object object, Captures captures, C context);
 
-    <T, C> Stream<Match<T>> matchCapture(CapturePattern<T> capturePattern, Object object, Captures captures, C context);
+    <T, C> Stream<Match> matchCapture(CapturePattern<T> capturePattern, Object object, Captures captures, C context);
 
-    <T, C> Stream<Match<T>> matchEquals(EqualsPattern<T> equalsPattern, Object object, Captures captures, C context);
+    <T, C> Stream<Match> matchEquals(EqualsPattern<T> equalsPattern, Object object, Captures captures, C context);
 
-    <T, C> Stream<Match<T>> matchFilter(FilterPattern<T> filterPattern, Object object, Captures captures, C context);
+    <T, C> Stream<Match> matchFilter(FilterPattern<T> filterPattern, Object object, Captures captures, C context);
 }

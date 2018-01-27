@@ -41,7 +41,7 @@ public class EqualsPattern<T>
     }
 
     @Override
-    public <C> Stream<Match<T>> accept(Matcher matcher, Object object, Captures captures, C context)
+    public <C> Stream<Match> accept(Matcher matcher, Object object, Captures captures, C context)
     {
         return matcher.matchEquals(this, object, captures, context);
     }

@@ -18,28 +18,21 @@ import java.util.Objects;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public final class Match<T>
+public final class Match
 {
-    public static <T> Match<T> of(T value, Captures captures)
+    public static Match of(Captures captures)
     {
-        return new Match<>(value, captures);
+        return new Match(captures);
     }
 
-    private final T value;
     private final Captures captures;
 
-    private Match(T value, Captures captures)
+    private Match(Captures captures)
     {
-        this.value = requireNonNull(value, "value is null");
         this.captures = requireNonNull(captures, "captures is null");
     }
 
-    public T value()
-    {
-        return value;
-    }
-
-    public <S> S capture(Capture<S> capture)
+    public <T> T capture(Capture<T> capture)
     {
         return captures().get(capture);
     }
@@ -58,22 +51,20 @@ public final class Match<T>
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        Match<?> match = (Match<?>) o;
-        return Objects.equals(value, match.value) &&
-                Objects.equals(captures, match.captures);
+        Match match = (Match) o;
+        return Objects.equals(captures, match.captures);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(value, captures);
+        return Objects.hash(captures);
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("value", value)
                 .add("captures", captures)
                 .toString();
     }

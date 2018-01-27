@@ -15,9 +15,11 @@ package com.facebook.presto.sql.planner.iterative;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.DefaultMatcher;
 import com.facebook.presto.matching.Match;
 import com.facebook.presto.matching.Matcher;
+import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
@@ -35,6 +37,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.spi.StandardErrorCode.OPTIMIZER_TIMEOUT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -144,14 +147,16 @@ public class IterativeOptimizer
 
     private <T> Rule.Result transform(PlanNode node, Rule<T> rule, Matcher matcher, Context context)
     {
-        Iterator<Match<T>> matches = matcher.match(rule.getPattern(), node, context.lookup).iterator();
+        Capture<T> nodeCapture = newCapture();
+        Pattern<T> pattern = rule.getPattern().capturedAs(nodeCapture);
+        Iterator<Match> matches = matcher.match(pattern, node, context.lookup).iterator();
         while (matches.hasNext()) {
-            Match<T> match = matches.next();
+            Match match = matches.next();
             long duration;
             Rule.Result result;
             try {
                 long start = System.nanoTime();
-                result = rule.apply(match.value(), match.captures(), context);
+                result = rule.apply(match.capture(nodeCapture), match.captures(), context);
                 duration = System.nanoTime() - start;
             }
             catch (RuntimeException e) {

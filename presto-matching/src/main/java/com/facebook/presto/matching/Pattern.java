@@ -90,7 +90,7 @@ public abstract class Pattern<T>
         return previous;
     }
 
-    public abstract <C> Stream<Match<T>> accept(Matcher matcher, Object object, Captures captures, C context);
+    public abstract <C> Stream<Match> accept(Matcher matcher, Object object, Captures captures, C context);
 
     public abstract void accept(PatternVisitor patternVisitor);
 

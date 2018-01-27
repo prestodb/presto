@@ -143,7 +143,7 @@ public class TestMatcher
 
         ProjectNode tree = new ProjectNode(new FilterNode(new ScanNode("orders"), null));
 
-        Match<ProjectNode> match = assertMatch(pattern, tree);
+        Match match = assertMatch(pattern, tree);
         //notice the concrete type despite no casts:
         FilterNode capturedFilter = match.capture(filter);
         assertEquals(tree.getSource(), capturedFilter);
@@ -157,7 +157,7 @@ public class TestMatcher
         Capture<Void> impossible = newCapture();
         Pattern<Void> pattern = typeOf(Void.class).capturedAs(impossible);
 
-        Optional<Match<Void>> match = DEFAULT_MATCHER.match(pattern, 42)
+        Optional<Match> match = DEFAULT_MATCHER.match(pattern, 42)
                 .collect(toOptional());
 
         assertFalse(match.isPresent());
@@ -169,7 +169,7 @@ public class TestMatcher
         Pattern<?> pattern = any();
         Capture<?> unknownCapture = newCapture();
 
-        Match<?> match = DEFAULT_MATCHER.match(pattern, 42)
+        Match match = DEFAULT_MATCHER.match(pattern, 42)
                 .collect(onlyElement());
 
         Throwable throwable = expectThrows(NoSuchElementException.class, () -> match.capture(unknownCapture));
@@ -215,22 +215,15 @@ public class TestMatcher
         assertEquals(wasContextUsed.get(), true);
     }
 
-    private <T> Match<T> assertMatch(Pattern<T> pattern, T expectedMatch)
+    private <T> Match assertMatch(Pattern<T> pattern, T object)
     {
-        return assertMatch(pattern, expectedMatch, expectedMatch);
-    }
-
-    private <T, R> Match<R> assertMatch(Pattern<R> pattern, T matchedAgainst, R expectedMatch)
-    {
-        Match<R> match = DEFAULT_MATCHER.match(pattern, matchedAgainst)
+        return DEFAULT_MATCHER.match(pattern, object)
                 .collect(onlyElement());
-        assertEquals(expectedMatch, match.value());
-        return match;
     }
 
     private <T> void assertNoMatch(Pattern<T> pattern, Object expectedNoMatch)
     {
-        Optional<Match<T>> match = DEFAULT_MATCHER.match(pattern, expectedNoMatch)
+        Optional<Match> match = DEFAULT_MATCHER.match(pattern, expectedNoMatch)
                 .collect(toOptional());
         assertFalse(match.isPresent());
     }
