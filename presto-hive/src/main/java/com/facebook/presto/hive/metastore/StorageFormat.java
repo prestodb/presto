@@ -42,7 +42,8 @@ public class StorageFormat
     public String getSerDe()
     {
         if (serDe == null) {
-            throw new IllegalStateException("serDe should not be accessed from a null StorageFormat");
+            return LazySimpleSerDe.class.getName();
+//             throw new IllegalStateException("serDe should not be accessed from a null StorageFormat");
         }
         return serDe;
     }
@@ -50,7 +51,8 @@ public class StorageFormat
     public String getInputFormat()
     {
         if (inputFormat == null) {
-            throw new IllegalStateException("inputFormat should not be accessed from a null StorageFormat");
+            return TextInputFormat.class.getName();
+//             throw new IllegalStateException("inputFormat should not be accessed from a null StorageFormat");
         }
         return inputFormat;
     }
@@ -58,7 +60,8 @@ public class StorageFormat
     public String getOutputFormat()
     {
         if (outputFormat == null) {
-            throw new IllegalStateException("outputFormat should not be accessed from a null StorageFormat");
+             return HiveIgnoreKeyTextOutputFormat.class.getName();
+//             throw new IllegalStateException("outputFormat should not be accessed from a null StorageFormat");
         }
         return outputFormat;
     }
