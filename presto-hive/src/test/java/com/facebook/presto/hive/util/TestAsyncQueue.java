@@ -46,7 +46,7 @@ public class TestAsyncQueue
         executor = Executors.newFixedThreadPool(8, Threads.daemonThreadsNamed("test-async-queue-%s"));
     }
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void tearDownClass()
     {
         executor.shutdownNow();
