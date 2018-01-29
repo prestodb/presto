@@ -64,8 +64,6 @@ import static org.testng.Assert.assertEquals;
 
 public class TestStateCompiler
 {
-    private static final int SLICE_INSTANCE_SIZE = ClassLayout.parseClass(Slice.class).instanceSize();
-
     @Test
     public void testPrimitiveNullableLongSerialization()
     {
