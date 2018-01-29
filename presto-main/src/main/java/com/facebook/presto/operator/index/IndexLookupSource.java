@@ -37,6 +37,13 @@ public class IndexLookupSource
     }
 
     @Override
+    public boolean isEmpty()
+    {
+        // since the data is not loaded, we don't know if it is empty
+        return false;
+    }
+
+    @Override
     public int getChannelCount()
     {
         return indexLoader.getChannelCount();
