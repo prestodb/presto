@@ -27,16 +27,27 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.RangeColumnStatistics;
 import com.facebook.presto.spi.statistics.TableStatistics;
+import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.Decimals;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import org.joda.time.DateTimeZone;
 
 import javax.annotation.Nullable;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.time.LocalDate;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -50,8 +61,19 @@ import java.util.stream.Collectors;
 import java.util.stream.DoubleStream;
 
 import static com.facebook.presto.hive.HiveSessionProperties.isStatisticsEnabled;
+import static com.facebook.presto.spi.predicate.Utils.nativeValueToBlock;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.RealType.REAL;
+import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static java.lang.Float.floatToRawIntBits;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -61,11 +83,13 @@ public class MetastoreHiveStatisticsProvider
 {
     private final TypeManager typeManager;
     private final SemiTransactionalHiveMetastore metastore;
+    private final DateTimeZone timeZone;
 
-    public MetastoreHiveStatisticsProvider(TypeManager typeManager, SemiTransactionalHiveMetastore metastore)
+    public MetastoreHiveStatisticsProvider(TypeManager typeManager, SemiTransactionalHiveMetastore metastore, DateTimeZone timeZone)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
+        this.timeZone = timeZone;
     }
 
     @Override
@@ -84,22 +108,132 @@ public class MetastoreHiveStatisticsProvider
             String columnName = columnEntry.getKey();
             HiveColumnHandle hiveColumnHandle = (HiveColumnHandle) columnEntry.getValue();
             RangeColumnStatistics.Builder rangeStatistics = RangeColumnStatistics.builder();
+
+            List<Object> lowValueCandidates = ImmutableList.of();
+            List<Object> highValueCandidates = ImmutableList.of();
+
+            Type prestoType = typeManager.getType(hiveColumnHandle.getTypeSignature());
             Estimate nullsFraction;
             if (hiveColumnHandle.isPartitionKey()) {
                 rangeStatistics.setDistinctValuesCount(countDistinctPartitionKeys(hiveColumnHandle, hivePartitions));
                 nullsFraction = calculateNullsFractionForPartitioningKey(hiveColumnHandle, hivePartitions, partitionStatistics);
+                if (isLowHighSupportedForType(prestoType)) {
+                    lowValueCandidates = hivePartitions.stream()
+                            .map(HivePartition::getKeys)
+                            .map(keys -> keys.get(hiveColumnHandle))
+                            .filter(value -> !value.isNull())
+                            .map(NullableValue::getValue)
+                            .collect(toImmutableList());
+                    highValueCandidates = lowValueCandidates;
+                }
             }
             else {
                 rangeStatistics.setDistinctValuesCount(calculateDistinctValuesCount(partitionStatistics, columnName));
                 nullsFraction = calculateNullsFraction(partitionStatistics, columnName, rowCount);
+
+                // TODO[lo] Maybe we do not want to expose high/low value if it is based on too small fraction of
+                //          partitions. And return unknown if most of the partitions we are working with do not have
+                //          statistics computed.
+
+                if (isLowHighSupportedForType(prestoType)) {
+                    lowValueCandidates = partitionStatistics.values().stream()
+                            .map(PartitionStatistics::getColumnStatistics)
+                            .filter(stats -> stats.containsKey(columnName))
+                            .map(stats -> stats.get(columnName))
+                            .map(HiveColumnStatistics::getLowValue)
+                            .filter(Optional::isPresent)
+                            .map(Optional::get)
+                            .map(value -> lowHighValueAsPrestoType(value, prestoType))
+                            .collect(toImmutableList());
+
+                    highValueCandidates = partitionStatistics.values().stream()
+                            .map(PartitionStatistics::getColumnStatistics)
+                            .filter(stats -> stats.containsKey(columnName))
+                            .map(stats -> stats.get(columnName))
+                            .map(HiveColumnStatistics::getHighValue)
+                            .filter(Optional::isPresent)
+                            .map(Optional::get)
+                            .map(value -> lowHighValueAsPrestoType(value, prestoType))
+                            .collect(toImmutableList());
+                }
             }
             rangeStatistics.setFraction(nullsFraction.map(value -> 1.0 - value));
+
+            Comparator<Object> comparator = (leftValue, rightValue) -> {
+                Block leftBlock = nativeValueToBlock(prestoType, leftValue);
+                Block rightBlock = nativeValueToBlock(prestoType, rightValue);
+                return prestoType.compareTo(leftBlock, 0, rightBlock, 0);
+            };
+            rangeStatistics.setLowValue(lowValueCandidates.stream().min(comparator));
+            rangeStatistics.setHighValue(highValueCandidates.stream().max(comparator));
+
             ColumnStatistics.Builder columnStatistics = ColumnStatistics.builder();
             columnStatistics.setNullsFraction(nullsFraction);
             columnStatistics.addRange(rangeStatistics.build());
             tableStatistics.setColumnStatistics(hiveColumnHandle, columnStatistics.build());
         }
         return tableStatistics.build();
+    }
+
+    private boolean isLowHighSupportedForType(Type type)
+    {
+        if (type instanceof DecimalType) {
+            return true;
+        }
+        if (type.equals(TINYINT)
+                || type.equals(SMALLINT)
+                || type.equals(INTEGER)
+                || type.equals(BIGINT)
+                || type.equals(REAL)
+                || type.equals(DOUBLE)
+                || type.equals(DATE)
+                || type.equals(TIMESTAMP)) {
+            return true;
+        }
+        return false;
+    }
+
+    private Object lowHighValueAsPrestoType(Object value, Type prestoType)
+    {
+        checkArgument(isLowHighSupportedForType(prestoType), "Unsupported type " + prestoType);
+        requireNonNull(value, "high/low value connot be null");
+
+        if (prestoType.equals(BIGINT)
+                || prestoType.equals(INTEGER)
+                || prestoType.equals(SMALLINT)
+                || prestoType.equals(TINYINT)) {
+            checkArgument(value instanceof Long, "expected Long value but got " + value.getClass());
+            return value;
+        }
+        else if (prestoType.equals(DOUBLE)) {
+            checkArgument(value instanceof Double, "expected Double value but got " + value.getClass());
+            return value;
+        }
+        else if (prestoType.equals(REAL)) {
+            checkArgument(value instanceof Double, "expected Double value but got " + value.getClass());
+            return floatToRawIntBits((float) (double) value);
+        }
+        else if (prestoType.equals(DATE)) {
+            checkArgument(value instanceof LocalDate, "expected LocalDate value but got " + value.getClass());
+            return ((LocalDate) value).toEpochDay();
+        }
+        else if (prestoType.equals(TIMESTAMP)) {
+            checkArgument(value instanceof Long, "expected Long value but got " + value.getClass());
+            return timeZone.convertLocalToUTC((long) value * 1000, false);
+        }
+        else if (prestoType instanceof DecimalType) {
+            checkArgument(value instanceof BigDecimal, "expected BigDecimal value but got " + value.getClass());
+            BigInteger unscaled = Decimals.rescale((BigDecimal) value, (DecimalType) prestoType).unscaledValue();
+            if (Decimals.isShortDecimal(prestoType)) {
+                return unscaled.longValueExact();
+            }
+            else {
+                return Decimals.encodeUnscaledValue(unscaled);
+            }
+        }
+        else {
+            throw new IllegalArgumentException("Unsupported presto type " + prestoType);
+        }
     }
 
     private Estimate calculateRowsCount(Map<String, PartitionStatistics> partitionStatistics)
