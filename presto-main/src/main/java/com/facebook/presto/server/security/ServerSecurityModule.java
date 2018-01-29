@@ -49,15 +49,16 @@ public class ServerSecurityModule
             if (authType == CERTIFICATE) {
                 authBinder.addBinding().to(CertificateAuthenticator.class).in(Scopes.SINGLETON);
             }
-
-            if (authType == KERBEROS) {
+            else if (authType == KERBEROS) {
                 configBinder(binder).bindConfig(KerberosConfig.class);
                 authBinder.addBinding().to(KerberosAuthenticator.class).in(Scopes.SINGLETON);
             }
-
-            if (authType == LDAP) {
+            else if (authType == LDAP) {
                 configBinder(binder).bindConfig(LdapConfig.class);
                 authBinder.addBinding().to(LdapAuthenticator.class).in(Scopes.SINGLETON);
+            }
+            else {
+                throw new AssertionError("Unhandled auth type: " + authType);
             }
         }
     }
