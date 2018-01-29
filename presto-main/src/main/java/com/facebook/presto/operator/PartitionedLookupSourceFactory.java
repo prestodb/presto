@@ -501,6 +501,12 @@ public final class PartitionedLookupSourceFactory
         }
 
         @Override
+        public boolean isEmpty()
+        {
+            return false;
+        }
+
+        @Override
         public int getChannelCount()
         {
             return channelCount;

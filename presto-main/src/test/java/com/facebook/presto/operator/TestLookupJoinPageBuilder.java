@@ -188,6 +188,12 @@ public class TestLookupJoinPageBuilder
         }
 
         @Override
+        public boolean isEmpty()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public int getChannelCount()
         {
             throw new UnsupportedOperationException();

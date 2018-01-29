@@ -381,6 +381,12 @@ public class IndexLoader
         }
 
         @Override
+        public boolean isEmpty()
+        {
+            return true;
+        }
+
+        @Override
         public int getChannelCount()
         {
             return channelCount;

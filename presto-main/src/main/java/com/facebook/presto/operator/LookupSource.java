@@ -42,6 +42,8 @@ public interface LookupSource
 
     boolean isJoinPositionEligible(long currentJoinPosition, int probePosition, Page allProbeChannelsPage);
 
+    boolean isEmpty();
+
     @Override
     void close();
 }
