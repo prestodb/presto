@@ -94,118 +94,118 @@ public class TestHiveTableStatistics
         // table not analyzed
 
         assertThat(query(showStatsWholeTable)).containsOnly(
-                row("p_nationkey", null, null, null, null),
-                row("p_name", null, null, null, null),
-                row("p_regionkey", null, 3.0, null, null),
-                row("p_comment", null, null, null, null),
-                row(null, null, null, null, null));
+                row("p_nationkey", null, null, null, null, null, null),
+                row("p_name", null, null, null, null, null, null),
+                row("p_regionkey", null, 3.0, null, null, null, null),
+                row("p_comment", null, null, null, null, null, null),
+                row(null, null, null, null, null, null, null));
 
         assertThat(query(showStatsPartitionOne)).containsOnly(
-                row("p_nationkey", null, null, null, null),
-                row("p_name", null, null, null, null),
-                row("p_regionkey", null, 1.0, null, null),
-                row("p_comment", null, null, null, null),
-                row(null, null, null, null, null));
+                row("p_nationkey", null, null, null, null, null, null),
+                row("p_name", null, null, null, null, null, null),
+                row("p_regionkey", null, 1.0, null, null, null, null),
+                row("p_comment", null, null, null, null, null, null),
+                row(null, null, null, null, null, null, null));
 
         // basic analysis for single partition
 
         onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " PARTITION (p_regionkey = \"1\") COMPUTE STATISTICS");
 
         assertThat(query(showStatsWholeTable)).containsOnly(
-                row("p_nationkey", null, null, null, null),
-                row("p_name", null, null, null, null),
-                row("p_regionkey", null, 3.0, 0.0, null),
-                row("p_comment", null, null, null, null),
-                row(null, null, null, null, 15.0));
+                row("p_nationkey", null, null, null, null, null, null),
+                row("p_name", null, null, null, null, null, null),
+                row("p_regionkey", null, 3.0, 0.0, null, null, null),
+                row("p_comment", null, null, null, null, null, null),
+                row(null, null, null, null, 15.0, null, null));
 
         assertThat(query(showStatsPartitionOne)).containsOnly(
-                row("p_nationkey", null, null, null, null),
-                row("p_name", null, null, null, null),
-                row("p_regionkey", null, 1.0, 0.0, null),
-                row("p_comment", null, null, null, null),
-                row(null, null, null, null, 5.0));
+                row("p_nationkey", null, null, null, null, null, null),
+                row("p_name", null, null, null, null, null, null),
+                row("p_regionkey", null, 1.0, 0.0, null, null, null),
+                row("p_comment", null, null, null, null, null, null),
+                row(null, null, null, null, 5.0, null, null));
 
         assertThat(query(showStatsPartitionTwo)).containsOnly(
-                row("p_nationkey", null, null, null, null),
-                row("p_name", null, null, null, null),
-                row("p_regionkey", null, 1.0, null, null),
-                row("p_comment", null, null, null, null),
-                row(null, null, null, null, null));
+                row("p_nationkey", null, null, null, null, null, null),
+                row("p_name", null, null, null, null, null, null),
+                row("p_regionkey", null, 1.0, null, null, null, null),
+                row("p_comment", null, null, null, null, null, null),
+                row(null, null, null, null, null, null, null));
 
         // basic analysis for all partitions
 
         onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " PARTITION (p_regionkey) COMPUTE STATISTICS");
 
         assertThat(query(showStatsWholeTable)).containsOnly(
-                row("p_nationkey", null, null, null, null),
-                row("p_name", null, null, null, null),
-                row("p_regionkey", null, 3.0, 0.0, null),
-                row("p_comment", null, null, null, null),
-                row(null, null, null, null, 15.0));
+                row("p_nationkey", null, null, null, null, null, null),
+                row("p_name", null, null, null, null, null, null),
+                row("p_regionkey", null, 3.0, 0.0, null, null, null),
+                row("p_comment", null, null, null, null, null, null),
+                row(null, null, null, null, 15.0, null, null));
 
         assertThat(query(showStatsPartitionOne)).containsOnly(
-                row("p_nationkey", null, null, null, null),
-                row("p_name", null, null, null, null),
-                row("p_regionkey", null, 1.0, 0.0, null),
-                row("p_comment", null, null, null, null),
-                row(null, null, null, null, 5.0));
+                row("p_nationkey", null, null, null, null, null, null),
+                row("p_name", null, null, null, null, null, null),
+                row("p_regionkey", null, 1.0, 0.0, null, null, null),
+                row("p_comment", null, null, null, null, null, null),
+                row(null, null, null, null, 5.0, null, null));
 
         assertThat(query(showStatsPartitionTwo)).containsOnly(
-                row("p_nationkey", null, null, null, null),
-                row("p_name", null, null, null, null),
-                row("p_regionkey", null, 1.0, 0.0, null),
-                row("p_comment", null, null, null, null),
-                row(null, null, null, null, 5.0));
+                row("p_nationkey", null, null, null, null, null, null),
+                row("p_name", null, null, null, null, null, null),
+                row("p_regionkey", null, 1.0, 0.0, null, null, null),
+                row("p_comment", null, null, null, null, null, null),
+                row(null, null, null, null, 5.0, null, null));
 
         // column analysis for single partition
 
         onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " PARTITION (p_regionkey = \"1\") COMPUTE STATISTICS FOR COLUMNS");
 
         assertThat(query(showStatsWholeTable)).containsOnly(
-                row("p_nationkey", null, 5.0, 0.0, null),
-                row("p_name", null, 6.0, 0.0, null),
-                row("p_regionkey", null, 3.0, 0.0, null),
-                row("p_comment", null, 1.0, 0.0, null),
-                row(null, null, null, null, 15.0));
+                row("p_nationkey", null, 5.0, 0.0, null, null, null),
+                row("p_name", null, 6.0, 0.0, null, null, null),
+                row("p_regionkey", null, 3.0, 0.0, null, null, null),
+                row("p_comment", null, 1.0, 0.0, null, null, null),
+                row(null, null, null, null, 15.0, null, null));
 
         assertThat(query(showStatsPartitionOne)).containsOnly(
-                row("p_nationkey", null, 5.0, 0.0, null),
-                row("p_name", null, 6.0, 0.0, null),
-                row("p_regionkey", null, 1.0, 0.0, null),
-                row("p_comment", null, 1.0, 0.0, null),
-                row(null, null, null, null, 5.0));
+                row("p_nationkey", null, 5.0, 0.0, null, null, null),
+                row("p_name", null, 6.0, 0.0, null, null, null),
+                row("p_regionkey", null, 1.0, 0.0, null, null, null),
+                row("p_comment", null, 1.0, 0.0, null, null, null),
+                row(null, null, null, null, 5.0, null, null));
 
         assertThat(query(showStatsPartitionTwo)).containsOnly(
-                row("p_nationkey", null, null, null, null),
-                row("p_name", null, null, null, null),
-                row("p_regionkey", null, 1.0, 0.0, null),
-                row("p_comment", null, null, null, null),
-                row(null, null, null, null, 5.0));
+                row("p_nationkey", null, null, null, null, null, null),
+                row("p_name", null, null, null, null, null, null),
+                row("p_regionkey", null, 1.0, 0.0, null, null, null),
+                row("p_comment", null, null, null, null, null, null),
+                row(null, null, null, null, 5.0, null, null));
 
         // column analysis for all partitions
 
         onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " PARTITION (p_regionkey) COMPUTE STATISTICS FOR COLUMNS");
 
         assertThat(query(showStatsWholeTable)).containsOnly(
-                row("p_nationkey", null, 5.0, 0.0, null),
-                row("p_name", null, 6.0, 0.0, null),
-                row("p_regionkey", null, 3.0, 0.0, null),
-                row("p_comment", null, 1.0, 0.0, null),
-                row(null, null, null, null, 15.0));
+                row("p_nationkey", null, 5.0, 0.0, null, null, null),
+                row("p_name", null, 6.0, 0.0, null, null, null),
+                row("p_regionkey", null, 3.0, 0.0, null, null, null),
+                row("p_comment", null, 1.0, 0.0, null, null, null),
+                row(null, null, null, null, 15.0, null, null));
 
         assertThat(query(showStatsPartitionOne)).containsOnly(
-                row("p_nationkey", null, 5.0, 0.0, null),
-                row("p_name", null, 6.0, 0.0, null),
-                row("p_regionkey", null, 1.0, 0.0, null),
-                row("p_comment", null, 1.0, 0.0, null),
-                row(null, null, null, null, 5.0));
+                row("p_nationkey", null, 5.0, 0.0, null, null, null),
+                row("p_name", null, 6.0, 0.0, null, null, null),
+                row("p_regionkey", null, 1.0, 0.0, null, null, null),
+                row("p_comment", null, 1.0, 0.0, null, null, null),
+                row(null, null, null, null, 5.0, null, null));
 
         assertThat(query(showStatsPartitionTwo)).containsOnly(
-                row("p_nationkey", null, 4.0, 0.0, null),
-                row("p_name", null, 6.0, 0.0, null),
-                row("p_regionkey", null, 1.0, 0.0, null),
-                row("p_comment", null, 1.0, 0.0, null),
-                row(null, null, null, null, 5.0));
+                row("p_nationkey", null, 4.0, 0.0, null, null, null),
+                row("p_name", null, 6.0, 0.0, null, null, null),
+                row("p_regionkey", null, 1.0, 0.0, null, null, null),
+                row("p_comment", null, 1.0, 0.0, null, null, null),
+                row(null, null, null, null, 5.0, null, null));
     }
 
     // This covers also stats calculation for unpartitioned table
@@ -214,45 +214,47 @@ public class TestHiveTableStatistics
     public void testStatisticsForAllDataTypes()
     {
         String tableNameInDatabase = mutableTablesState().get(ALL_TYPES_TABLE_NAME).getNameInDatabase();
+
         onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " COMPUTE STATISTICS");
 
         assertThat(query("SHOW STATS FOR " + tableNameInDatabase)).containsOnly(
-                row("c_tinyint", null, null, null, null),
-                row("c_smallint", null, null, null, null),
-                row("c_int", null, null, null, null),
-                row("c_bigint", null, null, null, null),
-                row("c_float", null, null, null, null),
-                row("c_double", null, null, null, null),
-                row("c_decimal", null, null, null, null),
-                row("c_decimal_w_params", null, null, null, null),
-                row("c_timestamp", null, null, null, null),
-                row("c_date", null, null, null, null),
-                row("c_string", null, null, null, null),
-                row("c_varchar", null, null, null, null),
-                row("c_char", null, null, null, null),
-                row("c_boolean", null, null, null, null),
-                row("c_binary", null, null, null, null),
-                row(null, null, null, null, 1.0));
+                row("c_tinyint", null, null, null, null, null, null),
+                row("c_smallint", null, null, null, null, null, null),
+                row("c_int", null, null, null, null, null, null),
+                row("c_bigint", null, null, null, null, null, null),
+                row("c_float", null, null, null, null, null, null),
+                row("c_double", null, null, null, null, null, null),
+                row("c_decimal", null, null, null, null, null, null),
+                row("c_decimal_w_params", null, null, null, null, null, null),
+                row("c_timestamp", null, null, null, null, null, null),
+                row("c_date", null, null, null, null, null, null),
+                row("c_string", null, null, null, null, null, null),
+                row("c_varchar", null, null, null, null, null, null),
+                row("c_char", null, null, null, null, null, null),
+                row("c_boolean", null, null, null, null, null, null),
+                row("c_binary", null, null, null, null, null, null),
+                row(null, null, null, null, 1.0, null, null));
+
         onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " COMPUTE STATISTICS FOR COLUMNS");
 
         // SHOW STATS FORMAT: column_name, data_size, distinct_values_count, nulls_fraction, row_count
         assertThat(query("SHOW STATS FOR " + tableNameInDatabase)).containsOnly(
-                row("c_tinyint", null, anyOf(1.0, 2.0), 0.0, null),
-                row("c_smallint", null, anyOf(1.0, 2.0), 0.0, null),
-                row("c_int", null, anyOf(1.0, 2.0), 0.0, null),
-                row("c_bigint", null, anyOf(1.0, 2.0), 0.0, null),
-                row("c_float", null, anyOf(1.0, 2.0), 0.0, null),
-                row("c_double", null, anyOf(1.0, 2.0), 0.0, null),
-                row("c_decimal", null, anyOf(1.0, 2.0), 0.0, null),
-                row("c_decimal_w_params", null, anyOf(1.0, 2.0), 0.0, null),
-                row("c_timestamp", null, anyOf(1.0, 2.0), 0.0, null),
-                row("c_date", null, anyOf(1.0, 2.0), 0.0, null),
-                row("c_string", null, anyOf(1.0, 2.0), 0.0, null),
-                row("c_varchar", null, anyOf(1.0, 2.0), 0.0, null),
-                row("c_char", null, anyOf(1.0, 2.0), 0.0, null),
-                row("c_boolean", null, anyOf(1.0, 2.0), 0.0, null),
-                row("c_binary", null, null, 0.0, null),
-                row(null, null, null, null, 1.0));
+                row("c_tinyint", null, anyOf(1.0, 2.0), 0.0, null, null, null),
+                row("c_smallint", null, anyOf(1.0, 2.0), 0.0, null, null, null),
+                row("c_int", null, anyOf(1.0, 2.0), 0.0, null, null, null),
+                row("c_bigint", null, anyOf(1.0, 2.0), 0.0, null, null, null),
+                row("c_float", null, anyOf(1.0, 2.0), 0.0, null, null, null),
+                row("c_double", null, anyOf(1.0, 2.0), 0.0, null, null, null),
+                row("c_decimal", null, anyOf(1.0, 2.0), 0.0, null, null, null),
+                row("c_decimal_w_params", null, anyOf(1.0, 2.0), 0.0, null, null, null),
+                row("c_timestamp", null, anyOf(1.0, 2.0), 0.0, null, null, null),
+                row("c_date", null, anyOf(1.0, 2.0), 0.0, null, null, null),
+                row("c_string", null, anyOf(1.0, 2.0), 0.0, null, null, null),
+                row("c_varchar", null, anyOf(1.0, 2.0), 0.0, null, null, null),
+                row("c_char", null, anyOf(1.0, 2.0), 0.0, null, null, null),
+                row("c_boolean", null, anyOf(1.0, 2.0), 0.0, null, null, null),
+                row("c_binary", null, null, 0.0, null, null, null),
+                row(null, null, null, null, 1.0, null, null));
     }
 
     @Test(groups = {HIVE_CONNECTOR, SKIP_ON_CDH}) // skip on cdh due to no support for date column and stats
@@ -260,45 +262,46 @@ public class TestHiveTableStatistics
     public void testStatisticsForAllDataTypesNoData()
     {
         String tableNameInDatabase = mutableTablesState().get(EMPTY_ALL_TYPES_TABLE_NAME).getNameInDatabase();
+
         onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " COMPUTE STATISTICS");
 
         assertThat(query("SHOW STATS FOR " + tableNameInDatabase)).containsOnly(
-                row("c_tinyint", null, null, null, null),
-                row("c_smallint", null, null, null, null),
-                row("c_int", null, null, null, null),
-                row("c_bigint", null, null, null, null),
-                row("c_float", null, null, null, null),
-                row("c_double", null, null, null, null),
-                row("c_decimal", null, null, null, null),
-                row("c_decimal_w_params", null, null, null, null),
-                row("c_timestamp", null, null, null, null),
-                row("c_date", null, null, null, null),
-                row("c_string", null, null, null, null),
-                row("c_varchar", null, null, null, null),
-                row("c_char", null, null, null, null),
-                row("c_boolean", null, null, null, null),
-                row("c_binary", null, null, null, null),
-                row(null, null, null, null, 0.0));
+                row("c_tinyint", null, null, null, null, null, null),
+                row("c_smallint", null, null, null, null, null, null),
+                row("c_int", null, null, null, null, null, null),
+                row("c_bigint", null, null, null, null, null, null),
+                row("c_float", null, null, null, null, null, null),
+                row("c_double", null, null, null, null, null, null),
+                row("c_decimal", null, null, null, null, null, null),
+                row("c_decimal_w_params", null, null, null, null, null, null),
+                row("c_timestamp", null, null, null, null, null, null),
+                row("c_date", null, null, null, null, null, null),
+                row("c_string", null, null, null, null, null, null),
+                row("c_varchar", null, null, null, null, null, null),
+                row("c_char", null, null, null, null, null, null),
+                row("c_boolean", null, null, null, null, null, null),
+                row("c_binary", null, null, null, null, null, null),
+                row(null, null, null, null, 0.0, null, null));
 
         onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " COMPUTE STATISTICS FOR COLUMNS");
 
         assertThat(query("SHOW STATS FOR " + tableNameInDatabase)).containsOnly(
-                row("c_tinyint", null, 0.0, 0.0, null),
-                row("c_smallint", null, 0.0, 0.0, null),
-                row("c_int", null, 0.0, 0.0, null),
-                row("c_bigint", null, 0.0, 0.0, null),
-                row("c_float", null, 0.0, 0.0, null),
-                row("c_double", null, 0.0, 0.0, null),
-                row("c_decimal", null, 0.0, 0.0, null),
-                row("c_decimal_w_params", null, 0.0, 0.0, null),
-                row("c_timestamp", null, 0.0, 0.0, null),
-                row("c_date", null, 0.0, 0.0, null),
-                row("c_string", null, 0.0, 0.0, null),
-                row("c_varchar", null, 0.0, 0.0, null),
-                row("c_char", null, 0.0, 0.0, null),
-                row("c_boolean", null, 0.0, 0.0, null),
-                row("c_binary", null, null, 0.0, null),
-                row(null, null, null, null, 0.0));
+                row("c_tinyint", null, 0.0, 0.0, null, null, null),
+                row("c_smallint", null, 0.0, 0.0, null, null, null),
+                row("c_int", null, 0.0, 0.0, null, null, null),
+                row("c_bigint", null, 0.0, 0.0, null, null, null),
+                row("c_float", null, 0.0, 0.0, null, null, null),
+                row("c_double", null, 0.0, 0.0, null, null, null),
+                row("c_decimal", null, 0.0, 0.0, null, null, null),
+                row("c_decimal_w_params", null, 0.0, 0.0, null, null, null),
+                row("c_timestamp", null, 0.0, 0.0, null, null, null),
+                row("c_date", null, 0.0, 0.0, null, null, null),
+                row("c_string", null, 0.0, 0.0, null, null, null),
+                row("c_varchar", null, 0.0, 0.0, null, null, null),
+                row("c_char", null, 0.0, 0.0, null, null, null),
+                row("c_boolean", null, 0.0, 0.0, null, null, null),
+                row("c_binary", null, null, 0.0, null, null, null),
+                row(null, null, null, null, 0.0, null, null));
     }
 
     @Test(groups = {HIVE_CONNECTOR, SKIP_ON_CDH}) // skip on cdh due to no support for date column and stats
@@ -311,42 +314,42 @@ public class TestHiveTableStatistics
         onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " COMPUTE STATISTICS");
 
         assertThat(query("SHOW STATS FOR " + tableNameInDatabase)).containsOnly(
-                row("c_tinyint", null, null, null, null),
-                row("c_smallint", null, null, null, null),
-                row("c_int", null, null, null, null),
-                row("c_bigint", null, null, null, null),
-                row("c_float", null, null, null, null),
-                row("c_double", null, null, null, null),
-                row("c_decimal", null, null, null, null),
-                row("c_decimal_w_params", null, null, null, null),
-                row("c_timestamp", null, null, null, null),
-                row("c_date", null, null, null, null),
-                row("c_string", null, null, null, null),
-                row("c_varchar", null, null, null, null),
-                row("c_char", null, null, null, null),
-                row("c_boolean", null, null, null, null),
-                row("c_binary", null, null, null, null),
-                row(null, null, null, null, 1.0));
+                row("c_tinyint", null, null, null, null, null, null),
+                row("c_smallint", null, null, null, null, null, null),
+                row("c_int", null, null, null, null, null, null),
+                row("c_bigint", null, null, null, null, null, null),
+                row("c_float", null, null, null, null, null, null),
+                row("c_double", null, null, null, null, null, null),
+                row("c_decimal", null, null, null, null, null, null),
+                row("c_decimal_w_params", null, null, null, null, null, null),
+                row("c_timestamp", null, null, null, null, null, null),
+                row("c_date", null, null, null, null, null, null),
+                row("c_string", null, null, null, null, null, null),
+                row("c_varchar", null, null, null, null, null, null),
+                row("c_char", null, null, null, null, null, null),
+                row("c_boolean", null, null, null, null, null, null),
+                row("c_binary", null, null, null, null, null, null),
+                row(null, null, null, null, 1.0, null, null));
 
         onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " COMPUTE STATISTICS FOR COLUMNS");
 
         assertThat(query("SHOW STATS FOR " + tableNameInDatabase)).containsOnly(
-                row("c_tinyint", null, 1.0, 1.0, null),
-                row("c_smallint", null, 1.0, 1.0, null),
-                row("c_int", null, 1.0, 1.0, null),
-                row("c_bigint", null, 1.0, 1.0, null),
-                row("c_float", null, 1.0, 1.0, null),
-                row("c_double", null, 1.0, 1.0, null),
-                row("c_decimal", null, 1.0, 1.0, null),
-                row("c_decimal_w_params", null, 1.0, 1.0, null),
-                row("c_timestamp", null, 1.0, 1.0, null),
-                row("c_date", null, 1.0, 1.0, null),
-                row("c_string", null, 1.0, 1.0, null),
-                row("c_varchar", null, 1.0, 1.0, null),
-                row("c_char", null, 1.0, 1.0, null),
-                row("c_boolean", null, 0.0, 1.0, null),
-                row("c_binary", null, null, 1.0, null),
-                row(null, null, null, null, 1.0));
+                row("c_tinyint", null, 1.0, 1.0, null, null, null),
+                row("c_smallint", null, 1.0, 1.0, null, null, null),
+                row("c_int", null, 1.0, 1.0, null, null, null),
+                row("c_bigint", null, 1.0, 1.0, null, null, null),
+                row("c_float", null, 1.0, 1.0, null, null, null),
+                row("c_double", null, 1.0, 1.0, null, null, null),
+                row("c_decimal", null, 1.0, 1.0, null, null, null),
+                row("c_decimal_w_params", null, 1.0, 1.0, null, null, null),
+                row("c_timestamp", null, 1.0, 1.0, null, null, null),
+                row("c_date", null, 1.0, 1.0, null, null, null),
+                row("c_string", null, 1.0, 1.0, null, null, null),
+                row("c_varchar", null, 1.0, 1.0, null, null, null),
+                row("c_char", null, 1.0, 1.0, null, null, null),
+                row("c_boolean", null, 0.0, 1.0, null, null, null),
+                row("c_binary", null, null, 1.0, null, null, null),
+                row(null, null, null, null, 1.0, null, null));
     }
 
     private static QueryExecutor onHive()
