@@ -225,6 +225,19 @@ Approximate Aggregate Functions
     for all ``value``\ s. This function is equivalent to the variant of
     :func:`numeric_histogram` that takes a ``weight``, with a per-item weight of ``1``.
 
+.. function:: approx_most_frequent(max_counts, value) -> map<[same as value], bigint>
+
+    Returns an upper bound on the counts of up ``max_counts`` of some of the most
+    frequent ``value``\ s. The algorithm periodically truncates the histogram
+    to ``buckets`` entries and overflows the truncated entries by setting the
+    lowest retained entries to a constant, rounding up.
+    If there are fewer than ``max_counts`` distinct values, the result is the exact
+    histogram of ``value``. Otherwise, the result contains upper bounds on the counts
+    of ``max_counts`` distinct ``value``\ s.
+    Furthermore, the error is less than the minimum count retained in the histogram.
+    In both cases, the sum of the returned counts is at least the number of ``value``\ s.
+
+
 Statistical Aggregate Functions
 -------------------------------
 
