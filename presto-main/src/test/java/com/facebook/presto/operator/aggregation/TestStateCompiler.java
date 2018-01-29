@@ -255,7 +255,7 @@ public class TestStateCompiler
                 field.setAccessible(true);
                 if (type == BlockBigArray.class || type == BooleanBigArray.class || type == SliceBigArray.class ||
                         type == ByteBigArray.class || type == DoubleBigArray.class || type == LongBigArray.class || type == IntBigArray.class) {
-                    MethodHandle sizeOf = Reflection.methodHandle(type, "sizeOf", null);
+                    MethodHandle sizeOf = Reflection.methodHandle(type, "sizeOf");
                     retainedSize += (long) sizeOf.invokeWithArguments(field.get(state));
                 }
             }
@@ -283,7 +283,7 @@ public class TestStateCompiler
                         continue;
                     }
                     bigArrayField.setAccessible(true);
-                    MethodHandle sizeOf = Reflection.methodHandle(bigArrayField.getType(), "sizeOf", null);
+                    MethodHandle sizeOf = Reflection.methodHandle(bigArrayField.getType(), "sizeOf");
                     overhead += (long) sizeOf.invokeWithArguments(bigArrayField.get(stateField.get(state)));
                 }
             }
