@@ -81,7 +81,6 @@ public class LocalExchange
             int sinkFactoryCount,
             int bufferCount,
             PartitioningHandle partitioning,
-            int defaultConcurrency,
             List<? extends Type> types,
             List<Integer> partitionChannels,
             Optional<Integer> partitionHashChannel,
@@ -259,7 +258,6 @@ public class LocalExchange
     public static class LocalExchangeFactory
     {
         private final PartitioningHandle partitioning;
-        private final int defaultConcurrency;
         private final List<Type> types;
         private final List<Integer> partitionChannels;
         private final Optional<Integer> partitionHashChannel;
@@ -300,7 +298,6 @@ public class LocalExchange
                 DataSize maxBufferedBytes)
         {
             this.partitioning = requireNonNull(partitioning, "partitioning is null");
-            this.defaultConcurrency = defaultConcurrency;
             this.types = requireNonNull(types, "types is null");
             this.partitionChannels = requireNonNull(partitionChannels, "partitioningChannels is null");
             this.partitionHashChannel = requireNonNull(partitionHashChannel, "partitionHashChannel is null");
@@ -344,7 +341,7 @@ public class LocalExchange
             return localExchangeMap.computeIfAbsent(lifespan, ignored -> {
                 checkState(noMoreSinkFactories);
                 LocalExchange localExchange =
-                        new LocalExchange(numSinkFactories, bufferCount, partitioning, defaultConcurrency, types, partitionChannels, partitionHashChannel, maxBufferedBytes);
+                        new LocalExchange(numSinkFactories, bufferCount, partitioning, types, partitionChannels, partitionHashChannel, maxBufferedBytes);
                 for (LocalExchangeSinkFactoryId closedSinkFactoryId : closedSinkFactories) {
                     localExchange.getSinkFactory(closedSinkFactoryId).close();
                 }
