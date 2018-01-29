@@ -45,7 +45,7 @@ public class TestTpchDistributedStats
         statisticsAssertion = new StatisticsAssertion(runner);
     }
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void tearDown()
     {
         statisticsAssertion.close();
