@@ -15,6 +15,8 @@ package com.facebook.presto.sql.planner.iterative;
 
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.google.common.collect.HashMultiset;
+import com.google.common.collect.Multiset;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -56,18 +58,20 @@ import static java.util.Objects.requireNonNull;
  */
 public class Memo
 {
+    private static final int ROOT_GROUP_REF = 0;
+
     private final PlanNodeIdAllocator idAllocator;
     private final int rootGroup;
 
     private final Map<Integer, Group> groups = new HashMap<>();
 
-    private int nextGroupId;
+    private int nextGroupId = ROOT_GROUP_REF + 1;
 
     public Memo(PlanNodeIdAllocator idAllocator, PlanNode plan)
     {
         this.idAllocator = idAllocator;
         rootGroup = insertRecursive(plan);
-        groups.get(rootGroup).referenceCount++;
+        groups.get(rootGroup).incomingReferences.add(ROOT_GROUP_REF);
     }
 
     public int getRootGroup()
@@ -118,35 +122,34 @@ public class Memo
             node = insertChildrenAndRewrite(node);
         }
 
-        incrementReferenceCounts(node);
+        incrementReferenceCounts(node, group);
         getGroup(group).membership = node;
-        decrementReferenceCounts(old);
+        decrementReferenceCounts(old, group);
 
         return node;
     }
 
-    private void incrementReferenceCounts(PlanNode node)
+    private void incrementReferenceCounts(PlanNode fromNode, int fromGroup)
     {
-        Set<Integer> references = getAllReferences(node);
+        Set<Integer> references = getAllReferences(fromNode);
 
         for (int group : references) {
-            groups.get(group).referenceCount++;
+            groups.get(group).incomingReferences.add(fromGroup);
         }
     }
 
-    private void decrementReferenceCounts(PlanNode node)
+    private void decrementReferenceCounts(PlanNode fromNode, int fromGroup)
     {
-        Set<Integer> references = getAllReferences(node);
+        Set<Integer> references = getAllReferences(fromNode);
 
         for (int group : references) {
             Group childGroup = groups.get(group);
-            childGroup.referenceCount--;
-            checkState(childGroup.referenceCount >= 0, "Reference count became negative");
+            checkState(childGroup.incomingReferences.remove(fromGroup), "Reference to remove not found");
 
-            if (childGroup.referenceCount == 0) {
+            if (childGroup.incomingReferences.isEmpty()) {
                 PlanNode child = childGroup.membership;
                 deleteGroup(group);
-                decrementReferenceCounts(child);
+                decrementReferenceCounts(child, group);
             }
         }
     }
@@ -185,7 +188,7 @@ public class Memo
         PlanNode rewritten = insertChildrenAndRewrite(node);
 
         groups.put(group, Group.withMember(rewritten));
-        incrementReferenceCounts(rewritten);
+        incrementReferenceCounts(rewritten, group);
 
         return group;
     }
@@ -208,7 +211,7 @@ public class Memo
         }
 
         private PlanNode membership;
-        private int referenceCount;
+        private Multiset<Integer> incomingReferences = HashMultiset.create();
 
         private Group(PlanNode member)
         {
