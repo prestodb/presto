@@ -11,25 +11,31 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.security;
+package com.facebook.presto.spi.security;
 
 import java.security.Principal;
 import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
-public class TestingPrincipal
+public final class BasicPrincipal
         implements Principal
 {
     private final String name;
 
-    public TestingPrincipal(String name)
+    public BasicPrincipal(String name)
     {
         this.name = requireNonNull(name, "name is null");
     }
 
     @Override
     public String getName()
+    {
+        return name;
+    }
+
+    @Override
+    public String toString()
     {
         return name;
     }
@@ -43,7 +49,7 @@ public class TestingPrincipal
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        TestingPrincipal that = (TestingPrincipal) o;
+        BasicPrincipal that = (BasicPrincipal) o;
         return Objects.equals(name, that.name);
     }
 
@@ -51,11 +57,5 @@ public class TestingPrincipal
     public int hashCode()
     {
         return Objects.hash(name);
-    }
-
-    @Override
-    public String toString()
-    {
-        return name;
     }
 }
