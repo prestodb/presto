@@ -19,7 +19,6 @@ import com.google.common.util.concurrent.SettableFuture;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -39,8 +38,6 @@ public class LocalExchangeMemoryManager
 
     @GuardedBy("this")
     private SettableFuture<?> notFullFuture = NOT_FULL;
-
-    private final AtomicBoolean blockOnFull = new AtomicBoolean(true);
 
     public LocalExchangeMemoryManager(long maxBufferedBytes)
     {
@@ -70,29 +67,11 @@ public class LocalExchangeMemoryManager
 
     public synchronized ListenableFuture<?> getNotFullFuture()
     {
-        // if we are full and still blocking and the current not full future is already complete, create a new one
-        if (bufferedBytes.get() > maxBufferedBytes && blockOnFull.get() && notFullFuture.isDone()) {
+        // if we are full and the current not full future is already complete, create a new one
+        if (bufferedBytes.get() > maxBufferedBytes && notFullFuture.isDone()) {
             notFullFuture = SettableFuture.create();
         }
         return notFullFuture;
-    }
-
-    public void setNoBlockOnFull()
-    {
-        blockOnFull.set(false);
-
-        SettableFuture<?> future;
-        synchronized (this) {
-            if (notFullFuture.isDone()) {
-                return;
-            }
-
-            future = notFullFuture;
-            notFullFuture = NOT_FULL;
-        }
-
-        // complete future outside of lock since this can invoke callbacks
-        future.set(null);
     }
 
     public long getBufferedBytes()
