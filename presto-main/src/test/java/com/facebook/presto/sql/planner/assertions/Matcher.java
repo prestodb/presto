@@ -14,7 +14,7 @@
 package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.cost.PlanNodeStatsEstimate;
+import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 
@@ -63,11 +63,11 @@ public interface Matcher
      * node if shapeMatches didn't return true for the same node.
      *
      * @param node The node to apply the matching tests to
-     * @param stats The computed stats of plan node
+     * @param stats Provider of stats for
      * @param session The session information for the query
      * @param metadata The metadata for the query
      * @param symbolAliases The SymbolAliases containing aliases from the nodes sources
      * @return a MatchResult with information about the success of the match
      */
-    MatchResult detailMatches(PlanNode node, PlanNodeStatsEstimate stats, Session session, Metadata metadata, SymbolAliases symbolAliases);
+    MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases);
 }

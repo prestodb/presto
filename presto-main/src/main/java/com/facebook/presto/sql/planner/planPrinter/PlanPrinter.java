@@ -14,8 +14,10 @@
 package com.facebook.presto.sql.planner.planPrinter;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.cost.CachingStatsProvider;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.cost.StatsCalculator;
+import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.StageStats;
 import com.facebook.presto.metadata.FunctionRegistry;
@@ -154,8 +156,7 @@ public class PlanPrinter
         this.stats = Optional.empty();
         this.verbose = verbose;
 
-        Map<PlanNodeId, PlanNodeStatsEstimate> stats = statsCalculator.calculateStatsForPlan(session, types, plan);
-        Visitor visitor = new Visitor(types, stats, session);
+        Visitor visitor = new Visitor(statsCalculator, types, session);
         plan.accept(visitor, indent);
     }
 
@@ -170,8 +171,7 @@ public class PlanPrinter
         this.stats = Optional.of(stats);
         this.verbose = verbose;
 
-        Map<PlanNodeId, PlanNodeStatsEstimate> planStats = statsCalculator.calculateStatsForPlan(session, types, plan);
-        Visitor visitor = new Visitor(types, planStats, session);
+        Visitor visitor = new Visitor(statsCalculator, types, session);
         plan.accept(visitor, indent);
     }
 
@@ -520,14 +520,14 @@ public class PlanPrinter
             extends PlanVisitor<Void, Integer>
     {
         private final Map<Symbol, Type> types;
-        private final Map<PlanNodeId, PlanNodeStatsEstimate> planNodesStats;
+        private final StatsProvider statsProvider;
         private final Session session;
 
         @SuppressWarnings("AssignmentToCollectionOrArrayFieldFromParameter")
-        public Visitor(Map<Symbol, Type> types, Map<PlanNodeId, PlanNodeStatsEstimate> planNodesStats, Session session)
+        public Visitor(StatsCalculator statsCalculator, Map<Symbol, Type> types, Session session)
         {
             this.types = types;
-            this.planNodesStats = planNodesStats;
+            this.statsProvider = new CachingStatsProvider(statsCalculator, session, types);
             this.session = session;
         }
 
@@ -1300,12 +1300,12 @@ public class PlanPrinter
 
         private boolean isPlanNodeStatsKnown(PlanNode node)
         {
-            return !UNKNOWN_STATS.equals(planNodesStats.getOrDefault(node.getId(), UNKNOWN_STATS));
+            return !UNKNOWN_STATS.equals(statsProvider.getStats(node));
         }
 
         private String formatPlanNodeStats(PlanNode node)
         {
-            PlanNodeStatsEstimate stats = planNodesStats.getOrDefault(node.getId(), UNKNOWN_STATS);
+            PlanNodeStatsEstimate stats = statsProvider.getStats(node);
             double outputRowCount = stats.getOutputRowCount();
             double outputSizeInBytes = stats.getOutputSizeInBytes();
             return String.format("{rows: %s, bytes: %s}",

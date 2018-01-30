@@ -14,8 +14,9 @@
 package com.facebook.presto.sql.planner.iterative.rule.test;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.cost.PlanNodeStatsEstimate;
+import com.facebook.presto.cost.CachingStatsProvider;
 import com.facebook.presto.cost.StatsCalculator;
+import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.matching.Match;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
@@ -30,12 +31,12 @@ import com.facebook.presto.sql.planner.iterative.Memo;
 import com.facebook.presto.sql.planner.iterative.PlanNodeMatcher;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.planPrinter.PlanPrinter;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
@@ -136,8 +137,7 @@ public class RuleAssert
         }
 
         inTransaction(session -> {
-            Map<PlanNodeId, PlanNodeStatsEstimate> planNodeStats = statsCalculator.calculateStatsForPlan(session, types, actual);
-            assertPlan(session, metadata, statsCalculator, new Plan(actual, types, planNodeStats), ruleApplication.lookup, pattern);
+            assertPlan(session, metadata, statsCalculator, new Plan(actual, types), ruleApplication.lookup, pattern);
             return null;
         });
     }
@@ -150,7 +150,7 @@ public class RuleAssert
 
         PlanNode memoRoot = memo.getNode(memo.getRootGroup());
 
-        return inTransaction(session -> applyRule(rule, memoRoot, ruleContext(symbolAllocator, lookup, session)));
+        return inTransaction(session -> applyRule(rule, memoRoot, ruleContext(statsCalculator, symbolAllocator, memo, lookup, session)));
     }
 
     private static <T> RuleApplication applyRule(Rule<T> rule, PlanNode planNode, Rule.Context context)
@@ -185,8 +185,10 @@ public class RuleAssert
                 });
     }
 
-    private Rule.Context ruleContext(SymbolAllocator symbolAllocator, Lookup lookup, Session session)
+    private Rule.Context ruleContext(StatsCalculator statsCalculator, SymbolAllocator symbolAllocator, Memo memo, Lookup lookup, Session session)
     {
+        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, Optional.of(memo), lookup, session, symbolAllocator::getTypes);
+
         return new Rule.Context()
         {
             @Override
@@ -211,6 +213,12 @@ public class RuleAssert
             public Session getSession()
             {
                 return session;
+            }
+
+            @Override
+            public StatsProvider getStatsProvider()
+            {
+                return statsProvider;
             }
         };
     }
