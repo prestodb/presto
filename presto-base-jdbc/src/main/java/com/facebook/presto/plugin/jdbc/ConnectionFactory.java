@@ -16,8 +16,15 @@ package com.facebook.presto.plugin.jdbc;
 import java.sql.Connection;
 import java.sql.SQLException;
 
+@FunctionalInterface
 public interface ConnectionFactory
+        extends AutoCloseable
 {
     Connection openConnection()
             throws SQLException;
+
+    @Override
+    default void close()
+            throws SQLException
+    {}
 }
