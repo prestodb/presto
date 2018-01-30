@@ -16,23 +16,25 @@ package com.facebook.presto.cost;
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
+import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 
 import java.util.Map;
 
-/**
- * Interface of cost calculator.
- * <p>
- * It's responsibility is to provide approximation of cost of execution of plan node.
- * Example implementations may be based on table statistics or data samples.
- */
 public interface StatsCalculator
 {
-    Map<PlanNodeId, PlanNodeStatsEstimate> calculateStatsForPlan(Session session, Map<Symbol, Type> types, PlanNode node);
-
-    default PlanNodeStatsEstimate calculateStatsForNode(Session session, Map<Symbol, Type> types, PlanNode node)
-    {
-        return calculateStatsForPlan(session, types, node).get(node.getId());
-    }
+    /**
+     * Calculate stats for the {@code node}.
+     *
+     * @param node The node to compute stats for.
+     * @param sourceStats The stats provider for any child nodes' stats, if needed to compute stats for the {@code node}
+     * @param lookup Lookup to be used when resolving source nodes, allowing stats calculation to work within {@link IterativeOptimizer}
+     */
+    PlanNodeStatsEstimate calculateStats(
+            PlanNode node,
+            StatsProvider sourceStats,
+            Lookup lookup,
+            Session session,
+            Map<Symbol, Type> types);
 }

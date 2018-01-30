@@ -744,7 +744,7 @@ public class LocalQueryRunner
         FeaturesConfig featuresConfig = new FeaturesConfig()
                 .setDistributedIndexJoinsEnabled(false)
                 .setOptimizeHashGeneration(true);
-        return new PlanOptimizers(metadata, sqlParser, featuresConfig, forceSingleNode, new MBeanExporter(new TestingMBeanServer())).get();
+        return new PlanOptimizers(metadata, sqlParser, featuresConfig, forceSingleNode, new MBeanExporter(new TestingMBeanServer()), statsCalculator).get();
     }
 
     public Plan createPlan(Session session, @Language("SQL") String sql, List<PlanOptimizer> optimizers)
@@ -777,7 +777,7 @@ public class LocalQueryRunner
                 dataDefinitionTask);
         Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.of(queryExplainer), parameters);
 
-        LogicalPlanner logicalPlanner = new LogicalPlanner(session, optimizers, idAllocator, metadata, sqlParser, statsCalculator);
+        LogicalPlanner logicalPlanner = new LogicalPlanner(session, optimizers, idAllocator, metadata, sqlParser);
 
         Analysis analysis = analyzer.analyze(statement);
         return logicalPlanner.plan(analysis, stage);

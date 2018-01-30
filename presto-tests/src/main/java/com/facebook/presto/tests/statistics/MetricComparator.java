@@ -37,10 +37,9 @@ public final class MetricComparator
 {
     private MetricComparator() {}
 
-    public static List<MetricComparison> createMetricComparisons(Plan queryPlan, StageInfo outputStageInfo)
+    public static List<MetricComparison> createMetricComparisons(Plan queryPlan, Map<PlanNodeId, PlanNodeStatsEstimate> estimates, StageInfo outputStageInfo)
     {
         return Stream.of(Metric.values()).flatMap(metric -> {
-            Map<PlanNodeId, PlanNodeStatsEstimate> estimates = queryPlan.getPlanNodeStats();
             Map<PlanNodeId, PlanNodeStatsEstimate> actuals = extractActualStats(outputStageInfo);
             return estimates.entrySet().stream().map(entry -> {
                 // todo refactor to stay in PlanNodeId domain ????

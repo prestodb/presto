@@ -90,7 +90,10 @@ public class TestEliminateSorts
                 new UnaliasSymbolReferences(),
                 new AddExchanges(getQueryRunner().getMetadata(), new SqlParser()),
                 new PruneUnreferencedOutputs(),
-                new IterativeOptimizer(new StatsRecorder(), ImmutableSet.of(new RemoveRedundantIdentityProjections())));
+                new IterativeOptimizer(
+                        new StatsRecorder(),
+                        getQueryRunner().getStatsCalculator(),
+                        ImmutableSet.of(new RemoveRedundantIdentityProjections())));
 
         assertPlan(sql, pattern, optimizers);
     }

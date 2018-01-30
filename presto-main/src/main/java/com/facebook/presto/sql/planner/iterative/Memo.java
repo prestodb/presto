@@ -13,14 +13,18 @@
  */
 package com.facebook.presto.sql.planner.iterative;
 
+import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.google.common.collect.HashMultiset;
 import com.google.common.collect.Multiset;
 
+import javax.annotation.Nullable;
+
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -125,8 +129,33 @@ public class Memo
         incrementReferenceCounts(node, group);
         getGroup(group).membership = node;
         decrementReferenceCounts(old, group);
+        evictStatistics(group);
 
         return node;
+    }
+
+    private void evictStatistics(int group)
+    {
+        getGroup(group).stats = null;
+        for (int parentGroup : getGroup(group).incomingReferences.elementSet()) {
+            if (parentGroup != ROOT_GROUP_REF) {
+                evictStatistics(parentGroup);
+            }
+        }
+    }
+
+    public Optional<PlanNodeStatsEstimate> getStats(int group)
+    {
+        return Optional.ofNullable(getGroup(group).stats);
+    }
+
+    public void storeStats(int groupId, PlanNodeStatsEstimate stats)
+    {
+        Group group = getGroup(groupId);
+        if (group.stats != null) {
+            evictStatistics(groupId);
+        }
+        group.stats = requireNonNull(stats, "stats is null");
     }
 
     private void incrementReferenceCounts(PlanNode fromNode, int fromGroup)
@@ -212,6 +241,8 @@ public class Memo
 
         private PlanNode membership;
         private Multiset<Integer> incomingReferences = HashMultiset.create();
+        @Nullable
+        private PlanNodeStatsEstimate stats;
 
         private Group(PlanNode member)
         {

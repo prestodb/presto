@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
+import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.predicate.Domain;
@@ -461,7 +462,7 @@ public final class PlanMatchPattern
         return states.build();
     }
 
-    MatchResult detailMatches(PlanNode node, PlanNodeStatsEstimate stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
         SymbolAliases.Builder newAliases = SymbolAliases.builder();
 

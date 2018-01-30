@@ -14,11 +14,19 @@
 
 package com.facebook.presto.tests.statistics;
 
+import com.facebook.presto.Session;
+import com.facebook.presto.cost.CachingStatsProvider;
+import com.facebook.presto.cost.PlanNodeStatsEstimate;
+import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.plan.OutputNode;
+import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.tests.DistributedQueryRunner;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.TreeTraverser;
 import org.intellij.lang.annotations.Language;
 
 import java.util.List;
@@ -30,6 +38,7 @@ import static com.facebook.presto.tests.statistics.MetricComparison.Result.MATCH
 import static com.facebook.presto.tests.statistics.MetricComparison.Result.NO_BASELINE;
 import static com.facebook.presto.tests.statistics.MetricComparison.Result.NO_ESTIMATE;
 import static com.facebook.presto.tests.statistics.MetricComparisonStrategies.defaultTolerance;
+import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
@@ -53,15 +62,23 @@ public class StatisticsAssertion
 
     public Result check(@Language("SQL") String query)
     {
-        return new Result(metricComparisons(query));
+        return transaction(runner.getTransactionManager(), runner.getAccessControl())
+                .singleStatement()
+                .execute(runner.getDefaultSession(), (Session session) -> new Result(metricComparisons(session, query)));
     }
 
-    public List<MetricComparison> metricComparisons(@Language("SQL") String query)
+    private List<MetricComparison> metricComparisons(Session session, @Language("SQL") String query)
     {
-        String queryId = runner.executeWithQueryId(runner.getDefaultSession(), query).getQueryId();
+        String queryId = runner.executeWithQueryId(session, query).getQueryId();
         Plan queryPlan = runner.getQueryPlan(new QueryId(queryId));
         StageInfo stageInfo = runner.getQueryInfo(new QueryId(queryId)).getOutputStage().get();
-        return createMetricComparisons(queryPlan, stageInfo);
+
+        StatsProvider statsProvider = new CachingStatsProvider(runner.getStatsCalculator(), session, queryPlan.getTypes());
+        ImmutableMap<PlanNodeId, PlanNodeStatsEstimate> estimates = TreeTraverser.using(PlanNode::getSources)
+                .preOrderTraversal(queryPlan.getRoot())
+                .stream()
+                .collect(toImmutableMap(PlanNode::getId, statsProvider::getStats));
+        return createMetricComparisons(queryPlan, estimates, stageInfo);
     }
 
     public static class Result

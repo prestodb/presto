@@ -18,7 +18,6 @@ import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.assertions.ExpectedValueProvider;
 import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
-import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.optimizations.UnaliasSymbolReferences;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.google.common.collect.ImmutableList;
@@ -26,7 +25,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
-import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
@@ -42,10 +40,6 @@ import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 public class TestCanonicalize
         extends BasePlanTest
 {
-    private static final List<PlanOptimizer> OPTIMIZERS = ImmutableList.of(
-            new UnaliasSymbolReferences(),
-            new IterativeOptimizer(new StatsRecorder(), ImmutableSet.of(new RemoveRedundantIdentityProjections())));
-
     @Test
     public void testJoin()
     {
@@ -80,6 +74,11 @@ public class TestCanonicalize
                                         .specification(specification)
                                         .addFunction(functionCall("row_number", Optional.empty(), ImmutableList.of())),
                                 values("A"))),
-                OPTIMIZERS);
+                ImmutableList.of(
+                        new UnaliasSymbolReferences(),
+                        new IterativeOptimizer(
+                                new StatsRecorder(),
+                                getQueryRunner().getStatsCalculator(),
+                                ImmutableSet.of(new RemoveRedundantIdentityProjections()))));
     }
 }

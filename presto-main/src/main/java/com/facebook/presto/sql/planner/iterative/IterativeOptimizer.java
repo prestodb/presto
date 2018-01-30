@@ -15,6 +15,9 @@ package com.facebook.presto.sql.planner.iterative;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.cost.CachingStatsProvider;
+import com.facebook.presto.cost.StatsCalculator;
+import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.matching.Match;
 import com.facebook.presto.matching.Matcher;
 import com.facebook.presto.spi.PrestoException;
@@ -31,6 +34,7 @@ import io.airlift.units.Duration;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -44,17 +48,19 @@ public class IterativeOptimizer
         implements PlanOptimizer
 {
     private final StatsRecorder stats;
+    private final StatsCalculator statsCalculator;
     private final List<PlanOptimizer> legacyRules;
     private final RuleIndex ruleIndex;
 
-    public IterativeOptimizer(StatsRecorder stats, Set<Rule<?>> rules)
+    public IterativeOptimizer(StatsRecorder stats, StatsCalculator statsCalculator, Set<Rule<?>> rules)
     {
-        this(stats, ImmutableList.of(), rules);
+        this(stats, statsCalculator, ImmutableList.of(), rules);
     }
 
-    public IterativeOptimizer(StatsRecorder stats, List<PlanOptimizer> legacyRules, Set<Rule<?>> newRules)
+    public IterativeOptimizer(StatsRecorder stats, StatsCalculator statsCalculator, List<PlanOptimizer> legacyRules, Set<Rule<?>> newRules)
     {
         this.stats = requireNonNull(stats, "stats is null");
+        this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
         this.legacyRules = ImmutableList.copyOf(legacyRules);
         this.ruleIndex = RuleIndex.builder()
                 .register(newRules)
@@ -189,6 +195,8 @@ public class IterativeOptimizer
 
     private Rule.Context ruleContext(Context context)
     {
+        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, Optional.of(context.memo), context.lookup, context.session, context.symbolAllocator::getTypes);
+
         return new Rule.Context()
         {
             @Override
@@ -213,6 +221,12 @@ public class IterativeOptimizer
             public Session getSession()
             {
                 return context.session;
+            }
+
+            @Override
+            public StatsProvider getStatsProvider()
+            {
+                return statsProvider;
             }
         };
     }

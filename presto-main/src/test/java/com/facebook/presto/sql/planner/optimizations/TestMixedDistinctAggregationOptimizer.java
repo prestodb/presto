@@ -112,7 +112,10 @@ public class TestMixedDistinctAggregationOptimizer
     {
         List<PlanOptimizer> optimizers = ImmutableList.of(
                 new UnaliasSymbolReferences(),
-                new IterativeOptimizer(new StatsRecorder(), ImmutableSet.of(new RemoveRedundantIdentityProjections())),
+                new IterativeOptimizer(
+                        new StatsRecorder(),
+                        getQueryRunner().getStatsCalculator(),
+                        ImmutableSet.of(new RemoveRedundantIdentityProjections())),
                 new OptimizeMixedDistinctAggregations(getQueryRunner().getMetadata()),
                 new PruneUnreferencedOutputs());
         assertPlan(sql, pattern, optimizers);
