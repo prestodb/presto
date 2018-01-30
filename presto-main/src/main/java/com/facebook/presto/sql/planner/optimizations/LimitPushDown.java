@@ -190,10 +190,10 @@ public class LimitPushDown
 
             PlanNode rewrittenSource = context.rewrite(node.getSource());
             if (limit != null) {
-                return new TopNNode(node.getId(), rewrittenSource, limit.getCount(), node.getOrderBy(), node.getOrderings(), TopNNode.Step.SINGLE);
+                return new TopNNode(node.getId(), rewrittenSource, limit.getCount(), node.getOrderingScheme().getOrderBy(), node.getOrderingScheme().getOrderings(), TopNNode.Step.SINGLE);
             }
             else if (rewrittenSource != node.getSource()) {
-                return new SortNode(node.getId(), rewrittenSource, node.getOrderBy(), node.getOrderings());
+                return new SortNode(node.getId(), rewrittenSource, node.getOrderingScheme());
             }
             return node;
         }
