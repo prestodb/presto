@@ -30,6 +30,7 @@ import java.util.Set;
 import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.CERTIFICATE;
 import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.KERBEROS;
 import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.LDAP;
+import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.PASSWORD;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
@@ -42,6 +43,8 @@ public class ServerSecurityModule
         newSetBinder(binder, Filter.class, TheServlet.class).addBinding()
                 .to(AuthenticationFilter.class).in(Scopes.SINGLETON);
 
+        binder.bind(PasswordAuthenticatorManager.class).in(Scopes.SINGLETON);
+
         List<AuthenticationType> authTypes = buildConfigObject(SecurityConfig.class).getAuthenticationTypes();
         Multibinder<Authenticator> authBinder = newSetBinder(binder, Authenticator.class);
 
@@ -52,6 +55,9 @@ public class ServerSecurityModule
             else if (authType == KERBEROS) {
                 configBinder(binder).bindConfig(KerberosConfig.class);
                 authBinder.addBinding().to(KerberosAuthenticator.class).in(Scopes.SINGLETON);
+            }
+            else if (authType == PASSWORD) {
+                authBinder.addBinding().to(PasswordAuthenticator.class).in(Scopes.SINGLETON);
             }
             else if (authType == LDAP) {
                 configBinder(binder).bindConfig(LdapConfig.class);
