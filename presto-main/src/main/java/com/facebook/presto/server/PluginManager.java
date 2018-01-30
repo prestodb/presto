@@ -19,12 +19,14 @@ import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControlManager;
+import com.facebook.presto.server.security.PasswordAuthenticatorManager;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.block.BlockEncodingFactory;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.eventlistener.EventListenerFactory;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerFactory;
+import com.facebook.presto.spi.security.PasswordAuthenticatorFactory;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
 import com.facebook.presto.spi.session.SessionPropertyConfigurationManagerFactory;
 import com.facebook.presto.spi.type.ParametricType;
@@ -76,6 +78,7 @@ public class PluginManager
     private final Metadata metadata;
     private final ResourceGroupManager resourceGroupManager;
     private final AccessControlManager accessControlManager;
+    private final PasswordAuthenticatorManager passwordAuthenticatorManager;
     private final EventListenerManager eventListenerManager;
     private final BlockEncodingManager blockEncodingManager;
     private final SessionSupplier sessionSupplier;
@@ -95,6 +98,7 @@ public class PluginManager
             Metadata metadata,
             ResourceGroupManager resourceGroupManager,
             AccessControlManager accessControlManager,
+            PasswordAuthenticatorManager passwordAuthenticatorManager,
             EventListenerManager eventListenerManager,
             BlockEncodingManager blockEncodingManager,
             SessionSupplier sessionSupplier,
@@ -117,6 +121,7 @@ public class PluginManager
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.resourceGroupManager = requireNonNull(resourceGroupManager, "resourceGroupManager is null");
         this.accessControlManager = requireNonNull(accessControlManager, "accessControlManager is null");
+        this.passwordAuthenticatorManager = requireNonNull(passwordAuthenticatorManager, "passwordAuthenticatorManager is null");
         this.eventListenerManager = requireNonNull(eventListenerManager, "eventListenerManager is null");
         this.blockEncodingManager = requireNonNull(blockEncodingManager, "blockEncodingManager is null");
         this.sessionSupplier = requireNonNull(sessionSupplier, "sessionSupplier is null");
@@ -211,6 +216,11 @@ public class PluginManager
         for (SystemAccessControlFactory accessControlFactory : plugin.getSystemAccessControlFactories()) {
             log.info("Registering system access control %s", accessControlFactory.getName());
             accessControlManager.addSystemAccessControlFactory(accessControlFactory);
+        }
+
+        for (PasswordAuthenticatorFactory authenticatorFactory : plugin.getPasswordAuthenticatorFactories()) {
+            log.info("Registering password authenticator %s", authenticatorFactory.getName());
+            passwordAuthenticatorManager.addPasswordAuthenticatorFactory(authenticatorFactory);
         }
 
         for (EventListenerFactory eventListenerFactory : plugin.getEventListenerFactories()) {

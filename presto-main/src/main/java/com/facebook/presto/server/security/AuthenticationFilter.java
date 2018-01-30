@@ -37,6 +37,7 @@ import java.util.Set;
 import static com.google.common.io.ByteStreams.copy;
 import static com.google.common.io.ByteStreams.nullOutputStream;
 import static com.google.common.net.HttpHeaders.WWW_AUTHENTICATE;
+import static java.util.Objects.requireNonNull;
 import static javax.servlet.http.HttpServletResponse.SC_UNAUTHORIZED;
 
 public class AuthenticationFilter
@@ -106,6 +107,7 @@ public class AuthenticationFilter
 
     private static ServletRequest withPrincipal(HttpServletRequest request, Principal principal)
     {
+        requireNonNull(principal, "principal is null");
         return new HttpServletRequestWrapper(request)
         {
             @Override

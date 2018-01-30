@@ -33,6 +33,7 @@ import com.facebook.presto.server.GracefulShutdownHandler;
 import com.facebook.presto.server.PluginManager;
 import com.facebook.presto.server.ServerMainModule;
 import com.facebook.presto.server.ShutdownAction;
+import com.facebook.presto.server.security.ServerSecurityModule;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.split.SplitManager;
@@ -204,6 +205,7 @@ public class TestingPrestoServer
                 .add(new TestingJmxModule())
                 .add(new EventModule())
                 .add(new TraceTokenModule())
+                .add(new ServerSecurityModule())
                 .add(new ServerMainModule(parserOptions))
                 .add(binder -> {
                     binder.bind(TestingAccessControlManager.class).in(Scopes.SINGLETON);
