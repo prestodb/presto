@@ -31,6 +31,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 
 import javax.annotation.Nullable;
+import javax.annotation.PreDestroy;
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
@@ -102,6 +103,13 @@ public class BaseJdbcClient
         requireNonNull(config, "config is null"); // currently unused, retained as parameter for future extensions
         this.identifierQuote = requireNonNull(identifierQuote, "identifierQuote is null");
         this.connectionFactory = requireNonNull(connectionFactory, "connectionFactory is null");
+    }
+
+    @PreDestroy
+    public void destroy()
+            throws Exception
+    {
+        connectionFactory.close();
     }
 
     @Override
