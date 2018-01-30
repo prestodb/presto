@@ -26,6 +26,7 @@ import java.util.stream.Stream;
 import static com.facebook.presto.sql.planner.iterative.Plans.resolveGroupReferences;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Stores a plan in a form that's efficient to mutate locally (i.e. without
@@ -58,8 +59,7 @@ public class Memo
     private final PlanNodeIdAllocator idAllocator;
     private final int rootGroup;
 
-    private final Map<Integer, PlanNode> membership = new HashMap<>();
-    private final Map<Integer, Integer> referenceCounts = new HashMap<>();
+    private final Map<Integer, Group> groups = new HashMap<>();
 
     private int nextGroupId;
 
@@ -67,7 +67,7 @@ public class Memo
     {
         this.idAllocator = idAllocator;
         rootGroup = insertRecursive(plan);
-        referenceCounts.put(rootGroup, 1);
+        groups.get(rootGroup).referenceCount++;
     }
 
     public int getRootGroup()
@@ -75,10 +75,15 @@ public class Memo
         return rootGroup;
     }
 
+    private Group getGroup(int group)
+    {
+        checkArgument(groups.containsKey(group), "Invalid group: %s", group);
+        return groups.get(group);
+    }
+
     public PlanNode getNode(int group)
     {
-        checkArgument(membership.containsKey(group), "Invalid group: %s", group);
-        return membership.get(group);
+        return getGroup(group).membership;
     }
 
     public PlanNode resolve(GroupReference groupReference)
@@ -98,7 +103,7 @@ public class Memo
 
     public PlanNode replace(int group, PlanNode node, String reason)
     {
-        PlanNode old = membership.get(group);
+        PlanNode old = getGroup(group).membership;
 
         checkArgument(new HashSet<>(old.getOutputSymbols()).equals(new HashSet<>(node.getOutputSymbols())),
                 "%s: transformed expression doesn't produce same outputs: %s vs %s",
@@ -114,7 +119,7 @@ public class Memo
         }
 
         incrementReferenceCounts(node);
-        membership.put(group, node);
+        getGroup(group).membership = node;
         decrementReferenceCounts(old);
 
         return node;
@@ -125,7 +130,7 @@ public class Memo
         Set<Integer> references = getAllReferences(node);
 
         for (int group : references) {
-            referenceCounts.compute(group, (g, count) -> count + 1);
+            groups.get(group).referenceCount++;
         }
     }
 
@@ -134,11 +139,12 @@ public class Memo
         Set<Integer> references = getAllReferences(node);
 
         for (int group : references) {
-            int newCount = referenceCounts.compute(group, (g, count) -> count - 1);
-            checkState(newCount >= 0, "Reference count became negative");
+            Group childGroup = groups.get(group);
+            childGroup.referenceCount--;
+            checkState(childGroup.referenceCount >= 0, "Reference count became negative");
 
-            if (newCount == 0) {
-                PlanNode child = membership.get(group);
+            if (childGroup.referenceCount == 0) {
+                PlanNode child = childGroup.membership;
                 deleteGroup(group);
                 decrementReferenceCounts(child);
             }
@@ -155,8 +161,7 @@ public class Memo
 
     private void deleteGroup(int group)
     {
-        membership.remove(group);
-        referenceCounts.remove(group);
+        groups.remove(group);
     }
 
     private PlanNode insertChildrenAndRewrite(PlanNode node)
@@ -179,8 +184,7 @@ public class Memo
         int group = nextGroupId();
         PlanNode rewritten = insertChildrenAndRewrite(node);
 
-        membership.put(group, rewritten);
-        referenceCounts.put(group, 0);
+        groups.put(group, Group.withMember(rewritten));
         incrementReferenceCounts(rewritten);
 
         return group;
@@ -193,6 +197,22 @@ public class Memo
 
     public int getGroupCount()
     {
-        return membership.size();
+        return groups.size();
+    }
+
+    private static final class Group
+    {
+        static Group withMember(PlanNode member)
+        {
+            return new Group(member);
+        }
+
+        private PlanNode membership;
+        private int referenceCount;
+
+        private Group(PlanNode member)
+        {
+            this.membership = requireNonNull(member, "member is null");
+        }
     }
 }
