@@ -147,9 +147,7 @@ public class Memo
             checkState(childGroup.incomingReferences.remove(fromGroup), "Reference to remove not found");
 
             if (childGroup.incomingReferences.isEmpty()) {
-                PlanNode child = childGroup.membership;
                 deleteGroup(group);
-                decrementReferenceCounts(child, group);
             }
         }
     }
@@ -164,7 +162,9 @@ public class Memo
 
     private void deleteGroup(int group)
     {
-        groups.remove(group);
+        checkArgument(getGroup(group).incomingReferences.isEmpty(), "Cannot delete group that has incoming references");
+        PlanNode deletedNode = groups.remove(group).membership;
+        decrementReferenceCounts(deletedNode, group);
     }
 
     private PlanNode insertChildrenAndRewrite(PlanNode node)
