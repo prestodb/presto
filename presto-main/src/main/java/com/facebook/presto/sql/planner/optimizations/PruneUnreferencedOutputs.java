@@ -590,11 +590,11 @@ public class PruneUnreferencedOutputs
         @Override
         public PlanNode visitSort(SortNode node, RewriteContext<Set<Symbol>> context)
         {
-            Set<Symbol> expectedInputs = ImmutableSet.copyOf(concat(context.get(), node.getOrderBy()));
+            Set<Symbol> expectedInputs = ImmutableSet.copyOf(concat(context.get(), node.getOrderingScheme().getOrderBy()));
 
             PlanNode source = context.rewrite(node.getSource(), expectedInputs);
 
-            return new SortNode(node.getId(), source, node.getOrderBy(), node.getOrderings());
+            return new SortNode(node.getId(), source, node.getOrderingScheme());
         }
 
         @Override

@@ -474,8 +474,8 @@ public class AddExchanges
                 // skip the SortNode if the local properties guarantee ordering on Sort keys
                 // TODO: This should be extracted as a separate optimizer once the planner is able to reason about the ordering of each operator
                 List<LocalProperty<Symbol>> desiredProperties = new ArrayList<>();
-                for (Symbol symbol : node.getOrderBy()) {
-                    desiredProperties.add(new SortingProperty<>(symbol, node.getOrderings().get(symbol)));
+                for (Symbol symbol : node.getOrderingScheme().getOrderBy()) {
+                    desiredProperties.add(new SortingProperty<>(symbol, node.getOrderingScheme().getOrdering(symbol)));
                 }
 
                 if (LocalProperties.match(child.getProperties().getLocalProperties(), desiredProperties).stream()
