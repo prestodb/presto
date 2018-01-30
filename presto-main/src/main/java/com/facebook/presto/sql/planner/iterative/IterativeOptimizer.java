@@ -108,14 +108,14 @@ public class IterativeOptimizer
 
     private boolean exploreNode(int group, Context context, Matcher matcher)
     {
-        PlanNode node = context.getMemo().getNode(group);
+        PlanNode node = context.memo.getNode(group);
 
         boolean done = false;
         boolean progress = false;
 
         while (!done) {
             if (isTimeLimitExhausted(context)) {
-                throw new PrestoException(OPTIMIZER_TIMEOUT, format("The optimizer exhausted the time limit of %d ms", context.getTimeoutInMilliseconds()));
+                throw new PrestoException(OPTIMIZER_TIMEOUT, format("The optimizer exhausted the time limit of %d ms", context.timeoutInMilliseconds));
             }
 
             done = true;
@@ -130,7 +130,7 @@ public class IterativeOptimizer
                 Rule.Result result = transform(node, rule, matcher, context);
 
                 if (result.getTransformedPlan().isPresent()) {
-                    node = context.getMemo().replace(group, result.getTransformedPlan().get(), rule.getClass().getName());
+                    node = context.memo.replace(group, result.getTransformedPlan().get(), rule.getClass().getName());
 
                     done = false;
                     progress = true;
@@ -154,7 +154,7 @@ public class IterativeOptimizer
         long duration;
         try {
             long start = System.nanoTime();
-            result = rule.apply(match.value(), match.captures(), context);
+            result = rule.apply(match.value(), match.captures(), ruleContext(context));
             duration = System.nanoTime() - start;
         }
         catch (RuntimeException e) {
@@ -168,14 +168,14 @@ public class IterativeOptimizer
 
     private boolean isTimeLimitExhausted(Context context)
     {
-        return ((System.nanoTime() - context.getStartTimeInNanos()) / 1_000_000) >= context.getTimeoutInMilliseconds();
+        return ((System.nanoTime() - context.startTimeInNanos) / 1_000_000) >= context.timeoutInMilliseconds;
     }
 
     private boolean exploreChildren(int group, Context context, Matcher matcher)
     {
         boolean progress = false;
 
-        PlanNode expression = context.getMemo().getNode(group);
+        PlanNode expression = context.memo.getNode(group);
         for (PlanNode child : expression.getSources()) {
             checkState(child instanceof GroupReference, "Expected child to be a group reference. Found: " + child.getClass().getName());
 
@@ -187,8 +187,37 @@ public class IterativeOptimizer
         return progress;
     }
 
+    private Rule.Context ruleContext(Context context)
+    {
+        return new Rule.Context()
+        {
+            @Override
+            public Lookup getLookup()
+            {
+                return context.lookup;
+            }
+
+            @Override
+            public PlanNodeIdAllocator getIdAllocator()
+            {
+                return context.idAllocator;
+            }
+
+            @Override
+            public SymbolAllocator getSymbolAllocator()
+            {
+                return context.symbolAllocator;
+            }
+
+            @Override
+            public Session getSession()
+            {
+                return context.session;
+            }
+        };
+    }
+
     private static class Context
-            implements Rule.Context
     {
         private final Memo memo;
         private final Lookup lookup;
@@ -216,45 +245,6 @@ public class IterativeOptimizer
             this.startTimeInNanos = startTimeInNanos;
             this.timeoutInMilliseconds = timeoutInMilliseconds;
             this.session = session;
-        }
-
-        public Memo getMemo()
-        {
-            return memo;
-        }
-
-        @Override
-        public Lookup getLookup()
-        {
-            return lookup;
-        }
-
-        @Override
-        public PlanNodeIdAllocator getIdAllocator()
-        {
-            return idAllocator;
-        }
-
-        @Override
-        public SymbolAllocator getSymbolAllocator()
-        {
-            return symbolAllocator;
-        }
-
-        public long getStartTimeInNanos()
-        {
-            return startTimeInNanos;
-        }
-
-        public long getTimeoutInMilliseconds()
-        {
-            return timeoutInMilliseconds;
-        }
-
-        @Override
-        public Session getSession()
-        {
-            return session;
         }
     }
 }
