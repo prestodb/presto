@@ -13,10 +13,8 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
@@ -27,17 +25,14 @@ public class Plan
 {
     private final PlanNode root;
     private final Map<Symbol, Type> types;
-    private final Map<PlanNodeId, PlanNodeStatsEstimate> planNodeStats;
 
-    public Plan(PlanNode root, Map<Symbol, Type> types, Map<PlanNodeId, PlanNodeStatsEstimate> planNodeStats)
+    public Plan(PlanNode root, Map<Symbol, Type> types)
     {
         requireNonNull(root, "root is null");
         requireNonNull(types, "types is null");
-        requireNonNull(planNodeStats, "planNodeStats is null");
 
         this.root = root;
         this.types = ImmutableMap.copyOf(types);
-        this.planNodeStats = planNodeStats;
     }
 
     public PlanNode getRoot()
@@ -48,10 +43,5 @@ public class Plan
     public Map<Symbol, Type> getTypes()
     {
         return types;
-    }
-
-    public Map<PlanNodeId, PlanNodeStatsEstimate> getPlanNodeStats()
-    {
-        return planNodeStats;
     }
 }
