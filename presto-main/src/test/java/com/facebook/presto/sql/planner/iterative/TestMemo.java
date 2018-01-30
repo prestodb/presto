@@ -22,6 +22,7 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static org.testng.Assert.assertEquals;
 
 public class TestMemo
@@ -55,6 +56,29 @@ public class TestMemo
         memo.replace(getChildGroup(memo, memo.getRootGroup()), transformed, "rule");
         assertEquals(memo.getGroupCount(), 3);
         assertMatchesStructure(memo.extract(), node(plan.getId(), transformed));
+    }
+
+    /*
+      From: X -> Y  -> Z
+      To:   X -> Y' -> Z
+     */
+    @Test
+    public void testReplaceNode()
+    {
+        PlanNode z = node();
+        PlanNode y = node(z);
+        PlanNode x = node(y);
+
+        Memo memo = new Memo(idAllocator, x);
+        assertEquals(memo.getGroupCount(), 3);
+
+        // replace child of root node with another node, retaining child's child
+        int yGroup = getChildGroup(memo, memo.getRootGroup());
+        GroupReference zRef = (GroupReference) getOnlyElement(memo.getNode(yGroup).getSources());
+        PlanNode transformed = node(zRef);
+        memo.replace(yGroup, transformed, "rule");
+        assertEquals(memo.getGroupCount(), 3);
+        assertMatchesStructure(memo.extract(), node(x.getId(), node(transformed.getId(), z)));
     }
 
     /*
