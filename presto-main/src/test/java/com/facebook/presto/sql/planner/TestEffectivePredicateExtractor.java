@@ -272,7 +272,7 @@ public class TestEffectivePredicateExtractor
                                 equals(AE, BE),
                                 equals(BE, CE),
                                 lessThan(CE, bigintLiteral(10)))),
-                ImmutableList.of(A), ImmutableMap.of(A, SortOrder.ASC_NULLS_LAST));
+                new OrderingScheme(ImmutableList.of(A), ImmutableMap.of(A, SortOrder.ASC_NULLS_LAST)));
 
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node);
 

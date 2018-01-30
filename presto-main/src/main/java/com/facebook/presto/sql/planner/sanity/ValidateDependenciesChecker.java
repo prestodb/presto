@@ -264,7 +264,11 @@ public final class ValidateDependenciesChecker
 
             Set<Symbol> inputs = createInputs(source, boundSymbols);
             checkDependencies(inputs, node.getOutputSymbols(), "Invalid node. Output symbols (%s) not in source plan output (%s)", node.getOutputSymbols(), node.getSource().getOutputSymbols());
-            checkDependencies(inputs, node.getOrderBy(), "Invalid node. Order by dependencies (%s) not in source plan output (%s)", node.getOrderBy(), node.getSource().getOutputSymbols());
+            checkDependencies(
+                    inputs,
+                    node.getOrderingScheme().getOrderBy(),
+                    "Invalid node. Order by dependencies (%s) not in source plan output (%s)",
+                    node.getOrderingScheme().getOrderBy(), node.getSource().getOutputSymbols());
 
             return null;
         }

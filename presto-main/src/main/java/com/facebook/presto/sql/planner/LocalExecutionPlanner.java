@@ -878,13 +878,13 @@ public class LocalExecutionPlanner
         {
             PhysicalOperation source = node.getSource().accept(this, context);
 
-            List<Symbol> orderBySymbols = node.getOrderBy();
+            List<Symbol> orderBySymbols = node.getOrderingScheme().getOrderBy();
 
             List<Integer> orderByChannels = getChannelsForSymbols(orderBySymbols, source.getLayout());
 
             ImmutableList.Builder<SortOrder> sortOrder = ImmutableList.builder();
             for (Symbol symbol : orderBySymbols) {
-                sortOrder.add(node.getOrderings().get(symbol));
+                sortOrder.add(node.getOrderingScheme().getOrdering(symbol));
             }
 
             ImmutableList.Builder<Integer> outputChannels = ImmutableList.builder();
