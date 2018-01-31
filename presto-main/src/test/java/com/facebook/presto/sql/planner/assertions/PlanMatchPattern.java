@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.block.SortOrder;
@@ -557,9 +556,9 @@ public final class PlanMatchPattern
         return this;
     }
 
-    public PlanMatchPattern withStats(PlanNodeStatsEstimate stats)
+    public PlanMatchPattern withOutputRowCount(double expectedOutputRowCount)
     {
-        matchers.add(new PlanStatsMatcher(stats));
+        matchers.add(new StatsOutputRowCountMatcher(expectedOutputRowCount));
         return this;
     }
 

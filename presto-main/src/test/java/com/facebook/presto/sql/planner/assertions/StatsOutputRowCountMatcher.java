@@ -14,21 +14,18 @@
 package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 
-import static java.util.Objects.requireNonNull;
-
-public class PlanStatsMatcher
+public class StatsOutputRowCountMatcher
         implements Matcher
 {
-    private final PlanNodeStatsEstimate expectedStats;
+    private final double expectedOutputRowCount;
 
-    PlanStatsMatcher(PlanNodeStatsEstimate expectedStats)
+    StatsOutputRowCountMatcher(double expectedOutputRowCount)
     {
-        this.expectedStats = requireNonNull(expectedStats, "expectedStats is null");
+        this.expectedOutputRowCount = expectedOutputRowCount;
     }
 
     @Override
@@ -40,12 +37,12 @@ public class PlanStatsMatcher
     @Override
     public MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
-        return new MatchResult(expectedStats.equals(stats.getStats(node)));
+        return new MatchResult(Double.compare(stats.getStats(node).getOutputRowCount(), expectedOutputRowCount) == 0);
     }
 
     @Override
     public String toString()
     {
-        return "expectedStats(" + expectedStats + ")";
+        return "expectedOutputRowCount(" + expectedOutputRowCount + ")";
     }
 }
