@@ -21,9 +21,12 @@ import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
+import org.testng.annotations.Test;
 
 import static com.facebook.presto.SystemSessionProperties.ENABLE_NEW_STATS_CALCULATOR;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.facebook.presto.tests.statistics.MetricComparisonStrategies.defaultTolerance;
+import static com.facebook.presto.tests.statistics.Metrics.OUTPUT_ROW_COUNT;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 
 public class TestTpchLocalStats
@@ -56,5 +59,16 @@ public class TestTpchLocalStats
             queryRunner.close();
             queryRunner = null;
         }
+    }
+
+    @Test
+    public void testTableScanStats()
+    {
+        statisticsAssertion.check("SELECT * FROM nation",
+                checks -> checks
+                        .estimate(OUTPUT_ROW_COUNT, defaultTolerance())
+                        .verifyExactColumnStatistics("n_nationkey")
+                        .verifyExactColumnStatistics("n_regionkey")
+                        .verifyExactColumnStatistics("n_name"));
     }
 }
