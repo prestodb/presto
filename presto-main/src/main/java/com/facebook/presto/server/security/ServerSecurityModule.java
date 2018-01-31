@@ -29,7 +29,6 @@ import java.util.Set;
 
 import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.CERTIFICATE;
 import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.KERBEROS;
-import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.LDAP;
 import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.PASSWORD;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
@@ -58,10 +57,6 @@ public class ServerSecurityModule
             }
             else if (authType == PASSWORD) {
                 authBinder.addBinding().to(PasswordAuthenticator.class).in(Scopes.SINGLETON);
-            }
-            else if (authType == LDAP) {
-                configBinder(binder).bindConfig(LdapConfig.class);
-                authBinder.addBinding().to(LdapAuthenticator.class).in(Scopes.SINGLETON);
             }
             else {
                 throw new AssertionError("Unhandled auth type: " + authType);

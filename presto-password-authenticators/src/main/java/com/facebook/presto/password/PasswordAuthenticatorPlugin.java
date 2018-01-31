@@ -11,21 +11,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.server.security.util.jndi;
+package com.facebook.presto.password;
 
-import javax.naming.NamingException;
-import javax.naming.directory.InitialDirContext;
+import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.spi.security.PasswordAuthenticatorFactory;
+import com.google.common.collect.ImmutableList;
 
-import java.util.Hashtable;
-import java.util.Map;
-
-public final class JndiUtils
+public class PasswordAuthenticatorPlugin
+        implements Plugin
 {
-    private JndiUtils() {}
-
-    public static InitialDirContext getInitialDirContext(Map<String, String> environment)
-            throws NamingException
+    @Override
+    public Iterable<PasswordAuthenticatorFactory> getPasswordAuthenticatorFactories()
     {
-        return new InitialDirContext(new Hashtable<>(environment));
+        return ImmutableList.<PasswordAuthenticatorFactory>builder()
+                .add(new LdapAuthenticatorFactory())
+                .build();
     }
 }
