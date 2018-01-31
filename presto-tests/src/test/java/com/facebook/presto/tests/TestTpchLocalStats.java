@@ -80,5 +80,14 @@ public class TestTpchLocalStats
 
         statisticsAssertion.check("SELECT * FROM orders WHERE o_orderdate < DATE '1993-10-01' + INTERVAL '3' MONTH",
                 checks -> checks.estimate(OUTPUT_ROW_COUNT, defaultTolerance()));
+
+        statisticsAssertion.check("SELECT * FROM orders WHERE o_orderdate >= DATE '1993-10-01' AND o_orderdate < DATE '1993-10-01' + INTERVAL '3' MONTH",
+                checks -> checks.estimate(OUTPUT_ROW_COUNT, defaultTolerance()));
+
+        statisticsAssertion.check("SELECT * FROM orders WHERE o_orderdate >= DATE '1993-10-01' OR o_orderdate < DATE '1993-10-01' + INTERVAL '3' MONTH",
+                checks -> checks.estimate(OUTPUT_ROW_COUNT, defaultTolerance()));
+
+        statisticsAssertion.check("SELECT * FROM orders WHERE NOT (o_orderdate >= DATE '1993-10-01' AND o_orderdate < DATE '1993-10-01' + INTERVAL '3' MONTH)",
+                checks -> checks.estimate(OUTPUT_ROW_COUNT, defaultTolerance()));
     }
 }
