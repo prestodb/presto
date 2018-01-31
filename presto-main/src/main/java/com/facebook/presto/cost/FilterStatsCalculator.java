@@ -16,12 +16,21 @@ package com.facebook.presto.cost;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.LiteralInterpreter;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.AstVisitor;
+import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.Literal;
+import com.facebook.presto.sql.tree.SymbolReference;
 
 import java.util.Map;
 
+import static com.facebook.presto.cost.ComparisonStatsCalculator.comparisonSymbolToLiteralStats;
+import static com.facebook.presto.cost.ComparisonStatsCalculator.comparisonSymbolToSymbolStats;
+import static com.facebook.presto.cost.StatsUtil.toStatsRepresentation;
+import static java.lang.Double.NaN;
 import static java.util.Objects.requireNonNull;
 
 public class FilterStatsCalculator
@@ -72,6 +81,40 @@ public class FilterStatsCalculator
         private PlanNodeStatsEstimate filterForUnknownExpression()
         {
             return filterStatsForUnknownExpression(input);
+        }
+
+        @Override
+        protected PlanNodeStatsEstimate visitComparisonExpression(ComparisonExpression node, Void context)
+        {
+            // TODO: verify we eliminate Literal-Literal earlier or support them here
+
+            ComparisonExpressionType type = node.getType();
+            Expression left = node.getLeft();
+            Expression right = node.getRight();
+
+            if (!(left instanceof SymbolReference) && right instanceof SymbolReference) {
+                // normalize so that symbol is on the left
+                return process(new ComparisonExpression(type.flip(), right, left));
+            }
+
+            if (left instanceof SymbolReference && right instanceof Literal) {
+                Symbol symbol = Symbol.from(left);
+                double literal = doubleValueFromLiteral(types.get(symbol), (Literal) right);
+                return comparisonSymbolToLiteralStats(input, symbol, literal, type);
+            }
+
+            if (right instanceof SymbolReference) {
+                // left is SymbolReference too
+                return comparisonSymbolToSymbolStats(input, Symbol.from(left), Symbol.from(right), type);
+            }
+
+            return filterStatsForUnknownExpression(input);
+        }
+
+        private double doubleValueFromLiteral(Type type, Literal literal)
+        {
+            Object literalValue = LiteralInterpreter.evaluate(metadata, session.toConnectorSession(), literal);
+            return toStatsRepresentation(metadata, session, type, literalValue).orElse(NaN);
         }
     }
 }

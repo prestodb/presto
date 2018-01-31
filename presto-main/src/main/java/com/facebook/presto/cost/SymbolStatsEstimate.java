@@ -80,6 +80,11 @@ public class SymbolStatsEstimate
         return nullsFraction;
     }
 
+    public StatisticRange statisticRange()
+    {
+        return new StatisticRange(lowValue, highValue, distinctValuesCount);
+    }
+
     public double getValuesFraction()
     {
         return 1.0 - nullsFraction;
@@ -151,6 +156,13 @@ public class SymbolStatsEstimate
         private double nullsFraction = NaN;
         private double averageRowSize = NaN;
         private double distinctValuesCount = NaN;
+
+        public Builder setStatisticsRange(StatisticRange range)
+        {
+            return setLowValue(range.getLow())
+                    .setHighValue(range.getHigh())
+                    .setDistinctValuesCount(range.getDistinctValuesCount());
+        }
 
         public Builder setLowValue(double lowValue)
         {
