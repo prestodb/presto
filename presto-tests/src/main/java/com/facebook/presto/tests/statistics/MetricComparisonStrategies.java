@@ -16,7 +16,7 @@ package com.facebook.presto.tests.statistics;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-public class MetricComparisonStrategies
+public final class MetricComparisonStrategies
 {
     private MetricComparisonStrategies() {}
 
