@@ -19,10 +19,13 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.LiteralInterpreter;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.AstVisitor;
+import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.InListExpression;
+import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.Literal;
@@ -39,7 +42,14 @@ import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.differenceInNon
 import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.differenceInStats;
 import static com.facebook.presto.cost.StatsUtil.toStatsRepresentation;
 import static com.facebook.presto.cost.SymbolStatsEstimate.ZERO_STATS;
+import static com.facebook.presto.sql.ExpressionUtils.and;
+import static com.facebook.presto.sql.tree.ComparisonExpressionType.EQUAL;
+import static com.facebook.presto.sql.tree.ComparisonExpressionType.GREATER_THAN_OR_EQUAL;
+import static com.facebook.presto.sql.tree.ComparisonExpressionType.LESS_THAN_OR_EQUAL;
 import static java.lang.Double.NaN;
+import static java.lang.Double.isInfinite;
+import static java.lang.Double.isNaN;
+import static java.lang.Double.min;
 import static java.util.Objects.requireNonNull;
 
 public class FilterStatsCalculator
@@ -161,6 +171,56 @@ public class FilterStatsCalculator
                                         .setDistinctValuesCount(0.0).build());
             }
             return visitExpression(node, context);
+        }
+
+        @Override
+        protected PlanNodeStatsEstimate visitBetweenPredicate(BetweenPredicate node, Void context)
+        {
+            if (!(node.getValue() instanceof SymbolReference) || !(node.getMin() instanceof Literal) || !(node.getMax() instanceof Literal)) {
+                return visitExpression(node, context);
+            }
+
+            SymbolStatsEstimate valueStats = input.getSymbolStatistics(Symbol.from(node.getValue()));
+            Expression lowerBound = new ComparisonExpression(GREATER_THAN_OR_EQUAL, node.getValue(), node.getMin());
+            Expression upperBound = new ComparisonExpression(LESS_THAN_OR_EQUAL, node.getValue(), node.getMax());
+
+            Expression transformed;
+            if (isInfinite(valueStats.getLowValue())) {
+                // We want to do heuristic cut (infinite range to finite range) ASAP and then do filtering on finite range.
+                // We rely on 'and()' being processed left to right
+                transformed = and(lowerBound, upperBound);
+            }
+            else {
+                transformed = and(upperBound, lowerBound);
+            }
+            return process(transformed);
+        }
+
+        @Override
+        protected PlanNodeStatsEstimate visitInPredicate(InPredicate node, Void context)
+        {
+            if (!(node.getValue() instanceof SymbolReference) || !(node.getValueList() instanceof InListExpression)) {
+                return visitExpression(node, context);
+            }
+
+            InListExpression inList = (InListExpression) node.getValueList();
+            PlanNodeStatsEstimate statsSum = inList.getValues().stream()
+                    .map(inValue -> process(new ComparisonExpression(EQUAL, node.getValue(), inValue)))
+                    .reduce(filterForFalseExpression(), PlanNodeStatsEstimateMath::addStatsAndSumDistinctValues);
+
+            if (isNaN(statsSum.getOutputRowCount())) {
+                return visitExpression(node, context);
+            }
+
+            Symbol inValueSymbol = Symbol.from(node.getValue());
+            SymbolStatsEstimate symbolStats = input.getSymbolStatistics(inValueSymbol);
+            double notNullValuesBeforeIn = input.getOutputRowCount() * (1 - symbolStats.getNullsFraction());
+
+            SymbolStatsEstimate newSymbolStats = statsSum.getSymbolStatistics(inValueSymbol)
+                    .mapDistinctValuesCount(newDistinctValuesCount -> min(newDistinctValuesCount, symbolStats.getDistinctValuesCount()));
+
+            return input.mapOutputRowCount(rowCount -> min(statsSum.getOutputRowCount(), notNullValuesBeforeIn))
+                    .mapSymbolColumnStatistics(inValueSymbol, oldSymbolStats -> newSymbolStats);
         }
 
         @Override
