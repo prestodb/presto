@@ -23,6 +23,8 @@ import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.IsNotNullPredicate;
+import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.Literal;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.NotExpression;
@@ -130,6 +132,35 @@ public class FilterStatsCalculator
                 return input;
             }
             return filterForFalseExpression();
+        }
+
+        @Override
+        // TODO update commit message
+        protected PlanNodeStatsEstimate visitIsNotNullPredicate(IsNotNullPredicate node, Void context)
+        {
+            if (node.getValue() instanceof SymbolReference) {
+                Symbol symbol = Symbol.from(node.getValue());
+                SymbolStatsEstimate symbolStatsEstimate = input.getSymbolStatistics(symbol);
+                return input.mapOutputRowCount(rowCount -> rowCount * (1 - symbolStatsEstimate.getNullsFraction()))
+                        .mapSymbolColumnStatistics(symbol, statsEstimate -> statsEstimate.mapNullsFraction(x -> 0.0));
+            }
+            return visitExpression(node, context);
+        }
+
+        @Override
+        protected PlanNodeStatsEstimate visitIsNullPredicate(IsNullPredicate node, Void context)
+        {
+            if (node.getValue() instanceof SymbolReference) {
+                Symbol symbol = Symbol.from(node.getValue());
+                SymbolStatsEstimate symbolStatsEstimate = input.getSymbolStatistics(symbol);
+                return input.mapOutputRowCount(rowCount -> rowCount * symbolStatsEstimate.getNullsFraction())
+                        .mapSymbolColumnStatistics(symbol, statsEstimate ->
+                                SymbolStatsEstimate.builder().setNullsFraction(1.0)
+                                        .setLowValue(NaN)
+                                        .setHighValue(NaN)
+                                        .setDistinctValuesCount(0.0).build());
+            }
+            return visitExpression(node, context);
         }
 
         @Override
