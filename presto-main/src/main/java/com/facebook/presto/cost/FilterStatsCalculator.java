@@ -34,6 +34,7 @@ import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.SymbolReference;
 
 import java.util.Map;
+import java.util.OptionalDouble;
 
 import static com.facebook.presto.cost.ComparisonStatsCalculator.comparisonSymbolToLiteralStats;
 import static com.facebook.presto.cost.ComparisonStatsCalculator.comparisonSymbolToSymbolStats;
@@ -239,7 +240,7 @@ public class FilterStatsCalculator
 
             if (left instanceof SymbolReference && right instanceof Literal) {
                 Symbol symbol = Symbol.from(left);
-                double literal = doubleValueFromLiteral(types.get(symbol), (Literal) right);
+                OptionalDouble literal = doubleValueFromLiteral(types.get(symbol), (Literal) right);
                 return comparisonSymbolToLiteralStats(input, symbol, literal, type);
             }
 
@@ -251,10 +252,10 @@ public class FilterStatsCalculator
             return filterStatsForUnknownExpression(input);
         }
 
-        private double doubleValueFromLiteral(Type type, Literal literal)
+        private OptionalDouble doubleValueFromLiteral(Type type, Literal literal)
         {
             Object literalValue = LiteralInterpreter.evaluate(metadata, session.toConnectorSession(), literal);
-            return toStatsRepresentation(metadata, session, type, literalValue).orElse(NaN);
+            return toStatsRepresentation(metadata, session, type, literalValue);
         }
     }
 }

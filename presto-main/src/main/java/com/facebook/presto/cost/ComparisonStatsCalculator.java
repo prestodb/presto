@@ -16,6 +16,8 @@ package com.facebook.presto.cost;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.ComparisonExpressionType;
 
+import java.util.OptionalDouble;
+
 import static com.facebook.presto.cost.FilterStatsCalculator.filterStatsForUnknownExpression;
 import static com.facebook.presto.cost.SymbolStatsEstimate.buildFrom;
 import static java.lang.Double.NEGATIVE_INFINITY;
@@ -28,7 +30,11 @@ public final class ComparisonStatsCalculator
 {
     private ComparisonStatsCalculator() {}
 
-    public static PlanNodeStatsEstimate comparisonSymbolToLiteralStats(PlanNodeStatsEstimate inputStatistics, Symbol symbol, double doubleLiteral, ComparisonExpressionType type)
+    public static PlanNodeStatsEstimate comparisonSymbolToLiteralStats(
+            PlanNodeStatsEstimate inputStatistics,
+            Symbol symbol,
+            OptionalDouble doubleLiteral,
+            ComparisonExpressionType type)
     {
         switch (type) {
             case EQUAL:
@@ -66,18 +72,32 @@ public final class ComparisonStatsCalculator
                 .mapSymbolColumnStatistics(symbol, oldStats -> symbolNewEstimate);
     }
 
-    private static PlanNodeStatsEstimate symbolToLiteralEquality(PlanNodeStatsEstimate inputStatistics, Symbol symbol, double literal)
+    private static PlanNodeStatsEstimate symbolToLiteralEquality(PlanNodeStatsEstimate inputStatistics, Symbol symbol, OptionalDouble literal)
     {
-        return symbolToLiteralRangeComparison(inputStatistics, symbol, new StatisticRange(literal, literal, 1));
+        StatisticRange literalRange;
+        if (literal.isPresent()) {
+            literalRange = new StatisticRange(literal.getAsDouble(), literal.getAsDouble(), 1);
+        }
+        else {
+            literalRange = new StatisticRange(NEGATIVE_INFINITY, POSITIVE_INFINITY, 1);
+        }
+        return symbolToLiteralRangeComparison(inputStatistics, symbol, literalRange);
     }
 
-    private static PlanNodeStatsEstimate symbolToLiteralNonEquality(PlanNodeStatsEstimate inputStatistics, Symbol symbol, double literal)
+    private static PlanNodeStatsEstimate symbolToLiteralNonEquality(PlanNodeStatsEstimate inputStatistics, Symbol symbol, OptionalDouble literal)
     {
         SymbolStatsEstimate symbolStats = inputStatistics.getSymbolStatistics(symbol);
 
         StatisticRange range = StatisticRange.from(symbolStats);
-        StatisticRange intersectRange = range.intersect(new StatisticRange(literal, literal, 1));
 
+        StatisticRange literalRange;
+        if (literal.isPresent()) {
+            literalRange = new StatisticRange(literal.getAsDouble(), literal.getAsDouble(), 1);
+        }
+        else {
+            literalRange = new StatisticRange(NEGATIVE_INFINITY, POSITIVE_INFINITY, 1);
+        }
+        StatisticRange intersectRange = range.intersect(literalRange);
         double filterFactor = 1 - range.overlapPercentWith(intersectRange);
 
         return inputStatistics.mapOutputRowCount(rowCount -> filterFactor * (1 - symbolStats.getNullsFraction()) * rowCount)
@@ -87,14 +107,14 @@ public final class ComparisonStatsCalculator
                         .build());
     }
 
-    private static PlanNodeStatsEstimate symbolToLiteralLessThan(PlanNodeStatsEstimate inputStatistics, Symbol symbol, double literal)
+    private static PlanNodeStatsEstimate symbolToLiteralLessThan(PlanNodeStatsEstimate inputStatistics, Symbol symbol, OptionalDouble literal)
     {
-        return symbolToLiteralRangeComparison(inputStatistics, symbol, new StatisticRange(NEGATIVE_INFINITY, literal, NaN));
+        return symbolToLiteralRangeComparison(inputStatistics, symbol, new StatisticRange(NEGATIVE_INFINITY, literal.orElse(POSITIVE_INFINITY), NaN));
     }
 
-    private static PlanNodeStatsEstimate symbolToLiteralGreaterThan(PlanNodeStatsEstimate inputStatistics, Symbol symbol, double literal)
+    private static PlanNodeStatsEstimate symbolToLiteralGreaterThan(PlanNodeStatsEstimate inputStatistics, Symbol symbol, OptionalDouble literal)
     {
-        return symbolToLiteralRangeComparison(inputStatistics, symbol, new StatisticRange(literal, POSITIVE_INFINITY, NaN));
+        return symbolToLiteralRangeComparison(inputStatistics, symbol, new StatisticRange(literal.orElse(NEGATIVE_INFINITY), POSITIVE_INFINITY, NaN));
     }
 
     public static PlanNodeStatsEstimate comparisonSymbolToSymbolStats(PlanNodeStatsEstimate inputStatistics, Symbol left, Symbol right, ComparisonExpressionType type)

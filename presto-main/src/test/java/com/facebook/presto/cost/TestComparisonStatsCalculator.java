@@ -17,10 +17,12 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.BeforeMethod;
@@ -101,6 +103,13 @@ public class TestComparisonStatsCalculator
                 .setHighValue(NaN)
                 .setNullsFraction(NaN)
                 .build();
+        SymbolStatsEstimate varcharStats = SymbolStatsEstimate.builder()
+                .setAverageRowSize(4.0)
+                .setDistinctValuesCount(50.0)
+                .setLowValue(NEGATIVE_INFINITY)
+                .setHighValue(POSITIVE_INFINITY)
+                .setNullsFraction(0.1)
+                .build();
         standardInputStatistics = PlanNodeStatsEstimate.builder()
                 .addSymbolStatistics(new Symbol("x"), xStats)
                 .addSymbolStatistics(new Symbol("y"), yStats)
@@ -109,6 +118,7 @@ public class TestComparisonStatsCalculator
                 .addSymbolStatistics(new Symbol("rightOpen"), rightOpenStats)
                 .addSymbolStatistics(new Symbol("unknownRange"), unknownRangeStats)
                 .addSymbolStatistics(new Symbol("emptyRange"), emptyRangeStats)
+                .addSymbolStatistics(new Symbol("varchar"), varcharStats)
                 .setOutputRowCount(1000.0)
                 .build();
 
@@ -120,6 +130,7 @@ public class TestComparisonStatsCalculator
                 .put(new Symbol("rightOpen"), DoubleType.DOUBLE)
                 .put(new Symbol("unknownRange"), DoubleType.DOUBLE)
                 .put(new Symbol("emptyRange"), DoubleType.DOUBLE)
+                .put(new Symbol("varchar"), VarcharType.createVarcharType(10))
                 .build();
     }
 
@@ -205,6 +216,17 @@ public class TestComparisonStatsCalculator
                             .emptyRange()
                             .nullsFraction(1.0);
                 });
+
+        // Column with values not representable as double (unknown range)
+        assertCalculate(new ComparisonExpression(EQUAL, new SymbolReference("varchar"), new StringLiteral("blah")))
+                .outputRowsCount(18.0) // all rows minus nulls divided by distinct values count
+                .symbolStats("varchar", symbolAssert -> {
+                    symbolAssert.averageRowSize(4.0)
+                            .distinctValuesCount(1.0)
+                            .lowValue(NEGATIVE_INFINITY)
+                            .highValue(POSITIVE_INFINITY)
+                            .nullsFraction(0.0);
+                });
     }
 
     @Test
@@ -284,6 +306,17 @@ public class TestComparisonStatsCalculator
                             .distinctValuesCount(0.0)
                             .emptyRange()
                             .nullsFraction(1.0);
+                });
+
+        // Column with values not representable as double (unknown range)
+        assertCalculate(new ComparisonExpression(NOT_EQUAL, new SymbolReference("varchar"), new StringLiteral("blah")))
+                .outputRowsCount(882.0) // all rows minus nulls divided by distinct values count
+                .symbolStats("varchar", symbolAssert -> {
+                    symbolAssert.averageRowSize(4.0)
+                            .distinctValuesCount(49.0)
+                            .lowValueUnknown()
+                            .highValueUnknown()
+                            .nullsFraction(0.0);
                 });
     }
 
