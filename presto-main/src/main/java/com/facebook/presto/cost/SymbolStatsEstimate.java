@@ -14,6 +14,7 @@
 package com.facebook.presto.cost;
 
 import java.util.Objects;
+import java.util.function.Function;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -106,6 +107,26 @@ public class SymbolStatsEstimate
     public double getDistinctValuesCount()
     {
         return distinctValuesCount;
+    }
+
+    public SymbolStatsEstimate mapLowValue(Function<Double, Double> mappingFunction)
+    {
+        return buildFrom(this).setLowValue(mappingFunction.apply(lowValue)).build();
+    }
+
+    public SymbolStatsEstimate mapHighValue(Function<Double, Double> mappingFunction)
+    {
+        return buildFrom(this).setHighValue(mappingFunction.apply(highValue)).build();
+    }
+
+    public SymbolStatsEstimate mapNullsFraction(Function<Double, Double> mappingFunction)
+    {
+        return buildFrom(this).setNullsFraction(mappingFunction.apply(nullsFraction)).build();
+    }
+
+    public SymbolStatsEstimate mapDistinctValuesCount(Function<Double, Double> mappingFunction)
+    {
+        return buildFrom(this).setDistinctValuesCount(mappingFunction.apply(distinctValuesCount)).build();
     }
 
     @Override
