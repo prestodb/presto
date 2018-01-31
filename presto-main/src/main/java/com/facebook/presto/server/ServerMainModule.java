@@ -24,6 +24,7 @@ import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.system.SystemConnectorModule;
 import com.facebook.presto.cost.CoefficientBasedStatsCalculator;
 import com.facebook.presto.cost.ComposableStatsCalculator;
+import com.facebook.presto.cost.OutputStatsRule;
 import com.facebook.presto.cost.SelectingStatsCalculator;
 import com.facebook.presto.cost.SelectingStatsCalculator.New;
 import com.facebook.presto.cost.StatsCalculator;
@@ -482,6 +483,7 @@ public class ServerMainModule
     public static StatsCalculator createNewStatsCalculator(Metadata metadata)
     {
         ImmutableList.Builder<ComposableStatsCalculator.Rule> rules = ImmutableList.builder();
+        rules.add(new OutputStatsRule());
         return new ComposableStatsCalculator(rules.build());
     }
 
