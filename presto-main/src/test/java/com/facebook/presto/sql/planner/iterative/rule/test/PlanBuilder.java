@@ -115,6 +115,43 @@ public class PlanBuilder
                 outputs);
     }
 
+    public OutputNode output(Consumer<OutputBuilder> outputBuilderConsumer)
+    {
+        OutputBuilder outputBuilder = new OutputBuilder();
+        outputBuilderConsumer.accept(outputBuilder);
+        return outputBuilder.build();
+    }
+
+    public class OutputBuilder
+    {
+        private PlanNode source;
+        private List<String> columnNames = new ArrayList<>();
+        private List<Symbol> outputs = new ArrayList<>();
+
+        public OutputBuilder source(PlanNode source)
+        {
+            this.source = source;
+            return this;
+        }
+
+        public OutputBuilder column(Symbol symbol)
+        {
+            return column(symbol, symbol.getName());
+        }
+
+        public OutputBuilder column(Symbol symbol, String columnName)
+        {
+            outputs.add(symbol);
+            columnNames.add(columnName);
+            return this;
+        }
+
+        protected OutputNode build()
+        {
+            return new OutputNode(idAllocator.getNextId(), source, columnNames, outputs);
+        }
+    }
+
     public ValuesNode values(Symbol... columns)
     {
         return new ValuesNode(
