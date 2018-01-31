@@ -75,13 +75,13 @@ public class LdapPrestoJdbcTests
     @Test(groups = {LDAP, PRESTO_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
     public void shouldFailQueryForWrongLdapPassword()
     {
-        expectQueryToFail(ldapUserName, "wrong_password", "Authentication failed: Invalid credentials: [LDAP: error code 49 - Invalid Credentials]");
+        expectQueryToFail(ldapUserName, "wrong_password", "Authentication failed: Access Denied: Invalid credentials");
     }
 
     @Test(groups = {LDAP, PRESTO_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
     public void shouldFailQueryForWrongLdapUser()
     {
-        expectQueryToFail("invalid_user", ldapUserPassword, "Authentication failed: Invalid credentials: [LDAP: error code 49 - Invalid Credentials]");
+        expectQueryToFail("invalid_user", ldapUserPassword, "Authentication failed: Access Denied: Invalid credentials");
     }
 
     @Test(groups = {LDAP, PRESTO_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
@@ -131,6 +131,6 @@ public class LdapPrestoJdbcTests
 
     private void expectQueryToFailForUserNotInGroup(String user)
     {
-        expectQueryToFail(user, ldapUserPassword, format("Authentication failed: User [%s] not a member of the authorized group", user));
+        expectQueryToFail(user, ldapUserPassword, format("Authentication failed: Access Denied: User [%s] not a member of the authorized group", user));
     }
 }

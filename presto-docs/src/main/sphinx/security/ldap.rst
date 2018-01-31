@@ -54,20 +54,21 @@ Presto coordinator to use LDAP authentication and HTTPS.
  * :ref:`ldap_server`
  * :ref:`server_java_keystore`
 
-You also need to make following changes to the Presto configuration files.
+You also need to make changes to the Presto configuration files.
+LDAP authentication is configured on the coordinator in two parts.
+The first part is to enable HTTPS support and password authentication
+in the coordinator's ``config.properties`` file. The second part is
+to configure LDAP as the password authenticator plugin.
 
-config.properties
-~~~~~~~~~~~~~~~~~
+Server Config Properties
+~~~~~~~~~~~~~~~~~~~~~~~~
 
-LDAP authentication is configured in the coordinator node's
-config.properties file. Properties that need to be added, along
-with their sample values, are listed below.
+The following is an example of the required properties that need to be added
+to the coordinator's ``config.properties`` file:
 
 .. code-block:: none
 
-    http-server.authentication.type=LDAP
-    authentication.ldap.url=ldaps://ldap-server:636
-    authentication.ldap.user-bind-pattern=<Refer below for usage>
+    http-server.authentication.type=PASSWORD
 
     http-server.https.enabled=true
     http-server.https.port=8443
@@ -78,15 +79,8 @@ with their sample values, are listed below.
 ======================================================= ======================================================
 Property                                                Description
 ======================================================= ======================================================
-``http-server.authentication.type``                     Enable LDAP authentication for the Presto coordinator.
-                                                        Must be set to ``LDAP``.
-``authentication.ldap.url``                             The url to the LDAP server. The url scheme must be
-                                                        ``ldaps://`` since Presto allows only Secure LDAP.
-``authentication.ldap.user-bind-pattern``               This property can be used to specify the LDAP user
-                                                        bind string for password authentication. This property
-                                                        must contain the pattern ``${USER}`` which will be
-                                                        replaced by the actual username during the password
-                                                        authentication. Example: ``${USER}@corp.domain.com``.
+``http-server.authentication.type``                     Enable password authentication for the Presto
+                                                        coordinator. Must be set to ``PASSWORD``.
 ``http-server.https.enabled``                           Enables HTTPS access for the Presto coordinator.
                                                         Should be set to ``true``. Default value is
                                                         ``false``.
@@ -97,51 +91,74 @@ Property                                                Description
                                                         password you specified when creating the keystore.
 ======================================================= ======================================================
 
-Based on the LDAP server implementation types, the property ``authentication.ldap.user-bind-pattern``
-can be in the following format.
+Password Authenticator Configuration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-For Active Directory:
+Password authentication needs to be configured to use LDAP. Create an
+``etc/password-authenticator.properties`` file on the coordinator. Example:
 
 .. code-block:: none
 
-    authentication.ldap.user-bind-pattern=${USER}@<domain_name_of_the_server>
+    password-authenticator.name=ldap
+    ldap.url=ldaps://ldap-server:636
+    ldap.user-bind-pattern=<Refer below for usage>
+
+======================================================= ======================================================
+Property                                                Description
+======================================================= ======================================================
+``ldap.url``                                            The url to the LDAP server. The url scheme must be
+                                                        ``ldaps://`` since Presto allows only Secure LDAP.
+``ldap.user-bind-pattern``                              This property can be used to specify the LDAP user
+                                                        bind string for password authentication. This property
+                                                        must contain the pattern ``${USER}`` which will be
+                                                        replaced by the actual username during the password
+                                                        authentication. Example: ``${USER}@corp.example.com``.
+======================================================= ======================================================
+
+Based on the LDAP server implementation type, the property
+``ldap.user-bind-pattern`` can be used as described below.
+
+Active Directory
+****************
+
+.. code-block:: none
+
+    ldap.user-bind-pattern=${USER}@<domain_name_of_the_server>
 
 Example:
 
 .. code-block:: none
 
-    authentication.ldap.user-bind-pattern=${USER}@corp.domain.com
+    ldap.user-bind-pattern=${USER}@corp.example.com
 
-For OpenLDAP:
+OpenLDAP
+********
 
 .. code-block:: none
 
-    authentication.ldap.user-bind-pattern=uid=${USER},<distinguished_name_of_the_user>
+    ldap.user-bind-pattern=uid=${USER},<distinguished_name_of_the_user>
 
 Example:
 
 .. code-block:: none
 
-    authentication.ldap.user-bind-pattern=uid=${USER},OU=America,DC=corp,DC=domain,DC=com
+    ldap.user-bind-pattern=uid=${USER},OU=America,DC=corp,DC=example,DC=com
 
 Authorization based on LDAP Group Membership
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 You can further restrict the set of users allowed to connect to the Presto
-coordinator based on their group membership.
-
-In addition to the basic LDAP authentication properties, you need group-membership specific
-properties in ``config.properties``. This optional feature can be enabled by setting
-properties ``authentication.ldap.group-auth-pattern`` and
-``authentication.ldap.user-base-dn``.
+coordinator based on their group membership by setting the optional
+``ldap.group-auth-pattern`` and ``ldap.user-base-dn`` properties in addition
+to the basic LDAP authentication properties.
 
 ======================================================= ======================================================
 Property                                                Description
 ======================================================= ======================================================
-``authentication.ldap.user-base-dn``                    The base LDAP distinguished name for the user
+``ldap.user-base-dn``                                   The base LDAP distinguished name for the user
                                                         who tries to connect to the server.
-                                                        Example: ``OU=America,DC=corp,DC=domain,DC=com``
-``authentication.ldap.group-auth-pattern``              This property is used to specify the LDAP query for
+                                                        Example: ``OU=America,DC=corp,DC=example,DC=com``
+``ldap.group-auth-pattern``                             This property is used to specify the LDAP query for
                                                         the LDAP group membership authorization. This query
                                                         will be executed against the LDAP server and if
                                                         successful, the user will be authorized.
@@ -151,44 +168,46 @@ Property                                                Description
                                                         See samples below.
 ======================================================= ======================================================
 
-Based on the LDAP server implementation types, the property ``authentication.ldap.group-auth-pattern``
-can be in the following format.
+Based on the LDAP server implementation type, the property
+``ldap.group-auth-pattern`` can be used as described below.
 
-For Active Directory:
+Active Directory
+****************
 
 .. code-block:: none
 
-    authentication.ldap.group-auth-pattern=(&(objectClass=<objectclass_of_user>)(sAMAccountName=${USER})(memberof=<dn_of_the_authorized_group>))
+    ldap.group-auth-pattern=(&(objectClass=<objectclass_of_user>)(sAMAccountName=${USER})(memberof=<dn_of_the_authorized_group>))
 
 Example:
 
 .. code-block:: none
 
-    authentication.ldap.group-auth-pattern=(&(objectClass=person)(sAMAccountName=${USER})(memberof=CN=AuthorizedGroup,OU=Asia,DC=corp,DC=domain,DC=com))
+    ldap.group-auth-pattern=(&(objectClass=person)(sAMAccountName=${USER})(memberof=CN=AuthorizedGroup,OU=Asia,DC=corp,DC=example,DC=com))
 
-For OpenLDAP:
+OpenLDAP
+********
 
 .. code-block:: none
 
-    authentication.ldap.group-auth-pattern=(&(objectClass=<objectclass_of_user>)(uid=${USER})(memberof=<dn_of_the_authorized_group>))
+    ldap.group-auth-pattern=(&(objectClass=<objectclass_of_user>)(uid=${USER})(memberof=<dn_of_the_authorized_group>))
 
 Example:
 
 .. code-block:: none
 
-    authentication.ldap.group-auth-pattern=(&(objectClass=inetOrgPerson)(uid=${USER})(memberof=CN=AuthorizedGroup,OU=Asia,DC=corp,DC=domain,DC=com))
+    ldap.group-auth-pattern=(&(objectClass=inetOrgPerson)(uid=${USER})(memberof=CN=AuthorizedGroup,OU=Asia,DC=corp,DC=example,DC=com))
 
 For OpenLDAP, for this query to work, make sure you enable the
 ``memberOf`` `overlay <http://www.openldap.org/doc/admin24/overlays.html>`_.
 
 You can also use this property for scenarios where you want to authorize a user
-based on complex group authorization search queries. For eg: if you want to authorize
-a user belonging to any one of multiple groups (in OpenLDAP),
-then this property can be set as:
+based on complex group authorization search queries. For example, if you want to
+authorize a user belonging to any one of multiple groups (in OpenLDAP), this
+property may be set as follows:
 
 .. code-block:: none
 
-    authentication.ldap.group-auth-pattern=(&(|(memberOf=CN=normal_group,DC=corp,DC=com)(memberOf=CN=another_group,DC=com))(objectClass=inetOrgPerson)(uid=${USER}))
+    ldap.group-auth-pattern=(&(|(memberOf=CN=normal_group,DC=corp,DC=com)(memberOf=CN=another_group,DC=com))(objectClass=inetOrgPerson)(uid=${USER}))
 
 .. _cli_ldap:
 
