@@ -19,6 +19,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.LiteralInterpreter;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.AstVisitor;
+import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.Expression;
@@ -30,6 +31,7 @@ import java.util.Map;
 import static com.facebook.presto.cost.ComparisonStatsCalculator.comparisonSymbolToLiteralStats;
 import static com.facebook.presto.cost.ComparisonStatsCalculator.comparisonSymbolToSymbolStats;
 import static com.facebook.presto.cost.StatsUtil.toStatsRepresentation;
+import static com.facebook.presto.cost.SymbolStatsEstimate.ZERO_STATS;
 import static java.lang.Double.NaN;
 import static java.util.Objects.requireNonNull;
 
@@ -81,6 +83,24 @@ public class FilterStatsCalculator
         private PlanNodeStatsEstimate filterForUnknownExpression()
         {
             return filterStatsForUnknownExpression(input);
+        }
+
+        private PlanNodeStatsEstimate filterForFalseExpression()
+        {
+            PlanNodeStatsEstimate.Builder falseStatsBuilder = PlanNodeStatsEstimate.builder();
+            input.getSymbolsWithKnownStatistics().forEach(symbol -> falseStatsBuilder.addSymbolStatistics(symbol, ZERO_STATS));
+            return falseStatsBuilder
+                    .setOutputRowCount(0.0)
+                    .build();
+        }
+
+        @Override
+        protected PlanNodeStatsEstimate visitBooleanLiteral(BooleanLiteral node, Void context)
+        {
+            if (node.equals(BooleanLiteral.TRUE_LITERAL)) {
+                return input;
+            }
+            return filterForFalseExpression();
         }
 
         @Override
