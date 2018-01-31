@@ -15,22 +15,14 @@ package com.facebook.presto.tests.statistics;
 
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
 
-import java.util.function.Function;
+import java.util.OptionalDouble;
 
-public enum Metric
+public interface Metric
 {
-    OUTPUT_ROW_COUNT(PlanNodeStatsEstimate::getOutputRowCount),
-    OUTPUT_SIZE_BYTES(PlanNodeStatsEstimate::getOutputSizeInBytes);
+    OptionalDouble getValueFromPlanNodeEstimate(PlanNodeStatsEstimate planNodeStatsEstimate, StatsContext statsContext);
 
-    private final Function<PlanNodeStatsEstimate, Double> extractor;
+    OptionalDouble getValueFromAggregationQueryResult(Object value);
 
-    Metric(Function<PlanNodeStatsEstimate, Double> extractor)
-    {
-        this.extractor = extractor;
-    }
-
-    double getValue(PlanNodeStatsEstimate stats)
-    {
-        return extractor.apply(stats);
-    }
+    // TODO rename to getAggregationSql
+    String getComputingAggregationSql();
 }
