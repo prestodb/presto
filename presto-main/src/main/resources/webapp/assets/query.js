@@ -1205,7 +1205,7 @@ let QueryDetail = React.createClass({
                                                 Peak Memory
                                             </td>
                                             <td className="info-text">
-                                                { query.queryStats.peakMemoryReservation }
+                                                { query.queryStats.peakUserMemoryReservation }
                                             </td>
                                         </tr>
                                         <tr>
