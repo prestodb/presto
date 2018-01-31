@@ -51,18 +51,10 @@ public class TestStatsCalculator
     public void testStatsCalculatorUsesLayout()
     {
         assertPlan("SELECT orderstatus FROM orders WHERE orderstatus = 'P'",
-                anyTree(
-                        node(TableScanNode.class)
-                                .withStats(PlanNodeStatsEstimate.builder()
-                                        .setOutputRowCount(363.0)
-                                        .build())));
+                anyTree(node(TableScanNode.class).withOutputRowCount(363.0)));
 
         assertPlan("SELECT orderstatus FROM orders WHERE orderkey = 42",
-                anyTree(
-                        node(TableScanNode.class)
-                                .withStats(PlanNodeStatsEstimate.builder()
-                                        .setOutputRowCount(15000.0)
-                                        .build())));
+                anyTree(node(TableScanNode.class).withOutputRowCount(15000.0)));
     }
 
     private void assertPlan(String sql, PlanMatchPattern pattern)
