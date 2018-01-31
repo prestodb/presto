@@ -1,3 +1,4 @@
+
 /*
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -11,10 +12,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.server.security;
+package com.facebook.presto.password;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.configuration.testing.ConfigAssertions;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
@@ -26,6 +26,7 @@ import java.util.concurrent.TimeUnit;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.testing.ValidationAssertions.assertFailsValidation;
 import static io.airlift.testing.ValidationAssertions.assertValidates;
 
@@ -34,7 +35,7 @@ public class TestLdapConfig
     @Test
     public void testDefault()
     {
-        assertRecordedDefaults(ConfigAssertions.recordDefaults(LdapConfig.class)
+        assertRecordedDefaults(recordDefaults(LdapConfig.class)
                 .setLdapUrl(null)
                 .setUserBindSearchPattern(null)
                 .setUserBaseDistinguishedName(null)
@@ -46,11 +47,11 @@ public class TestLdapConfig
     public void testExplicitConfig()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("authentication.ldap.url", "ldaps://localhost:636")
-                .put("authentication.ldap.user-bind-pattern", "uid=${USER},ou=org,dc=test,dc=com")
-                .put("authentication.ldap.user-base-dn", "dc=test,dc=com")
-                .put("authentication.ldap.group-auth-pattern", "&(objectClass=user)(memberOf=cn=group)(user=username)")
-                .put("authentication.ldap.cache-ttl", "2m")
+                .put("ldap.url", "ldaps://localhost:636")
+                .put("ldap.user-bind-pattern", "uid=${USER},ou=org,dc=test,dc=com")
+                .put("ldap.user-base-dn", "dc=test,dc=com")
+                .put("ldap.group-auth-pattern", "&(objectClass=user)(memberOf=cn=group)(user=username)")
+                .put("ldap.cache-ttl", "2m")
                 .build();
 
         LdapConfig expected = new LdapConfig()

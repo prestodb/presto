@@ -353,9 +353,7 @@
                 <groupId>org.gaul</groupId>
                 <artifactId>modernizer-maven-plugin</artifactId>
                  <configuration>
-                     <!-- To allow usage of java.util.Hashtable -->
                      <ignorePackages>
-                         <ignorePackage>com.facebook.presto.server.security.util.jndi</ignorePackage>
                          <ignorePackage>com.facebook.presto.testing.assertions</ignorePackage>
                      </ignorePackages>
                 </configuration>

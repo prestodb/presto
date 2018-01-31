@@ -112,6 +112,7 @@
         <module>presto-testing-server-launcher</module>
         <module>presto-plugin-toolkit</module>
         <module>presto-resource-group-managers</module>
+        <module>presto-password-authenticators</module>
         <module>presto-benchto-benchmarks</module>
         <module>presto-thrift-connector-api</module>
         <module>presto-thrift-testing-server</module>
@@ -146,6 +147,12 @@
                 <artifactId>presto-resource-group-managers</artifactId>
                 <version>${project.version}</version>
                 <type>test-jar</type>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-password-authenticators</artifactId>
+                <version>${project.version}</version>
             </dependency>
 
             <dependency>

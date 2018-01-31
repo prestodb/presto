@@ -37,8 +37,7 @@ public class SecurityConfig
     {
         CERTIFICATE,
         KERBEROS,
-        PASSWORD,
-        LDAP
+        PASSWORD
     }
 
     @NotNull
@@ -54,7 +53,7 @@ public class SecurityConfig
     }
 
     @Config("http-server.authentication.type")
-    @ConfigDescription("Authentication types (supported types: CERTIFICATE, KERBEROS, LDAP, PASSWORD)")
+    @ConfigDescription("Authentication types (supported types: CERTIFICATE, KERBEROS, PASSWORD)")
     public SecurityConfig setAuthenticationTypes(String types)
     {
         if (types == null) {
