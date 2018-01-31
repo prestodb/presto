@@ -175,14 +175,26 @@ public class QueryContext
 
     public synchronized void setMemoryPool(MemoryPool pool)
     {
+        // This method first acquires the monitor of this instance.
+        // After that in this method if we acquire the monitors of the
+        // user/revocable memory contexts in the queryMemoryContext instance
+        // (say, by calling queryMemoryContext.getUserMemory()) it's possible
+        // to have a deadlock. Because, the driver threads running the operators
+        // will allocate memory concurrently through the child memory context -> ... ->
+        // root memory context -> this.updateUserMemory() calls, and will acquire
+        // the monitors of the user/revocable memory contexts in the queryMemoryContext instance
+        // first, and then the monitor of this, which may cause deadlocks.
+        // That's why instead of calling methods on queryMemoryContext to get the
+        // user/revocable memory reservations, we call the MemoryPool to get the same
+        // information.
         requireNonNull(pool, "pool is null");
         if (memoryPool == pool) {
             // Don't unblock our tasks and thrash the pools, if this is a no-op
             return;
         }
         MemoryPool originalPool = memoryPool;
-        long originalReserved = queryMemoryContext.getUserMemory();
-        long originalRevocableReserved = queryMemoryContext.getRevocableMemory();
+        long originalReserved = originalPool.getQueryUserMemoryReservation(queryId);
+        long originalRevocableReserved = originalPool.getQueryRevocableMemoryReservation(queryId);
         memoryPool = pool;
         ListenableFuture<?> future = pool.reserve(queryId, originalReserved);
         originalPool.free(queryId, originalReserved);
