@@ -25,6 +25,14 @@ public class SymbolStatsEstimate
 {
     public static final SymbolStatsEstimate UNKNOWN_STATS = SymbolStatsEstimate.builder().build();
 
+    public static final SymbolStatsEstimate ZERO_STATS = SymbolStatsEstimate.builder()
+            .setLowValue(NaN)
+            .setHighValue(NaN)
+            .setDistinctValuesCount(0)
+            .setNullsFraction(1)
+            .setAverageRowSize(0)
+            .build();
+
     // for now we support only types which map to real domain naturally and keep low/high value as double in stats.
     private final double lowValue;
     private final double highValue;
