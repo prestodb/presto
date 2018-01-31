@@ -19,6 +19,7 @@ import com.google.inject.Module;
 import com.google.inject.Scopes;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class DbResourceGroupsModule
         implements Module
@@ -30,5 +31,6 @@ public class DbResourceGroupsModule
         binder.bind(ResourceGroupsDao.class).toProvider(MysqlDaoProvider.class).in(Scopes.SINGLETON);
         binder.bind(DbResourceGroupConfigurationManager.class).in(Scopes.SINGLETON);
         binder.bind(ResourceGroupConfigurationManager.class).to(DbResourceGroupConfigurationManager.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(DbResourceGroupConfigurationManager.class).withGeneratedName();
     }
 }
