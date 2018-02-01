@@ -34,7 +34,6 @@ import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
-import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.Assignments;
@@ -99,9 +98,10 @@ import java.util.function.Function;
 import static com.facebook.presto.SystemSessionProperties.isColocatedJoinEnabled;
 import static com.facebook.presto.SystemSessionProperties.isForceSingleNodeOutput;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
-import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
+import static com.facebook.presto.sql.ExpressionUtils.filterConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.filterDeterministicConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.filterNonDeterministicConjuncts;
+import static com.facebook.presto.sql.ExpressionUtils.referencesAny;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.planner.FragmentTableScanCounter.countSources;
 import static com.facebook.presto.sql.planner.FragmentTableScanCounter.hasMultipleSources;
@@ -588,10 +588,16 @@ public class AddExchanges
                     deterministicPredicate,
                     DomainTranslator.toPredicate(newDomain.simplify().transform(assignments::get)));
 
+            LayoutConstraintEvaluator evaluator = new LayoutConstraintEvaluator(
+                    session,
+                    symbolAllocator.getTypes(),
+                    node.getAssignments(),
+                    filterConjuncts(constraint, conjunct -> !referencesAny(conjunct, context.getCorrelations())));
+
             // Layouts will be returned in order of the connector's preference
             List<TableLayoutResult> layouts = metadata.getLayouts(
                     session, node.getTable(),
-                    new Constraint<>(newDomain, bindings -> !shouldPrune(constraint, node.getAssignments(), bindings, context.getCorrelations())),
+                    new Constraint<>(newDomain, evaluator::isCandidate),
                     Optional.of(node.getOutputSymbols().stream()
                             .map(node.getAssignments()::get)
                             .collect(toImmutableSet())));
@@ -654,34 +660,6 @@ public class AddExchanges
             }
 
             return possiblePlans.get(0);
-        }
-
-        private boolean shouldPrune(Expression predicate, Map<Symbol, ColumnHandle> assignments, Map<ColumnHandle, NullableValue> bindings, List<Symbol> correlations)
-        {
-            List<Expression> conjuncts = extractConjuncts(predicate);
-            Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(
-                    session,
-                    metadata,
-                    parser,
-                    types,
-                    predicate,
-                    emptyList() /* parameters already replaced */);
-
-            LookupSymbolResolver inputs = new LookupSymbolResolver(assignments, bindings);
-
-            // If any conjuncts evaluate to FALSE or null, then the whole predicate will never be true and so the partition should be pruned
-            for (Expression expression : conjuncts) {
-                if (SymbolsExtractor.extractUnique(expression).stream().anyMatch(correlations::contains)) {
-                    // expression contains correlated symbol with outer query
-                    continue;
-                }
-                ExpressionInterpreter optimizer = ExpressionInterpreter.expressionOptimizer(expression, metadata, session, expressionTypes);
-                Object optimized = optimizer.optimize(inputs);
-                if (Boolean.FALSE.equals(optimized) || optimized == null || optimized instanceof NullLiteral) {
-                    return true;
-                }
-            }
-            return false;
         }
 
         @Override
@@ -1367,6 +1345,34 @@ public class AddExchanges
         public ActualProperties getProperties()
         {
             return properties;
+        }
+    }
+
+    private class LayoutConstraintEvaluator
+    {
+        private final Map<Symbol, ColumnHandle> assignments;
+        private final ExpressionInterpreter evaluator;
+
+        public LayoutConstraintEvaluator(Session session, Map<Symbol, Type> types, Map<Symbol, ColumnHandle> assignments, Expression expression)
+        {
+            this.assignments = assignments;
+
+            Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, metadata, parser, types, expression, emptyList());
+
+            evaluator = ExpressionInterpreter.expressionOptimizer(expression, metadata, session, expressionTypes);
+        }
+
+        private boolean isCandidate(Map<ColumnHandle, NullableValue> bindings)
+        {
+            LookupSymbolResolver inputs = new LookupSymbolResolver(assignments, bindings);
+
+            // If any conjuncts evaluate to FALSE or null, then the whole predicate will never be true and so the partition should be pruned
+            Object optimized = evaluator.optimize(inputs);
+            if (Boolean.FALSE.equals(optimized) || optimized == null || optimized instanceof NullLiteral) {
+                return false;
+            }
+
+            return true;
         }
     }
 }
