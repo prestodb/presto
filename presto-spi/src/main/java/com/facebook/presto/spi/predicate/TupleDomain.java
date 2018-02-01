@@ -31,6 +31,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -366,6 +367,18 @@ public final class TupleDomain<T>
         }
 
         return TupleDomain.withColumnDomains(result);
+    }
+
+    public TupleDomain<T> simplify()
+    {
+        if (isNone()) {
+            return this;
+        }
+
+        Map<T, Domain> simplified = domains.get().entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().simplify()));
+
+        return TupleDomain.withColumnDomains(simplified);
     }
 
     // Available for Jackson serialization only!
