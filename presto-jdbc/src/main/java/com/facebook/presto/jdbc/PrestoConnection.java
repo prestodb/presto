@@ -16,6 +16,7 @@ package com.facebook.presto.jdbc;
 import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.client.StatementClient;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Ints;
@@ -53,6 +54,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.Maps.fromProperties;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.US_ASCII;
@@ -632,6 +634,9 @@ public class PrestoConnection
     {
         String source = firstNonNull(clientInfo.get("ApplicationName"), "presto-jdbc");
 
+        Iterable<String> clientTags = Splitter.on(',').trimResults().omitEmptyStrings()
+                .split(nullToEmpty(clientInfo.get("ClientTags")));
+
         Map<String, String> allProperties = new HashMap<>(sessionProperties);
         allProperties.putAll(sessionPropertiesOverride);
 
@@ -643,7 +648,7 @@ public class PrestoConnection
                 httpUri,
                 user,
                 source,
-                ImmutableSet.of(),
+                ImmutableSet.copyOf(clientTags),
                 clientInfo.get("ClientInfo"),
                 catalog.get(),
                 schema.get(),
