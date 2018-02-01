@@ -23,6 +23,7 @@ import com.facebook.presto.metadata.MetadataUtil;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
 import com.facebook.presto.server.testing.TestingPrestoServer;
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
@@ -95,7 +96,7 @@ public abstract class AbstractTestingPrestoClient<T>
                 }
 
                 T result = resultsSession.build(client.getSetSessionProperties(), client.getResetSessionProperties());
-                return new ResultWithQueryId<>(results.getId(), result);
+                return new ResultWithQueryId<>(new QueryId(results.getId()), result);
             }
 
             QueryError error = client.finalStatusInfo().getError();

@@ -63,8 +63,8 @@ final class MetricComparator
         return transaction(runner.getTransactionManager(), runner.getAccessControl())
                 .singleStatement()
                 .execute(runner.getDefaultSession(), session -> {
-                    String queryId = runner.executeWithQueryId(session, query).getQueryId();
-                    Plan queryPlan = runner.getQueryPlan(new QueryId(queryId));
+                    QueryId queryId = runner.executeWithQueryId(session, query).getQueryId();
+                    Plan queryPlan = runner.getQueryPlan(queryId);
                     OutputNode outputNode = (OutputNode) queryPlan.getRoot();
                     PlanNodeStatsEstimate outputNodeStats = calculateStats(outputNode, runner.getStatsCalculator(), session, queryPlan.getTypes());
                     StatsContext statsContext = buildStatsContext(queryPlan, outputNode);
