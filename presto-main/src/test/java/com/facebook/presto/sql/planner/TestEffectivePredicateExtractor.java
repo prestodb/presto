@@ -295,8 +295,9 @@ public class TestEffectivePredicateExtractor
                                 lessThan(CE, bigintLiteral(10)))),
                 new WindowNode.Specification(
                         ImmutableList.of(A),
-                        ImmutableList.of(A),
-                        ImmutableMap.of(A, SortOrder.ASC_NULLS_LAST)),
+                        Optional.of(new OrderingScheme(
+                                ImmutableList.of(A),
+                                ImmutableMap.of(A, SortOrder.ASC_NULLS_LAST)))),
                 ImmutableMap.of(),
                 Optional.empty(),
                 ImmutableSet.of(),

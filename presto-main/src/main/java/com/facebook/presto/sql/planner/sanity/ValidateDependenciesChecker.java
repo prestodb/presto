@@ -156,7 +156,13 @@ public final class ValidateDependenciesChecker
             Set<Symbol> inputs = createInputs(source, boundSymbols);
 
             checkDependencies(inputs, node.getPartitionBy(), "Invalid node. Partition by symbols (%s) not in source plan output (%s)", node.getPartitionBy(), node.getSource().getOutputSymbols());
-            checkDependencies(inputs, node.getOrderBy(), "Invalid node. Order by symbols (%s) not in source plan output (%s)", node.getOrderBy(), node.getSource().getOutputSymbols());
+            if (node.getOrderingScheme().isPresent()) {
+                checkDependencies(
+                        inputs,
+                        node.getOrderingScheme().get().getOrderBy(),
+                        "Invalid node. Order by symbols (%s) not in source plan output (%s)",
+                        node.getOrderingScheme().get().getOrderBy(), node.getSource().getOutputSymbols());
+            }
 
             ImmutableList.Builder<Symbol> bounds = ImmutableList.builder();
             for (WindowNode.Frame frame : node.getFrames()) {
@@ -185,7 +191,11 @@ public final class ValidateDependenciesChecker
 
             Set<Symbol> inputs = createInputs(source, boundSymbols);
             checkDependencies(inputs, node.getPartitionBy(), "Invalid node. Partition by symbols (%s) not in source plan output (%s)", node.getPartitionBy(), node.getSource().getOutputSymbols());
-            checkDependencies(inputs, node.getOrderBy(), "Invalid node. Order by symbols (%s) not in source plan output (%s)", node.getOrderBy(), node.getSource().getOutputSymbols());
+            checkDependencies(
+                    inputs,
+                    node.getOrderingScheme().getOrderBy(),
+                    "Invalid node. Order by symbols (%s) not in source plan output (%s)",
+                    node.getOrderingScheme().getOrderBy(), node.getSource().getOutputSymbols());
 
             return null;
         }

@@ -209,11 +209,6 @@ public class UnaliasSymbolReferences
                 functions.put(canonicalize(symbol), new WindowNode.Function(canonicalFunctionCall, signature, canonicalFrame));
             }
 
-            ImmutableMap.Builder<Symbol, SortOrder> orderings = ImmutableMap.builder();
-            for (Map.Entry<Symbol, SortOrder> entry : node.getOrderings().entrySet()) {
-                orderings.put(canonicalize(entry.getKey()), entry.getValue());
-            }
-
             return new WindowNode(
                     node.getId(),
                     source,
@@ -661,16 +656,9 @@ public class UnaliasSymbolReferences
 
         private WindowNode.Specification canonicalizeAndDistinct(WindowNode.Specification specification)
         {
-            LinkedHashMap<Symbol, SortOrder> orderings = new LinkedHashMap<>();
-            for (Map.Entry<Symbol, SortOrder> entry : specification.getOrderings().entrySet()) {
-                // don't override existing keys, i.e. when "ORDER BY a ASC, a DESC" is specified
-                orderings.putIfAbsent(canonicalize(entry.getKey()), entry.getValue());
-            }
-
             return new WindowNode.Specification(
                     canonicalizeAndDistinct(specification.getPartitionBy()),
-                    ImmutableList.copyOf(orderings.keySet()),
-                    ImmutableMap.copyOf(orderings));
+                    specification.getOrderingScheme().map(this::canonicalizeAndDistinct));
         }
 
         private OrderingScheme canonicalizeAndDistinct(OrderingScheme orderingScheme)

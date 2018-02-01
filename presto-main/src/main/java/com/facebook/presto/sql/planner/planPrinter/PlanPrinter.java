@@ -35,6 +35,7 @@ import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.FunctionInvoker;
+import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanFragment;
@@ -715,8 +716,6 @@ public class PlanPrinter
         {
             List<String> partitionBy = Lists.transform(node.getPartitionBy(), Functions.toStringFunction());
 
-            List<String> orderBy = Lists.transform(node.getOrderBy(), input -> input + " " + node.getOrderings().get(input));
-
             List<String> args = new ArrayList<>();
             if (!partitionBy.isEmpty()) {
                 List<Symbol> prePartitioned = node.getPartitionBy().stream()
@@ -741,14 +740,15 @@ public class PlanPrinter
                 }
                 args.add(format("partition by (%s)", builder));
             }
-            if (!orderBy.isEmpty()) {
+            if (node.getOrderingScheme().isPresent()) {
+                OrderingScheme orderingScheme = node.getOrderingScheme().get();
                 args.add(format("order by (%s)", Stream.concat(
-                        node.getOrderBy().stream()
+                        orderingScheme.getOrderBy().stream()
                                 .limit(node.getPreSortedOrderPrefix())
-                                .map(symbol -> "<" + symbol + " " + node.getOrderings().get(symbol) + ">"),
-                        node.getOrderBy().stream()
+                                .map(symbol -> "<" + symbol + " " + orderingScheme.getOrdering(symbol) + ">"),
+                        orderingScheme.getOrderBy().stream()
                                 .skip(node.getPreSortedOrderPrefix())
-                                .map(symbol -> symbol + " " + node.getOrderings().get(symbol)))
+                                .map(symbol -> symbol + " " + orderingScheme.getOrdering(symbol)))
                         .collect(Collectors.joining(", "))));
             }
 
@@ -771,9 +771,13 @@ public class PlanPrinter
         @Override
         public Void visitTopNRowNumber(TopNRowNumberNode node, Integer indent)
         {
-            List<String> partitionBy = Lists.transform(node.getPartitionBy(), Functions.toStringFunction());
+            List<String> partitionBy = node.getPartitionBy().stream()
+                    .map(Functions.toStringFunction())
+                    .collect(toImmutableList());
 
-            List<String> orderBy = Lists.transform(node.getOrderBy(), input -> input + " " + node.getOrderings().get(input));
+            List<String> orderBy = node.getOrderingScheme().getOrderBy().stream()
+                    .map(input -> input + " " + node.getOrderingScheme().getOrdering(input))
+                    .collect(toImmutableList());
 
             List<String> args = new ArrayList<>();
             args.add(format("partition by (%s)", Joiner.on(", ").join(partitionBy)));
