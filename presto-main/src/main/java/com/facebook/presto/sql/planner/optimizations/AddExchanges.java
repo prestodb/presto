@@ -576,7 +576,7 @@ public class AddExchanges
                     deterministicPredicate,
                     types);
 
-            TupleDomain<ColumnHandle> simplifiedConstraint = decomposedPredicate.getTupleDomain()
+            TupleDomain<ColumnHandle> newDomain = decomposedPredicate.getTupleDomain()
                     .transform(node.getAssignments()::get)
                     .intersect(node.getCurrentConstraint());
 
@@ -589,7 +589,7 @@ public class AddExchanges
             // Layouts will be returned in order of the connector's preference
             List<TableLayoutResult> layouts = metadata.getLayouts(
                     session, node.getTable(),
-                    new Constraint<>(simplifiedConstraint, bindings -> !shouldPrune(constraint, node.getAssignments(), bindings, context.getCorrelations())),
+                    new Constraint<>(newDomain, bindings -> !shouldPrune(constraint, node.getAssignments(), bindings, context.getCorrelations())),
                     Optional.of(node.getOutputSymbols().stream()
                             .map(node.getAssignments()::get)
                             .collect(toImmutableSet())));
@@ -616,7 +616,7 @@ public class AddExchanges
                                 node.getOutputSymbols(),
                                 node.getAssignments(),
                                 Optional.of(layout.getLayout().getHandle()),
-                                simplifiedConstraint.intersect(layout.getLayout().getPredicate()),
+                                newDomain.intersect(layout.getLayout().getPredicate()),
                                 Optional.ofNullable(node.getOriginalConstraint()).orElse(predicate));
 
                         PlanWithProperties result = new PlanWithProperties(tableScan, deriveProperties(tableScan, ImmutableList.of()));
