@@ -582,9 +582,11 @@ public class AddExchanges
 
             Map<ColumnHandle, Symbol> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
 
+            // Simplify the tuple domain to avoid creating an expression with too many nodes that's
+            // expensive to evaluate in the call to shouldPrune below.
             Expression constraint = combineConjuncts(
                     deterministicPredicate,
-                    DomainTranslator.toPredicate(node.getCurrentConstraint().transform(assignments::get)));
+                    DomainTranslator.toPredicate(newDomain.simplify().transform(assignments::get)));
 
             // Layouts will be returned in order of the connector's preference
             List<TableLayoutResult> layouts = metadata.getLayouts(
