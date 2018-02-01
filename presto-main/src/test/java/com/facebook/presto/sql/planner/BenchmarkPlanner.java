@@ -116,7 +116,7 @@ public class BenchmarkPlanner
         return benchmarkData.queryRunner.inTransaction(transactionSession -> {
             LogicalPlanner.Stage stage = LogicalPlanner.Stage.valueOf(benchmarkData.stage.toUpperCase());
             return benchmarkData.queries.stream()
-                    .map(query -> benchmarkData.queryRunner.createPlan(transactionSession, query, stage))
+                    .map(query -> benchmarkData.queryRunner.createPlan(transactionSession, query, stage, false))
                     .collect(toImmutableList());
         });
     }
