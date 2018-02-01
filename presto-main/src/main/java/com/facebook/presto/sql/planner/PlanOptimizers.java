@@ -261,7 +261,7 @@ public class PlanOptimizers
                 new IterativeOptimizer(
                         stats,
                         statsCalculator,
-                        new PickTableLayout(metadata).rules()),
+                        new PickTableLayout(metadata, sqlParser).rules()),
                 new PruneUnreferencedOutputs(),
                 new IterativeOptimizer(
                         stats,
@@ -303,7 +303,7 @@ public class PlanOptimizers
                 new IterativeOptimizer(
                         stats,
                         statsCalculator,
-                        new PickTableLayout(metadata).rules()),
+                        new PickTableLayout(metadata, sqlParser).rules()),
                 projectionPushDown);
 
         if (featuresConfig.isOptimizeSingleDistinct()) {
