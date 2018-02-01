@@ -39,7 +39,7 @@ public class PruneTopNColumns
     {
         Set<Symbol> prunedTopNInputs = Streams.concat(
                 referencedOutputs.stream(),
-                topNNode.getOrderBy().stream())
+                topNNode.getOrderingScheme().getOrderBy().stream())
                 .collect(toImmutableSet());
 
         return restrictChildOutputs(idAllocator, topNNode, prunedTopNInputs);
