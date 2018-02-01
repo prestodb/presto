@@ -22,9 +22,11 @@ import com.facebook.presto.metadata.TableLayoutResult;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DomainTranslator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
+import com.facebook.presto.sql.planner.optimizations.ConstraintEvaluator;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
@@ -60,10 +62,12 @@ import static java.util.Objects.requireNonNull;
 public class PickTableLayout
 {
     private final Metadata metadata;
+    private final SqlParser parser;
 
-    public PickTableLayout(Metadata metadata)
+    public PickTableLayout(Metadata metadata, SqlParser parser)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.parser = parser;
     }
 
     public Set<Rule<?>> rules()
@@ -76,22 +80,24 @@ public class PickTableLayout
 
     public PickTableLayoutForPredicate pickTableLayoutForPredicate()
     {
-        return new PickTableLayoutForPredicate(metadata);
+        return new PickTableLayoutForPredicate(metadata, parser);
     }
 
     public PickTableLayoutWithoutPredicate pickTableLayoutWithoutPredicate()
     {
-        return new PickTableLayoutWithoutPredicate(metadata);
+        return new PickTableLayoutWithoutPredicate(metadata, parser);
     }
 
     private static final class PickTableLayoutForPredicate
             implements Rule<FilterNode>
     {
         private final Metadata metadata;
+        private final SqlParser parser;
 
-        private PickTableLayoutForPredicate(Metadata metadata)
+        private PickTableLayoutForPredicate(Metadata metadata, SqlParser parser)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
+            this.parser = parser;
         }
 
         private static final Capture<TableScanNode> TABLE_SCAN = newCapture();
@@ -116,7 +122,7 @@ public class PickTableLayout
         {
             TableScanNode tableScan = captures.get(TABLE_SCAN);
 
-            PlanNode rewritten = planTableScan(tableScan, filterNode.getPredicate(), context, metadata);
+            PlanNode rewritten = planTableScan(tableScan, filterNode.getPredicate(), context, metadata, parser);
 
             if (arePlansSame(filterNode, tableScan, rewritten)) {
                 return Result.empty();
@@ -149,10 +155,12 @@ public class PickTableLayout
             implements Rule<TableScanNode>
     {
         private final Metadata metadata;
+        private final SqlParser parser;
 
-        private PickTableLayoutWithoutPredicate(Metadata metadata)
+        private PickTableLayoutWithoutPredicate(Metadata metadata, SqlParser parser)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
+            this.parser = parser;
         }
 
         private static final Pattern<TableScanNode> PATTERN = tableScan();
@@ -176,13 +184,15 @@ public class PickTableLayout
                 return Result.empty();
             }
 
-            return Result.ofPlanNode(planTableScan(tableScanNode, TRUE_LITERAL, context, metadata));
+            return Result.ofPlanNode(planTableScan(tableScanNode, TRUE_LITERAL, context, metadata, parser));
         }
     }
 
-    private static PlanNode planTableScan(TableScanNode node, Expression predicate, Rule.Context context, Metadata metadata)
+    private static PlanNode planTableScan(TableScanNode node, Expression predicate, Rule.Context context, Metadata metadata, SqlParser parser)
     {
+        // TODO: lots of duplication with AddExchanges.planTableScan. This needs to be cleaned up.
         Expression deterministicPredicate = filterDeterministicConjuncts(predicate);
+
         DomainTranslator.ExtractionResult decomposedPredicate = DomainTranslator.fromPredicate(
                 metadata,
                 context.getSession(),
@@ -193,11 +203,20 @@ public class PickTableLayout
                 .transform(node.getAssignments()::get)
                 .intersect(node.getCurrentConstraint());
 
+        Map<ColumnHandle, Symbol> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
+
+        Expression constraint = combineConjuncts(
+                deterministicPredicate,
+                DomainTranslator.toPredicate(node.getCurrentConstraint().transform(assignments::get)));
+
+        ConstraintEvaluator evaluator = new ConstraintEvaluator(context.getSession(), metadata, parser, context.getSymbolAllocator().getTypes(), constraint);
+
         List<TableLayoutResult> layouts = metadata.getLayouts(
                 context.getSession(),
                 node.getTable(),
-                new Constraint<>(simplifiedConstraint, bindings -> true),
+                new Constraint<>(simplifiedConstraint, bindings -> !evaluator.shouldPrune(node.getAssignments(), bindings, ImmutableList.of())),
                 Optional.of(ImmutableSet.copyOf(node.getAssignments().values())));
+
         if (layouts.isEmpty()) {
             return new ValuesNode(context.getIdAllocator().getNextId(), node.getOutputSymbols(), ImmutableList.of());
         }
@@ -216,7 +235,6 @@ public class PickTableLayout
                 simplifiedConstraint.intersect(layout.getLayout().getPredicate()),
                 Optional.ofNullable(node.getOriginalConstraint()).orElse(predicate));
 
-        Map<ColumnHandle, Symbol> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
         Expression resultingPredicate = combineConjuncts(
                 decomposedPredicate.getRemainingExpression(),
                 filterNonDeterministicConjuncts(predicate),
