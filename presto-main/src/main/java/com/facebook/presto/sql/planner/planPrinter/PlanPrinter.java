@@ -119,7 +119,6 @@ import static com.facebook.presto.cost.PlanNodeStatsEstimate.UNKNOWN_STATS;
 import static com.facebook.presto.execution.StageInfo.getAllStages;
 import static com.facebook.presto.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.sql.planner.DomainUtils.simplifyDomain;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.planPrinter.PlanNodeStatsSummarizer.aggregatePlanNodeStats;
 import static com.google.common.base.CaseFormat.UPPER_UNDERSCORE;
@@ -1229,7 +1228,7 @@ public class PlanPrinter
             checkArgument(!constraint.isNone());
             Map<ColumnHandle, Domain> domains = constraint.getDomains().get();
             if (!constraint.isAll() && domains.containsKey(column)) {
-                print(indent, ":: %s", formatDomain(simplifyDomain(domains.get(column))));
+                print(indent, ":: %s", formatDomain(domains.get(column).simplify()));
             }
         }
 
