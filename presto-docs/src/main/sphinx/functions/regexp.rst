@@ -99,6 +99,16 @@ with a few notable exceptions:
 
         SELECT regexp_replace('1a 2b 14m', '(\d+)([ab]) ', '3c$2 '); -- '3ca 3cb 14m'
 
+.. function:: regexp_replace(string, pattern, function) -> varchar
+
+    Replaces every instance of the substring matched by the regular expression
+    ``pattern`` in ``string`` using ``function``. The :doc:`lambda expression <lambda>`
+    ``function`` is invoked for each match with the `capturing groups`_ passed as an
+    array. Capturing group numbers start at one; there is no group for the entire match
+    (if you need this, surround the entire expression with parenthesis). ::
+
+        SELECT regexp_replace('new york', '(\w)(\w*)', x -> upper(x[1]) || lower(x[2])); --'New York'
+
 .. function:: regexp_split(string, pattern) -> array<varchar>
 
     Splits ``string`` using the regular expression ``pattern`` and returns an

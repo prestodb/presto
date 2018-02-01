@@ -142,6 +142,69 @@ public class TestRegexpFunctions
     }
 
     @Test
+    public void testRegexpReplaceLambda()
+    {
+        // One or more matches with non-empty, not null capturing groups
+        assertFunction("REGEXP_REPLACE('x', '(x)', x -> upper(x[1]))", createUnboundedVarcharType(), "X");
+        assertFunction("REGEXP_REPLACE('xxx xxx xxx', '(x)', x -> upper(x[1]))", createUnboundedVarcharType(), "XXX XXX XXX");
+        assertFunction("REGEXP_REPLACE('new', '(\\w)', x -> x[1])", createUnboundedVarcharType(), "new");
+        assertFunction("REGEXP_REPLACE('new', '(\\w)', x -> x[1] || upper(x[1]))", createUnboundedVarcharType(), "nNeEwW");
+        assertFunction("REGEXP_REPLACE('new york', '(\\w)(\\w*)', x -> upper(x[1]) || lower(x[2]))", createUnboundedVarcharType(), "New York");
+        assertFunction("REGEXP_REPLACE('new york', '((\\w)(\\w*))', x -> upper(x[2]) || lower(x[3]))", createUnboundedVarcharType(), "New York");
+        assertFunction("REGEXP_REPLACE('new york', '(n\\w*)', x -> upper(x[1]))", createUnboundedVarcharType(), "NEW york");
+        assertFunction("REGEXP_REPLACE('new york', '(y\\w*)', x -> upper(x[1]))", createUnboundedVarcharType(), "new YORK");
+        assertFunction("REGEXP_REPLACE('new york city', '(yo\\w*)', x -> upper(x[1]))", createUnboundedVarcharType(), "new YORK city");
+        assertFunction("REGEXP_REPLACE('abc abc', '(abc)', x -> 'm')", createUnboundedVarcharType(), "m m");
+        assertFunction("REGEXP_REPLACE('123 456', '([0-9]*)', x -> x[1])", createUnboundedVarcharType(), "123 456");
+        assertFunction("REGEXP_REPLACE('123 456', '(([0-9]*) ([0-9]*))', x -> x[2] || x[3])", createUnboundedVarcharType(), "123456");
+        assertFunction("REGEXP_REPLACE('abbabba', '(abba)', x -> 'm')", createUnboundedVarcharType(), "mbba");
+        assertFunction("REGEXP_REPLACE('abbabba', '(abba)', x -> 'm' || x[1])", createUnboundedVarcharType(), "mabbabba");
+        assertFunction("REGEXP_REPLACE('abcde', 'ab(c)?de', x -> CASE WHEN x[1] IS NULL THEN 'foo' ELSE 'bar' END)", createUnboundedVarcharType(), "bar");
+        assertFunction("REGEXP_REPLACE('abc', '(.)', x -> 'm')", createUnboundedVarcharType(), "mmm");
+
+        // Matches that contains empty capturing groups
+        assertFunction("REGEXP_REPLACE('abc', '.', x -> 'm')", createUnboundedVarcharType(), "mmm");  // Empty block passed to lambda
+        assertFunction("REGEXP_REPLACE('abbabba', 'abba', x -> 'm')", createUnboundedVarcharType(), "mbba"); // Empty block passed to lambda
+        assertFunction("REGEXP_REPLACE('abc abc', 'abc', x -> 'm')", createUnboundedVarcharType(), "m m"); // Empty block passed to lambda
+        assertFunction("REGEXP_REPLACE('abc', '', x -> 'OK')", createUnboundedVarcharType(), "OKaOKbOKcOK");  // Empty block passed to lambda
+        assertFunction("REGEXP_REPLACE('abc', '()', x -> x[1])", createUnboundedVarcharType(), "abc"); // Passed a block containing multiple empty capturing groups to lambda
+        assertFunction("REGEXP_REPLACE('abc', '()', x -> 'OK')", createUnboundedVarcharType(), "OKaOKbOKcOK"); // Passed a block containing multiple empty capturing groups to lambda
+        assertFunction("REGEXP_REPLACE('new', '(\\w*)', x -> upper(x[1]))", createUnboundedVarcharType(), "NEW");  // Two matches: ["new"] and [""]
+        assertFunction("REGEXP_REPLACE('new', '(\\w*)', x -> x[1] || upper(x[1]))", createUnboundedVarcharType(), "newNEW");  // Two matches: ["new"] and [""]
+        assertFunction("REGEXP_REPLACE('new', '(\\w*)', x -> CAST(length(x[1]) AS VARCHAR))", createUnboundedVarcharType(), "30");  // Two matches: ["new"] and [""]
+        assertFunction("REGEXP_REPLACE('new york', '(\\w*)', x -> '<' || x[1] || '>')", createUnboundedVarcharType(), "<new><> <york><>");  // Four matches: ["new"], [""], ["york"], [""]
+
+        // Matches that contains null capturing groups
+        assertFunction("REGEXP_REPLACE('aaa', '(b)?', x -> x[1] )", createUnboundedVarcharType(), null);
+        assertFunction("REGEXP_REPLACE('abde', 'ab(c)?de', x -> x[1])", createUnboundedVarcharType(), null);  // Matched once with two matching groups[(0,3), null].
+        assertFunction("REGEXP_REPLACE('abde', 'ab(c)?de', x -> 'OK')", createUnboundedVarcharType(), "OK");  // Matched once with two matching groups[(0,3), null]. Passed null to lambda and returns OK, so whole string replace with OK
+        assertFunction("REGEXP_REPLACE('abde', 'ab(c)?de', x -> x[1] || 'OK')", createUnboundedVarcharType(), null); // Passed null to lambda and returns null.
+        assertFunction("REGEXP_REPLACE('abde', 'ab(c)?de', x -> 'OK' || x[1])", createUnboundedVarcharType(), null);  // Passed null to lambda and returns null.
+        assertFunction("REGEXP_REPLACE('abde', 'ab(c)?de', x -> CASE WHEN x[1] IS NULL THEN 'foo' ELSE 'bar' END)", createUnboundedVarcharType(), "foo");
+        assertFunction("REGEXP_REPLACE('ab', '(a)?(b)?', x -> CASE WHEN (x[1] IS NOT NULL) AND (x[2] IS NOT NULL) THEN 'foo' ELSE NULL END)", createUnboundedVarcharType(), null);
+
+        // Matches that contains non-empty and not null capturing groups but lambda returns null
+        assertFunction("REGEXP_REPLACE('aaa', '(a)', x -> CAST(NULL AS VARCHAR))", createUnboundedVarcharType(), null);
+        assertFunction("REGEXP_REPLACE('ab', '(a)?(b)?', x -> CASE WHEN (x[1] IS NOT NULL) AND (x[2] IS NULL) OR (x[1] IS NULL) AND (x[2] IS NOT NULL) THEN 'foo' ELSE NULL END)", createUnboundedVarcharType(), null);
+        assertFunction("REGEXP_REPLACE('abacdb', '(a)?(b)?', x -> CASE WHEN (x[1] IS NOT NULL) AND (x[2] IS NULL) OR (x[1] IS NULL) AND (x[2] IS NOT NULL) THEN 'foo' ELSE NULL END)", createUnboundedVarcharType(), null);
+
+        // No matches
+        assertFunction("REGEXP_REPLACE('new york', '(a)', x -> upper(x[1]))", createUnboundedVarcharType(), "new york");
+        assertFunction("REGEXP_REPLACE('', '(a)', x -> upper(x[1]))", createUnboundedVarcharType(), "");
+        assertFunction("REGEXP_REPLACE(null, '(a)', x -> upper(x[1]))", createUnboundedVarcharType(), null);
+        assertFunction("REGEXP_REPLACE('new', null, x -> upper(x[1]))", createUnboundedVarcharType(), null);
+        assertFunction("REGEXP_REPLACE('abde', '(c)', x -> x[1])", createUnboundedVarcharType(), "abde");
+        assertFunction("REGEXP_REPLACE('abde', '(c)', x -> 'm')", createUnboundedVarcharType(), "abde");
+
+        // Invalid array indexes
+        assertInvalidFunction("REGEXP_REPLACE('new', '(\\w)', x -> upper(x[2]))", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("REGEXP_REPLACE('new', '(\\w)', x -> upper(x[0]))", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("REGEXP_REPLACE('abc', '', x -> x[1])", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("REGEXP_REPLACE('x', 'x', x -> upper(x[1]))", INVALID_FUNCTION_ARGUMENT);  // Empty block passed to lambda but referencing an element out of bound
+        assertInvalidFunction("REGEXP_REPLACE('abbabba', 'abba', x -> 'm' || x[1])", INVALID_FUNCTION_ARGUMENT);  // Empty block passed to lambda but referencing an element out of bound
+    }
+
+    @Test
     public void testRegexpExtract()
     {
         assertFunction("REGEXP_EXTRACT('Hello world bye', '\\b[a-z]([a-z]*)')", createVarcharType(15), "world");
