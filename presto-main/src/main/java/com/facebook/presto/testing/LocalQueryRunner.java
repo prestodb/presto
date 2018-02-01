@@ -722,6 +722,7 @@ public class LocalQueryRunner
         return ImmutableList.copyOf(drivers);
     }
 
+    @Override
     public Plan createPlan(Session session, @Language("SQL") String sql)
     {
         return createPlan(session, sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED);

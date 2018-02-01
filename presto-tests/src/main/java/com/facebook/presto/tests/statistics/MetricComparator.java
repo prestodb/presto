@@ -16,7 +16,6 @@ package com.facebook.presto.tests.statistics;
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.cost.StatsCalculator;
-import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.Symbol;
@@ -63,8 +62,7 @@ final class MetricComparator
         return transaction(runner.getTransactionManager(), runner.getAccessControl())
                 .singleStatement()
                 .execute(runner.getDefaultSession(), session -> {
-                    QueryId queryId = runner.executeWithQueryId(session, query).getQueryId();
-                    Plan queryPlan = runner.getQueryPlan(queryId);
+                    Plan queryPlan = runner.createPlan(session, query);
                     OutputNode outputNode = (OutputNode) queryPlan.getRoot();
                     PlanNodeStatsEstimate outputNodeStats = calculateStats(outputNode, runner.getStatsCalculator(), session, queryPlan.getTypes());
                     StatsContext statsContext = buildStatsContext(queryPlan, outputNode);

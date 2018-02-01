@@ -383,6 +383,15 @@ public class DistributedQueryRunner
         }
     }
 
+    @Override
+    public Plan createPlan(Session session, String sql)
+    {
+        QueryId queryId = executeWithQueryId(session, sql).getQueryId();
+        Plan queryPlan = getQueryPlan(queryId);
+        coordinator.getQueryManager().cancelQuery(queryId);
+        return queryPlan;
+    }
+
     public QueryInfo getQueryInfo(QueryId queryId)
     {
         return coordinator.getQueryManager().getQueryInfo(queryId);
