@@ -334,8 +334,11 @@ public class PruneUnreferencedOutputs
         {
             ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
                     .addAll(context.get())
-                    .addAll(node.getPartitionBy())
-                    .addAll(node.getOrderBy());
+                    .addAll(node.getPartitionBy());
+
+            node.getOrderingScheme().ifPresent(orderingScheme ->
+                    orderingScheme.getOrderBy()
+                            .forEach(expectedInputs::add));
 
             for (WindowNode.Frame frame : node.getFrames()) {
                 if (frame.getStartValue().isPresent()) {
@@ -571,7 +574,7 @@ public class PruneUnreferencedOutputs
             ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
                     .addAll(context.get())
                     .addAll(node.getPartitionBy())
-                    .addAll(node.getOrderBy());
+                    .addAll(node.getOrderingScheme().getOrderBy());
 
             if (node.getHashSymbol().isPresent()) {
                 expectedInputs.add(node.getHashSymbol().get());

@@ -215,7 +215,7 @@ public class TestMergeAdjacentWindows
 
     private static WindowNode.Specification newWindowNodeSpecification(PlanBuilder planBuilder, String symbolName)
     {
-        return new WindowNode.Specification(ImmutableList.of(planBuilder.symbol(symbolName, BIGINT)), ImmutableList.of(), ImmutableMap.of());
+        return new WindowNode.Specification(ImmutableList.of(planBuilder.symbol(symbolName, BIGINT)), Optional.empty());
     }
 
     private WindowNode.Function newWindowNodeFunction(String functionName, String... symbols)
