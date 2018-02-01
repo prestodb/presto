@@ -162,7 +162,7 @@ public class TestTypeValidator
 
         WindowNode.Function function = new WindowNode.Function(functionCall, signature, frame);
 
-        WindowNode.Specification specification = new WindowNode.Specification(ImmutableList.of(), ImmutableList.of(), ImmutableMap.of());
+        WindowNode.Specification specification = new WindowNode.Specification(ImmutableList.of(), Optional.empty());
 
         PlanNode node = new WindowNode(
                 newId(),
@@ -310,7 +310,7 @@ public class TestTypeValidator
 
         WindowNode.Function function = new WindowNode.Function(functionCall, signature, frame);
 
-        WindowNode.Specification specification = new WindowNode.Specification(ImmutableList.of(), ImmutableList.of(), ImmutableMap.of());
+        WindowNode.Specification specification = new WindowNode.Specification(ImmutableList.of(), Optional.empty());
 
         PlanNode node = new WindowNode(
                 newId(),
@@ -347,7 +347,7 @@ public class TestTypeValidator
 
         WindowNode.Function function = new WindowNode.Function(functionCall, signature, frame);
 
-        WindowNode.Specification specification = new WindowNode.Specification(ImmutableList.of(), ImmutableList.of(), ImmutableMap.of());
+        WindowNode.Specification specification = new WindowNode.Specification(ImmutableList.of(), Optional.empty());
 
         PlanNode node = new WindowNode(
                 newId(),

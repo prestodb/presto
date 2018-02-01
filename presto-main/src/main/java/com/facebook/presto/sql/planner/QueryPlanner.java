@@ -777,6 +777,10 @@ class QueryPlanner
             List<Symbol> sourceSymbols = subPlan.getRoot().getOutputSymbols();
             ImmutableList.Builder<Symbol> orderBySymbols = ImmutableList.builder();
             orderBySymbols.addAll(orderings.keySet());
+            Optional<OrderingScheme> orderingScheme = Optional.empty();
+            if (!orderings.isEmpty()) {
+                orderingScheme = Optional.of(new OrderingScheme(orderBySymbols.build(), orderings));
+            }
 
             // create window node
             subPlan = new PlanBuilder(outputTranslations,
@@ -785,8 +789,7 @@ class QueryPlanner
                             subPlan.getRoot(),
                             new WindowNode.Specification(
                                     partitionBySymbols.build(),
-                                    orderBySymbols.build(),
-                                    orderings),
+                                    orderingScheme),
                             ImmutableMap.of(newSymbol, function),
                             Optional.empty(),
                             ImmutableSet.of(),
