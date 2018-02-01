@@ -95,8 +95,8 @@ class FunctionCallProvider
             orderByClause = Optional.of(new OrderBy(orderBy.stream()
                     .map(item -> new SortItem(
                             Symbol.from(aliases.get(item.getField())).toSymbolReference(),
-                            item.getSortOrder(),
-                            item.getNullOrder()))
+                            item.getOrdering(),
+                            item.getNullOrdering()))
                     .collect(Collectors.toList())));
         }
 
