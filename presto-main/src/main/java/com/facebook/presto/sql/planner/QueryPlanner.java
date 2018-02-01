@@ -859,11 +859,12 @@ class QueryPlanner
         }
 
         PlanNode planNode;
+        OrderingScheme orderingScheme = new OrderingScheme(orderBySymbols.build(), orderings);
         if (limit.isPresent() && !limit.get().equalsIgnoreCase("all")) {
-            planNode = new TopNNode(idAllocator.getNextId(), subPlan.getRoot(), Long.parseLong(limit.get()), orderBySymbols.build(), orderings, TopNNode.Step.SINGLE);
+            planNode = new TopNNode(idAllocator.getNextId(), subPlan.getRoot(), Long.parseLong(limit.get()), orderingScheme, TopNNode.Step.SINGLE);
         }
         else {
-            planNode = new SortNode(idAllocator.getNextId(), subPlan.getRoot(), new OrderingScheme(orderBySymbols.build(), orderings));
+            planNode = new SortNode(idAllocator.getNextId(), subPlan.getRoot(), orderingScheme);
         }
 
         return subPlan.withNewRoot(planNode);

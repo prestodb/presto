@@ -65,13 +65,13 @@ public class TopNMatcher
                 .map(alias -> alias.toSymbol(symbolAliases))
                 .collect(toImmutableList());
 
-        if (!topNNode.getOrderBy().equals(expectedOrderBy)) {
+        if (!topNNode.getOrderingScheme().getOrderBy().equals(expectedOrderBy)) {
             return NO_MATCH;
         }
 
         Map<Symbol, SortOrder> expectedOrderings = Maps.toMap(expectedOrderBy, Functions.constant(SortOrder.ASC_NULLS_FIRST));
 
-        if (!topNNode.getOrderings().equals(expectedOrderings)) {
+        if (!topNNode.getOrderingScheme().getOrderings().equals(expectedOrderings)) {
             return NO_MATCH;
         }
 

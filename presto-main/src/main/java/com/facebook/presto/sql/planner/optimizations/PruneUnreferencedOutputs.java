@@ -542,11 +542,11 @@ public class PruneUnreferencedOutputs
         {
             ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
                     .addAll(context.get())
-                    .addAll(node.getOrderBy());
+                    .addAll(node.getOrderingScheme().getOrderBy());
 
             PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());
 
-            return new TopNNode(node.getId(), source, node.getCount(), node.getOrderBy(), node.getOrderings(), node.getStep());
+            return new TopNNode(node.getId(), source, node.getCount(), node.getOrderingScheme(), node.getStep());
         }
 
         @Override
