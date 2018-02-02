@@ -43,6 +43,7 @@ import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -1034,6 +1035,17 @@ public class TestSignatureBinder
                 .withCoercion()
                 .boundTo("integer", new TypeSignatureProvider(paramTypes -> new FunctionType(paramTypes, SMALLINT).getTypeSignature()))
                 .fails();
+
+        // TODO: Support coercion of return type of lambda
+        // Without coercion support for return type of lambda, the return type of lambda must be `varchar(x)` to avoid need for coercions.
+        Signature varcharApply = functionSignature()
+                .returnType(parseTypeSignature("varchar"))
+                .argumentTypes(parseTypeSignature("varchar"), parseTypeSignature("function(varchar, varchar(x))", ImmutableSet.of("x")))
+                .build();
+        assertThat(varcharApply)
+                .withCoercion()
+                .boundTo("varchar(10)", new TypeSignatureProvider(paramTypes -> new FunctionType(paramTypes, createVarcharType(1)).getTypeSignature()))
+                .succeeds();
     }
 
     @Test
