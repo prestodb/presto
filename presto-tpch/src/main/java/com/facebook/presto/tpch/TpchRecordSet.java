@@ -35,8 +35,8 @@ import java.util.Map;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.tpch.TpchMetadata.getPrestoType;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.collect.Iterables.transform;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -50,7 +50,7 @@ public class TpchRecordSet<E extends TpchEntity>
 
     public static <E extends TpchEntity> TpchRecordSet<E> createTpchRecordSet(
             TpchTable<E> table,
-            Iterable<TpchColumn<E>> columns,
+            List<TpchColumn<E>> columns,
             double scaleFactor,
             int part,
             int partCount,
@@ -65,12 +65,14 @@ public class TpchRecordSet<E extends TpchEntity>
     private final List<Type> columnTypes;
     private final TupleDomain<ColumnHandle> predicate;
 
-    public TpchRecordSet(Iterable<E> rows, TpchTable<E> table, Iterable<TpchColumn<E>> columns, TupleDomain<ColumnHandle> predicate)
+    public TpchRecordSet(Iterable<E> rows, TpchTable<E> table, List<TpchColumn<E>> columns, TupleDomain<ColumnHandle> predicate)
     {
         this.rows = requireNonNull(rows, "rows is null");
         this.table = requireNonNull(table, "table is null");
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
-        this.columnTypes = ImmutableList.copyOf(transform(columns, TpchMetadata::getPrestoType));
+        this.columnTypes = columns.stream()
+                .map(TpchMetadata::getPrestoType)
+                .collect(toImmutableList());
         this.predicate = requireNonNull(predicate, "predicate is null");
     }
 
