@@ -17,6 +17,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.tpch.TpchMetadata;
 import com.facebook.presto.tpch.TpchRecordSetProvider;
@@ -72,7 +73,7 @@ public class TpchIndexedData
                         .collect(toImmutableSet());
 
                 TpchTable<?> tpchTable = TpchTable.getTable(table.getTableName());
-                RecordSet recordSet = tpchRecordSetProvider.getRecordSet(tpchTable, ImmutableList.copyOf(columnHandles.values()), table.getScaleFactor(), 0, 1, Optional.empty());
+                RecordSet recordSet = tpchRecordSetProvider.getRecordSet(tpchTable, ImmutableList.copyOf(columnHandles.values()), table.getScaleFactor(), 0, 1, TupleDomain.all());
                 IndexedTable indexedTable = indexTable(recordSet, ImmutableList.copyOf(columnHandles.keySet()), keyColumnNames);
                 indexedTablesBuilder.put(keyColumns, indexedTable);
             }

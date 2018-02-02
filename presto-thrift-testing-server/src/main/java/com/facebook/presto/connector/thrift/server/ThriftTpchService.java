@@ -31,6 +31,7 @@ import com.facebook.presto.connector.thrift.api.PrestoThriftTupleDomain;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.RecordPageSource;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
@@ -46,7 +47,6 @@ import javax.annotation.PreDestroy;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.connector.thrift.api.PrestoThriftBlock.fromBlock;
@@ -302,7 +302,7 @@ public class ThriftTpchService
                 schemaNameToScaleFactor(splitInfo.getSchemaName()),
                 splitInfo.getPartNumber(),
                 splitInfo.getTotalParts(),
-                Optional.empty()));
+                TupleDomain.all()));
     }
 
     private static List<String> getSchemaNames(String schemaNameOrNull)
