@@ -99,16 +99,15 @@ public class TpchMetadata
 
     private final String connectorId;
     private final Set<String> tableNames;
-    private final boolean predicatePushdownEnabled;
     private final ColumnNaming columnNaming;
     private final StatisticsEstimator statisticsEstimator;
 
     public TpchMetadata(String connectorId)
     {
-        this(connectorId, TpchConnectorFactory.DEFAULT_PREDICATE_PUSHDOWN_ENABLED, ColumnNaming.SIMPLIFIED);
+        this(connectorId, ColumnNaming.SIMPLIFIED);
     }
 
-    public TpchMetadata(String connectorId, boolean predicatePushdownEnabled, ColumnNaming columnNaming)
+    public TpchMetadata(String connectorId, ColumnNaming columnNaming)
     {
         ImmutableSet.Builder<String> tableNames = ImmutableSet.builder();
         for (TpchTable<?> tpchTable : TpchTable.getTables()) {
@@ -116,7 +115,6 @@ public class TpchMetadata
         }
         this.tableNames = tableNames.build();
         this.connectorId = connectorId;
-        this.predicatePushdownEnabled = predicatePushdownEnabled;
         this.columnNaming = columnNaming;
         this.statisticsEstimator = createStatisticsEstimator();
     }
@@ -177,15 +175,12 @@ public class TpchMetadata
                     ImmutableList.of(orderKeyColumn)));
             partitioningColumns = Optional.of(ImmutableSet.of(orderKeyColumn));
             localProperties = ImmutableList.of(new SortingProperty<>(orderKeyColumn, SortOrder.ASC_NULLS_FIRST));
-
-            if (predicatePushdownEnabled) {
-                predicate = toTupleDomain(ImmutableMap.of(
-                        toColumnHandle(OrderColumn.ORDER_STATUS),
-                        ORDER_STATUS_NULLABLE_VALUES.stream()
-                                .filter(convertToPredicate(constraint.getSummary(), OrderColumn.ORDER_STATUS))
-                                .collect(toSet())));
-                unenforcedConstraint = filterOutColumnFromPredicate(constraint.getSummary(), OrderColumn.ORDER_STATUS);
-            }
+            predicate = toTupleDomain(ImmutableMap.of(
+                    toColumnHandle(OrderColumn.ORDER_STATUS),
+                    ORDER_STATUS_NULLABLE_VALUES.stream()
+                            .filter(convertToPredicate(constraint.getSummary(), OrderColumn.ORDER_STATUS))
+                            .collect(toSet())));
+            unenforcedConstraint = filterOutColumnFromPredicate(constraint.getSummary(), OrderColumn.ORDER_STATUS);
         }
         else if (tableHandle.getTableName().equals(TpchTable.LINE_ITEM.getTableName())) {
             ColumnHandle orderKeyColumn = columns.get(columnNaming.getName(LineItemColumn.ORDER_KEY));

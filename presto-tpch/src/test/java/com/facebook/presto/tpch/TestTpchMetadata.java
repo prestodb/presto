@@ -39,7 +39,6 @@ import static com.facebook.presto.spi.Constraint.alwaysFalse;
 import static com.facebook.presto.spi.Constraint.alwaysTrue;
 import static com.facebook.presto.spi.statistics.Estimate.unknownValue;
 import static com.facebook.presto.spi.statistics.Estimate.zeroValue;
-import static com.facebook.presto.tpch.ColumnNaming.SIMPLIFIED;
 import static com.facebook.presto.tpch.TpchMetadata.getPrestoType;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -77,7 +76,6 @@ public class TestTpchMetadata
     private static final List<String> SUPPORTED_SCHEMAS = ImmutableList.of("tiny", "sf1");
 
     private final TpchMetadata tpchMetadata = new TpchMetadata("tpch");
-    private final TpchMetadata tpchMetadataWithPredicatePushdown = new TpchMetadata("tpch", true, SIMPLIFIED);
     private final ConnectorSession session = null;
 
     @Test
@@ -267,7 +265,6 @@ public class TestTpchMetadata
     @Test
     public void testPredicatePushdown()
     {
-        TpchMetadata tpchMetadata = tpchMetadataWithPredicatePushdown;
         TpchTableHandle tableHandle = tpchMetadata.getTableHandle(session, new SchemaTableName("sf1", ORDERS.getTableName()));
 
         TupleDomain<ColumnHandle> domain;

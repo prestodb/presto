@@ -42,7 +42,7 @@ public class TestCoefficientBasedStatsCalculator
 
         queryRunner.createCatalog(
                 queryRunner.getDefaultSession().getCatalog().get(),
-                new TpchConnectorFactory(1, true),
+                new TpchConnectorFactory(1),
                 ImmutableMap.<String, String>of());
 
         statsCalculator = new CoefficientBasedStatsCalculator(queryRunner.getMetadata());
