@@ -32,7 +32,6 @@ import io.airlift.tpch.TpchTable;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.function.Predicate;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -48,7 +47,7 @@ public class TpchRecordSet<E extends TpchEntity>
 {
     public static <E extends TpchEntity> TpchRecordSet<E> createTpchRecordSet(TpchTable<E> table, double scaleFactor)
     {
-        return createTpchRecordSet(table, table.getColumns(), scaleFactor, 1, 1, Optional.empty());
+        return createTpchRecordSet(table, table.getColumns(), scaleFactor, 1, 1, TupleDomain.all());
     }
 
     public static <E extends TpchEntity> TpchRecordSet<E> createTpchRecordSet(
@@ -57,7 +56,7 @@ public class TpchRecordSet<E extends TpchEntity>
             double scaleFactor,
             int part,
             int partCount,
-            Optional<TupleDomain<ColumnHandle>> predicate)
+            TupleDomain<ColumnHandle> predicate)
     {
         return new TpchRecordSet<>(table.createGenerator(scaleFactor, part, partCount), columns, predicate);
     }
@@ -66,9 +65,9 @@ public class TpchRecordSet<E extends TpchEntity>
     private final List<TpchColumn<E>> columns;
     private final List<Type> columnTypes;
     private final List<TpchColumnHandle> columnHandles;
-    private final Optional<Predicate<Map<ColumnHandle, NullableValue>>> predicate;
+    private final Predicate<Map<ColumnHandle, NullableValue>> predicate;
 
-    public TpchRecordSet(Iterable<E> rows, Iterable<TpchColumn<E>> columns, Optional<TupleDomain<ColumnHandle>> predicate)
+    public TpchRecordSet(Iterable<E> rows, Iterable<TpchColumn<E>> columns, TupleDomain<ColumnHandle> predicate)
     {
         this.rows = requireNonNull(rows, "rows is null");
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
@@ -78,7 +77,7 @@ public class TpchRecordSet<E extends TpchEntity>
         columnHandles = this.columns.stream()
                 .map(column -> new TpchColumnHandle(column.getColumnName(), getPrestoType(column)))
                 .collect(toList());
-        this.predicate = predicate.map(TpchRecordSet::convertToPredicate);
+        this.predicate = convertToPredicate(requireNonNull(predicate, "predicate is null"));
     }
 
     static Predicate<Map<ColumnHandle, NullableValue>> convertToPredicate(TupleDomain<ColumnHandle> tupleDomain)
@@ -135,7 +134,7 @@ public class TpchRecordSet<E extends TpchEntity>
         {
             while (!closed && rows.hasNext()) {
                 row = rows.next();
-                if (rowMatchesPredicate()) {
+                if (predicate.test(rowMap())) {
                     return true;
                 }
             }
@@ -196,14 +195,6 @@ public class TpchRecordSet<E extends TpchEntity>
         {
             row = null;
             closed = true;
-        }
-
-        private boolean rowMatchesPredicate()
-        {
-            if (!predicate.isPresent()) {
-                return true;
-            }
-            return predicate.get().test(rowMap());
         }
 
         private Map<ColumnHandle, NullableValue> rowMap()

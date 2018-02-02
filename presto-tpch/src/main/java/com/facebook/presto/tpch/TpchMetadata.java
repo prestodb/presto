@@ -165,7 +165,7 @@ public class TpchMetadata
         Optional<Set<ColumnHandle>> partitioningColumns = Optional.empty();
         List<LocalProperty<ColumnHandle>> localProperties = ImmutableList.of();
 
-        Optional<TupleDomain<ColumnHandle>> predicate = Optional.empty();
+        TupleDomain<ColumnHandle> predicate = TupleDomain.all();
         TupleDomain<ColumnHandle> unenforcedConstraint = constraint.getSummary();
         Map<String, ColumnHandle> columns = getColumnHandles(session, tableHandle);
         if (tableHandle.getTableName().equals(TpchTable.ORDERS.getTableName())) {
@@ -179,11 +179,11 @@ public class TpchMetadata
             localProperties = ImmutableList.of(new SortingProperty<>(orderKeyColumn, SortOrder.ASC_NULLS_FIRST));
 
             if (predicatePushdownEnabled) {
-                predicate = Optional.of(toTupleDomain(ImmutableMap.of(
+                predicate = toTupleDomain(ImmutableMap.of(
                         toColumnHandle(OrderColumn.ORDER_STATUS),
                         ORDER_STATUS_NULLABLE_VALUES.stream()
                                 .filter(convertToPredicate(constraint.getSummary(), OrderColumn.ORDER_STATUS))
-                                .collect(toSet()))));
+                                .collect(toSet())));
                 unenforcedConstraint = filterOutColumnFromPredicate(constraint.getSummary(), OrderColumn.ORDER_STATUS);
             }
         }
@@ -203,7 +203,7 @@ public class TpchMetadata
         ConnectorTableLayout layout = new ConnectorTableLayout(
                 new TpchTableLayoutHandle(tableHandle, predicate),
                 Optional.empty(),
-                predicate.orElse(TupleDomain.all()), // TODO: return well-known properties (e.g., orderkey > 0, etc)
+                predicate, // TODO: return well-known properties (e.g., orderkey > 0, etc)
                 nodePartition,
                 partitioningColumns,
                 Optional.empty(),
