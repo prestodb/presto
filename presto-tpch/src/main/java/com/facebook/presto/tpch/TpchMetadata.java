@@ -233,6 +233,7 @@ public class TpchMetadata
     {
         return nullableValues.stream()
                 .filter(convertToPredicate(constraint.getSummary(), column))
+                .filter(value -> constraint.predicate().test(ImmutableMap.of(toColumnHandle(column), value)))
                 .collect(toSet());
     }
 
