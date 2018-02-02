@@ -62,18 +62,16 @@ public class TpchRecordSet<E extends TpchEntity>
         return new TpchRecordSet<>(table.createGenerator(scaleFactor, part, partCount), columns, predicate);
     }
 
-    private final Iterable<E> table;
+    private final Iterable<E> rows;
     private final List<TpchColumn<E>> columns;
     private final List<Type> columnTypes;
     private final List<TpchColumnHandle> columnHandles;
     private final Optional<Predicate<Map<ColumnHandle, NullableValue>>> predicate;
 
-    public TpchRecordSet(Iterable<E> table, Iterable<TpchColumn<E>> columns, Optional<TupleDomain<ColumnHandle>> predicate)
+    public TpchRecordSet(Iterable<E> rows, Iterable<TpchColumn<E>> columns, Optional<TupleDomain<ColumnHandle>> predicate)
     {
-        requireNonNull(table, "readerSupplier is null");
-
-        this.table = table;
-        this.columns = ImmutableList.copyOf(columns);
+        this.rows = requireNonNull(rows, "rows is null");
+        this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
 
         this.columnTypes = ImmutableList.copyOf(transform(columns, TpchMetadata::getPrestoType));
 
@@ -97,7 +95,7 @@ public class TpchRecordSet<E extends TpchEntity>
     @Override
     public RecordCursor cursor()
     {
-        return new TpchRecordCursor<>(table.iterator(), columns);
+        return new TpchRecordCursor<>(rows.iterator(), columns);
     }
 
     public class TpchRecordCursor<E extends TpchEntity>
