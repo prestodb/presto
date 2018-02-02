@@ -406,7 +406,8 @@ public class TpchMetadata
                 })));
     }
 
-    private Predicate<NullableValue> convertToPredicate(TupleDomain<ColumnHandle> predicate, TpchColumn column)
+    @VisibleForTesting
+    Predicate<NullableValue> convertToPredicate(TupleDomain<ColumnHandle> predicate, TpchColumn column)
     {
         TpchColumnHandle columnHandle = toColumnHandle(column);
         TupleDomain<ColumnHandle> columnPredicate = filterColumns(predicate, columnHandle::equals);
