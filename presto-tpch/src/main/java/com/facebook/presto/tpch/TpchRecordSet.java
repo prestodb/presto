@@ -211,6 +211,10 @@ public class TpchRecordSet<E extends TpchEntity>
             if (predicate.isAll()) {
                 return true;
             }
+            if (predicate.isNone()) {
+                return false;
+            }
+
             Map<ColumnHandle, NullableValue> rowMap = predicate.getDomains().get().keySet().stream()
                     .collect(toImmutableMap(
                             column -> column,
