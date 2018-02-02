@@ -89,12 +89,11 @@ public class TpchMetadata
 
     public static final String ROW_NUMBER_COLUMN_NAME = "row_number";
 
-    private static final Set<String> ORDER_STATUS_VALUES = ImmutableSet.of("F", "O", "P");
-    private static final Set<Slice> ORDER_STATUS_VALUES_SLICES = ORDER_STATUS_VALUES.stream()
+    private static final Set<Slice> ORDER_STATUS_VALUES = ImmutableSet.of("F", "O", "P").stream()
             .map(Slices::utf8Slice)
             .collect(toImmutableSet());
     private static final Set<NullableValue> ORDER_STATUS_NULLABLE_VALUES = ORDER_STATUS_VALUES.stream()
-            .map(value -> new NullableValue(getPrestoType(OrderColumn.ORDER_STATUS), Slices.utf8Slice(value)))
+            .map(value -> new NullableValue(getPrestoType(OrderColumn.ORDER_STATUS), value))
             .collect(toSet());
 
     private final String connectorId;
@@ -295,7 +294,7 @@ public class TpchMetadata
             Map<ColumnHandle, Domain> domains = constraintSummary.getDomains().get();
             Optional<Domain> orderStatusDomain = Optional.ofNullable(domains.get(toColumnHandle(ORDER_STATUS)));
             Optional<Map<TpchColumn<?>, List<Object>>> allowedColumnValues = orderStatusDomain.map(domain -> {
-                List<Object> allowedValues = ORDER_STATUS_VALUES_SLICES.stream()
+                List<Object> allowedValues = ORDER_STATUS_VALUES.stream()
                         .filter(domain::includesNullableValue)
                         .collect(toList());
                 return avoidTrivialOrderStatusRestriction(allowedValues);
@@ -306,7 +305,7 @@ public class TpchMetadata
 
     private Map<TpchColumn<?>, List<Object>> avoidTrivialOrderStatusRestriction(List<Object> allowedValues)
     {
-        if (allowedValues.containsAll(ORDER_STATUS_VALUES_SLICES)) {
+        if (allowedValues.containsAll(ORDER_STATUS_VALUES)) {
             return emptyMap();
         }
         else {
