@@ -82,6 +82,7 @@ import static io.airlift.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
@@ -596,6 +597,49 @@ public class TestHiveIntegrationSmokeTest
         assertFalse(getQueryRunner().tableExists(session, tableName));
     }
 
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Sorted tables cannot be created using CREATE TABLE AS")
+    public void testCreateBucketedSortedTableAs()
+    {
+        assertUpdate("" +
+                "CREATE TABLE test_create_bucketed_sorted_table_as " +
+                "WITH (" +
+                "bucketed_by = ARRAY['custkey', 'custkey2'], " +
+                "bucket_count = 11, " +
+                "sorted_by = ARRAY['+custKey']" +
+                ") " +
+                "AS " +
+                "SELECT custkey, custkey AS custkey2, comment, orderstatus " +
+                "FROM tpch.tiny.orders");
+    }
+
+    @Test
+    public void testCreateInvalidBucketedSortedTable()
+    {
+        String tableName = "test_create_invalid_bucketed_sorted";
+        try {
+            computeActual("" +
+                    "CREATE TABLE " + tableName + " (\n" +
+                    "   c1 bigint,\n" +
+                    "   \"c 2\" varchar,\n" +
+                    "   \"c'3\" array(bigint),\n" +
+                    "   c4 map(bigint, varchar) COMMENT 'comment test4',\n" +
+                    "   c5 double COMMENT 'comment test5'\n)\n" +
+                    "COMMENT 'test'\n" +
+                    "WITH (\n" +
+                    "   bucket_count = 5,\n" +
+                    "   bucketed_by = ARRAY['c4','c5'],\n" +
+                    "   format = 'RCBINARY',\n" +
+                    "   sorted_by = ARRAY['+  c1 ','-not_exist']\n" +
+                    ")");
+            fail();
+        }
+        catch (Exception e) {
+            assertEquals(e.getMessage(), "Sorting columns [  c1 , not_exist] not present in schema");
+        }
+
+        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+    }
+
     @Test
     public void testCreatePartitionedBucketedTableAs()
     {
@@ -744,6 +788,28 @@ public class TestHiveIntegrationSmokeTest
             assertEquals(e.getMessage(), "INSERT must write all distribution columns: [custkey, custkey3]");
         }
 
+        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+    }
+
+    @Test
+    public void testInsertSortedBucketedTable()
+    {
+        String tableName = "test_insert_sorted_bucketed_table";
+
+        @Language("SQL") String createTable = "" +
+                "CREATE TABLE " + tableName + " " +
+                "(id int, name varchar, ds varchar) " +
+                "WITH (" +
+                "bucketed_by = ARRAY['id'], " +
+                "bucket_count = 11, " +
+                "sorted_by = ARRAY['+name']" +
+                ")";
+        assertUpdate(createTable);
+
+        assertThatThrownBy(() -> assertUpdate("INSERT INTO " + tableName + " VALUES (1, VARCHAR 'b', VARCHAR 'c')", 1))
+                .hasMessage(format("Inserting into bucketed sorted tables is not supported. Table 'tpch.%s'", tableName));
+
+        assertUpdate("DROP TABLE " + tableName);
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
     }
 
@@ -1550,7 +1616,7 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testShowCreateTable()
     {
-        String createTableSql = format("" +
+        @Language("SQL") String createTableSql = format("" +
                         "CREATE TABLE %s.%s.%s (\n" +
                         "   c1 bigint,\n" +
                         "   c2 double,\n" +
@@ -1568,6 +1634,8 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate(createTableSql);
         MaterializedResult actualResult = computeActual("SHOW CREATE TABLE test_show_create_table");
         assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createTableSql);
+        assertUpdate("DROP TABLE test_show_create_table");
+        assertFalse(getQueryRunner().tableExists(getSession(), "test_show_create_table"));
 
         createTableSql = format("" +
                         "CREATE TABLE %s.%s.%s (\n" +
@@ -1589,6 +1657,31 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate(createTableSql);
         actualResult = computeActual("SHOW CREATE TABLE \"test_show_create_table'2\"");
         assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createTableSql);
+        assertUpdate("DROP TABLE \"test_show_create_table'2\"");
+        assertFalse(getQueryRunner().tableExists(getSession(), "\"test_show_create_table'2\""));
+
+        createTableSql = format("" +
+                        "CREATE TABLE %s.%s.%s (\n" +
+                        "   c1 bigint,\n" +
+                        "   \"c 2\" varchar,\n" +
+                        "   \"c'3\" array(bigint),\n" +
+                        "   c4 map(bigint, varchar) COMMENT 'comment test4',\n" +
+                        "   c5 double COMMENT 'comment test5'\n)\n" +
+                        "COMMENT 'test'\n" +
+                        "WITH (\n" +
+                        "   bucket_count = 5,\n" +
+                        "   bucketed_by = ARRAY['c4','c5'],\n" +
+                        "   format = 'RCBINARY',\n" +
+                        "   sorted_by = ARRAY['+c1','-c 2']\n" +
+                        ")",
+                getSession().getCatalog().get(),
+                getSession().getSchema().get(),
+                "\"test_show_create_table'3\"");
+        assertUpdate(createTableSql);
+        actualResult = computeActual("SHOW CREATE TABLE \"test_show_create_table'3\"");
+        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createTableSql);
+        assertUpdate("DROP TABLE \"test_show_create_table'3\"");
+        assertFalse(getQueryRunner().tableExists(getSession(), "\"test_show_create_table'3\""));
     }
 
     @Test

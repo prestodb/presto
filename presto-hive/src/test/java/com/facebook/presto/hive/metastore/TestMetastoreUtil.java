@@ -22,6 +22,7 @@ import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.Order;
 import org.apache.hadoop.hive.metastore.api.PrincipalPrivilegeSet;
 import org.apache.hadoop.hive.metastore.api.SerDeInfo;
+import org.apache.hadoop.hive.metastore.api.SkewedInfo;
 import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
 import org.testng.annotations.Test;
 
@@ -43,7 +44,7 @@ public class TestMetastoreUtil
             100,
             new SerDeInfo("table_name", "com.facebook.hive.orc.OrcSerde", ImmutableMap.of("sdk1", "sdv1", "sdk2", "sdv2")),
             ImmutableList.of("col2", "col3"),
-            null,
+            ImmutableList.of(),
             ImmutableMap.of());
     private static final org.apache.hadoop.hive.metastore.api.Table TEST_TABLE = new org.apache.hadoop.hive.metastore.api.Table(
             "table_name",
@@ -87,6 +88,14 @@ public class TestMetastoreUtil
             ImmutableList.of("col2", "col3"),
             ImmutableList.of(new Order("col2", 0), new Order("col3", 1)),
             ImmutableMap.of("sk1", "sv1"));
+
+    static {
+        TEST_STORAGE_DESCRIPTOR_WITH_UNSUPPORTED_FIELDS.setSkewedInfo(new SkewedInfo(
+                        ImmutableList.of("col1"),
+                        ImmutableList.of(ImmutableList.of("val1")),
+                        ImmutableMap.of(ImmutableList.of("val1"), "loc1")));
+    }
+
     private static final org.apache.hadoop.hive.metastore.api.Table TEST_TABLE_WITH_UNSUPPORTED_FIELDS = new org.apache.hadoop.hive.metastore.api.Table(
             "table_name",
             "db_name",
@@ -144,14 +153,14 @@ public class TestMetastoreUtil
         assertEquals(actual, expected);
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Writing to sorted and/or skewed table/partition is not supported")
+    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Writing to skewed table/partition is not supported")
     public void testTableRoundTripUnsupported()
     {
         Table table = ThriftMetastoreUtil.fromMetastoreApiTable(TEST_TABLE_WITH_UNSUPPORTED_FIELDS);
         ThriftMetastoreUtil.toMetastoreApiTable(table, null);
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Writing to sorted and/or skewed table/partition is not supported")
+    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Writing to skewed table/partition is not supported")
     public void testPartitionRoundTripUnsupported()
     {
         Partition partition = ThriftMetastoreUtil.fromMetastoreApiPartition(TEST_PARTITION_WITH_UNSUPPORTED_FIELDS);

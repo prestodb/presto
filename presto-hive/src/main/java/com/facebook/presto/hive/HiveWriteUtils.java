@@ -432,7 +432,7 @@ public final class HiveWriteUtils
         }
 
         // verify sorting
-        if (storage.isSorted()) {
+        if (storage.getBucketProperty().isPresent() && !storage.getBucketProperty().get().getSortedBy().isEmpty()) {
             throw new PrestoException(NOT_SUPPORTED, format("Inserting into bucketed sorted tables is not supported. %s", tablePartitionDescription));
         }
 
