@@ -351,9 +351,13 @@ public class PartitionedOutputOperator
         // Does not include size of SharedBuffer
         public long getRetainedSizeInBytes()
         {
-            return pageBuilders.stream()
-                    .mapToLong(PageBuilder::getRetainedSizeInBytes)
-                    .sum();
+            // We use a foreach loop instead of streams
+            // as it has much better performance.
+            long retainedSizeInBytes = 0;
+            for (PageBuilder pageBuilder : pageBuilders) {
+                retainedSizeInBytes += pageBuilder.getRetainedSizeInBytes();
+            }
+            return retainedSizeInBytes;
         }
 
         public PartitionedOutputInfo getInfo()
