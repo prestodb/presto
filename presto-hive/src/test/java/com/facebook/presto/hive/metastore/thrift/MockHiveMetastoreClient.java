@@ -306,4 +306,10 @@ public class MockHiveMetastoreClient
     {
         // No-op
     }
+
+    @Override
+    public void setUGI(String userName)
+    {
+        // No-op
+    }
 }
