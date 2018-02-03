@@ -121,6 +121,8 @@ Property Name                                      Description                  
                                                    Example: ``thrift://192.0.2.3:9083`` or
                                                    ``thrift://192.0.2.3:9083,thrift://192.0.2.4:9083``
 
+``hive.metastore.username``                        The username Presto will use to access the Hive metastore.
+
 ``hive.config.resources``                          An optional comma-separated list of HDFS
                                                    configuration files. These files must exist on the
                                                    machines running Presto. Only specify this if
