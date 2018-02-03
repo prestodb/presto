@@ -326,6 +326,8 @@ final class ShowQueriesRewrite
                 throw new SemanticException(MISSING_TABLE, showColumns, "Table '%s' does not exist", tableName);
             }
 
+            accessControl.checkCanShowColumnsMetadata(session.getRequiredTransactionId(), session.getIdentity(), tableName.asCatalogSchemaTableName());
+
             return simpleQuery(
                     selectList(
                             aliasedName("column_name", "Column"),

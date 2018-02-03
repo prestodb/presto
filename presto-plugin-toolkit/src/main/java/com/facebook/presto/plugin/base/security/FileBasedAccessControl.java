@@ -14,6 +14,8 @@
 package com.facebook.presto.plugin.base.security;
 
 import com.facebook.presto.plugin.base.security.TableAccessControlRule.TablePrivilege;
+import com.facebook.presto.spi.CatalogSchemaTableName;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
@@ -51,6 +53,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameT
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectView;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyShowColumnsMetadata;
 
 public class FileBasedAccessControl
         implements ConnectorAccessControl
@@ -108,6 +111,20 @@ public class FileBasedAccessControl
     public Set<SchemaTableName> filterTables(ConnectorTransactionHandle transactionHandle, Identity identity, Set<SchemaTableName> tableNames)
     {
         return tableNames;
+    }
+
+    @Override
+    public List<ColumnMetadata> filterColumns(ConnectorTransactionHandle transactionHandle, Identity identity, CatalogSchemaTableName tableName, List<ColumnMetadata> columns)
+    {
+        return columns;
+    }
+
+    @Override
+    public void checkCanShowColumnsMetadata(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
+    {
+        if (!checkTablePermission(identity, tableName, SELECT)) {
+            denyShowColumnsMetadata(tableName.toString());
+        }
     }
 
     @Override

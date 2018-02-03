@@ -16,6 +16,7 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.Session;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.security.AccessControl;
+import com.facebook.presto.spi.CatalogSchemaTableName;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.security.GrantInfo;
@@ -101,7 +102,11 @@ public final class MetadataListing
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> result = ImmutableMap.builder();
         for (Entry<SchemaTableName, List<ColumnMetadata>> entry : tableColumns.entrySet()) {
             if (allowedTables.contains(entry.getKey())) {
-                result.put(entry);
+                result.put(entry.getKey(), accessControl.filterColumns(
+                        session.getRequiredTransactionId(),
+                        session.getIdentity(),
+                        new CatalogSchemaTableName(prefix.getCatalogName(), entry.getKey()),
+                        entry.getValue()));
             }
         }
         return result.build();
