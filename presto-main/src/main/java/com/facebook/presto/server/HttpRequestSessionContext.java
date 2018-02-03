@@ -14,6 +14,7 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.Session.ResourceEstimateBuilder;
+import com.facebook.presto.server.ParsePropertiesUtils.SystemAndCatalogProperties;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.session.ResourceEstimates;
 import com.facebook.presto.sql.parser.ParsingException;
@@ -28,9 +29,6 @@ import io.airlift.units.Duration;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.WebApplicationException;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.core.Response.Status;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
@@ -40,7 +38,6 @@ import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 
@@ -59,19 +56,19 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_TIME_ZONE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TRACE_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TRANSACTION_ID;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
+import static com.facebook.presto.server.ParsePropertiesUtils.assertRequest;
+import static com.facebook.presto.server.ParsePropertiesUtils.badRequest;
+import static com.facebook.presto.server.ParsePropertiesUtils.parseSessionProperties;
 import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
 import static java.lang.String.format;
 
 public final class HttpRequestSessionContext
         implements SessionContext
 {
-    private static final Splitter DOT_SPLITTER = Splitter.on('.');
-
     private final String catalog;
     private final String schema;
     private final String path;
@@ -120,38 +117,11 @@ public final class HttpRequestSessionContext
         clientCapabilities = parseClientCapabilities(servletRequest);
         resourceEstimates = parseResourceEstimate(servletRequest);
 
-        // parse session properties
-        ImmutableMap.Builder<String, String> systemProperties = ImmutableMap.builder();
-        Map<String, Map<String, String>> catalogSessionProperties = new HashMap<>();
-        for (Entry<String, String> entry : parseSessionHeaders(servletRequest).entrySet()) {
-            String fullPropertyName = entry.getKey();
-            String propertyValue = entry.getValue();
-            List<String> nameParts = DOT_SPLITTER.splitToList(fullPropertyName);
-            if (nameParts.size() == 1) {
-                String propertyName = nameParts.get(0);
-
-                assertRequest(!propertyName.isEmpty(), "Invalid %s header", PRESTO_SESSION);
-
-                // catalog session properties can not be validated until the transaction has stated, so we delay system property validation also
-                systemProperties.put(propertyName, propertyValue);
-            }
-            else if (nameParts.size() == 2) {
-                String catalogName = nameParts.get(0);
-                String propertyName = nameParts.get(1);
-
-                assertRequest(!catalogName.isEmpty(), "Invalid %s header", PRESTO_SESSION);
-                assertRequest(!propertyName.isEmpty(), "Invalid %s header", PRESTO_SESSION);
-
-                // catalog session properties can not be validated until the transaction has stated
-                catalogSessionProperties.computeIfAbsent(catalogName, id -> new HashMap<>()).put(propertyName, propertyValue);
-            }
-            else {
-                throw badRequest(format("Invalid %s header", PRESTO_SESSION));
-            }
-        }
-        this.systemProperties = systemProperties.build();
-        this.catalogSessionProperties = catalogSessionProperties.entrySet().stream()
-                .collect(toImmutableMap(Entry::getKey, entry -> ImmutableMap.copyOf(entry.getValue())));
+        SystemAndCatalogProperties systemAndCatalogProperties = parseSessionProperties(
+                parseSessionHeaders(servletRequest),
+                format("Invalid %s header", PRESTO_SESSION));
+        systemProperties = systemAndCatalogProperties.getSystemProperties();
+        catalogSessionProperties = systemAndCatalogProperties.getCatalogProperties();
 
         preparedStatements = parsePreparedStatementsHeaders(servletRequest);
 
@@ -294,19 +264,19 @@ public final class HttpRequestSessionContext
         return sessionProperties;
     }
 
-    private Set<String> parseClientTags(HttpServletRequest servletRequest)
+    private static Set<String> parseClientTags(HttpServletRequest servletRequest)
     {
         Splitter splitter = Splitter.on(',').trimResults().omitEmptyStrings();
         return ImmutableSet.copyOf(splitter.split(nullToEmpty(servletRequest.getHeader(PRESTO_CLIENT_TAGS))));
     }
 
-    private Set<String> parseClientCapabilities(HttpServletRequest servletRequest)
+    private static Set<String> parseClientCapabilities(HttpServletRequest servletRequest)
     {
         Splitter splitter = Splitter.on(',').trimResults().omitEmptyStrings();
         return ImmutableSet.copyOf(splitter.split(nullToEmpty(servletRequest.getHeader(PRESTO_CLIENT_CAPABILITIES))));
     }
 
-    private ResourceEstimates parseResourceEstimate(HttpServletRequest servletRequest)
+    private static ResourceEstimates parseResourceEstimate(HttpServletRequest servletRequest)
     {
         ResourceEstimateBuilder builder = new ResourceEstimateBuilder();
         for (String header : splitSessionHeader(servletRequest.getHeaders(PRESTO_RESOURCE_ESTIMATE))) {
@@ -336,13 +306,6 @@ public final class HttpRequestSessionContext
         }
 
         return builder.build();
-    }
-
-    private static void assertRequest(boolean expression, String format, Object... args)
-    {
-        if (!expression) {
-            throw badRequest(format(format, args));
-        }
     }
 
     private static Map<String, String> parsePreparedStatementsHeaders(HttpServletRequest servletRequest)
@@ -388,15 +351,6 @@ public final class HttpRequestSessionContext
         catch (Exception e) {
             throw badRequest(e.getMessage());
         }
-    }
-
-    private static WebApplicationException badRequest(String message)
-    {
-        throw new WebApplicationException(Response
-                .status(Status.BAD_REQUEST)
-                .type(MediaType.TEXT_PLAIN)
-                .entity(message)
-                .build());
     }
 
     private static String trimEmptyToNull(String value)
