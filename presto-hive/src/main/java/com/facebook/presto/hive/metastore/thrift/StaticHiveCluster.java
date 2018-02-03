@@ -15,7 +15,7 @@ package com.facebook.presto.hive.metastore.thrift;
 
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.net.HostAndPort;
-import org.apache.thrift.transport.TTransportException;
+import org.apache.thrift.TException;
 
 import javax.inject.Inject;
 
@@ -35,14 +35,16 @@ public class StaticHiveCluster
 {
     private final List<HostAndPort> addresses;
     private final HiveMetastoreClientFactory clientFactory;
+    private final String metastoreUsername;
 
     @Inject
     public StaticHiveCluster(StaticMetastoreConfig config, HiveMetastoreClientFactory clientFactory)
     {
-        this(config.getMetastoreUris(), clientFactory);
+        this(config.getMetastoreUris(), clientFactory, config.getMetastoreUsername());
     }
 
-    public StaticHiveCluster(List<URI> metastoreUris, HiveMetastoreClientFactory clientFactory)
+    public StaticHiveCluster(List<URI> metastoreUris, HiveMetastoreClientFactory clientFactory,
+                             String metastoreUsername)
     {
         requireNonNull(metastoreUris, "metastoreUris is null");
         checkArgument(!metastoreUris.isEmpty(), "metastoreUris must specify at least one URI");
@@ -51,6 +53,7 @@ public class StaticHiveCluster
                 .map(uri -> HostAndPort.fromParts(uri.getHost(), uri.getPort()))
                 .collect(toList());
         this.clientFactory = requireNonNull(clientFactory, "clientFactory is null");
+        this.metastoreUsername = metastoreUsername;
     }
 
     /**
@@ -67,12 +70,16 @@ public class StaticHiveCluster
         List<HostAndPort> metastores = new ArrayList<>(addresses);
         Collections.shuffle(metastores.subList(1, metastores.size()));
 
-        TTransportException lastException = null;
+        TException lastException = null;
         for (HostAndPort metastore : metastores) {
             try {
-                return clientFactory.create(metastore);
+                HiveMetastoreClient hiveMetastoreClient = clientFactory.create(metastore);
+                if (!isNullOrEmpty(metastoreUsername)) {
+                    hiveMetastoreClient.setUGI(metastoreUsername);
+                }
+                return hiveMetastoreClient;
             }
-            catch (TTransportException e) {
+            catch (TException e) {
                 lastException = e;
             }
         }
