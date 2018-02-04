@@ -489,6 +489,17 @@ public class TestCassandraIntegrationSmokeTest
                 "key3", null, 999, null, null, null, "ansi", false, null, null, null, null, null, null, null, null, null, null));
     }
 
+    @Test
+    public void testSelectInformationSchemaColumns()
+    {
+        assertQuery(
+                "SELECT table_schema FROM information_schema.columns WHERE table_schema = 'tpch' ORDER BY table_schema LIMIT 1",
+                "VALUES 'tpch'");
+        assertQuery(
+                "SELECT table_name FROM information_schema.columns WHERE table_name = 'orders' ORDER BY table_name LIMIT 1",
+                "VALUES 'orders'");
+    }
+
     private void assertSelect(String tableName, boolean createdByPresto)
     {
         Type uuidType = createdByPresto ? createUnboundedVarcharType() : createVarcharType(36);
