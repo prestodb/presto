@@ -54,6 +54,8 @@ public interface CassandraSession
 
     List<CassandraPartition> getPartitions(CassandraTable table, List<Object> filterPrefix);
 
+    boolean isMaterializedView(SchemaTableName schemaTableName);
+
     ResultSet execute(String cql, Object... values);
 
     List<SizeEstimate> getSizeEstimates(String keyspaceName, String tableName);
