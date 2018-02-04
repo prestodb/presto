@@ -14,12 +14,16 @@
 package com.facebook.presto.tests.cassandra;
 
 import com.datastax.driver.core.utils.Bytes;
+import io.airlift.units.Duration;
 import io.prestodb.tempto.ProductTest;
 import io.prestodb.tempto.Requirement;
 import io.prestodb.tempto.RequirementsProvider;
 import io.prestodb.tempto.configuration.Configuration;
+import io.prestodb.tempto.internal.query.CassandraQueryExecutor;
 import io.prestodb.tempto.query.QueryResult;
 import org.testng.annotations.Test;
+
+import java.sql.SQLException;
 
 import static com.facebook.presto.tests.TemptoProductTestRunner.PRODUCT_TESTS_TIME_ZONE;
 import static com.facebook.presto.tests.TestGroups.CASSANDRA;
@@ -29,6 +33,7 @@ import static com.facebook.presto.tests.cassandra.CassandraTpchTableDefinitions.
 import static com.facebook.presto.tests.cassandra.DataTypesTableDefinition.CASSANDRA_ALL_TYPES;
 import static com.facebook.presto.tests.cassandra.TestConstants.CONNECTOR_NAME;
 import static com.facebook.presto.tests.cassandra.TestConstants.KEY_SPACE;
+import static com.facebook.presto.tests.utils.QueryAssertions.assertContainsEventually;
 import static com.facebook.presto.tests.utils.QueryExecutors.onPresto;
 import static io.prestodb.tempto.Requirements.compose;
 import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
@@ -45,14 +50,18 @@ import static java.sql.JDBCType.LONGNVARCHAR;
 import static java.sql.JDBCType.LONGVARBINARY;
 import static java.sql.JDBCType.REAL;
 import static java.sql.JDBCType.TIMESTAMP;
+import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class Select
         extends ProductTest
         implements RequirementsProvider
 {
+    private Configuration configuration;
+
     @Override
     public Requirement getRequirements(Configuration configuration)
     {
+        this.configuration = configuration;
         return compose(
                 immutableTable(CASSANDRA_NATION),
                 immutableTable(CASSANDRA_SUPPLIER),
@@ -220,5 +229,93 @@ public class Select
                 .executeQuery(sql);
 
         assertThat(queryResult).containsOnly(row("CANADA", "AMERICA"));
+    }
+
+    @Test(groups = CASSANDRA)
+    public void testSelectAllTypeParitioningMateliarizedView()
+            throws SQLException
+    {
+        String materializedViewName = format("%s_partitioned_mv", CASSANDRA_ALL_TYPES.getName());
+        onCasssandra(format("DROP MATERIALIZED VIEW IF EXISTS %s.%s", KEY_SPACE, materializedViewName));
+        onCasssandra(format("CREATE MATERIALIZED VIEW %s.%s AS SELECT * FROM %s.%s WHERE b IS NOT NULL PRIMARY KEY (a, b)",
+                KEY_SPACE,
+                materializedViewName,
+                KEY_SPACE,
+                CASSANDRA_ALL_TYPES.getName()));
+
+        assertContainsEventually(() -> query(format("SHOW TABLES FROM %s.%s", CONNECTOR_NAME, KEY_SPACE)),
+                query(format("SELECT '%s'", materializedViewName)),
+                new Duration(1, MINUTES));
+
+        // Materialized view may not return all results during the creation
+        assertContainsEventually(() -> query(format("SELECT status_replicated FROM %s.system.built_views WHERE view_name = '%s'", CONNECTOR_NAME, materializedViewName)),
+                query("SELECT true"),
+                new Duration(1, MINUTES));
+
+        QueryResult query = query(format(
+                "SELECT a, b, bl, bo, d, do, f, fr, i, integer, l, m, s, t, ti, tu, u, v, vari FROM %s.%s.%s WHERE a = '\0'",
+                CONNECTOR_NAME, KEY_SPACE, materializedViewName));
+
+        assertThat(query)
+                .hasColumns(LONGNVARCHAR, BIGINT, LONGVARBINARY, BOOLEAN, DOUBLE, DOUBLE, REAL, LONGNVARCHAR, LONGNVARCHAR,
+                        INTEGER, LONGNVARCHAR, LONGNVARCHAR, LONGNVARCHAR, LONGNVARCHAR, TIMESTAMP, LONGNVARCHAR, LONGNVARCHAR,
+                        LONGNVARCHAR, LONGNVARCHAR)
+                .containsOnly(
+                        row("\0", Long.MIN_VALUE, Bytes.fromHexString("0x00").array(), false, 0f, Double.MIN_VALUE,
+                                Float.MIN_VALUE, "[0]", "0.0.0.0", Integer.MIN_VALUE, "[0]", "{\"\\u0000\":-2147483648,\"a\":0}",
+                                "[0]", "\0", parseTimestampInLocalTime("1970-01-01 00:00:00.0", PRODUCT_TESTS_TIME_ZONE),
+                                "d2177dd0-eaa2-11de-a572-001b779c76e3", "01234567-0123-0123-0123-0123456789ab",
+                                "\0", String.valueOf(Long.MIN_VALUE)));
+
+        onCasssandra(format("DROP MATERIALIZED VIEW IF EXISTS %s.%s", KEY_SPACE, materializedViewName));
+    }
+
+    @Test(groups = CASSANDRA)
+    public void testSelectClusteringMateliarizedView()
+            throws SQLException
+    {
+        String mvName = "clustering_mv";
+        onCasssandra(format("DROP MATERIALIZED VIEW IF EXISTS %s.%s", KEY_SPACE, mvName));
+        onCasssandra(format("CREATE MATERIALIZED VIEW %s.%s AS " +
+                        "SELECT * FROM %s.%s " +
+                        "WHERE s_nationkey IS NOT NULL " +
+                        "PRIMARY KEY (s_nationkey, s_suppkey) " +
+                        "WITH CLUSTERING ORDER BY (s_nationkey DESC)",
+                KEY_SPACE,
+                mvName,
+                KEY_SPACE,
+                CASSANDRA_SUPPLIER.getName()));
+
+        assertContainsEventually(() -> query(format("SHOW TABLES FROM %s.%s", CONNECTOR_NAME, KEY_SPACE)),
+                query(format("SELECT '%s'", mvName)),
+                new Duration(1, MINUTES));
+
+        // Materialized view may not return all results during the creation
+        assertContainsEventually(() -> query(format("SELECT status_replicated FROM %s.system.built_views WHERE view_name = '%s'", CONNECTOR_NAME, mvName)),
+                query("SELECT true"),
+                new Duration(1, MINUTES));
+
+        QueryResult aggregateQueryResult = onPresto()
+                .executeQuery(format(
+                        "SELECT MAX(s_nationkey), SUM(s_suppkey), AVG(s_acctbal) " +
+                        "FROM %s.%s.%s WHERE s_suppkey BETWEEN 1 AND 10 ", CONNECTOR_NAME, KEY_SPACE, mvName));
+        assertThat(aggregateQueryResult).containsOnly(
+                row(24, 55, 4334.653));
+
+        QueryResult orderedResult = onPresto()
+                .executeQuery(format(
+                        "SELECT s_nationkey, s_suppkey, s_acctbal " +
+                        "FROM %s.%s.%s WHERE s_nationkey = 1 LIMIT 1", CONNECTOR_NAME, KEY_SPACE, mvName));
+        assertThat(orderedResult).containsOnly(
+                row(1, 3, 4192.4));
+
+        onCasssandra(format("DROP MATERIALIZED VIEW IF EXISTS %s.%s", KEY_SPACE, mvName));
+    }
+
+    private void onCasssandra(String query)
+    {
+        CassandraQueryExecutor queryExecutor = new CassandraQueryExecutor(configuration);
+        queryExecutor.executeQuery(query);
+        queryExecutor.close();
     }
 }
