@@ -16,9 +16,7 @@ shift 1
 
 /docker/volumes/presto-server/bin/launcher \
   -Dnode.id="${HOSTNAME}" \
-  -Dcatalog.config-dir="${PRESTO_CONFIG_DIRECTORY}"/catalog \
+  --etc-dir="${PRESTO_CONFIG_DIRECTORY}" \
   --config="${PRESTO_CONFIG_DIRECTORY}/${CONFIG}".properties \
-  --jvm-config="${PRESTO_CONFIG_DIRECTORY}"/jvm.config \
-  --log-levels-file="${PRESTO_CONFIG_DIRECTORY}"/log.properties \
   --data-dir=/var/presto \
   "$@"
