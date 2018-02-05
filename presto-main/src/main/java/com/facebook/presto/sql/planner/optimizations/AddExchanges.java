@@ -573,11 +573,7 @@ public class AddExchanges
                             .collect(toImmutableSet())));
 
             if (layouts.isEmpty()) {
-                return new PlanWithProperties(
-                        new ValuesNode(idAllocator.getNextId(), node.getOutputSymbols(), ImmutableList.of()),
-                        ActualProperties.builder()
-                                .global(singleStreamPartition())
-                                .build());
+                return emptyRelation(node.getOutputSymbols());
             }
 
             // Filter out layouts that cannot supply all the required columns
@@ -585,6 +581,10 @@ public class AddExchanges
                     .filter(layout -> layout.hasAllOutputs(node))
                     .collect(toList());
             checkState(!layouts.isEmpty(), "No usable layouts for %s", node);
+
+            if (layouts.stream().anyMatch(layout -> layout.getLayout().getPredicate().isNone())) {
+                return emptyRelation(node.getOutputSymbols());
+            }
 
             List<PlanWithProperties> possiblePlans = layouts.stream()
                     .map(layout -> {
@@ -615,6 +615,15 @@ public class AddExchanges
                     .collect(toList());
 
             return pickPlan(possiblePlans, preferredProperties);
+        }
+
+        private PlanWithProperties emptyRelation(List<Symbol> outputSymbols)
+        {
+            return new PlanWithProperties(
+                    new ValuesNode(idAllocator.getNextId(), outputSymbols, ImmutableList.of()),
+                    ActualProperties.builder()
+                            .global(singleStreamPartition())
+                            .build());
         }
 
         /**

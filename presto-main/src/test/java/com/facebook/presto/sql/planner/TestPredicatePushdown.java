@@ -24,7 +24,6 @@ import java.util.List;
 
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.any;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.columnReference;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.exchange;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
@@ -34,6 +33,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.output
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.semiJoin;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 
 public class TestPredicatePushdown
@@ -247,12 +247,8 @@ public class TestPredicatePushdown
 
         assertPlan(
                 "SELECT orderstatus FROM orders WHERE orderstatus = 'no_such_partition_value'",
-                // TODO this could be optimized to VALUES
                 output(
-                        exchange(
-                                filter(
-                                        "cast(OS AS varchar(23)) = 'no_such_partition_value'",
-                                        tableScan("orders").withAlias("OS", columnReference("orders", "orderstatus"))))),
+                        values("orderstatus")),
                 allOptimizers);
     }
 }
