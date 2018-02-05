@@ -114,6 +114,7 @@ public class Console
 
         try (QueryRunner queryRunner = new QueryRunner(
                 session,
+                clientOptions.debug,
                 Optional.ofNullable(clientOptions.socksProxy),
                 Optional.ofNullable(clientOptions.httpProxy),
                 Optional.ofNullable(clientOptions.keystorePath),
@@ -288,7 +289,7 @@ public class Console
         }
         catch (QueryPreprocessorException e) {
             System.err.println(e.getMessage());
-            if (queryRunner.getSession().isDebug()) {
+            if (queryRunner.isDebug()) {
                 e.printStackTrace();
             }
             return false;
@@ -337,7 +338,7 @@ public class Console
         }
         catch (RuntimeException e) {
             System.err.println("Error running command: " + e.getMessage());
-            if (queryRunner.getSession().isDebug()) {
+            if (queryRunner.isDebug()) {
                 e.printStackTrace();
             }
             return false;

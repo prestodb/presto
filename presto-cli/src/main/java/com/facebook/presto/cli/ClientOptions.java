@@ -157,7 +157,6 @@ public class ClientOptions
                 toProperties(sessionProperties),
                 emptyMap(),
                 null,
-                debug,
                 clientRequestTimeout);
     }
 

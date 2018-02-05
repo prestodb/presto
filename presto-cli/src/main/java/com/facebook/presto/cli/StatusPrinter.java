@@ -57,12 +57,12 @@ public class StatusPrinter
 
     private boolean debug;
 
-    public StatusPrinter(StatementClient client, PrintStream out)
+    public StatusPrinter(StatementClient client, PrintStream out, boolean debug)
     {
         this.client = client;
         this.out = out;
         this.console = new ConsolePrinter(out);
-        this.debug = client.isDebug();
+        this.debug = debug;
     }
 
 /*
