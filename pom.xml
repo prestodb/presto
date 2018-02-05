@@ -886,7 +886,7 @@
             <dependency>
                 <groupId>org.xerial.snappy</groupId>
                 <artifactId>snappy-java</artifactId>
-                <version>1.1.1.7</version>
+                <version>1.1.2.6</version>
             </dependency>
 
             <dependency>
@@ -951,6 +951,22 @@
                     <exclusion>
                         <groupId>com.datastax.cassandra</groupId>
                         <artifactId>cassandra-driver-core</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>io.prestodb.tempto</groupId>
+                <artifactId>tempto-kafka</artifactId>
+                <version>${dep.tempto.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.datastax.cassandra</groupId>
+                        <artifactId>cassandra-driver-core</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.slf4j</groupId>
+                        <artifactId>slf4j-log4j12</artifactId>
                     </exclusion>
                 </exclusions>
             </dependency>

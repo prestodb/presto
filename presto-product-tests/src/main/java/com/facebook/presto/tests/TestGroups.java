@@ -62,6 +62,7 @@ public final class TestGroups
     public static final String CANCEL_QUERY = "cancel_query";
     public static final String BIG_QUERY = "big_query";
     public static final String HIVE_TABLE_STATISTICS = "hive_table_statistics";
+    public static final String KAFKA = "kafka";
 
     private TestGroups() {}
 }
