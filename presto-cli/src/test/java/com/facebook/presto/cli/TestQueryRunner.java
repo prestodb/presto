@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
+import io.airlift.units.Duration;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import org.testng.annotations.AfterMethod;
@@ -80,7 +81,7 @@ public class TestQueryRunner
                 .addHeader(CONTENT_TYPE, "application/json")
                 .setBody(createResults()));
 
-        QueryRunner queryRunner = new QueryRunner(
+        QueryRunner queryRunner = createQueryRunner(
                 new ClientSession(
                         server.url("/").uri(),
                         "user",
@@ -95,22 +96,7 @@ public class TestQueryRunner
                         ImmutableMap.of(),
                         null,
                         false,
-                        new io.airlift.units.Duration(2, MINUTES)),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                false,
-                false);
+                        new Duration(2, MINUTES)));
         try (Query query = queryRunner.startQuery("first query will introduce a cookie")) {
             query.renderOutput(new PrintStream(nullOutputStream()), CSV, false);
         }
@@ -137,5 +123,26 @@ public class TestQueryRunner
                 null,
                 null);
         return QUERY_RESULTS_CODEC.toJson(queryResults);
+    }
+
+    static QueryRunner createQueryRunner(ClientSession clientSession)
+    {
+        return new QueryRunner(
+                clientSession,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                false,
+                false);
     }
 }
