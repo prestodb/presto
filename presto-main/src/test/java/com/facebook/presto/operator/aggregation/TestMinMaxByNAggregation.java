@@ -15,6 +15,8 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
@@ -23,11 +25,14 @@ import java.util.Arrays;
 
 import static com.facebook.presto.block.BlockAssertions.createArrayBigintBlock;
 import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
+import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
 import static com.facebook.presto.block.BlockAssertions.createRLEBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
+import static com.facebook.presto.operator.aggregation.AggregationTestUtils.groupedAggregation;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static org.testng.Assert.assertEquals;
 
 public class TestMinMaxByNAggregation
 {
@@ -330,5 +335,23 @@ public class TestMinMaxByNAggregation
                 createStringsBlock("z", "a", "x", "b"),
                 createArrayBigintBlock(ImmutableList.of(ImmutableList.of(1L, 2L), ImmutableList.of(2L, 3L), ImmutableList.of(0L, 3L), ImmutableList.of(0L, 2L))),
                 createRLEBlock(3L, 4));
+    }
+
+    @Test
+    public void testOutOfBound()
+    {
+        InternalAggregationFunction function = METADATA.getFunctionRegistry().getAggregateFunctionImplementation(
+                new Signature("max_by",
+                        AGGREGATE,
+                        parseTypeSignature("array(varchar)"),
+                        parseTypeSignature(StandardTypes.VARCHAR),
+                        parseTypeSignature(StandardTypes.BIGINT),
+                        parseTypeSignature(StandardTypes.BIGINT)));
+        try {
+            groupedAggregation(function, new Page(createStringsBlock("z"), createLongsBlock(0), createLongsBlock(10001)));
+        }
+        catch (PrestoException e) {
+            assertEquals(e.getMessage(), "third argument of max_by/min_by must be less than or equal to 10000; found 10001");
+        }
     }
 }
