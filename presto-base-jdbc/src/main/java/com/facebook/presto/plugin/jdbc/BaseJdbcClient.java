@@ -297,7 +297,7 @@ public class BaseJdbcClient
             }
             String catalog = connection.getCatalog();
 
-            String temporaryName = "tmp_presto_" + UUID.randomUUID().toString().replace("-", "");
+            String temporaryName = generateTemporaryTableName();
             StringBuilder sql = new StringBuilder()
                     .append("CREATE TABLE ")
                     .append(quoted(catalog, schema, temporaryName))
@@ -335,6 +335,11 @@ public class BaseJdbcClient
         catch (SQLException e) {
             throw new PrestoException(JDBC_ERROR, e);
         }
+    }
+
+    protected String generateTemporaryTableName()
+    {
+        return "tmp_presto_" + UUID.randomUUID().toString().replace("-", "");
     }
 
     @Override
