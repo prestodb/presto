@@ -9,14 +9,12 @@ env:
     - ARTIFACTS_UPLOAD_PATH_PR=travis_build_artifacts_pr/${TRAVIS_REPO_SLUG}/${TRAVIS_BRANCH}/${TRAVIS_BUILD_NUMBER}
     - TEST_FLAGS=""
   matrix:
-    - MAVEN_CHECKS=true
-    - TEST_SPECIFIC_MODULES=presto-tests
-    - TEST_SPECIFIC_MODULES=presto-tests TEST_FLAGS="-P ci-only"
-    - TEST_SPECIFIC_MODULES=presto-raptor
-    - TEST_SPECIFIC_MODULES=presto-accumulo
-    - TEST_SPECIFIC_MODULES=presto-cassandra
-    - TEST_SPECIFIC_MODULES=presto-hive
-    - TEST_OTHER_MODULES=!presto-tests,!presto-raptor,!presto-accumulo,!presto-cassandra,!presto-hive,!presto-docs,!presto-server,!presto-server-rpm
+    - PRODUCT_TESTS_BASIC_ENVIRONMENT=true
+    - PRODUCT_TESTS_SPECIFIC_ENVIRONMENT=true
+    - PRODUCT_TESTS_BASIC_ENVIRONMENT=true
+    - PRODUCT_TESTS_SPECIFIC_ENVIRONMENT=true
+    - PRODUCT_TESTS_BASIC_ENVIRONMENT=true
+    - PRODUCT_TESTS_SPECIFIC_ENVIRONMENT=true
     - PRODUCT_TESTS_BASIC_ENVIRONMENT=true
     - PRODUCT_TESTS_SPECIFIC_ENVIRONMENT=true
     - HIVE_TESTS=true
