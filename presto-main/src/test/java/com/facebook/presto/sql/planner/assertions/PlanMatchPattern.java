@@ -67,6 +67,8 @@ import java.util.stream.IntStream;
 
 import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_FIRST;
 import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_LAST;
+import static com.facebook.presto.spi.block.SortOrder.DESC_NULLS_FIRST;
+import static com.facebook.presto.spi.block.SortOrder.DESC_NULLS_LAST;
 import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.match;
@@ -75,6 +77,7 @@ import static com.facebook.presto.sql.planner.assertions.StrictSymbolsMatcher.ac
 import static com.facebook.presto.sql.tree.SortItem.NullOrdering.FIRST;
 import static com.facebook.presto.sql.tree.SortItem.NullOrdering.UNDEFINED;
 import static com.facebook.presto.sql.tree.SortItem.Ordering.ASCENDING;
+import static com.facebook.presto.sql.tree.SortItem.Ordering.DESCENDING;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -753,11 +756,12 @@ public final class PlanMatchPattern
                 }
             }
             else {
+                checkState(ordering == DESCENDING);
                 if (nullOrdering == FIRST) {
-                    return ASC_NULLS_FIRST;
+                    return DESC_NULLS_FIRST;
                 }
                 else {
-                    return ASC_NULLS_LAST;
+                    return DESC_NULLS_LAST;
                 }
             }
         }
