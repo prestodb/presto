@@ -57,10 +57,12 @@ public class Query
     private final AtomicBoolean ignoreUserInterrupt = new AtomicBoolean();
     private final AtomicBoolean userAbortedQuery = new AtomicBoolean();
     private final StatementClient client;
+    private final boolean debug;
 
-    public Query(StatementClient client)
+    public Query(StatementClient client, boolean debug)
     {
         this.client = requireNonNull(client, "client is null");
+        this.debug = debug;
     }
 
     public Optional<String> getSetCatalog()
@@ -130,7 +132,7 @@ public class Query
         PrintStream errorChannel = interactive ? out : System.err;
 
         if (interactive) {
-            statusPrinter = new StatusPrinter(client, out);
+            statusPrinter = new StatusPrinter(client, out, debug);
             statusPrinter.printInitialStatusUpdates();
         }
         else {
@@ -306,7 +308,7 @@ public class Query
         checkState(error != null);
 
         out.printf("Query %s failed: %s%n", results.getId(), error.getMessage());
-        if (client.isDebug() && (error.getFailureInfo() != null)) {
+        if (debug && (error.getFailureInfo() != null)) {
             error.getFailureInfo().toException().printStackTrace(out);
         }
         if (error.getErrorLocation() != null) {

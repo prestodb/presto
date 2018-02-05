@@ -657,7 +657,6 @@ public class PrestoConnection
                 ImmutableMap.copyOf(allProperties),
                 ImmutableMap.copyOf(preparedStatements),
                 transactionId.get(),
-                false,
                 timeout);
 
         return queryExecutor.startQuery(session, sql);

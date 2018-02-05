@@ -100,7 +100,6 @@ public class BenchmarkDriverOptions
                 toProperties(this.sessionProperties),
                 ImmutableMap.of(),
                 null,
-                debug,
                 clientRequestTimeout);
     }
 
