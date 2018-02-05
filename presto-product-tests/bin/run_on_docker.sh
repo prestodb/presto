@@ -154,6 +154,8 @@ elif [[ "$ENVIRONMENT" == "singlenode-postgresql" ]]; then
   EXTERNAL_SERVICES="hadoop-master postgres"
 elif [[ "$ENVIRONMENT" == "singlenode-cassandra" ]]; then
   EXTERNAL_SERVICES="hadoop-master cassandra"
+elif [[ "$ENVIRONMENT" == "singlenode-kafka" ]]; then
+  EXTERNAL_SERVICES="hadoop-master kafka"
 else
   EXTERNAL_SERVICES="hadoop-master"
 fi
