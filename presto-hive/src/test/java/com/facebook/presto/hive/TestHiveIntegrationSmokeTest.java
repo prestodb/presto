@@ -132,33 +132,27 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testInformationSchemaTablesWithoutEqualityConstraint()
     {
-        @Language("SQL") String actual = "" +
-                "SELECT lower(table_name) " +
-                "FROM information_schema.tables " +
-                "WHERE table_catalog = '" + catalog + "' AND table_schema LIKE 'tpch' AND table_name LIKE '%orders'";
-
-        @Language("SQL") String expected = "" +
-                "SELECT lower(table_name) " +
-                "FROM information_schema.tables " +
-                "WHERE table_name LIKE '%ORDERS'";
-
-        assertQuery(actual, expected);
+        assertQuery(
+                "SELECT table_name FROM information_schema.tables " +
+                        "WHERE table_catalog = '" + catalog + "' AND table_schema LIKE 'tpch' AND table_name LIKE '%orders'",
+                "VALUES 'orders'");
     }
 
     @Test
     public void testInformationSchemaColumnsWithoutEqualityConstraint()
     {
-        @Language("SQL") String actual = "" +
-                "SELECT lower(table_name), lower(column_name) " +
-                "FROM information_schema.columns " +
-                "WHERE table_catalog = '" + catalog + "' AND table_schema = 'tpch' AND table_name LIKE '%orders%'";
-
-        @Language("SQL") String expected = "" +
-                "SELECT lower(table_name), lower(column_name) " +
-                "FROM information_schema.columns " +
-                "WHERE table_name LIKE '%ORDERS%'";
-
-        assertQuery(actual, expected);
+        assertQuery(
+                "SELECT table_name, column_name FROM information_schema.columns " +
+                        "WHERE table_catalog = '" + catalog + "' AND table_schema = 'tpch' AND table_name LIKE '%orders%'",
+                "VALUES ('orders', 'orderkey'), " +
+                        "('orders', 'custkey'), " +
+                        "('orders', 'orderstatus'), " +
+                        "('orders', 'totalprice'), " +
+                        "('orders', 'orderdate'), " +
+                        "('orders', 'orderpriority'), " +
+                        "('orders', 'clerk'), " +
+                        "('orders', 'shippriority'), " +
+                        "('orders', 'comment')");
     }
 
     @Test
