@@ -43,6 +43,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.cli.ConsolePrinter.REAL_TERMINAL;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
@@ -55,7 +56,6 @@ public class Query
     private static final Signal SIGINT = new Signal("INT");
 
     private final AtomicBoolean ignoreUserInterrupt = new AtomicBoolean();
-    private final AtomicBoolean userAbortedQuery = new AtomicBoolean();
     private final StatementClient client;
     private final boolean debug;
 
@@ -109,10 +109,9 @@ public class Query
     {
         Thread clientThread = Thread.currentThread();
         SignalHandler oldHandler = Signal.handle(SIGINT, signal -> {
-            if (ignoreUserInterrupt.get() || client.isClosed()) {
+            if (ignoreUserInterrupt.get() || client.isClientAborted()) {
                 return;
             }
-            userAbortedQuery.set(true);
             client.close();
             clientThread.interrupt();
         });
@@ -139,8 +138,9 @@ public class Query
             waitForData();
         }
 
-        if ((!client.isFailed()) && (!client.isGone()) && (!client.isClosed())) {
-            QueryStatusInfo results = client.isValid() ? client.currentStatusInfo() : client.finalStatusInfo();
+        // if running or finished
+        if (client.isRunning() || (client.isFinished() && client.finalStatusInfo().getError() == null)) {
+            QueryStatusInfo results = client.isRunning() ? client.currentStatusInfo() : client.finalStatusInfo();
             if (results.getUpdateType() != null) {
                 renderUpdate(errorChannel, results);
             }
@@ -153,19 +153,23 @@ public class Query
             }
         }
 
+        checkState(!client.isRunning());
+
         if (statusPrinter != null) {
             statusPrinter.printFinalInfo();
         }
 
-        if (client.isClosed()) {
+        if (client.isClientAborted()) {
             errorChannel.println("Query aborted by user");
             return false;
         }
-        if (client.isGone()) {
+        if (client.isClientError()) {
             errorChannel.println("Query is gone (server restarted?)");
             return false;
         }
-        if (client.isFailed()) {
+
+        verify(client.isFinished());
+        if (client.finalStatusInfo().getError() != null) {
             renderFailure(errorChannel);
             return false;
         }
@@ -175,7 +179,7 @@ public class Query
 
     private void waitForData()
     {
-        while (client.isValid() && (client.currentData().getData() == null)) {
+        while (client.isRunning() && (client.currentData().getData() == null)) {
             client.advance();
         }
     }
@@ -239,7 +243,6 @@ public class Query
                 ignoreUserInterrupt.set(true);
                 pager.getFinishFuture().thenRun(() -> {
                     ignoreUserInterrupt.set(false);
-                    userAbortedQuery.set(true);
                     client.close();
                     clientThread.interrupt();
                 });
@@ -249,7 +252,7 @@ public class Query
         catch (RuntimeException | IOException e) {
             // clear interrupt flag before throwing an exception
             Thread.interrupted();
-            if (userAbortedQuery.get() && !(e instanceof QueryAbortedException)) {
+            if (client.isClientAborted() && !(e instanceof QueryAbortedException)) {
                 throw new QueryAbortedException(e);
             }
             throw e;

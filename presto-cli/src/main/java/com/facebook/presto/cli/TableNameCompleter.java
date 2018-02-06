@@ -71,7 +71,7 @@ public class TableNameCompleter
     {
         ImmutableList.Builder<String> cache = ImmutableList.builder();
         try (StatementClient client = queryRunner.startInternalQuery(query)) {
-            while (client.isValid() && !Thread.currentThread().isInterrupted()) {
+            while (client.isRunning() && !Thread.currentThread().isInterrupted()) {
                 QueryData results = client.currentData();
                 if (results.getData() != null) {
                     for (List<Object> row : results.getData()) {

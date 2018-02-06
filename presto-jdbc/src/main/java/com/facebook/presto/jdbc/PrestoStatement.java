@@ -14,6 +14,7 @@
 package com.facebook.presto.jdbc;
 
 import com.facebook.presto.client.ClientException;
+import com.facebook.presto.client.QueryStatusInfo;
 import com.facebook.presto.client.StatementClient;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Ints;
@@ -234,8 +235,11 @@ public class PrestoStatement
         ResultSet resultSet = null;
         try {
             client = connection().startQuery(sql, getStatementSessionProperties());
-            if (client.isFailed()) {
-                throw resultsException(client.finalStatusInfo());
+            if (client.isFinished()) {
+                QueryStatusInfo finalStatusInfo = client.finalStatusInfo();
+                if (finalStatusInfo.getError() != null) {
+                    throw resultsException(finalStatusInfo);
+                }
             }
             executingClient.set(client);
 

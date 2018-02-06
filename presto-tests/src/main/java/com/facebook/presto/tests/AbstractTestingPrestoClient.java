@@ -40,7 +40,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
-import static com.google.common.base.Verify.verify;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.transform;
 import static java.util.Objects.requireNonNull;
 
@@ -80,12 +80,15 @@ public abstract class AbstractTestingPrestoClient<T>
         ClientSession clientSession = toClientSession(session, prestoServer.getBaseUrl(), new Duration(2, TimeUnit.MINUTES));
 
         try (StatementClient client = new StatementClient(httpClient, clientSession, sql)) {
-            while (client.isValid()) {
+            while (client.isRunning()) {
                 resultsSession.addResults(client.currentStatusInfo(), client.currentData());
                 client.advance();
             }
 
-            if (!client.isFailed()) {
+            checkState(client.isFinished());
+            QueryError error = client.finalStatusInfo().getError();
+
+            if (error == null) {
                 QueryStatusInfo results = client.finalStatusInfo();
                 if (results.getUpdateType() != null) {
                     resultsSession.setUpdateType(results.getUpdateType());
@@ -98,8 +101,6 @@ public abstract class AbstractTestingPrestoClient<T>
                 return new ResultWithQueryId<>(results.getId(), result);
             }
 
-            QueryError error = client.finalStatusInfo().getError();
-            verify(error != null, "no error");
             if (error.getFailureInfo() != null) {
                 throw error.getFailureInfo().toException();
             }

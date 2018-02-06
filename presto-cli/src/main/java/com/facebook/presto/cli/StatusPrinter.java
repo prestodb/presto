@@ -86,7 +86,7 @@ Parallelism: 2.5
     {
         long lastPrint = System.nanoTime();
         try {
-            while (client.isValid()) {
+            while (client.isRunning()) {
                 try {
                     // exit status loop if there is pending output
                     if (client.currentData().getData() != null) {
