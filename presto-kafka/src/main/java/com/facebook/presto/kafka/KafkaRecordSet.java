@@ -39,6 +39,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.facebook.presto.decoder.FieldValueProviders.booleanValueProvider;
+import static com.facebook.presto.decoder.FieldValueProviders.bytesValueProvider;
+import static com.facebook.presto.decoder.FieldValueProviders.longValueProvider;
 import static com.facebook.presto.kafka.KafkaErrorCode.KAFKA_SPLIT_ERROR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -205,37 +208,37 @@ public class KafkaRecordSet
                     KafkaInternalFieldDescription fieldDescription = KafkaInternalFieldDescription.forColumnName(columnHandle.getName());
                     switch (fieldDescription) {
                         case SEGMENT_COUNT_FIELD:
-                            currentRowValuesMap.put(columnHandle, fieldDescription.forLongValue(totalMessages));
+                            currentRowValuesMap.put(columnHandle, longValueProvider(totalMessages));
                             break;
                         case PARTITION_OFFSET_FIELD:
-                            currentRowValuesMap.put(columnHandle, fieldDescription.forLongValue(messageAndOffset.offset()));
+                            currentRowValuesMap.put(columnHandle, longValueProvider(messageAndOffset.offset()));
                             break;
                         case MESSAGE_FIELD:
-                            currentRowValuesMap.put(columnHandle, fieldDescription.forByteValue(messageData));
+                            currentRowValuesMap.put(columnHandle, bytesValueProvider(messageData));
                             break;
                         case MESSAGE_LENGTH_FIELD:
-                            currentRowValuesMap.put(columnHandle, fieldDescription.forLongValue(messageData.length));
+                            currentRowValuesMap.put(columnHandle, longValueProvider(messageData.length));
                             break;
                         case KEY_FIELD:
-                            currentRowValuesMap.put(columnHandle, fieldDescription.forByteValue(keyData));
+                            currentRowValuesMap.put(columnHandle, bytesValueProvider(keyData));
                             break;
                         case KEY_LENGTH_FIELD:
-                            currentRowValuesMap.put(columnHandle, fieldDescription.forLongValue(keyData.length));
+                            currentRowValuesMap.put(columnHandle, longValueProvider(keyData.length));
                             break;
                         case KEY_CORRUPT_FIELD:
-                            currentRowValuesMap.put(columnHandle, fieldDescription.forBooleanValue(!decodedKey.isPresent()));
+                            currentRowValuesMap.put(columnHandle, booleanValueProvider(!decodedKey.isPresent()));
                             break;
                         case MESSAGE_CORRUPT_FIELD:
-                            currentRowValuesMap.put(columnHandle, fieldDescription.forBooleanValue(!decodedValue.isPresent()));
+                            currentRowValuesMap.put(columnHandle, booleanValueProvider(!decodedValue.isPresent()));
                             break;
                         case PARTITION_ID_FIELD:
-                            currentRowValuesMap.put(columnHandle, fieldDescription.forLongValue(split.getPartitionId()));
+                            currentRowValuesMap.put(columnHandle, longValueProvider(split.getPartitionId()));
                             break;
                         case SEGMENT_START_FIELD:
-                            currentRowValuesMap.put(columnHandle, fieldDescription.forLongValue(split.getStart()));
+                            currentRowValuesMap.put(columnHandle, longValueProvider(split.getStart()));
                             break;
                         case SEGMENT_END_FIELD:
-                            currentRowValuesMap.put(columnHandle, fieldDescription.forLongValue(split.getEnd()));
+                            currentRowValuesMap.put(columnHandle, longValueProvider(split.getEnd()));
                             break;
                         default:
                             throw new IllegalArgumentException("unknown internal field " + fieldDescription);
