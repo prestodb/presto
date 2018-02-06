@@ -31,6 +31,11 @@ cache:
 services:
   - docker
 
+before_install:
+  - mkdir -p $HOME/bin
+  - curl -fsSL https://testspace-client.s3.amazonaws.com/testspace-linux.tgz | tar -zxvf- -C $HOME/bin
+  - testspace config url $TS_ORG.testspace.com
+
 install:
   - ./mvnw -v
   - |
@@ -137,6 +142,17 @@ deploy:
   acl: public_read
 
 after_script:
+- if [[ -v MAVEN_CHECKS ]]; then
+    testspace **/target/checkstyle-result.xml;
+  elif [[ -v PRODUCT_TESTS_BASIC_ENVIRONMENT ]]; then
+    testspace "[Product Tests - BASIC]**/target/test-reports/tempto-tests/all.xml{presto-product-tests}";
+  elif [[ -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT ]]; then
+    testspace "[Product Tests - SPECIFIC]**/target/test-reports/tempto-tests/all.xml{presto-product-tests}";
+  elif [[ -v HIVE_TESTS ]]; then
+    testspace "[Hive Tests]**/target/surefire-reports/TEST-*.xml";
+  else
+    testspace "[Modules Tests]**/target/surefire-reports/TEST-*.xml{.}";
+  fi
 - |
   if [[ -v DEPLOY_S3_ACCESS_KEY ]]; then
     sudo pip install awscli
