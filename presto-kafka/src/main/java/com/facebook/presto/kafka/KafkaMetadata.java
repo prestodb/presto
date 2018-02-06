@@ -41,6 +41,7 @@ import java.util.function.Supplier;
 
 import static com.facebook.presto.kafka.KafkaHandleResolver.convertColumnHandle;
 import static com.facebook.presto.kafka.KafkaHandleResolver.convertTableHandle;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -180,10 +181,12 @@ public class KafkaMetadata
         }
 
         for (SchemaTableName tableName : tableNames) {
-            ConnectorTableMetadata tableMetadata = getTableMetadata(tableName);
-            // table can disappear during listing operation
-            if (tableMetadata != null) {
-                columns.put(tableName, tableMetadata.getColumns());
+            try {
+                columns.put(tableName, getTableMetadata(tableName).getColumns());
+            }
+            catch (TableNotFoundException e) {
+                // Normally it would mean the table disappeared during listing operation
+                throw new IllegalStateException(format("Table %s cannot be gone because tables are statically defined", tableName), e);
             }
         }
         return columns.build();
