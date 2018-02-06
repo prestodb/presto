@@ -19,15 +19,10 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
-import java.util.Objects;
-import java.util.Set;
-
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.util.Objects.requireNonNull;
@@ -38,70 +33,62 @@ import static java.util.Objects.requireNonNull;
  * forBooleanValue/forLongValue/forBytesValue methods and the resulting FieldValueProvider is then passed into the appropriate row decoder, the fields
  * will be null. Most values are assigned in the {@link com.facebook.presto.kafka.KafkaRecordSet}.
  */
-public class KafkaInternalFieldDescription
+public enum KafkaInternalFieldDescription
 {
     /**
      * <tt>_partition_id</tt> - Kafka partition id.
      */
-    public static final KafkaInternalFieldDescription PARTITION_ID_FIELD = new KafkaInternalFieldDescription("_partition_id", BigintType.BIGINT, "Partition Id");
+    PARTITION_ID_FIELD("_partition_id", BigintType.BIGINT, "Partition Id"),
 
     /**
      * <tt>_partition_offset</tt> - The current offset of the message in the partition.
      */
-    public static final KafkaInternalFieldDescription PARTITION_OFFSET_FIELD = new KafkaInternalFieldDescription("_partition_offset", BigintType.BIGINT, "Offset for the message within the partition");
+    PARTITION_OFFSET_FIELD("_partition_offset", BigintType.BIGINT, "Offset for the message within the partition"),
 
     /**
      * <tt>_segment_start</tt> - Kafka start offset for the segment which contains the current message. This is per-partition.
      */
-    public static final KafkaInternalFieldDescription SEGMENT_START_FIELD = new KafkaInternalFieldDescription("_segment_start", BigintType.BIGINT, "Segment start offset");
+    SEGMENT_START_FIELD("_segment_start", BigintType.BIGINT, "Segment start offset"),
 
     /**
      * <tt>_segment_end</tt> - Kafka end offset for the segment which contains the current message. This is per-partition. The end offset is the first offset that is *not* in the segment.
      */
-    public static final KafkaInternalFieldDescription SEGMENT_END_FIELD = new KafkaInternalFieldDescription("_segment_end", BigintType.BIGINT, "Segment end offset");
+    SEGMENT_END_FIELD("_segment_end", BigintType.BIGINT, "Segment end offset"),
 
     /**
      * <tt>_segment_count</tt> - Running count of messages in a segment.
      */
-    public static final KafkaInternalFieldDescription SEGMENT_COUNT_FIELD = new KafkaInternalFieldDescription("_segment_count", BigintType.BIGINT, "Running message count per segment");
+    SEGMENT_COUNT_FIELD("_segment_count", BigintType.BIGINT, "Running message count per segment"),
 
     /**
      * <tt>_message_corrupt</tt> - True if the row converter could not read the a message. May be null if the row converter does not set a value (e.g. the dummy row converter does not).
      */
-    public static final KafkaInternalFieldDescription MESSAGE_CORRUPT_FIELD = new KafkaInternalFieldDescription("_message_corrupt", BooleanType.BOOLEAN, "Message data is corrupt");
+    MESSAGE_CORRUPT_FIELD("_message_corrupt", BooleanType.BOOLEAN, "Message data is corrupt"),
 
     /**
      * <tt>_message</tt> - Represents the full topic as a text column. Format is UTF-8 which may be wrong for some topics. TODO: make charset configurable.
      */
-    public static final KafkaInternalFieldDescription MESSAGE_FIELD = new KafkaInternalFieldDescription("_message", createUnboundedVarcharType(), "Message text");
+    MESSAGE_FIELD("_message", createUnboundedVarcharType(), "Message text"),
 
     /**
      * <tt>_message_length</tt> - length in bytes of the message.
      */
-    public static final KafkaInternalFieldDescription MESSAGE_LENGTH_FIELD = new KafkaInternalFieldDescription("_message_length", BigintType.BIGINT, "Total number of message bytes");
+    MESSAGE_LENGTH_FIELD("_message_length", BigintType.BIGINT, "Total number of message bytes"),
 
     /**
      * <tt>_key_corrupt</tt> - True if the row converter could not read the a key. May be null if the row converter does not set a value (e.g. the dummy row converter does not).
      */
-    public static final KafkaInternalFieldDescription KEY_CORRUPT_FIELD = new KafkaInternalFieldDescription("_key_corrupt", BooleanType.BOOLEAN, "Key data is corrupt");
+    KEY_CORRUPT_FIELD("_key_corrupt", BooleanType.BOOLEAN, "Key data is corrupt"),
 
     /**
      * <tt>_key</tt> - Represents the key as a text column. Format is UTF-8 which may be wrong for topics. TODO: make charset configurable.
      */
-    public static final KafkaInternalFieldDescription KEY_FIELD = new KafkaInternalFieldDescription("_key", createUnboundedVarcharType(), "Key text");
+    KEY_FIELD("_key", createUnboundedVarcharType(), "Key text"),
 
     /**
      * <tt>_key_length</tt> - length in bytes of the key.
      */
-    public static final KafkaInternalFieldDescription KEY_LENGTH_FIELD = new KafkaInternalFieldDescription("_key_length", BigintType.BIGINT, "Total number of key bytes");
-
-    public static Set<KafkaInternalFieldDescription> getInternalFields()
-    {
-        return ImmutableSet.of(PARTITION_ID_FIELD, PARTITION_OFFSET_FIELD,
-                SEGMENT_START_FIELD, SEGMENT_END_FIELD, SEGMENT_COUNT_FIELD,
-                KEY_FIELD, KEY_CORRUPT_FIELD, KEY_LENGTH_FIELD,
-                MESSAGE_FIELD, MESSAGE_CORRUPT_FIELD, MESSAGE_LENGTH_FIELD);
-    }
+    KEY_LENGTH_FIELD("_key_length", BigintType.BIGINT, "Total number of key bytes");
 
     private final String name;
     private final Type type;
@@ -160,36 +147,6 @@ public class KafkaInternalFieldDescription
     public FieldValueProvider forByteValue(byte[] value)
     {
         return new BytesKafkaFieldValueProvider(value);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(name, type);
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-
-        KafkaInternalFieldDescription other = (KafkaInternalFieldDescription) obj;
-        return Objects.equals(this.name, other.name) &&
-                Objects.equals(this.type, other.type);
-    }
-
-    @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .add("name", name)
-                .add("type", type)
-                .toString();
     }
 
     public class BooleanKafkaFieldValueProvider
