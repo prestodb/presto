@@ -22,7 +22,6 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.tests.statistics.MetricComparisonStrategies.absoluteError;
-import static com.facebook.presto.tests.statistics.MetricComparisonStrategies.defaultTolerance;
 import static com.facebook.presto.tests.statistics.MetricComparisonStrategies.noError;
 import static com.facebook.presto.tests.statistics.MetricComparisonStrategies.relativeError;
 import static com.facebook.presto.tests.statistics.Metrics.OUTPUT_ROW_COUNT;
@@ -57,7 +56,7 @@ public class TestTpchDistributedStats
     {
         TpchTable.getTables()
                 .forEach(table -> statisticsAssertion.check("SELECT * FROM " + table.getTableName(),
-                        checks -> checks.estimate(OUTPUT_ROW_COUNT, defaultTolerance()))); // TODO use noError
+                        checks -> checks.estimate(OUTPUT_ROW_COUNT, noError())));
     }
 
     @Test
