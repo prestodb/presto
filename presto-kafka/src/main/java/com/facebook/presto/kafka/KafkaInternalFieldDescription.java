@@ -22,10 +22,15 @@ import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
+import java.util.Map;
+
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static java.util.Arrays.stream;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 
 /**
  * Describes an internal (managed by the connector) field which is added to each table row. The definition itself makes the row
@@ -89,6 +94,17 @@ public enum KafkaInternalFieldDescription
      * <tt>_key_length</tt> - length in bytes of the key.
      */
     KEY_LENGTH_FIELD("_key_length", BigintType.BIGINT, "Total number of key bytes");
+
+    private static final Map<String, KafkaInternalFieldDescription> BY_COLUMN_NAME =
+            stream(KafkaInternalFieldDescription.values())
+                    .collect(toImmutableMap(KafkaInternalFieldDescription::getColumnName, identity()));
+
+    public static KafkaInternalFieldDescription forColumnName(String columnName)
+    {
+        KafkaInternalFieldDescription description = BY_COLUMN_NAME.get(columnName);
+        checkArgument(description != null, "Unknown internal column name %s", columnName);
+        return description;
+    }
 
     private final String columnName;
     private final Type type;
