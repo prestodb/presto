@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.kafka;
 
-import com.facebook.presto.decoder.DecoderColumnHandle;
 import com.facebook.presto.decoder.FieldValueProvider;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.type.BigintType;
@@ -176,12 +175,6 @@ public enum KafkaInternalFieldDescription
         }
 
         @Override
-        public boolean accept(DecoderColumnHandle columnHandle)
-        {
-            return columnHandle.getName().equals(columnName);
-        }
-
-        @Override
         public boolean getBoolean()
         {
             return value;
@@ -205,12 +198,6 @@ public enum KafkaInternalFieldDescription
         }
 
         @Override
-        public boolean accept(DecoderColumnHandle columnHandle)
-        {
-            return columnHandle.getName().equals(columnName);
-        }
-
-        @Override
         public long getLong()
         {
             return value;
@@ -231,12 +218,6 @@ public enum KafkaInternalFieldDescription
         private BytesKafkaFieldValueProvider(byte[] value)
         {
             this.value = value;
-        }
-
-        @Override
-        public boolean accept(DecoderColumnHandle columnHandle)
-        {
-            return columnHandle.getName().equals(columnName);
         }
 
         @Override

@@ -17,12 +17,12 @@ import com.facebook.presto.decoder.DecoderColumnHandle;
 import com.facebook.presto.decoder.FieldDecoder;
 import com.facebook.presto.decoder.FieldValueProvider;
 import com.facebook.presto.decoder.RowDecoder;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import kafka.api.FetchRequest;
@@ -32,12 +32,11 @@ import kafka.javaapi.consumer.SimpleConsumer;
 import kafka.message.MessageAndOffset;
 
 import java.nio.ByteBuffer;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.kafka.KafkaErrorCode.KAFKA_SPLIT_ERROR;
@@ -66,8 +65,6 @@ public class KafkaRecordSet
     private final List<DecoderColumnHandle> columnHandles;
     private final List<Type> columnTypes;
 
-    private final Set<FieldValueProvider> globalInternalFieldValueProviders;
-
     KafkaRecordSet(KafkaSplit split,
             KafkaSimpleConsumerManager consumerManager,
             List<DecoderColumnHandle> columnHandles,
@@ -77,11 +74,6 @@ public class KafkaRecordSet
             Map<DecoderColumnHandle, FieldDecoder<?>> messageFieldDecoders)
     {
         this.split = requireNonNull(split, "split is null");
-
-        this.globalInternalFieldValueProviders = ImmutableSet.of(
-                KafkaInternalFieldDescription.PARTITION_ID_FIELD.forLongValue(split.getPartitionId()),
-                KafkaInternalFieldDescription.SEGMENT_START_FIELD.forLongValue(split.getStart()),
-                KafkaInternalFieldDescription.SEGMENT_END_FIELD.forLongValue(split.getEnd()));
 
         this.consumerManager = requireNonNull(consumerManager, "consumerManager is null");
 
@@ -122,7 +114,7 @@ public class KafkaRecordSet
         private Iterator<MessageAndOffset> messageAndOffsetIterator;
         private final AtomicBoolean reported = new AtomicBoolean();
 
-        private FieldValueProvider[] fieldValueProviders;
+        private final FieldValueProvider[] currentRowValues = new FieldValueProvider[columnHandles.size()];
 
         KafkaRecordCursor()
         {
@@ -203,37 +195,60 @@ public class KafkaRecordSet
                 message.get(messageData);
             }
 
-            Set<FieldValueProvider> fieldValueProviders = new HashSet<>();
+            Map<ColumnHandle, FieldValueProvider> currentRowValuesMap = new HashMap<>();
 
             Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedKey = keyDecoder.decodeRow(keyData, null, columnHandles, keyFieldDecoders);
             Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedValue = messageDecoder.decodeRow(messageData, null, columnHandles, messageFieldDecoders);
 
-            fieldValueProviders.addAll(globalInternalFieldValueProviders);
-            fieldValueProviders.add(KafkaInternalFieldDescription.SEGMENT_COUNT_FIELD.forLongValue(totalMessages));
-            fieldValueProviders.add(KafkaInternalFieldDescription.PARTITION_OFFSET_FIELD.forLongValue(messageAndOffset.offset()));
-            fieldValueProviders.add(KafkaInternalFieldDescription.MESSAGE_FIELD.forByteValue(messageData));
-            fieldValueProviders.add(KafkaInternalFieldDescription.MESSAGE_LENGTH_FIELD.forLongValue(messageData.length));
-            fieldValueProviders.add(KafkaInternalFieldDescription.KEY_FIELD.forByteValue(keyData));
-            fieldValueProviders.add(KafkaInternalFieldDescription.KEY_LENGTH_FIELD.forLongValue(keyData.length));
-            fieldValueProviders.add(KafkaInternalFieldDescription.KEY_CORRUPT_FIELD.forBooleanValue(!decodedKey.isPresent()));
-            fieldValueProviders.add(KafkaInternalFieldDescription.MESSAGE_CORRUPT_FIELD.forBooleanValue(!decodedValue.isPresent()));
-
-            decodedKey.ifPresent(map -> fieldValueProviders.addAll(map.values()));
-            decodedValue.ifPresent(map -> fieldValueProviders.addAll(map.values()));
-
-            this.fieldValueProviders = new FieldValueProvider[columnHandles.size()];
-
-            // If a value provider for a requested internal column is present, assign the
-            // value to the internal cache. It is possible that an internal column is present
-            // where no value provider exists (e.g. the '_corrupt' column with the DummyRowDecoder).
-            // In that case, the cache is null (and the column is reported as null).
-            for (int i = 0; i < columnHandles.size(); i++) {
-                for (FieldValueProvider fieldValueProvider : fieldValueProviders) {
-                    if (fieldValueProvider.accept(columnHandles.get(i))) {
-                        this.fieldValueProviders[i] = fieldValueProvider;
-                        break; // for(InternalColumnProvider...
+            for (DecoderColumnHandle columnHandle : columnHandles) {
+                if (columnHandle.isInternal()) {
+                    KafkaInternalFieldDescription fieldDescription = KafkaInternalFieldDescription.forColumnName(columnHandle.getName());
+                    switch (fieldDescription) {
+                        case SEGMENT_COUNT_FIELD:
+                            currentRowValuesMap.put(columnHandle, fieldDescription.forLongValue(totalMessages));
+                            break;
+                        case PARTITION_OFFSET_FIELD:
+                            currentRowValuesMap.put(columnHandle, fieldDescription.forLongValue(messageAndOffset.offset()));
+                            break;
+                        case MESSAGE_FIELD:
+                            currentRowValuesMap.put(columnHandle, fieldDescription.forByteValue(messageData));
+                            break;
+                        case MESSAGE_LENGTH_FIELD:
+                            currentRowValuesMap.put(columnHandle, fieldDescription.forLongValue(messageData.length));
+                            break;
+                        case KEY_FIELD:
+                            currentRowValuesMap.put(columnHandle, fieldDescription.forByteValue(keyData));
+                            break;
+                        case KEY_LENGTH_FIELD:
+                            currentRowValuesMap.put(columnHandle, fieldDescription.forLongValue(keyData.length));
+                            break;
+                        case KEY_CORRUPT_FIELD:
+                            currentRowValuesMap.put(columnHandle, fieldDescription.forBooleanValue(!decodedKey.isPresent()));
+                            break;
+                        case MESSAGE_CORRUPT_FIELD:
+                            currentRowValuesMap.put(columnHandle, fieldDescription.forBooleanValue(!decodedValue.isPresent()));
+                            break;
+                        case PARTITION_ID_FIELD:
+                            currentRowValuesMap.put(columnHandle, fieldDescription.forLongValue(split.getPartitionId()));
+                            break;
+                        case SEGMENT_START_FIELD:
+                            currentRowValuesMap.put(columnHandle, fieldDescription.forLongValue(split.getStart()));
+                            break;
+                        case SEGMENT_END_FIELD:
+                            currentRowValuesMap.put(columnHandle, fieldDescription.forLongValue(split.getEnd()));
+                            break;
+                        default:
+                            throw new IllegalArgumentException("unknown internal field " + fieldDescription);
                     }
                 }
+            }
+
+            decodedKey.ifPresent(currentRowValuesMap::putAll);
+            decodedValue.ifPresent(currentRowValuesMap::putAll);
+
+            for (int i = 0; i < columnHandles.size(); i++) {
+                ColumnHandle columnHandle = columnHandles.get(i);
+                currentRowValues[i] = currentRowValuesMap.get(columnHandle);
             }
 
             return true; // Advanced successfully.
@@ -244,36 +259,32 @@ public class KafkaRecordSet
         public boolean getBoolean(int field)
         {
             checkArgument(field < columnHandles.size(), "Invalid field index");
-
             checkFieldType(field, boolean.class);
-            return fieldValueProviders[field].getBoolean();
+            return currentRowValues[field].getBoolean();
         }
 
         @Override
         public long getLong(int field)
         {
             checkArgument(field < columnHandles.size(), "Invalid field index");
-
             checkFieldType(field, long.class);
-            return fieldValueProviders[field].getLong();
+            return currentRowValues[field].getLong();
         }
 
         @Override
         public double getDouble(int field)
         {
             checkArgument(field < columnHandles.size(), "Invalid field index");
-
             checkFieldType(field, double.class);
-            return fieldValueProviders[field].getDouble();
+            return currentRowValues[field].getDouble();
         }
 
         @Override
         public Slice getSlice(int field)
         {
             checkArgument(field < columnHandles.size(), "Invalid field index");
-
             checkFieldType(field, Slice.class);
-            return fieldValueProviders[field].getSlice();
+            return currentRowValues[field].getSlice();
         }
 
         @Override
@@ -286,8 +297,7 @@ public class KafkaRecordSet
         public boolean isNull(int field)
         {
             checkArgument(field < columnHandles.size(), "Invalid field index");
-
-            return fieldValueProviders[field] == null || fieldValueProviders[field].isNull();
+            return currentRowValues[field] == null || currentRowValues[field].isNull();
         }
 
         private void checkFieldType(int field, Class<?> expected)

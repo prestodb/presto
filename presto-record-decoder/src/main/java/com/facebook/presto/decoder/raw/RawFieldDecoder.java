@@ -149,12 +149,6 @@ public class RawFieldDecoder
         }
 
         @Override
-        public final boolean accept(DecoderColumnHandle columnHandle)
-        {
-            return this.columnHandle.equals(columnHandle);
-        }
-
-        @Override
         public final boolean isNull()
         {
             return size == 0;

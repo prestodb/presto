@@ -58,12 +58,6 @@ public class DummyFieldDecoder
         return new FieldValueProvider()
         {
             @Override
-            public boolean accept(DecoderColumnHandle handle)
-            {
-                return false;
-            }
-
-            @Override
             public boolean isNull()
             {
                 throw new PrestoException(DECODER_CONVERSION_NOT_SUPPORTED, "is null check not supported");

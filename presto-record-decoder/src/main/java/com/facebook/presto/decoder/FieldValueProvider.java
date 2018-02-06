@@ -21,8 +21,6 @@ import io.airlift.slice.Slice;
  */
 public abstract class FieldValueProvider
 {
-    public abstract boolean accept(DecoderColumnHandle columnHandle);
-
     public boolean getBoolean()
     {
         throw new PrestoException(DecoderErrorCode.DECODER_CONVERSION_NOT_SUPPORTED, "conversion to boolean not supported");
