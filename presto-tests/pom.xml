@@ -13,6 +13,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+        <air.test.thread-count>4</air.test.thread-count>
     </properties>
 
     <dependencies>
