@@ -103,7 +103,7 @@ public class Query
         return client.isClearTransactionId();
     }
 
-    public void renderOutput(PrintStream out, OutputFormat outputFormat, boolean interactive)
+    public boolean renderOutput(PrintStream out, OutputFormat outputFormat, boolean interactive)
     {
         Thread clientThread = Thread.currentThread();
         SignalHandler oldHandler = Signal.handle(SIGINT, signal -> {
@@ -115,7 +115,7 @@ public class Query
             clientThread.interrupt();
         });
         try {
-            renderQueryOutput(out, outputFormat, interactive);
+            return renderQueryOutput(out, outputFormat, interactive);
         }
         finally {
             Signal.handle(SIGINT, oldHandler);
@@ -123,7 +123,7 @@ public class Query
         }
     }
 
-    private void renderQueryOutput(PrintStream out, OutputFormat outputFormat, boolean interactive)
+    private boolean renderQueryOutput(PrintStream out, OutputFormat outputFormat, boolean interactive)
     {
         StatusPrinter statusPrinter = null;
         @SuppressWarnings("resource")
@@ -144,7 +144,7 @@ public class Query
             }
             else if (results.getColumns() == null) {
                 errorChannel.printf("Query %s has no columns\n", results.getId());
-                return;
+                return false;
             }
             else {
                 renderResults(out, outputFormat, interactive, results.getColumns());
@@ -157,13 +157,18 @@ public class Query
 
         if (client.isClosed()) {
             errorChannel.println("Query aborted by user");
+            return false;
         }
-        else if (client.isGone()) {
+        if (client.isGone()) {
             errorChannel.println("Query is gone (server restarted?)");
+            return false;
         }
-        else if (client.isFailed()) {
+        if (client.isFailed()) {
             renderFailure(errorChannel);
+            return false;
         }
+
+        return true;
     }
 
     private void waitForData()
@@ -231,8 +236,9 @@ public class Query
                 // ignore the user pressing ctrl-C while in the pager
                 ignoreUserInterrupt.set(true);
                 pager.getFinishFuture().thenRun(() -> {
-                    userAbortedQuery.set(true);
                     ignoreUserInterrupt.set(false);
+                    userAbortedQuery.set(true);
+                    client.close();
                     clientThread.interrupt();
                 });
             }

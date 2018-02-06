@@ -25,6 +25,7 @@ import com.facebook.presto.hive.util.ResumableTasks;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
@@ -86,8 +87,6 @@ import static org.apache.hadoop.hive.common.FileUtils.HIDDEN_FILES_PATH_FILTER;
 public class BackgroundHiveSplitLoader
         implements HiveSplitLoader
 {
-    private static final String CORRUPT_BUCKETING = "Hive table is corrupt. It is declared as being bucketed, but the files do not match the bucketing declaration.";
-
     private static final ListenableFuture<?> COMPLETED_FUTURE = immediateFuture(null);
 
     private final Table table;
@@ -105,9 +104,13 @@ public class BackgroundHiveSplitLoader
     private final Deque<Iterator<InternalHiveSplit>> fileIterators = new ConcurrentLinkedDeque<>();
 
     // Purpose of this lock:
+    // * Write lock: when you need a consistent view across partitions, fileIterators, and hiveSplitSource.
+    // * Read lock: when you need to modify any of the above.
+    //   Make sure the lock is held throughout the period during which they may not be consistent with each other.
+    // Details:
     // * When write lock is acquired, except the holder, no one can do any of the following:
-    // ** poll from partitions
-    // ** poll from or push to fileIterators
+    // ** poll from (or check empty) partitions
+    // ** poll from (or check empty) or push to fileIterators
     // ** push to hiveSplitSource
     // * When any of the above three operations is carried out, either a read lock or a write lock must be held.
     // * When a series of operations involving two or more of the above three operations are carried out, the lock
@@ -197,19 +200,37 @@ public class BackgroundHiveSplitLoader
 
     private void invokeNoMoreSplitsIfNecessary()
     {
-        if (partitions.isEmpty() && fileIterators.isEmpty()) {
-            taskExecutionLock.writeLock().lock();
-            try {
-                // the write lock guarantees that no one is operating on the partitions, fileIterators, or hiveSplitSource, or half way through doing so.
-                if (partitions.isEmpty() && fileIterators.isEmpty()) {
-                    // It is legal to call `noMoreSplits` multiple times or after `stop` was called.
-                    // Nothing bad will happen if `noMoreSplits` implementation calls methods that will try to obtain a read lock because the lock is re-entrant.
-                    hiveSplitSource.noMoreSplits();
-                }
+        taskExecutionLock.readLock().lock();
+        try {
+            // This is an opportunistic check to avoid getting the write lock unnecessarily
+            if (!partitions.isEmpty() || !fileIterators.isEmpty()) {
+                return;
             }
-            finally {
-                taskExecutionLock.writeLock().unlock();
+        }
+        catch (Exception e) {
+            hiveSplitSource.fail(e);
+            checkState(stopped, "Task is not marked as stopped even though it failed");
+            return;
+        }
+        finally {
+            taskExecutionLock.readLock().unlock();
+        }
+
+        taskExecutionLock.writeLock().lock();
+        try {
+            // the write lock guarantees that no one is operating on the partitions, fileIterators, or hiveSplitSource, or half way through doing so.
+            if (partitions.isEmpty() && fileIterators.isEmpty()) {
+                // It is legal to call `noMoreSplits` multiple times or after `stop` was called.
+                // Nothing bad will happen if `noMoreSplits` implementation calls methods that will try to obtain a read lock because the lock is re-entrant.
+                hiveSplitSource.noMoreSplits();
             }
+        }
+        catch (Exception e) {
+            hiveSplitSource.fail(e);
+            checkState(stopped, "Task is not marked as stopped even though it failed");
+        }
+        finally {
+            taskExecutionLock.writeLock().unlock();
         }
     }
 
@@ -343,14 +364,22 @@ public class BackgroundHiveSplitLoader
         }
         catch (NestedDirectoryNotAllowedException e) {
             // Fail here to be on the safe side. This seems to be the same as what Hive does
-            throw new PrestoException(HIVE_INVALID_BUCKET_FILES, format("%s Found sub-directory in bucket directory for partition: %s", CORRUPT_BUCKETING, splitFactory.getPartitionName()));
+            throw new PrestoException(
+                    HIVE_INVALID_BUCKET_FILES,
+                    format("Hive table '%s' is corrupt. Found sub-directory in bucket directory for partition: %s",
+                            new SchemaTableName(table.getDatabaseName(), table.getTableName()),
+                            splitFactory.getPartitionName()));
         }
 
         // verify we found one file per bucket
         if (files.size() != bucketCount) {
-            throw new PrestoException(HIVE_INVALID_BUCKET_FILES, format("%s The number of files in the directory (%s) does not match the declared bucket count (%s) for partition: %s", CORRUPT_BUCKETING, files.size(),
-                    bucketCount,
-                    splitFactory.getPartitionName()));
+            throw new PrestoException(
+                    HIVE_INVALID_BUCKET_FILES,
+                    format("Hive table '%s' is corrupt. The number of files in the directory (%s) does not match the declared bucket count (%s) for partition: %s",
+                            new SchemaTableName(table.getDatabaseName(), table.getTableName()),
+                            files.size(),
+                            bucketCount,
+                            splitFactory.getPartitionName()));
         }
 
         // Sort FileStatus objects (instead of, e.g., fileStatus.getPath().toString). This matches org.apache.hadoop.hive.ql.metadata.Table.getSortedPaths

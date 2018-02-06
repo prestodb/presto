@@ -13,18 +13,17 @@
  */
 package com.facebook.presto.tests.sqlserver;
 
-import com.teradata.tempto.AfterTestWithContext;
-import com.teradata.tempto.BeforeTestWithContext;
-import com.teradata.tempto.ProductTest;
-import com.teradata.tempto.Requirement;
-import com.teradata.tempto.RequirementsProvider;
-import com.teradata.tempto.configuration.Configuration;
-import com.teradata.tempto.query.QueryResult;
 import io.airlift.log.Logger;
+import io.prestodb.tempto.AfterTestWithContext;
+import io.prestodb.tempto.BeforeTestWithContext;
+import io.prestodb.tempto.ProductTest;
+import io.prestodb.tempto.Requirement;
+import io.prestodb.tempto.RequirementsProvider;
+import io.prestodb.tempto.configuration.Configuration;
+import io.prestodb.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
 import java.sql.Date;
-import java.sql.SQLException;
 import java.sql.Timestamp;
 
 import static com.facebook.presto.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
@@ -36,10 +35,10 @@ import static com.facebook.presto.tests.sqlserver.TestConstants.CONNECTOR_NAME;
 import static com.facebook.presto.tests.sqlserver.TestConstants.KEY_SPACE;
 import static com.facebook.presto.tests.utils.QueryExecutors.onPresto;
 import static com.facebook.presto.tests.utils.QueryExecutors.onSqlServer;
-import static com.teradata.tempto.Requirements.compose;
-import static com.teradata.tempto.assertions.QueryAssert.Row.row;
-import static com.teradata.tempto.assertions.QueryAssert.assertThat;
-import static com.teradata.tempto.fulfillment.table.TableRequirements.immutableTable;
+import static io.prestodb.tempto.Requirements.compose;
+import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
+import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
+import static io.prestodb.tempto.fulfillment.table.TableRequirements.immutableTable;
 import static java.lang.String.format;
 import static java.sql.JDBCType.BIGINT;
 import static java.sql.JDBCType.CHAR;
@@ -83,7 +82,6 @@ public class Select
 
     @Test(groups = {SQL_SERVER, PROFILE_SPECIFIC_TESTS})
     public void testSelectNation()
-            throws SQLException
     {
         String sql = format(
                 "SELECT n_nationkey, n_name, n_regionkey, n_comment FROM %s",
@@ -96,7 +94,6 @@ public class Select
 
     @Test(groups = {SQL_SERVER, PROFILE_SPECIFIC_TESTS})
     public void testNationSelfInnerJoin()
-            throws SQLException
     {
         String sql = format(
                 "SELECT n1.n_name, n2.n_regionkey FROM %s n1 JOIN " +
@@ -117,7 +114,6 @@ public class Select
 
     @Test(groups = {SQL_SERVER, PROFILE_SPECIFIC_TESTS})
     public void testNationJoinRegion()
-            throws SQLException
     {
         String sql = format(
                 "SELECT c.n_name, t.name FROM %s c JOIN " +
@@ -132,7 +128,6 @@ public class Select
 
     @Test(groups = {SQL_SERVER, PROFILE_SPECIFIC_TESTS})
     public void testAllDatatypes()
-            throws SQLException
     {
         String sql = format(
                 "SELECT bi, si, i, ti, f, r, c, vc, te, nc, nvc, nt, d, dt, dt2, sdt, pf30, pf22 " +
@@ -159,7 +154,6 @@ public class Select
 
     @Test(groups = {SQL_SERVER, PROFILE_SPECIFIC_TESTS})
     public void testCreateTableAsSelect()
-            throws SQLException
     {
         String sql = format(
                 "CREATE TABLE %s AS SELECT * FROM %s", CREATE_TABLE_AS_SELECT, NATION_TABLE_NAME);

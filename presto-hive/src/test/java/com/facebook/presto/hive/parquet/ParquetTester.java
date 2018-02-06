@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive.parquet;
 
-import com.facebook.presto.hive.parquet.memory.AggregatedMemoryContext;
 import com.facebook.presto.hive.parquet.reader.ParquetMetadataReader;
 import com.facebook.presto.hive.parquet.reader.ParquetReader;
 import com.facebook.presto.spi.block.Block;
@@ -55,6 +54,7 @@ import java.util.Properties;
 import java.util.Set;
 
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
+import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.google.common.base.Functions.constant;
 import static com.google.common.collect.Iterables.transform;
@@ -181,7 +181,7 @@ public class ParquetTester
             TempFile tempFile,
             Iterable<?> expectedValues,
             Type type)
-            throws IOException, InterruptedException
+            throws IOException
     {
         Path path = new Path(tempFile.getFile().toURI());
         FileSystem fileSystem = path.getFileSystem(jobConf);
@@ -193,7 +193,7 @@ public class ParquetTester
         FSDataInputStream inputStream = fileSystem.open(path);
         ParquetDataSource dataSource = new HdfsParquetDataSource(path, size, inputStream);
 
-        ParquetReader parquetReader = new ParquetReader(fileSchema, fileSchema, parquetMetadata.getBlocks(), dataSource, TYPE_MANAGER, new AggregatedMemoryContext());
+        ParquetReader parquetReader = new ParquetReader(fileSchema, fileSchema, parquetMetadata.getBlocks(), dataSource, TYPE_MANAGER, newSimpleAggregatedMemoryContext());
         assertEquals(parquetReader.getPosition(), 0);
 
         int rowsProcessed = 0;

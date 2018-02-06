@@ -13,18 +13,17 @@
  */
 package com.facebook.presto.tests.sqlserver;
 
-import com.teradata.tempto.AfterTestWithContext;
-import com.teradata.tempto.BeforeTestWithContext;
-import com.teradata.tempto.ProductTest;
-import com.teradata.tempto.Requirement;
-import com.teradata.tempto.RequirementsProvider;
-import com.teradata.tempto.configuration.Configuration;
-import com.teradata.tempto.query.QueryResult;
 import io.airlift.log.Logger;
+import io.prestodb.tempto.AfterTestWithContext;
+import io.prestodb.tempto.BeforeTestWithContext;
+import io.prestodb.tempto.ProductTest;
+import io.prestodb.tempto.Requirement;
+import io.prestodb.tempto.RequirementsProvider;
+import io.prestodb.tempto.configuration.Configuration;
+import io.prestodb.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
 import java.sql.Date;
-import java.sql.SQLException;
 
 import static com.facebook.presto.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static com.facebook.presto.tests.TestGroups.SQL_SERVER;
@@ -32,9 +31,9 @@ import static com.facebook.presto.tests.sqlserver.SqlServerDataTypesTableDefinit
 import static com.facebook.presto.tests.sqlserver.TestConstants.KEY_SPACE;
 import static com.facebook.presto.tests.utils.QueryExecutors.onPresto;
 import static com.facebook.presto.tests.utils.QueryExecutors.onSqlServer;
-import static com.teradata.tempto.assertions.QueryAssert.Row.row;
-import static com.teradata.tempto.assertions.QueryAssert.assertThat;
-import static com.teradata.tempto.fulfillment.table.TableRequirements.immutableTable;
+import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
+import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
+import static io.prestodb.tempto.fulfillment.table.TableRequirements.immutableTable;
 import static java.lang.String.format;
 
 public class Insert
@@ -65,7 +64,6 @@ public class Insert
 
     @Test(groups = {SQL_SERVER, PROFILE_SPECIFIC_TESTS})
     public void testInsertMin()
-            throws SQLException
     {
         String sql = format(
                 "INSERT INTO %s.%s values (BIGINT '%s', SMALLINT '%s', INTEGER '%s', DOUBLE '%s', " +
@@ -87,7 +85,6 @@ public class Insert
 
     @Test(groups = {SQL_SERVER, PROFILE_SPECIFIC_TESTS})
     public void testInsertMax()
-            throws SQLException
     {
         String sql = format(
                 "INSERT INTO %s.%s values (BIGINT '%s', SMALLINT '%s', INTEGER '%s', DOUBLE '%s', " +
@@ -109,7 +106,6 @@ public class Insert
 
     @Test(groups = {SQL_SERVER, PROFILE_SPECIFIC_TESTS})
     public void testInsertNull()
-            throws SQLException
     {
         String sql = format(
                 "INSERT INTO %s.%s values (null, null, null, null, null, null, null, null)",

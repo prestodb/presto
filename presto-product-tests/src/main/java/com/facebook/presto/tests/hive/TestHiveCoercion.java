@@ -13,23 +13,22 @@
  */
 package com.facebook.presto.tests.hive;
 
-import com.teradata.tempto.ProductTest;
-import com.teradata.tempto.Requirement;
-import com.teradata.tempto.RequirementsProvider;
-import com.teradata.tempto.Requires;
-import com.teradata.tempto.configuration.Configuration;
-import com.teradata.tempto.fulfillment.table.MutableTableRequirement;
-import com.teradata.tempto.fulfillment.table.MutableTablesState;
-import com.teradata.tempto.fulfillment.table.TableDefinition;
-import com.teradata.tempto.fulfillment.table.TableHandle;
-import com.teradata.tempto.fulfillment.table.TableInstance;
-import com.teradata.tempto.fulfillment.table.hive.HiveTableDefinition;
-import com.teradata.tempto.query.QueryExecutor;
-import com.teradata.tempto.query.QueryResult;
+import io.prestodb.tempto.ProductTest;
+import io.prestodb.tempto.Requirement;
+import io.prestodb.tempto.RequirementsProvider;
+import io.prestodb.tempto.Requires;
+import io.prestodb.tempto.configuration.Configuration;
+import io.prestodb.tempto.fulfillment.table.MutableTableRequirement;
+import io.prestodb.tempto.fulfillment.table.MutableTablesState;
+import io.prestodb.tempto.fulfillment.table.TableDefinition;
+import io.prestodb.tempto.fulfillment.table.TableHandle;
+import io.prestodb.tempto.fulfillment.table.TableInstance;
+import io.prestodb.tempto.fulfillment.table.hive.HiveTableDefinition;
+import io.prestodb.tempto.query.QueryExecutor;
+import io.prestodb.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
 import java.sql.Connection;
-import java.sql.SQLException;
 import java.util.Locale;
 import java.util.Optional;
 
@@ -38,20 +37,20 @@ import static com.facebook.presto.tests.TestGroups.HIVE_CONNECTOR;
 import static com.facebook.presto.tests.TestGroups.JDBC;
 import static com.facebook.presto.tests.utils.JdbcDriverUtils.usingPrestoJdbcDriver;
 import static com.facebook.presto.tests.utils.JdbcDriverUtils.usingTeradataJdbcDriver;
-import static com.teradata.tempto.assertions.QueryAssert.Row.row;
-import static com.teradata.tempto.assertions.QueryAssert.assertThat;
-import static com.teradata.tempto.context.ThreadLocalTestContextHolder.testContext;
-import static com.teradata.tempto.fulfillment.table.MutableTableRequirement.State.CREATED;
-import static com.teradata.tempto.fulfillment.table.TableHandle.tableHandle;
-import static com.teradata.tempto.query.QueryExecutor.defaultQueryExecutor;
-import static com.teradata.tempto.query.QueryExecutor.query;
+import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
+import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
+import static io.prestodb.tempto.context.ThreadLocalTestContextHolder.testContext;
+import static io.prestodb.tempto.fulfillment.table.MutableTableRequirement.State.CREATED;
+import static io.prestodb.tempto.fulfillment.table.TableHandle.tableHandle;
+import static io.prestodb.tempto.query.QueryExecutor.defaultQueryExecutor;
+import static io.prestodb.tempto.query.QueryExecutor.query;
 import static java.lang.String.format;
 import static java.sql.JDBCType.BIGINT;
 import static java.sql.JDBCType.DOUBLE;
 import static java.sql.JDBCType.INTEGER;
 import static java.sql.JDBCType.LONGNVARCHAR;
 import static java.sql.JDBCType.SMALLINT;
-import static java.sql.JDBCType.VARBINARY;
+import static java.sql.JDBCType.VARCHAR;
 
 public class TestHiveCoercion
         extends ProductTest
@@ -195,7 +194,6 @@ public class TestHiveCoercion
     @Requires(TextRequirements.class)
     @Test(groups = {HIVE_COERCION, HIVE_CONNECTOR, JDBC})
     public void testHiveCoercionTextFile()
-            throws SQLException
     {
         doTestHiveCoercion(HIVE_COERCION_TEXTFILE);
     }
@@ -203,7 +201,6 @@ public class TestHiveCoercion
     @Requires(OrcRequirements.class)
     @Test(groups = {HIVE_COERCION, HIVE_CONNECTOR, JDBC})
     public void testHiveCoercionOrc()
-            throws SQLException
     {
         doTestHiveCoercion(HIVE_COERCION_ORC);
     }
@@ -211,7 +208,6 @@ public class TestHiveCoercion
     @Requires(RcTextRequirements.class)
     @Test(groups = {HIVE_COERCION, HIVE_CONNECTOR, JDBC})
     public void testHiveCoercionRcText()
-            throws SQLException
     {
         doTestHiveCoercion(HIVE_COERCION_RCTEXT);
     }
@@ -219,7 +215,6 @@ public class TestHiveCoercion
     @Requires(RcBinaryRequirements.class)
     @Test(groups = {HIVE_COERCION, HIVE_CONNECTOR, JDBC})
     public void testHiveCoercionRcBinary()
-            throws SQLException
     {
         doTestHiveCoercion(HIVE_COERCION_RCBINARY);
     }
@@ -227,7 +222,6 @@ public class TestHiveCoercion
     @Requires(ParquetRequirements.class)
     @Test(groups = {HIVE_COERCION, HIVE_CONNECTOR, JDBC})
     public void testHiveCoercionParquet()
-            throws SQLException
     {
         doTestHiveCoercion(HIVE_COERCION_PARQUET);
     }
@@ -235,7 +229,6 @@ public class TestHiveCoercion
     @Requires(AvroRequirements.class)
     @Test(groups = {HIVE_COERCION, HIVE_CONNECTOR, JDBC})
     public void testHiveCoercionAvro()
-            throws SQLException
     {
         HiveTableDefinition tableDefinition = HIVE_COERCION_AVRO;
         String tableName = mutableTableInstanceOf(tableDefinition).getNameInDatabase();
@@ -264,7 +257,6 @@ public class TestHiveCoercion
     }
 
     private void doTestHiveCoercion(HiveTableDefinition tableDefinition)
-            throws SQLException
     {
         String tableName = mutableTableInstanceOf(tableDefinition).getNameInDatabase();
 
@@ -340,7 +332,7 @@ public class TestHiveCoercion
                     INTEGER,
                     BIGINT,
                     BIGINT,
-                    VARBINARY,
+                    VARCHAR,
                     DOUBLE,
                     BIGINT);
         }

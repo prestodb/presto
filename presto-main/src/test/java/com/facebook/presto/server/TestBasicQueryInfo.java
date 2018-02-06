@@ -72,6 +72,7 @@ public class TestBasicQueryInfo
                                 20.0,
                                 DataSize.valueOf("21GB"),
                                 DataSize.valueOf("22GB"),
+                                DataSize.valueOf("23GB"),
                                 true,
                                 Duration.valueOf("23m"),
                                 Duration.valueOf("24m"),

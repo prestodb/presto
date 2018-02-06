@@ -15,6 +15,13 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.google.common.collect.ImmutableSet;
+
+import java.util.List;
+import java.util.Set;
+
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class TableLayoutResult
 {
@@ -35,5 +42,18 @@ public class TableLayoutResult
     public TupleDomain<ColumnHandle> getUnenforcedConstraint()
     {
         return unenforcedConstraint;
+    }
+
+    public boolean hasAllOutputs(TableScanNode node)
+    {
+        if (!layout.getColumns().isPresent()) {
+            return true;
+        }
+        Set<ColumnHandle> columns = ImmutableSet.copyOf(layout.getColumns().get());
+        List<ColumnHandle> nodeColumnHandles = node.getOutputSymbols().stream()
+                .map(node.getAssignments()::get)
+                .collect(toImmutableList());
+
+        return columns.containsAll(nodeColumnHandles);
     }
 }

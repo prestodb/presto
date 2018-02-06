@@ -334,7 +334,6 @@ public class PrestoS3FileSystem
 
     @Override
     public FSDataInputStream open(Path path, int bufferSize)
-            throws IOException
     {
         return new FSDataInputStream(
                 new BufferedFSInputStream(
@@ -669,6 +668,7 @@ public class PrestoS3FileSystem
 
         if (!regionOrEndpointSet) {
             clientBuilder = clientBuilder.withRegion(US_EAST_1);
+            clientBuilder.setForceGlobalBucketAccessEnabled(true);
         }
 
         return clientBuilder.build();

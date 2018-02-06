@@ -485,12 +485,16 @@ class RelationPlanner
                 for (int i = 0; i < items.size(); i++) {
                     Expression expression = items.get(i);
                     expression = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis.getParameters(), analysis), expression);
+                    // TODO: RelationPlanner should not invoke evaluateConstantExpression, which in turn invokes ExpressionInterpreter.
+                    // This should happen in an optimizer.
                     Object constantValue = evaluateConstantExpression(expression, analysis.getCoercions(), metadata, session, analysis.getColumnReferences(), analysis.getParameters());
                     values.add(LiteralInterpreter.toExpression(constantValue, scope.getRelationType().getFieldByIndex(i).getType()));
                 }
             }
             else {
                 row = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis.getParameters(), analysis), row);
+                // TODO: RelationPlanner should not invoke evaluateConstantExpression, which in turn invokes ExpressionInterpreter.
+                // This should happen in an optimizer.
                 Object constantValue = evaluateConstantExpression(row, analysis.getCoercions(), metadata, session, analysis.getColumnReferences(), analysis.getParameters());
                 values.add(LiteralInterpreter.toExpression(constantValue, scope.getRelationType().getFieldByIndex(0).getType()));
             }
@@ -520,6 +524,8 @@ class RelationPlanner
         Iterator<Symbol> unnestedSymbolsIterator = unnestedSymbols.iterator();
         for (Expression expression : node.getExpressions()) {
             expression = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis.getParameters(), analysis), expression);
+            // TODO: RelationPlanner should not invoke evaluateConstantExpression, which in turn invokes ExpressionInterpreter.
+            // This should happen in an optimizer.
             Object constantValue = evaluateConstantExpression(expression, analysis.getCoercions(), metadata, session, analysis.getColumnReferences(), analysis.getParameters());
             Type type = analysis.getType(expression);
             values.add(LiteralInterpreter.toExpression(constantValue, type));

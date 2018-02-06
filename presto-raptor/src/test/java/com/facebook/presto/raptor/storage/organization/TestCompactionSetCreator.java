@@ -32,6 +32,7 @@ import java.util.UUID;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -44,11 +45,10 @@ public class TestCompactionSetCreator
     private static final Table bucketedTableInfo = new Table(1L, OptionalLong.empty(), Optional.empty(), OptionalInt.of(3), OptionalLong.empty(), false);
     private static final Table bucketedTemporalTableInfo = new Table(1L, OptionalLong.empty(), Optional.empty(), OptionalInt.of(3), OptionalLong.of(1), false);
 
-    private final CompactionSetCreator compactionSetCreator = new CompactionSetCreator(MAX_SHARD_SIZE, MAX_SHARD_ROWS);
+    private final CompactionSetCreator compactionSetCreator = new CompactionSetCreator(new TemporalFunction(UTC), MAX_SHARD_SIZE, MAX_SHARD_ROWS);
 
     @Test
     public void testNonTemporalOrganizationSetSimple()
-            throws Exception
     {
         List<ShardIndexInfo> inputShards = ImmutableList.of(
                 shardWithSize(10, 10),
@@ -62,7 +62,6 @@ public class TestCompactionSetCreator
 
     @Test
     public void testNonTemporalSizeBasedOrganizationSet()
-            throws Exception
     {
         List<ShardIndexInfo> inputShards = ImmutableList.of(
                 shardWithSize(10, 70),
@@ -81,7 +80,6 @@ public class TestCompactionSetCreator
 
     @Test
     public void testNonTemporalRowCountBasedOrganizationSet()
-            throws Exception
     {
         List<ShardIndexInfo> inputShards = ImmutableList.of(
                 shardWithSize(50, 10),
@@ -101,7 +99,6 @@ public class TestCompactionSetCreator
 
     @Test
     public void testTemporalCompactionNoCompactionAcrossDays()
-            throws Exception
     {
         long day1 = Duration.ofDays(Duration.ofNanos(System.nanoTime()).toDays()).toMillis();
         long day2 = Duration.ofDays(Duration.ofMillis(day1).toDays() + 1).toMillis();
@@ -125,7 +122,6 @@ public class TestCompactionSetCreator
 
     @Test
     public void testTemporalCompactionSpanningDays()
-            throws Exception
     {
         long day1 = Duration.ofDays(Duration.ofNanos(System.nanoTime()).toDays()).toMillis();
         long day2 = Duration.ofDays(Duration.ofMillis(day1).toDays() + 1).toMillis();
@@ -154,7 +150,6 @@ public class TestCompactionSetCreator
 
     @Test
     public void testTemporalCompactionDate()
-            throws Exception
     {
         long day1 = Duration.ofNanos(System.nanoTime()).toDays();
         long day2 = day1 + 1;
@@ -181,7 +176,6 @@ public class TestCompactionSetCreator
 
     @Test
     public void testBucketedTableCompaction()
-            throws Exception
     {
         List<ShardIndexInfo> inputShards = ImmutableList.of(
                 shardWithBucket(1),
@@ -213,7 +207,6 @@ public class TestCompactionSetCreator
 
     @Test
     public void testBucketedTemporalTableCompaction()
-            throws Exception
     {
         long day1 = 1;
         long day2 = 2;

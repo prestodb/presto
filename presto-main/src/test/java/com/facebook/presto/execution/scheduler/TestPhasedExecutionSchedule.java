@@ -56,7 +56,6 @@ public class TestPhasedExecutionSchedule
 {
     @Test
     public void testExchange()
-            throws Exception
     {
         PlanFragment aFragment = createTableScanPlanFragment("a");
         PlanFragment bFragment = createTableScanPlanFragment("b");
@@ -73,7 +72,6 @@ public class TestPhasedExecutionSchedule
 
     @Test
     public void testUnion()
-            throws Exception
     {
         PlanFragment aFragment = createTableScanPlanFragment("a");
         PlanFragment bFragment = createTableScanPlanFragment("b");
@@ -90,7 +88,6 @@ public class TestPhasedExecutionSchedule
 
     @Test
     public void testJoin()
-            throws Exception
     {
         PlanFragment buildFragment = createTableScanPlanFragment("build");
         PlanFragment probeFragment = createTableScanPlanFragment("probe");
@@ -102,7 +99,6 @@ public class TestPhasedExecutionSchedule
 
     @Test
     public void testRightJoin()
-            throws Exception
     {
         PlanFragment buildFragment = createTableScanPlanFragment("build");
         PlanFragment probeFragment = createTableScanPlanFragment("probe");
@@ -114,7 +110,6 @@ public class TestPhasedExecutionSchedule
 
     @Test
     public void testBroadcastJoin()
-            throws Exception
     {
         PlanFragment buildFragment = createTableScanPlanFragment("build");
         PlanFragment joinFragment = createBroadcastJoinPlanFragment("join", buildFragment);
@@ -125,7 +120,6 @@ public class TestPhasedExecutionSchedule
 
     @Test
     public void testJoinWithDeepSources()
-            throws Exception
     {
         PlanFragment buildSourceFragment = createTableScanPlanFragment("buildSource");
         PlanFragment buildMiddleFragment = createExchangePlanFragment("buildMiddle", buildSourceFragment);

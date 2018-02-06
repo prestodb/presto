@@ -113,7 +113,6 @@ public class TestMetastoreUtil
 
     @Test
     public void testTableRoundTrip()
-            throws Exception
     {
         Table table = ThriftMetastoreUtil.fromMetastoreApiTable(TEST_TABLE);
         PrincipalPrivileges privileges = new PrincipalPrivileges(ImmutableMultimap.of(), ImmutableMultimap.of());
@@ -147,7 +146,6 @@ public class TestMetastoreUtil
 
     @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Writing to sorted and/or skewed table/partition is not supported")
     public void testTableRoundTripUnsupported()
-            throws Exception
     {
         Table table = ThriftMetastoreUtil.fromMetastoreApiTable(TEST_TABLE_WITH_UNSUPPORTED_FIELDS);
         ThriftMetastoreUtil.toMetastoreApiTable(table, null);

@@ -13,23 +13,21 @@
  */
 package com.facebook.presto.tests.cassandra;
 
-import com.teradata.tempto.ProductTest;
-import com.teradata.tempto.Requirement;
-import com.teradata.tempto.RequirementsProvider;
-import com.teradata.tempto.configuration.Configuration;
-import com.teradata.tempto.query.QueryResult;
+import io.prestodb.tempto.ProductTest;
+import io.prestodb.tempto.Requirement;
+import io.prestodb.tempto.RequirementsProvider;
+import io.prestodb.tempto.configuration.Configuration;
+import io.prestodb.tempto.query.QueryResult;
 import org.testng.annotations.Test;
-
-import java.sql.SQLException;
 
 import static com.facebook.presto.tests.TestGroups.CASSANDRA;
 import static com.facebook.presto.tests.cassandra.MultiColumnKeyTableDefinition.CASSANDRA_MULTI_COLUMN_KEY;
 import static com.facebook.presto.tests.cassandra.TestConstants.CONNECTOR_NAME;
 import static com.facebook.presto.tests.cassandra.TestConstants.KEY_SPACE;
 import static com.facebook.presto.tests.utils.QueryExecutors.onPresto;
-import static com.teradata.tempto.assertions.QueryAssert.Row.row;
-import static com.teradata.tempto.assertions.QueryAssert.assertThat;
-import static com.teradata.tempto.fulfillment.table.TableRequirements.immutableTable;
+import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
+import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
+import static io.prestodb.tempto.fulfillment.table.TableRequirements.immutableTable;
 import static java.lang.String.format;
 
 public class SelectMultiColumnKey
@@ -44,7 +42,6 @@ public class SelectMultiColumnKey
 
     @Test(groups = CASSANDRA)
     public void testSelectWithEqualityFilterOnClusteringKey()
-            throws SQLException
     {
         String sql = format(
                 "SELECT value FROM %s.%s.%s WHERE key = 'a1'",
@@ -59,7 +56,6 @@ public class SelectMultiColumnKey
 
     @Test(groups = CASSANDRA)
     public void testSelectWithEqualityFilterOnPrimaryAndClusteringKeys()
-            throws SQLException
     {
         String sql = format(
                 "SELECT value FROM %s.%s.%s WHERE user_id = 'Alice' and key = 'a1' and updated_at = TIMESTAMP '2015-01-01 01:01:01'",
@@ -74,7 +70,6 @@ public class SelectMultiColumnKey
 
     @Test(groups = CASSANDRA)
     public void testSelectWithMixedFilterOnPrimaryAndClusteringKeys()
-            throws SQLException
     {
         String sql = format(
                 "SELECT value FROM %s.%s.%s WHERE user_id = 'Alice' and key < 'b' and updated_at >= TIMESTAMP '2015-01-01 01:01:01'",
@@ -89,7 +84,6 @@ public class SelectMultiColumnKey
 
     @Test(groups = CASSANDRA)
     public void testSelectWithFilterOnPrimaryKeyNoMatch()
-            throws SQLException
     {
         String sql = format(
                 "SELECT value FROM %s.%s.%s WHERE user_id = 'George'",
@@ -104,7 +98,6 @@ public class SelectMultiColumnKey
 
     @Test(groups = CASSANDRA)
     public void testSelectWithFilterOnPrefixOfClusteringKey()
-            throws SQLException
     {
         String sql = format(
                 "SELECT value FROM %s.%s.%s WHERE user_id = 'Bob' and key = 'b1'",
@@ -119,7 +112,6 @@ public class SelectMultiColumnKey
 
     @Test(groups = CASSANDRA)
     public void testSelectWithFilterOnSecondClusteringKey()
-            throws SQLException
     {
         // Since update_at is the second clustering key, this forces a full table scan.
         String sql = format(

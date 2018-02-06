@@ -57,6 +57,7 @@ public class TestSignatureBinder
 {
     private final TypeManager typeRegistry = new TypeRegistry();
 
+    TestSignatureBinder()
     {
         // associate typeRegistry with a function registry
         new FunctionRegistry(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig());
@@ -228,7 +229,6 @@ public class TestSignatureBinder
 
     @Test
     public void testBindLiteralForRepeatedVarchar()
-            throws Exception
     {
         Set<String> literalParameters = ImmutableSet.of("x");
         TypeSignature leftType = parseTypeSignature("varchar(x)", literalParameters);
@@ -275,7 +275,6 @@ public class TestSignatureBinder
 
     @Test
     public void testBindMixedLiteralAndTypeVariables()
-            throws Exception
     {
         Signature function = functionSignature()
                 .returnType(parseTypeSignature(StandardTypes.BOOLEAN))
@@ -296,7 +295,6 @@ public class TestSignatureBinder
 
     @Test
     public void testBindDifferentLiteralParameters()
-            throws Exception
     {
         TypeSignature argType = parseTypeSignature("decimal(p,s)", ImmutableSet.of("p", "s"));
 
@@ -312,7 +310,6 @@ public class TestSignatureBinder
 
     @Test(expectedExceptions = UnsupportedOperationException.class)
     public void testNoVariableReuseAcrossTypes()
-            throws Exception
     {
         Set<String> literalParameters = ImmutableSet.of("p1", "p2", "s");
         TypeSignature leftType = parseTypeSignature("decimal(p1,s)", literalParameters);
@@ -332,7 +329,6 @@ public class TestSignatureBinder
 
     @Test
     public void testBindUnknownToDecimal()
-            throws Exception
     {
         Signature function = functionSignature()
                 .returnType(parseTypeSignature("boolean"))
@@ -418,7 +414,6 @@ public class TestSignatureBinder
 
     @Test
     public void testBindDoubleToBigint()
-            throws Exception
     {
         Signature function = functionSignature()
                 .returnType(parseTypeSignature(StandardTypes.BOOLEAN))
@@ -481,7 +476,6 @@ public class TestSignatureBinder
 
     @Test
     public void testBindUnparametrizedVarchar()
-            throws Exception
     {
         Signature function = functionSignature()
                 .returnType(parseTypeSignature("boolean"))
@@ -497,7 +491,6 @@ public class TestSignatureBinder
 
     @Test
     public void testBindToUnparametrizedVarcharIsImpossible()
-            throws Exception
     {
         Signature function = functionSignature()
                 .returnType(parseTypeSignature("boolean"))
@@ -517,7 +510,6 @@ public class TestSignatureBinder
 
     @Test
     public void testBasic()
-            throws Exception
     {
         Signature function = functionSignature()
                 .typeVariableConstraints(ImmutableList.of(typeVariable("T")))
@@ -550,7 +542,6 @@ public class TestSignatureBinder
 
     @Test
     public void testMismatchedArgumentCount()
-            throws Exception
     {
         Signature function = functionSignature()
                 .returnType(parseTypeSignature(StandardTypes.BOOLEAN))
@@ -568,7 +559,6 @@ public class TestSignatureBinder
 
     @Test
     public void testNonParametric()
-            throws Exception
     {
         Signature function = functionSignature()
                 .returnType(parseTypeSignature(StandardTypes.BOOLEAN))
@@ -597,7 +587,6 @@ public class TestSignatureBinder
 
     @Test
     public void testArray()
-            throws Exception
     {
         Signature getFunction = functionSignature()
                 .returnType(parseTypeSignature("T"))
@@ -678,7 +667,6 @@ public class TestSignatureBinder
 
     @Test
     public void testMap()
-            throws Exception
     {
         Signature getValueFunction = functionSignature()
                 .returnType(parseTypeSignature("V"))
@@ -702,7 +690,6 @@ public class TestSignatureBinder
 
     @Test
     public void testRow()
-            throws Exception
     {
         Signature function = functionSignature()
                 .returnType(BOOLEAN.getTypeSignature())
@@ -748,7 +735,6 @@ public class TestSignatureBinder
 
     @Test
     public void testVariadic()
-            throws Exception
     {
         Signature mapVariadicBoundFunction = functionSignature()
                 .returnType(parseTypeSignature(StandardTypes.BIGINT))
@@ -820,7 +806,6 @@ public class TestSignatureBinder
 
     @Test
     public void testVarArgs()
-            throws Exception
     {
         Signature variableArityFunction = functionSignature()
                 .returnType(parseTypeSignature(StandardTypes.BOOLEAN))
@@ -855,7 +840,6 @@ public class TestSignatureBinder
 
     @Test
     public void testCoercion()
-            throws Exception
     {
         Signature function = functionSignature()
                 .returnType(parseTypeSignature(StandardTypes.BOOLEAN))
@@ -892,7 +876,6 @@ public class TestSignatureBinder
 
     @Test
     public void testUnknownCoercion()
-            throws Exception
     {
         Signature foo = functionSignature()
                 .returnType(parseTypeSignature("boolean"))
@@ -944,7 +927,6 @@ public class TestSignatureBinder
 
     @Test
     public void testFunction()
-            throws Exception
     {
         Signature simple = functionSignature()
                 .returnType(parseTypeSignature("boolean"))
@@ -1056,7 +1038,6 @@ public class TestSignatureBinder
 
     @Test
     public void testBindParameters()
-            throws Exception
     {
         BoundVariables boundVariables = BoundVariables.builder()
                 .setTypeVariable("T1", DOUBLE)

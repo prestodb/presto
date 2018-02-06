@@ -15,6 +15,7 @@ package com.facebook.presto.plugin.blackhole;
 
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -25,10 +26,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 public class TestBlackHoleMetadata
 {
@@ -39,6 +42,14 @@ public class TestBlackHoleMetadata
             BlackHoleConnector.ROWS_PER_PAGE_PROPERTY, 0,
             BlackHoleConnector.FIELD_LENGTH_PROPERTY, 16,
             BlackHoleConnector.PAGE_PROCESSING_DELAY, new Duration(0, SECONDS));
+
+    @Test
+    public void testCreateSchema()
+    {
+        assertEquals(metadata.listSchemaNames(SESSION), ImmutableList.of("default"));
+        metadata.createSchema(SESSION, "test", ImmutableMap.of());
+        assertEquals(metadata.listSchemaNames(SESSION), ImmutableList.of("default", "test"));
+    }
 
     @Test
     public void tableIsCreatedAfterCommits()
@@ -59,6 +70,20 @@ public class TestBlackHoleMetadata
         List<SchemaTableName> tables = metadata.listTables(SESSION, null);
         assertTrue(tables.size() == 1, "Expected only one table.");
         assertTrue(tables.get(0).getTableName().equals("temp_table"), "Expected table with name 'temp_table'");
+    }
+
+    @Test
+    public void testCreateTableInNotExistSchema()
+    {
+        SchemaTableName schemaTableName = new SchemaTableName("schema1", "test_table");
+        try {
+            metadata.beginCreateTable(SESSION, new ConnectorTableMetadata(schemaTableName, ImmutableList.of(), tableProperties), Optional.empty());
+            fail("Should fail because schema does not exist");
+        }
+        catch (PrestoException ex) {
+            assertEquals(ex.getErrorCode(), NOT_FOUND.toErrorCode());
+            assertTrue(ex.getMessage().equals("Schema schema1 not found"));
+        }
     }
 
     private void assertThatNoTableIsCreated()

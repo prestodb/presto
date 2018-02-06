@@ -29,7 +29,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import io.airlift.log.Logger;
+import io.airlift.stats.CounterStat;
 import io.airlift.units.Duration;
+import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
@@ -79,6 +82,8 @@ public class DbResourceGroupConfigurationManager
     private final String environment;
     private final Duration maxRefreshInterval;
     private final boolean exactMatchSelectorEnabled;
+
+    private final CounterStat refreshFailures = new CounterStat();
 
     @Inject
     public DbResourceGroupConfigurationManager(ClusterMemoryPoolManager memoryPoolManager, DbResourceGroupConfig config, ResourceGroupsDao dao, @ForEnvironment String environment)
@@ -216,6 +221,7 @@ public class DbResourceGroupConfigurationManager
             if (succinctNanos(System.nanoTime() - lastRefresh.get()).compareTo(maxRefreshInterval) > 0) {
                 lastRefresh.set(0);
             }
+            refreshFailures.update(1);
             log.error(e, "Error loading configuration from db");
         }
     }
@@ -339,5 +345,12 @@ public class DbResourceGroupConfigurationManager
         }
         // GroupId is guaranteed to be in groups: it is added before the first call to this method in configure()
         return groups.get(groupId);
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getRefreshFailures()
+    {
+        return refreshFailures;
     }
 }

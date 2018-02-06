@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.raptor.storage;
 
+import com.facebook.presto.spi.type.TimeZoneKey;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -63,7 +64,8 @@ public class TestStorageManagerConfig
                 .setMaxShardRows(1_000_000)
                 .setMaxShardSize(new DataSize(256, MEGABYTE))
                 .setMaxBufferSize(new DataSize(256, MEGABYTE))
-                .setOneSplitPerBucketThreshold(0));
+                .setOneSplitPerBucketThreshold(0)
+                .setShardDayBoundaryTimeZone(TimeZoneKey.UTC_KEY.getId()));
     }
 
     @Test
@@ -90,6 +92,7 @@ public class TestStorageManagerConfig
                 .put("storage.max-shard-size", "10MB")
                 .put("storage.max-buffer-size", "512MB")
                 .put("storage.one-split-per-bucket-threshold", "4")
+                .put("storage.shard-day-boundary-time-zone", "PST")
                 .build();
 
         StorageManagerConfig expected = new StorageManagerConfig()
@@ -112,7 +115,8 @@ public class TestStorageManagerConfig
                 .setMaxShardRows(10_000)
                 .setMaxShardSize(new DataSize(10, MEGABYTE))
                 .setMaxBufferSize(new DataSize(512, MEGABYTE))
-                .setOneSplitPerBucketThreshold(4);
+                .setOneSplitPerBucketThreshold(4)
+                .setShardDayBoundaryTimeZone("PST");
 
         assertFullMapping(properties, expected);
     }

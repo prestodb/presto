@@ -97,14 +97,12 @@ public class TestManySegments
 
     @AfterMethod(alwaysRun = true)
     public void tearDown()
-            throws Exception
     {
         queryRunner.close();
     }
 
     @Test
     public void testManySegments()
-            throws Exception
     {
         MaterializedResult result = queryRunner.execute("SELECT count(_message) from " + topicName);
 

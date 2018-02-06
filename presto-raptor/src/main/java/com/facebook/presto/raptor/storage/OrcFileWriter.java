@@ -223,12 +223,10 @@ public class OrcFileWriter
         {
             @Override
             public void preStripeWrite(OrcFile.WriterContext context)
-                    throws IOException
             {}
 
             @Override
             public void preFooterWrite(OrcFile.WriterContext context)
-                    throws IOException
             {
                 ImmutableMap.Builder<Long, TypeSignature> columnTypesMap = ImmutableMap.builder();
                 for (int i = 0; i < columnIds.size(); i++) {

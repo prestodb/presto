@@ -17,6 +17,7 @@ import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.Session;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -41,7 +42,6 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.io.Closeable;
-import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
@@ -78,7 +78,6 @@ public class TestDriver
 
     @BeforeMethod
     public void setUp()
-            throws Exception
     {
         executor = newCachedThreadPool(daemonThreadsNamed("test-executor-%s"));
         scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
@@ -195,7 +194,6 @@ public class TestDriver
         {
             @Override
             public Boolean call()
-                    throws Exception
             {
                 return driver.processFor(new Duration(1, TimeUnit.MILLISECONDS)).isDone();
             }
@@ -228,7 +226,6 @@ public class TestDriver
         {
             @Override
             public Boolean call()
-                    throws Exception
             {
                 driver.close();
                 return true;
@@ -246,7 +243,6 @@ public class TestDriver
 
     @Test
     public void testMemoryRevocationRace()
-            throws Exception
     {
         List<Type> types = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
         TableScanOperator source = new AlwaysBlockedMemoryRevokingTableScanOperator(driverContext.addOperatorContext(99, new PlanNodeId("test"), "scan"),
@@ -301,7 +297,6 @@ public class TestDriver
         {
             @Override
             public Boolean call()
-                    throws Exception
             {
                 return driver.processFor(new Duration(1, TimeUnit.MILLISECONDS)).isDone();
             }
@@ -461,7 +456,6 @@ public class TestDriver
 
         @Override
         public void close()
-                throws IOException
         {
             if (lockForClose) {
                 waitForUnlock();
@@ -487,7 +481,8 @@ public class TestDriver
         {
             // this operator is always blocked and when queried by the driver
             // it triggers memory revocation so that the driver gets unblocked
-            getOperatorContext().reserveRevocableMemory(100);
+            LocalMemoryContext revocableMemoryContext = getOperatorContext().localRevocableMemoryContext();
+            revocableMemoryContext.setBytes(100);
             getOperatorContext().requestMemoryRevoking();
             return SettableFuture.create();
         }

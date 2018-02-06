@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.operator.aggregation.histogram.SingleTypedHistogram;
+import com.facebook.presto.operator.aggregation.histogram.TypedHistogram;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
@@ -30,11 +32,10 @@ public class TestTypedHistogram
 {
     @Test
     public void testMassive()
-            throws Exception
     {
         BlockBuilder inputBlockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), 5000);
 
-        TypedHistogram typedHistogram = new TypedHistogram(BIGINT, 1000);
+        TypedHistogram typedHistogram = new SingleTypedHistogram(BIGINT, 1000);
         IntStream.range(1, 2000)
                 .flatMap(i -> IntStream.iterate(i, IntUnaryOperator.identity()).limit(i))
                 .forEach(j -> BIGINT.writeLong(inputBlockBuilder, j));

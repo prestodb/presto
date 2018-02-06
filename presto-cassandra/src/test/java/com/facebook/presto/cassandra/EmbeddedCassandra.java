@@ -159,7 +159,7 @@ public final class EmbeddedCassandra
             throws Exception
     {
         long deadline = System.nanoTime() + REFRESH_SIZE_ESTIMATES_TIMEOUT.roundTo(NANOSECONDS);
-        while (System.nanoTime() < deadline) {
+        while (System.nanoTime() - deadline < 0) {
             flushTable(keyspace, table);
             refreshSizeEstimates();
             List<SizeEstimate> sizeEstimates = getSession().getSizeEstimates(keyspace, table);

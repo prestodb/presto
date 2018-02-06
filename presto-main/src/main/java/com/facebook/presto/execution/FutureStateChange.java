@@ -14,18 +14,15 @@
 package com.facebook.presto.execution;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.common.util.concurrent.AbstractFuture;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 
-import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.HashSet;
 import java.util.Set;
-import java.util.concurrent.CancellationException;
 import java.util.concurrent.Executor;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.Objects.requireNonNull;
@@ -35,11 +32,11 @@ public class FutureStateChange<T>
 {
     // Use a separate future for each listener so canceled listeners can be removed
     @GuardedBy("listeners")
-    private final Set<StateTrackingFuture<T>> listeners = new HashSet<>();
+    private final Set<SettableFuture<T>> listeners = new HashSet<>();
 
     public ListenableFuture<T> createNewListener()
     {
-        StateTrackingFuture<T> listener = StateTrackingFuture.create();
+        SettableFuture<T> listener = SettableFuture.create();
         synchronized (listeners) {
             listeners.add(listener);
         }
@@ -69,54 +66,14 @@ public class FutureStateChange<T>
     private void fireStateChange(T newState, Executor executor)
     {
         requireNonNull(executor, "executor is null");
-        Set<StateTrackingFuture<T>> futures;
+        Set<SettableFuture<T>> futures;
         synchronized (listeners) {
             futures = ImmutableSet.copyOf(listeners);
             listeners.clear();
         }
 
-        for (StateTrackingFuture<T> future : futures) {
+        for (SettableFuture<T> future : futures) {
             executor.execute(() -> future.set(newState));
-        }
-    }
-
-    /**
-     * Future cancellation can be expensive, because when a future is canceled
-     * a CancellationException is created and thrown under the hood. To get rid
-     * of the cancellation overhead this future implementation just cancels the
-     * future with the same exception instance.
-     */
-    private static final class StateTrackingFuture<V>
-            extends AbstractFuture<V>
-    {
-        private static final CancellationException EXCEPTION = new CancellationException("Future is canceled");
-        private AtomicBoolean canceled = new AtomicBoolean();
-
-        public static <V> StateTrackingFuture<V> create()
-        {
-            return new StateTrackingFuture<V>();
-        }
-
-        @Override
-        public boolean cancel(boolean mayInterruptIfRunning)
-        {
-            if (canceled.compareAndSet(false, true)) {
-                setException(EXCEPTION);
-                return true;
-            }
-            return false;
-        }
-
-        @Override
-        protected boolean set(@Nullable V value)
-        {
-            return super.set(value);
-        }
-
-        @Override
-        public boolean isCancelled()
-        {
-            return canceled.get();
         }
     }
 }

@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.orc;
 
-import com.facebook.presto.orc.memory.AggregatedMemoryContext;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.SqlDecimal;
@@ -45,6 +44,7 @@ import java.util.List;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcTester.Format.ORC_12;
 import static com.facebook.presto.orc.OrcTester.writeOrcColumnOld;
@@ -122,7 +122,7 @@ public class BenchmarkOrcDecimalReader
                     ImmutableMap.of(0, DECIMAL_TYPE),
                     OrcPredicate.TRUE,
                     DateTimeZone.forID("Asia/Katmandu"),
-                    new AggregatedMemoryContext());
+                    newSimpleAggregatedMemoryContext());
         }
 
         private List<SqlDecimal> createDecimalValues()

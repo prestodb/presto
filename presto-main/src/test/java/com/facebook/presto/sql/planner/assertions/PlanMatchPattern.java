@@ -14,7 +14,8 @@
 package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.cost.PlanNodeCost;
+import com.facebook.presto.cost.PlanNodeStatsEstimate;
+import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.predicate.Domain;
@@ -24,6 +25,7 @@ import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
+import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExceptNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
@@ -63,11 +65,19 @@ import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
 
+import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_FIRST;
+import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_LAST;
+import static com.facebook.presto.spi.block.SortOrder.DESC_NULLS_FIRST;
+import static com.facebook.presto.spi.block.SortOrder.DESC_NULLS_LAST;
 import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.match;
 import static com.facebook.presto.sql.planner.assertions.StrictAssignedSymbolsMatcher.actualAssignments;
 import static com.facebook.presto.sql.planner.assertions.StrictSymbolsMatcher.actualOutputs;
+import static com.facebook.presto.sql.tree.SortItem.NullOrdering.FIRST;
+import static com.facebook.presto.sql.tree.SortItem.NullOrdering.UNDEFINED;
+import static com.facebook.presto.sql.tree.SortItem.Ordering.ASCENDING;
+import static com.facebook.presto.sql.tree.SortItem.Ordering.DESCENDING;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -245,9 +255,9 @@ public final class PlanMatchPattern
         return node(SortNode.class, source);
     }
 
-    public static PlanMatchPattern topN(long count, List<String> orderBy, PlanMatchPattern source)
+    public static PlanMatchPattern topN(long count, List<Ordering> orderBy, PlanMatchPattern source)
     {
-        return node(TopNNode.class, source).with(new TopNMatcher(count, toSymbolAliases(orderBy)));
+        return node(TopNNode.class, source).with(new TopNMatcher(count, orderBy));
     }
 
     public static PlanMatchPattern output(PlanMatchPattern source)
@@ -303,11 +313,17 @@ public final class PlanMatchPattern
 
     public static PlanMatchPattern join(JoinNode.Type joinType, List<ExpectedValueProvider<JoinNode.EquiJoinClause>> expectedEquiCriteria, Optional<String> expectedFilter, PlanMatchPattern left, PlanMatchPattern right)
     {
+        return join(joinType, expectedEquiCriteria, expectedFilter, Optional.empty(), left, right);
+    }
+
+    public static PlanMatchPattern join(JoinNode.Type joinType, List<ExpectedValueProvider<JoinNode.EquiJoinClause>> expectedEquiCriteria, Optional<String> expectedFilter, Optional<JoinNode.DistributionType> expectedDistributionType, PlanMatchPattern left, PlanMatchPattern right)
+    {
         return node(JoinNode.class, left, right).with(
                 new JoinMatcher(
                         joinType,
                         expectedEquiCriteria,
-                        expectedFilter.map(predicate -> rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(predicate)))));
+                        expectedFilter.map(predicate -> rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(predicate))),
+                        expectedDistributionType));
     }
 
     public static PlanMatchPattern exchange(PlanMatchPattern... sources)
@@ -419,6 +435,11 @@ public final class PlanMatchPattern
         return node(LimitNode.class, source).with(new LimitMatcher(limit));
     }
 
+    public static PlanMatchPattern enforceSingleRow(PlanMatchPattern source)
+    {
+        return node(EnforceSingleRowNode.class, source);
+    }
+
     public static PlanMatchPattern tableWriter(List<String> columns, List<String> columnNames, PlanMatchPattern source)
     {
         return node(TableWriterNode.class, source).with(new TableWriterMatcher(columns, columnNames));
@@ -449,12 +470,12 @@ public final class PlanMatchPattern
         return states.build();
     }
 
-    MatchResult detailMatches(PlanNode node, PlanNodeCost planNodeCost, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
         SymbolAliases.Builder newAliases = SymbolAliases.builder();
 
         for (Matcher matcher : matchers) {
-            MatchResult matchResult = matcher.detailMatches(node, planNodeCost, session, metadata, symbolAliases);
+            MatchResult matchResult = matcher.detailMatches(node, stats, session, metadata, symbolAliases);
             if (!matchResult.isMatch()) {
                 return NO_MATCH;
             }
@@ -536,9 +557,9 @@ public final class PlanMatchPattern
         return this;
     }
 
-    public PlanMatchPattern withCost(PlanNodeCost cost)
+    public PlanMatchPattern withStats(PlanNodeStatsEstimate stats)
     {
-        matchers.add(new PlanCostMatcher(cost));
+        matchers.add(new PlanStatsMatcher(stats));
         return this;
     }
 
@@ -641,9 +662,9 @@ public final class PlanMatchPattern
                         .collect(toImmutableMap(entry -> new SymbolAlias(entry.getKey()), Map.Entry::getValue)));
     }
 
-    public static Ordering sort(String field, SortItem.Ordering sortOrder, SortItem.NullOrdering nullOrder)
+    public static Ordering sort(String field, SortItem.Ordering ordering, SortItem.NullOrdering nullOrdering)
     {
-        return new Ordering(field, sortOrder, nullOrder);
+        return new Ordering(field, ordering, nullOrdering);
     }
 
     @Override
@@ -698,14 +719,14 @@ public final class PlanMatchPattern
     public static class Ordering
     {
         private final String field;
-        private final SortItem.Ordering sortOrder;
-        private final SortItem.NullOrdering nullOrder;
+        private final SortItem.Ordering ordering;
+        private final SortItem.NullOrdering nullOrdering;
 
-        private Ordering(String field, SortItem.Ordering sortOrder, SortItem.NullOrdering nullOrder)
+        private Ordering(String field, SortItem.Ordering ordering, SortItem.NullOrdering nullOrdering)
         {
             this.field = field;
-            this.sortOrder = sortOrder;
-            this.nullOrder = nullOrder;
+            this.ordering = ordering;
+            this.nullOrdering = nullOrdering;
         }
 
         public String getField()
@@ -713,22 +734,44 @@ public final class PlanMatchPattern
             return field;
         }
 
-        public SortItem.Ordering getSortOrder()
+        public SortItem.Ordering getOrdering()
         {
-            return sortOrder;
+            return ordering;
         }
 
-        public SortItem.NullOrdering getNullOrder()
+        public SortItem.NullOrdering getNullOrdering()
         {
-            return nullOrder;
+            return nullOrdering;
+        }
+
+        public SortOrder getSortOrder()
+        {
+            checkState(nullOrdering != UNDEFINED, "nullOrdering is undefined");
+            if (ordering == ASCENDING) {
+                if (nullOrdering == FIRST) {
+                    return ASC_NULLS_FIRST;
+                }
+                else {
+                    return ASC_NULLS_LAST;
+                }
+            }
+            else {
+                checkState(ordering == DESCENDING);
+                if (nullOrdering == FIRST) {
+                    return DESC_NULLS_FIRST;
+                }
+                else {
+                    return DESC_NULLS_LAST;
+                }
+            }
         }
 
         @Override
         public String toString()
         {
-            String result = field + " " + sortOrder;
-            if (nullOrder != SortItem.NullOrdering.UNDEFINED) {
-                result += " NULLS " + nullOrder;
+            String result = field + " " + ordering;
+            if (nullOrdering != UNDEFINED) {
+                result += " NULLS " + nullOrdering;
             }
 
             return result;

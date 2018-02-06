@@ -38,7 +38,6 @@ public class TestEquatableValueSet
 {
     @Test
     public void testEmptySet()
-            throws Exception
     {
         EquatableValueSet equatables = EquatableValueSet.none(ID);
         assertEquals(equatables.getType(), ID);
@@ -54,7 +53,6 @@ public class TestEquatableValueSet
 
     @Test
     public void testEntireSet()
-            throws Exception
     {
         EquatableValueSet equatables = EquatableValueSet.all(ID);
         assertEquals(equatables.getType(), ID);
@@ -70,7 +68,6 @@ public class TestEquatableValueSet
 
     @Test
     public void testSingleValue()
-            throws Exception
     {
         EquatableValueSet equatables = EquatableValueSet.of(ID, 10L);
 
@@ -103,7 +100,6 @@ public class TestEquatableValueSet
 
     @Test
     public void testMultipleValues()
-            throws Exception
     {
         EquatableValueSet equatables = EquatableValueSet.of(ID, 1L, 2L, 3L, 1L);
 
@@ -140,7 +136,6 @@ public class TestEquatableValueSet
 
     @Test
     public void testGetSingleValue()
-            throws Exception
     {
         assertEquals(EquatableValueSet.of(ID, 0L).getSingleValue(), 0L);
         try {
@@ -153,7 +148,6 @@ public class TestEquatableValueSet
 
     @Test
     public void testOverlaps()
-            throws Exception
     {
         assertTrue(EquatableValueSet.all(ID).overlaps(EquatableValueSet.all(ID)));
         assertFalse(EquatableValueSet.all(ID).overlaps(EquatableValueSet.none(ID)));
@@ -193,7 +187,6 @@ public class TestEquatableValueSet
 
     @Test
     public void testContains()
-            throws Exception
     {
         assertTrue(EquatableValueSet.all(ID).contains(EquatableValueSet.all(ID)));
         assertTrue(EquatableValueSet.all(ID).contains(EquatableValueSet.none(ID)));
@@ -234,7 +227,6 @@ public class TestEquatableValueSet
 
     @Test
     public void testIntersect()
-            throws Exception
     {
         assertEquals(EquatableValueSet.none(ID).intersect(EquatableValueSet.none(ID)), EquatableValueSet.none(ID));
         assertEquals(EquatableValueSet.all(ID).intersect(EquatableValueSet.all(ID)), EquatableValueSet.all(ID));
@@ -253,7 +245,6 @@ public class TestEquatableValueSet
 
     @Test
     public void testUnion()
-            throws Exception
     {
         assertEquals(EquatableValueSet.none(ID).union(EquatableValueSet.none(ID)), EquatableValueSet.none(ID));
         assertEquals(EquatableValueSet.all(ID).union(EquatableValueSet.all(ID)), EquatableValueSet.all(ID));
@@ -272,7 +263,6 @@ public class TestEquatableValueSet
 
     @Test
     public void testSubtract()
-            throws Exception
     {
         assertEquals(EquatableValueSet.all(ID).subtract(EquatableValueSet.all(ID)), EquatableValueSet.none(ID));
         assertEquals(EquatableValueSet.all(ID).subtract(EquatableValueSet.none(ID)), EquatableValueSet.all(ID));
@@ -307,21 +297,18 @@ public class TestEquatableValueSet
 
     @Test(expectedExceptions = UnsupportedOperationException.class)
     public void testUnmodifiableCollection()
-            throws Exception
     {
         EquatableValueSet.of(ID, 1L).getValues().clear();
     }
 
     @Test(expectedExceptions = UnsupportedOperationException.class)
     public void testUnmodifiableValueEntries()
-            throws Exception
     {
         EquatableValueSet.of(ID, 1L).getEntries().clear();
     }
 
     @Test(expectedExceptions = UnsupportedOperationException.class)
     public void testUnmodifiableIterator()
-            throws Exception
     {
         Iterator<Object> iterator = EquatableValueSet.of(ID, 1L).getValues().iterator();
         iterator.next();
@@ -330,7 +317,6 @@ public class TestEquatableValueSet
 
     @Test(expectedExceptions = UnsupportedOperationException.class)
     public void testUnmodifiableValueEntryIterator()
-            throws Exception
     {
         Iterator<EquatableValueSet.ValueEntry> iterator = EquatableValueSet.of(ID, 1L).getEntries().iterator();
         iterator.next();

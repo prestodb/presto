@@ -30,7 +30,6 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.MoreExecutors;
 import io.airlift.stats.CounterStat;
 
 import javax.annotation.PreDestroy;
@@ -55,7 +54,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
+import static io.airlift.concurrent.MoreFutures.whenAnyCompleteCancelOthers;
 import static java.util.Objects.requireNonNull;
 
 public class NodeScheduler
@@ -315,7 +314,7 @@ public class NodeScheduler
         if (blockedFutures.isEmpty()) {
             return immediateFuture(null);
         }
-        return getFirstCompleteAndCancelOthers(blockedFutures);
+        return whenAnyCompleteCancelOthers(blockedFutures);
     }
 
     public static ListenableFuture<?> toWhenHasSplitQueueSpaceFuture(List<RemoteTask> existingTasks, int spaceThreshold)
@@ -326,20 +325,6 @@ public class NodeScheduler
         List<ListenableFuture<?>> stateChangeFutures = existingTasks.stream()
                 .map(remoteTask -> remoteTask.whenSplitQueueHasSpace(spaceThreshold))
                 .collect(toImmutableList());
-        return getFirstCompleteAndCancelOthers(stateChangeFutures);
-    }
-
-    private static ListenableFuture<?> getFirstCompleteAndCancelOthers(List<ListenableFuture<?>> blockedFutures)
-    {
-        // wait for the first task to unblock and then cancel all futures to free up resources
-        ListenableFuture<?> result = whenAnyComplete(blockedFutures);
-        result.addListener(
-                () -> {
-                    for (ListenableFuture<?> blockedFuture : blockedFutures) {
-                        blockedFuture.cancel(true);
-                    }
-                },
-                MoreExecutors.directExecutor());
-        return result;
+        return whenAnyCompleteCancelOthers(stateChangeFutures);
     }
 }

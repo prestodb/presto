@@ -303,7 +303,6 @@ public abstract class AbstractTestAccumuloRowSerializer
     }
 
     protected void deserializeData(AccumuloRowSerializer serializer, byte[] data)
-            throws Exception
     {
         Mutation m = new Mutation("row");
         m.put(b("a"), b("a"), data);

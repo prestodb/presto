@@ -28,7 +28,6 @@ public class TestDeterminismEvaluator
 {
     @Test
     public void testSanity()
-            throws Exception
     {
         assertFalse(DeterminismEvaluator.isDeterministic(function("rand")));
         assertFalse(DeterminismEvaluator.isDeterministic(function("random")));

@@ -525,11 +525,9 @@ public abstract class AbstractTestHiveClient
                 timeZone,
                 10,
                 true,
-                true,
                 false,
                 true,
                 false,
-                RCBINARY,
                 1000,
                 TYPE_MANAGER,
                 locationService,
@@ -692,7 +690,6 @@ public abstract class AbstractTestHiveClient
 
     @Test
     public void testGetAllTableNames()
-            throws Exception
     {
         try (Transaction transaction = newTransaction()) {
             ConnectorMetadata metadata = transaction.getMetadata();
@@ -1064,7 +1061,6 @@ public abstract class AbstractTestHiveClient
 
     @Test
     public void testGetTableStatsBucketedStringInt()
-            throws Exception
     {
         assertTableStatsComputed(
                 tableBucketedStringInt,
@@ -1082,7 +1078,6 @@ public abstract class AbstractTestHiveClient
 
     @Test
     public void testGetTableStatsUnpartitioned()
-            throws Exception
     {
         assertTableStatsComputed(
                 tableUnpartitioned,
@@ -1824,7 +1819,6 @@ public abstract class AbstractTestHiveClient
 
     @Test
     public void testTableCreationIgnoreExisting()
-            throws Exception
     {
         List<Column> columns = ImmutableList.of(new Column("dummy", HiveType.valueOf("uniontype<smallint,tinyint>"), Optional.empty()));
         SchemaTableName schemaTableName = temporaryTable("create");

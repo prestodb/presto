@@ -25,7 +25,6 @@ public class TestRedshiftPlugin
 {
     @Test
     public void testCreateConnector()
-            throws Exception
     {
         Plugin plugin = new RedshiftPlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());

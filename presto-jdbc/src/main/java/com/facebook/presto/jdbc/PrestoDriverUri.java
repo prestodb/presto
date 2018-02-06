@@ -32,6 +32,7 @@ import java.util.Properties;
 
 import static com.facebook.presto.client.KerberosUtil.defaultCredentialCachePath;
 import static com.facebook.presto.client.OkHttpUtil.basicAuth;
+import static com.facebook.presto.client.OkHttpUtil.setupCookieJar;
 import static com.facebook.presto.client.OkHttpUtil.setupHttpProxy;
 import static com.facebook.presto.client.OkHttpUtil.setupKerberos;
 import static com.facebook.presto.client.OkHttpUtil.setupSocksProxy;
@@ -90,7 +91,8 @@ final class PrestoDriverUri
 
         validateConnectionProperties(properties);
 
-        useSecureConnection = SSL.getRequiredValue(properties);
+        // enable SSL by default for standard port
+        useSecureConnection = SSL.getValue(properties).orElse(uri.getPort() == 443);
 
         initCatalogAndSchema();
     }
@@ -130,6 +132,7 @@ final class PrestoDriverUri
             throws SQLException
     {
         try {
+            setupCookieJar(builder);
             setupSocksProxy(builder, SOCKS_PROXY.getValue(properties));
             setupHttpProxy(builder, HTTP_PROXY.getValue(properties));
 

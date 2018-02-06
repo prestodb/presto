@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.tests.functions;
 
-import com.teradata.tempto.ProductTest;
+import io.prestodb.tempto.ProductTest;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.tests.TestGroups.JSON_FUNCTIONS;
-import static com.teradata.tempto.assertions.QueryAssert.Row.row;
-import static com.teradata.tempto.assertions.QueryAssert.assertThat;
-import static com.teradata.tempto.query.QueryExecutor.query;
+import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
+import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
+import static io.prestodb.tempto.query.QueryExecutor.query;
 
 public class FunctionsTests
         extends ProductTest

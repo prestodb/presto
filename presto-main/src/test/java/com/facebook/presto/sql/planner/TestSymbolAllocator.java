@@ -25,7 +25,6 @@ public class TestSymbolAllocator
 {
     @Test
     public void testUnique()
-            throws Exception
     {
         SymbolAllocator allocator = new SymbolAllocator();
         Set<Symbol> symbols = ImmutableSet.<Symbol>builder()

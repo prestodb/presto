@@ -15,34 +15,40 @@ package com.facebook.presto.operator.exchange;
 
 import com.facebook.presto.spi.Page;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Consumer;
-import java.util.function.LongConsumer;
 
 import static java.util.Objects.requireNonNull;
 
 class RandomExchanger
-        implements Consumer<Page>
+        implements LocalExchanger
 {
     private final List<Consumer<PageReference>> buffers;
-    private final LongConsumer memoryTracker;
+    private final LocalExchangeMemoryManager memoryManager;
 
-    public RandomExchanger(List<Consumer<PageReference>> buffers, LongConsumer memoryTracker)
+    public RandomExchanger(List<Consumer<PageReference>> buffers, LocalExchangeMemoryManager memoryManager)
     {
         this.buffers = ImmutableList.copyOf(requireNonNull(buffers, "buffers is null"));
-        this.memoryTracker = requireNonNull(memoryTracker, "memoryTracker is null");
+        this.memoryManager = requireNonNull(memoryManager, "memoryManager is null");
     }
 
     @Override
     public void accept(Page page)
     {
-        memoryTracker.accept(page.getRetainedSizeInBytes());
+        memoryManager.updateMemoryUsage(page.getRetainedSizeInBytes());
 
-        PageReference pageReference = new PageReference(page, 1, () -> memoryTracker.accept(-page.getRetainedSizeInBytes()));
+        PageReference pageReference = new PageReference(page, 1, () -> memoryManager.updateMemoryUsage(-page.getRetainedSizeInBytes()));
 
         int randomIndex = ThreadLocalRandom.current().nextInt(buffers.size());
         buffers.get(randomIndex).accept(pageReference);
+    }
+
+    @Override
+    public ListenableFuture<?> waitForWriting()
+    {
+        return memoryManager.getNotFullFuture();
     }
 }

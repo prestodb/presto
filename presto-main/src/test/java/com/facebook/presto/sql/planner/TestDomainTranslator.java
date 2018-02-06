@@ -156,7 +156,6 @@ public class TestDomainTranslator
 
     @Test
     public void testNoneRoundTrip()
-            throws Exception
     {
         TupleDomain<Symbol> tupleDomain = TupleDomain.none();
         ExtractionResult result = fromPredicate(toPredicate(tupleDomain));
@@ -166,7 +165,6 @@ public class TestDomainTranslator
 
     @Test
     public void testAllRoundTrip()
-            throws Exception
     {
         TupleDomain<Symbol> tupleDomain = TupleDomain.all();
         ExtractionResult result = fromPredicate(toPredicate(tupleDomain));
@@ -176,7 +174,6 @@ public class TestDomainTranslator
 
     @Test
     public void testRoundTrip()
-            throws Exception
     {
         TupleDomain<Symbol> tupleDomain = withColumnDomains(ImmutableMap.<Symbol, Domain>builder()
                 .put(C_BIGINT, Domain.singleValue(BIGINT, 1L))
@@ -199,7 +196,6 @@ public class TestDomainTranslator
 
     @Test
     public void testInOptimization()
-            throws Exception
     {
         Domain testDomain = Domain.create(
                 ValueSet.all(BIGINT)
@@ -253,7 +249,6 @@ public class TestDomainTranslator
 
     @Test
     public void testToPredicateNone()
-            throws Exception
     {
         TupleDomain<Symbol> tupleDomain = withColumnDomains(ImmutableMap.<Symbol, Domain>builder()
                 .put(C_BIGINT, Domain.singleValue(BIGINT, 1L))
@@ -267,7 +262,6 @@ public class TestDomainTranslator
 
     @Test
     public void testToPredicateAllIgnored()
-            throws Exception
     {
         TupleDomain<Symbol> tupleDomain = withColumnDomains(ImmutableMap.<Symbol, Domain>builder()
                 .put(C_BIGINT, Domain.singleValue(BIGINT, 1L))
@@ -287,7 +281,6 @@ public class TestDomainTranslator
 
     @Test
     public void testToPredicate()
-            throws Exception
     {
         TupleDomain<Symbol> tupleDomain;
 
@@ -342,7 +335,6 @@ public class TestDomainTranslator
 
     @Test
     public void testFromUnknownPredicate()
-            throws Exception
     {
         ExtractionResult result = fromPredicate(unprocessableExpression1(C_BIGINT));
         assertTrue(result.getTupleDomain().isAll());
@@ -356,7 +348,6 @@ public class TestDomainTranslator
 
     @Test
     public void testFromAndPredicate()
-            throws Exception
     {
         Expression originalPredicate = and(
                 and(greaterThan(C_BIGINT, bigintLiteral(1L)), unprocessableExpression1(C_BIGINT)),
@@ -383,7 +374,6 @@ public class TestDomainTranslator
 
     @Test
     public void testFromOrPredicate()
-            throws Exception
     {
         Expression originalPredicate = or(
                 and(greaterThan(C_BIGINT, bigintLiteral(1L)), unprocessableExpression1(C_BIGINT)),
@@ -454,7 +444,6 @@ public class TestDomainTranslator
 
     @Test
     public void testFromNotPredicate()
-            throws Exception
     {
         Expression originalPredicate = not(and(equal(C_BIGINT, bigintLiteral(1L)), unprocessableExpression1(C_BIGINT)));
         ExtractionResult result = fromPredicate(originalPredicate);
@@ -479,7 +468,6 @@ public class TestDomainTranslator
 
     @Test
     public void testFromUnprocessableComparison()
-            throws Exception
     {
         // If it is not a simple comparison, we should not try to process it
         Expression predicate = comparison(GREATER_THAN, unprocessableExpression1(C_BIGINT), unprocessableExpression2(C_BIGINT));
@@ -496,7 +484,6 @@ public class TestDomainTranslator
 
     @Test
     public void testFromBasicComparisons()
-            throws Exception
     {
         // Test out the extraction of all basic comparisons
         Expression originalExpression = greaterThan(C_BIGINT, bigintLiteral(2L));
@@ -603,7 +590,6 @@ public class TestDomainTranslator
 
     @Test
     public void testFromFlippedBasicComparisons()
-            throws Exception
     {
         // Test out the extraction of all basic comparisons where the reference literal ordering is flipped
         ComparisonExpression originalExpression = comparison(GREATER_THAN, bigintLiteral(2L), C_BIGINT.toSymbolReference());
@@ -664,7 +650,6 @@ public class TestDomainTranslator
 
     @Test
     public void testFromBasicComparisonsWithNulls()
-            throws Exception
     {
         // Test out the extraction of all basic comparisons with null literals
         Expression originalExpression = greaterThan(C_BIGINT, nullLiteral(BIGINT));
@@ -837,7 +822,6 @@ public class TestDomainTranslator
 
     @Test
     public void testFromComparisonsWithCoercions()
-            throws Exception
     {
         // B is a double column. Check that it can be compared against longs
         Expression originalExpression = greaterThan(C_DOUBLE, cast(bigintLiteral(2L), DOUBLE));
@@ -1010,7 +994,6 @@ public class TestDomainTranslator
 
     @Test
     public void testFromUnprocessableInPredicate()
-            throws Exception
     {
         Expression originalExpression = new InPredicate(unprocessableExpression1(C_BIGINT), new InListExpression(ImmutableList.of(TRUE_LITERAL)));
         ExtractionResult result = fromPredicate(originalExpression);
@@ -1036,7 +1019,6 @@ public class TestDomainTranslator
 
     @Test
     public void testFromInPredicate()
-            throws Exception
     {
         Expression originalExpression = in(C_BIGINT, ImmutableList.of(1L));
         ExtractionResult result = fromPredicate(originalExpression);
@@ -1092,7 +1074,6 @@ public class TestDomainTranslator
 
     @Test
     public void testFromBetweenPredicate()
-            throws Exception
     {
         Expression originalExpression = between(C_BIGINT, bigintLiteral(1L), bigintLiteral(2L));
         ExtractionResult result = fromPredicate(originalExpression);
@@ -1128,7 +1109,6 @@ public class TestDomainTranslator
 
     @Test
     public void testFromIsNullPredicate()
-            throws Exception
     {
         Expression originalExpression = isNull(C_BIGINT);
         ExtractionResult result = fromPredicate(originalExpression);
@@ -1153,7 +1133,6 @@ public class TestDomainTranslator
 
     @Test
     public void testFromIsNotNullPredicate()
-            throws Exception
     {
         Expression originalExpression = isNotNull(C_BIGINT);
         ExtractionResult result = fromPredicate(originalExpression);
@@ -1178,7 +1157,6 @@ public class TestDomainTranslator
 
     @Test
     public void testFromBooleanLiteralPredicate()
-            throws Exception
     {
         Expression originalExpression = TRUE_LITERAL;
         ExtractionResult result = fromPredicate(originalExpression);
@@ -1203,7 +1181,6 @@ public class TestDomainTranslator
 
     @Test
     public void testFromNullLiteralPredicate()
-            throws Exception
     {
         Expression originalExpression = nullLiteral();
         ExtractionResult result = fromPredicate(originalExpression);
@@ -1218,7 +1195,6 @@ public class TestDomainTranslator
 
     @Test
     public void testExpressionConstantFolding()
-            throws Exception
     {
         Expression originalExpression = comparison(GREATER_THAN, C_VARBINARY.toSymbolReference(), function("from_hex", stringLiteral("123456")));
         ExtractionResult result = fromPredicate(originalExpression);
@@ -1231,8 +1207,29 @@ public class TestDomainTranslator
     }
 
     @Test
-    void testMultipleCoercionsOnSymbolSide()
+    public void testConjunctExpression()
             throws Exception
+    {
+        Expression originalExpression = and(
+                comparison(GREATER_THAN, C_DOUBLE.toSymbolReference(), doubleLiteral(0)),
+                comparison(GREATER_THAN, C_BIGINT.toSymbolReference(), bigintLiteral(0)));
+
+        ExtractionResult result = fromPredicate(originalExpression);
+        assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
+        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(
+                C_BIGINT, Domain.create(ValueSet.ofRanges(Range.greaterThan(BIGINT, 0L)), false),
+                C_DOUBLE, Domain.create(ValueSet.ofRanges(Range.greaterThan(DOUBLE, .0)), false))));
+
+        Expression expression = toPredicate(result.getTupleDomain());
+        assertEquals(
+                expression,
+                and(
+                        comparison(GREATER_THAN, C_BIGINT.toSymbolReference(), bigintLiteral(0)),
+                        comparison(GREATER_THAN, C_DOUBLE.toSymbolReference(), doubleLiteral(0))));
+    }
+
+    @Test
+    void testMultipleCoercionsOnSymbolSide()
     {
         ComparisonExpression originalExpression = comparison(GREATER_THAN, cast(cast(C_SMALLINT, REAL), DOUBLE), doubleLiteral(3.7));
         ExtractionResult result = fromPredicate(originalExpression);
@@ -1242,7 +1239,6 @@ public class TestDomainTranslator
 
     @Test
     public void testNumericTypeTranslation()
-            throws Exception
     {
         testNumericTypeTranslationChain(
                 new NumericValues<>(C_DECIMAL_26_5, longDecimal("-999999999999999999999.99999"), longDecimal("-22.00000"), longDecimal("-44.55569"), longDecimal("23.00000"), longDecimal("44.55567"), longDecimal("999999999999999999999.99999")),
@@ -1375,7 +1371,6 @@ public class TestDomainTranslator
 
     @Test
     public void testVarcharComparedToCharExpression()
-            throws Exception
     {
         String maxCodePoint = new String(Character.toChars(Character.MAX_CODE_POINT));
 

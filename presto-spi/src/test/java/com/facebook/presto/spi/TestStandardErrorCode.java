@@ -51,7 +51,6 @@ public class TestStandardErrorCode
 
     @Test
     public void testOrdering()
-            throws Exception
     {
         Iterator<StandardErrorCode> iterator = asList(StandardErrorCode.values()).iterator();
 

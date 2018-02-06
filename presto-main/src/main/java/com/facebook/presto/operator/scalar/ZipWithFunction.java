@@ -18,16 +18,17 @@ import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.SqlScalarFunction;
+import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.gen.lambda.BinaryFunctionInterface;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Optional;
 
 import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.functionTypeArgumentProperty;
@@ -39,13 +40,15 @@ import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
 import static com.facebook.presto.spi.type.TypeUtils.writeNativeValue;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static com.facebook.presto.util.Reflection.methodHandle;
+import static com.google.common.base.Throwables.throwIfUnchecked;
 
 public final class ZipWithFunction
         extends SqlScalarFunction
 {
     public static final ZipWithFunction ZIP_WITH_FUNCTION = new ZipWithFunction();
 
-    private static final MethodHandle METHOD_HANDLE = methodHandle(ZipWithFunction.class, "zipWith", Type.class, Type.class, Type.class, Block.class, Block.class, BinaryFunctionInterface.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(ZipWithFunction.class, "zipWith", Type.class, Type.class, ArrayType.class, Object.class, Block.class, Block.class, BinaryFunctionInterface.class);
+    private static final MethodHandle STATE_FACTORY = methodHandle(ZipWithFunction.class, "createState", ArrayType.class);
 
     private ZipWithFunction()
     {
@@ -83,20 +86,42 @@ public final class ZipWithFunction
         Type leftElementType = boundVariables.getTypeVariable("T");
         Type rightElementType = boundVariables.getTypeVariable("U");
         Type outputElementType = boundVariables.getTypeVariable("R");
+        ArrayType outputArrayType = new ArrayType(outputElementType);
         return new ScalarFunctionImplementation(
                 false,
                 ImmutableList.of(
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
                         functionTypeArgumentProperty(BinaryFunctionInterface.class)),
-                METHOD_HANDLE.bindTo(leftElementType).bindTo(rightElementType).bindTo(outputElementType),
+                METHOD_HANDLE.bindTo(leftElementType).bindTo(rightElementType).bindTo(outputArrayType),
+                Optional.of(STATE_FACTORY.bindTo(outputArrayType)),
                 isDeterministic());
     }
 
-    public static Block zipWith(Type leftElementType, Type rightElementType, Type outputElementType, Block leftBlock, Block rightBlock, BinaryFunctionInterface function)
+    public static Object createState(ArrayType arrayType)
+    {
+        return new PageBuilder(ImmutableList.of(arrayType));
+    }
+
+    public static Block zipWith(
+            Type leftElementType,
+            Type rightElementType,
+            ArrayType outputArrayType,
+            Object state,
+            Block leftBlock,
+            Block rightBlock,
+            BinaryFunctionInterface function)
     {
         checkCondition(leftBlock.getPositionCount() == rightBlock.getPositionCount(), INVALID_FUNCTION_ARGUMENT, "Arrays must have the same length");
-        BlockBuilder resultBuilder = outputElementType.createBlockBuilder(new BlockBuilderStatus(), leftBlock.getPositionCount());
+        Type outputElementType = outputArrayType.getElementType();
+
+        PageBuilder pageBuilder = (PageBuilder) state;
+        if (pageBuilder.isFull()) {
+            pageBuilder.reset();
+        }
+        BlockBuilder arrayBlockBuilder = pageBuilder.getBlockBuilder(0);
+        BlockBuilder blockBuilder = arrayBlockBuilder.beginBlockEntry();
+
         for (int position = 0; position < leftBlock.getPositionCount(); position++) {
             Object left = readNativeValue(leftElementType, leftBlock, position);
             Object right = readNativeValue(rightElementType, rightBlock, position);
@@ -105,10 +130,18 @@ public final class ZipWithFunction
                 output = function.apply(left, right);
             }
             catch (Throwable throwable) {
-                throw Throwables.propagate(throwable);
+                // Restore pageBuilder into a consistent state.
+                arrayBlockBuilder.closeEntry();
+                pageBuilder.declarePosition();
+
+                throwIfUnchecked(throwable);
+                throw new RuntimeException(throwable);
             }
-            writeNativeValue(outputElementType, resultBuilder, output);
+            writeNativeValue(outputElementType, blockBuilder, output);
         }
-        return resultBuilder.build();
+
+        arrayBlockBuilder.closeEntry();
+        pageBuilder.declarePosition();
+        return outputArrayType.getObject(arrayBlockBuilder, arrayBlockBuilder.getPositionCount() - 1);
     }
 }

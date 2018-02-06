@@ -97,7 +97,6 @@ public class TestShardMetadataRecordCursor
 
     @Test
     public void testSimple()
-            throws Exception
     {
         ShardManager shardManager = createShardManager(dbi);
 
@@ -153,7 +152,6 @@ public class TestShardMetadataRecordCursor
 
     @Test
     public void testNoSchemaFilter()
-            throws Exception
     {
         // Create "orders" table in a different schema
         metadata.createTable(SESSION, tableMetadataBuilder(new SchemaTableName("other", "orders"))
@@ -182,7 +180,6 @@ public class TestShardMetadataRecordCursor
 
     @Test
     public void testNoTableFilter()
-            throws Exception
     {
         // Create "orders" table in a different schema
         metadata.createTable(SESSION, tableMetadataBuilder(new SchemaTableName("test", "orders2"))

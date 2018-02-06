@@ -41,7 +41,6 @@ public class TestUnwrapExecute
 
     @Test
     public void testSelectStatement()
-            throws Exception
     {
         Statement statement = SQL_PARSER.createStatement("SELECT * FROM foo");
         assertEquals(unwrapExecuteStatement(statement, SQL_PARSER, TEST_SESSION),
@@ -50,7 +49,6 @@ public class TestUnwrapExecute
 
     @Test
     public void testExecuteStatement()
-            throws Exception
     {
         Session session = testSessionBuilder()
                 .addPreparedStatement("my_query", "SELECT * FROM foo")
@@ -62,7 +60,6 @@ public class TestUnwrapExecute
 
     @Test
     public void testExecuteStatementDoesNotExist()
-            throws Exception
     {
         try {
             Statement statement = SQL_PARSER.createStatement("execute my_query");
@@ -76,7 +73,6 @@ public class TestUnwrapExecute
 
     @Test
     public void testTooManyParameters()
-            throws Exception
     {
         try {
             Session session = testSessionBuilder()
@@ -93,7 +89,6 @@ public class TestUnwrapExecute
 
     @Test
     public void testTooFewParameters()
-            throws Exception
     {
         try {
             Session session = testSessionBuilder()

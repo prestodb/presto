@@ -33,7 +33,6 @@ public class TestDictionaryBlock
 {
     @Test
     public void testSizeInBytes()
-            throws Exception
     {
         Slice[] expectedValues = createExpectedValues(10);
         DictionaryBlock dictionaryBlock = createDictionaryBlock(expectedValues, 100);
@@ -42,7 +41,6 @@ public class TestDictionaryBlock
 
     @Test
     public void testCopyRegionCreatesCompactBlock()
-            throws Exception
     {
         Slice[] expectedValues = createExpectedValues(10);
         DictionaryBlock dictionaryBlock = createDictionaryBlock(expectedValues, 100);
@@ -53,7 +51,6 @@ public class TestDictionaryBlock
 
     @Test
     public void testCopyPositionsWithCompaction()
-            throws Exception
     {
         Slice[] expectedValues = createExpectedValues(10);
         Slice firstExpectedValue = expectedValues[0];
@@ -70,7 +67,6 @@ public class TestDictionaryBlock
 
     @Test
     public void testCopyPositionsWithCompactionsAndReorder()
-            throws Exception
     {
         Slice[] expectedValues = createExpectedValues(10);
         DictionaryBlock dictionaryBlock = createDictionaryBlock(expectedValues, 100);
@@ -87,7 +83,6 @@ public class TestDictionaryBlock
 
     @Test
     public void testCopyPositionsSamePosition()
-            throws Exception
     {
         Slice[] expectedValues = createExpectedValues(10);
         DictionaryBlock dictionaryBlock = createDictionaryBlock(expectedValues, 100);
@@ -104,7 +99,6 @@ public class TestDictionaryBlock
 
     @Test
     public void testCopyPositionsNoCompaction()
-            throws Exception
     {
         Slice[] expectedValues = createExpectedValues(1);
         DictionaryBlock dictionaryBlock = createDictionaryBlock(expectedValues, 100);
@@ -118,7 +112,6 @@ public class TestDictionaryBlock
 
     @Test
     public void testCompact()
-            throws Exception
     {
         Slice[] expectedValues = createExpectedValues(5);
         DictionaryBlock dictionaryBlock = createDictionaryBlockWithUnreferencedKeys(expectedValues, 10);
@@ -138,7 +131,6 @@ public class TestDictionaryBlock
 
     @Test
     public void testCompactAllKeysReferenced()
-            throws Exception
     {
         Slice[] expectedValues = createExpectedValues(5);
         DictionaryBlock dictionaryBlock = createDictionaryBlock(expectedValues, 10);

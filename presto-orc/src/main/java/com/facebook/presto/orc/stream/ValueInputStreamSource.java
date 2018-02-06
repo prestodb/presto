@@ -15,8 +15,6 @@ package com.facebook.presto.orc.stream;
 
 import javax.annotation.Nullable;
 
-import java.io.IOException;
-
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
@@ -39,7 +37,6 @@ public class ValueInputStreamSource<S extends ValueInputStream<?>>
     @Nullable
     @Override
     public S openStream()
-            throws IOException
     {
         return stream;
     }

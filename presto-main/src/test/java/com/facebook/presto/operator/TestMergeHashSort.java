@@ -14,8 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.RowPagesBuilder;
-import com.facebook.presto.memory.AggregatedMemoryContext;
-import com.facebook.presto.memory.LocalMemoryContext;
+import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
@@ -26,6 +25,7 @@ import java.util.Iterator;
 import java.util.List;
 
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
+import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static org.testng.Assert.assertEquals;
@@ -60,7 +60,7 @@ public class TestMergeHashSort
 
     private LocalMemoryContext aMemoryContext()
     {
-        return new AggregatedMemoryContext().newLocalMemoryContext();
+        return newSimpleAggregatedMemoryContext().newLocalMemoryContext();
     }
 
     @Test
@@ -68,7 +68,7 @@ public class TestMergeHashSort
     {
         Page emptyPage = new Page(0, BIGINT.createFixedSizeBlockBuilder(0).build());
 
-        Iterator<Page> mergedPage = new MergeHashSort(new AggregatedMemoryContext()).merge(
+        Iterator<Page> mergedPage = new MergeHashSort(newSimpleAggregatedMemoryContext()).merge(
                 ImmutableList.of(BIGINT),
                 ImmutableList.of(BIGINT),
                 ImmutableList.of(ImmutableList.of(emptyPage).iterator()));
@@ -87,7 +87,7 @@ public class TestMergeHashSort
         Page emptyPage = new Page(0, BIGINT.createFixedSizeBlockBuilder(0).build());
         Page page = rowPagesBuilder(BIGINT).row(42).build().get(0);
 
-        Iterator<Page> mergedPage = new MergeHashSort(new AggregatedMemoryContext()).merge(
+        Iterator<Page> mergedPage = new MergeHashSort(newSimpleAggregatedMemoryContext()).merge(
                 ImmutableList.of(BIGINT),
                 ImmutableList.of(BIGINT),
                 ImmutableList.of(ImmutableList.of(emptyPage, page).iterator()));

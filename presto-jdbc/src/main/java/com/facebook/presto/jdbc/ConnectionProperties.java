@@ -142,7 +142,7 @@ final class ConnectionProperties
     {
         public Ssl()
         {
-            super("SSL", Optional.of("false"), NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
+            super("SSL", NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
         }
     }
 

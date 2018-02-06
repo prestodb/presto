@@ -20,7 +20,6 @@ import com.facebook.presto.tests.AbstractTestQueryFramework;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
-import java.sql.SQLException;
 import java.util.List;
 
 import static com.facebook.presto.plugin.memory.MemoryQueryRunner.CATALOG;
@@ -39,7 +38,6 @@ public class TestMemorySmoke
 
     @Test
     public void testCreateAndDropTable()
-            throws SQLException
     {
         int tablesBeforeCreate = listMemoryTables().size();
         assertUpdate("CREATE TABLE test AS SELECT * FROM tpch.tiny.nation", "SELECT count(*) FROM nation");
@@ -52,7 +50,6 @@ public class TestMemorySmoke
     // it has to be RuntimeException as FailureInfo$FailureException is private
     @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "line 1:1: Destination table 'memory.default.nation' already exists")
     public void testCreateTableWhenTableIsAlreadyCreated()
-            throws SQLException
     {
         @Language("SQL") String createTableSql = "CREATE TABLE nation AS SELECT * FROM tpch.tiny.nation";
         assertUpdate(createTableSql);
@@ -60,7 +57,6 @@ public class TestMemorySmoke
 
     @Test
     public void testSelect()
-            throws SQLException
     {
         assertUpdate("CREATE TABLE test_select AS SELECT * FROM tpch.tiny.nation", "SELECT count(*) FROM nation");
 
@@ -75,7 +71,6 @@ public class TestMemorySmoke
 
     @Test
     public void testCreateTableWithNoData()
-            throws SQLException
     {
         assertUpdate("CREATE TABLE test_empty (a BIGINT)");
         assertQueryResult("SELECT count(*) FROM test_empty", 0L);
@@ -85,7 +80,6 @@ public class TestMemorySmoke
 
     @Test
     public void testCreateFilteredOutTable()
-            throws SQLException
     {
         assertUpdate("CREATE TABLE filtered_out AS SELECT nationkey FROM tpch.tiny.nation WHERE nationkey < 0", "SELECT count(nationkey) FROM nation WHERE nationkey < 0");
         assertQueryResult("SELECT count(*) FROM filtered_out", 0L);
@@ -95,7 +89,6 @@ public class TestMemorySmoke
 
     @Test
     public void testSelectFromEmptyTable()
-            throws SQLException
     {
         assertUpdate("CREATE TABLE test_select_empty AS SELECT * FROM tpch.tiny.nation WHERE nationkey > 1000", "SELECT count(*) FROM nation WHERE nationkey > 1000");
 
@@ -110,7 +103,6 @@ public class TestMemorySmoke
 
     @Test
     public void testSelectColumnsSubset()
-            throws SQLException
     {
         assertQuery("SELECT nationkey, regionkey FROM tpch.tiny.nation ORDER BY nationkey", "SELECT nationkey, regionkey FROM nation ORDER BY nationkey");
     }
@@ -127,6 +119,32 @@ public class TestMemorySmoke
 
         assertQueryResult(format("SELECT count(*) FROM %s.schema1.nation", CATALOG), 13L);
         assertQueryResult(format("SELECT count(*) FROM %s.schema2.nation", CATALOG), 12L);
+    }
+
+    @Test
+    public void testCreateTableAndViewInNotExistSchema()
+    {
+        int tablesBeforeCreate = listMemoryTables().size();
+
+        assertQueryFails("CREATE TABLE schema3.test_table3 (x date)", "Schema schema3 not found");
+        assertQueryFails("CREATE VIEW schema4.test_view4 AS SELECT 123 x", "Schema schema4 not found");
+        assertQueryFails("CREATE OR REPLACE VIEW schema5.test_view5 AS SELECT 123 x", "Schema schema5 not found");
+
+        int tablesAfterCreate = listMemoryTables().size();
+        assertEquals(tablesBeforeCreate, tablesAfterCreate);
+    }
+
+    @Test
+    public void testRenameTable()
+    {
+        assertUpdate("CREATE TABLE test_table_to_be_renamed (a BIGINT)");
+        assertQueryFails("ALTER TABLE test_table_to_be_renamed RENAME TO memory.test_schema_not_exist.test_table_renamed", "Schema test_schema_not_exist not found");
+        assertUpdate("ALTER TABLE test_table_to_be_renamed RENAME TO test_table_renamed");
+        assertQueryResult("SELECT count(*) FROM test_table_renamed", 0L);
+
+        assertUpdate("CREATE SCHEMA test_different_schema");
+        assertUpdate("ALTER TABLE test_table_renamed RENAME TO test_different_schema.test_table_renamed");
+        assertQueryResult("SELECT count(*) FROM test_different_schema.test_table_renamed", 0L);
     }
 
     @Test

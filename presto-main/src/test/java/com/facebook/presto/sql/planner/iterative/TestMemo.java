@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative;
 
+import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -21,7 +22,9 @@ import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Optional;
 
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static org.testng.Assert.assertEquals;
 
 public class TestMemo
@@ -30,7 +33,6 @@ public class TestMemo
 
     @Test
     public void testInitialization()
-            throws Exception
     {
         PlanNode plan = node(node());
         Memo memo = new Memo(idAllocator, plan);
@@ -45,7 +47,6 @@ public class TestMemo
      */
     @Test
     public void testReplaceSubtree()
-            throws Exception
     {
         PlanNode plan = node(node(node()));
 
@@ -60,12 +61,34 @@ public class TestMemo
     }
 
     /*
+      From: X -> Y  -> Z
+      To:   X -> Y' -> Z
+     */
+    @Test
+    public void testReplaceNode()
+    {
+        PlanNode z = node();
+        PlanNode y = node(z);
+        PlanNode x = node(y);
+
+        Memo memo = new Memo(idAllocator, x);
+        assertEquals(memo.getGroupCount(), 3);
+
+        // replace child of root node with another node, retaining child's child
+        int yGroup = getChildGroup(memo, memo.getRootGroup());
+        GroupReference zRef = (GroupReference) getOnlyElement(memo.getNode(yGroup).getSources());
+        PlanNode transformed = node(zRef);
+        memo.replace(yGroup, transformed, "rule");
+        assertEquals(memo.getGroupCount(), 3);
+        assertMatchesStructure(memo.extract(), node(x.getId(), node(transformed.getId(), z)));
+    }
+
+    /*
       From: X -> Y  -> Z  -> W
       To:   X -> Y' -> Z' -> W
      */
     @Test
     public void testReplaceNonLeafSubtree()
-            throws Exception
     {
         PlanNode w = node();
         PlanNode z = node(w);
@@ -102,7 +125,6 @@ public class TestMemo
      */
     @Test
     public void testRemoveNode()
-            throws Exception
     {
         PlanNode z = node();
         PlanNode y = node(z);
@@ -129,7 +151,6 @@ public class TestMemo
      */
     @Test
     public void testInsertNode()
-            throws Exception
     {
         PlanNode z = node();
         PlanNode x = node(z);
@@ -158,7 +179,6 @@ public class TestMemo
      */
     @Test
     public void testMultipleReferences()
-            throws Exception
     {
         PlanNode z = node();
         PlanNode y = node(z);
@@ -182,6 +202,30 @@ public class TestMemo
                 node(newX.getId(),
                         node(y1.getId(), node(z.getId())),
                         node(y2.getId(), node(z.getId()))));
+    }
+
+    @Test
+    public void testEvictStatsOnReplace()
+    {
+        PlanNode y = node();
+        PlanNode x = node(y);
+
+        Memo memo = new Memo(idAllocator, x);
+        int xGroup = memo.getRootGroup();
+        int yGroup = getChildGroup(memo, memo.getRootGroup());
+        PlanNodeStatsEstimate xStats = PlanNodeStatsEstimate.builder().setOutputRowCount(42).build();
+        PlanNodeStatsEstimate yStats = PlanNodeStatsEstimate.builder().setOutputRowCount(55).build();
+
+        memo.storeStats(yGroup, yStats);
+        memo.storeStats(xGroup, xStats);
+
+        assertEquals(Optional.of(yStats), memo.getStats(yGroup));
+        assertEquals(Optional.of(xStats), memo.getStats(xGroup));
+
+        memo.replace(yGroup, node(), "rule");
+
+        assertEquals(Optional.empty(), memo.getStats(yGroup));
+        assertEquals(Optional.empty(), memo.getStats(xGroup));
     }
 
     private static void assertMatchesStructure(PlanNode actual, PlanNode expected)

@@ -15,8 +15,8 @@ package com.facebook.presto.tests.utils;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.Iterables;
-import com.teradata.tempto.query.QueryResult;
 import io.airlift.units.Duration;
+import io.prestodb.tempto.query.QueryResult;
 
 import java.util.function.Supplier;
 

@@ -104,7 +104,9 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static com.facebook.presto.hive.HivePartitionManager.extractPartitionKeyValues;
+import static com.facebook.presto.hive.HiveSessionProperties.getHiveStorageFormat;
 import static com.facebook.presto.hive.HiveSessionProperties.isBucketExecutionEnabled;
+import static com.facebook.presto.hive.HiveSessionProperties.isRespectTableFormat;
 import static com.facebook.presto.hive.HiveSessionProperties.isStatisticsEnabled;
 import static com.facebook.presto.hive.HiveTableProperties.BUCKETED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY;
@@ -181,10 +183,8 @@ public class HiveMetadata
     private final LocationService locationService;
     private final TableParameterCodec tableParameterCodec;
     private final JsonCodec<PartitionUpdate> partitionUpdateCodec;
-    private final boolean respectTableFormat;
     private final boolean bucketWritingEnabled;
     private final boolean writesToNonManagedTablesEnabled;
-    private final HiveStorageFormat defaultStorageFormat;
     private final TypeTranslator typeTranslator;
     private final String prestoVersion;
     private final HiveStatisticsProvider hiveStatisticsProvider;
@@ -195,10 +195,8 @@ public class HiveMetadata
             HivePartitionManager partitionManager,
             DateTimeZone timeZone,
             boolean allowCorruptWritesForTesting,
-            boolean respectTableFormat,
             boolean bucketWritingEnabled,
             boolean writesToNonManagedTablesEnabled,
-            HiveStorageFormat defaultStorageFormat,
             TypeManager typeManager,
             LocationService locationService,
             TableParameterCodec tableParameterCodec,
@@ -217,10 +215,8 @@ public class HiveMetadata
         this.locationService = requireNonNull(locationService, "locationService is null");
         this.tableParameterCodec = requireNonNull(tableParameterCodec, "tableParameterCodec is null");
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
-        this.respectTableFormat = respectTableFormat;
         this.bucketWritingEnabled = bucketWritingEnabled;
         this.writesToNonManagedTablesEnabled = writesToNonManagedTablesEnabled;
-        this.defaultStorageFormat = requireNonNull(defaultStorageFormat, "defaultStorageFormat is null");
         this.typeTranslator = requireNonNull(typeTranslator, "typeTranslator is null");
         this.prestoVersion = requireNonNull(prestoVersion, "prestoVersion is null");
         this.hiveStatisticsProvider = requireNonNull(hiveStatisticsProvider, "hiveStatisticsProvider is null");
@@ -683,7 +679,7 @@ public class HiveMetadata
         String tableName = schemaTableName.getTableName();
 
         List<HiveColumnHandle> columnHandles = getColumnHandles(tableMetadata, ImmutableSet.copyOf(partitionedBy), typeTranslator);
-        HiveStorageFormat partitionStorageFormat = respectTableFormat ? tableStorageFormat : defaultStorageFormat;
+        HiveStorageFormat partitionStorageFormat = isRespectTableFormat(session) ? tableStorageFormat : getHiveStorageFormat(session);
 
         // unpartitioned tables ignore the partition storage format
         HiveStorageFormat actualStorageFormat = partitionedBy.isEmpty() ? tableStorageFormat : partitionStorageFormat;
@@ -747,7 +743,7 @@ public class HiveMetadata
             // replace partitionUpdates before creating the empty files so that those files will be cleaned up if we end up rollback
             partitionUpdates = PartitionUpdate.mergePartitionUpdates(Iterables.concat(partitionUpdates, partitionUpdatesForMissingBuckets));
             for (PartitionUpdate partitionUpdate : partitionUpdatesForMissingBuckets) {
-                Optional<Partition> partition = table.getPartitionColumns().isEmpty() ? Optional.empty() : Optional.of(buildPartitionObject(session.getQueryId(), table, partitionUpdate));
+                Optional<Partition> partition = table.getPartitionColumns().isEmpty() ? Optional.empty() : Optional.of(buildPartitionObject(session, table, partitionUpdate));
                 createEmptyFile(session, partitionUpdate.getWritePath(), table, partition, partitionUpdate.getFileNames());
             }
         }
@@ -755,11 +751,11 @@ public class HiveMetadata
         metastore.createTable(session, table, principalPrivileges, Optional.of(writePath), false);
 
         if (!handle.getPartitionedBy().isEmpty()) {
-            if (respectTableFormat) {
+            if (isRespectTableFormat(session)) {
                 Verify.verify(handle.getPartitionStorageFormat() == handle.getTableStorageFormat());
             }
             partitionUpdates.forEach(partitionUpdate ->
-                    metastore.addPartition(session, handle.getSchemaName(), handle.getTableName(), buildPartitionObject(session.getQueryId(), table, partitionUpdate), partitionUpdate.getWritePath()));
+                    metastore.addPartition(session, handle.getSchemaName(), handle.getTableName(), buildPartitionObject(session, table, partitionUpdate), partitionUpdate.getWritePath()));
         }
 
         return Optional.of(new HiveWrittenPartitions(
@@ -897,7 +893,7 @@ public class HiveMetadata
                 locationHandle,
                 table.get().getStorage().getBucketProperty(),
                 tableStorageFormat,
-                respectTableFormat ? tableStorageFormat : defaultStorageFormat);
+                isRespectTableFormat(session) ? tableStorageFormat : HiveSessionProperties.getHiveStorageFormat(session));
 
         Optional<Path> writePathRoot = locationService.writePathRoot(locationHandle);
         Path targetPathRoot = locationService.targetPathRoot(locationHandle);
@@ -929,7 +925,7 @@ public class HiveMetadata
         if (!table.isPresent()) {
             throw new TableNotFoundException(new SchemaTableName(handle.getSchemaName(), handle.getTableName()));
         }
-        if (!table.get().getStorage().getStorageFormat().getInputFormat().equals(tableStorageFormat.getInputFormat()) && respectTableFormat) {
+        if (!table.get().getStorage().getStorageFormat().getInputFormat().equals(tableStorageFormat.getInputFormat()) && isRespectTableFormat(session)) {
             throw new PrestoException(HIVE_CONCURRENT_MODIFICATION_DETECTED, "Table format changed during insert");
         }
 
@@ -938,7 +934,7 @@ public class HiveMetadata
             // replace partitionUpdates before creating the empty files so that those files will be cleaned up if we end up rollback
             partitionUpdates = PartitionUpdate.mergePartitionUpdates(Iterables.concat(partitionUpdates, partitionUpdatesForMissingBuckets));
             for (PartitionUpdate partitionUpdate : partitionUpdatesForMissingBuckets) {
-                Optional<Partition> partition = table.get().getPartitionColumns().isEmpty() ? Optional.empty() : Optional.of(buildPartitionObject(session.getQueryId(), table.get(), partitionUpdate));
+                Optional<Partition> partition = table.get().getPartitionColumns().isEmpty() ? Optional.empty() : Optional.of(buildPartitionObject(session, table.get(), partitionUpdate));
                 createEmptyFile(session, partitionUpdate.getWritePath(), table.get(), partition, partitionUpdate.getFileNames());
             }
         }
@@ -965,8 +961,8 @@ public class HiveMetadata
             }
             else {
                 // insert into new partition
-                Partition partition = buildPartitionObject(session.getQueryId(), table.get(), partitionUpdate);
-                if (!partition.getStorage().getStorageFormat().getInputFormat().equals(handle.getPartitionStorageFormat().getInputFormat()) && respectTableFormat) {
+                Partition partition = buildPartitionObject(session, table.get(), partitionUpdate);
+                if (!partition.getStorage().getStorageFormat().getInputFormat().equals(handle.getPartitionStorageFormat().getInputFormat()) && isRespectTableFormat(session)) {
                     throw new PrestoException(HIVE_CONCURRENT_MODIFICATION_DETECTED, "Partition format changed during insert");
                 }
                 metastore.addPartition(session, handle.getSchemaName(), handle.getTableName(), partition, partitionUpdate.getWritePath());
@@ -979,7 +975,7 @@ public class HiveMetadata
                         .collect(Collectors.toList())));
     }
 
-    private Partition buildPartitionObject(String queryId, Table table, PartitionUpdate partitionUpdate)
+    private Partition buildPartitionObject(ConnectorSession session, Table table, PartitionUpdate partitionUpdate)
     {
         return Partition.builder()
                 .setDatabaseName(table.getDatabaseName())
@@ -988,14 +984,15 @@ public class HiveMetadata
                 .setValues(extractPartitionKeyValues(partitionUpdate.getName()))
                 .setParameters(ImmutableMap.<String, String>builder()
                         .put(PRESTO_VERSION_NAME, prestoVersion)
-                        .put(PRESTO_QUERY_ID_NAME, queryId)
+                        .put(PRESTO_QUERY_ID_NAME, session.getQueryId())
                         .build())
                 .withStorage(storage -> storage
-                        .setStorageFormat(respectTableFormat ?
+                        .setStorageFormat(isRespectTableFormat(session) ?
                                 table.getStorage().getStorageFormat() :
-                                fromHiveStorageFormat(defaultStorageFormat))
+                                fromHiveStorageFormat(HiveSessionProperties.getHiveStorageFormat(session)))
                         .setLocation(partitionUpdate.getTargetPath().toString())
-                        .setBucketProperty(table.getStorage().getBucketProperty()))
+                        .setBucketProperty(table.getStorage().getBucketProperty())
+                        .setSerdeParameters(table.getStorage().getSerdeParameters()))
                 .build();
     }
 

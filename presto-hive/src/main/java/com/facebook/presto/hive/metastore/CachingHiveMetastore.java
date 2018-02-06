@@ -126,14 +126,12 @@ public class CachingHiveMetastore
                 {
                     @Override
                     public Optional<HiveColumnStatistics> load(TableColumnStatisticsCacheKey key)
-                            throws Exception
                     {
                         return loadAll(ImmutableList.of(key)).get(key);
                     }
 
                     @Override
                     public Map<TableColumnStatisticsCacheKey, Optional<HiveColumnStatistics>> loadAll(Iterable<? extends TableColumnStatisticsCacheKey> keys)
-                            throws Exception
                     {
                         return loadColumnStatistics(keys);
                     }
@@ -144,14 +142,12 @@ public class CachingHiveMetastore
                 {
                     @Override
                     public Optional<HiveColumnStatistics> load(PartitionColumnStatisticsCacheKey key)
-                            throws Exception
                     {
                         return loadAll(ImmutableList.of(key)).get(key);
                     }
 
                     @Override
                     public Map<PartitionColumnStatisticsCacheKey, Optional<HiveColumnStatistics>> loadAll(Iterable<? extends PartitionColumnStatisticsCacheKey> keys)
-                            throws Exception
                     {
                         return loadPartitionColumnStatistics(keys);
                     }
@@ -174,14 +170,12 @@ public class CachingHiveMetastore
                 {
                     @Override
                     public Optional<Partition> load(HivePartitionName partitionName)
-                            throws Exception
                     {
                         return loadPartitionByName(partitionName);
                     }
 
                     @Override
                     public Map<HivePartitionName, Optional<Partition>> loadAll(Iterable<? extends HivePartitionName> partitionNames)
-                            throws Exception
                     {
                         return loadPartitionsByNames(partitionNames);
                     }
@@ -556,7 +550,6 @@ public class CachingHiveMetastore
     }
 
     private Optional<Partition> loadPartitionByName(HivePartitionName partitionName)
-            throws Exception
     {
         return delegate.getPartition(
                 partitionName.getHiveTableName().getDatabaseName(),
@@ -565,7 +558,6 @@ public class CachingHiveMetastore
     }
 
     private Map<HivePartitionName, Optional<Partition>> loadPartitionsByNames(Iterable<? extends HivePartitionName> partitionNames)
-            throws Exception
     {
         requireNonNull(partitionNames, "partitionNames is null");
         checkArgument(!Iterables.isEmpty(partitionNames), "partitionNames is empty");

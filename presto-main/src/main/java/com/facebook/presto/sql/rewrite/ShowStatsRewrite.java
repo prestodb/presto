@@ -14,8 +14,10 @@
 package com.facebook.presto.sql.rewrite;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
+import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ColumnHandle;
@@ -23,7 +25,11 @@ import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.Estimate;
+import com.facebook.presto.spi.statistics.RangeColumnStatistics;
 import com.facebook.presto.spi.statistics.TableStatistics;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.sql.FunctionInvoker;
 import com.facebook.presto.sql.QueryUtil;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.analyzer.SemanticException;
@@ -57,6 +63,7 @@ import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.Values;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
 
 import java.util.List;
 import java.util.Map;
@@ -73,6 +80,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
@@ -85,6 +93,7 @@ public class ShowStatsRewrite
 
     private static final Expression NULL_DOUBLE = new Cast(new NullLiteral(), DOUBLE);
     private static final Expression NULL_VARCHAR = new Cast(new NullLiteral(), VARCHAR);
+    private static final int MAX_LOW_HIGH_LENGTH = 32;
 
     @Override
     public Statement rewrite(Session session, Metadata metadata, SqlParser parser, Optional<QueryExplainer> queryExplainer, Statement node, List<Expression> parameters, AccessControl accessControl)
@@ -198,7 +207,8 @@ public class ShowStatsRewrite
             List<String> statsColumnNames = buildColumnsNames();
             List<SelectItem> selectItems = buildSelectItems(statsColumnNames);
             Map<ColumnHandle, String> tableColumnNames = getStatisticsColumnNames(tableStatistics, tableHandle);
-            List<Expression> resultRows = buildStatisticsRows(tableStatistics, tableColumnNames);
+            Map<ColumnHandle, Type> tableColumnTypes = getStatisticsColumnTypes(tableStatistics, tableHandle);
+            List<Expression> resultRows = buildStatisticsRows(tableStatistics, tableColumnNames, tableColumnTypes);
 
             return simpleQuery(selectAll(selectItems),
                     aliased(new Values(resultRows),
@@ -229,7 +239,7 @@ public class ShowStatsRewrite
 
             Optional<TableScanNode> scanNode = searchFrom(plan.getRoot())
                     .where(TableScanNode.class::isInstance)
-                    .findFirst();
+                    .findSingle();
 
             if (!scanNode.isPresent()) {
                 return new Constraint<>(TupleDomain.none(), bindings -> true);
@@ -243,6 +253,13 @@ public class ShowStatsRewrite
             return statistics.getColumnStatistics()
                     .keySet().stream()
                     .collect(toMap(identity(), column -> metadata.getColumnMetadata(session, tableHandle, column).getName()));
+        }
+
+        private Map<ColumnHandle, Type> getStatisticsColumnTypes(TableStatistics statistics, TableHandle tableHandle)
+        {
+            return statistics.getColumnStatistics()
+                    .keySet().stream()
+                    .collect(toMap(identity(), column -> metadata.getColumnMetadata(session, tableHandle, column).getType()));
         }
 
         private TableHandle getTableHandle(ShowStats node, QualifiedName table)
@@ -260,6 +277,8 @@ public class ShowStatsRewrite
                     .add("distinct_values_count")
                     .add("nulls_fraction")
                     .add("row_count")
+                    .add("low_value")
+                    .add("high_value")
                     .build();
         }
 
@@ -270,13 +289,14 @@ public class ShowStatsRewrite
                     .collect(toImmutableList());
         }
 
-        private static List<Expression> buildStatisticsRows(TableStatistics tableStatistics, Map<ColumnHandle, String> columnNames)
+        private List<Expression> buildStatisticsRows(TableStatistics tableStatistics, Map<ColumnHandle, String> columnNames, Map<ColumnHandle, Type> columnTypes)
         {
             ImmutableList.Builder<Expression> rowsBuilder = ImmutableList.builder();
 
             // Stats for columns
             for (Map.Entry<ColumnHandle, ColumnStatistics> columnStats : tableStatistics.getColumnStatistics().entrySet()) {
-                rowsBuilder.add(createColumnStatsRow(columnNames.get(columnStats.getKey()), columnStats.getValue()));
+                ColumnHandle columnHandle = columnStats.getKey();
+                rowsBuilder.add(createColumnStatsRow(columnNames.get(columnHandle), columnTypes.get(columnHandle), columnStats.getValue()));
             }
 
             // Stats for whole table
@@ -285,14 +305,18 @@ public class ShowStatsRewrite
             return rowsBuilder.build();
         }
 
-        private static Row createColumnStatsRow(String columnName, ColumnStatistics columnStatistics)
+        private Row createColumnStatsRow(String columnName, Type type, ColumnStatistics columnStatistics)
         {
+            RangeColumnStatistics onlyRangeColumnStatistics = columnStatistics.getOnlyRangeColumnStatistics();
+
             ImmutableList.Builder<Expression> rowValues = ImmutableList.builder();
             rowValues.add(new StringLiteral(columnName));
-            rowValues.add(createStatisticValueOrNull(columnStatistics.getOnlyRangeColumnStatistics().getDataSize()));
-            rowValues.add(createStatisticValueOrNull(columnStatistics.getOnlyRangeColumnStatistics().getDistinctValuesCount()));
+            rowValues.add(createStatisticValueOrNull(onlyRangeColumnStatistics.getDataSize()));
+            rowValues.add(createStatisticValueOrNull(onlyRangeColumnStatistics.getDistinctValuesCount()));
             rowValues.add(createStatisticValueOrNull(columnStatistics.getNullsFraction()));
             rowValues.add(NULL_DOUBLE);
+            rowValues.add(lowHighAsLiteral(type, onlyRangeColumnStatistics.getLowValue()));
+            rowValues.add(lowHighAsLiteral(type, onlyRangeColumnStatistics.getHighValue()));
             return new Row(rowValues.build());
         }
 
@@ -304,7 +328,25 @@ public class ShowStatsRewrite
             rowValues.add(NULL_DOUBLE);
             rowValues.add(NULL_DOUBLE);
             rowValues.add(createStatisticValueOrNull(tableStatistics.getRowCount()));
+            rowValues.add(NULL_VARCHAR);
+            rowValues.add(NULL_VARCHAR);
             return new Row(rowValues.build());
+        }
+
+        private Expression lowHighAsLiteral(Type valueType, Optional<Object> value)
+        {
+            if (!value.isPresent()) {
+                return new Cast(new NullLiteral(), VARCHAR);
+            }
+            FunctionRegistry functionRegistry = metadata.getFunctionRegistry();
+            FunctionInvoker functionInvoker = new FunctionInvoker(functionRegistry);
+            Signature castSignature = functionRegistry.getCoercion(valueType, VarcharType.createUnboundedVarcharType());
+            Slice varcharValue = (Slice) functionInvoker.invoke(castSignature, session.toConnectorSession(), singletonList(value.get()));
+            String stringValue = varcharValue.toStringUtf8();
+            if (stringValue.length() > MAX_LOW_HIGH_LENGTH) {
+                stringValue = stringValue.substring(0, MAX_LOW_HIGH_LENGTH) + "...";
+            }
+            return new StringLiteral(stringValue);
         }
 
         private static Expression createStatisticValueOrNull(Estimate estimate)

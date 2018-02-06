@@ -13,23 +13,21 @@
  */
 package com.facebook.presto.tests.blackhole;
 
-import com.teradata.tempto.query.QueryResult;
+import io.prestodb.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
-import java.io.IOException;
 import java.util.UUID;
 
 import static com.facebook.presto.tests.TestGroups.BLACKHOLE_CONNECTOR;
-import static com.teradata.tempto.assertions.QueryAssert.Row.row;
-import static com.teradata.tempto.assertions.QueryAssert.assertThat;
-import static com.teradata.tempto.query.QueryExecutor.query;
+import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
+import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
+import static io.prestodb.tempto.query.QueryExecutor.query;
 import static java.lang.String.format;
 
 public class BlackHoleConnector
 {
     @Test(groups = {BLACKHOLE_CONNECTOR})
     public void blackHoleConnector()
-            throws IOException
     {
         String nullTable = "\"blackhole\".default.nation_" + UUID.randomUUID().toString().replace("-", "");
         String table = "tpch.tiny.nation";

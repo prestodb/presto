@@ -62,21 +62,18 @@ public class HdfsParquetDataSource
 
     @Override
     public final void readFully(long position, byte[] buffer)
-            throws IOException
     {
         readFully(position, buffer, 0, buffer.length);
     }
 
     @Override
     public final void readFully(long position, byte[] buffer, int bufferOffset, int bufferLength)
-            throws IOException
     {
         readInternal(position, buffer, bufferOffset, bufferLength);
         readBytes += bufferLength;
     }
 
     private void readInternal(long position, byte[] buffer, int bufferOffset, int bufferLength)
-            throws IOException
     {
         try {
             inputStream.readFully(position, buffer, bufferOffset, bufferLength);

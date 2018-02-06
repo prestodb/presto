@@ -55,7 +55,6 @@ public class TestMillisecondsSinceEpochJsonFieldDecoder
 
     @Test
     public void testBasicFormatting()
-            throws Exception
     {
         long now = System.currentTimeMillis();
         String nowString = MillisecondsSinceEpochJsonFieldDecoder.FORMATTER.print(now);
@@ -98,7 +97,6 @@ public class TestMillisecondsSinceEpochJsonFieldDecoder
 
     @Test
     public void testNullValues()
-            throws Exception
     {
         byte[] json = "{}".getBytes(StandardCharsets.UTF_8);
 

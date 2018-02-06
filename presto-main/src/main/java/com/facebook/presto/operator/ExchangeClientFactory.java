@@ -13,8 +13,7 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.execution.SystemMemoryUsageListener;
-import io.airlift.concurrent.BoundedExecutor;
+import com.facebook.presto.memory.context.LocalMemoryContext;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.http.client.HttpClient;
 import io.airlift.units.DataSize;
@@ -25,7 +24,6 @@ import org.weakref.jmx.Nested;
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
-import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -48,7 +46,6 @@ public class ExchangeClientFactory
     private final ScheduledExecutorService scheduler;
     private final ThreadPoolExecutorMBean executorMBean;
     private final ExecutorService pageBufferClientCallbackExecutor;
-    private final Executor boundedExecutor;
 
     @Inject
     public ExchangeClientFactory(
@@ -92,7 +89,6 @@ public class ExchangeClientFactory
         this.scheduler = requireNonNull(scheduler, "scheduler is null");
 
         this.pageBufferClientCallbackExecutor = newFixedThreadPool(pageBufferClientMaxCallbackThreads, daemonThreadsNamed("page-buffer-client-callback-%s"));
-        this.boundedExecutor = new BoundedExecutor(pageBufferClientCallbackExecutor, pageBufferClientMaxCallbackThreads);
         this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) pageBufferClientCallbackExecutor);
 
         checkArgument(maxBufferedBytes.toBytes() > 0, "maxBufferSize must be at least 1 byte: %s", maxBufferedBytes);
@@ -114,7 +110,7 @@ public class ExchangeClientFactory
     }
 
     @Override
-    public ExchangeClient get(SystemMemoryUsageListener systemMemoryUsageListener)
+    public ExchangeClient get(LocalMemoryContext systemMemoryContext)
     {
         return new ExchangeClient(
                 maxBufferedBytes,
@@ -124,7 +120,7 @@ public class ExchangeClientFactory
                 maxErrorDuration,
                 httpClient,
                 scheduler,
-                systemMemoryUsageListener,
-                boundedExecutor);
+                systemMemoryContext,
+                pageBufferClientCallbackExecutor);
     }
 }

@@ -19,16 +19,14 @@ import com.facebook.presto.spi.predicate.TupleDomain;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import java.util.Optional;
-
 public class TpchTableLayoutHandle
         implements ConnectorTableLayoutHandle
 {
     private final TpchTableHandle table;
-    private final Optional<TupleDomain<ColumnHandle>> predicate;
+    private final TupleDomain<ColumnHandle> predicate;
 
     @JsonCreator
-    public TpchTableLayoutHandle(@JsonProperty("table") TpchTableHandle table, @JsonProperty("predicate") Optional<TupleDomain<ColumnHandle>> predicate)
+    public TpchTableLayoutHandle(@JsonProperty("table") TpchTableHandle table, @JsonProperty("predicate") TupleDomain<ColumnHandle> predicate)
     {
         this.table = table;
         this.predicate = predicate;
@@ -41,7 +39,7 @@ public class TpchTableLayoutHandle
     }
 
     @JsonProperty
-    public Optional<TupleDomain<ColumnHandle>> getPredicate()
+    public TupleDomain<ColumnHandle> getPredicate()
     {
         return predicate;
     }

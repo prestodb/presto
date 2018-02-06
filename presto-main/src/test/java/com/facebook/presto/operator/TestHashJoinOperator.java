@@ -18,7 +18,7 @@ import com.facebook.presto.RowPagesBuilder;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskStateMachine;
-import com.facebook.presto.memory.LocalMemoryContext;
+import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.HashBuilderOperator.HashBuilderOperatorFactory;
 import com.facebook.presto.operator.ValuesOperator.ValuesOperatorFactory;
 import com.facebook.presto.operator.exchange.LocalExchange.LocalExchangeFactory;
@@ -157,7 +157,6 @@ public class TestHashJoinOperator
 
     @Test(dataProvider = "hashJoinTestValues")
     public void testInnerJoin(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
-            throws Exception
     {
         TaskContext taskContext = createTaskContext();
 
@@ -192,7 +191,6 @@ public class TestHashJoinOperator
 
     @Test
     public void testYield()
-            throws Exception
     {
         // create a filter function that yields for every probe match
         // verify we will yield #match times totally
@@ -470,7 +468,6 @@ public class TestHashJoinOperator
     }
 
     private static void processRow(final Driver joinDriver, final TaskStateMachine taskStateMachine)
-            throws Exception
     {
         joinDriver.getDriverContext().getYieldSignal().setWithDelay(TimeUnit.SECONDS.toNanos(1), joinDriver.getDriverContext().getYieldExecutor());
         joinDriver.process();
@@ -479,7 +476,6 @@ public class TestHashJoinOperator
     }
 
     private static void checkErrors(TaskStateMachine taskStateMachine)
-            throws Exception
     {
         if (taskStateMachine.getFailureCauses().size() > 0) {
             Throwable exception = requireNonNull(taskStateMachine.getFailureCauses().peek());
@@ -532,7 +528,6 @@ public class TestHashJoinOperator
 
     @Test(dataProvider = "hashJoinTestValues")
     public void testInnerJoinWithNullProbe(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
-            throws Exception
     {
         TaskContext taskContext = createTaskContext();
 
@@ -568,7 +563,6 @@ public class TestHashJoinOperator
 
     @Test(dataProvider = "hashJoinTestValues")
     public void testInnerJoinWithNullBuild(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
-            throws Exception
     {
         TaskContext taskContext = createTaskContext();
 
@@ -604,7 +598,6 @@ public class TestHashJoinOperator
 
     @Test(dataProvider = "hashJoinTestValues")
     public void testInnerJoinWithNullOnBothSides(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
-            throws Exception
     {
         TaskContext taskContext = createTaskContext();
 
@@ -641,7 +634,6 @@ public class TestHashJoinOperator
 
     @Test(dataProvider = "hashJoinTestValues")
     public void testProbeOuterJoin(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
-            throws Exception
     {
         TaskContext taskContext = createTaskContext();
 
@@ -684,7 +676,6 @@ public class TestHashJoinOperator
 
     @Test(dataProvider = "hashJoinTestValues")
     public void testProbeOuterJoinWithFilterFunction(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
-            throws Exception
     {
         TaskContext taskContext = createTaskContext();
 
@@ -729,7 +720,6 @@ public class TestHashJoinOperator
 
     @Test(dataProvider = "hashJoinTestValues")
     public void testOuterJoinWithNullProbe(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
-            throws Exception
     {
         TaskContext taskContext = createTaskContext();
 
@@ -767,7 +757,6 @@ public class TestHashJoinOperator
 
     @Test(dataProvider = "hashJoinTestValues")
     public void testOuterJoinWithNullProbeAndFilterFunction(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
-            throws Exception
     {
         TaskContext taskContext = createTaskContext();
 
@@ -808,7 +797,6 @@ public class TestHashJoinOperator
 
     @Test(dataProvider = "hashJoinTestValues")
     public void testOuterJoinWithNullBuild(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
-            throws Exception
     {
         TaskContext taskContext = createTaskContext();
 
@@ -845,7 +833,6 @@ public class TestHashJoinOperator
 
     @Test(dataProvider = "hashJoinTestValues")
     public void testOuterJoinWithNullBuildAndFilterFunction(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
-            throws Exception
     {
         TaskContext taskContext = createTaskContext();
 
@@ -886,7 +873,6 @@ public class TestHashJoinOperator
 
     @Test(dataProvider = "hashJoinTestValues")
     public void testOuterJoinWithNullOnBothSides(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
-            throws Exception
     {
         TaskContext taskContext = createTaskContext();
 
@@ -924,7 +910,6 @@ public class TestHashJoinOperator
 
     @Test(dataProvider = "hashJoinTestValues")
     public void testOuterJoinWithNullOnBothSidesAndFilterFunction(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
-            throws Exception
     {
         TaskContext taskContext = createTaskContext();
 
@@ -966,7 +951,6 @@ public class TestHashJoinOperator
 
     @Test(expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded local memory limit of.*", dataProvider = "testMemoryLimitProvider")
     public void testMemoryLimit(boolean parallelBuild, boolean buildHashEnabled)
-            throws Exception
     {
         TaskContext taskContext = TestingTaskContext.createTaskContext(executor, scheduledExecutor, TEST_SESSION, new DataSize(100, BYTE));
 

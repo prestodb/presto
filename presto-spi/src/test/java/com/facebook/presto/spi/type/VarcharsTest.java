@@ -29,7 +29,6 @@ public class VarcharsTest
 {
     @Test
     public void testTruncateToLength()
-            throws Exception
     {
         // Single byte code points
         assertEquals(truncateToLength(Slices.utf8Slice("abc"), 0), Slices.utf8Slice(""));
@@ -57,7 +56,6 @@ public class VarcharsTest
 
     @Test
     public void testByteCount()
-            throws Exception
     {
         // Single byte code points
         assertByteCount("abc", 0, 0, 1, "");

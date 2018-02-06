@@ -17,18 +17,9 @@ import com.facebook.presto.array.BlockBigArray;
 import com.facebook.presto.array.BooleanBigArray;
 import com.facebook.presto.array.ByteBigArray;
 import com.facebook.presto.array.DoubleBigArray;
+import com.facebook.presto.array.IntBigArray;
 import com.facebook.presto.array.LongBigArray;
 import com.facebook.presto.array.SliceBigArray;
-import com.facebook.presto.bytecode.BytecodeBlock;
-import com.facebook.presto.bytecode.ClassDefinition;
-import com.facebook.presto.bytecode.DynamicClassLoader;
-import com.facebook.presto.bytecode.FieldDefinition;
-import com.facebook.presto.bytecode.MethodDefinition;
-import com.facebook.presto.bytecode.Parameter;
-import com.facebook.presto.bytecode.Scope;
-import com.facebook.presto.bytecode.Variable;
-import com.facebook.presto.bytecode.control.IfStatement;
-import com.facebook.presto.bytecode.expression.BytecodeExpression;
 import com.facebook.presto.operator.aggregation.GroupedAccumulator;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
@@ -43,6 +34,16 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
+import io.airlift.bytecode.BytecodeBlock;
+import io.airlift.bytecode.ClassDefinition;
+import io.airlift.bytecode.DynamicClassLoader;
+import io.airlift.bytecode.FieldDefinition;
+import io.airlift.bytecode.MethodDefinition;
+import io.airlift.bytecode.Parameter;
+import io.airlift.bytecode.Scope;
+import io.airlift.bytecode.Variable;
+import io.airlift.bytecode.control.IfStatement;
+import io.airlift.bytecode.expression.BytecodeExpression;
 import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -58,35 +59,36 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.bytecode.Access.FINAL;
-import static com.facebook.presto.bytecode.Access.PRIVATE;
-import static com.facebook.presto.bytecode.Access.PUBLIC;
-import static com.facebook.presto.bytecode.Access.STATIC;
-import static com.facebook.presto.bytecode.Access.a;
-import static com.facebook.presto.bytecode.CompilerUtils.defineClass;
-import static com.facebook.presto.bytecode.CompilerUtils.makeClassName;
-import static com.facebook.presto.bytecode.Parameter.arg;
-import static com.facebook.presto.bytecode.ParameterizedType.type;
-import static com.facebook.presto.bytecode.expression.BytecodeExpressions.add;
-import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantBoolean;
-import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantClass;
-import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantInt;
-import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantNull;
-import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantNumber;
-import static com.facebook.presto.bytecode.expression.BytecodeExpressions.defaultValue;
-import static com.facebook.presto.bytecode.expression.BytecodeExpressions.equal;
-import static com.facebook.presto.bytecode.expression.BytecodeExpressions.getStatic;
-import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newInstance;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.sql.gen.SqlTypeBytecodeExpression.constantType;
+import static com.facebook.presto.util.CompilerUtils.defineClass;
+import static com.facebook.presto.util.CompilerUtils.makeClassName;
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static com.google.common.base.CaseFormat.UPPER_CAMEL;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.bytecode.Access.FINAL;
+import static io.airlift.bytecode.Access.PRIVATE;
+import static io.airlift.bytecode.Access.PUBLIC;
+import static io.airlift.bytecode.Access.STATIC;
+import static io.airlift.bytecode.Access.a;
+import static io.airlift.bytecode.Parameter.arg;
+import static io.airlift.bytecode.ParameterizedType.type;
+import static io.airlift.bytecode.expression.BytecodeExpressions.add;
+import static io.airlift.bytecode.expression.BytecodeExpressions.constantBoolean;
+import static io.airlift.bytecode.expression.BytecodeExpressions.constantClass;
+import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
+import static io.airlift.bytecode.expression.BytecodeExpressions.constantNull;
+import static io.airlift.bytecode.expression.BytecodeExpressions.constantNumber;
+import static io.airlift.bytecode.expression.BytecodeExpressions.defaultValue;
+import static io.airlift.bytecode.expression.BytecodeExpressions.equal;
+import static io.airlift.bytecode.expression.BytecodeExpressions.getStatic;
+import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
 import static java.util.Objects.requireNonNull;
 
 public class StateCompiler
@@ -109,6 +111,9 @@ public class StateCompiler
         if (type.equals(boolean.class)) {
             return BooleanBigArray.class;
         }
+        if (type.equals(int.class)) {
+            return IntBigArray.class;
+        }
         if (type.equals(Slice.class)) {
             return SliceBigArray.class;
         }
@@ -121,8 +126,8 @@ public class StateCompiler
 
     public static Set<Class<?>> getSupportedFieldTypes()
     {
-        // byte.class is needed for TriStateBooleanState
-        return ImmutableSet.of(byte.class, boolean.class, long.class, double.class, Slice.class, Block.class);
+        // byte.class and int.class are needed for TriStateBooleanState and Object/SliceBlockPositionState respectively
+        return ImmutableSet.of(byte.class, boolean.class, long.class, double.class, int.class, Slice.class, Block.class);
     }
 
     public static <T> AccumulatorStateSerializer<T> generateStateSerializer(Class<T> clazz)
@@ -225,7 +230,7 @@ public class StateCompiler
                         .ifFalse(state.cast(setter.getDeclaringClass()).invoke(setter, constantType(binder, field.getSqlType()).getValue(block, index))));
             }
             else {
-                // For primitive type, we need to cast here because we serialize byte fields with TINYINT (whose java type is long).
+                // For primitive type, we need to cast here because we serialize byte fields with TINYINT/INTEGER (whose java type is long).
                 deserializerBody.append(
                         state.cast(setter.getDeclaringClass()).invoke(
                                 setter,
@@ -245,7 +250,7 @@ public class StateCompiler
                             .ifFalse(state.cast(setter.getDeclaringClass()).invoke(setter, constantType(binder, field.getSqlType()).getValue(row, constantInt(position)))));
                 }
                 else {
-                    // For primitive type, we need to cast here because we serialize byte fields with TINYINT (whose java type is long).
+                    // For primitive type, we need to cast here because we serialize byte fields with TINYINT/INTEGER (whose java type is long).
                     deserializerBody.append(
                             state.cast(setter.getDeclaringClass()).invoke(
                                     setter,
@@ -277,7 +282,7 @@ public class StateCompiler
                         .ifFalse(sqlType.writeValue(out, fieldValue)));
             }
             else {
-                // For primitive type, we need to cast here because we serialize byte fields with TINYINT (whose java type is long).
+                // For primitive type, we need to cast here because we serialize byte fields with TINYINT/INTEGER (whose java type is long).
                 serializerBody.append(sqlType.writeValue(out, fieldValue.cast(fields.get(0).getSqlType().getJavaType())));
             }
         }
@@ -295,7 +300,7 @@ public class StateCompiler
                             .ifFalse(sqlType.writeValue(rowBuilder, fieldValue)));
                 }
                 else {
-                    // For primitive type, we need to cast here because we serialize byte fields with TINYINT (whose java type is long).
+                    // For primitive type, we need to cast here because we serialize byte fields with TINYINT/INTEGER (whose java type is long).
                     serializerBody.append(sqlType.writeValue(rowBuilder, fieldValue.cast(field.getSqlType().getJavaType())));
                 }
             }
@@ -561,7 +566,7 @@ public class StateCompiler
     private static List<StateField> enumerateFields(Class<?> clazz, Map<String, Type> fieldTypes)
     {
         ImmutableList.Builder<StateField> builder = ImmutableList.builder();
-        final Set<Class<?>> primitiveClasses = ImmutableSet.of(byte.class, boolean.class, long.class, double.class);
+        final Set<Class<?>> primitiveClasses = ImmutableSet.of(byte.class, boolean.class, long.class, double.class, int.class);
         Set<Class<?>> supportedClasses = getSupportedFieldTypes();
         for (Method method : clazz.getMethods()) {
             if (method.getName().equals("getEstimatedSize")) {
@@ -700,7 +705,9 @@ public class StateCompiler
             checkArgument(sqlType != null, "sqlType is null");
             if (sqlType.isPresent()) {
                 checkArgument(
-                        (sqlType.get().getJavaType() == type) || ((type == byte.class) && TINYINT.equals(sqlType.get())),
+                        (sqlType.get().getJavaType() == type) ||
+                                ((type == byte.class) && TINYINT.equals(sqlType.get())) ||
+                                ((type == int.class) && INTEGER.equals(sqlType.get())),
                         "Stack type (%s) and provided sql type (%s) are incompatible", type.getName(), sqlType.get().getDisplayName());
             }
             else {
@@ -722,6 +729,9 @@ public class StateCompiler
             }
             else if (stackType == byte.class) {
                 return Optional.of(TINYINT);
+            }
+            else if (stackType == int.class) {
+                return Optional.of(INTEGER);
             }
             else if (stackType == Slice.class) {
                 return Optional.of(VARBINARY);
@@ -762,7 +772,7 @@ public class StateCompiler
         boolean isPrimitiveType()
         {
             Class<?> type = getType();
-            return (type == long.class || type == double.class || type == boolean.class || type == byte.class);
+            return (type == long.class || type == double.class || type == boolean.class || type == byte.class || type == int.class);
         }
 
         public BytecodeExpression initialValueExpression()

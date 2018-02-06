@@ -19,6 +19,7 @@ import okhttp3.Call;
 import okhttp3.Callback;
 import okhttp3.Credentials;
 import okhttp3.Interceptor;
+import okhttp3.JavaNetCookieJar;
 import okhttp3.OkHttpClient;
 import okhttp3.Response;
 
@@ -34,6 +35,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.CookieManager;
 import java.net.InetSocketAddress;
 import java.net.Proxy;
 import java.security.GeneralSecurityException;
@@ -91,6 +93,11 @@ public final class OkHttpUtil
                 .connectTimeout(timeout, unit)
                 .readTimeout(timeout, unit)
                 .writeTimeout(timeout, unit);
+    }
+
+    public static void setupCookieJar(OkHttpClient.Builder clientBuilder)
+    {
+        clientBuilder.cookieJar(new JavaNetCookieJar(new CookieManager()));
     }
 
     public static void setupSocksProxy(OkHttpClient.Builder clientBuilder, Optional<HostAndPort> socksProxy)

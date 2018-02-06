@@ -793,7 +793,6 @@ public class ThriftHiveMetastore
             String tableName,
             HivePrincipal hivePrincipal,
             Set<PrivilegeGrantInfo> privilegeGrantInfos)
-            throws TException
     {
         ImmutableList.Builder<HiveObjectPrivilege> privilegeBagBuilder = ImmutableList.builder();
         for (PrivilegeGrantInfo privilegeGrantInfo : privilegeGrantInfos) {

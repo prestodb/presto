@@ -129,10 +129,6 @@ public abstract class AbstractMapBlock
         int positionCount = getPositionCount();
         checkValidRegion(positionCount, position, length);
 
-        if (position == 0 && length == positionCount) {
-            return this;
-        }
-
         return new MapBlock(
                 position + getOffsetBase(),
                 length,
@@ -142,7 +138,8 @@ public abstract class AbstractMapBlock
                 getValues(),
                 getHashTables(),
                 keyType,
-                keyBlockNativeEquals, keyNativeHashCode);
+                keyBlockNativeEquals,
+                keyNativeHashCode);
     }
 
     @Override

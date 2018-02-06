@@ -60,28 +60,24 @@ public abstract class AbstractTestApproximateCountDistinct
 
     @Test(dataProvider = "provideStandardErrors")
     public void testNoPositions(double maxStandardError)
-            throws Exception
     {
         assertCount(ImmutableList.of(), maxStandardError, 0);
     }
 
     @Test(dataProvider = "provideStandardErrors")
     public void testSinglePosition(double maxStandardError)
-            throws Exception
     {
         assertCount(ImmutableList.of(randomValue()), maxStandardError, 1);
     }
 
     @Test(dataProvider = "provideStandardErrors")
     public void testAllPositionsNull(double maxStandardError)
-            throws Exception
     {
         assertCount(Collections.nCopies(100, null), maxStandardError, 0);
     }
 
     @Test(dataProvider = "provideStandardErrors")
     public void testMixedNullsAndNonNulls(double maxStandardError)
-            throws Exception
     {
         List<Object> baseline = createRandomSample(10000, 15000);
 
@@ -98,7 +94,6 @@ public abstract class AbstractTestApproximateCountDistinct
 
     @Test(dataProvider = "provideStandardErrors")
     public void testMultiplePositions(double maxStandardError)
-            throws Exception
     {
         DescriptiveStatistics stats = new DescriptiveStatistics();
 
@@ -119,7 +114,6 @@ public abstract class AbstractTestApproximateCountDistinct
 
     @Test(dataProvider = "provideStandardErrors")
     public void testMultiplePositionsPartial(double maxStandardError)
-            throws Exception
     {
         for (int i = 0; i < 100; ++i) {
             int uniques = ThreadLocalRandom.current().nextInt(20000) + 1;

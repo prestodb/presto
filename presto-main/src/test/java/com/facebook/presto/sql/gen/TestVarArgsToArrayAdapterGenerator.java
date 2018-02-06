@@ -52,7 +52,6 @@ public class TestVarArgsToArrayAdapterGenerator
 
     @Test
     public void testArrayElements()
-            throws Exception
     {
         assertFunction("var_args_sum()", INTEGER, 0);
         assertFunction("var_args_sum(1)", INTEGER, 1);

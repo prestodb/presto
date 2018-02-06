@@ -126,7 +126,6 @@ public class TestSourcePartitionedScheduler
 
     @Test
     public void testScheduleNoSplits()
-            throws Exception
     {
         StageExecutionPlan plan = createPlan(createFixedSplitSource(0, TestingSplit::createRemoteSplit));
         NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
@@ -145,7 +144,6 @@ public class TestSourcePartitionedScheduler
 
     @Test
     public void testScheduleSplitsOneAtATime()
-            throws Exception
     {
         StageExecutionPlan plan = createPlan(createFixedSplitSource(60, TestingSplit::createRemoteSplit));
         NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
@@ -178,7 +176,6 @@ public class TestSourcePartitionedScheduler
 
     @Test
     public void testScheduleSplitsBatched()
-            throws Exception
     {
         StageExecutionPlan plan = createPlan(createFixedSplitSource(60, TestingSplit::createRemoteSplit));
         NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
@@ -211,7 +208,6 @@ public class TestSourcePartitionedScheduler
 
     @Test
     public void testScheduleSplitsBlock()
-            throws Exception
     {
         StageExecutionPlan plan = createPlan(createFixedSplitSource(80, TestingSplit::createRemoteSplit));
         NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
@@ -271,7 +267,6 @@ public class TestSourcePartitionedScheduler
 
     @Test
     public void testScheduleSlowSplitSource()
-            throws Exception
     {
         QueuedSplitSource queuedSplitSource = new QueuedSplitSource(TestingSplit::createRemoteSplit);
         StageExecutionPlan plan = createPlan(queuedSplitSource);
@@ -293,7 +288,6 @@ public class TestSourcePartitionedScheduler
 
     @Test
     public void testNoNodes()
-            throws Exception
     {
         try {
             NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
@@ -320,7 +314,6 @@ public class TestSourcePartitionedScheduler
 
     @Test
     public void testBalancedSplitAssignment()
-            throws Exception
     {
         // use private node manager so we can add a node later
         InMemoryNodeManager nodeManager = new InMemoryNodeManager();
@@ -367,7 +360,6 @@ public class TestSourcePartitionedScheduler
 
     @Test
     public void testBlockCausesFullSchedule()
-            throws Exception
     {
         NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
 

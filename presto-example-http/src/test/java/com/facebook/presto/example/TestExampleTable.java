@@ -40,7 +40,6 @@ public class TestExampleTable
 
     @Test
     public void testRoundTrip()
-            throws Exception
     {
         String json = TABLE_CODEC.toJson(exampleTable);
         ExampleTable exampleTableCopy = TABLE_CODEC.fromJson(json);

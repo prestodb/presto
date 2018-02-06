@@ -13,16 +13,16 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.bytecode.DynamicClassLoader;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.SqlAggregationFunction;
-import com.facebook.presto.operator.aggregation.state.BlockState;
-import com.facebook.presto.operator.aggregation.state.BlockStateSerializer;
 import com.facebook.presto.operator.aggregation.state.NullableBooleanState;
 import com.facebook.presto.operator.aggregation.state.NullableDoubleState;
 import com.facebook.presto.operator.aggregation.state.NullableLongState;
-import com.facebook.presto.operator.aggregation.state.SliceState;
+import com.facebook.presto.operator.aggregation.state.ObjectBlockPositionState;
+import com.facebook.presto.operator.aggregation.state.ObjectBlockPositionStateSerializer;
+import com.facebook.presto.operator.aggregation.state.SliceBlockPositionState;
+import com.facebook.presto.operator.aggregation.state.SliceBlockPositionStateSerializer;
 import com.facebook.presto.operator.aggregation.state.StateCompiler;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
@@ -31,6 +31,7 @@ import com.facebook.presto.spi.function.AccumulatorStateSerializer;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
+import io.airlift.bytecode.DynamicClassLoader;
 import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
@@ -54,21 +55,21 @@ public class ArbitraryAggregationFunction
 
     private static final MethodHandle LONG_INPUT_FUNCTION = methodHandle(ArbitraryAggregationFunction.class, "input", Type.class, NullableLongState.class, Block.class, int.class);
     private static final MethodHandle DOUBLE_INPUT_FUNCTION = methodHandle(ArbitraryAggregationFunction.class, "input", Type.class, NullableDoubleState.class, Block.class, int.class);
-    private static final MethodHandle SLICE_INPUT_FUNCTION = methodHandle(ArbitraryAggregationFunction.class, "input", Type.class, SliceState.class, Block.class, int.class);
+    private static final MethodHandle SLICE_INPUT_FUNCTION = methodHandle(ArbitraryAggregationFunction.class, "input", Type.class, SliceBlockPositionState.class, Block.class, int.class);
     private static final MethodHandle BOOLEAN_INPUT_FUNCTION = methodHandle(ArbitraryAggregationFunction.class, "input", Type.class, NullableBooleanState.class, Block.class, int.class);
-    private static final MethodHandle BLOCK_INPUT_FUNCTION = methodHandle(ArbitraryAggregationFunction.class, "input", Type.class, BlockState.class, Block.class, int.class);
+    private static final MethodHandle BLOCK_INPUT_FUNCTION = methodHandle(ArbitraryAggregationFunction.class, "input", Type.class, ObjectBlockPositionState.class, Block.class, int.class);
 
     private static final MethodHandle LONG_OUTPUT_FUNCTION = methodHandle(NullableLongState.class, "write", Type.class, NullableLongState.class, BlockBuilder.class);
     private static final MethodHandle DOUBLE_OUTPUT_FUNCTION = methodHandle(NullableDoubleState.class, "write", Type.class, NullableDoubleState.class, BlockBuilder.class);
-    private static final MethodHandle SLICE_OUTPUT_FUNCTION = methodHandle(SliceState.class, "write", Type.class, SliceState.class, BlockBuilder.class);
+    private static final MethodHandle SLICE_OUTPUT_FUNCTION = methodHandle(SliceBlockPositionState.class, "write", Type.class, SliceBlockPositionState.class, BlockBuilder.class);
     private static final MethodHandle BOOLEAN_OUTPUT_FUNCTION = methodHandle(NullableBooleanState.class, "write", Type.class, NullableBooleanState.class, BlockBuilder.class);
-    private static final MethodHandle BLOCK_OUTPUT_FUNCTION = methodHandle(BlockState.class, "write", Type.class, BlockState.class, BlockBuilder.class);
+    private static final MethodHandle BLOCK_OUTPUT_FUNCTION = methodHandle(ObjectBlockPositionState.class, "write", Type.class, ObjectBlockPositionState.class, BlockBuilder.class);
 
     private static final MethodHandle LONG_COMBINE_FUNCTION = methodHandle(ArbitraryAggregationFunction.class, "combine", NullableLongState.class, NullableLongState.class);
     private static final MethodHandle DOUBLE_COMBINE_FUNCTION = methodHandle(ArbitraryAggregationFunction.class, "combine", NullableDoubleState.class, NullableDoubleState.class);
-    private static final MethodHandle SLICE_COMBINE_FUNCTION = methodHandle(ArbitraryAggregationFunction.class, "combine", SliceState.class, SliceState.class);
+    private static final MethodHandle SLICE_COMBINE_FUNCTION = methodHandle(ArbitraryAggregationFunction.class, "combine", SliceBlockPositionState.class, SliceBlockPositionState.class);
     private static final MethodHandle BOOLEAN_COMBINE_FUNCTION = methodHandle(ArbitraryAggregationFunction.class, "combine", NullableBooleanState.class, NullableBooleanState.class);
-    private static final MethodHandle BLOCK_COMBINE_FUNCTION = methodHandle(ArbitraryAggregationFunction.class, "combine", BlockState.class, BlockState.class);
+    private static final MethodHandle BLOCK_COMBINE_FUNCTION = methodHandle(ArbitraryAggregationFunction.class, "combine", ObjectBlockPositionState.class, ObjectBlockPositionState.class);
 
     protected ArbitraryAggregationFunction()
     {
@@ -119,8 +120,8 @@ public class ArbitraryAggregationFunction
             outputFunction = DOUBLE_OUTPUT_FUNCTION;
         }
         else if (type.getJavaType() == Slice.class) {
-            stateInterface = SliceState.class;
-            stateSerializer = StateCompiler.generateStateSerializer(stateInterface, classLoader);
+            stateInterface = SliceBlockPositionState.class;
+            stateSerializer = new SliceBlockPositionStateSerializer(type);
             inputFunction = SLICE_INPUT_FUNCTION;
             combineFunction = SLICE_COMBINE_FUNCTION;
             outputFunction = SLICE_OUTPUT_FUNCTION;
@@ -133,8 +134,8 @@ public class ArbitraryAggregationFunction
             outputFunction = BOOLEAN_OUTPUT_FUNCTION;
         }
         else {
-            stateInterface = BlockState.class;
-            stateSerializer = new BlockStateSerializer(type);
+            stateInterface = ObjectBlockPositionState.class;
+            stateSerializer = new ObjectBlockPositionStateSerializer(type);
             inputFunction = BLOCK_INPUT_FUNCTION;
             combineFunction = BLOCK_COMBINE_FUNCTION;
             outputFunction = BLOCK_OUTPUT_FUNCTION;
@@ -181,12 +182,13 @@ public class ArbitraryAggregationFunction
         state.setLong(type.getLong(block, position));
     }
 
-    public static void input(Type type, SliceState state, Block block, int position)
+    public static void input(Type type, SliceBlockPositionState state, Block block, int position)
     {
-        if (state.getSlice() != null) {
+        if (state.getBlock() != null) {
             return;
         }
-        state.setSlice(type.getSlice(block, position));
+        state.setBlock(block);
+        state.setPosition(position);
     }
 
     public static void input(Type type, NullableBooleanState state, Block block, int position)
@@ -198,12 +200,13 @@ public class ArbitraryAggregationFunction
         state.setBoolean(type.getBoolean(block, position));
     }
 
-    public static void input(Type type, BlockState state, Block block, int position)
+    public static void input(Type type, ObjectBlockPositionState state, Block block, int position)
     {
         if (state.getBlock() != null) {
             return;
         }
-        state.setBlock((Block) type.getObject(block, position));
+        state.setBlock(block);
+        state.setPosition(position);
     }
 
     public static void combine(NullableLongState state, NullableLongState otherState)
@@ -233,19 +236,21 @@ public class ArbitraryAggregationFunction
         state.setBoolean(otherState.getBoolean());
     }
 
-    public static void combine(SliceState state, SliceState otherState)
-    {
-        if (state.getSlice() != null) {
-            return;
-        }
-        state.setSlice(otherState.getSlice());
-    }
-
-    public static void combine(BlockState state, BlockState otherState)
+    public static void combine(SliceBlockPositionState state, SliceBlockPositionState otherState)
     {
         if (state.getBlock() != null) {
             return;
         }
         state.setBlock(otherState.getBlock());
+        state.setPosition(otherState.getPosition());
+    }
+
+    public static void combine(ObjectBlockPositionState state, ObjectBlockPositionState otherState)
+    {
+        if (state.getBlock() != null) {
+            return;
+        }
+        state.setBlock(otherState.getBlock());
+        state.setPosition(otherState.getPosition());
     }
 }

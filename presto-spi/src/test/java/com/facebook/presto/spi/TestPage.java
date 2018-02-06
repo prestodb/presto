@@ -35,14 +35,12 @@ public class TestPage
 {
     @Test
     public void testGetRegion()
-            throws Exception
     {
         assertEquals(new Page(10).getRegion(5, 5).getPositionCount(), 5);
     }
 
     @Test
     public void testGetEmptyRegion()
-            throws Exception
     {
         assertEquals(new Page(0).getRegion(0, 0).getPositionCount(), 0);
         assertEquals(new Page(10).getRegion(5, 0).getPositionCount(), 0);
@@ -50,21 +48,18 @@ public class TestPage
 
     @Test(expectedExceptions = IndexOutOfBoundsException.class, expectedExceptionsMessageRegExp = "Invalid position 1 and length 1 in page with 0 positions")
     public void testGetRegionExceptions()
-            throws Exception
     {
         new Page(0).getRegion(1, 1);
     }
 
     @Test
     public void testGetRegionFromNoColumnPage()
-            throws Exception
     {
         assertEquals(new Page(100).getRegion(0, 10).getPositionCount(), 10);
     }
 
     @Test
     public void testCompactDictionaryBlocks()
-            throws Exception
     {
         int positionCount = 100;
 
@@ -109,7 +104,6 @@ public class TestPage
 
     @Test
     public void testGetPositions()
-            throws Exception
     {
         int entries = 10;
         BlockBuilder blockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), entries);

@@ -86,7 +86,6 @@ public class TestMarkDistinctOperator
 
     @Test(dataProvider = "hashEnabledValues")
     public void testMarkDistinct(boolean hashEnabled)
-            throws Exception
     {
         RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), BIGINT);
         List<Page> input = rowPagesBuilder

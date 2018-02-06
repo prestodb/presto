@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.tests;
 
-import com.teradata.tempto.ProductTest;
-import com.teradata.tempto.Requires;
-import com.teradata.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableNationTable;
+import io.prestodb.tempto.ProductTest;
+import io.prestodb.tempto.Requires;
+import io.prestodb.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableNationTable;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.tests.TestGroups.CREATE_TABLE;
-import static com.teradata.tempto.assertions.QueryAssert.assertThat;
-import static com.teradata.tempto.query.QueryExecutor.query;
+import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
+import static io.prestodb.tempto.query.QueryExecutor.query;
 import static java.lang.String.format;
 
 @Requires(ImmutableNationTable.class)
@@ -29,7 +29,6 @@ public class CreateTableTests
 {
     @Test(groups = CREATE_TABLE)
     public void shouldCreateTableAsSelect()
-            throws Exception
     {
         String tableName = "create_table_as_select";
         query(format("DROP TABLE IF EXISTS %s", tableName));
@@ -39,7 +38,6 @@ public class CreateTableTests
 
     @Test(groups = CREATE_TABLE)
     public void shouldCreateTableAsEmptySelect()
-            throws Exception
     {
         String tableName = "create_table_as_empty_select";
         query(format("DROP TABLE IF EXISTS %s", tableName));

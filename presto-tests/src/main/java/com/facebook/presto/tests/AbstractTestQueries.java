@@ -164,6 +164,15 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testShowPartitions()
+    {
+        assertQueryFails("SHOW PARTITIONS FROM orders", "line 1:1: Table does not have partition columns: \\S+\\.orders");
+        assertQueryFails("SHOW PARTITIONS FROM orders WHERE orderkey < 10", "line 1:1: Table does not have partition columns: \\S+\\.orders");
+        assertQueryFails("SHOW PARTITIONS FROM orders WHERE invalid_column < 10", "line 1:35: Column 'invalid_column' cannot be resolved");
+        assertQueryFails("SHOW PARTITIONS FROM orders LIMIT 2", "line 1:1: Table does not have partition columns: \\S+\\.orders");
+    }
+
+    @Test
     public void selectLargeInterval()
     {
         MaterializedResult result = computeActual("SELECT INTERVAL '30' DAY");
@@ -208,7 +217,6 @@ public abstract class AbstractTestQueries
 
     @Test
     public void testLambdaCapture()
-            throws Exception
     {
         // Test for lambda expression without capture can be found in TestLambdaExpression
 
@@ -259,6 +267,13 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT apply(x, i -> i * x) FROM (SELECT 10 x)", "SELECT 100");
         assertQuery("SELECT apply(x, y -> y * x) FROM (SELECT 10 x, 3 y)", "SELECT 100");
         assertQuery("SELECT apply(x, z -> y * x) FROM (SELECT 10 x, 3 y)", "SELECT 30");
+    }
+
+    @Test
+    public void testLambdaInValuesAndUnnest()
+    {
+        assertQuery("SELECT * FROM UNNEST(transform(sequence(1, 5), x -> x * x))", "SELECT * FROM (VALUES 1, 4, 9, 16, 25)");
+        assertQuery("SELECT x[5] FROM (VALUES transform(sequence(1, 5), x -> x * x)) t(x)", "SELECT 25");
     }
 
     @Test
@@ -1194,7 +1209,6 @@ public abstract class AbstractTestQueries
 
     @Test
     public void testOrderByWithAggregation()
-            throws Exception
     {
         assertQuery("" +
                         "SELECT x, sum(cast(x AS double))\n" +
@@ -1887,7 +1901,6 @@ public abstract class AbstractTestQueries
 
     @Test
     public void testGrouping()
-            throws Exception
     {
         assertQuery(
                 "SELECT a, b as t, sum(c), grouping(a, b) + grouping(a) " +
@@ -1943,7 +1956,6 @@ public abstract class AbstractTestQueries
 
     @Test
     public void testGroupingInWindowFunction()
-            throws Exception
     {
         assertQuery(
                 "SELECT orderkey, custkey, sum(totalprice), grouping(orderkey)+grouping(custkey) as g, " +
@@ -1967,7 +1979,6 @@ public abstract class AbstractTestQueries
 
     @Test
     public void testGroupingInTableSubquery()
-            throws Exception
     {
         // In addition to testing grouping() in subqueries, the following tests also
         // ensure correct behavior in the case of alternating GROUPING SETS and GROUP BY
@@ -2300,7 +2311,6 @@ public abstract class AbstractTestQueries
 
     @Test
     public void testJoinWithLessThanInJoinClause()
-            throws Exception
     {
         assertQuery("SELECT n.nationkey, r.regionkey FROM region r JOIN nation n ON n.regionkey = r.regionkey AND n.name < r.name");
         assertQuery("SELECT l.suppkey, n.nationkey, l.partkey, n.regionkey FROM nation n JOIN lineitem l ON l.suppkey = n.nationkey AND l.partkey < n.regionkey");
@@ -2333,7 +2343,6 @@ public abstract class AbstractTestQueries
 
     @Test
     public void testJoinWithGreaterThanInJoinClause()
-            throws Exception
     {
         assertQuery("SELECT n.nationkey, r.regionkey FROM region r JOIN nation n ON n.regionkey = r.regionkey AND n.name > r.name AND r.regionkey = 0");
         assertQuery("SELECT l.suppkey, n.nationkey, l.partkey, n.regionkey FROM nation n JOIN lineitem l ON l.suppkey = n.nationkey AND l.partkey > n.regionkey");
@@ -2392,7 +2401,6 @@ public abstract class AbstractTestQueries
 
     @Test
     public void testJoinWithLessThanOnDatesInJoinClause()
-            throws Exception
     {
         assertQuery(
                 "SELECT o.orderkey, o.orderdate, l.shipdate FROM orders o JOIN lineitem l ON l.orderkey = o.orderkey AND l.shipdate < o.orderdate + INTERVAL '10' DAY",
@@ -2574,7 +2582,6 @@ public abstract class AbstractTestQueries
 
     @Test
     public void testJoinOnDecimalColumn()
-            throws Exception
     {
         assertQuery(
                 "SELECT * FROM (VALUES (1.0, 2.0)) x (a, b) JOIN (VALUES (1.0, 3.0)) y (a, b) USING(a)",
@@ -4166,7 +4173,6 @@ public abstract class AbstractTestQueries
 
     @Test
     public void testWindowsSameOrdering()
-            throws Exception
     {
         MaterializedResult actual = computeActual("SELECT " +
                 "sum(quantity) OVER(PARTITION BY suppkey ORDER BY orderkey)," +
@@ -4193,7 +4199,6 @@ public abstract class AbstractTestQueries
 
     @Test
     public void testWindowsPrefixPartitioning()
-            throws Exception
     {
         MaterializedResult actual = computeActual("SELECT " +
                 "max(tax) OVER(PARTITION BY suppkey, tax ORDER BY receiptdate)," +
@@ -4220,7 +4225,6 @@ public abstract class AbstractTestQueries
 
     @Test
     public void testWindowsDifferentPartitions()
-            throws Exception
     {
         MaterializedResult actual = computeActual("SELECT " +
                 "sum(quantity) OVER(PARTITION BY suppkey ORDER BY orderkey)," +
@@ -4248,7 +4252,6 @@ public abstract class AbstractTestQueries
 
     @Test
     public void testWindowsConstantExpression()
-            throws Exception
     {
         assertQueryOrdered(
                 "SELECT " +
@@ -4272,7 +4275,6 @@ public abstract class AbstractTestQueries
 
     @Test
     public void testDependentWindows()
-            throws Exception
     {
         // For such query as below generated plan has two adjacent window nodes where second depends on output of first.
 
@@ -4549,6 +4551,52 @@ public abstract class AbstractTestQueries
                 .row(2, 2L)
                 .build();
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test
+    public void testRowNumberSpecialFilters()
+    {
+        // Test "row_number() = negative number" filter with ORDER BY. This should create a Window Node with a Filter Node on top and return 0 rows.
+        assertQueryReturnsEmptyResult("" +
+                "SELECT * FROM (" +
+                "   SELECT a, row_number() OVER (PARTITION BY a ORDER BY a) rn\n" +
+                "   FROM (VALUES (1), (1), (1), (2), (2), (3)) t (a)) t " +
+                "WHERE rn = -1");
+
+        // Test "row_number() <= negative number" filter with ORDER BY. This should create a Window Node with a Filter Node on top and return 0 rows.
+        assertQueryReturnsEmptyResult("" +
+                "SELECT * FROM (" +
+                "   SELECT a, row_number() OVER (PARTITION BY a ORDER BY a) rn\n" +
+                "   FROM (VALUES (1), (1), (1), (2), (2), (3)) t (a)) t " +
+                "WHERE rn <= -1");
+
+        // Test "row_number() = 0" filter with ORDER BY. This should create a Window Node with a Filter Node on top and return 0 rows.
+        assertQueryReturnsEmptyResult("" +
+                "SELECT * FROM (" +
+                "   SELECT a, row_number() OVER (PARTITION BY a ORDER BY a) rn\n" +
+                "   FROM (VALUES (1), (1), (1), (2), (2), (3)) t (a)) t " +
+                "WHERE rn = 0");
+
+        // Test "row_number() = negative number" filter without ORDER BY. This should create a RowNumber Node with a Filter Node on top and return 0 rows.
+        assertQueryReturnsEmptyResult("" +
+                "SELECT * FROM (" +
+                "   SELECT a, row_number() OVER (PARTITION BY a) rn\n" +
+                "   FROM (VALUES (1), (1), (1), (2), (2), (3)) t (a)) t " +
+                "WHERE rn = -1");
+
+        // Test "row_number() <= negative number" filter without ORDER BY. This should create a RowNumber Node with a Filter Node on top and return 0 rows.
+        assertQueryReturnsEmptyResult("" +
+                "SELECT * FROM (" +
+                "   SELECT a, row_number() OVER (PARTITION BY a) rn\n" +
+                "   FROM (VALUES (1), (1), (1), (2), (2), (3)) t (a)) t " +
+                "WHERE rn <= -1");
+
+        // Test "row_number() = 0" filter without ORDER BY. This should create a RowNumber Node with a Filter Node on top and return 0 rows.
+        assertQueryReturnsEmptyResult("" +
+                "SELECT * FROM (" +
+                "   SELECT a, row_number() OVER (PARTITION BY a) rn\n" +
+                "   FROM (VALUES (1), (1), (1), (2), (2), (3)) t (a)) t " +
+                "WHERE rn = 0");
     }
 
     @Test
@@ -5907,6 +5955,9 @@ public abstract class AbstractTestQueries
         assertQuery(
                 "SELECT table_name FROM information_schema.tables WHERE table_name = 'orders' LIMIT 1",
                 "SELECT 'orders' table_name");
+        assertQuery(
+                "SELECT table_name FROM information_schema.columns WHERE data_type = 'bigint' AND table_name = 'customer' and column_name = 'custkey' LIMIT 1",
+                "SELECT 'customer' table_name");
     }
 
     @Test
@@ -9158,7 +9209,6 @@ public abstract class AbstractTestQueries
 
     @Test
     public void testDefaultDecimalLiteralSwitch()
-            throws Exception
     {
         Session decimalLiteral = Session.builder(getSession())
                 .setSystemProperty(SystemSessionProperties.PARSE_DECIMAL_LITERALS_AS_DOUBLE, "false")

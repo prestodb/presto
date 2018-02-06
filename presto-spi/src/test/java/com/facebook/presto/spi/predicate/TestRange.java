@@ -39,7 +39,6 @@ public class TestRange
     @SuppressWarnings({"unchecked", "rawtypes"})
     @Test(expectedExceptions = IllegalArgumentException.class)
     public void testMismatchedTypes()
-            throws Exception
     {
         // NEVER DO THIS
         new Range(Marker.exactly(BIGINT, 1L), Marker.exactly(VARCHAR, utf8Slice("a")));
@@ -47,28 +46,24 @@ public class TestRange
 
     @Test(expectedExceptions = IllegalArgumentException.class)
     public void testInvertedBounds()
-            throws Exception
     {
         new Range(Marker.exactly(BIGINT, 1L), Marker.exactly(BIGINT, 0L));
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class)
     public void testLowerUnboundedOnly()
-            throws Exception
     {
         new Range(Marker.lowerUnbounded(BIGINT), Marker.lowerUnbounded(BIGINT));
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class)
     public void testUpperUnboundedOnly()
-            throws Exception
     {
         new Range(Marker.upperUnbounded(BIGINT), Marker.upperUnbounded(BIGINT));
     }
 
     @Test
     public void testSingleValue()
-            throws Exception
     {
         assertTrue(Range.range(BIGINT, 1L, true, 1L, true).isSingleValue());
         assertFalse(Range.range(BIGINT, 1L, true, 2L, true).isSingleValue());
@@ -80,7 +75,6 @@ public class TestRange
 
     @Test
     public void testAllRange()
-            throws Exception
     {
         Range range = Range.all(BIGINT);
         assertEquals(range.getLow(), Marker.lowerUnbounded(BIGINT));
@@ -97,7 +91,6 @@ public class TestRange
 
     @Test
     public void testGreaterThanRange()
-            throws Exception
     {
         Range range = Range.greaterThan(BIGINT, 1L);
         assertEquals(range.getLow(), Marker.above(BIGINT, 1L));
@@ -113,7 +106,6 @@ public class TestRange
 
     @Test
     public void testGreaterThanOrEqualRange()
-            throws Exception
     {
         Range range = Range.greaterThanOrEqual(BIGINT, 1L);
         assertEquals(range.getLow(), Marker.exactly(BIGINT, 1L));
@@ -130,7 +122,6 @@ public class TestRange
 
     @Test
     public void testLessThanRange()
-            throws Exception
     {
         Range range = Range.lessThan(BIGINT, 1L);
         assertEquals(range.getLow(), Marker.lowerUnbounded(BIGINT));
@@ -146,7 +137,6 @@ public class TestRange
 
     @Test
     public void testLessThanOrEqualRange()
-            throws Exception
     {
         Range range = Range.lessThanOrEqual(BIGINT, 1L);
         assertEquals(range.getLow(), Marker.lowerUnbounded(BIGINT));
@@ -163,7 +153,6 @@ public class TestRange
 
     @Test
     public void testEqualRange()
-            throws Exception
     {
         Range range = Range.equal(BIGINT, 1L);
         assertEquals(range.getLow(), Marker.exactly(BIGINT, 1L));
@@ -180,7 +169,6 @@ public class TestRange
 
     @Test
     public void testRange()
-            throws Exception
     {
         Range range = Range.range(BIGINT, 0L, false, 2L, true);
         assertEquals(range.getLow(), Marker.above(BIGINT, 0L));
@@ -198,7 +186,6 @@ public class TestRange
 
     @Test
     public void testGetSingleValue()
-            throws Exception
     {
         assertEquals(Range.equal(BIGINT, 0L).getSingleValue(), 0L);
         try {
@@ -211,7 +198,6 @@ public class TestRange
 
     @Test
     public void testContains()
-            throws Exception
     {
         assertTrue(Range.all(BIGINT).contains(Range.all(BIGINT)));
         assertTrue(Range.all(BIGINT).contains(Range.equal(BIGINT, 0L)));
@@ -229,7 +215,6 @@ public class TestRange
 
     @Test
     public void testSpan()
-            throws Exception
     {
         assertEquals(Range.greaterThan(BIGINT, 1L).span(Range.lessThanOrEqual(BIGINT, 2L)), Range.all(BIGINT));
         assertEquals(Range.greaterThan(BIGINT, 2L).span(Range.lessThanOrEqual(BIGINT, 0L)), Range.all(BIGINT));
@@ -243,7 +228,6 @@ public class TestRange
 
     @Test
     public void testOverlaps()
-            throws Exception
     {
         assertTrue(Range.greaterThan(BIGINT, 1L).overlaps(Range.lessThanOrEqual(BIGINT, 2L)));
         assertFalse(Range.greaterThan(BIGINT, 2L).overlaps(Range.lessThan(BIGINT, 2L)));
@@ -256,7 +240,6 @@ public class TestRange
 
     @Test
     public void testIntersect()
-            throws Exception
     {
         assertEquals(Range.greaterThan(BIGINT, 1L).intersect(Range.lessThanOrEqual(BIGINT, 2L)), Range.range(BIGINT, 1L, false, 2L, true));
         assertEquals(Range.range(BIGINT, 1L, true, 3L, false).intersect(Range.equal(BIGINT, 2L)), Range.equal(BIGINT, 2L));
@@ -267,7 +250,6 @@ public class TestRange
 
     @Test
     public void testExceptionalIntersect()
-            throws Exception
     {
         try {
             Range.greaterThan(BIGINT, 2L).intersect(Range.lessThan(BIGINT, 2L));

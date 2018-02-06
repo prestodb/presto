@@ -178,39 +178,33 @@ public class TestReorderWindows
     @Test
     public void testPrefixOfPartitionComesFirstRegardlessOfTheirOrderInSQL()
     {
-        {
-            @Language("SQL") String sql = "select " +
-                    "avg(discount) over(PARTITION BY suppkey, tax ORDER BY receiptdate ASC NULLS LAST) avg_discount_A, " +
-                    "sum(quantity) over(PARTITION BY suppkey ORDER BY orderkey ASC NULLS LAST) sum_quantity_A " +
-                    "from lineitem";
+        assertUnitPlan(
+                "select " +
+                        "avg(discount) over(PARTITION BY suppkey, tax ORDER BY receiptdate ASC NULLS LAST) avg_discount_A, " +
+                        "sum(quantity) over(PARTITION BY suppkey ORDER BY orderkey ASC NULLS LAST) sum_quantity_A " +
+                        "from lineitem",
+                anyTree(
+                        window(windowMatcherBuilder -> windowMatcherBuilder
+                                        .specification(windowApp)
+                                        .addFunction(functionCall("avg", commonFrame, ImmutableList.of(DISCOUNT_ALIAS))),
+                                window(windowMatcherBuilder -> windowMatcherBuilder
+                                                .specification(windowA)
+                                                .addFunction(functionCall("sum", commonFrame, ImmutableList.of(QUANTITY_ALIAS))),
+                                        LINEITEM_TABLESCAN_DOQRST)))); // should be anyTree(LINEITEM_TABLESCAN_DOQRST) but anyTree does not handle zero nodes case correctly
 
-            assertUnitPlan(sql,
-                    anyTree(
-                            window(windowMatcherBuilder -> windowMatcherBuilder
-                                            .specification(windowApp)
-                                            .addFunction(functionCall("avg", commonFrame, ImmutableList.of(DISCOUNT_ALIAS))),
-                                    window(windowMatcherBuilder -> windowMatcherBuilder
-                                                    .specification(windowA)
-                                                    .addFunction(functionCall("sum", commonFrame, ImmutableList.of(QUANTITY_ALIAS))),
-                                            LINEITEM_TABLESCAN_DOQRST)))); // should be anyTree(LINEITEM_TABLESCAN_DOQRST) but anyTree does not handle zero nodes case correctly
-        }
-
-        {
-            @Language("SQL") String sql = "select " +
-                    "sum(quantity) over(PARTITION BY suppkey ORDER BY orderkey ASC NULLS LAST) sum_quantity_A, " +
-                    "avg(discount) over(PARTITION BY suppkey, tax ORDER BY receiptdate ASC NULLS LAST) avg_discount_A " +
-                    "from lineitem";
-
-            assertUnitPlan(sql,
-                    anyTree(
-                            window(windowMatcherBuilder -> windowMatcherBuilder
-                                            .specification(windowApp)
-                                            .addFunction(functionCall("avg", commonFrame, ImmutableList.of(DISCOUNT_ALIAS))),
-                                    window(windowMatcherBuilder -> windowMatcherBuilder
-                                                    .specification(windowA)
-                                                    .addFunction(functionCall("sum", commonFrame, ImmutableList.of(QUANTITY_ALIAS))),
-                                            LINEITEM_TABLESCAN_DOQRST)))); // should be anyTree(LINEITEM_TABLESCAN_DOQRST) but anyTree does not handle zero nodes case correctly
-        }
+        assertUnitPlan(
+                "select " +
+                        "sum(quantity) over(PARTITION BY suppkey ORDER BY orderkey ASC NULLS LAST) sum_quantity_A, " +
+                        "avg(discount) over(PARTITION BY suppkey, tax ORDER BY receiptdate ASC NULLS LAST) avg_discount_A " +
+                        "from lineitem",
+                anyTree(
+                        window(windowMatcherBuilder -> windowMatcherBuilder
+                                        .specification(windowApp)
+                                        .addFunction(functionCall("avg", commonFrame, ImmutableList.of(DISCOUNT_ALIAS))),
+                                window(windowMatcherBuilder -> windowMatcherBuilder
+                                                .specification(windowA)
+                                                .addFunction(functionCall("sum", commonFrame, ImmutableList.of(QUANTITY_ALIAS))),
+                                        LINEITEM_TABLESCAN_DOQRST)))); // should be anyTree(LINEITEM_TABLESCAN_DOQRST) but anyTree does not handle zero nodes case correctly
     }
 
     @Test
@@ -303,7 +297,9 @@ public class TestReorderWindows
     {
         List<PlanOptimizer> optimizers = ImmutableList.of(
                 new UnaliasSymbolReferences(),
-                new IterativeOptimizer(new StatsRecorder(),
+                new IterativeOptimizer(
+                        new StatsRecorder(),
+                        getQueryRunner().getStatsCalculator(),
                         ImmutableSet.of(
                                 new RemoveRedundantIdentityProjections(),
                                 new GatherAndMergeWindows.SwapAdjacentWindowsBySpecifications(0),

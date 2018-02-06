@@ -44,7 +44,6 @@ public class TestChars
 
     @Test
     public void testByteCountWithoutTrailingSpaces()
-            throws Exception
     {
         // single byte code points
         assertByteCountWithoutTrailingSpace("abc def ", 1, 0, "");
@@ -74,7 +73,6 @@ public class TestChars
 
     @Test
     public void testByteCountWithoutTrailingSpacesWithCodePointLimit()
-            throws Exception
     {
         // single byte code points
         assertByteCountWithoutTrailingSpace("abc def ", 1, 0, 1, "");

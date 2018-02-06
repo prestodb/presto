@@ -25,6 +25,7 @@ import com.facebook.presto.execution.executor.TaskExecutor;
 import com.facebook.presto.memory.LocalMemoryManager;
 import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.memory.ReservedSystemMemoryConfig;
+import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.operator.ExchangeClientSupplier;
 import com.facebook.presto.spi.Node;
@@ -80,7 +81,6 @@ public class TestSqlTaskManager
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
-            throws Exception
     {
         taskExecutor.stop();
         taskManagementExecutor.close();
@@ -88,7 +88,6 @@ public class TestSqlTaskManager
 
     @Test
     public void testEmptyQuery()
-            throws Exception
     {
         try (SqlTaskManager sqlTaskManager = createSqlTaskManager(new TaskManagerConfig())) {
             TaskId taskId = TASK_ID;
@@ -158,7 +157,6 @@ public class TestSqlTaskManager
 
     @Test
     public void testCancel()
-            throws Exception
     {
         try (SqlTaskManager sqlTaskManager = createSqlTaskManager(new TaskManagerConfig())) {
             TaskId taskId = TASK_ID;
@@ -188,7 +186,6 @@ public class TestSqlTaskManager
 
     @Test
     public void testAbort()
-            throws Exception
     {
         try (SqlTaskManager sqlTaskManager = createSqlTaskManager(new TaskManagerConfig())) {
             TaskId taskId = TASK_ID;
@@ -295,7 +292,7 @@ public class TestSqlTaskManager
             implements ExchangeClientSupplier
     {
         @Override
-        public ExchangeClient get(SystemMemoryUsageListener systemMemoryUsageListener)
+        public ExchangeClient get(LocalMemoryContext systemMemoryContext)
         {
             throw new UnsupportedOperationException();
         }

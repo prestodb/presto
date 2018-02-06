@@ -89,6 +89,9 @@ public class ClientOptions
     @Option(name = "--source", title = "source", description = "Name of source making query")
     public String source = "presto-cli";
 
+    @Option(name = "--client-info", title = "client-info", description = "Extra information about client making query")
+    public String clientInfo;
+
     @Option(name = "--client-tags", title = "client tags", description = "Client tags")
     public String clientTags = "";
 
@@ -125,6 +128,9 @@ public class ClientOptions
     @Option(name = "--client-request-timeout", title = "client request timeout", description = "Client request timeout (default: 2m)")
     public Duration clientRequestTimeout = new Duration(2, MINUTES);
 
+    @Option(name = "--ignore-errors", title = "ignore errors", description = "Continue processing in batch mode when an error occurs (default is to exit immediately)")
+    public boolean ignoreErrors;
+
     public enum OutputFormat
     {
         ALIGNED,
@@ -143,7 +149,7 @@ public class ClientOptions
                 user,
                 source,
                 parseClientTags(clientTags),
-                null, // client-supplied payload field not yet supported in CLI
+                clientInfo,
                 catalog,
                 schema,
                 TimeZone.getDefault().getID(),

@@ -26,7 +26,6 @@ public class TestSystemSplit
 {
     @Test
     public void testSerialization()
-            throws Exception
     {
         ConnectorId connectorId = new ConnectorId("testid");
         SystemTableHandle tableHandle = new SystemTableHandle(connectorId, "xyz", "foo");

@@ -90,10 +90,6 @@ public abstract class AbstractRowBlock
         int positionCount = getPositionCount();
         checkValidRegion(positionCount, position, length);
 
-        if (position == 0 && length == positionCount) {
-            return this;
-        }
-
         return new RowBlock(position + getOffsetBase(), length, getRowIsNull(), getFieldBlockOffsets(), getFieldBlocks());
     }
 

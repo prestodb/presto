@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.server.security;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import io.airlift.configuration.testing.ConfigAssertions;
 import org.testng.annotations.Test;
 
@@ -40,7 +40,7 @@ public class TestSecurityConfig
                 .build();
 
         SecurityConfig expected = new SecurityConfig()
-                .setAuthenticationTypes(ImmutableSet.of(KERBEROS, LDAP));
+                .setAuthenticationTypes(ImmutableList.of(KERBEROS, LDAP));
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

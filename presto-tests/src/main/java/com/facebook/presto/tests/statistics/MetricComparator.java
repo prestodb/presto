@@ -13,9 +13,8 @@
  */
 package com.facebook.presto.tests.statistics;
 
-import com.facebook.presto.cost.PlanNodeCost;
+import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.execution.StageInfo;
-import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -33,46 +32,43 @@ import static com.facebook.presto.execution.StageInfo.getAllStages;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.facebook.presto.util.MoreMaps.mergeMaps;
 import static com.google.common.collect.Maps.transformValues;
-import static java.util.Arrays.asList;
 
-public class MetricComparator
+public final class MetricComparator
 {
-    private final List<Metric> metrics = asList(Metric.values());
-    private final double tolerance = 0.1;
+    private MetricComparator() {}
 
-    public List<MetricComparison> getMetricComparisons(Plan queryPlan, StageInfo outputStageInfo)
+    public static List<MetricComparison> createMetricComparisons(Plan queryPlan, Map<PlanNodeId, PlanNodeStatsEstimate> estimates, StageInfo outputStageInfo)
     {
-        return metrics.stream().flatMap(metric -> {
-            Map<PlanNodeId, PlanNodeCost> estimates = queryPlan.getPlanNodeCosts();
-            Map<PlanNodeId, PlanNodeCost> actuals = extractActualCosts(outputStageInfo);
+        return Stream.of(Metric.values()).flatMap(metric -> {
+            Map<PlanNodeId, PlanNodeStatsEstimate> actuals = extractActualStats(outputStageInfo);
             return estimates.entrySet().stream().map(entry -> {
                 // todo refactor to stay in PlanNodeId domain ????
                 PlanNode node = planNodeForId(queryPlan, entry.getKey());
-                PlanNodeCost estimate = entry.getValue();
-                Optional<PlanNodeCost> execution = Optional.ofNullable(actuals.get(node.getId()));
+                PlanNodeStatsEstimate estimate = entry.getValue();
+                Optional<PlanNodeStatsEstimate> execution = Optional.ofNullable(actuals.get(node.getId()));
                 return createMetricComparison(metric, node, estimate, execution);
             });
         }).collect(Collectors.toList());
     }
 
-    private PlanNode planNodeForId(Plan queryPlan, PlanNodeId id)
+    private static PlanNode planNodeForId(Plan queryPlan, PlanNodeId id)
     {
         return searchFrom(queryPlan.getRoot())
                 .where(node -> node.getId().equals(id))
                 .findOnlyElement();
     }
 
-    private Map<PlanNodeId, PlanNodeCost> extractActualCosts(StageInfo outputStageInfo)
+    private static Map<PlanNodeId, PlanNodeStatsEstimate> extractActualStats(StageInfo outputStageInfo)
     {
         Stream<Map<PlanNodeId, PlanNodeStats>> stagesStatsStream =
                 getAllStages(Optional.of(outputStageInfo)).stream()
                         .map(PlanNodeStatsSummarizer::aggregatePlanNodeStats);
 
         Map<PlanNodeId, PlanNodeStats> mergedStats = mergeStats(stagesStatsStream);
-        return transformValues(mergedStats, this::toPlanNodeCost);
+        return transformValues(mergedStats, MetricComparator::toPlanNodeStats);
     }
 
-    private Map<PlanNodeId, PlanNodeStats> mergeStats(Stream<Map<PlanNodeId, PlanNodeStats>> stagesStatsStream)
+    private static Map<PlanNodeId, PlanNodeStats> mergeStats(Stream<Map<PlanNodeId, PlanNodeStats>> stagesStatsStream)
     {
         BinaryOperator<PlanNodeStats> allowNoDuplicates = (a, b) -> {
             throw new IllegalArgumentException("PlanNodeIds must be unique");
@@ -80,23 +76,25 @@ public class MetricComparator
         return mergeMaps(stagesStatsStream, allowNoDuplicates);
     }
 
-    private PlanNodeCost toPlanNodeCost(PlanNodeStats operatorStats)
+    private static PlanNodeStatsEstimate toPlanNodeStats(PlanNodeStats operatorStats)
     {
-        return PlanNodeCost.builder()
-                .setOutputRowCount(new Estimate(operatorStats.getPlanNodeOutputPositions()))
-                .setOutputSizeInBytes(new Estimate(operatorStats.getPlanNodeOutputDataSize().toBytes()))
+        return PlanNodeStatsEstimate.builder()
+                .setOutputRowCount(operatorStats.getPlanNodeOutputPositions())
                 .build();
+        // TODO think if we want to compare estimated data size with actual data size
+        //      hacky way to do it is to have single symbol with single range with data_size set to
+        //      new Estimate(operatorStats.getPlanNodeOutputDataSize().toBytes())
     }
 
-    private MetricComparison createMetricComparison(Metric metric, PlanNode node, PlanNodeCost estimate, Optional<PlanNodeCost> execution)
+    private static MetricComparison createMetricComparison(Metric metric, PlanNode node, PlanNodeStatsEstimate estimate, Optional<PlanNodeStatsEstimate> execution)
     {
-        Optional<Double> estimatedCost = asOptional(metric.getValue(estimate));
-        Optional<Double> executionCost = execution.flatMap(e -> asOptional(metric.getValue(e)));
-        return new MetricComparison(node, metric, estimatedCost, executionCost, tolerance);
+        Optional<Double> estimatedStats = asOptional(metric.getValue(estimate));
+        Optional<Double> executionStats = execution.flatMap(e -> asOptional(metric.getValue(e)));
+        return new MetricComparison(node, metric, estimatedStats, executionStats);
     }
 
-    private Optional<Double> asOptional(Estimate estimate)
+    private static Optional<Double> asOptional(double value)
     {
-        return estimate.isValueUnknown() ? Optional.empty() : Optional.of(estimate.getValue());
+        return Double.isNaN(value) ? Optional.empty() : Optional.of(value);
     }
 }

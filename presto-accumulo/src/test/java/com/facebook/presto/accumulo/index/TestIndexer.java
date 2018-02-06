@@ -77,7 +77,6 @@ public class TestIndexer
 
     @BeforeClass
     public void setupClass()
-            throws Exception
     {
         AccumuloColumnHandle c1 = new AccumuloColumnHandle("id", Optional.empty(), Optional.empty(), VARCHAR, 0, "", false);
         AccumuloColumnHandle c2 = new AccumuloColumnHandle("age", Optional.of("cf"), Optional.of("age"), BIGINT, 1, "", true);

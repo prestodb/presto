@@ -27,7 +27,6 @@ public class TestEvaluateZeroLimit
 {
     @Test
     public void testDoesNotFire()
-            throws Exception
     {
         tester().assertThat(new EvaluateZeroLimit())
                 .on(p ->
@@ -39,7 +38,6 @@ public class TestEvaluateZeroLimit
 
     @Test
     public void test()
-            throws Exception
     {
         tester().assertThat(new EvaluateZeroLimit())
                 .on(p ->

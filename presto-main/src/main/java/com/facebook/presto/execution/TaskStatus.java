@@ -62,6 +62,7 @@ public class TaskStatus
     private final boolean outputBufferOverutilized;
     private final DataSize physicalWrittenDataSize;
     private final DataSize memoryReservation;
+    private final DataSize systemMemoryReservation;
 
     private final List<ExecutionFailureInfo> failures;
 
@@ -79,7 +80,8 @@ public class TaskStatus
             @JsonProperty("runningPartitionedDrivers") int runningPartitionedDrivers,
             @JsonProperty("outputBufferOverutilized") boolean outputBufferOverutilized,
             @JsonProperty("physicalWrittenDataSize") DataSize physicalWrittenDataSize,
-            @JsonProperty("memoryReservation") DataSize memoryReservation)
+            @JsonProperty("memoryReservation") DataSize memoryReservation,
+            @JsonProperty("systemMemoryReservation") DataSize systemMemoryReservation)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.taskInstanceId = requireNonNull(taskInstanceId, "taskInstanceId is null");
@@ -102,6 +104,7 @@ public class TaskStatus
         this.physicalWrittenDataSize = requireNonNull(physicalWrittenDataSize, "physicalWrittenDataSize is null");
 
         this.memoryReservation = requireNonNull(memoryReservation, "memoryReservation is null");
+        this.systemMemoryReservation = requireNonNull(systemMemoryReservation, "systemMemoryReservation is null");
         this.failures = ImmutableList.copyOf(requireNonNull(failures, "failures is null"));
     }
 
@@ -183,6 +186,12 @@ public class TaskStatus
         return memoryReservation;
     }
 
+    @JsonProperty
+    public DataSize getSystemMemoryReservation()
+    {
+        return systemMemoryReservation;
+    }
+
     @Override
     public String toString()
     {
@@ -207,6 +216,7 @@ public class TaskStatus
                 0,
                 false,
                 new DataSize(0, BYTE),
+                new DataSize(0, BYTE),
                 new DataSize(0, BYTE));
     }
 
@@ -225,6 +235,7 @@ public class TaskStatus
                 taskStatus.getRunningPartitionedDrivers(),
                 taskStatus.isOutputBufferOverutilized(),
                 taskStatus.getPhysicalWrittenDataSize(),
-                taskStatus.getMemoryReservation());
+                taskStatus.getMemoryReservation(),
+                taskStatus.getSystemMemoryReservation());
     }
 }
