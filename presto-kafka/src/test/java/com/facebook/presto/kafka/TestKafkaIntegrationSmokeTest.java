@@ -15,7 +15,6 @@ package com.facebook.presto.kafka;
 
 import com.facebook.presto.kafka.util.EmbeddedKafka;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
-import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -48,17 +47,5 @@ public class TestKafkaIntegrationSmokeTest
             throws IOException
     {
         embeddedKafka.close();
-    }
-
-    @Override
-    public void testSelectInformationSchemaColumns()
-    {
-        throw new SkipException("this fails for Kafka"); // TODO
-    }
-
-    @Override
-    public void testInformationSchemaColumnsWithoutEqualityConstraint()
-    {
-        throw new SkipException("this fails for Kafka"); // TODO
     }
 }

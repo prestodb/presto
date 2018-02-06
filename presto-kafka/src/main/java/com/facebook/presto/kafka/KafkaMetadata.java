@@ -171,7 +171,13 @@ public class KafkaMetadata
 
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
 
-        List<SchemaTableName> tableNames = prefix.getSchemaName() == null ? listTables(session, null) : ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
+        List<SchemaTableName> tableNames;
+        if (prefix.getTableName() == null) {
+            tableNames = listTables(session, prefix.getSchemaName());
+        }
+        else {
+            tableNames = ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
+        }
 
         for (SchemaTableName tableName : tableNames) {
             ConnectorTableMetadata tableMetadata = getTableMetadata(tableName);
