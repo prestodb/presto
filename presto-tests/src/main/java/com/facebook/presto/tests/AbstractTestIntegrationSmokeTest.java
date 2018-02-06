@@ -123,6 +123,46 @@ public abstract class AbstractTestIntegrationSmokeTest
     }
 
     @Test
+    public void testInformationSchemaTablesWithoutEqualityConstraint()
+    {
+        String catalog = getSession().getCatalog().get();
+        String schema = getSession().getSchema().get();
+
+        assertQuery(
+                "SELECT table_name FROM information_schema.tables " +
+                        "WHERE table_catalog = '" + catalog + "' AND table_schema LIKE '" + schema + "' AND table_name LIKE '%orders'",
+                "VALUES 'orders'");
+    }
+
+    @Test
+    public void testSelectInformationSchemaColumns()
+    {
+        String schema = getSession().getSchema().get();
+
+        assertQuery("SELECT table_schema FROM information_schema.columns WHERE table_schema = '" + schema + "' GROUP BY table_schema", "VALUES '" + schema + "'");
+        assertQuery("SELECT table_name FROM information_schema.columns WHERE table_name = 'orders' GROUP BY table_name", "VALUES 'orders'");
+    }
+
+    @Test
+    public void testInformationSchemaColumnsWithoutEqualityConstraint()
+    {
+        String catalog = getSession().getCatalog().get();
+        String schema = getSession().getSchema().get();
+        assertQuery(
+                "SELECT table_name, column_name FROM information_schema.columns " +
+                        "WHERE table_catalog = '" + catalog + "' AND table_schema = '" + schema + "' AND table_name LIKE '%orders%'",
+                "VALUES ('orders', 'orderkey'), " +
+                        "('orders', 'custkey'), " +
+                        "('orders', 'orderstatus'), " +
+                        "('orders', 'totalprice'), " +
+                        "('orders', 'orderdate'), " +
+                        "('orders', 'orderpriority'), " +
+                        "('orders', 'clerk'), " +
+                        "('orders', 'shippriority'), " +
+                        "('orders', 'comment')");
+    }
+
+    @Test
     public void testDuplicatedRowCreateTable()
     {
         assertQueryFails("CREATE TABLE test (a integer, a integer)",
