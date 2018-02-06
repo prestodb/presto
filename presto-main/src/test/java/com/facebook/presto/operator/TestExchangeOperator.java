@@ -109,7 +109,6 @@ public class TestExchangeOperator
                 new DataSize(10, MEGABYTE),
                 3,
                 new Duration(1, TimeUnit.MINUTES),
-                new Duration(1, TimeUnit.MINUTES),
                 httpClient,
                 scheduler,
                 systemMemoryUsageListener,

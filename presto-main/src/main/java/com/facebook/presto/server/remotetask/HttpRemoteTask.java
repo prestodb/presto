@@ -164,7 +164,6 @@ public final class HttpRemoteTask
             Executor executor,
             ScheduledExecutorService updateScheduledExecutor,
             ScheduledExecutorService errorScheduledExecutor,
-            Duration minErrorDuration,
             Duration maxErrorDuration,
             Duration taskStatusRefreshMaxWait,
             Duration taskInfoUpdateInterval,
@@ -201,7 +200,7 @@ public final class HttpRemoteTask
             this.summarizeTaskInfo = summarizeTaskInfo;
             this.taskInfoCodec = taskInfoCodec;
             this.taskUpdateRequestCodec = taskUpdateRequestCodec;
-            this.updateErrorTracker = new RequestErrorTracker(taskId, location, minErrorDuration, maxErrorDuration, errorScheduledExecutor, "updating task");
+            this.updateErrorTracker = new RequestErrorTracker(taskId, location, maxErrorDuration, errorScheduledExecutor, "updating task");
             this.partitionedSplitCountTracker = requireNonNull(partitionedSplitCountTracker, "partitionedSplitCountTracker is null");
             this.stats = stats;
 
@@ -228,7 +227,6 @@ public final class HttpRemoteTask
                     taskStatusCodec,
                     executor,
                     httpClient,
-                    minErrorDuration,
                     maxErrorDuration,
                     errorScheduledExecutor,
                     stats);
@@ -239,7 +237,6 @@ public final class HttpRemoteTask
                     httpClient,
                     taskInfoUpdateInterval,
                     taskInfoCodec,
-                    minErrorDuration,
                     maxErrorDuration,
                     summarizeTaskInfo,
                     executor,
@@ -258,7 +255,7 @@ public final class HttpRemoteTask
                 }
             });
 
-            long timeout = minErrorDuration.toMillis() / MIN_RETRIES;
+            long timeout = maxErrorDuration.toMillis() / MIN_RETRIES;
             this.requestTimeout = new Duration(timeout + taskStatusRefreshMaxWait.toMillis(), MILLISECONDS);
             partitionedSplitCountTracker.setPartitionedSplitCount(getPartitionedSplitCount());
             updateSplitQueueSpace();
@@ -562,7 +559,7 @@ public final class HttpRemoteTask
             Request request = prepareDelete()
                     .setUri(uriBuilder.build())
                     .build();
-            scheduleAsyncCleanupRequest(new Backoff(MAX_CLEANUP_RETRY_TIME, MAX_CLEANUP_RETRY_TIME), request, "cancel");
+            scheduleAsyncCleanupRequest(new Backoff(MAX_CLEANUP_RETRY_TIME), request, "cancel");
         }
     }
 
@@ -593,7 +590,7 @@ public final class HttpRemoteTask
                 .setUri(uriBuilder.build())
                 .build();
 
-        scheduleAsyncCleanupRequest(new Backoff(MAX_CLEANUP_RETRY_TIME, MAX_CLEANUP_RETRY_TIME), request, "cleanup");
+        scheduleAsyncCleanupRequest(new Backoff(MAX_CLEANUP_RETRY_TIME), request, "cleanup");
     }
 
     @Override
@@ -618,7 +615,7 @@ public final class HttpRemoteTask
             Request request = prepareDelete()
                     .setUri(uriBuilder.build())
                     .build();
-            scheduleAsyncCleanupRequest(new Backoff(MAX_CLEANUP_RETRY_TIME, MAX_CLEANUP_RETRY_TIME), request, "abort");
+            scheduleAsyncCleanupRequest(new Backoff(MAX_CLEANUP_RETRY_TIME), request, "abort");
         }
     }
 
