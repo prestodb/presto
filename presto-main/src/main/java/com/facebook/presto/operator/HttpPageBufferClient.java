@@ -80,7 +80,6 @@ import static io.airlift.http.client.StatusResponseHandler.createStatusResponseH
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -176,15 +175,7 @@ public final class HttpPageBufferClient
         requireNonNull(minErrorDuration, "minErrorDuration is null");
         requireNonNull(maxErrorDuration, "maxErrorDuration is null");
         requireNonNull(ticker, "ticker is null");
-        this.backoff = new Backoff(
-                minErrorDuration,
-                maxErrorDuration,
-                ticker,
-                new Duration(0, MILLISECONDS),
-                new Duration(50, MILLISECONDS),
-                new Duration(100, MILLISECONDS),
-                new Duration(200, MILLISECONDS),
-                new Duration(500, MILLISECONDS));
+        this.backoff = new Backoff(minErrorDuration, maxErrorDuration, ticker);
     }
 
     public synchronized PageBufferClientStatus getStatus()
