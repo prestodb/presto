@@ -17,6 +17,7 @@ import com.facebook.presto.decoder.DecoderColumnHandle;
 import com.facebook.presto.decoder.FieldDecoder;
 import com.facebook.presto.decoder.FieldValueProvider;
 import com.facebook.presto.decoder.RowDecoder;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.log.Logger;
@@ -27,7 +28,7 @@ import redis.clients.jedis.ScanParams;
 import redis.clients.jedis.ScanResult;
 
 import java.nio.charset.StandardCharsets;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -35,12 +36,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.facebook.presto.redis.RedisInternalFieldDescription.KEY_CORRUPT_FIELD;
-import static com.facebook.presto.redis.RedisInternalFieldDescription.KEY_FIELD;
-import static com.facebook.presto.redis.RedisInternalFieldDescription.KEY_LENGTH_FIELD;
-import static com.facebook.presto.redis.RedisInternalFieldDescription.VALUE_CORRUPT_FIELD;
-import static com.facebook.presto.redis.RedisInternalFieldDescription.VALUE_FIELD;
-import static com.facebook.presto.redis.RedisInternalFieldDescription.VALUE_LENGTH_FIELD;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 import static redis.clients.jedis.ScanParams.SCAN_POINTER_START;
@@ -75,6 +70,8 @@ public class RedisRecordCursor
     private long totalBytes;
     private long totalValues;
 
+    private final FieldValueProvider[] currentRowValues;
+
     RedisRecordCursor(
             RowDecoder keyDecoder,
             RowDecoder valueDecoder,
@@ -93,6 +90,7 @@ public class RedisRecordCursor
         this.redisJedisManager = redisJedisManager;
         this.jedisPool = redisJedisManager.getJedisPool(split.getNodes().get(0));
         this.scanParms = setScanParms();
+        this.currentRowValues = new FieldValueProvider[columnHandles.size()];
 
         fetchKeys();
     }
@@ -162,8 +160,6 @@ public class RedisRecordCursor
         totalBytes += valueData.length;
         totalValues++;
 
-        Set<FieldValueProvider> fieldValueProviders = new HashSet<>();
-
         Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedKey = keyDecoder.decodeRow(
                 keyData,
                 null,
@@ -175,32 +171,44 @@ public class RedisRecordCursor
                 columnHandles,
                 valueFieldDecoders);
 
-        fieldValueProviders.add(KEY_FIELD.forByteValue(keyData));
-        fieldValueProviders.add(VALUE_FIELD.forByteValue(valueData));
-        fieldValueProviders.add(KEY_LENGTH_FIELD.forLongValue(keyData.length));
-        fieldValueProviders.add(VALUE_LENGTH_FIELD.forLongValue(valueData.length));
-        fieldValueProviders.add(KEY_CORRUPT_FIELD.forBooleanValue(!decodedKey.isPresent()));
-        fieldValueProviders.add(VALUE_CORRUPT_FIELD.forBooleanValue(!decodedValue.isPresent()));
+        Map<ColumnHandle, FieldValueProvider> currentRowValuesMap = new HashMap<>();
 
-        decodedKey.ifPresent(map -> fieldValueProviders.addAll(map.values()));
-        decodedValue.ifPresent(map -> fieldValueProviders.addAll(map.values()));
-
-        this.fieldValueProviders = new FieldValueProvider[columnHandles.size()];
-
-        // If a value provider for a requested internal column is present, assign the
-        // value to the internal cache. It is possible that an internal column is present
-        // where no value provider exists (e.g. the '_corrupt' column with the DummyRowDecoder).
-        // In that case, the cache is null (and the column is reported as null).
-        for (int i = 0; i < columnHandles.size(); i++) {
-            for (FieldValueProvider fieldValueProvider : fieldValueProviders) {
-                if (fieldValueProvider.accept(columnHandles.get(i))) {
-                    this.fieldValueProviders[i] = fieldValueProvider;
-                    break;
+        for (DecoderColumnHandle columnHandle : columnHandles) {
+            if (columnHandle.isInternal()) {
+                RedisInternalFieldDescription fieldDescription = RedisInternalFieldDescription.forColumnName(columnHandle.getName());
+                switch (fieldDescription) {
+                    case KEY_FIELD:
+                        currentRowValuesMap.put(columnHandle, fieldDescription.forByteValue(keyData));
+                        break;
+                    case VALUE_FIELD:
+                        currentRowValuesMap.put(columnHandle, fieldDescription.forByteValue(valueData));
+                        break;
+                    case KEY_LENGTH_FIELD:
+                        currentRowValuesMap.put(columnHandle, fieldDescription.forLongValue(keyData.length));
+                        break;
+                    case VALUE_LENGTH_FIELD:
+                        currentRowValuesMap.put(columnHandle, fieldDescription.forLongValue(valueData.length));
+                        break;
+                    case KEY_CORRUPT_FIELD:
+                        currentRowValuesMap.put(columnHandle, fieldDescription.forBooleanValue(!decodedKey.isPresent()));
+                        break;
+                    case VALUE_CORRUPT_FIELD:
+                        currentRowValuesMap.put(columnHandle, fieldDescription.forBooleanValue(!decodedValue.isPresent()));
+                        break;
+                    default:
+                        throw new IllegalArgumentException("unknown internal field " + fieldDescription);
                 }
             }
         }
 
-        // Advanced successfully.
+        decodedKey.ifPresent(currentRowValuesMap::putAll);
+        decodedValue.ifPresent(currentRowValuesMap::putAll);
+
+        for (int i = 0; i < columnHandles.size(); i++) {
+            ColumnHandle columnHandle = columnHandles.get(i);
+            currentRowValues[i] = currentRowValuesMap.get(columnHandle);
+        }
+
         return true;
     }
 
@@ -209,51 +217,45 @@ public class RedisRecordCursor
     public boolean getBoolean(int field)
     {
         checkArgument(field < columnHandles.size(), "Invalid field index");
-
         checkFieldType(field, boolean.class);
-        return fieldValueProviders[field].getBoolean();
+        return currentRowValues[field].getBoolean();
     }
 
     @Override
     public long getLong(int field)
     {
         checkArgument(field < columnHandles.size(), "Invalid field index");
-
         checkFieldType(field, long.class);
-        return fieldValueProviders[field].getLong();
+        return currentRowValues[field].getLong();
     }
 
     @Override
     public double getDouble(int field)
     {
         checkArgument(field < columnHandles.size(), "Invalid field index");
-
         checkFieldType(field, double.class);
-        return fieldValueProviders[field].getDouble();
+        return currentRowValues[field].getDouble();
     }
 
     @Override
     public Slice getSlice(int field)
     {
         checkArgument(field < columnHandles.size(), "Invalid field index");
-
         checkFieldType(field, Slice.class);
-        return fieldValueProviders[field].getSlice();
+        return currentRowValues[field].getSlice();
     }
 
     @Override
     public boolean isNull(int field)
     {
         checkArgument(field < columnHandles.size(), "Invalid field index");
-
-        return fieldValueProviders[field] == null || fieldValueProviders[field].isNull();
+        return currentRowValues == null || currentRowValues[field].isNull();
     }
 
     @Override
     public Object getObject(int field)
     {
         checkArgument(field < columnHandles.size(), "Invalid field index");
-
         throw new IllegalArgumentException(format("Type %s is not supported", getType(field)));
     }
 

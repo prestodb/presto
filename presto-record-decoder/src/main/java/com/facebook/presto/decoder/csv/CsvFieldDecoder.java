@@ -61,12 +61,6 @@ public class CsvFieldDecoder
         return new FieldValueProvider()
         {
             @Override
-            public boolean accept(DecoderColumnHandle handle)
-            {
-                return columnHandle.equals(handle);
-            }
-
-            @Override
             public boolean isNull()
             {
                 return (value == null) || value.isEmpty();
