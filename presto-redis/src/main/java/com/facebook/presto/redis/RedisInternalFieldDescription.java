@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.redis;
 
+import com.facebook.presto.decoder.DecoderColumnHandle;
 import com.facebook.presto.decoder.FieldValueProvider;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.type.BigintType;
@@ -21,10 +22,15 @@ import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
+import java.util.Map;
+
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static java.util.Arrays.stream;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 
 /**
  * Describes an internal (managed by the connector) field which is added to each table row. The definition itself makes the row
@@ -63,6 +69,17 @@ public enum RedisInternalFieldDescription
      * <tt>_key_length</tt> - length in bytes of the key.
      */
     KEY_LENGTH_FIELD("_key_length", BigintType.BIGINT, "Total number of key bytes");
+
+    private static final Map<String, RedisInternalFieldDescription> BY_COLUMN_NAME =
+            stream(RedisInternalFieldDescription.values())
+                    .collect(toImmutableMap(RedisInternalFieldDescription::getColumnName, identity()));
+
+    public static RedisInternalFieldDescription forColumnName(String columnName)
+    {
+        RedisInternalFieldDescription description = BY_COLUMN_NAME.get(columnName);
+        checkArgument(description != null, "Unknown internal column name %s", columnName);
+        return description;
+    }
 
     private final String columnName;
     private final Type type;
@@ -136,7 +153,7 @@ public enum RedisInternalFieldDescription
         @Override
         public boolean accept(DecoderColumnHandle columnHandle)
         {
-            return columnHandle.getName().equals(name);
+            return columnHandle.getName().equals(columnName);
         }
 
         @Override
@@ -165,7 +182,7 @@ public enum RedisInternalFieldDescription
         @Override
         public boolean accept(DecoderColumnHandle columnHandle)
         {
-            return columnHandle.getName().equals(name);
+            return columnHandle.getName().equals(columnName);
         }
 
         @Override
@@ -194,7 +211,7 @@ public enum RedisInternalFieldDescription
         @Override
         public boolean accept(DecoderColumnHandle columnHandle)
         {
-            return columnHandle.getName().equals(name);
+            return columnHandle.getName().equals(columnName);
         }
 
         @Override
