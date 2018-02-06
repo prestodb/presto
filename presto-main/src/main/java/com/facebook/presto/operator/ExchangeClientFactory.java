@@ -39,7 +39,6 @@ public class ExchangeClientFactory
 {
     private final DataSize maxBufferedBytes;
     private final int concurrentRequestMultiplier;
-    private final Duration minErrorDuration;
     private final Duration maxErrorDuration;
     private final HttpClient httpClient;
     private final DataSize maxResponseSize;
@@ -57,7 +56,6 @@ public class ExchangeClientFactory
                 config.getMaxBufferSize(),
                 config.getMaxResponseSize(),
                 config.getConcurrentRequestMultiplier(),
-                config.getMinErrorDuration(),
                 config.getMaxErrorDuration(),
                 config.getPageBufferClientMaxCallbackThreads(),
                 httpClient,
@@ -68,7 +66,6 @@ public class ExchangeClientFactory
             DataSize maxBufferedBytes,
             DataSize maxResponseSize,
             int concurrentRequestMultiplier,
-            Duration minErrorDuration,
             Duration maxErrorDuration,
             int pageBufferClientMaxCallbackThreads,
             HttpClient httpClient,
@@ -76,7 +73,6 @@ public class ExchangeClientFactory
     {
         this.maxBufferedBytes = requireNonNull(maxBufferedBytes, "maxBufferedBytes is null");
         this.concurrentRequestMultiplier = concurrentRequestMultiplier;
-        this.minErrorDuration = requireNonNull(minErrorDuration, "minErrorDuration is null");
         this.maxErrorDuration = requireNonNull(maxErrorDuration, "maxErrorDuration is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
 
@@ -116,7 +112,6 @@ public class ExchangeClientFactory
                 maxBufferedBytes,
                 maxResponseSize,
                 concurrentRequestMultiplier,
-                minErrorDuration,
                 maxErrorDuration,
                 httpClient,
                 scheduler,
