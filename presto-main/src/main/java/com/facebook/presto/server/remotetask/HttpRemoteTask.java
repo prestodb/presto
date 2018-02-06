@@ -98,7 +98,7 @@ public final class HttpRemoteTask
         implements RemoteTask
 {
     private static final Logger log = Logger.get(HttpRemoteTask.class);
-    private static final Duration MAX_CLEANUP_RETRY_TIME = new Duration(2, TimeUnit.MINUTES);
+    private static final Duration MAX_CLEANUP_RETRY_TIME = new Duration(10, TimeUnit.MINUTES);
     private static final int MIN_RETRIES = 3;
 
     private final TaskId taskId;
