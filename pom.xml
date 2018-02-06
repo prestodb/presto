@@ -1001,6 +1001,18 @@
             </dependency>
 
             <dependency>
+                <groupId>org.apache.lucene</groupId>
+                <artifactId>lucene-analyzers-common</artifactId>
+                <version>7.2.1</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.apache.lucene</groupId>
+                        <artifactId>lucene-core</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
                 <groupId>org.anarres.lzo</groupId>
                 <artifactId>lzo-hadoop</artifactId>
                 <version>1.0.5</version>
