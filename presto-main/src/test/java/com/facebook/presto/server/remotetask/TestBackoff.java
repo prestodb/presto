@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.server.remotetask;
 
+import com.google.common.collect.ImmutableList;
 import io.airlift.testing.TestingTicker;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
@@ -31,7 +32,7 @@ public class TestBackoff
     public void testFailureInterval()
     {
         TestingTicker ticker = new TestingTicker();
-        Backoff backoff = new Backoff(new Duration(15, SECONDS), new Duration(15, SECONDS), ticker, new Duration(10, MILLISECONDS));
+        Backoff backoff = new Backoff(new Duration(15, SECONDS), new Duration(15, SECONDS), ticker, ImmutableList.of(new Duration(10, MILLISECONDS)));
         ticker.increment(10, MICROSECONDS);
 
         assertEquals(backoff.getFailureCount(), 0);
@@ -54,7 +55,7 @@ public class TestBackoff
     public void testStartRequest()
     {
         TestingTicker ticker = new TestingTicker();
-        Backoff backoff = new Backoff(new Duration(15, SECONDS), new Duration(15, SECONDS), ticker, new Duration(10, MILLISECONDS));
+        Backoff backoff = new Backoff(new Duration(15, SECONDS), new Duration(15, SECONDS), ticker, ImmutableList.of(new Duration(10, MILLISECONDS)));
         ticker.increment(10, MICROSECONDS);
 
         assertEquals(backoff.getFailureCount(), 0);
@@ -79,7 +80,7 @@ public class TestBackoff
     public void testMaxFailureInterval()
     {
         TestingTicker ticker = new TestingTicker();
-        Backoff backoff = new Backoff(new Duration(5, SECONDS), new Duration(15, SECONDS), ticker, new Duration(10, MILLISECONDS));
+        Backoff backoff = new Backoff(new Duration(5, SECONDS), new Duration(15, SECONDS), ticker, ImmutableList.of(new Duration(10, MILLISECONDS)));
         ticker.increment(10, MICROSECONDS);
         ticker.increment(6, SECONDS);
 
@@ -117,12 +118,12 @@ public class TestBackoff
     {
         // 1, 2, 4, 8
         TestingTicker ticker = new TestingTicker();
-        Backoff backoff = new Backoff(new Duration(15, SECONDS), new Duration(15, SECONDS), ticker,
+        Backoff backoff = new Backoff(new Duration(15, SECONDS), new Duration(15, SECONDS), ticker, ImmutableList.of(
                 new Duration(0, SECONDS),
                 new Duration(1, SECONDS),
                 new Duration(2, SECONDS),
                 new Duration(4, SECONDS),
-                new Duration(8, SECONDS));
+                new Duration(8, SECONDS)));
 
         assertEquals(backoff.getFailureCount(), 0);
         assertEquals(backoff.getTimeSinceLastSuccess().roundTo(SECONDS), 0);
