@@ -18,9 +18,10 @@ import com.facebook.presto.decoder.FieldDecoder;
 import com.facebook.presto.decoder.FieldValueProvider;
 import com.facebook.presto.decoder.RowDecoder;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import java.util.Optional;
 
 /**
  * Decoder for raw (direct byte) rows. All field decoders map bytes directly to Presto columns.
@@ -37,12 +38,12 @@ public class RawRowDecoder
     }
 
     @Override
-    public boolean decodeRow(byte[] data,
+    public Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodeRow(byte[] data,
             Map<String, String> dataMap,
-            Set<FieldValueProvider> fieldValueProviders,
             List<DecoderColumnHandle> columnHandles,
             Map<DecoderColumnHandle, FieldDecoder<?>> fieldDecoders)
     {
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = new HashMap<>();
         for (DecoderColumnHandle columnHandle : columnHandles) {
             if (columnHandle.isInternal()) {
                 continue;
@@ -52,10 +53,10 @@ public class RawRowDecoder
             FieldDecoder<byte[]> decoder = (FieldDecoder<byte[]>) fieldDecoders.get(columnHandle);
 
             if (decoder != null) {
-                fieldValueProviders.add(decoder.decode(data, columnHandle));
+                decodedRow.put(columnHandle, decoder.decode(data, columnHandle));
             }
         }
 
-        return false;
+        return Optional.of(decodedRow);
     }
 }

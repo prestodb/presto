@@ -24,10 +24,8 @@ import io.airlift.json.ObjectMapperProvider;
 import org.testng.annotations.Test;
 
 import java.nio.charset.StandardCharsets;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import static com.facebook.presto.decoder.FieldDecoder.DEFAULT_FIELD_DECODER_NAME;
 import static com.facebook.presto.decoder.json.SecondsSinceEpochJsonFieldDecoder.FORMATTER;
@@ -36,7 +34,6 @@ import static com.facebook.presto.decoder.util.DecoderTestUtil.checkValue;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
 
 public class TestSecondsSinceEpochJsonFieldDecoder
 {
@@ -73,27 +70,26 @@ public class TestSecondsSinceEpochJsonFieldDecoder
         DecoderTestColumnHandle row6 = new DecoderTestColumnHandle("", 5, "row6", createVarcharType(100), "a_string", SecondsSinceEpochJsonFieldDecoder.NAME, null, false, false, false);
 
         List<DecoderColumnHandle> columns = ImmutableList.of(row1, row2, row3, row4, row5, row6);
-        Set<FieldValueProvider> providers = new HashSet<>();
 
-        boolean corrupt = rowDecoder.decodeRow(json, null, providers, columns, buildMap(columns));
-        assertFalse(corrupt);
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(json, null, columns, buildMap(columns))
+                .orElseThrow(AssertionError::new);
 
-        assertEquals(providers.size(), columns.size());
+        assertEquals(decodedRow.size(), columns.size());
 
         // sanity checks
-        checkValue(providers, row1, now);
-        checkValue(providers, row2, Long.toString(now));
+        checkValue(decodedRow, row1, now);
+        checkValue(decodedRow, row2, Long.toString(now));
 
         // number parsed as number --> return as time stamp (millis)
-        checkValue(providers, row3, now * 1000);
+        checkValue(decodedRow, row3, now * 1000);
         // string parsed as number --> parse text, convert to timestamp
-        checkValue(providers, row4, now * 1000);
+        checkValue(decodedRow, row4, now * 1000);
 
         // number parsed as string --> parse text, convert to timestamp, turn into string
-        checkValue(providers, row5, nowString);
+        checkValue(decodedRow, row5, nowString);
 
         // string parsed as string --> parse text, convert to timestamp, turn into string
-        checkValue(providers, row6, nowString);
+        checkValue(decodedRow, row6, nowString);
     }
 
     @Test
@@ -112,19 +108,18 @@ public class TestSecondsSinceEpochJsonFieldDecoder
         DecoderTestColumnHandle row6 = new DecoderTestColumnHandle("", 5, "row6", createVarcharType(100), "a_string", SecondsSinceEpochJsonFieldDecoder.NAME, null, false, false, false);
 
         List<DecoderColumnHandle> columns = ImmutableList.of(row1, row2, row3, row4, row5, row6);
-        Set<FieldValueProvider> providers = new HashSet<>();
 
-        boolean corrupt = rowDecoder.decodeRow(json, null, providers, columns, buildMap(columns));
-        assertFalse(corrupt);
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(json, null, columns, buildMap(columns))
+                .orElseThrow(AssertionError::new);
 
-        assertEquals(providers.size(), columns.size());
+        assertEquals(decodedRow.size(), columns.size());
 
         // sanity checks
-        checkIsNull(providers, row1);
-        checkIsNull(providers, row2);
-        checkIsNull(providers, row3);
-        checkIsNull(providers, row4);
-        checkIsNull(providers, row5);
-        checkIsNull(providers, row6);
+        checkIsNull(decodedRow, row1);
+        checkIsNull(decodedRow, row2);
+        checkIsNull(decodedRow, row3);
+        checkIsNull(decodedRow, row4);
+        checkIsNull(decodedRow, row5);
+        checkIsNull(decodedRow, row6);
     }
 }

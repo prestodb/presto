@@ -22,9 +22,10 @@ import com.facebook.presto.decoder.RowDecoder;
 import javax.inject.Inject;
 
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 
@@ -50,9 +51,8 @@ public class CsvRowDecoder
     }
 
     @Override
-    public boolean decodeRow(byte[] data,
+    public Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodeRow(byte[] data,
             Map<String, String> dataMap,
-            Set<FieldValueProvider> fieldValueProviders,
             List<DecoderColumnHandle> columnHandles,
             Map<DecoderColumnHandle, FieldDecoder<?>> fieldDecoders)
     {
@@ -64,9 +64,10 @@ public class CsvRowDecoder
             fields = parser.parseLine(line);
         }
         catch (Exception e) {
-            return true;
+            return Optional.empty();
         }
 
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = new HashMap<>();
         for (DecoderColumnHandle columnHandle : columnHandles) {
             if (columnHandle.isInternal()) {
                 continue;
@@ -84,9 +85,9 @@ public class CsvRowDecoder
             FieldDecoder<String> decoder = (FieldDecoder<String>) fieldDecoders.get(columnHandle);
 
             if (decoder != null) {
-                fieldValueProviders.add(decoder.decode(fields[columnIndex], columnHandle));
+                decodedRow.put(columnHandle, decoder.decode(fields[columnIndex], columnHandle));
             }
         }
-        return false;
+        return Optional.of(decodedRow);
     }
 }
