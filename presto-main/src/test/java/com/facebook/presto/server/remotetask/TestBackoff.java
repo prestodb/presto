@@ -28,11 +28,13 @@ import static org.testng.Assert.assertTrue;
 
 public class TestBackoff
 {
+    private static final Duration ZERO_ELAPSED_TIME = new Duration(0, MILLISECONDS);
+
     @Test
     public void testFailureInterval()
     {
         TestingTicker ticker = new TestingTicker();
-        Backoff backoff = new Backoff(new Duration(15, SECONDS), new Duration(15, SECONDS), ticker, ImmutableList.of(new Duration(10, MILLISECONDS)));
+        Backoff backoff = new Backoff(ZERO_ELAPSED_TIME, new Duration(15, SECONDS), new Duration(15, SECONDS), ticker, ImmutableList.of(new Duration(10, MILLISECONDS)));
         ticker.increment(10, MICROSECONDS);
 
         assertEquals(backoff.getFailureCount(), 0);
@@ -55,7 +57,7 @@ public class TestBackoff
     public void testStartRequest()
     {
         TestingTicker ticker = new TestingTicker();
-        Backoff backoff = new Backoff(new Duration(15, SECONDS), new Duration(15, SECONDS), ticker, ImmutableList.of(new Duration(10, MILLISECONDS)));
+        Backoff backoff = new Backoff(ZERO_ELAPSED_TIME, new Duration(15, SECONDS), new Duration(15, SECONDS), ticker, ImmutableList.of(new Duration(10, MILLISECONDS)));
         ticker.increment(10, MICROSECONDS);
 
         assertEquals(backoff.getFailureCount(), 0);
@@ -80,7 +82,7 @@ public class TestBackoff
     public void testMaxFailureInterval()
     {
         TestingTicker ticker = new TestingTicker();
-        Backoff backoff = new Backoff(new Duration(5, SECONDS), new Duration(15, SECONDS), ticker, ImmutableList.of(new Duration(10, MILLISECONDS)));
+        Backoff backoff = new Backoff(ZERO_ELAPSED_TIME, new Duration(5, SECONDS), new Duration(15, SECONDS), ticker, ImmutableList.of(new Duration(10, MILLISECONDS)));
         ticker.increment(10, MICROSECONDS);
         ticker.increment(6, SECONDS);
 
@@ -118,7 +120,7 @@ public class TestBackoff
     {
         // 1, 2, 4, 8
         TestingTicker ticker = new TestingTicker();
-        Backoff backoff = new Backoff(new Duration(15, SECONDS), new Duration(15, SECONDS), ticker, ImmutableList.of(
+        Backoff backoff = new Backoff(ZERO_ELAPSED_TIME, new Duration(15, SECONDS), new Duration(15, SECONDS), ticker, ImmutableList.of(
                 new Duration(0, SECONDS),
                 new Duration(1, SECONDS),
                 new Duration(2, SECONDS),

@@ -201,7 +201,14 @@ public final class HttpRemoteTask
             this.summarizeTaskInfo = summarizeTaskInfo;
             this.taskInfoCodec = taskInfoCodec;
             this.taskUpdateRequestCodec = taskUpdateRequestCodec;
-            this.updateErrorTracker = new RequestErrorTracker(taskId, location, minErrorDuration, maxErrorDuration, errorScheduledExecutor, "updating task");
+            this.updateErrorTracker = new RequestErrorTracker(
+                    taskId,
+                    location,
+                    getQueryElapsedTime(),
+                    minErrorDuration,
+                    maxErrorDuration,
+                    errorScheduledExecutor,
+                    "updating task");
             this.partitionedSplitCountTracker = requireNonNull(partitionedSplitCountTracker, "partitionedSplitCountTracker is null");
             this.stats = stats;
 
@@ -228,6 +235,7 @@ public final class HttpRemoteTask
                     taskStatusCodec,
                     executor,
                     httpClient,
+                    getQueryElapsedTime(),
                     minErrorDuration,
                     maxErrorDuration,
                     errorScheduledExecutor,
@@ -239,6 +247,7 @@ public final class HttpRemoteTask
                     httpClient,
                     taskInfoUpdateInterval,
                     taskInfoCodec,
+                    getQueryElapsedTime(),
                     minErrorDuration,
                     maxErrorDuration,
                     summarizeTaskInfo,
@@ -562,7 +571,8 @@ public final class HttpRemoteTask
             Request request = prepareDelete()
                     .setUri(uriBuilder.build())
                     .build();
-            scheduleAsyncCleanupRequest(new Backoff(MAX_CLEANUP_RETRY_TIME, MAX_CLEANUP_RETRY_TIME), request, "cancel");
+            Duration queryElapsedTime = getQueryElapsedTime();
+            scheduleAsyncCleanupRequest(new Backoff(queryElapsedTime, MAX_CLEANUP_RETRY_TIME, MAX_CLEANUP_RETRY_TIME), request, "cancel");
         }
     }
 
@@ -593,7 +603,7 @@ public final class HttpRemoteTask
                 .setUri(uriBuilder.build())
                 .build();
 
-        scheduleAsyncCleanupRequest(new Backoff(MAX_CLEANUP_RETRY_TIME, MAX_CLEANUP_RETRY_TIME), request, "cleanup");
+        scheduleAsyncCleanupRequest(new Backoff(getQueryElapsedTime(), MAX_CLEANUP_RETRY_TIME, MAX_CLEANUP_RETRY_TIME), request, "cleanup");
     }
 
     @Override
@@ -618,7 +628,7 @@ public final class HttpRemoteTask
             Request request = prepareDelete()
                     .setUri(uriBuilder.build())
                     .build();
-            scheduleAsyncCleanupRequest(new Backoff(MAX_CLEANUP_RETRY_TIME, MAX_CLEANUP_RETRY_TIME), request, "abort");
+            scheduleAsyncCleanupRequest(new Backoff(getQueryElapsedTime(), MAX_CLEANUP_RETRY_TIME, MAX_CLEANUP_RETRY_TIME), request, "abort");
         }
     }
 
@@ -719,6 +729,12 @@ public final class HttpRemoteTask
             uriBuilder.addParameter("summarize");
         }
         return uriBuilder;
+    }
+
+    private Duration getQueryElapsedTime()
+    {
+        // remote task runs on the coordinator, so start time uses the same machine clock
+        return new Duration(Math.max(0, System.currentTimeMillis() - session.getStartTime()), MILLISECONDS);
     }
 
     @Override

@@ -80,6 +80,7 @@ import static io.airlift.http.client.StatusResponseHandler.createStatusResponseH
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -88,6 +89,7 @@ public final class HttpPageBufferClient
         implements Closeable
 {
     private static final Logger log = Logger.get(HttpPageBufferClient.class);
+    private static final Duration ZERO_EXECUTION_ELAPSED_TIME = new Duration(0, MILLISECONDS);
 
     /**
      * For each request, the addPage method will be called zero or more times,
@@ -175,7 +177,9 @@ public final class HttpPageBufferClient
         requireNonNull(minErrorDuration, "minErrorDuration is null");
         requireNonNull(maxErrorDuration, "maxErrorDuration is null");
         requireNonNull(ticker, "ticker is null");
-        this.backoff = new Backoff(minErrorDuration, maxErrorDuration, ticker);
+        // The exchange buffer is typically on another machine, so calculating elapsed time requires some form of
+        // clock synchronization.  For now, we just assume there is no elapsed time.
+        this.backoff = new Backoff(ZERO_EXECUTION_ELAPSED_TIME, minErrorDuration, maxErrorDuration, ticker);
     }
 
     public synchronized PageBufferClientStatus getStatus()

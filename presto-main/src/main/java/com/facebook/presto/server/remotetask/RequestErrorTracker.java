@@ -58,12 +58,19 @@ class RequestErrorTracker
 
     private final Queue<Throwable> errorsSinceLastSuccess = new ConcurrentLinkedQueue<>();
 
-    public RequestErrorTracker(TaskId taskId, URI taskUri, Duration minErrorDuration, Duration maxErrorDuration, ScheduledExecutorService scheduledExecutor, String jobDescription)
+    public RequestErrorTracker(
+            TaskId taskId,
+            URI taskUri,
+            Duration executionElapsedTime,
+            Duration minErrorDuration,
+            Duration maxErrorDuration,
+            ScheduledExecutorService scheduledExecutor,
+            String jobDescription)
     {
         this.taskId = taskId;
         this.taskUri = taskUri;
         this.scheduledExecutor = scheduledExecutor;
-        this.backoff = new Backoff(minErrorDuration, maxErrorDuration);
+        this.backoff = new Backoff(executionElapsedTime, minErrorDuration, maxErrorDuration);
         this.jobDescription = jobDescription;
     }
 

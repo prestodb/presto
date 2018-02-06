@@ -49,19 +49,20 @@ public class Backoff
     private long lastFailureTime;
     private long failureCount;
 
-    public Backoff(Duration minFailureInterval, Duration maxFailureInterval)
+    public Backoff(Duration executionElapsedTime, Duration minFailureInterval, Duration maxFailureInterval)
     {
-        this(minFailureInterval, maxFailureInterval, Ticker.systemTicker(), DEFAULT_BACKOFF_DELAY_INTERVALS);
+        this(executionElapsedTime, minFailureInterval, maxFailureInterval, Ticker.systemTicker());
     }
 
-    public Backoff(Duration minFailureInterval, Duration maxFailureInterval, Ticker ticker)
+    public Backoff(Duration executionElapsedTime, Duration minFailureInterval, Duration maxFailureInterval, Ticker ticker)
     {
-        this(minFailureInterval, maxFailureInterval, ticker, DEFAULT_BACKOFF_DELAY_INTERVALS);
+        this(executionElapsedTime, minFailureInterval, maxFailureInterval, ticker, DEFAULT_BACKOFF_DELAY_INTERVALS);
     }
 
     @VisibleForTesting
-    public Backoff(Duration minFailureInterval, Duration maxFailureInterval, Ticker ticker, List<Duration> backoffDelayIntervals)
+    public Backoff(Duration executionElapsedTime, Duration minFailureInterval, Duration maxFailureInterval, Ticker ticker, List<Duration> backoffDelayIntervals)
     {
+        requireNonNull(executionElapsedTime, "executionElapsedTime is null");
         requireNonNull(minFailureInterval, "minFailureInterval is null");
         requireNonNull(maxFailureInterval, "maxFailureInterval is null");
         requireNonNull(ticker, "ticker is null");
@@ -78,7 +79,7 @@ public class Backoff
 
         this.lastSuccessTime = this.ticker.read();
         this.firstRequestAfterSuccessTime = Long.MIN_VALUE;
-        this.createTime = this.ticker.read();
+        this.createTime = ticker.read() - executionElapsedTime.roundTo(NANOSECONDS);
     }
 
     public synchronized long getFailureCount()
