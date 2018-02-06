@@ -31,6 +31,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -163,22 +164,26 @@ public class RedisRecordCursor
 
         Set<FieldValueProvider> fieldValueProviders = new HashSet<>();
 
+        Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedKey = keyDecoder.decodeRow(
+                keyData,
+                null,
+                columnHandles,
+                keyFieldDecoders);
+        Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedValue = valueDecoder.decodeRow(
+                valueData,
+                valueMap,
+                columnHandles,
+                valueFieldDecoders);
+
         fieldValueProviders.add(KEY_FIELD.forByteValue(keyData));
         fieldValueProviders.add(VALUE_FIELD.forByteValue(valueData));
         fieldValueProviders.add(KEY_LENGTH_FIELD.forLongValue(keyData.length));
         fieldValueProviders.add(VALUE_LENGTH_FIELD.forLongValue(valueData.length));
-        fieldValueProviders.add(KEY_CORRUPT_FIELD.forBooleanValue(keyDecoder.decodeRow(
-                keyData,
-                null,
-                fieldValueProviders,
-                columnHandles,
-                keyFieldDecoders)));
-        fieldValueProviders.add(VALUE_CORRUPT_FIELD.forBooleanValue(valueDecoder.decodeRow(
-                valueData,
-                valueMap,
-                fieldValueProviders,
-                columnHandles,
-                valueFieldDecoders)));
+        fieldValueProviders.add(KEY_CORRUPT_FIELD.forBooleanValue(!decodedKey.isPresent()));
+        fieldValueProviders.add(VALUE_CORRUPT_FIELD.forBooleanValue(!decodedValue.isPresent()));
+
+        decodedKey.ifPresent(map -> fieldValueProviders.addAll(map.values()));
+        decodedValue.ifPresent(map -> fieldValueProviders.addAll(map.values()));
 
         this.fieldValueProviders = new FieldValueProvider[columnHandles.size()];
 

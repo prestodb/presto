@@ -25,16 +25,13 @@ import org.testng.annotations.Test;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import static com.facebook.presto.decoder.util.DecoderTestUtil.checkIsNull;
 import static com.facebook.presto.decoder.util.DecoderTestUtil.checkValue;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
 
 public class TestRawDecoder
 {
@@ -56,10 +53,11 @@ public class TestRawDecoder
         byte[] emptyRow = new byte[0];
         DecoderTestColumnHandle column = new DecoderTestColumnHandle("", 0, "row1", BigintType.BIGINT, null, "LONG", null, false, false, false);
         List<DecoderColumnHandle> columns = ImmutableList.of(column);
-        Set<FieldValueProvider> providers = new HashSet<>();
-        boolean corrupt = rowDecoder.decodeRow(emptyRow, null, providers, columns, buildMap(columns));
-        assertFalse(corrupt);
-        checkIsNull(providers, column);
+
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(emptyRow, null, columns, buildMap(columns))
+                .orElseThrow(AssertionError::new);
+
+        checkIsNull(decodedRow, column);
     }
 
     @Test
@@ -83,18 +81,17 @@ public class TestRawDecoder
         DecoderTestColumnHandle row5 = new DecoderTestColumnHandle("", 4, "row5", createVarcharType(10), "15", null, null, false, false, false);
 
         List<DecoderColumnHandle> columns = ImmutableList.of(row1, row2, row3, row4, row5);
-        Set<FieldValueProvider> providers = new HashSet<>();
 
-        boolean corrupt = rowDecoder.decodeRow(row, null, providers, columns, buildMap(columns));
-        assertFalse(corrupt);
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(row, null, columns, buildMap(columns))
+                .orElseThrow(AssertionError::new);
 
-        assertEquals(providers.size(), columns.size());
+        assertEquals(decodedRow.size(), columns.size());
 
-        checkValue(providers, row1, 4815162342L);
-        checkValue(providers, row2, 12345678);
-        checkValue(providers, row3, 4567);
-        checkValue(providers, row4, 123);
-        checkValue(providers, row5, "Ich bin zw");
+        checkValue(decodedRow, row1, 4815162342L);
+        checkValue(decodedRow, row2, 12345678);
+        checkValue(decodedRow, row3, 4567);
+        checkValue(decodedRow, row4, 123);
+        checkValue(decodedRow, row5, "Ich bin zw");
     }
 
     @Test
@@ -110,18 +107,17 @@ public class TestRawDecoder
         DecoderTestColumnHandle row4 = new DecoderTestColumnHandle("", 3, "row4", createVarcharType(100), "5:8", null, null, false, false, false);
 
         List<DecoderColumnHandle> columns = ImmutableList.of(row1, row2, row3, row4);
-        Set<FieldValueProvider> providers = new HashSet<>();
 
-        boolean corrupt = rowDecoder.decodeRow(row, null, providers, columns, buildMap(columns));
-        assertFalse(corrupt);
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(row, null, columns, buildMap(columns))
+                .orElseThrow(AssertionError::new);
 
-        assertEquals(providers.size(), columns.size());
+        assertEquals(decodedRow.size(), columns.size());
 
-        checkValue(providers, row1, str);
-        checkValue(providers, row2, str);
+        checkValue(decodedRow, row1, str);
+        checkValue(decodedRow, row2, str);
         // these only work for single byte encodings...
-        checkValue(providers, row3, str.substring(0, 4));
-        checkValue(providers, row4, str.substring(5, 8));
+        checkValue(decodedRow, row3, str.substring(0, 4));
+        checkValue(decodedRow, row4, str.substring(5, 8));
     }
 
     @SuppressWarnings("NumericCastThatLosesPrecision")
@@ -141,15 +137,14 @@ public class TestRawDecoder
         DecoderTestColumnHandle row2 = new DecoderTestColumnHandle("", 1, "row2", createVarcharType(100), "8", "FLOAT", null, false, false, false);
 
         List<DecoderColumnHandle> columns = ImmutableList.of(row1, row2);
-        Set<FieldValueProvider> providers = new HashSet<>();
 
-        boolean corrupt = rowDecoder.decodeRow(row, null, providers, columns, buildMap(columns));
-        assertFalse(corrupt);
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(row, null, columns, buildMap(columns))
+                .orElseThrow(AssertionError::new);
 
-        assertEquals(providers.size(), columns.size());
+        assertEquals(decodedRow.size(), columns.size());
 
-        checkValue(providers, row1, Math.PI);
-        checkValue(providers, row2, Math.E);
+        checkValue(decodedRow, row1, Math.PI);
+        checkValue(decodedRow, row2, Math.E);
     }
 
     @Test
@@ -217,31 +212,29 @@ public class TestRawDecoder
                 row33,
                 row34);
 
-        Set<FieldValueProvider> providers = new HashSet<>();
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(row, null, columns, buildMap(columns))
+                .orElseThrow(AssertionError::new);
 
-        boolean corrupt = rowDecoder.decodeRow(row, null, providers, columns, buildMap(columns));
-        assertFalse(corrupt);
+        assertEquals(decodedRow.size(), columns.size());
 
-        assertEquals(providers.size(), columns.size());
+        checkValue(decodedRow, row01, 127);
+        checkValue(decodedRow, row02, false);
+        checkValue(decodedRow, row03, 126);
+        checkValue(decodedRow, row04, true);
 
-        checkValue(providers, row01, 127);
-        checkValue(providers, row02, false);
-        checkValue(providers, row03, 126);
-        checkValue(providers, row04, true);
+        checkValue(decodedRow, row11, 125);
+        checkValue(decodedRow, row12, false);
+        checkValue(decodedRow, row13, 124);
+        checkValue(decodedRow, row14, true);
 
-        checkValue(providers, row11, 125);
-        checkValue(providers, row12, false);
-        checkValue(providers, row13, 124);
-        checkValue(providers, row14, true);
+        checkValue(decodedRow, row21, 123);
+        checkValue(decodedRow, row22, false);
+        checkValue(decodedRow, row23, 122);
+        checkValue(decodedRow, row24, true);
 
-        checkValue(providers, row21, 123);
-        checkValue(providers, row22, false);
-        checkValue(providers, row23, 122);
-        checkValue(providers, row24, true);
-
-        checkValue(providers, row31, 121);
-        checkValue(providers, row32, false);
-        checkValue(providers, row33, 120);
-        checkValue(providers, row34, true);
+        checkValue(decodedRow, row31, 121);
+        checkValue(decodedRow, row32, false);
+        checkValue(decodedRow, row33, 120);
+        checkValue(decodedRow, row34, true);
     }
 }

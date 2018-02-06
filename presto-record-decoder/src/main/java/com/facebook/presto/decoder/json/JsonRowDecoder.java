@@ -24,9 +24,10 @@ import com.google.common.base.Splitter;
 
 import javax.inject.Inject;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 
@@ -53,9 +54,8 @@ public class JsonRowDecoder
     }
 
     @Override
-    public boolean decodeRow(byte[] data,
+    public Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodeRow(byte[] data,
             Map<String, String> dataMap,
-            Set<FieldValueProvider> fieldValueProviders,
             List<DecoderColumnHandle> columnHandles,
             Map<DecoderColumnHandle, FieldDecoder<?>> fieldDecoders)
     {
@@ -64,9 +64,10 @@ public class JsonRowDecoder
             tree = objectMapper.readTree(data);
         }
         catch (Exception e) {
-            return true;
+            return Optional.empty();
         }
 
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = new HashMap<>();
         for (DecoderColumnHandle columnHandle : columnHandles) {
             if (columnHandle.isInternal()) {
                 continue;
@@ -76,11 +77,11 @@ public class JsonRowDecoder
 
             if (decoder != null) {
                 JsonNode node = locateNode(tree, columnHandle);
-                fieldValueProviders.add(decoder.decode(node, columnHandle));
+                decodedRow.put(columnHandle, decoder.decode(node, columnHandle));
             }
         }
 
-        return false;
+        return Optional.of(decodedRow);
     }
 
     private static JsonNode locateNode(JsonNode tree, DecoderColumnHandle columnHandle)

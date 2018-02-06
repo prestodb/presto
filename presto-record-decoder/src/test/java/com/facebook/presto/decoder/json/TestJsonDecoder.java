@@ -27,16 +27,15 @@ import io.airlift.json.ObjectMapperProvider;
 import org.testng.annotations.Test;
 
 import java.nio.charset.StandardCharsets;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import java.util.Optional;
 
 import static com.facebook.presto.decoder.util.DecoderTestUtil.checkIsNull;
 import static com.facebook.presto.decoder.util.DecoderTestUtil.checkValue;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 public class TestJsonDecoder
 {
@@ -66,18 +65,17 @@ public class TestJsonDecoder
         DecoderTestColumnHandle row5 = new DecoderTestColumnHandle("", 4, "row5", BooleanType.BOOLEAN, "user/geo_enabled", null, null, false, false, false);
 
         List<DecoderColumnHandle> columns = ImmutableList.of(row1, row2, row3, row4, row5);
-        Set<FieldValueProvider> providers = new HashSet<>();
 
-        boolean corrupt = rowDecoder.decodeRow(json, null, providers, columns, buildMap(columns));
-        assertFalse(corrupt);
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(json, null, columns, buildMap(columns))
+                .orElseThrow(AssertionError::new);
 
-        assertEquals(providers.size(), columns.size());
+        assertEquals(decodedRow.size(), columns.size());
 
-        checkValue(providers, row1, "<a href=\"http://twitterfeed.com\" rel=\"nofollow\">twitterfeed</a>");
-        checkValue(providers, row2, "EKentuckyN");
-        checkValue(providers, row3, 493857959588286460L);
-        checkValue(providers, row4, 7630);
-        checkValue(providers, row5, true);
+        checkValue(decodedRow, row1, "<a href=\"http://twitterfeed.com\" rel=\"nofollow\">twitterfeed</a>");
+        checkValue(decodedRow, row2, "EKentuckyN");
+        checkValue(decodedRow, row3, 493857959588286460L);
+        checkValue(decodedRow, row4, 7630);
+        checkValue(decodedRow, row5, true);
     }
 
     @Test
@@ -92,17 +90,16 @@ public class TestJsonDecoder
         DecoderTestColumnHandle row4 = new DecoderTestColumnHandle("", 3, "row4", BooleanType.BOOLEAN, "hello", null, null, false, false, false);
 
         List<DecoderColumnHandle> columns = ImmutableList.of(row1, row2, row3, row4);
-        Set<FieldValueProvider> providers = new HashSet<>();
 
-        boolean corrupt = rowDecoder.decodeRow(json, null, providers, columns, buildMap(columns));
-        assertFalse(corrupt);
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(json, null, columns, buildMap(columns))
+                .orElseThrow(AssertionError::new);
 
-        assertEquals(providers.size(), columns.size());
+        assertEquals(decodedRow.size(), columns.size());
 
-        checkIsNull(providers, row1);
-        checkIsNull(providers, row2);
-        checkIsNull(providers, row3);
-        checkIsNull(providers, row4);
+        checkIsNull(decodedRow, row1);
+        checkIsNull(decodedRow, row2);
+        checkIsNull(decodedRow, row3);
+        checkIsNull(decodedRow, row4);
     }
 
     @Test
@@ -117,16 +114,15 @@ public class TestJsonDecoder
         DecoderTestColumnHandle row4 = new DecoderTestColumnHandle("", 3, "row4", BigintType.BIGINT, "a_string", null, null, false, false, false);
 
         List<DecoderColumnHandle> columns = ImmutableList.of(row1, row2, row3, row4);
-        Set<FieldValueProvider> providers = new HashSet<>();
 
-        boolean corrupt = rowDecoder.decodeRow(json, null, providers, columns, buildMap(columns));
-        assertFalse(corrupt);
+        Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedRow = rowDecoder.decodeRow(json, null, columns, buildMap(columns));
+        assertTrue(decodedRow.isPresent());
 
-        assertEquals(providers.size(), columns.size());
+        assertEquals(decodedRow.get().size(), columns.size());
 
-        checkValue(providers, row1, "481516");
-        checkValue(providers, row2, 481516);
-        checkValue(providers, row3, "2342");
-        checkValue(providers, row4, 2342);
+        checkValue(decodedRow.get(), row1, "481516");
+        checkValue(decodedRow.get(), row2, 481516);
+        checkValue(decodedRow.get(), row3, "2342");
+        checkValue(decodedRow.get(), row4, 2342);
     }
 }
