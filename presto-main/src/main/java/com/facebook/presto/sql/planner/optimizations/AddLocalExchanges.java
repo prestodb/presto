@@ -537,6 +537,7 @@ public class AddLocalExchanges
             // enforce the required properties
             result = enforce(result, requiredProperties);
 
+            checkState(requiredProperties.isSatisfiedBy(result.getProperties()), "required properties not enforced");
             return result;
         }
 
