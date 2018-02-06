@@ -13,13 +13,10 @@
  */
 package com.facebook.presto.redis;
 
-import com.facebook.presto.decoder.FieldValueProvider;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.Type;
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 
 import java.util.Map;
 
@@ -122,89 +119,5 @@ public enum RedisInternalFieldDescription
     ColumnMetadata getColumnMetadata(boolean hidden)
     {
         return new ColumnMetadata(columnName, type, comment, hidden);
-    }
-
-    public FieldValueProvider forBooleanValue(boolean value)
-    {
-        return new BooleanRedisFieldValueProvider(value);
-    }
-
-    public FieldValueProvider forLongValue(long value)
-    {
-        return new LongRedisFieldValueProvider(value);
-    }
-
-    public FieldValueProvider forByteValue(byte[] value)
-    {
-        return new BytesRedisFieldValueProvider(value);
-    }
-
-    public class BooleanRedisFieldValueProvider
-            extends FieldValueProvider
-    {
-        private final boolean value;
-
-        private BooleanRedisFieldValueProvider(boolean value)
-        {
-            this.value = value;
-        }
-
-        @Override
-        public boolean getBoolean()
-        {
-            return value;
-        }
-
-        @Override
-        public boolean isNull()
-        {
-            return false;
-        }
-    }
-
-    public class LongRedisFieldValueProvider
-            extends FieldValueProvider
-    {
-        private final long value;
-
-        private LongRedisFieldValueProvider(long value)
-        {
-            this.value = value;
-        }
-
-        @Override
-        public long getLong()
-        {
-            return value;
-        }
-
-        @Override
-        public boolean isNull()
-        {
-            return false;
-        }
-    }
-
-    public class BytesRedisFieldValueProvider
-            extends FieldValueProvider
-    {
-        private final byte[] value;
-
-        private BytesRedisFieldValueProvider(byte[] value)
-        {
-            this.value = value;
-        }
-
-        @Override
-        public Slice getSlice()
-        {
-            return isNull() ? Slices.EMPTY_SLICE : Slices.wrappedBuffer(value);
-        }
-
-        @Override
-        public boolean isNull()
-        {
-            return value == null || value.length == 0;
-        }
     }
 }

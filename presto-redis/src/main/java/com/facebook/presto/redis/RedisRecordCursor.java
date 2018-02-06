@@ -36,6 +36,9 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.facebook.presto.decoder.FieldValueProviders.booleanValueProvider;
+import static com.facebook.presto.decoder.FieldValueProviders.bytesValueProvider;
+import static com.facebook.presto.decoder.FieldValueProviders.longValueProvider;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 import static redis.clients.jedis.ScanParams.SCAN_POINTER_START;
@@ -178,22 +181,22 @@ public class RedisRecordCursor
                 RedisInternalFieldDescription fieldDescription = RedisInternalFieldDescription.forColumnName(columnHandle.getName());
                 switch (fieldDescription) {
                     case KEY_FIELD:
-                        currentRowValuesMap.put(columnHandle, fieldDescription.forByteValue(keyData));
+                        currentRowValuesMap.put(columnHandle, bytesValueProvider(keyData));
                         break;
                     case VALUE_FIELD:
-                        currentRowValuesMap.put(columnHandle, fieldDescription.forByteValue(valueData));
+                        currentRowValuesMap.put(columnHandle, bytesValueProvider(valueData));
                         break;
                     case KEY_LENGTH_FIELD:
-                        currentRowValuesMap.put(columnHandle, fieldDescription.forLongValue(keyData.length));
+                        currentRowValuesMap.put(columnHandle, longValueProvider(keyData.length));
                         break;
                     case VALUE_LENGTH_FIELD:
-                        currentRowValuesMap.put(columnHandle, fieldDescription.forLongValue(valueData.length));
+                        currentRowValuesMap.put(columnHandle, longValueProvider(valueData.length));
                         break;
                     case KEY_CORRUPT_FIELD:
-                        currentRowValuesMap.put(columnHandle, fieldDescription.forBooleanValue(!decodedKey.isPresent()));
+                        currentRowValuesMap.put(columnHandle, booleanValueProvider(!decodedKey.isPresent()));
                         break;
                     case VALUE_CORRUPT_FIELD:
-                        currentRowValuesMap.put(columnHandle, fieldDescription.forBooleanValue(!decodedValue.isPresent()));
+                        currentRowValuesMap.put(columnHandle, booleanValueProvider(!decodedValue.isPresent()));
                         break;
                     default:
                         throw new IllegalArgumentException("unknown internal field " + fieldDescription);

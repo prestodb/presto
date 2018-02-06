@@ -13,13 +13,10 @@
  */
 package com.facebook.presto.kafka;
 
-import com.facebook.presto.decoder.FieldValueProvider;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.Type;
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 
 import java.util.Map;
 
@@ -147,89 +144,5 @@ public enum KafkaInternalFieldDescription
     ColumnMetadata getColumnMetadata(boolean hidden)
     {
         return new ColumnMetadata(columnName, type, comment, hidden);
-    }
-
-    public FieldValueProvider forBooleanValue(boolean value)
-    {
-        return new BooleanKafkaFieldValueProvider(value);
-    }
-
-    public FieldValueProvider forLongValue(long value)
-    {
-        return new LongKafkaFieldValueProvider(value);
-    }
-
-    public FieldValueProvider forByteValue(byte[] value)
-    {
-        return new BytesKafkaFieldValueProvider(value);
-    }
-
-    public class BooleanKafkaFieldValueProvider
-            extends FieldValueProvider
-    {
-        private final boolean value;
-
-        private BooleanKafkaFieldValueProvider(boolean value)
-        {
-            this.value = value;
-        }
-
-        @Override
-        public boolean getBoolean()
-        {
-            return value;
-        }
-
-        @Override
-        public boolean isNull()
-        {
-            return false;
-        }
-    }
-
-    public class LongKafkaFieldValueProvider
-            extends FieldValueProvider
-    {
-        private final long value;
-
-        private LongKafkaFieldValueProvider(long value)
-        {
-            this.value = value;
-        }
-
-        @Override
-        public long getLong()
-        {
-            return value;
-        }
-
-        @Override
-        public boolean isNull()
-        {
-            return false;
-        }
-    }
-
-    public class BytesKafkaFieldValueProvider
-            extends FieldValueProvider
-    {
-        private final byte[] value;
-
-        private BytesKafkaFieldValueProvider(byte[] value)
-        {
-            this.value = value;
-        }
-
-        @Override
-        public Slice getSlice()
-        {
-            return isNull() ? Slices.EMPTY_SLICE : Slices.wrappedBuffer(value);
-        }
-
-        @Override
-        public boolean isNull()
-        {
-            return value == null || value.length == 0;
-        }
     }
 }
