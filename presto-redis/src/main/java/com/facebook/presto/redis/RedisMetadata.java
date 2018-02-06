@@ -198,7 +198,7 @@ public class RedisMetadata
         }
 
         for (RedisInternalFieldDescription field : RedisInternalFieldDescription.values()) {
-            columnHandles.put(field.getName(), field.getColumnHandle(connectorId, index, hideInternalColumns));
+            columnHandles.put(field.getColumnName(), field.getColumnHandle(connectorId, index, hideInternalColumns));
             index++;
         }
 
