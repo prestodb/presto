@@ -19,15 +19,10 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
-import java.util.Objects;
-import java.util.Set;
-
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.util.Objects.requireNonNull;
@@ -38,44 +33,37 @@ import static java.util.Objects.requireNonNull;
  * forBooleanValue/forLongValue/forBytesValue methods and the resulting FieldValueProvider is then passed into the appropriate row decoder, the fields
  * will be null. Most values are assigned in the {@link RedisRecordSet}.
  */
-public class RedisInternalFieldDescription
+public enum RedisInternalFieldDescription
 {
     /**
      * <tt>_key</tt> - Represents the key as a text column.
      */
-    public static final RedisInternalFieldDescription KEY_FIELD = new RedisInternalFieldDescription("_key", createUnboundedVarcharType(), "Key text");
+    KEY_FIELD("_key", createUnboundedVarcharType(), "Key text"),
 
     /**
      * <tt>_value</tt> - Represents the value as a text column. Format is UTF-8
      */
-    public static final RedisInternalFieldDescription VALUE_FIELD = new RedisInternalFieldDescription("_value", createUnboundedVarcharType(), "Value text");
+    VALUE_FIELD("_value", createUnboundedVarcharType(), "Value text"),
 
     /**
      * <tt>_value_corrupt</tt> - True if the row converter could not read the value. May be null if the row converter does not set a value (e.g. the dummy row converter does not).
      */
-    public static final RedisInternalFieldDescription VALUE_CORRUPT_FIELD = new RedisInternalFieldDescription("_value_corrupt", BooleanType.BOOLEAN, "Value data is corrupt");
+    VALUE_CORRUPT_FIELD("_value_corrupt", BooleanType.BOOLEAN, "Value data is corrupt"),
 
     /**
      * <tt>_value_length</tt> - length in bytes of the value.
      */
-    public static final RedisInternalFieldDescription VALUE_LENGTH_FIELD = new RedisInternalFieldDescription("_value_length", BigintType.BIGINT, "Total number of value bytes");
+    VALUE_LENGTH_FIELD("_value_length", BigintType.BIGINT, "Total number of value bytes"),
 
     /**
      * <tt>_key_corrupt</tt> - True if the row converter could not read the key. May be null if the row converter does not set a value (e.g. the dummy row converter does not).
      */
-    public static final RedisInternalFieldDescription KEY_CORRUPT_FIELD = new RedisInternalFieldDescription("_key_corrupt", BooleanType.BOOLEAN, "Key data is corrupt");
+    KEY_CORRUPT_FIELD("_key_corrupt", BooleanType.BOOLEAN, "Key data is corrupt"),
 
     /**
      * <tt>_key_length</tt> - length in bytes of the key.
      */
-    public static final RedisInternalFieldDescription KEY_LENGTH_FIELD = new RedisInternalFieldDescription("_key_length", BigintType.BIGINT, "Total number of key bytes");
-
-    public static Set<RedisInternalFieldDescription> getInternalFields()
-    {
-        return ImmutableSet.of(KEY_FIELD, VALUE_FIELD,
-                KEY_LENGTH_FIELD, VALUE_LENGTH_FIELD,
-                KEY_CORRUPT_FIELD, VALUE_CORRUPT_FIELD);
-    }
+    KEY_LENGTH_FIELD("_key_length", BigintType.BIGINT, "Total number of key bytes");
 
     private final String name;
     private final Type type;
@@ -134,36 +122,6 @@ public class RedisInternalFieldDescription
     public FieldValueProvider forByteValue(byte[] value)
     {
         return new BytesRedisFieldValueProvider(value);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(name, type);
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-
-        RedisInternalFieldDescription other = (RedisInternalFieldDescription) obj;
-        return Objects.equals(this.name, other.name) &&
-                Objects.equals(this.type, other.type);
-    }
-
-    @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .add("name", name)
-                .add("type", type)
-                .toString();
     }
 
     public class BooleanRedisFieldValueProvider
