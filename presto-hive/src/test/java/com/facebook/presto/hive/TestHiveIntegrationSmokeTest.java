@@ -130,32 +130,6 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
-    public void testInformationSchemaTablesWithoutEqualityConstraint()
-    {
-        assertQuery(
-                "SELECT table_name FROM information_schema.tables " +
-                        "WHERE table_catalog = '" + catalog + "' AND table_schema LIKE 'tpch' AND table_name LIKE '%orders'",
-                "VALUES 'orders'");
-    }
-
-    @Test
-    public void testInformationSchemaColumnsWithoutEqualityConstraint()
-    {
-        assertQuery(
-                "SELECT table_name, column_name FROM information_schema.columns " +
-                        "WHERE table_catalog = '" + catalog + "' AND table_schema = 'tpch' AND table_name LIKE '%orders%'",
-                "VALUES ('orders', 'orderkey'), " +
-                        "('orders', 'custkey'), " +
-                        "('orders', 'orderstatus'), " +
-                        "('orders', 'totalprice'), " +
-                        "('orders', 'orderdate'), " +
-                        "('orders', 'orderpriority'), " +
-                        "('orders', 'clerk'), " +
-                        "('orders', 'shippriority'), " +
-                        "('orders', 'comment')");
-    }
-
-    @Test
     public void createTableWithEveryType()
     {
         @Language("SQL") String query = "" +
