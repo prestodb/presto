@@ -21,7 +21,6 @@ import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
-import com.google.inject.multibindings.Multibinder;
 
 import javax.inject.Inject;
 
@@ -54,16 +53,6 @@ public class KafkaConnectorModule
         jsonCodecBinder(binder).bindJsonCodec(KafkaTopicDescription.class);
 
         binder.install(new DecoderModule());
-
-        for (KafkaInternalFieldDescription internalFieldDescription : KafkaInternalFieldDescription.getInternalFields()) {
-            bindInternalColumn(binder, internalFieldDescription);
-        }
-    }
-
-    private static void bindInternalColumn(Binder binder, KafkaInternalFieldDescription fieldDescription)
-    {
-        Multibinder<KafkaInternalFieldDescription> fieldDescriptionBinder = Multibinder.newSetBinder(binder, KafkaInternalFieldDescription.class);
-        fieldDescriptionBinder.addBinding().toInstance(fieldDescription);
     }
 
     public static final class TypeDeserializer
