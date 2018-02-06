@@ -114,6 +114,7 @@ import com.facebook.presto.operator.scalar.TryFunction;
 import com.facebook.presto.operator.scalar.TypeOfFunction;
 import com.facebook.presto.operator.scalar.UrlFunctions;
 import com.facebook.presto.operator.scalar.VarbinaryFunctions;
+import com.facebook.presto.operator.scalar.WordStemFunction;
 import com.facebook.presto.operator.window.CumulativeDistributionFunction;
 import com.facebook.presto.operator.window.DenseRankFunction;
 import com.facebook.presto.operator.window.FirstValueFunction;
@@ -442,6 +443,7 @@ public class FunctionRegistry
                 .scalar(RepeatFunction.class)
                 .scalars(SequenceFunction.class)
                 .scalars(StringFunctions.class)
+                .scalars(WordStemFunction.class)
                 .scalars(SplitToMapFunction.class)
                 .scalars(VarbinaryFunctions.class)
                 .scalars(UrlFunctions.class)
