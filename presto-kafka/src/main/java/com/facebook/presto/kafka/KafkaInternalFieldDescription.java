@@ -90,24 +90,24 @@ public enum KafkaInternalFieldDescription
      */
     KEY_LENGTH_FIELD("_key_length", BigintType.BIGINT, "Total number of key bytes");
 
-    private final String name;
+    private final String columnName;
     private final Type type;
     private final String comment;
 
     KafkaInternalFieldDescription(
-            String name,
+            String columnName,
             Type type,
             String comment)
     {
-        checkArgument(!isNullOrEmpty(name), "name is null or is empty");
-        this.name = name;
+        checkArgument(!isNullOrEmpty(columnName), "name is null or is empty");
+        this.columnName = columnName;
         this.type = requireNonNull(type, "type is null");
         this.comment = requireNonNull(comment, "comment is null");
     }
 
-    public String getName()
+    public String getColumnName()
     {
-        return name;
+        return columnName;
     }
 
     public Type getType()
@@ -119,7 +119,7 @@ public enum KafkaInternalFieldDescription
     {
         return new KafkaColumnHandle(connectorId,
                 index,
-                getName(),
+                getColumnName(),
                 getType(),
                 null,
                 null,
@@ -131,7 +131,7 @@ public enum KafkaInternalFieldDescription
 
     ColumnMetadata getColumnMetadata(boolean hidden)
     {
-        return new ColumnMetadata(name, type, comment, hidden);
+        return new ColumnMetadata(columnName, type, comment, hidden);
     }
 
     public FieldValueProvider forBooleanValue(boolean value)
@@ -162,7 +162,7 @@ public enum KafkaInternalFieldDescription
         @Override
         public boolean accept(DecoderColumnHandle columnHandle)
         {
-            return columnHandle.getName().equals(name);
+            return columnHandle.getName().equals(columnName);
         }
 
         @Override
@@ -191,7 +191,7 @@ public enum KafkaInternalFieldDescription
         @Override
         public boolean accept(DecoderColumnHandle columnHandle)
         {
-            return columnHandle.getName().equals(name);
+            return columnHandle.getName().equals(columnName);
         }
 
         @Override
@@ -220,7 +220,7 @@ public enum KafkaInternalFieldDescription
         @Override
         public boolean accept(DecoderColumnHandle columnHandle)
         {
-            return columnHandle.getName().equals(name);
+            return columnHandle.getName().equals(columnName);
         }
 
         @Override
