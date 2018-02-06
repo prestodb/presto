@@ -27,6 +27,7 @@ import com.facebook.presto.connector.thrift.api.PrestoThriftSplitBatch;
 import com.facebook.presto.connector.thrift.api.PrestoThriftTupleDomain;
 import com.facebook.presto.connector.thrift.api.datatypes.PrestoThriftInteger;
 import com.facebook.presto.connector.thrift.clientproviders.PrestoThriftServiceProvider;
+import com.facebook.presto.connector.thrift.tracetoken.ThriftTraceToken;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.InMemoryRecordSet;
 import com.facebook.presto.spi.Page;
@@ -43,6 +44,7 @@ import org.testng.annotations.Test;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -100,7 +102,8 @@ public class TestThriftIndexPageSource
                 ImmutableList.of(column("b", INTEGER)),
                 new InMemoryRecordSet(ImmutableList.of(INTEGER), generateKeys(0, splits)),
                 MAX_BYTES_PER_RESPONSE,
-                lookupRequestsConcurrency);
+                lookupRequestsConcurrency,
+                Optional.empty());
 
         assertNull(pageSource.getNextPage());
         assertEquals((long) stats.getIndexPageSize().getAllTime().getTotal(), 0);
@@ -206,7 +209,8 @@ public class TestThriftIndexPageSource
                 ImmutableList.of(column("b", INTEGER)),
                 new InMemoryRecordSet(ImmutableList.of(INTEGER), generateKeys(1, splits + 1)),
                 MAX_BYTES_PER_RESPONSE,
-                lookupRequestsConcurrency);
+                lookupRequestsConcurrency,
+                Optional.empty());
 
         List<Integer> actual = new ArrayList<>();
         while (!pageSource.isFinished()) {
@@ -359,13 +363,13 @@ public class TestThriftIndexPageSource
         }
 
         @Override
-        public PrestoThriftService anyHostClient()
+        public PrestoThriftService anyHostClient(Optional<ThriftTraceToken> traceToken)
         {
             return client;
         }
 
         @Override
-        public PrestoThriftService selectedHostClient(List<HostAddress> hosts)
+        public PrestoThriftService selectedHostClient(List<HostAddress> hosts, Optional<ThriftTraceToken> traceToken)
         {
             return client;
         }

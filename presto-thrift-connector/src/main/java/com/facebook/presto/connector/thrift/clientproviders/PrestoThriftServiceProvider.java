@@ -14,20 +14,22 @@
 package com.facebook.presto.connector.thrift.clientproviders;
 
 import com.facebook.presto.connector.thrift.api.PrestoThriftService;
+import com.facebook.presto.connector.thrift.tracetoken.ThriftTraceToken;
 import com.facebook.presto.spi.HostAddress;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Function;
 
 public interface PrestoThriftServiceProvider
 {
-    PrestoThriftService anyHostClient();
+    PrestoThriftService anyHostClient(Optional<ThriftTraceToken> traceToken);
 
-    PrestoThriftService selectedHostClient(List<HostAddress> hosts);
+    PrestoThriftService selectedHostClient(List<HostAddress> hosts, Optional<ThriftTraceToken> traceToken);
 
     default <V> V runOnAnyHost(Function<PrestoThriftService, V> call)
     {
-        try (PrestoThriftService client = anyHostClient()) {
+        try (PrestoThriftService client = anyHostClient(Optional.empty())) {
             return call.apply(client);
         }
     }

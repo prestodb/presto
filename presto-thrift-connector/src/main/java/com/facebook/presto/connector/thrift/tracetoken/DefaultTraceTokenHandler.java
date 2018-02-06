@@ -11,20 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.connector.thrift.clientproviders;
+package com.facebook.presto.connector.thrift.tracetoken;
 
-import com.facebook.presto.connector.thrift.tracetoken.ThriftTraceToken;
-import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.connector.thrift.api.PrestoThriftService;
 
-import java.util.List;
-import java.util.Optional;
-
-public interface ConnectedThriftServiceProvider
-        extends PrestoThriftServiceProvider
+public class DefaultTraceTokenHandler
+        implements ThriftTraceTokenHandler
 {
     @Override
-    ConnectedThriftService anyHostClient(Optional<ThriftTraceToken> traceToken);
-
-    @Override
-    ConnectedThriftService selectedHostClient(List<HostAddress> hosts, Optional<ThriftTraceToken> traceToken);
+    public PrestoThriftService applyTraceToken(PrestoThriftService client, ThriftTraceToken traceToken)
+    {
+        return client;
+    }
 }

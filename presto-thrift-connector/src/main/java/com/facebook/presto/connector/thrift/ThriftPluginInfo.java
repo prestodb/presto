@@ -14,6 +14,8 @@
 package com.facebook.presto.connector.thrift;
 
 import com.facebook.presto.connector.thrift.location.StaticLocationModule;
+import com.facebook.presto.connector.thrift.tracetoken.DefaultTraceTokenHandler;
+import com.facebook.presto.connector.thrift.tracetoken.ThriftTraceTokenHandler;
 import com.google.inject.Module;
 
 public class ThriftPluginInfo
@@ -26,5 +28,10 @@ public class ThriftPluginInfo
     public Module getLocationModule()
     {
         return new StaticLocationModule();
+    }
+
+    public Class<? extends ThriftTraceTokenHandler> getTraceTokenHandler()
+    {
+        return DefaultTraceTokenHandler.class;
     }
 }

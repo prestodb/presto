@@ -46,6 +46,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.connector.thrift.ThriftSessionProperties.getTraceToken;
 import static com.facebook.presto.connector.thrift.util.TupleDomainConversion.tupleDomainToThriftTupleDomain;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -69,7 +70,7 @@ public class ThriftSplitManager
     {
         ThriftTableLayoutHandle layoutHandle = (ThriftTableLayoutHandle) layout;
         return new ThriftSplitSource(
-                clientProvider.anyHostClient(),
+                clientProvider.anyHostClient(getTraceToken(session)),
                 new PrestoThriftSchemaTableName(layoutHandle.getSchemaName(), layoutHandle.getTableName()),
                 layoutHandle.getColumns().map(ThriftSplitManager::columnNames),
                 tupleDomainToThriftTupleDomain(layoutHandle.getConstraint()));

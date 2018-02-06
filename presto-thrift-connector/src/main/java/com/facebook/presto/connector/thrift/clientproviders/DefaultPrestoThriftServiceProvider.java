@@ -27,6 +27,8 @@ import com.facebook.presto.connector.thrift.api.PrestoThriftSplitBatch;
 import com.facebook.presto.connector.thrift.api.PrestoThriftTupleDomain;
 import com.facebook.presto.connector.thrift.location.HostLocationHandle;
 import com.facebook.presto.connector.thrift.location.HostLocationProvider;
+import com.facebook.presto.connector.thrift.tracetoken.ThriftTraceToken;
+import com.facebook.presto.connector.thrift.tracetoken.ThriftTraceTokenHandler;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.swift.service.ThriftClient;
@@ -37,6 +39,7 @@ import io.airlift.units.Duration;
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -50,36 +53,43 @@ public class DefaultPrestoThriftServiceProvider
     private final ThriftClient<PrestoThriftService> thriftClient;
     private final HostLocationProvider locationProvider;
     private final long thriftConnectTimeoutMs;
+    private final ThriftTraceTokenHandler traceTokenHandler;
 
     @Inject
-    public DefaultPrestoThriftServiceProvider(ThriftClient<PrestoThriftService> thriftClient, HostLocationProvider locationProvider)
+    public DefaultPrestoThriftServiceProvider(
+            ThriftClient<PrestoThriftService> thriftClient,
+            HostLocationProvider locationProvider,
+            ThriftTraceTokenHandler traceTokenHandler)
     {
         this.thriftClient = requireNonNull(thriftClient, "thriftClient is null");
         this.locationProvider = requireNonNull(locationProvider, "locationProvider is null");
         this.thriftConnectTimeoutMs = Duration.valueOf(thriftClient.getConnectTimeout()).toMillis();
+        this.traceTokenHandler = requireNonNull(traceTokenHandler, "traceTokenHandler is null");
     }
 
     @Override
-    public ConnectedThriftService anyHostClient()
+    public ConnectedThriftService anyHostClient(Optional<ThriftTraceToken> traceToken)
     {
         HostLocationHandle hostLocationHandle = locationProvider.getAnyHost();
-        PrestoThriftService prestoThriftService = connectTo(hostLocationHandle.getHostAddress());
+        PrestoThriftService prestoThriftService = connectTo(hostLocationHandle.getHostAddress(), traceToken);
         return new DefaultThriftService(prestoThriftService, hostLocationHandle);
     }
 
     @Override
-    public ConnectedThriftService selectedHostClient(List<HostAddress> hosts)
+    public ConnectedThriftService selectedHostClient(List<HostAddress> hosts, Optional<ThriftTraceToken> traceToken)
     {
         HostLocationHandle hostLocationHandle = locationProvider.getAnyOf(hosts);
-        PrestoThriftService prestoThriftService = connectTo(hostLocationHandle.getHostAddress());
+        PrestoThriftService prestoThriftService = connectTo(hostLocationHandle.getHostAddress(), traceToken);
         return new DefaultThriftService(prestoThriftService, hostLocationHandle);
     }
 
-    private PrestoThriftService connectTo(HostAddress host)
+    private PrestoThriftService connectTo(HostAddress host, Optional<ThriftTraceToken> traceToken)
     {
         try {
-            return thriftClient.open(new FramedClientConnector(HostAndPort.fromParts(host.getHostText(), host.getPort())))
+            PrestoThriftService client = thriftClient.open(new FramedClientConnector(HostAndPort.fromParts(host.getHostText(), host.getPort())))
                     .get(thriftConnectTimeoutMs, TimeUnit.MILLISECONDS);
+            traceToken.ifPresent(traceTokenValue -> traceTokenHandler.applyTraceToken(client, traceTokenValue));
+            return client;
         }
         catch (InterruptedException e) {
             Thread.currentThread().interrupt();

@@ -18,6 +18,7 @@ import com.facebook.presto.connector.thrift.api.PrestoThriftNullableToken;
 import com.facebook.presto.connector.thrift.api.PrestoThriftPageResult;
 import com.facebook.presto.connector.thrift.api.PrestoThriftService;
 import com.facebook.presto.connector.thrift.clientproviders.PrestoThriftServiceProvider;
+import com.facebook.presto.connector.thrift.tracetoken.ThriftTraceToken;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
@@ -26,6 +27,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -57,7 +59,8 @@ public class ThriftPageSource
             ThriftConnectorSplit split,
             List<ColumnHandle> columns,
             ThriftConnectorStats stats,
-            long maxBytesPerResponse)
+            long maxBytesPerResponse,
+            Optional<ThriftTraceToken> traceToken)
     {
         // init columns
         requireNonNull(columns, "columns is null");
@@ -83,11 +86,12 @@ public class ThriftPageSource
 
         // init client
         requireNonNull(clientProvider, "clientProvider is null");
+        requireNonNull(traceToken, "traceToken is null");
         if (split.getAddresses().isEmpty()) {
-            this.client = clientProvider.anyHostClient();
+            this.client = clientProvider.anyHostClient(traceToken);
         }
         else {
-            this.client = clientProvider.selectedHostClient(split.getAddresses());
+            this.client = clientProvider.selectedHostClient(split.getAddresses(), traceToken);
         }
     }
 

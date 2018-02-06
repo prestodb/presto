@@ -25,6 +25,7 @@ import javax.inject.Inject;
 
 import java.util.List;
 
+import static com.facebook.presto.connector.thrift.ThriftSessionProperties.getTraceToken;
 import static java.util.Objects.requireNonNull;
 
 public class ThriftPageSourceProvider
@@ -49,6 +50,6 @@ public class ThriftPageSourceProvider
             ConnectorSplit split,
             List<ColumnHandle> columns)
     {
-        return new ThriftPageSource(clientProvider, (ThriftConnectorSplit) split, columns, stats, maxBytesPerResponse);
+        return new ThriftPageSource(clientProvider, (ThriftConnectorSplit) split, columns, stats, maxBytesPerResponse, getTraceToken(session));
     }
 }
