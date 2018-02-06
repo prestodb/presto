@@ -197,7 +197,6 @@
                         <exclude>**/TestDistributedQueriesNoHashGeneration.java</exclude>
                         <exclude>**/TestLocalQueries.java</exclude>
                         <exclude>**/TestLocalQueriesIndexed.java</exclude>
-                        <exclude>**/TestLocalBinarySpilledQueries.java</exclude>
                     </excludes>
                 </configuration>
             </plugin>
@@ -233,7 +232,6 @@
                                 <include>**/TestDistributedQueriesNoHashGeneration.java</include>
                                 <include>**/TestLocalQueries.java</include>
                                 <include>**/TestLocalQueriesIndexed.java</include>
-                                <include>**/TestLocalBinarySpilledQueries.java</include>
                             </includes>
                         </configuration>
                     </plugin>
