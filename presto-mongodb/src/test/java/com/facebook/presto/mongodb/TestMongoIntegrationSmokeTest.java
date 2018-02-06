@@ -19,7 +19,6 @@ import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.bson.Document;
-import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -57,18 +56,6 @@ public class TestMongoIntegrationSmokeTest
     {
         mongoQueryRunner.shutdown();
         mongoQueryRunner = null;
-    }
-
-    @Override
-    public void testSelectInformationSchemaColumns()
-    {
-        throw new SkipException("this fails for Kafka"); // TODO
-    }
-
-    @Override
-    public void testInformationSchemaColumnsWithoutEqualityConstraint()
-    {
-        throw new SkipException("this fails for Kafka"); // TODO
     }
 
     @Test
