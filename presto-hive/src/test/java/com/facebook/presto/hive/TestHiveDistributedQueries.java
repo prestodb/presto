@@ -16,6 +16,8 @@ package com.facebook.presto.hive;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
 
 import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
+import static com.facebook.presto.tests.FeatureSet.allFeatures;
+import static com.facebook.presto.tests.TestedFeature.DELETE_DATA;
 import static io.airlift.tpch.TpchTable.getTables;
 
 public class TestHiveDistributedQueries
@@ -23,13 +25,8 @@ public class TestHiveDistributedQueries
 {
     public TestHiveDistributedQueries()
     {
-        super(() -> createQueryRunner(getTables()));
-    }
-
-    @Override
-    public void testDelete()
-    {
         // Hive connector currently does not support row-by-row delete
+        super(allFeatures().excluding(DELETE_DATA), () -> createQueryRunner(getTables()));
     }
 
     // Hive specific tests should normally go in TestHiveIntegrationSmokeTest
