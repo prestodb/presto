@@ -95,7 +95,6 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
-import static java.util.Arrays.asList;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.IntStream.range;
@@ -1221,15 +1220,15 @@ public abstract class AbstractTestQueries
                 .setSystemProperty(LEGACY_ORDER_BY, "true")
                 .build();
 
-        for (Session session : asList(getSession(), legacyOrderBy)) {
-            for (String groupBy : asList("x.letter", "letter")) {
-                for (String orderBy : asList("x.letter", "letter")) {
-                    for (String output : asList("", ", letter", ", letter as y")) {
-                        assertQueryOrdered(session, format("select count(*) %s from (select substr(name,1,1) letter from nation) x group by %s order by %s", output, groupBy, orderBy));
-                    }
-                }
-            }
-        }
+        queryTemplate("select count(*) %output% from (select substr(name,1,1) letter from nation) x group by %groupBy% order by %orderBy%")
+                .replaceAll(
+                        parameter("output").of("", ", letter", ", letter as y"),
+                        parameter("groupBy").of("x.letter", "letter"),
+                        parameter("orderBy").of("x.letter", "letter"))
+                .forEach(query -> {
+                    assertQueryOrdered(query);
+                    assertQueryOrdered(legacyOrderBy, query);
+                });
     }
 
     @Test
