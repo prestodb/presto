@@ -16,7 +16,6 @@ package com.facebook.presto.decoder.util;
 import com.facebook.presto.decoder.DecoderColumnHandle;
 import com.facebook.presto.decoder.FieldValueProvider;
 
-import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
 import static org.testng.Assert.assertEquals;
@@ -31,7 +30,7 @@ public final class DecoderTestUtil
     {
         FieldValueProvider provider = decodedRow.get(handle);
         assertNotNull(provider);
-        assertEquals(new String(provider.getSlice().getBytes(), StandardCharsets.UTF_8), value);
+        assertEquals(provider.getSlice().toStringUtf8(), value);
     }
 
     public static void checkValue(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle, long value)
