@@ -75,6 +75,7 @@ import static com.facebook.presto.spi.type.DateTimeEncoding.packDateTimeWithZone
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
@@ -84,6 +85,7 @@ import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharTyp
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.type.JsonType.JSON;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
+import static com.facebook.presto.util.StructuralTestUtil.mapType;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -1509,13 +1511,20 @@ public class TestExpressionCompiler
     }
 
     @Test
-    public void testNullifForUnknown()
+    public void testNullif()
             throws Exception
     {
         assertExecute("nullif(NULL, NULL)", UNKNOWN, null);
         assertExecute("nullif(NULL, 2)", UNKNOWN, null);
         assertExecute("nullif(2, NULL)", INTEGER, 2);
         assertExecute("nullif(BIGINT '2', NULL)", BIGINT, 2L);
+
+        // Test coercion in which the CAST function takes ConnectorSession (e.g. MapToMapCast)
+        assertExecute("nullif(" +
+                        "map(array[1], array[smallint '1']), " +
+                        "map(array[1], array[integer '1']))",
+                mapType(INTEGER, SMALLINT),
+                null);
 
         Futures.allAsList(futures).get();
     }
