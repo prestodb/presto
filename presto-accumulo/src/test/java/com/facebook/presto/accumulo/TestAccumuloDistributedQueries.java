@@ -15,12 +15,16 @@ package com.facebook.presto.accumulo;
 
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
+import com.facebook.presto.tests.FeatureSelection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.accumulo.AccumuloQueryRunner.createAccumuloQueryRunner;
+import static com.facebook.presto.tests.TestedFeature.ADD_COLUMN;
+import static com.facebook.presto.tests.TestedFeature.DELETE;
+import static com.facebook.presto.tests.TestedFeature.DROP_COLUMN;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -39,19 +43,7 @@ public class TestAccumuloDistributedQueries
 {
     public TestAccumuloDistributedQueries()
     {
-        super(() -> createAccumuloQueryRunner(ImmutableMap.of()));
-    }
-
-    @Override
-    public void testAddColumn()
-    {
-        // Adding columns via SQL are not supported until adding columns with comments are supported
-    }
-
-    @Override
-    public void testDropColumn()
-    {
-        // Dropping columns are not supported by the connector
+        super(() -> createAccumuloQueryRunner(ImmutableMap.of()), FeatureSelection.allFeatures().excluding(ADD_COLUMN, DROP_COLUMN, DELETE));
     }
 
     @Override
@@ -87,12 +79,6 @@ public class TestAccumuloDistributedQueries
                 "SELECT * FROM orders WITH NO DATA",
                 "SELECT * FROM orders LIMIT 0",
                 "SELECT 0");
-    }
-
-    @Override
-    public void testDelete()
-    {
-        // Deletes are not supported by the connector
     }
 
     @Override
