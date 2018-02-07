@@ -151,9 +151,14 @@ public abstract class AbstractTestQueries
 
     private static final String UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG = "line .*: Given correlated subquery is not supported";
 
-    protected AbstractTestQueries(QueryRunnerSupplier supplier)
+    public AbstractTestQueries(QueryRunnerSupplier supplier)
     {
-        super(supplier);
+        this(supplier, FeatureSelection.all());
+    }
+
+    protected AbstractTestQueries(QueryRunnerSupplier supplier, FeatureSelection featureSelection)
+    {
+        super(supplier, featureSelection);
     }
 
     @Test

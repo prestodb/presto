@@ -56,6 +56,7 @@ import static com.facebook.presto.testing.TestingAccessControlManager.privilege;
 import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.tests.QueryAssertions.assertContains;
+import static com.facebook.presto.tests.TestedFeature.VIEW;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static io.airlift.units.Duration.nanosSince;
@@ -77,9 +78,9 @@ public abstract class AbstractTestDistributedQueries
         super(supplier);
     }
 
-    protected boolean supportsViews()
+    protected AbstractTestDistributedQueries(QueryRunnerSupplier supplier, FeatureSelection featureSelection)
     {
-        return true;
+        super(supplier, featureSelection);
     }
 
     @Test
@@ -592,7 +593,7 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testView()
     {
-        skipTestUnless(supportsViews());
+        featuresToTest(VIEW);
 
         @Language("SQL") String query = "SELECT orderkey, orderstatus, totalprice / 2 half FROM orders";
 
@@ -616,7 +617,7 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testViewCaseSensitivity()
     {
-        skipTestUnless(supportsViews());
+        featuresToTest(VIEW);
 
         computeActual("CREATE VIEW test_view_uppercase AS SELECT X FROM (SELECT 123 X)");
         computeActual("CREATE VIEW test_view_mixedcase AS SELECT XyZ FROM (SELECT 456 XyZ)");
@@ -627,7 +628,7 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testCompatibleTypeChangeForView()
     {
-        skipTestUnless(supportsViews());
+        featuresToTest(VIEW);
 
         assertUpdate("CREATE TABLE test_table_1 AS SELECT 'abcdefg' a", 1);
         assertUpdate("CREATE VIEW test_view_1 AS SELECT a FROM test_table_1");
@@ -647,7 +648,7 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testCompatibleTypeChangeForView2()
     {
-        skipTestUnless(supportsViews());
+        featuresToTest(VIEW);
 
         assertUpdate("CREATE TABLE test_table_2 AS SELECT BIGINT '1' v", 1);
         assertUpdate("CREATE VIEW test_view_2 AS SELECT * FROM test_table_2");
@@ -667,7 +668,7 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testViewMetadata()
     {
-        skipTestUnless(supportsViews());
+        featuresToTest(VIEW);
 
         @Language("SQL") String query = "SELECT BIGINT '123' x, 'foo' y";
         assertUpdate("CREATE VIEW meta_test_view AS " + query);
@@ -838,7 +839,7 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testNonQueryAccessControl()
     {
-        skipTestUnless(supportsViews());
+        featuresToTest(VIEW);
 
         assertAccessDenied("SET SESSION " + QUERY_MAX_MEMORY + " = '10MB'",
                 "Cannot set system session property " + QUERY_MAX_MEMORY,
@@ -865,7 +866,7 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testViewAccessControl()
     {
-        skipTestUnless(supportsViews());
+        featuresToTest(VIEW);
 
         Session viewOwnerSession = TestingSession.testSessionBuilder()
                 .setIdentity(new Identity("test_view_access_owner", Optional.empty()))

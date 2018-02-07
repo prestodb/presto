@@ -28,7 +28,7 @@ public abstract class AbstractTestIntegrationSmokeTest
 {
     protected AbstractTestIntegrationSmokeTest(QueryRunnerSupplier supplier)
     {
-        super(supplier);
+        super(supplier, FeatureSelection.all());
     }
 
     @Test
