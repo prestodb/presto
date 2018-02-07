@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.decoder;
 
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -23,22 +22,14 @@ import java.util.Optional;
 public interface RowDecoder
 {
     /**
-     * Returns the row decoder specific name.
-     */
-    String getName();
-
-    /**
      * Decodes a given set of bytes into field values.
      *
      * @param data The row data to decode.
-     * @param dataMap The row  data with as fields map
-     * @param columnHandles List of column handles for which field values are required.
-     * @param fieldDecoders Map from column handles to decoders. This map should be used to look up the field decoder that generates the field value provider for a given column handle.
+     * @param dataMap The row data as fields map
+     *
      * @return Returns mapping from column handle to decoded value. Unmapped columns will be reported as null. Optional.empty() signals decoding error.
      */
     Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodeRow(
             byte[] data,
-            Map<String, String> dataMap,
-            List<DecoderColumnHandle> columnHandles,
-            Map<DecoderColumnHandle, FieldDecoder<?>> fieldDecoders);
+            Map<String, String> dataMap);
 }

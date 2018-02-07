@@ -13,23 +13,18 @@
  */
 package com.facebook.presto.decoder.csv;
 
-import com.google.inject.Binder;
-import com.google.inject.Module;
+import com.facebook.presto.decoder.DecoderColumnHandle;
+import com.facebook.presto.decoder.RowDecoder;
+import com.facebook.presto.decoder.RowDecoderFactory;
 
-import static com.facebook.presto.decoder.DecoderModule.bindFieldDecoder;
-import static com.facebook.presto.decoder.DecoderModule.bindRowDecoder;
+import java.util.Set;
 
-/**
- * CSV decoder guice module.
- */
-public class CsvDecoderModule
-        implements Module
+public class CsvRowDecoderFactory
+        implements RowDecoderFactory
 {
     @Override
-    public void configure(Binder binder)
+    public RowDecoder create(Set<DecoderColumnHandle> columns)
     {
-        bindRowDecoder(binder, CsvRowDecoder.class);
-
-        bindFieldDecoder(binder, CsvFieldDecoder.class);
+        return new CsvRowDecoder(columns);
     }
 }

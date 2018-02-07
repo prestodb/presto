@@ -17,9 +17,9 @@ import com.facebook.presto.decoder.DecoderColumnHandle;
 import com.facebook.presto.decoder.FieldDecoder;
 import com.facebook.presto.decoder.FieldValueProvider;
 import com.facebook.presto.decoder.RowDecoder;
+import com.google.common.collect.ImmutableMap;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -34,39 +34,31 @@ public class HashRedisRowDecoder
 {
     public static final String NAME = "hash";
 
-    @Override
-    public String getName()
+    private final Map<DecoderColumnHandle, FieldDecoder<String>> fieldDecoders;
+
+    public HashRedisRowDecoder(Map<DecoderColumnHandle, FieldDecoder<String>> fieldDecoders)
     {
-        return NAME;
+        this.fieldDecoders = ImmutableMap.copyOf(fieldDecoders);
     }
 
     @Override
-    public Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodeRow(byte[] data,
-            Map<String, String> dataMap,
-            List<DecoderColumnHandle> columnHandles,
-            Map<DecoderColumnHandle, FieldDecoder<?>> fieldDecoders)
+    public Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodeRow(byte[] data, Map<String, String> dataMap)
     {
         if (dataMap == null) {
             return Optional.of(emptyMap());
         }
 
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = new HashMap<>();
-        for (DecoderColumnHandle columnHandle : columnHandles) {
-            if (columnHandle.isInternal()) {
-                continue;
-            }
+        for (Map.Entry<DecoderColumnHandle, FieldDecoder<String>> entry : fieldDecoders.entrySet()) {
+            DecoderColumnHandle columnHandle = entry.getKey();
 
             String mapping = columnHandle.getMapping();
             checkState(mapping != null, "No mapping for column handle %s!", columnHandle);
 
             String valueField = dataMap.get(mapping);
 
-            @SuppressWarnings("unchecked")
-            FieldDecoder<String> decoder = (FieldDecoder<String>) fieldDecoders.get(columnHandle);
-
-            if (decoder != null) {
-                decodedRow.put(columnHandle, decoder.decode(valueField, columnHandle));
-            }
+            FieldDecoder<String> decoder = entry.getValue();
+            decodedRow.put(columnHandle, decoder.decode(valueField, columnHandle));
         }
         return Optional.of(decodedRow);
     }

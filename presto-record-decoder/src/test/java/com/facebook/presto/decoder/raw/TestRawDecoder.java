@@ -15,18 +15,17 @@ package com.facebook.presto.decoder.raw;
 
 import com.facebook.presto.decoder.DecoderColumnHandle;
 import com.facebook.presto.decoder.DecoderTestColumnHandle;
-import com.facebook.presto.decoder.FieldDecoder;
 import com.facebook.presto.decoder.FieldValueProvider;
+import com.facebook.presto.decoder.RowDecoder;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static com.facebook.presto.decoder.util.DecoderTestUtil.checkIsNull;
 import static com.facebook.presto.decoder.util.DecoderTestUtil.checkValue;
@@ -35,26 +34,17 @@ import static org.testng.Assert.assertEquals;
 
 public class TestRawDecoder
 {
-    private static final RawFieldDecoder DEFAULT_FIELD_DECODER = new RawFieldDecoder();
-
-    private static Map<DecoderColumnHandle, FieldDecoder<?>> buildMap(List<DecoderColumnHandle> columns)
-    {
-        ImmutableMap.Builder<DecoderColumnHandle, FieldDecoder<?>> map = ImmutableMap.builder();
-        for (DecoderColumnHandle column : columns) {
-            map.put(column, DEFAULT_FIELD_DECODER);
-        }
-        return map.build();
-    }
+    private static final RawRowDecoderFactory DECODER_FACTORY = new RawRowDecoderFactory();
 
     @Test
     public void testEmptyRecord()
     {
-        RawRowDecoder rowDecoder = new RawRowDecoder();
         byte[] emptyRow = new byte[0];
         DecoderTestColumnHandle column = new DecoderTestColumnHandle("", 0, "row1", BigintType.BIGINT, null, "LONG", null, false, false, false);
-        List<DecoderColumnHandle> columns = ImmutableList.of(column);
+        Set<DecoderColumnHandle> columns = ImmutableSet.of(column);
+        RowDecoder rowDecoder = DECODER_FACTORY.create(columns);
 
-        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(emptyRow, null, columns, buildMap(columns))
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(emptyRow, null)
                 .orElseThrow(AssertionError::new);
 
         checkIsNull(decodedRow, column);
@@ -73,16 +63,16 @@ public class TestRawDecoder
         byte[] row = new byte[buf.position()];
         System.arraycopy(buf.array(), 0, row, 0, buf.position());
 
-        RawRowDecoder rowDecoder = new RawRowDecoder();
         DecoderTestColumnHandle row1 = new DecoderTestColumnHandle("", 0, "row1", BigintType.BIGINT, "0", "LONG", null, false, false, false);
         DecoderTestColumnHandle row2 = new DecoderTestColumnHandle("", 1, "row2", BigintType.BIGINT, "8", "INT", null, false, false, false);
         DecoderTestColumnHandle row3 = new DecoderTestColumnHandle("", 2, "row3", BigintType.BIGINT, "12", "SHORT", null, false, false, false);
         DecoderTestColumnHandle row4 = new DecoderTestColumnHandle("", 3, "row4", BigintType.BIGINT, "14", "BYTE", null, false, false, false);
         DecoderTestColumnHandle row5 = new DecoderTestColumnHandle("", 4, "row5", createVarcharType(10), "15", null, null, false, false, false);
 
-        List<DecoderColumnHandle> columns = ImmutableList.of(row1, row2, row3, row4, row5);
+        Set<DecoderColumnHandle> columns = ImmutableSet.of(row1, row2, row3, row4, row5);
+        RowDecoder rowDecoder = DECODER_FACTORY.create(columns);
 
-        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(row, null, columns, buildMap(columns))
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(row, null)
                 .orElseThrow(AssertionError::new);
 
         assertEquals(decodedRow.size(), columns.size());
@@ -100,15 +90,15 @@ public class TestRawDecoder
         String str = "Ich bin zwei Oeltanks";
         byte[] row = str.getBytes(StandardCharsets.UTF_8);
 
-        RawRowDecoder rowDecoder = new RawRowDecoder();
         DecoderTestColumnHandle row1 = new DecoderTestColumnHandle("", 0, "row1", createVarcharType(100), null, null, null, false, false, false);
         DecoderTestColumnHandle row2 = new DecoderTestColumnHandle("", 1, "row2", createVarcharType(100), "0", null, null, false, false, false);
         DecoderTestColumnHandle row3 = new DecoderTestColumnHandle("", 2, "row3", createVarcharType(100), "0:4", null, null, false, false, false);
         DecoderTestColumnHandle row4 = new DecoderTestColumnHandle("", 3, "row4", createVarcharType(100), "5:8", null, null, false, false, false);
 
-        List<DecoderColumnHandle> columns = ImmutableList.of(row1, row2, row3, row4);
+        Set<DecoderColumnHandle> columns = ImmutableSet.of(row1, row2, row3, row4);
+        RowDecoder rowDecoder = DECODER_FACTORY.create(columns);
 
-        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(row, null, columns, buildMap(columns))
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(row, null)
                 .orElseThrow(AssertionError::new);
 
         assertEquals(decodedRow.size(), columns.size());
@@ -132,13 +122,13 @@ public class TestRawDecoder
         byte[] row = new byte[buf.position()];
         System.arraycopy(buf.array(), 0, row, 0, buf.position());
 
-        RawRowDecoder rowDecoder = new RawRowDecoder();
         DecoderTestColumnHandle row1 = new DecoderTestColumnHandle("", 0, "row1", createVarcharType(100), null, "DOUBLE", null, false, false, false);
         DecoderTestColumnHandle row2 = new DecoderTestColumnHandle("", 1, "row2", createVarcharType(100), "8", "FLOAT", null, false, false, false);
 
-        List<DecoderColumnHandle> columns = ImmutableList.of(row1, row2);
+        Set<DecoderColumnHandle> columns = ImmutableSet.of(row1, row2);
+        RowDecoder rowDecoder = DECODER_FACTORY.create(columns);
 
-        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(row, null, columns, buildMap(columns))
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(row, null)
                 .orElseThrow(AssertionError::new);
 
         assertEquals(decodedRow.size(), columns.size());
@@ -174,7 +164,6 @@ public class TestRawDecoder
         byte[] row = new byte[buf.position()];
         System.arraycopy(buf.array(), 0, row, 0, buf.position());
 
-        RawRowDecoder rowDecoder = new RawRowDecoder();
         DecoderTestColumnHandle row01 = new DecoderTestColumnHandle("", 0, "row01", BigintType.BIGINT, "0", "BYTE", null, false, false, false);
         DecoderTestColumnHandle row02 = new DecoderTestColumnHandle("", 1, "row02", BooleanType.BOOLEAN, "1", "LONG", null, false, false, false);
         DecoderTestColumnHandle row03 = new DecoderTestColumnHandle("", 2, "row03", BigintType.BIGINT, "9", "BYTE", null, false, false, false);
@@ -195,7 +184,7 @@ public class TestRawDecoder
         DecoderTestColumnHandle row33 = new DecoderTestColumnHandle("", 14, "row33", BigintType.BIGINT, "36", "BYTE", null, false, false, false);
         DecoderTestColumnHandle row34 = new DecoderTestColumnHandle("", 15, "row34", BooleanType.BOOLEAN, "37", "BYTE", null, false, false, false);
 
-        List<DecoderColumnHandle> columns = ImmutableList.of(row01,
+        Set<DecoderColumnHandle> columns = ImmutableSet.of(row01,
                 row02,
                 row03,
                 row04,
@@ -211,8 +200,9 @@ public class TestRawDecoder
                 row32,
                 row33,
                 row34);
+        RowDecoder rowDecoder = DECODER_FACTORY.create(columns);
 
-        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(row, null, columns, buildMap(columns))
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(row, null)
                 .orElseThrow(AssertionError::new);
 
         assertEquals(decodedRow.size(), columns.size());

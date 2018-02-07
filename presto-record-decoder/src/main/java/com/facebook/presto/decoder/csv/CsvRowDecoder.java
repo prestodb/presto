@@ -15,19 +15,23 @@ package com.facebook.presto.decoder.csv;
 
 import au.com.bytecode.opencsv.CSVParser;
 import com.facebook.presto.decoder.DecoderColumnHandle;
-import com.facebook.presto.decoder.FieldDecoder;
 import com.facebook.presto.decoder.FieldValueProvider;
 import com.facebook.presto.decoder.RowDecoder;
-
-import javax.inject.Inject;
+import com.google.common.collect.ImmutableSet;
+import io.airlift.slice.Slice;
 
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
+import static com.facebook.presto.spi.type.Varchars.truncateToLength;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.slice.Slices.EMPTY_SLICE;
+import static io.airlift.slice.Slices.utf8Slice;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Decode row as CSV. This is an extremely primitive CSV decoder using {@link au.com.bytecode.opencsv.CSVParser]}.
@@ -37,24 +41,16 @@ public class CsvRowDecoder
 {
     public static final String NAME = "csv";
 
+    private final Set<DecoderColumnHandle> columnHandles;
     private final CSVParser parser = new CSVParser();
 
-    @Inject
-    CsvRowDecoder()
+    public CsvRowDecoder(Set<DecoderColumnHandle> columnHandles)
     {
+        this.columnHandles = ImmutableSet.copyOf(columnHandles);
     }
 
     @Override
-    public String getName()
-    {
-        return NAME;
-    }
-
-    @Override
-    public Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodeRow(byte[] data,
-            Map<String, String> dataMap,
-            List<DecoderColumnHandle> columnHandles,
-            Map<DecoderColumnHandle, FieldDecoder<?>> fieldDecoders)
+    public Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodeRow(byte[] data, Map<String, String> dataMap)
     {
         String[] fields;
         try {
@@ -81,13 +77,54 @@ public class CsvRowDecoder
                 continue;
             }
 
-            @SuppressWarnings("unchecked")
-            FieldDecoder<String> decoder = (FieldDecoder<String>) fieldDecoders.get(columnHandle);
-
-            if (decoder != null) {
-                decodedRow.put(columnHandle, decoder.decode(fields[columnIndex], columnHandle));
-            }
+            decodedRow.put(columnHandle, decodeField(fields[columnIndex], columnHandle));
         }
         return Optional.of(decodedRow);
+    }
+
+    private static FieldValueProvider decodeField(String value, DecoderColumnHandle columnHandle)
+    {
+        requireNonNull(columnHandle, "columnHandle is null");
+
+        return new FieldValueProvider()
+        {
+            @Override
+            public boolean isNull()
+            {
+                return (value == null) || value.isEmpty();
+            }
+
+            @SuppressWarnings("SimplifiableConditionalExpression")
+            @Override
+            public boolean getBoolean()
+            {
+                return isNull() ? false : Boolean.parseBoolean(value.trim());
+            }
+
+            @Override
+            public long getLong()
+            {
+                return isNull() ? 0L : Long.parseLong(value.trim());
+            }
+
+            @Override
+            public double getDouble()
+            {
+                return isNull() ? 0.0d : Double.parseDouble(value.trim());
+            }
+
+            @Override
+            public Slice getSlice()
+            {
+                if (isNull()) {
+                    return EMPTY_SLICE;
+                }
+                Slice slice = utf8Slice(value);
+                if (isVarcharType(columnHandle.getType())) {
+                    slice = truncateToLength(slice, columnHandle.getType());
+                }
+                return slice;
+            }
+        };
     }
 }

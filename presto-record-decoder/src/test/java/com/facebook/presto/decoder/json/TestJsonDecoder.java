@@ -15,21 +15,20 @@ package com.facebook.presto.decoder.json;
 
 import com.facebook.presto.decoder.DecoderColumnHandle;
 import com.facebook.presto.decoder.DecoderTestColumnHandle;
-import com.facebook.presto.decoder.FieldDecoder;
 import com.facebook.presto.decoder.FieldValueProvider;
+import com.facebook.presto.decoder.RowDecoder;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.DoubleType;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
 import io.airlift.json.ObjectMapperProvider;
 import org.testng.annotations.Test;
 
 import java.nio.charset.StandardCharsets;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.facebook.presto.decoder.util.DecoderTestUtil.checkIsNull;
 import static com.facebook.presto.decoder.util.DecoderTestUtil.checkValue;
@@ -39,17 +38,7 @@ import static org.testng.Assert.assertTrue;
 
 public class TestJsonDecoder
 {
-    private static final JsonFieldDecoder DEFAULT_FIELD_DECODER = new JsonFieldDecoder();
-    private static final ObjectMapperProvider PROVIDER = new ObjectMapperProvider();
-
-    private static Map<DecoderColumnHandle, FieldDecoder<?>> buildMap(List<DecoderColumnHandle> columns)
-    {
-        ImmutableMap.Builder<DecoderColumnHandle, FieldDecoder<?>> map = ImmutableMap.builder();
-        for (DecoderColumnHandle column : columns) {
-            map.put(column, DEFAULT_FIELD_DECODER);
-        }
-        return map.build();
-    }
+    private static final JsonRowDecoderFactory DECODER_FACTORY = new JsonRowDecoderFactory(new ObjectMapperProvider().get());
 
     @Test
     public void testSimple()
@@ -57,16 +46,16 @@ public class TestJsonDecoder
     {
         byte[] json = ByteStreams.toByteArray(TestJsonDecoder.class.getResourceAsStream("/decoder/json/message.json"));
 
-        JsonRowDecoder rowDecoder = new JsonRowDecoder(PROVIDER.get());
         DecoderTestColumnHandle row1 = new DecoderTestColumnHandle("", 0, "row1", createVarcharType(100), "source", null, null, false, false, false);
         DecoderTestColumnHandle row2 = new DecoderTestColumnHandle("", 1, "row2", createVarcharType(10), "user/screen_name", null, null, false, false, false);
         DecoderTestColumnHandle row3 = new DecoderTestColumnHandle("", 2, "row3", BigintType.BIGINT, "id", null, null, false, false, false);
         DecoderTestColumnHandle row4 = new DecoderTestColumnHandle("", 3, "row4", BigintType.BIGINT, "user/statuses_count", null, null, false, false, false);
         DecoderTestColumnHandle row5 = new DecoderTestColumnHandle("", 4, "row5", BooleanType.BOOLEAN, "user/geo_enabled", null, null, false, false, false);
 
-        List<DecoderColumnHandle> columns = ImmutableList.of(row1, row2, row3, row4, row5);
+        Set<DecoderColumnHandle> columns = ImmutableSet.of(row1, row2, row3, row4, row5);
+        RowDecoder rowDecoder = DECODER_FACTORY.create(columns);
 
-        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(json, null, columns, buildMap(columns))
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(json, null)
                 .orElseThrow(AssertionError::new);
 
         assertEquals(decodedRow.size(), columns.size());
@@ -83,15 +72,15 @@ public class TestJsonDecoder
     {
         byte[] json = "{}".getBytes(StandardCharsets.UTF_8);
 
-        JsonRowDecoder rowDecoder = new JsonRowDecoder(PROVIDER.get());
         DecoderTestColumnHandle row1 = new DecoderTestColumnHandle("", 0, "row1", createVarcharType(100), "very/deep/varchar", null, null, false, false, false);
         DecoderTestColumnHandle row2 = new DecoderTestColumnHandle("", 1, "row2", BigintType.BIGINT, "no_bigint", null, null, false, false, false);
         DecoderTestColumnHandle row3 = new DecoderTestColumnHandle("", 2, "row3", DoubleType.DOUBLE, "double/is_missing", null, null, false, false, false);
         DecoderTestColumnHandle row4 = new DecoderTestColumnHandle("", 3, "row4", BooleanType.BOOLEAN, "hello", null, null, false, false, false);
 
-        List<DecoderColumnHandle> columns = ImmutableList.of(row1, row2, row3, row4);
+        Set<DecoderColumnHandle> columns = ImmutableSet.of(row1, row2, row3, row4);
+        RowDecoder rowDecoder = DECODER_FACTORY.create(columns);
 
-        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(json, null, columns, buildMap(columns))
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(json, null)
                 .orElseThrow(AssertionError::new);
 
         assertEquals(decodedRow.size(), columns.size());
@@ -107,15 +96,15 @@ public class TestJsonDecoder
     {
         byte[] json = "{\"a_number\":481516,\"a_string\":\"2342\"}".getBytes(StandardCharsets.UTF_8);
 
-        JsonRowDecoder rowDecoder = new JsonRowDecoder(PROVIDER.get());
         DecoderTestColumnHandle row1 = new DecoderTestColumnHandle("", 0, "row1", createVarcharType(100), "a_number", null, null, false, false, false);
         DecoderTestColumnHandle row2 = new DecoderTestColumnHandle("", 1, "row2", BigintType.BIGINT, "a_number", null, null, false, false, false);
         DecoderTestColumnHandle row3 = new DecoderTestColumnHandle("", 2, "row3", createVarcharType(100), "a_string", null, null, false, false, false);
         DecoderTestColumnHandle row4 = new DecoderTestColumnHandle("", 3, "row4", BigintType.BIGINT, "a_string", null, null, false, false, false);
 
-        List<DecoderColumnHandle> columns = ImmutableList.of(row1, row2, row3, row4);
+        Set<DecoderColumnHandle> columns = ImmutableSet.of(row1, row2, row3, row4);
+        RowDecoder rowDecoder = DECODER_FACTORY.create(columns);
 
-        Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedRow = rowDecoder.decodeRow(json, null, columns, buildMap(columns));
+        Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedRow = rowDecoder.decodeRow(json, null);
         assertTrue(decodedRow.isPresent());
 
         assertEquals(decodedRow.get().size(), columns.size());
