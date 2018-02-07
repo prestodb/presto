@@ -84,6 +84,7 @@ import static com.facebook.presto.testing.TestingAccessControlManager.TestingPri
 import static com.facebook.presto.testing.TestingAccessControlManager.privilege;
 import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
+import static com.facebook.presto.tests.FeatureSet.allFeatures;
 import static com.facebook.presto.tests.QueryAssertions.assertContains;
 import static com.facebook.presto.tests.QueryAssertions.assertEqualsIgnoreOrder;
 import static com.facebook.presto.tests.QueryTemplate.parameter;
@@ -154,7 +155,12 @@ public abstract class AbstractTestQueries
 
     protected AbstractTestQueries(QueryRunnerSupplier supplier)
     {
-        super(supplier);
+        this(allFeatures(), supplier);
+    }
+
+    protected AbstractTestQueries(FeatureSet featureSelection, QueryRunnerSupplier supplier)
+    {
+        super(featureSelection, supplier);
     }
 
     @Test

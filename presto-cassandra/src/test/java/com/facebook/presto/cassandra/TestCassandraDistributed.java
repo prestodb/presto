@@ -20,6 +20,8 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
+import static com.facebook.presto.tests.FeatureSet.allFeatures;
+import static com.facebook.presto.tests.TestedFeature.VIEW;
 
 //Integrations tests fail when parallel, due to a bug or configuration error in the embedded
 //cassandra instance. This problem results in either a hang in Thrift calls or broken sockets.
@@ -29,13 +31,7 @@ public class TestCassandraDistributed
 {
     public TestCassandraDistributed()
     {
-        super(CassandraQueryRunner::createCassandraQueryRunner);
-    }
-
-    @Override
-    protected boolean supportsViews()
-    {
-        return false;
+        super(allFeatures().excluding(VIEW), CassandraQueryRunner::createCassandraQueryRunner);
     }
 
     @Override

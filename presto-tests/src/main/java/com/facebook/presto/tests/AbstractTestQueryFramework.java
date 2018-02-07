@@ -26,8 +26,10 @@ import com.facebook.presto.sql.tree.ExplainType;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilege;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
@@ -39,10 +41,13 @@ import org.weakref.jmx.testing.TestingMBeanServer;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.Set;
 
 import static com.facebook.presto.sql.ParsingUtil.createParsingOptions;
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
+import static com.facebook.presto.tests.FeatureSet.allFeatures;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -55,14 +60,21 @@ import static org.testng.Assert.fail;
 
 public abstract class AbstractTestQueryFramework
 {
+    private final FeatureSet featureSelection;
     private QueryRunnerSupplier queryRunnerSupplier;
     private QueryRunner queryRunner;
     private H2QueryRunner h2QueryRunner;
     private SqlParser sqlParser;
 
-    protected AbstractTestQueryFramework(QueryRunnerSupplier supplier)
+    public AbstractTestQueryFramework(QueryRunnerSupplier supplier)
+    {
+        this(allFeatures(), supplier);
+    }
+
+    protected AbstractTestQueryFramework(FeatureSet featureSelection, QueryRunnerSupplier supplier)
     {
         this.queryRunnerSupplier = requireNonNull(supplier, "queryRunnerSupplier is null");
+        this.featureSelection = requireNonNull(featureSelection, "featureSelection is null");
     }
 
     @BeforeClass
@@ -319,10 +331,13 @@ public abstract class AbstractTestQueryFramework
                 ImmutableMap.of());
     }
 
-    protected static void skipTestUnless(boolean requirement)
+    protected void requiredFeatures(TestedFeature... features)
     {
-        if (!requirement) {
-            throw new SkipException("requirement not met");
+        requireNonNull(features, "features is null");
+        checkArgument(features.length > 0, "No feature given");
+        Set<TestedFeature> featureSet = ImmutableSet.copyOf(features);
+        if (!featureSelection.containsAny(featureSet)) {
+            throw new SkipException("test feature is not selected: " + Joiner.on(", ").join(featureSet));
         }
     }
 
