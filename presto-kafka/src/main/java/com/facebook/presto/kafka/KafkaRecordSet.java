@@ -250,37 +250,28 @@ public class KafkaRecordSet
             return true; // Advanced successfully.
         }
 
-        @SuppressWarnings("SimplifiableConditionalExpression")
         @Override
         public boolean getBoolean(int field)
         {
-            checkArgument(field < columnHandles.size(), "Invalid field index");
-            checkFieldType(field, boolean.class);
-            return currentRowValues[field].getBoolean();
+            return getFieldValueProvider(field, boolean.class).getBoolean();
         }
 
         @Override
         public long getLong(int field)
         {
-            checkArgument(field < columnHandles.size(), "Invalid field index");
-            checkFieldType(field, long.class);
-            return currentRowValues[field].getLong();
+            return getFieldValueProvider(field, long.class).getLong();
         }
 
         @Override
         public double getDouble(int field)
         {
-            checkArgument(field < columnHandles.size(), "Invalid field index");
-            checkFieldType(field, double.class);
-            return currentRowValues[field].getDouble();
+            return getFieldValueProvider(field, double.class).getDouble();
         }
 
         @Override
         public Slice getSlice(int field)
         {
-            checkArgument(field < columnHandles.size(), "Invalid field index");
-            checkFieldType(field, Slice.class);
-            return currentRowValues[field].getSlice();
+            return getFieldValueProvider(field, Slice.class).getSlice();
         }
 
         @Override
@@ -294,6 +285,13 @@ public class KafkaRecordSet
         {
             checkArgument(field < columnHandles.size(), "Invalid field index");
             return currentRowValues[field] == null || currentRowValues[field].isNull();
+        }
+
+        private FieldValueProvider getFieldValueProvider(int field, Class<?> expectedType)
+        {
+            checkArgument(field < columnHandles.size(), "Invalid field index");
+            checkFieldType(field, expectedType);
+            return currentRowValues[field];
         }
 
         private void checkFieldType(int field, Class<?> expected)
