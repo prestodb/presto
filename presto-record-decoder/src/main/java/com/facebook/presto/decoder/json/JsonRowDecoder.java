@@ -21,15 +21,14 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.MissingNode;
 import com.google.common.base.Splitter;
-
-import javax.inject.Inject;
+import com.google.common.collect.ImmutableMap;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 /**
  * JSON specific row decoder.
@@ -40,24 +39,18 @@ public class JsonRowDecoder
     public static final String NAME = "json";
 
     private final ObjectMapper objectMapper;
+    private final Map<DecoderColumnHandle, FieldDecoder<JsonNode>> fieldDecoders;
 
-    @Inject
-    JsonRowDecoder(ObjectMapper objectMapper)
+    JsonRowDecoder(ObjectMapper objectMapper, Map<DecoderColumnHandle, FieldDecoder<JsonNode>> fieldDecoders)
     {
-        this.objectMapper = objectMapper;
-    }
-
-    @Override
-    public String getName()
-    {
-        return NAME;
+        // todo check no internal columns (actually perform this check in some place common to all rowdecoders)
+        this.objectMapper = requireNonNull(objectMapper, "objectMapper is null");
+        this.fieldDecoders = ImmutableMap.copyOf(fieldDecoders);
     }
 
     @Override
     public Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodeRow(byte[] data,
-            Map<String, String> dataMap,
-            List<DecoderColumnHandle> columnHandles,
-            Map<DecoderColumnHandle, FieldDecoder<?>> fieldDecoders)
+            Map<String, String> dataMap)
     {
         JsonNode tree;
         try {
@@ -68,17 +61,12 @@ public class JsonRowDecoder
         }
 
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = new HashMap<>();
-        for (DecoderColumnHandle columnHandle : columnHandles) {
-            if (columnHandle.isInternal()) {
-                continue;
-            }
-            @SuppressWarnings("unchecked")
-            FieldDecoder<JsonNode> decoder = (FieldDecoder<JsonNode>) fieldDecoders.get(columnHandle);
 
-            if (decoder != null) {
-                JsonNode node = locateNode(tree, columnHandle);
-                decodedRow.put(columnHandle, decoder.decode(node, columnHandle));
-            }
+        for (Map.Entry<DecoderColumnHandle, FieldDecoder<JsonNode>> entry : fieldDecoders.entrySet()) {
+            DecoderColumnHandle columnHandle = entry.getKey();
+            FieldDecoder<JsonNode> decoder = entry.getValue();
+            JsonNode node = locateNode(tree, columnHandle);
+            decodedRow.put(columnHandle, decoder.decode(node, columnHandle));
         }
 
         return Optional.of(decodedRow);

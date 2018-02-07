@@ -14,12 +14,10 @@
 package com.facebook.presto.decoder.dummy;
 
 import com.facebook.presto.decoder.DecoderColumnHandle;
-import com.facebook.presto.decoder.FieldDecoder;
 import com.facebook.presto.decoder.FieldValueProvider;
 import com.facebook.presto.decoder.RowDecoder;
 import com.google.common.collect.ImmutableMap;
 
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -41,16 +39,8 @@ public class DummyRowDecoder
     private static final Optional<Map<DecoderColumnHandle, FieldValueProvider>> ALL_NULLS = Optional.of(ImmutableMap.of());
 
     @Override
-    public String getName()
-    {
-        return NAME;
-    }
-
-    @Override
     public Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodeRow(byte[] data,
-            Map<String, String> dataMap,
-            List<DecoderColumnHandle> columnHandles,
-            Map<DecoderColumnHandle, FieldDecoder<?>> fieldDecoders)
+            Map<String, String> dataMap)
     {
         return ALL_NULLS;
     }

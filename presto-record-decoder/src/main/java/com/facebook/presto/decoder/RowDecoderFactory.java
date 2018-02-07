@@ -11,22 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.redis.decoder.zset;
+package com.facebook.presto.decoder;
 
-import com.google.inject.Binder;
-import com.google.inject.Module;
+import java.util.Set;
 
-import static com.facebook.presto.redis.RedisDecoderModule.bindRowDecoder;
-
-/**
- * Guice module for the 'zset' decoder. See {@link ZsetRedisRowDecoder} for an explanation.
- */
-public class ZsetRedisDecoderModule
-        implements Module
+public interface RowDecoderFactory
 {
-    @Override
-    public void configure(Binder binder)
-    {
-        bindRowDecoder(binder, ZsetRedisRowDecoder.class);
-    }
+    RowDecoder create(Set<DecoderColumnHandle> columns);
 }

@@ -14,7 +14,6 @@
 package com.facebook.presto.kafka;
 
 import com.facebook.presto.decoder.DecoderColumnHandle;
-import com.facebook.presto.decoder.FieldDecoder;
 import com.facebook.presto.decoder.FieldValueProvider;
 import com.facebook.presto.decoder.RowDecoder;
 import com.facebook.presto.spi.ColumnHandle;
@@ -62,19 +61,15 @@ public class KafkaRecordSet
 
     private final RowDecoder keyDecoder;
     private final RowDecoder messageDecoder;
-    private final Map<DecoderColumnHandle, FieldDecoder<?>> keyFieldDecoders;
-    private final Map<DecoderColumnHandle, FieldDecoder<?>> messageFieldDecoders;
 
-    private final List<DecoderColumnHandle> columnHandles;
+    private final List<KafkaColumnHandle> columnHandles;
     private final List<Type> columnTypes;
 
     KafkaRecordSet(KafkaSplit split,
             KafkaSimpleConsumerManager consumerManager,
-            List<DecoderColumnHandle> columnHandles,
+            List<KafkaColumnHandle> columnHandles,
             RowDecoder keyDecoder,
-            RowDecoder messageDecoder,
-            Map<DecoderColumnHandle, FieldDecoder<?>> keyFieldDecoders,
-            Map<DecoderColumnHandle, FieldDecoder<?>> messageFieldDecoders)
+            RowDecoder messageDecoder)
     {
         this.split = requireNonNull(split, "split is null");
 
@@ -82,8 +77,6 @@ public class KafkaRecordSet
 
         this.keyDecoder = requireNonNull(keyDecoder, "rowDecoder is null");
         this.messageDecoder = requireNonNull(messageDecoder, "rowDecoder is null");
-        this.keyFieldDecoders = requireNonNull(keyFieldDecoders, "keyFieldDecoders is null");
-        this.messageFieldDecoders = requireNonNull(messageFieldDecoders, "messageFieldDecoders is null");
 
         this.columnHandles = requireNonNull(columnHandles, "columnHandles is null");
 
@@ -200,8 +193,8 @@ public class KafkaRecordSet
 
             Map<ColumnHandle, FieldValueProvider> currentRowValuesMap = new HashMap<>();
 
-            Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedKey = keyDecoder.decodeRow(keyData, null, columnHandles, keyFieldDecoders);
-            Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedValue = messageDecoder.decodeRow(messageData, null, columnHandles, messageFieldDecoders);
+            Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedKey = keyDecoder.decodeRow(keyData, null);
+            Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedValue = messageDecoder.decodeRow(messageData, null);
 
             for (DecoderColumnHandle columnHandle : columnHandles) {
                 if (columnHandle.isInternal()) {

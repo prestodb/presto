@@ -11,25 +11,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.decoder.dummy;
+package com.facebook.presto.redis.decoder.zset;
 
-import com.google.inject.Binder;
-import com.google.inject.Module;
+import com.facebook.presto.decoder.DecoderColumnHandle;
+import com.facebook.presto.decoder.RowDecoder;
+import com.facebook.presto.decoder.RowDecoderFactory;
 
-import static com.facebook.presto.decoder.DecoderModule.bindFieldDecoder;
-import static com.facebook.presto.decoder.DecoderModule.bindRowDecoder;
+import java.util.Set;
 
-/**
- * Guice module for the 'dummy' decoder. See {@link DummyRowDecoder} for an explanation.
- */
-public class DummyDecoderModule
-        implements Module
+public class ZsetRedisRowDecoderFactory
+        implements RowDecoderFactory
 {
-    @Override
-    public void configure(Binder binder)
-    {
-        bindRowDecoder(binder, DummyRowDecoder.class);
+    private static final RowDecoder DECODER_INSTANCE = new ZsetRedisRowDecoder();
 
-        bindFieldDecoder(binder, DummyFieldDecoder.class);
+    @Override
+    public RowDecoder create(Set<DecoderColumnHandle> columns)
+    {
+        return DECODER_INSTANCE;
     }
 }

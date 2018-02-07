@@ -14,7 +14,6 @@
 package com.facebook.presto.redis;
 
 import com.facebook.presto.decoder.DecoderColumnHandle;
-import com.facebook.presto.decoder.FieldDecoder;
 import com.facebook.presto.decoder.FieldValueProvider;
 import com.facebook.presto.decoder.RowDecoder;
 import com.facebook.presto.spi.ColumnHandle;
@@ -51,11 +50,9 @@ public class RedisRecordCursor
 
     private final RowDecoder keyDecoder;
     private final RowDecoder valueDecoder;
-    private final Map<DecoderColumnHandle, FieldDecoder<?>> keyFieldDecoders;
-    private final Map<DecoderColumnHandle, FieldDecoder<?>> valueFieldDecoders;
 
     private final RedisSplit split;
-    private final List<DecoderColumnHandle> columnHandles;
+    private final List<RedisColumnHandle> columnHandles;
     private final RedisJedisManager redisJedisManager;
     private final JedisPool jedisPool;
     private final ScanParams scanParms;
@@ -78,16 +75,12 @@ public class RedisRecordCursor
     RedisRecordCursor(
             RowDecoder keyDecoder,
             RowDecoder valueDecoder,
-            Map<DecoderColumnHandle, FieldDecoder<?>> keyFieldDecoders,
-            Map<DecoderColumnHandle, FieldDecoder<?>> valueFieldDecoders,
             RedisSplit split,
-            List<DecoderColumnHandle> columnHandles,
+            List<RedisColumnHandle> columnHandles,
             RedisJedisManager redisJedisManager)
     {
         this.keyDecoder = keyDecoder;
         this.valueDecoder = valueDecoder;
-        this.keyFieldDecoders = keyFieldDecoders;
-        this.valueFieldDecoders = valueFieldDecoders;
         this.split = split;
         this.columnHandles = columnHandles;
         this.redisJedisManager = redisJedisManager;
@@ -165,14 +158,10 @@ public class RedisRecordCursor
 
         Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedKey = keyDecoder.decodeRow(
                 keyData,
-                null,
-                columnHandles,
-                keyFieldDecoders);
+                null);
         Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedValue = valueDecoder.decodeRow(
                 valueData,
-                valueMap,
-                columnHandles,
-                valueFieldDecoders);
+                valueMap);
 
         Map<ColumnHandle, FieldValueProvider> currentRowValuesMap = new HashMap<>();
 

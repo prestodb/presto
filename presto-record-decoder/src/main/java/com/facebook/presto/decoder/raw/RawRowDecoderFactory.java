@@ -11,30 +11,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.redis.decoder.zset;
+package com.facebook.presto.decoder.raw;
 
 import com.facebook.presto.decoder.DecoderColumnHandle;
-import com.facebook.presto.decoder.FieldValueProvider;
 import com.facebook.presto.decoder.RowDecoder;
+import com.facebook.presto.decoder.RowDecoderFactory;
 
-import java.util.Map;
-import java.util.Optional;
+import java.util.Set;
 
-import static java.util.Collections.emptyMap;
-
-/**
- * The row decoder for the 'zset' format. Zset's can contain redis keys for tables
- */
-public class ZsetRedisRowDecoder
-        implements RowDecoder
+public class RawRowDecoderFactory
+        implements RowDecoderFactory
 {
-    public static final String NAME = "zset";
-
     @Override
-    public Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodeRow(
-            byte[] data,
-            Map<String, String> dataMap)
+    public RowDecoder create(Set<DecoderColumnHandle> columns)
     {
-        return Optional.of(emptyMap());
+        return new RawRowDecoder(columns);
     }
 }

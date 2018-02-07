@@ -14,7 +14,6 @@
 package com.facebook.presto.redis;
 
 import com.facebook.presto.decoder.DecoderColumnHandle;
-import com.facebook.presto.decoder.FieldDecoder;
 import com.facebook.presto.decoder.RowDecoder;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
@@ -22,7 +21,6 @@ import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
-import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
 
@@ -37,20 +35,16 @@ public class RedisRecordSet
 
     private final RowDecoder keyDecoder;
     private final RowDecoder valueDecoder;
-    private final Map<DecoderColumnHandle, FieldDecoder<?>> keyFieldDecoders;
-    private final Map<DecoderColumnHandle, FieldDecoder<?>> valueFieldDecoders;
 
-    private final List<DecoderColumnHandle> columnHandles;
+    private final List<RedisColumnHandle> columnHandles;
     private final List<Type> columnTypes;
 
     RedisRecordSet(
             RedisSplit split,
             RedisJedisManager jedisManager,
-            List<DecoderColumnHandle> columnHandles,
+            List<RedisColumnHandle> columnHandles,
             RowDecoder keyDecoder,
-            RowDecoder valueDecoder,
-            Map<DecoderColumnHandle, FieldDecoder<?>> keyFieldDecoders,
-            Map<DecoderColumnHandle, FieldDecoder<?>> valueFieldDecoders)
+            RowDecoder valueDecoder)
     {
         this.split = requireNonNull(split, "split is null");
 
@@ -58,8 +52,6 @@ public class RedisRecordSet
 
         this.keyDecoder = requireNonNull(keyDecoder, "keyDecoder is null");
         this.valueDecoder = requireNonNull(valueDecoder, "valueDecoder is null");
-        this.keyFieldDecoders = requireNonNull(keyFieldDecoders, "keyFieldDecoders is null");
-        this.valueFieldDecoders = requireNonNull(valueFieldDecoders, "valueFieldDecoders is null");
         this.columnHandles = requireNonNull(columnHandles, "columnHandles is null");
 
         ImmutableList.Builder<Type> typeBuilder = ImmutableList.builder();
@@ -78,6 +70,6 @@ public class RedisRecordSet
     @Override
     public RecordCursor cursor()
     {
-        return new RedisRecordCursor(keyDecoder, valueDecoder, keyFieldDecoders, valueFieldDecoders, split, columnHandles, jedisManager);
+        return new RedisRecordCursor(keyDecoder, valueDecoder, split, columnHandles, jedisManager);
     }
 }

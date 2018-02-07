@@ -11,24 +11,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.decoder.raw;
+package com.facebook.presto.decoder.dummy;
 
-import com.google.inject.Binder;
-import com.google.inject.Module;
+import com.facebook.presto.decoder.DecoderColumnHandle;
+import com.facebook.presto.decoder.RowDecoder;
+import com.facebook.presto.decoder.RowDecoderFactory;
 
-import static com.facebook.presto.decoder.DecoderModule.bindFieldDecoder;
-import static com.facebook.presto.decoder.DecoderModule.bindRowDecoder;
+import java.util.Set;
 
-/**
- * Raw decoder guice module.
- */
-public class RawDecoderModule
-        implements Module
+public class DummyRowDecoderFactory
+        implements RowDecoderFactory
 {
+    private static final RowDecoder DECODER_INSTANCE = new DummyRowDecoder();
+
     @Override
-    public void configure(Binder binder)
+    public RowDecoder create(Set<DecoderColumnHandle> columns)
     {
-        bindRowDecoder(binder, RawRowDecoder.class);
-        bindFieldDecoder(binder, RawFieldDecoder.class);
+        return DECODER_INSTANCE;
     }
 }

@@ -1,0 +1,53 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.facebook.presto.redis.decoder.hash;
+
+import com.facebook.presto.decoder.DecoderColumnHandle;
+import com.facebook.presto.decoder.FieldDecoder;
+import com.facebook.presto.decoder.RowDecoder;
+import com.facebook.presto.decoder.RowDecoderFactory;
+import com.google.common.collect.ImmutableMap;
+
+import java.util.Map;
+import java.util.Set;
+
+import static com.facebook.presto.decoder.FieldDecoder.DEFAULT_FIELD_DECODER_NAME;
+import static java.util.function.Function.identity;
+
+public class HashRedisRowDecoderFactory
+        implements RowDecoderFactory
+{
+    @Override
+    public RowDecoder create(Set<DecoderColumnHandle> columns)
+    {
+        return new HashRedisRowDecoder(chooseFieldDecoders(columns));
+    }
+
+    private Map<DecoderColumnHandle, FieldDecoder<String>> chooseFieldDecoders(Set<DecoderColumnHandle> columns)
+    {
+        return columns.stream()
+                .collect(ImmutableMap.toImmutableMap(identity(), this::chooseFieldDecoder));
+    }
+
+    private FieldDecoder<String> chooseFieldDecoder(DecoderColumnHandle column)
+    {
+        if (column.getDataFormat() == null || column.getDataFormat().equals(DEFAULT_FIELD_DECODER_NAME)) {
+            return new HashRedisFieldDecoder();
+        }
+        if (column.getType().getJavaType() == long.class && "iso8601".equals(column.getDataFormat())) {
+            return new ISO8601HashRedisFieldDecoder();
+        }
+        throw new IllegalArgumentException(String.format("unknown data format '%s' for column '%s'", column.getName(), column.getDataFormat()));
+    }
+}
