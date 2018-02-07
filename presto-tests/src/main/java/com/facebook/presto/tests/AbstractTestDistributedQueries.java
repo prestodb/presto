@@ -57,6 +57,7 @@ import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.tests.QueryAssertions.assertContains;
 import static com.facebook.presto.tests.TestedFeature.DELETE;
+import static com.facebook.presto.tests.TestedFeature.INSERT;
 import static com.facebook.presto.tests.TestedFeature.VIEW;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
@@ -135,6 +136,8 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testCreateTable()
     {
+        featuresToTest(TestedFeature.CREATE_TABLE);
+
         assertUpdate("CREATE TABLE test_create (a bigint, b double, c varchar)");
         assertTrue(getQueryRunner().tableExists(getSession(), "test_create"));
         assertTableColumnNames("test_create", "a", "b", "c");
@@ -172,6 +175,8 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testCreateTableAsSelect()
     {
+        featuresToTest(TestedFeature.CREATE_TABLE);
+
         assertUpdate("CREATE TABLE test_create_table_as_if_not_exists (a bigint, b double)");
         assertTrue(getQueryRunner().tableExists(getSession(), "test_create_table_as_if_not_exists"));
         assertTableColumnNames("test_create_table_as_if_not_exists", "a", "b");
@@ -330,6 +335,8 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testRenameTable()
     {
+        featuresToTest(TestedFeature.CREATE_TABLE, TestedFeature.RENAME_TABLE, TestedFeature.DROP_TABLE);
+
         assertUpdate("CREATE TABLE test_rename AS SELECT 123 x", 1);
 
         assertUpdate("ALTER TABLE test_rename RENAME TO test_rename_new");
@@ -350,6 +357,8 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testRenameColumn()
     {
+        featuresToTest(TestedFeature.CREATE_TABLE, TestedFeature.RENAME_COLUMN, TestedFeature.DROP_TABLE);
+
         assertUpdate("CREATE TABLE test_rename_column AS SELECT 123 x", 1);
 
         assertUpdate("ALTER TABLE test_rename_column RENAME COLUMN x TO y");
@@ -421,6 +430,8 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testInsert()
     {
+        featuresToTest(INSERT, TestedFeature.CREATE_TABLE);
+
         @Language("SQL") String query = "SELECT orderdate, orderkey, totalprice FROM orders";
 
         assertUpdate("CREATE TABLE test_insert AS " + query + " WITH NO DATA", 0);
@@ -471,6 +482,7 @@ public abstract class AbstractTestDistributedQueries
     public void testDelete()
     {
         featuresToTest(DELETE);
+
         // delete half the table, then delete the rest
 
         assertUpdate("CREATE TABLE test_delete AS SELECT * FROM orders", "SELECT count(*) FROM orders");

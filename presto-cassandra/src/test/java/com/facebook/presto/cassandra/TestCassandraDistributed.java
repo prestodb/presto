@@ -21,6 +21,14 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
+import static com.facebook.presto.tests.TestedFeature.ADD_COLUMN;
+import static com.facebook.presto.tests.TestedFeature.CREATE_TABLE;
+import static com.facebook.presto.tests.TestedFeature.DATE_TYPE;
+import static com.facebook.presto.tests.TestedFeature.DELETE;
+import static com.facebook.presto.tests.TestedFeature.DROP_COLUMN;
+import static com.facebook.presto.tests.TestedFeature.INSERT;
+import static com.facebook.presto.tests.TestedFeature.RENAME_COLUMN;
+import static com.facebook.presto.tests.TestedFeature.RENAME_TABLE;
 import static com.facebook.presto.tests.TestedFeature.VIEW;
 
 //Integrations tests fail when parallel, due to a bug or configuration error in the embedded
@@ -31,73 +39,16 @@ public class TestCassandraDistributed
 {
     public TestCassandraDistributed()
     {
-        super(CassandraQueryRunner::createCassandraQueryRunner, FeatureSelection.all().excludes(VIEW));
-    }
-
-    @Override
-    public void testJoinWithLessThanOnDatesInJoinClause()
-    {
-        // Cassandra does not support DATE
-    }
-
-    @Override
-    public void testGroupingSetMixedExpressionAndColumn()
-    {
-        // Cassandra does not support DATE
-    }
-
-    @Override
-    public void testGroupingSetMixedExpressionAndOrdinal()
-    {
-        // Cassandra does not support DATE
-    }
-
-    @Override
-    public void testRenameTable()
-    {
-        // Cassandra does not support renaming tables
-    }
-
-    @Override
-    public void testAddColumn()
-    {
-        // Cassandra does not support adding columns
-    }
-
-    @Override
-    public void testRenameColumn()
-    {
-        // Cassandra does not support renaming columns
-    }
-
-    @Override
-    public void testDropColumn()
-    {
-        // Cassandra does not support dropping columns
-    }
-
-    @Override
-    public void testInsert()
-    {
-        // Cassandra connector currently does not support insert
-    }
-
-    @Override
-    public void testCreateTable()
-    {
-        // Cassandra connector currently does not support create table
-    }
-
-    @Override
-    public void testCreateTableAsSelect()
-    {
-        // Cassandra connector currently does not support create table
-    }
-
-    @Override
-    public void testDelete()
-    {
-        // Cassandra connector currently does not support delete
+        super(CassandraQueryRunner::createCassandraQueryRunner, FeatureSelection.allFeatures().excluding(
+                ADD_COLUMN,
+                DROP_COLUMN,
+                RENAME_COLUMN,
+                RENAME_TABLE,
+                VIEW,
+                INSERT,
+                DELETE,
+                CREATE_TABLE,
+                DATE_TYPE));
     }
 
     @Override
