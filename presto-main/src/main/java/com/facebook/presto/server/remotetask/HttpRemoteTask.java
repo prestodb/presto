@@ -204,9 +204,7 @@ public final class HttpRemoteTask
             this.updateErrorTracker = new RequestErrorTracker(
                     taskId,
                     location,
-                    getQueryElapsedTime(),
-                    minErrorDuration,
-                    maxErrorDuration,
+                    new Backoff(getQueryElapsedTime(), minErrorDuration, maxErrorDuration),
                     errorScheduledExecutor,
                     "updating task");
             this.partitionedSplitCountTracker = requireNonNull(partitionedSplitCountTracker, "partitionedSplitCountTracker is null");
@@ -235,9 +233,7 @@ public final class HttpRemoteTask
                     taskStatusCodec,
                     executor,
                     httpClient,
-                    getQueryElapsedTime(),
-                    minErrorDuration,
-                    maxErrorDuration,
+                    new Backoff(getQueryElapsedTime(), minErrorDuration, maxErrorDuration),
                     errorScheduledExecutor,
                     stats);
 
@@ -247,9 +243,7 @@ public final class HttpRemoteTask
                     httpClient,
                     taskInfoUpdateInterval,
                     taskInfoCodec,
-                    getQueryElapsedTime(),
-                    minErrorDuration,
-                    maxErrorDuration,
+                    new Backoff(getQueryElapsedTime(), minErrorDuration, maxErrorDuration),
                     summarizeTaskInfo,
                     executor,
                     updateScheduledExecutor,

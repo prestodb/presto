@@ -81,9 +81,7 @@ class ContinuousTaskStatusFetcher
             JsonCodec<TaskStatus> taskStatusCodec,
             Executor executor,
             HttpClient httpClient,
-            Duration executionElapsedTime,
-            Duration minErrorDuration,
-            Duration maxErrorDuration,
+            Backoff backoff,
             ScheduledExecutorService errorScheduledExecutor,
             RemoteTaskStats stats)
     {
@@ -99,14 +97,7 @@ class ContinuousTaskStatusFetcher
         this.executor = requireNonNull(executor, "executor is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
 
-        this.errorTracker = new RequestErrorTracker(
-                taskId,
-                initialTaskStatus.getSelf(),
-                executionElapsedTime,
-                minErrorDuration,
-                maxErrorDuration,
-                errorScheduledExecutor,
-                "getting task status");
+        this.errorTracker = new RequestErrorTracker(taskId, initialTaskStatus.getSelf(), backoff, errorScheduledExecutor, "getting task status");
         this.stats = requireNonNull(stats, "stats is null");
     }
 

@@ -22,7 +22,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListenableFutureTask;
 import io.airlift.event.client.ServiceUnavailableException;
 import io.airlift.log.Logger;
-import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -42,6 +41,7 @@ import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.TOO_MANY_REQUESTS_FAILED;
 import static com.facebook.presto.util.Failures.WORKER_NODE_ERROR;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -61,17 +61,15 @@ class RequestErrorTracker
     public RequestErrorTracker(
             TaskId taskId,
             URI taskUri,
-            Duration executionElapsedTime,
-            Duration minErrorDuration,
-            Duration maxErrorDuration,
+            Backoff backoff,
             ScheduledExecutorService scheduledExecutor,
             String jobDescription)
     {
-        this.taskId = taskId;
-        this.taskUri = taskUri;
-        this.scheduledExecutor = scheduledExecutor;
-        this.backoff = new Backoff(executionElapsedTime, minErrorDuration, maxErrorDuration);
-        this.jobDescription = jobDescription;
+        this.taskId = requireNonNull(taskId, "taskId is null");
+        this.taskUri = requireNonNull(taskUri, "taskUri is null");
+        this.scheduledExecutor = requireNonNull(scheduledExecutor, "scheduledExecutor is null");
+        this.backoff = requireNonNull(backoff, "backoff is null");
+        this.jobDescription = requireNonNull(jobDescription, "jobDescription is null");
     }
 
     public ListenableFuture<?> acquireRequestPermit()
