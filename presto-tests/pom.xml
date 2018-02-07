@@ -196,6 +196,7 @@
                     <excludes>
                         <exclude>**/TestDistributedQueriesNoHashGeneration.java</exclude>
                         <exclude>**/TestLocalQueries.java</exclude>
+                        <exclude>**/TestNonIterativeDistributedQueries.java</exclude>
                     </excludes>
                 </configuration>
             </plugin>
@@ -230,6 +231,7 @@
                             <includes>
                                 <include>**/TestDistributedQueriesNoHashGeneration.java</include>
                                 <include>**/TestLocalQueries.java</include>
+                                <include>**/TestNonIterativeDistributedQueries.java</include>
                             </includes>
                         </configuration>
                     </plugin>
