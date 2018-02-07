@@ -134,6 +134,8 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testCreateTable()
     {
+        requiredFeatures(TestedFeature.CREATE_TABLE);
+
         assertUpdate("CREATE TABLE test_create (a bigint, b double, c varchar)");
         assertTrue(getQueryRunner().tableExists(getSession(), "test_create"));
         assertTableColumnNames("test_create", "a", "b", "c");
@@ -171,6 +173,8 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testCreateTableAsSelect()
     {
+        requiredFeatures(TestedFeature.CREATE_TABLE);
+
         assertUpdate("CREATE TABLE test_create_table_as_if_not_exists (a bigint, b double)");
         assertTrue(getQueryRunner().tableExists(getSession(), "test_create_table_as_if_not_exists"));
         assertTableColumnNames("test_create_table_as_if_not_exists", "a", "b");
@@ -329,6 +333,8 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testRenameTable()
     {
+        requiredFeatures(TestedFeature.CREATE_TABLE, TestedFeature.RENAME_TABLE);
+
         assertUpdate("CREATE TABLE test_rename AS SELECT 123 x", 1);
 
         assertUpdate("ALTER TABLE test_rename RENAME TO test_rename_new");
@@ -349,6 +355,8 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testRenameColumn()
     {
+        requiredFeatures(TestedFeature.CREATE_TABLE, TestedFeature.RENAME_COLUMN);
+
         assertUpdate("CREATE TABLE test_rename_column AS SELECT 123 x", 1);
 
         assertUpdate("ALTER TABLE test_rename_column RENAME COLUMN x TO y");
@@ -420,6 +428,8 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testInsert()
     {
+        requiredFeatures(TestedFeature.CREATE_TABLE);
+
         @Language("SQL") String query = "SELECT orderdate, orderkey, totalprice FROM orders";
 
         assertUpdate("CREATE TABLE test_insert AS " + query + " WITH NO DATA", 0);

@@ -22,18 +22,26 @@ import static java.util.Objects.requireNonNull;
 public enum TestedFeature
 {
     CREATE_TABLE,
+    RENAME_TABLE,
     ADD_COLUMN,
     DROP_COLUMN,
+    RENAME_COLUMN,
     DELETE_DATA,
 
     // grouping all features interacting with connector metadata
     CONNECTOR_METADATA(
             CREATE_TABLE,
+            RENAME_TABLE,
             ADD_COLUMN,
             DROP_COLUMN,
+            RENAME_COLUMN,
             DELETE_DATA),
 
     CONNECTOR(CONNECTOR_METADATA), // grouping all features interacting with connector
+
+    DATE_TYPE,
+
+    TYPES(DATE_TYPE),
 
     VIEW,
     /**/;
