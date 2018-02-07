@@ -21,6 +21,10 @@ import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.accumulo.AccumuloQueryRunner.createAccumuloQueryRunner;
+import static com.facebook.presto.tests.FeatureSet.allFeatures;
+import static com.facebook.presto.tests.TestedFeature.ADD_COLUMN;
+import static com.facebook.presto.tests.TestedFeature.DELETE_DATA;
+import static com.facebook.presto.tests.TestedFeature.DROP_COLUMN;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -39,19 +43,7 @@ public class TestAccumuloDistributedQueries
 {
     public TestAccumuloDistributedQueries()
     {
-        super(() -> createAccumuloQueryRunner(ImmutableMap.of()));
-    }
-
-    @Override
-    public void testAddColumn()
-    {
-        // Adding columns via SQL are not supported until adding columns with comments are supported
-    }
-
-    @Override
-    public void testDropColumn()
-    {
-        // Dropping columns are not supported by the connector
+        super(allFeatures().excluding(ADD_COLUMN, DROP_COLUMN, DELETE_DATA), () -> createAccumuloQueryRunner(ImmutableMap.of()));
     }
 
     @Override
@@ -87,12 +79,6 @@ public class TestAccumuloDistributedQueries
                 "SELECT * FROM orders WITH NO DATA",
                 "SELECT * FROM orders LIMIT 0",
                 "SELECT 0");
-    }
-
-    @Override
-    public void testDelete()
-    {
-        // Deletes are not supported by the connector
     }
 
     @Override

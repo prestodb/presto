@@ -22,7 +22,17 @@ import static java.util.Objects.requireNonNull;
 public enum TestedFeature
 {
     CREATE_TABLE,
-    CONNECTOR_METADATA(CREATE_TABLE), // grouping all features interacting with connector metadata
+    ADD_COLUMN,
+    DROP_COLUMN,
+    DELETE_DATA,
+
+    // grouping all features interacting with connector metadata
+    CONNECTOR_METADATA(
+            CREATE_TABLE,
+            ADD_COLUMN,
+            DROP_COLUMN,
+            DELETE_DATA),
+
     CONNECTOR(CONNECTOR_METADATA), // grouping all features interacting with connector
 
     VIEW,

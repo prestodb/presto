@@ -55,6 +55,7 @@ import static com.facebook.presto.testing.TestingAccessControlManager.privilege;
 import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.tests.QueryAssertions.assertContains;
+import static com.facebook.presto.tests.TestedFeature.DELETE_DATA;
 import static com.facebook.presto.tests.TestedFeature.VIEW;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
@@ -365,6 +366,8 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testDropColumn()
     {
+        requiredFeatures(TestedFeature.DROP_COLUMN);
+
         assertUpdate("CREATE TABLE test_drop_column AS SELECT 123 x, 111 a", 1);
 
         assertUpdate("ALTER TABLE test_drop_column DROP COLUMN x");
@@ -376,6 +379,8 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testAddColumn()
     {
+        requiredFeatures(TestedFeature.ADD_COLUMN);
+
         assertUpdate("CREATE TABLE test_add_column AS SELECT 123 x", 1);
         assertUpdate("CREATE TABLE test_add_column_a AS SELECT 234 x, 111 a", 1);
         assertUpdate("CREATE TABLE test_add_column_ab AS SELECT 345 x, 222 a, 33.3E0 b", 1);
@@ -464,6 +469,8 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testDelete()
     {
+        requiredFeatures(DELETE_DATA);
+
         // delete half the table, then delete the rest
 
         assertUpdate("CREATE TABLE test_delete AS SELECT * FROM orders", "SELECT count(*) FROM orders");
