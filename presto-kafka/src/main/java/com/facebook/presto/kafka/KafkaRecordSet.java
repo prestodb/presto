@@ -25,7 +25,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import kafka.api.FetchRequest;
 import kafka.api.FetchRequestBuilder;
 import kafka.javaapi.FetchResponse;
@@ -240,7 +239,7 @@ public class KafkaRecordSet
             checkArgument(field < columnHandles.size(), "Invalid field index");
 
             checkFieldType(field, boolean.class);
-            return isNull(field) ? false : fieldValueProviders[field].getBoolean();
+            return fieldValueProviders[field].getBoolean();
         }
 
         @Override
@@ -249,7 +248,7 @@ public class KafkaRecordSet
             checkArgument(field < columnHandles.size(), "Invalid field index");
 
             checkFieldType(field, long.class);
-            return isNull(field) ? 0L : fieldValueProviders[field].getLong();
+            return fieldValueProviders[field].getLong();
         }
 
         @Override
@@ -258,7 +257,7 @@ public class KafkaRecordSet
             checkArgument(field < columnHandles.size(), "Invalid field index");
 
             checkFieldType(field, double.class);
-            return isNull(field) ? 0.0d : fieldValueProviders[field].getDouble();
+            return fieldValueProviders[field].getDouble();
         }
 
         @Override
@@ -267,7 +266,7 @@ public class KafkaRecordSet
             checkArgument(field < columnHandles.size(), "Invalid field index");
 
             checkFieldType(field, Slice.class);
-            return isNull(field) ? Slices.EMPTY_SLICE : fieldValueProviders[field].getSlice();
+            return fieldValueProviders[field].getSlice();
         }
 
         @Override
