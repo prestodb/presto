@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.decoder.FieldDecoder.DEFAULT_FIELD_DECODER_NAME;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
@@ -45,6 +46,7 @@ public class JsonRowDecoderFactory
     @Override
     public RowDecoder create(Set<DecoderColumnHandle> columns)
     {
+        requireNonNull(columns, "columnHandles is null");
         return new JsonRowDecoder(objectMapper, chooseFieldDecoders(columns));
     }
 
@@ -56,6 +58,7 @@ public class JsonRowDecoderFactory
 
     private FieldDecoder<JsonNode> chooseFieldDecoder(DecoderColumnHandle column)
     {
+        checkArgument(!column.isInternal(), "unexpected internal column '%s'", column.getName());
         if (column.getDataFormat() == null || column.getDataFormat().equals(DEFAULT_FIELD_DECODER_NAME)) {
             return new JsonFieldDecoder();
         }

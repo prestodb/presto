@@ -28,6 +28,7 @@ import java.util.Set;
 
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.facebook.presto.spi.type.Varchars.truncateToLength;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -46,6 +47,8 @@ public class CsvRowDecoder
 
     public CsvRowDecoder(Set<DecoderColumnHandle> columnHandles)
     {
+        requireNonNull(columnHandles, "columnHandles is null");
+        checkArgument(columnHandles.stream().noneMatch(DecoderColumnHandle::isInternal), "unexpected internal column");
         this.columnHandles = ImmutableSet.copyOf(columnHandles);
     }
 

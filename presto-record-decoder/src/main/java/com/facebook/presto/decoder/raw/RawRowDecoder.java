@@ -33,6 +33,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.decoder.DecoderErrorCode.DECODER_CONVERSION_NOT_SUPPORTED;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -49,6 +50,8 @@ public class RawRowDecoder
 
     public RawRowDecoder(Set<DecoderColumnHandle> columnHandles)
     {
+        requireNonNull(columnHandles, "columnHandles is null");
+        checkArgument(columnHandles.stream().noneMatch(DecoderColumnHandle::isInternal), "unexpected internal column");
         this.columnHandles = ImmutableSet.copyOf(columnHandles);
     }
 
