@@ -106,7 +106,7 @@ public class RuleAssert
             fail(String.format(
                     "Expected %s to not fire for:\n%s",
                     rule.getClass().getName(),
-                    inTransaction(session -> PlanPrinter.textLogicalPlan(plan, ruleApplication.types, metadata, statsCalculator, session, 2))));
+                    inTransaction(session -> PlanPrinter.textLogicalPlan(plan, ruleApplication.types, metadata, statsCalculator, costCalculator, session, 2))));
         }
     }
 
@@ -176,7 +176,7 @@ public class RuleAssert
 
     private String formatPlan(PlanNode plan, Map<Symbol, Type> types)
     {
-        return inTransaction(session -> PlanPrinter.textLogicalPlan(plan, types, metadata, statsCalculator, session, 2));
+        return inTransaction(session -> PlanPrinter.textLogicalPlan(plan, types, metadata, statsCalculator, costCalculator, session, 2));
     }
 
     private <T> T inTransaction(Function<Session, T> transactionSessionConsumer)
