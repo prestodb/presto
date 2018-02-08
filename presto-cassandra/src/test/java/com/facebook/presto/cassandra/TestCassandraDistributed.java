@@ -21,7 +21,9 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
+import static com.facebook.presto.tests.FeatureSelection.features;
 import static com.facebook.presto.tests.TestedFeature.ADD_COLUMN;
+import static com.facebook.presto.tests.TestedFeature.CONNECTOR;
 import static com.facebook.presto.tests.TestedFeature.CREATE_TABLE;
 import static com.facebook.presto.tests.TestedFeature.DATE_TYPE;
 import static com.facebook.presto.tests.TestedFeature.DELETE;
@@ -39,7 +41,7 @@ public class TestCassandraDistributed
 {
     public TestCassandraDistributed()
     {
-        super(CassandraQueryRunner::createCassandraQueryRunner, FeatureSelection.allFeatures().excluding(
+        super(CassandraQueryRunner::createCassandraQueryRunner, features(CONNECTOR).excluding(
                 ADD_COLUMN,
                 DROP_COLUMN,
                 RENAME_COLUMN,

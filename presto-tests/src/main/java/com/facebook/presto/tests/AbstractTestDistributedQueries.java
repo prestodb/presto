@@ -75,11 +75,6 @@ import static org.testng.Assert.assertTrue;
 public abstract class AbstractTestDistributedQueries
         extends AbstractTestQueries
 {
-    protected AbstractTestDistributedQueries(QueryRunnerSupplier supplier)
-    {
-        super(supplier);
-    }
-
     protected AbstractTestDistributedQueries(QueryRunnerSupplier supplier, FeatureSelection featureSelection)
     {
         super(supplier, featureSelection);

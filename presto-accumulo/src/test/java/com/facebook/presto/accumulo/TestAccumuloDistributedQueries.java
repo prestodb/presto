@@ -22,7 +22,9 @@ import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.accumulo.AccumuloQueryRunner.createAccumuloQueryRunner;
+import static com.facebook.presto.tests.FeatureSelection.features;
 import static com.facebook.presto.tests.TestedFeature.ADD_COLUMN;
+import static com.facebook.presto.tests.TestedFeature.CONNECTOR;
 import static com.facebook.presto.tests.TestedFeature.DELETE;
 import static com.facebook.presto.tests.TestedFeature.DROP_COLUMN;
 import static org.testng.Assert.assertEquals;
@@ -43,7 +45,7 @@ public class TestAccumuloDistributedQueries
 {
     public TestAccumuloDistributedQueries()
     {
-        super(() -> createAccumuloQueryRunner(ImmutableMap.of()), FeatureSelection.allFeatures().excluding(ADD_COLUMN, DROP_COLUMN, DELETE));
+        super(() -> createAccumuloQueryRunner(ImmutableMap.of()), features(CONNECTOR).excluding(ADD_COLUMN, DROP_COLUMN, DELETE));
     }
 
     @Override

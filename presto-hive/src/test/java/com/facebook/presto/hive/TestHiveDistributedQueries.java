@@ -14,9 +14,10 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
-import com.facebook.presto.tests.FeatureSelection;
 
 import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
+import static com.facebook.presto.tests.FeatureSelection.features;
+import static com.facebook.presto.tests.TestedFeature.CONNECTOR;
 import static com.facebook.presto.tests.TestedFeature.DELETE;
 import static io.airlift.tpch.TpchTable.getTables;
 
@@ -25,7 +26,7 @@ public class TestHiveDistributedQueries
 {
     public TestHiveDistributedQueries()
     {
-        super(() -> createQueryRunner(getTables()), FeatureSelection.allFeatures().excluding(DELETE));
+        super(() -> createQueryRunner(getTables()), features(CONNECTOR).excluding(DELETE));
     }
 
     // Hive specific tests should normally go in TestHiveIntegrationSmokeTest
