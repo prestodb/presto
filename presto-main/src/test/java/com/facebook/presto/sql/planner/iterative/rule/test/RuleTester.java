@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.iterative.rule.test;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.Session.SessionBuilder;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
@@ -24,8 +25,11 @@ import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableMap;
 
 import java.io.Closeable;
+import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static java.util.Collections.emptyMap;
 
 public class RuleTester
         implements Closeable
@@ -41,13 +45,21 @@ public class RuleTester
 
     public RuleTester()
     {
-        session = testSessionBuilder()
+        this(emptyMap(), Optional.empty());
+    }
+
+    public RuleTester(Map<String, String> sessionProperties, Optional<Integer> nodeCountForStats)
+    {
+        SessionBuilder sessionBuilder = testSessionBuilder()
                 .setCatalog(CATALOG_ID)
                 .setSchema("tiny")
-                .setSystemProperty("task_concurrency", "1") // these tests don't handle exchanges from local parallel
-                .build();
+                .setSystemProperty("task_concurrency", "1"); // these tests don't handle exchanges from local parallel
+        sessionProperties.forEach(sessionBuilder::setSystemProperty);
+        session = sessionBuilder.build();
 
-        queryRunner = new LocalQueryRunner(session);
+        queryRunner = nodeCountForStats
+                .map(nodeCount -> LocalQueryRunner.queryRunnerWithFakeNodeCountForStats(session, nodeCount))
+                .orElseGet(() -> new LocalQueryRunner(session));
         queryRunner.createCatalog(session.getCatalog().get(),
                 new TpchConnectorFactory(1),
                 ImmutableMap.of());
