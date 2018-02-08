@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.decoder;
 
+import com.facebook.presto.decoder.avro.AvroRowDecoder;
+import com.facebook.presto.decoder.avro.AvroRowDecoderFactory;
 import com.facebook.presto.decoder.csv.CsvRowDecoder;
 import com.facebook.presto.decoder.csv.CsvRowDecoderFactory;
 import com.facebook.presto.decoder.dummy.DummyRowDecoder;
@@ -41,6 +43,7 @@ public class DecoderModule
         decoderFactoriesByName.addBinding(CsvRowDecoder.NAME).to(CsvRowDecoderFactory.class).in(SINGLETON);
         decoderFactoriesByName.addBinding(JsonRowDecoder.NAME).to(JsonRowDecoderFactory.class).in(SINGLETON);
         decoderFactoriesByName.addBinding(RawRowDecoder.NAME).to(RawRowDecoderFactory.class).in(SINGLETON);
+        decoderFactoriesByName.addBinding(AvroRowDecoder.NAME).to(AvroRowDecoderFactory.class).in(SINGLETON);
 
         binder.bind(DispatchingRowDecoderFactory.class).in(SINGLETON);
     }
