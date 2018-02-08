@@ -120,4 +120,13 @@ public class TestTpcdsLocalStats
         statisticsAssertion.check("SELECT * FROM promotion WHERE p_cost < 2000.0", // p_cost is always 1000.00, so all rows should be left
                 checks -> checks.estimate(OUTPUT_ROW_COUNT, noError()));
     }
+
+    @Test
+    public void testIn()
+    {
+        statisticsAssertion.check("SELECT * FROM item WHERE i_category IN ('Women                                             ')",
+                checks -> checks.estimate(OUTPUT_ROW_COUNT, defaultTolerance()));
+        statisticsAssertion.check("SELECT * FROM ship_mode WHERE sm_carrier IN ('DHL                 ', 'BARIAN              ')",
+                checks -> checks.estimate(OUTPUT_ROW_COUNT, defaultTolerance()));
+    }
 }
