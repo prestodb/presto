@@ -211,14 +211,14 @@ public class PrestoCliTests
 
         presto.getProcessInput().println("show session;");
         assertThat(squeezeLines(presto.readLinesUntilPrompt()))
-                .contains("distributed_join|true|true|boolean|Use a distributed join instead of a broadcast join");
+                .contains("join_distribution_type|REPARTITIONED|REPARTITIONED|varchar|The join method to use. Options are BROADCAST,REPARTITIONED,AUTOMATIC");
 
-        presto.getProcessInput().println("set session distributed_join = false;");
+        presto.getProcessInput().println("set session join_distribution_type = 'BROADCAST';");
         assertThat(presto.readLinesUntilPrompt()).contains("SET SESSION");
 
         presto.getProcessInput().println("show session;");
         assertThat(squeezeLines(presto.readLinesUntilPrompt()))
-                .contains("distributed_join|false|true|boolean|Use a distributed join instead of a broadcast join");
+                .contains("join_distribution_type|BROADCAST|REPARTITIONED|varchar|The join method to use. Options are BROADCAST,REPARTITIONED,AUTOMATIC");
     }
 
     @Test(groups = CLI, timeOut = TIMEOUT)

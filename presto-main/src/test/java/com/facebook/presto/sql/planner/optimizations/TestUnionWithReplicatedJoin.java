@@ -13,14 +13,16 @@
  */
 package com.facebook.presto.sql.planner.optimizations;
 
-import com.facebook.presto.SystemSessionProperties;
 import com.google.common.collect.ImmutableMap;
+
+import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
 
 public class TestUnionWithReplicatedJoin
         extends TestUnion
 {
     public TestUnionWithReplicatedJoin()
     {
-        super(ImmutableMap.of(SystemSessionProperties.DISTRIBUTED_JOIN, "false"));
+        super(ImmutableMap.of(JOIN_DISTRIBUTION_TYPE, BROADCAST.name()));
     }
 }
