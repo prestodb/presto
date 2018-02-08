@@ -15,15 +15,24 @@ package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.DecimalLiteral;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.StringLiteral;
+import com.facebook.presto.sql.tree.SymbolReference;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.util.Map;
+
 import static com.facebook.presto.cost.PlanNodeStatsEstimate.UNKNOWN_STATS;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 
 public class TestScalarStatsCalculator
@@ -64,6 +73,100 @@ public class TestScalarStatsCalculator
                 .lowValueUnknown()
                 .highValueUnknown()
                 .nullsFraction(1.0);
+    }
+
+    @Test
+    public void testCastDoubleToBigint()
+    {
+        PlanNodeStatsEstimate inputStatistics = PlanNodeStatsEstimate.builder()
+                .addSymbolStatistics(new Symbol("a"), SymbolStatsEstimate.builder()
+                        .setNullsFraction(0.3)
+                        .setLowValue(1.6)
+                        .setHighValue(17.3)
+                        .setDistinctValuesCount(10)
+                        .setAverageRowSize(2.0)
+                        .build())
+                .build();
+
+        assertCalculate(new Cast(new SymbolReference("a"), "bigint"), inputStatistics)
+                .lowValue(2.0)
+                .highValue(17.0)
+                .distinctValuesCount(10)
+                .nullsFraction(0.3)
+                .dataSizeUnknown();
+    }
+
+    @Test
+    public void testCastDoubleToShortRange()
+    {
+        PlanNodeStatsEstimate inputStatistics = PlanNodeStatsEstimate.builder()
+                .addSymbolStatistics(new Symbol("a"), SymbolStatsEstimate.builder()
+                        .setNullsFraction(0.3)
+                        .setLowValue(1.6)
+                        .setHighValue(3.3)
+                        .setDistinctValuesCount(10)
+                        .setAverageRowSize(2.0)
+                        .build())
+                .build();
+
+        assertCalculate(new Cast(new SymbolReference("a"), "bigint"), inputStatistics)
+                .lowValue(2.0)
+                .highValue(3.0)
+                .distinctValuesCount(2)
+                .nullsFraction(0.3)
+                .dataSizeUnknown();
+    }
+
+    @Test
+    public void testCastDoubleToShortRangeUnknownDistinctValuesCount()
+    {
+        PlanNodeStatsEstimate inputStatistics = PlanNodeStatsEstimate.builder()
+                .addSymbolStatistics(new Symbol("a"), SymbolStatsEstimate.builder()
+                        .setNullsFraction(0.3)
+                        .setLowValue(1.6)
+                        .setHighValue(3.3)
+                        .setAverageRowSize(2.0)
+                        .build())
+                .build();
+
+        assertCalculate(new Cast(new SymbolReference("a"), "bigint"), inputStatistics)
+                .lowValue(2.0)
+                .highValue(3.0)
+                .distinctValuesCountUnknown()
+                .nullsFraction(0.3)
+                .dataSizeUnknown();
+    }
+
+    @Test
+    public void testCastBigintToDouble()
+    {
+        PlanNodeStatsEstimate inputStatistics = PlanNodeStatsEstimate.builder()
+                .addSymbolStatistics(new Symbol("a"), SymbolStatsEstimate.builder()
+                        .setNullsFraction(0.3)
+                        .setLowValue(2.0)
+                        .setHighValue(10.0)
+                        .setDistinctValuesCount(4)
+                        .setAverageRowSize(2.0)
+                        .build())
+                .build();
+
+        assertCalculate(new Cast(new SymbolReference("a"), "double"), inputStatistics)
+                .lowValue(2.0)
+                .highValue(10.0)
+                .distinctValuesCount(4)
+                .nullsFraction(0.3)
+                .dataSizeUnknown();
+    }
+
+    @Test
+    public void testCastUnknown()
+    {
+        assertCalculate(new Cast(new SymbolReference("a"), "bigint"), UNKNOWN_STATS)
+                .lowValueUnknown()
+                .highValueUnknown()
+                .distinctValuesCountUnknown()
+                .nullsFractionUnknown()
+                .dataSizeUnknown();
     }
 
     private SymbolStatsAssertion assertCalculate(Expression scalarExpression)
