@@ -43,7 +43,6 @@ public class JsonRowDecoder
 
     JsonRowDecoder(ObjectMapper objectMapper, Map<DecoderColumnHandle, FieldDecoder<JsonNode>> fieldDecoders)
     {
-        // todo check no internal columns (actually perform this check in some place common to all rowdecoders)
         this.objectMapper = requireNonNull(objectMapper, "objectMapper is null");
         this.fieldDecoders = ImmutableMap.copyOf(fieldDecoders);
     }
