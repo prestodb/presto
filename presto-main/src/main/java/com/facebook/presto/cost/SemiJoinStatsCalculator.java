@@ -55,12 +55,12 @@ public final class SemiJoinStatsCalculator
         SymbolStatsEstimate sourceJoinSymbolStats = sourceStats.getSymbolStatistics(sourceJoinSymbol);
         SymbolStatsEstimate filteringSourceJoinSymbolStats = filteringSourceStats.getSymbolStatistics(filteringSourceJoinSymbol);
 
-        double retainedNDV = retainedNdvProvider.apply(sourceJoinSymbolStats, filteringSourceJoinSymbolStats);
-        double filterFactor = sourceJoinSymbolStats.getValuesFraction() * retainedNDV / sourceJoinSymbolStats.getDistinctValuesCount();
+        double retainedNdv = retainedNdvProvider.apply(sourceJoinSymbolStats, filteringSourceJoinSymbolStats);
+        double filterFactor = sourceJoinSymbolStats.getValuesFraction() * retainedNdv / sourceJoinSymbolStats.getDistinctValuesCount();
 
         SymbolStatsEstimate newSourceJoinSymbolStats = SymbolStatsEstimate.buildFrom(sourceJoinSymbolStats)
                 .setNullsFraction(0)
-                .setDistinctValuesCount(retainedNDV)
+                .setDistinctValuesCount(retainedNdv)
                 .build();
 
         PlanNodeStatsEstimate outputStats = PlanNodeStatsEstimate.buildFrom(sourceStats)
