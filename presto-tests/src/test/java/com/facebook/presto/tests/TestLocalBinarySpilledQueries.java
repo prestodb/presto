@@ -26,6 +26,9 @@ import java.nio.file.Paths;
 
 import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.facebook.presto.tests.FeatureSelection.features;
+import static com.facebook.presto.tests.TestedFeature.AGGREGATION;
+import static com.facebook.presto.tests.TestedFeature.JOIN;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 
 public class TestLocalBinarySpilledQueries
@@ -33,7 +36,7 @@ public class TestLocalBinarySpilledQueries
 {
     public TestLocalBinarySpilledQueries()
     {
-        super(TestLocalBinarySpilledQueries::createLocalQueryRunner);
+        super(TestLocalBinarySpilledQueries::createLocalQueryRunner, features(JOIN, AGGREGATION).build());
     }
 
     private static LocalQueryRunner createLocalQueryRunner()
