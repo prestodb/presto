@@ -133,6 +133,9 @@ public class FilterStatsCalculator
         @Override
         protected Optional<PlanNodeStatsEstimate> visitNotExpression(NotExpression node, Void context)
         {
+            if (node.getValue() instanceof IsNullPredicate) {
+                return process(new IsNotNullPredicate(((IsNullPredicate) node.getValue()).getValue()));
+            }
             return process(node.getValue()).map(childStats -> differenceInStats(input, childStats));
         }
 
