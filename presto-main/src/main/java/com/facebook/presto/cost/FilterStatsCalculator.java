@@ -67,7 +67,7 @@ import static java.util.Objects.requireNonNull;
 
 public class FilterStatsCalculator
 {
-    private static final double UNKNOWN_FILTER_COEFFICIENT = 0.9;
+    static final double UNKNOWN_FILTER_COEFFICIENT = 0.9;
 
     private final Metadata metadata;
     private final ScalarStatsCalculator scalarStatsCalculator;

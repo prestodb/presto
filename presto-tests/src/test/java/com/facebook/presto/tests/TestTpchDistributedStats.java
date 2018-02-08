@@ -67,7 +67,7 @@ public class TestTpchDistributedStats
                 checks -> checks.estimate(OUTPUT_ROW_COUNT, defaultTolerance()));
     }
 
-    @Test(enabled = false) // TODO re-enable
+    @Test
     public void testJoin()
     {
         statisticsAssertion.check("SELECT * FROM  part, partsupp WHERE p_partkey = ps_partkey",
