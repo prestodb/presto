@@ -76,10 +76,6 @@ public class RFC2822JsonFieldDecoder
         @Override
         protected long getMillis()
         {
-            if (isNull()) {
-                return 0L;
-            }
-
             if (value.canConvertToLong()) {
                 return value.asLong();
             }

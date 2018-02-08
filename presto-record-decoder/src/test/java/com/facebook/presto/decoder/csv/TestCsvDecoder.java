@@ -27,6 +27,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Set;
 
+import static com.facebook.presto.decoder.util.DecoderTestUtil.checkIsNull;
 import static com.facebook.presto.decoder.util.DecoderTestUtil.checkValue;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static org.testng.Assert.assertEquals;
@@ -115,9 +116,9 @@ public class TestCsvDecoder
 
         assertEquals(decodedRow.size(), columns.size());
 
-        checkValue(decodedRow, row1, "");
-        checkValue(decodedRow, row2, 0);
-        checkValue(decodedRow, row3, 0.0d);
-        checkValue(decodedRow, row4, false);
+        checkIsNull(decodedRow, row1);
+        checkIsNull(decodedRow, row2);
+        checkIsNull(decodedRow, row3);
+        checkIsNull(decodedRow, row4);
     }
 }

@@ -30,7 +30,6 @@ import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.facebook.presto.spi.type.Varchars.truncateToLength;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.util.Objects.requireNonNull;
 
@@ -101,27 +100,24 @@ public class CsvRowDecoder
             @Override
             public boolean getBoolean()
             {
-                return isNull() ? false : Boolean.parseBoolean(value.trim());
+                return Boolean.parseBoolean(value.trim());
             }
 
             @Override
             public long getLong()
             {
-                return isNull() ? 0L : Long.parseLong(value.trim());
+                return Long.parseLong(value.trim());
             }
 
             @Override
             public double getDouble()
             {
-                return isNull() ? 0.0d : Double.parseDouble(value.trim());
+                return Double.parseDouble(value.trim());
             }
 
             @Override
             public Slice getSlice()
             {
-                if (isNull()) {
-                    return EMPTY_SLICE;
-                }
                 Slice slice = utf8Slice(value);
                 if (isVarcharType(columnHandle.getType())) {
                     slice = truncateToLength(slice, columnHandle.getType());

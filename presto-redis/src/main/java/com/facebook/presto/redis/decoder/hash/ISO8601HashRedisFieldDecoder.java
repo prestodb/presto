@@ -65,10 +65,6 @@ class ISO8601HashRedisFieldDecoder
         @Override
         public long getLong()
         {
-            if (isNull()) {
-                return 0L;
-            }
-
             long millis = FORMATTER.parseMillis(getSlice().toStringAscii());
 
             Type type = columnHandle.getType();

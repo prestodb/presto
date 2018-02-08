@@ -34,7 +34,6 @@ import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.facebook.presto.spi.type.Varchars.truncateToLength;
-import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -118,9 +117,6 @@ public class JsonFieldDecoder
         public Slice getSlice()
         {
             String textValue = value.isValueNode() ? value.asText() : value.toString();
-            if (isNull()) {
-                return EMPTY_SLICE;
-            }
             Slice slice = utf8Slice(textValue);
             if (isVarcharType(columnHandle.getType())) {
                 slice = truncateToLength(slice, columnHandle.getType());

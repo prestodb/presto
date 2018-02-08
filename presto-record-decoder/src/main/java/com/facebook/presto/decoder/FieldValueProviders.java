@@ -14,7 +14,8 @@
 package com.facebook.presto.decoder;
 
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
+
+import static io.airlift.slice.Slices.wrappedBuffer;
 
 /**
  * Simple value providers implementations
@@ -66,7 +67,7 @@ public final class FieldValueProviders
             @Override
             public Slice getSlice()
             {
-                return isNull() ? Slices.EMPTY_SLICE : Slices.wrappedBuffer(value);
+                return wrappedBuffer(value);
             }
 
             @Override

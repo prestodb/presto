@@ -159,9 +159,6 @@ public class RawRowDecoder
         @Override
         public boolean getBoolean()
         {
-            if (isNull()) {
-                return false;
-            }
             switch (fieldType) {
                 case BYTE:
                     return value.get() != 0;
@@ -179,9 +176,6 @@ public class RawRowDecoder
         @Override
         public long getLong()
         {
-            if (isNull()) {
-                return 0L;
-            }
             switch (fieldType) {
                 case BYTE:
                     return value.get();
@@ -199,9 +193,6 @@ public class RawRowDecoder
         @Override
         public double getDouble()
         {
-            if (isNull()) {
-                return 0.0d;
-            }
             switch (fieldType) {
                 case FLOAT:
                     return value.getFloat();
@@ -215,10 +206,6 @@ public class RawRowDecoder
         @Override
         public Slice getSlice()
         {
-            if (isNull()) {
-                return Slices.EMPTY_SLICE;
-            }
-
             if (fieldType == FieldType.BYTE) {
                 Slice slice = Slices.wrappedBuffer(value.slice());
                 if (Varchars.isVarcharType(columnHandle.getType())) {
