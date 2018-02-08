@@ -26,6 +26,7 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.SystemSessionProperties.ENABLE_NEW_STATS_CALCULATOR;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tests.statistics.MetricComparisonStrategies.defaultTolerance;
+import static com.facebook.presto.tests.statistics.MetricComparisonStrategies.noError;
 import static com.facebook.presto.tests.statistics.Metrics.OUTPUT_ROW_COUNT;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 
@@ -89,5 +90,14 @@ public class TestTpchLocalStats
 
         statisticsAssertion.check("SELECT * FROM orders WHERE NOT (o_orderdate >= DATE '1993-10-01' AND o_orderdate < DATE '1993-10-01' + INTERVAL '3' MONTH)",
                 checks -> checks.estimate(OUTPUT_ROW_COUNT, defaultTolerance()));
+    }
+
+    @Test
+    public void testLimit()
+    {
+        // TODO merge with TestTpchDistributedStats.testLimit once that class tests new calculator
+
+        statisticsAssertion.check("SELECT * FROM nation LIMIT 10",
+                checks -> checks.estimate(OUTPUT_ROW_COUNT, noError()));
     }
 }
