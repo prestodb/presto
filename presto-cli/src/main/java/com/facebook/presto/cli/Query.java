@@ -250,8 +250,6 @@ public class Query
             handler.processRows(client);
         }
         catch (RuntimeException | IOException e) {
-            // clear interrupt flag before throwing an exception
-            Thread.interrupted();
             if (client.isClientAborted() && !(e instanceof QueryAbortedException)) {
                 throw new QueryAbortedException(e);
             }
@@ -355,26 +353,6 @@ public class Query
             String padding = Strings.repeat(" ", prefix.length() + (location.getColumnNumber() - 1));
             out.println(prefix + errorLine);
             out.println(padding + "^");
-        }
-    }
-
-    private static class ThreadInterruptor
-            implements Closeable
-    {
-        private final Thread thread = Thread.currentThread();
-        private final AtomicBoolean processing = new AtomicBoolean(true);
-
-        public synchronized void interrupt()
-        {
-            if (processing.get()) {
-                thread.interrupt();
-            }
-        }
-
-        @Override
-        public synchronized void close()
-        {
-            processing.set(false);
         }
     }
 }
