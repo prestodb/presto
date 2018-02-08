@@ -644,7 +644,7 @@ public class LocalQueryRunner
         Plan plan = createPlan(session, sql);
 
         if (printPlan) {
-            System.out.println(PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata, statsCalculator, session));
+            System.out.println(PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata, statsCalculator, estimatedExchangesCostCalculator, session));
         }
 
         SubPlan subplan = PlanFragmenter.createSubPlans(session, metadata, nodePartitioningManager, plan, true);
@@ -656,6 +656,7 @@ public class LocalQueryRunner
                 metadata,
                 sqlParser,
                 statsCalculator,
+                costCalculator,
                 Optional.empty(),
                 pageSourceManager,
                 indexManager,
@@ -806,6 +807,7 @@ public class LocalQueryRunner
                 accessControl,
                 sqlParser,
                 statsCalculator,
+                costCalculator,
                 dataDefinitionTask);
         Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.of(queryExplainer), parameters);
 
