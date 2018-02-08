@@ -25,7 +25,6 @@ import io.prestodb.tempto.fulfillment.table.kafka.ListKafkaDataSource;
 import io.prestodb.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.tests.TestGroups.JDBC;
 import static com.facebook.presto.tests.TestGroups.KAFKA;
 import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
 import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
@@ -69,7 +68,7 @@ public class KafkaSmokeTest
         }
     }
 
-    @Test(groups = {JDBC, KAFKA})
+    @Test(groups = {KAFKA})
     @Requires(SimpleKeyAndValueTable.class)
     public void testSelectSimpleKeyAndValue()
     {
@@ -118,7 +117,7 @@ public class KafkaSmokeTest
         }
     }
 
-    @Test(groups = {JDBC, KAFKA})
+    @Test(groups = {KAFKA})
     @Requires(AllDataTypesRawTable.class)
     public void testSelectAllRawTable()
     {
