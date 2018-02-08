@@ -23,7 +23,6 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.SystemSessionProperties.ENABLE_NEW_STATS_CALCULATOR;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tests.statistics.MetricComparisonStrategies.defaultTolerance;
 import static com.facebook.presto.tests.statistics.MetricComparisonStrategies.noError;
@@ -41,7 +40,6 @@ public class TestTpchLocalStats
         Session defaultSession = testSessionBuilder()
                 .setCatalog("tpch")
                 .setSchema(TINY_SCHEMA_NAME)
-                .setSystemProperty(ENABLE_NEW_STATS_CALCULATOR, "true")
                 .build();
 
         queryRunner = new LocalQueryRunner(defaultSession);
