@@ -325,6 +325,10 @@ public class FilterStatsCalculator
                 return visitExpression(node, context);
             }
 
+            if (left instanceof SymbolReference && Objects.equals(left, right)) {
+                return process(new IsNotNullPredicate(left));
+            }
+
             if (isSingleValue(rightStats)) {
                 OptionalDouble value = isNaN(rightStats.getLowValue()) ? OptionalDouble.empty() : OptionalDouble.of(rightStats.getLowValue());
                 return comparisonExpressionToLiteralStats(input, leftSymbol, leftStats, value, type);
