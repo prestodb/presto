@@ -14,13 +14,23 @@
 
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.Session;
+import com.facebook.presto.cost.CostComparator;
+import com.facebook.presto.cost.CostProvider;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
+import com.facebook.presto.sql.planner.iterative.PlanNodeWithCost;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.JoinNode.DistributionType;
+import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.google.common.collect.Ordering;
+
+import java.util.ArrayList;
+import java.util.List;
 
 import static com.facebook.presto.SystemSessionProperties.getJoinDistributionType;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.AUTOMATIC;
 import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isAtMostScalar;
 import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
 import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
@@ -29,11 +39,19 @@ import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
 import static com.facebook.presto.sql.planner.plan.Patterns.join;
+import static java.util.Objects.requireNonNull;
 
 public class DetermineJoinDistributionType
         implements Rule<JoinNode>
 {
     private static final Pattern<JoinNode> PATTERN = join().matching(joinNode -> !joinNode.getDistributionType().isPresent());
+
+    private final CostComparator costComparator;
+
+    public DetermineJoinDistributionType(CostComparator costComparator)
+    {
+        this.costComparator = requireNonNull(costComparator, "costComparator is null");
+    }
 
     @Override
     public Pattern<JoinNode> getPattern()
@@ -42,33 +60,91 @@ public class DetermineJoinDistributionType
     }
 
     @Override
-    public Result apply(JoinNode node, Captures captures, Context context)
+    public Result apply(JoinNode joinNode, Captures captures, Context context)
     {
-        DistributionType distributionType = determineDistributionType(node, context);
-        return Result.ofPlanNode(node.withDistributionType(distributionType));
+        JoinDistributionType joinDistributionType = getJoinDistributionType(context.getSession());
+
+        PlanNode rewritten;
+        if (joinDistributionType == AUTOMATIC) {
+            rewritten = getCostBasedJoin(joinNode, context, joinDistributionType);
+        }
+        else {
+            rewritten = getSyntacticOrderJoin(joinNode, context, joinDistributionType);
+        }
+        return Result.ofPlanNode(rewritten);
     }
 
-    private static DistributionType determineDistributionType(JoinNode node, Context context)
+    private PlanNode getCostBasedJoin(JoinNode joinNode, Context context, JoinDistributionType joinDistributionType)
+    {
+        Session session = context.getSession();
+        CostProvider costProvider = context.getCostProvider();
+
+        // Using Ordering to facilitate rule determinism
+        Ordering<PlanNodeWithCost> planNodeOrderings = costComparator.forSession(session).onResultOf(PlanNodeWithCost::getCost);
+
+        List<PlanNodeWithCost> possibleJoinNodes = new ArrayList<>();
+
+        JoinNode.Type type = joinNode.getType();
+        if (shouldRepartition(joinNode, joinDistributionType, context)) {
+            JoinNode possibleJoinNode = joinNode.withDistributionType(PARTITIONED);
+            possibleJoinNodes.add(getJoinNodeWithCost(costProvider, possibleJoinNode));
+            possibleJoinNodes.add(getJoinNodeWithCost(costProvider, possibleJoinNode.flipChildren().withDistributionType(PARTITIONED)));
+        }
+
+        if (type != FULL && joinDistributionType.canReplicate()) {
+            // RIGHT OUTER JOIN only works with hash partitioned data.
+            if (type != RIGHT) {
+                possibleJoinNodes.add(getJoinNodeWithCost(costProvider, joinNode.withDistributionType(REPLICATED)));
+            }
+
+            // Don't flip LEFT OUTER JOIN, as RIGHT OUTER JOIN only works with hash partitioned data.
+            if (type != LEFT) {
+                possibleJoinNodes.add(getJoinNodeWithCost(costProvider, joinNode.flipChildren().withDistributionType(REPLICATED)));
+            }
+        }
+
+        if (possibleJoinNodes.stream().anyMatch(result -> result.getCost().hasUnknownComponents()) || possibleJoinNodes.isEmpty()) {
+            return getSyntacticOrderJoin(joinNode, context, joinDistributionType);
+        }
+
+        return planNodeOrderings.min(possibleJoinNodes).getPlanNode();
+    }
+
+    private PlanNode getSyntacticOrderJoin(JoinNode node, Context context, JoinDistributionType joinDistributionType)
+    {
+        if (shouldRepartition(node, joinDistributionType, context)) {
+            return node.withDistributionType(PARTITIONED);
+        }
+        return node.withDistributionType(REPLICATED);
+    }
+
+    private static boolean shouldRepartition(JoinNode node, JoinDistributionType joinDistributionType, Context context)
     {
         JoinNode.Type type = node.getType();
         if (type == RIGHT || type == FULL) {
             // With REPLICATED, the unmatched rows from right-side would be duplicated.
-            return PARTITIONED;
+            return true;
         }
 
+        if (mustBroadcastJoin(node, context)) {
+            return false;
+        }
+
+        return joinDistributionType.canRepartition();
+    }
+
+    private static boolean mustBroadcastJoin(JoinNode node, Context context)
+    {
+        JoinNode.Type type = node.getType();
         if (node.getCriteria().isEmpty() && (type == INNER || type == LEFT)) {
             // There is nothing to partition on
-            return REPLICATED;
+            return true;
         }
+        return isAtMostScalar(node.getRight(), context.getLookup());
+    }
 
-        if (isAtMostScalar(node.getRight(), context.getLookup())) {
-            return REPLICATED;
-        }
-
-        if (getJoinDistributionType(context.getSession()).canRepartition()) {
-            return PARTITIONED;
-        }
-
-        return REPLICATED;
+    private static PlanNodeWithCost getJoinNodeWithCost(CostProvider costProvider, JoinNode possibleJoinNode)
+    {
+        return new PlanNodeWithCost(costProvider.getCumulativeCost(possibleJoinNode), possibleJoinNode);
     }
 }
