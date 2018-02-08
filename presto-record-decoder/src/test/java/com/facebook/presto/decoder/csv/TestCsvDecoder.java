@@ -30,6 +30,7 @@ import java.util.Set;
 import static com.facebook.presto.decoder.util.DecoderTestUtil.checkIsNull;
 import static com.facebook.presto.decoder.util.DecoderTestUtil.checkValue;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
+import static java.util.Collections.emptyMap;
 import static org.testng.Assert.assertEquals;
 
 public class TestCsvDecoder
@@ -50,7 +51,7 @@ public class TestCsvDecoder
         DecoderTestColumnHandle row7 = new DecoderTestColumnHandle("", 6, "row7", DoubleType.DOUBLE, "6", null, null, false, false, false);
 
         Set<DecoderColumnHandle> columns = ImmutableSet.of(row1, row2, row3, row4, row5, row6, row7);
-        RowDecoder rowDecoder = DECODER_FACTORY.create(columns);
+        RowDecoder rowDecoder = DECODER_FACTORY.create(emptyMap(), columns);
 
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(csv.getBytes(StandardCharsets.UTF_8), null)
                 .orElseThrow(AssertionError::new);
@@ -81,7 +82,7 @@ public class TestCsvDecoder
         DecoderTestColumnHandle row8 = new DecoderTestColumnHandle("", 7, "row8", BooleanType.BOOLEAN, "7", null, null, false, false, false);
 
         Set<DecoderColumnHandle> columns = ImmutableSet.of(row1, row2, row3, row4, row5, row6, row7, row8);
-        RowDecoder rowDecoder = DECODER_FACTORY.create(columns);
+        RowDecoder rowDecoder = DECODER_FACTORY.create(emptyMap(), columns);
 
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(csv.getBytes(StandardCharsets.UTF_8), null)
                 .orElseThrow(AssertionError::new);
@@ -109,7 +110,7 @@ public class TestCsvDecoder
         DecoderTestColumnHandle row4 = new DecoderTestColumnHandle("", 3, "row4", BooleanType.BOOLEAN, "3", null, null, false, false, false);
 
         Set<DecoderColumnHandle> columns = ImmutableSet.of(row1, row2, row3, row4);
-        RowDecoder rowDecoder = DECODER_FACTORY.create(columns);
+        RowDecoder rowDecoder = DECODER_FACTORY.create(emptyMap(), columns);
 
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(csv.getBytes(StandardCharsets.UTF_8), null)
                 .orElseThrow(AssertionError::new);

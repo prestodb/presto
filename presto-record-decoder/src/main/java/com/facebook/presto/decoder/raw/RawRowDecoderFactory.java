@@ -17,13 +17,14 @@ import com.facebook.presto.decoder.DecoderColumnHandle;
 import com.facebook.presto.decoder.RowDecoder;
 import com.facebook.presto.decoder.RowDecoderFactory;
 
+import java.util.Map;
 import java.util.Set;
 
 public class RawRowDecoderFactory
         implements RowDecoderFactory
 {
     @Override
-    public RowDecoder create(Set<DecoderColumnHandle> columns)
+    public RowDecoder create(Map<String, String> decoderParams, Set<DecoderColumnHandle> columns)
     {
         return new RawRowDecoder(columns);
     }

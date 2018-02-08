@@ -17,6 +17,7 @@ import com.facebook.presto.decoder.DecoderColumnHandle;
 import com.facebook.presto.decoder.RowDecoder;
 import com.facebook.presto.decoder.RowDecoderFactory;
 
+import java.util.Map;
 import java.util.Set;
 
 public class DummyRowDecoderFactory
@@ -25,7 +26,7 @@ public class DummyRowDecoderFactory
     private static final RowDecoder DECODER_INSTANCE = new DummyRowDecoder();
 
     @Override
-    public RowDecoder create(Set<DecoderColumnHandle> columns)
+    public RowDecoder create(Map<String, String> decoderParams, Set<DecoderColumnHandle> columns)
     {
         return DECODER_INSTANCE;
     }

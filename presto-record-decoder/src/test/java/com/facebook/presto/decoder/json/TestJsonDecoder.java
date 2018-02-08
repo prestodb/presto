@@ -33,6 +33,7 @@ import java.util.Set;
 import static com.facebook.presto.decoder.util.DecoderTestUtil.checkIsNull;
 import static com.facebook.presto.decoder.util.DecoderTestUtil.checkValue;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
+import static java.util.Collections.emptyMap;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -53,7 +54,7 @@ public class TestJsonDecoder
         DecoderTestColumnHandle row5 = new DecoderTestColumnHandle("", 4, "row5", BooleanType.BOOLEAN, "user/geo_enabled", null, null, false, false, false);
 
         Set<DecoderColumnHandle> columns = ImmutableSet.of(row1, row2, row3, row4, row5);
-        RowDecoder rowDecoder = DECODER_FACTORY.create(columns);
+        RowDecoder rowDecoder = DECODER_FACTORY.create(emptyMap(), columns);
 
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(json, null)
                 .orElseThrow(AssertionError::new);
@@ -78,7 +79,7 @@ public class TestJsonDecoder
         DecoderTestColumnHandle row4 = new DecoderTestColumnHandle("", 3, "row4", BooleanType.BOOLEAN, "hello", null, null, false, false, false);
 
         Set<DecoderColumnHandle> columns = ImmutableSet.of(row1, row2, row3, row4);
-        RowDecoder rowDecoder = DECODER_FACTORY.create(columns);
+        RowDecoder rowDecoder = DECODER_FACTORY.create(emptyMap(), columns);
 
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(json, null)
                 .orElseThrow(AssertionError::new);
@@ -102,7 +103,7 @@ public class TestJsonDecoder
         DecoderTestColumnHandle row4 = new DecoderTestColumnHandle("", 3, "row4", BigintType.BIGINT, "a_string", null, null, false, false, false);
 
         Set<DecoderColumnHandle> columns = ImmutableSet.of(row1, row2, row3, row4);
-        RowDecoder rowDecoder = DECODER_FACTORY.create(columns);
+        RowDecoder rowDecoder = DECODER_FACTORY.create(emptyMap(), columns);
 
         Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedRow = rowDecoder.decodeRow(json, null);
         assertTrue(decodedRow.isPresent());

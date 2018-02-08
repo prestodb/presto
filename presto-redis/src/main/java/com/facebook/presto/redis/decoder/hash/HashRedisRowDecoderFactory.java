@@ -31,7 +31,7 @@ public class HashRedisRowDecoderFactory
         implements RowDecoderFactory
 {
     @Override
-    public RowDecoder create(Set<DecoderColumnHandle> columns)
+    public RowDecoder create(Map<String, String> decoderParams, Set<DecoderColumnHandle> columns)
     {
         requireNonNull(columns, "columns is null");
         return new HashRedisRowDecoder(chooseFieldDecoders(columns));

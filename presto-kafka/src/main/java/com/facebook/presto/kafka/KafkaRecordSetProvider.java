@@ -29,6 +29,7 @@ import java.util.List;
 
 import static com.facebook.presto.kafka.KafkaHandleResolver.convertSplit;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -58,6 +59,7 @@ public class KafkaRecordSetProvider
 
         RowDecoder keyDecoder = decoderFactory.create(
                 kafkaSplit.getKeyDataFormat(),
+                emptyMap(),
                 kafkaColumns.stream()
                         .filter(col -> !col.isInternal())
                         .filter(KafkaColumnHandle::isKeyDecoder)
@@ -65,6 +67,7 @@ public class KafkaRecordSetProvider
 
         RowDecoder messageDecoder = decoderFactory.create(
                 kafkaSplit.getMessageDataFormat(),
+                emptyMap(),
                 kafkaColumns.stream()
                         .filter(col -> !col.isInternal())
                         .filter(col -> !col.isKeyDecoder())

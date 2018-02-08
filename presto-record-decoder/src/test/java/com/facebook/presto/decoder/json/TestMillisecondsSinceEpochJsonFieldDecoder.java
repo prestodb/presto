@@ -32,6 +32,7 @@ import static com.facebook.presto.decoder.util.DecoderTestUtil.checkIsNull;
 import static com.facebook.presto.decoder.util.DecoderTestUtil.checkValue;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static java.lang.String.format;
+import static java.util.Collections.emptyMap;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -57,7 +58,7 @@ public class TestMillisecondsSinceEpochJsonFieldDecoder
         DecoderTestColumnHandle row6 = new DecoderTestColumnHandle("", 5, "row6", createVarcharType(100), "a_string", MillisecondsSinceEpochJsonFieldDecoder.NAME, null, false, false, false);
 
         Set<DecoderColumnHandle> columns = ImmutableSet.of(row1, row2, row3, row4, row5, row6);
-        RowDecoder rowDecoder = DECODER_FACTORY.create(columns);
+        RowDecoder rowDecoder = DECODER_FACTORY.create(emptyMap(), columns);
 
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(json, null)
                 .orElseThrow(AssertionError::new);
@@ -95,7 +96,7 @@ public class TestMillisecondsSinceEpochJsonFieldDecoder
         DecoderTestColumnHandle row6 = new DecoderTestColumnHandle("", 5, "row6", createVarcharType(100), "a_string", MillisecondsSinceEpochJsonFieldDecoder.NAME, null, false, false, false);
 
         Set<DecoderColumnHandle> columns = ImmutableSet.of(row1, row2, row3, row4, row5, row6);
-        RowDecoder rowDecoder = DECODER_FACTORY.create(columns);
+        RowDecoder rowDecoder = DECODER_FACTORY.create(emptyMap(), columns);
 
         Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedRow = rowDecoder.decodeRow(json, null);
         assertTrue(decodedRow.isPresent());

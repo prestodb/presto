@@ -29,6 +29,7 @@ import java.util.List;
 
 import static com.facebook.presto.redis.RedisHandleResolver.convertSplit;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -58,6 +59,7 @@ public class RedisRecordSetProvider
 
         RowDecoder keyDecoder = decoderFactory.create(
                 redisSplit.getKeyDataFormat(),
+                emptyMap(),
                 redisColumns.stream()
                         .filter(col -> !col.isInternal())
                         .filter(RedisColumnHandle::isKeyDecoder)
@@ -65,6 +67,7 @@ public class RedisRecordSetProvider
 
         RowDecoder valueDecoder = decoderFactory.create(
                 redisSplit.getValueDataFormat(),
+                emptyMap(),
                 redisColumns.stream()
                         .filter(col -> !col.isInternal())
                         .filter(col -> !col.isKeyDecoder())
