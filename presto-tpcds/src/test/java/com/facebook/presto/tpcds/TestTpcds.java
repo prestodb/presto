@@ -44,5 +44,14 @@ public class TestTpcds
                 .row("James               ", "Brown                         ", 4L, new BigDecimal("-7.00"))
                 .build();
         assertEquals(expected, actual);
+
+        actual = computeActual(
+                "SELECT c_first_name, c_last_name " +
+                        "FROM customer JOIN customer_address ON c_current_addr_sk = ca_address_sk " +
+                        "WHERE ca_address_sk = 4 AND ca_gmt_offset = DECIMAL '-7.00'");
+        expected = resultBuilder(getSession(), actual.getTypes())
+                .row("James               ", "Brown                         ")
+                .build();
+        assertEquals(expected, actual);
     }
 }
