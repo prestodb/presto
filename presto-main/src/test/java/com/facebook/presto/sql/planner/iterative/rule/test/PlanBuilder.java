@@ -161,15 +161,17 @@ public class PlanBuilder
 
     public ValuesNode values(PlanNodeId id, Symbol... columns)
     {
-        return new ValuesNode(
-                id,
-                ImmutableList.copyOf(columns),
-                ImmutableList.of());
+        return values(id, ImmutableList.copyOf(columns), ImmutableList.of());
     }
 
     public ValuesNode values(List<Symbol> columns, List<List<Expression>> rows)
     {
-        return new ValuesNode(idAllocator.getNextId(), columns, rows);
+        return values(idAllocator.getNextId(), columns, rows);
+    }
+
+    public ValuesNode values(PlanNodeId id, List<Symbol> columns, List<List<Expression>> rows)
+    {
+        return new ValuesNode(id, columns, rows);
     }
 
     public EnforceSingleRowNode enforceSingleRow(PlanNode source)
