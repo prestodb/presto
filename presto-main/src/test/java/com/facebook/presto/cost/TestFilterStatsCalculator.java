@@ -293,6 +293,15 @@ public class TestFilterStatsCalculator
                                 .highValue(10.0)
                                 .distinctValuesCount(40.0)
                                 .nullsFraction(0.25));
+
+        assertExpression("NOT(x IS NULL)")
+                .outputRowsCount(750)
+                .symbolStats(new Symbol("x"), symbolAssert ->
+                        symbolAssert.averageRowSize(4.0)
+                                .lowValue(-10.0)
+                                .highValue(10.0)
+                                .distinctValuesCount(40.0)
+                                .nullsFraction(0));
     }
 
     @Test
