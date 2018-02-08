@@ -15,13 +15,24 @@ package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
+import com.facebook.presto.sql.analyzer.Scope;
+import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.Literal;
 import com.facebook.presto.sql.tree.Node;
+import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.SymbolReference;
+import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
 
+import java.util.OptionalDouble;
+
+import static com.facebook.presto.cost.StatsUtil.toStatsRepresentation;
+import static com.facebook.presto.sql.planner.LiteralInterpreter.evaluate;
 import static java.util.Objects.requireNonNull;
 
 public class ScalarStatsCalculator
@@ -61,6 +72,32 @@ public class ScalarStatsCalculator
         protected SymbolStatsEstimate visitSymbolReference(SymbolReference node, Void context)
         {
             return input.getSymbolStatistics(Symbol.from(node));
+        }
+
+        @Override
+        protected SymbolStatsEstimate visitNullLiteral(NullLiteral node, Void context)
+        {
+            return SymbolStatsEstimate.builder()
+                    .setDistinctValuesCount(0)
+                    .setNullsFraction(1)
+                    .build();
+        }
+
+        @Override
+        protected SymbolStatsEstimate visitLiteral(Literal node, Void context)
+        {
+            Object value = evaluate(metadata, session.toConnectorSession(), node);
+            Type type = ExpressionAnalyzer.createConstantAnalyzer(metadata, session, ImmutableList.of()).analyze(node, Scope.create());
+            OptionalDouble doubleValue = toStatsRepresentation(metadata, session, type, value);
+            SymbolStatsEstimate.Builder estimate = SymbolStatsEstimate.builder()
+                    .setNullsFraction(0)
+                    .setDistinctValuesCount(1);
+
+            if (doubleValue.isPresent()) {
+                estimate.setLowValue(doubleValue.getAsDouble());
+                estimate.setHighValue(doubleValue.getAsDouble());
+            }
+            return estimate.build();
         }
     }
 }
