@@ -76,6 +76,7 @@ import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantIdentityPro
 import com.facebook.presto.sql.planner.iterative.rule.RemoveTrivialFilters;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveUnreferencedScalarApplyNodes;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveUnreferencedScalarLateralNodes;
+import com.facebook.presto.sql.planner.iterative.rule.ReorderJoins;
 import com.facebook.presto.sql.planner.iterative.rule.SimplifyCountOverConstant;
 import com.facebook.presto.sql.planner.iterative.rule.SimplifyExpressions;
 import com.facebook.presto.sql.planner.iterative.rule.SingleMarkDistinctToGroupBy;
@@ -349,7 +350,23 @@ public class PlanOptimizers
                         statsCalculator,
                         estimatedExchangesCostCalculator,
                         new PickTableLayout(metadata).rules()),
-                projectionPushDown);
+                projectionPushDown,
+                new PruneUnreferencedOutputs(),
+                new IterativeOptimizer(
+                        stats,
+                        statsCalculator,
+                        estimatedExchangesCostCalculator,
+                        ImmutableSet.of(new RemoveRedundantIdentityProjections())),
+
+                // Because ReorderJoins runs only once,
+                // PredicatePushDown, PruneUnreferenedOutputpus and RemoveRedundantIdentityProjections
+                // need to run beforehand in order to produce an optimal join order
+                // It also needs to run after EliminateCrossJoins so that its chosen order doesn't get undone.
+                new IterativeOptimizer(
+                        stats,
+                        statsCalculator,
+                        estimatedExchangesCostCalculator,
+                        ImmutableSet.of(new ReorderJoins(costComparator))));
 
         if (featuresConfig.isOptimizeSingleDistinct()) {
             builder.add(
