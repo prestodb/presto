@@ -56,9 +56,7 @@ public class RawRowDecoder
     }
 
     @Override
-    public Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodeRow(
-            byte[] data,
-            Map<String, String> dataMap)
+    public Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodeRow(byte[] data, Map<String, String> dataMap)
     {
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = new HashMap<>();
         for (DecoderColumnHandle columnHandle : columnHandles) {
@@ -87,19 +85,6 @@ public class RawRowDecoder
         {
             return size;
         }
-
-        static FieldType forString(String value)
-        {
-            if (value != null) {
-                for (FieldType fieldType : values()) {
-                    if (value.toUpperCase(Locale.ENGLISH).equals(fieldType.name())) {
-                        return fieldType;
-                    }
-                }
-            }
-
-            return null;
-        }
     }
 
     public FieldValueProvider decodeField(byte[] value, DecoderColumnHandle columnHandle)
@@ -108,7 +93,9 @@ public class RawRowDecoder
         requireNonNull(columnHandle, "columnHandle is null");
 
         String mapping = columnHandle.getMapping();
-        FieldType fieldType = columnHandle.getDataFormat() == null ? FieldType.BYTE : FieldType.forString(columnHandle.getDataFormat());
+        FieldType fieldType = columnHandle.getDataFormat() == null ?
+                FieldType.BYTE :
+                FieldType.valueOf(columnHandle.getDataFormat().toUpperCase(Locale.ENGLISH));
 
         int start = 0;
         int end = value.length;
