@@ -95,7 +95,9 @@ public class KafkaMetadata
                 schemaTableName.getTableName(),
                 table.getTopicName(),
                 getDataFormat(table.getKey()),
-                getDataFormat(table.getMessage()));
+                getDataFormat(table.getMessage()),
+                table.getKey().flatMap(KafkaTopicFieldGroup::getDataSchema),
+                table.getMessage().flatMap(KafkaTopicFieldGroup::getDataSchema));
     }
 
     private static String getDataFormat(Optional<KafkaTopicFieldGroup> fieldGroup)
