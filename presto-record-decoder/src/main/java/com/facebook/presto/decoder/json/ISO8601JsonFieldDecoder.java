@@ -75,10 +75,6 @@ public class ISO8601JsonFieldDecoder
         @Override
         protected long getMillis()
         {
-            if (isNull()) {
-                return 0L;
-            }
-
             if (value.canConvertToLong()) {
                 return value.asLong();
             }

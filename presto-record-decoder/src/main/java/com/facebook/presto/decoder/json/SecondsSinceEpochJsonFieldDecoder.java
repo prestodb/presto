@@ -19,7 +19,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
 
@@ -78,13 +77,13 @@ public class SecondsSinceEpochJsonFieldDecoder
         @Override
         protected long getMillis()
         {
-            return isNull() ? 0L : value.asLong() * 1000L;
+            return value.asLong() * 1000L;
         }
 
         @Override
         public Slice getSlice()
         {
-            return isNull() ? Slices.EMPTY_SLICE : utf8Slice(FORMATTER.print(value.asLong() * 1000L));
+            return utf8Slice(FORMATTER.print(value.asLong() * 1000L));
         }
     }
 }

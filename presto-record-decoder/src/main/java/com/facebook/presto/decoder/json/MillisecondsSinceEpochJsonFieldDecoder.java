@@ -25,7 +25,6 @@ import org.joda.time.format.ISODateTimeFormat;
 import java.util.Locale;
 import java.util.Set;
 
-import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.util.Objects.requireNonNull;
 
@@ -78,13 +77,13 @@ public class MillisecondsSinceEpochJsonFieldDecoder
         @Override
         protected long getMillis()
         {
-            return isNull() ? 0L : value.asLong();
+            return value.asLong();
         }
 
         @Override
         public Slice getSlice()
         {
-            return isNull() ? EMPTY_SLICE : utf8Slice(FORMATTER.print(value.asLong()));
+            return utf8Slice(FORMATTER.print(value.asLong()));
         }
     }
 }
