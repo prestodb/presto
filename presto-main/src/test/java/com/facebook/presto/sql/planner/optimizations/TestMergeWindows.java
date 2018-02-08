@@ -557,6 +557,7 @@ public class TestMergeWindows
                 new IterativeOptimizer(
                         new StatsRecorder(),
                         getQueryRunner().getStatsCalculator(),
+                        getQueryRunner().getEstimatedExchangesCostCalculator(),
                         ImmutableSet.<Rule<?>>builder()
                                 .add(new RemoveRedundantIdentityProjections())
                                 .addAll(GatherAndMergeWindows.rules())

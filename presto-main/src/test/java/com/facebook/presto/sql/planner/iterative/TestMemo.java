@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative;
 
+import com.facebook.presto.cost.PlanNodeCostEstimate;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
@@ -226,6 +227,30 @@ public class TestMemo
 
         assertEquals(memo.getStats(yGroup), Optional.empty());
         assertEquals(memo.getStats(xGroup), Optional.empty());
+    }
+
+    @Test
+    public void testEvictCostOnReplace()
+    {
+        PlanNode y = node();
+        PlanNode x = node(y);
+
+        Memo memo = new Memo(idAllocator, x);
+        int xGroup = memo.getRootGroup();
+        int yGroup = getChildGroup(memo, memo.getRootGroup());
+        PlanNodeCostEstimate yCost = PlanNodeCostEstimate.cpuCost(42);
+        PlanNodeCostEstimate xCost = yCost.add(PlanNodeCostEstimate.networkCost(37));
+
+        memo.storeCumulativeCost(yGroup, yCost);
+        memo.storeCumulativeCost(xGroup, xCost);
+
+        assertEquals(memo.getCumulativeCost(yGroup), Optional.of(yCost));
+        assertEquals(memo.getCumulativeCost(xGroup), Optional.of(xCost));
+
+        memo.replace(yGroup, node(), "rule");
+
+        assertEquals(memo.getCumulativeCost(yGroup), Optional.empty());
+        assertEquals(memo.getCumulativeCost(xGroup), Optional.empty());
     }
 
     private static void assertMatchesStructure(PlanNode actual, PlanNode expected)

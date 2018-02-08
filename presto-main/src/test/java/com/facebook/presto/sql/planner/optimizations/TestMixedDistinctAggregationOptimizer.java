@@ -115,6 +115,7 @@ public class TestMixedDistinctAggregationOptimizer
                 new IterativeOptimizer(
                         new StatsRecorder(),
                         getQueryRunner().getStatsCalculator(),
+                        getQueryRunner().getEstimatedExchangesCostCalculator(),
                         ImmutableSet.of(new RemoveRedundantIdentityProjections())),
                 new OptimizeMixedDistinctAggregations(getQueryRunner().getMetadata()),
                 new PruneUnreferencedOutputs());
