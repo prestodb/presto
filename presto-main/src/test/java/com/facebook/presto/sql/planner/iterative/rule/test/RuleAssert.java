@@ -14,7 +14,10 @@
 package com.facebook.presto.sql.planner.iterative.rule.test;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.cost.CachingCostProvider;
 import com.facebook.presto.cost.CachingStatsProvider;
+import com.facebook.presto.cost.CostCalculator;
+import com.facebook.presto.cost.CostProvider;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.matching.Match;
@@ -50,6 +53,7 @@ public class RuleAssert
 {
     private final Metadata metadata;
     private final StatsCalculator statsCalculator;
+    private final CostCalculator costCalculator;
     private Session session;
     private final Rule<?> rule;
 
@@ -60,10 +64,11 @@ public class RuleAssert
     private final TransactionManager transactionManager;
     private final AccessControl accessControl;
 
-    public RuleAssert(Metadata metadata, StatsCalculator statsCalculator, Session session, Rule rule, TransactionManager transactionManager, AccessControl accessControl)
+    public RuleAssert(Metadata metadata, StatsCalculator statsCalculator, CostCalculator costCalculator, Session session, Rule rule, TransactionManager transactionManager, AccessControl accessControl)
     {
         this.metadata = metadata;
         this.statsCalculator = statsCalculator;
+        this.costCalculator = costCalculator;
         this.session = session;
         this.rule = rule;
         this.transactionManager = transactionManager;
@@ -150,7 +155,7 @@ public class RuleAssert
 
         PlanNode memoRoot = memo.getNode(memo.getRootGroup());
 
-        return inTransaction(session -> applyRule(rule, memoRoot, ruleContext(statsCalculator, symbolAllocator, memo, lookup, session)));
+        return inTransaction(session -> applyRule(rule, memoRoot, ruleContext(statsCalculator, costCalculator, symbolAllocator, memo, lookup, session)));
     }
 
     private static <T> RuleApplication applyRule(Rule<T> rule, PlanNode planNode, Rule.Context context)
@@ -185,9 +190,10 @@ public class RuleAssert
                 });
     }
 
-    private Rule.Context ruleContext(StatsCalculator statsCalculator, SymbolAllocator symbolAllocator, Memo memo, Lookup lookup, Session session)
+    private Rule.Context ruleContext(StatsCalculator statsCalculator, CostCalculator costCalculator, SymbolAllocator symbolAllocator, Memo memo, Lookup lookup, Session session)
     {
         StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, Optional.of(memo), lookup, session, symbolAllocator::getTypes);
+        CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.of(memo), lookup, session, symbolAllocator::getTypes);
 
         return new Rule.Context()
         {
@@ -219,6 +225,12 @@ public class RuleAssert
             public StatsProvider getStatsProvider()
             {
                 return statsProvider;
+            }
+
+            @Override
+            public CostProvider getCostProvider()
+            {
+                return costProvider;
             }
         };
     }

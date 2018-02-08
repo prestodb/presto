@@ -128,6 +128,7 @@ public class BasePlanTest
                 new IterativeOptimizer(
                         new StatsRecorder(),
                         queryRunner.getStatsCalculator(),
+                        queryRunner.getCostCalculator(),
                         ImmutableSet.of(new RemoveRedundantIdentityProjections())));
 
         assertPlan(sql, LogicalPlanner.Stage.OPTIMIZED, pattern, optimizers);
