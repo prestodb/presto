@@ -26,7 +26,7 @@ import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.SystemSessionProperties.isDistributedJoinEnabled;
+import static com.facebook.presto.SystemSessionProperties.getJoinDistributionType;
 import static java.util.Objects.requireNonNull;
 
 public class DetermineSemiJoinDistributionType
@@ -87,7 +87,7 @@ public class DetermineSemiJoinDistributionType
 
         private SemiJoinNode.DistributionType getTargetSemiJoinDistributionType(boolean isDeleteQuery)
         {
-            if (isDistributedJoinEnabled(session) && !isDeleteQuery) {
+            if (getJoinDistributionType(session).canRepartition() && !isDeleteQuery) {
                 return SemiJoinNode.DistributionType.PARTITIONED;
             }
 

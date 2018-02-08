@@ -13,19 +13,27 @@ may be used to tune Presto or alter its behavior when required.
 General Properties
 ------------------
 
-``distributed-joins-enabled``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``join-distribution-type``
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-    * **Type:** ``boolean``
-    * **Default value:** ``true``
+    * **Type:** ``string``
+    * **Allowed values:** ``AUTOMATIC``, ``REPARTITIONED``, ``REPLICATED``
+    * **Default value:** ``REPARTITIONED``
 
-    Use hash distributed joins instead of broadcast joins. Distributed joins
-    require redistributing both tables using a hash of the join key. This can
-    be slower (sometimes substantially) than broadcast joins, but allows much
-    larger joins. Broadcast joins require that the tables on the right side of
-    the join after filtering fit in memory on each node, whereas distributed joins
-    only need to fit in distributed memory across all nodes. This can also be
-    specified on a per-query basis using the ``distributed_join`` session property.
+    The type of distributed join to use.  When set to ``REPARTITIONED``, presto will
+    use hash distributed joins.  When set to ``REPLICATED``, it will broadcast the
+    right table to all nodes in the cluster that have data from the left table.
+    Repartitioned joins require redistributing both tables using a hash of the join key.
+    This can be slower (sometimes substantially) than broadcast joins, but allows much
+    larger joins. In particular broadcast joins will be faster if the right table is
+    much smaller than the left.  However, broadcast joins require that the tables on the right
+    side of the join after filtering fit in memory on each node, whereas distributed joins
+    only need to fit in distributed memory across all nodes. When set to ``AUTOMATIC``,
+    Presto will make a cost based decision as to which distribution type is optimal.
+    It will also consider switching the left and right inputs to the join.  In ``AUTOMATIC``
+    mode, Presto will default to replicated joins if no cost could be computed, such as if
+    the tables do not have statistics. This can also be specified on a per-query basis using
+    the ``join_distribution_type`` session property.
 
 ``redistribute-writes``
 ^^^^^^^^^^^^^^^^^^^^^^^
