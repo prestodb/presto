@@ -24,6 +24,7 @@ import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.system.SystemConnectorModule;
 import com.facebook.presto.cost.CoefficientBasedStatsCalculator;
 import com.facebook.presto.cost.ComposableStatsCalculator;
+import com.facebook.presto.cost.EnforceSingleRowStatsRule;
 import com.facebook.presto.cost.FilterStatsCalculator;
 import com.facebook.presto.cost.FilterStatsRule;
 import com.facebook.presto.cost.LimitStatsRule;
@@ -493,6 +494,7 @@ public class ServerMainModule
         rules.add(new FilterStatsRule(new FilterStatsCalculator(metadata)));
         rules.add(new ValuesStatsRule(metadata));
         rules.add(new LimitStatsRule());
+        rules.add(new EnforceSingleRowStatsRule());
         return new ComposableStatsCalculator(rules.build());
     }
 
