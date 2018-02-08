@@ -100,4 +100,15 @@ public class TestTpchLocalStats
         statisticsAssertion.check("SELECT * FROM nation LIMIT 10",
                 checks -> checks.estimate(OUTPUT_ROW_COUNT, noError()));
     }
+
+    @Test
+    public void testEnforceSingleRow()
+    {
+        // TODO merge with TestTpchDistributedStats.testEnforceSingleRow once that class tests new calculator
+
+        statisticsAssertion.check("SELECT (SELECT n_regionkey FROM nation WHERE n_name = 'GERMANY') AS sub",
+                checks -> checks
+                        // TODO .estimate(distinctValuesCount("sub"), defaultTolerance())
+                        .estimate(OUTPUT_ROW_COUNT, noError()));
+    }
 }
