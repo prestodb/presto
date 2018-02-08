@@ -20,6 +20,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -28,6 +29,7 @@ import javax.inject.Inject;
 
 import java.util.List;
 import java.util.OptionalInt;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanSessionProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerSessionProperty;
@@ -35,13 +37,17 @@ import static com.facebook.presto.spi.session.PropertyMetadata.stringSessionProp
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.REPARTITIONED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 public final class SystemSessionProperties
 {
     public static final String OPTIMIZE_HASH_GENERATION = "optimize_hash_generation";
+    public static final String JOIN_DISTRIBUTION_TYPE = "join_distribution_type";
     public static final String DISTRIBUTED_JOIN = "distributed_join";
     public static final String DISTRIBUTED_INDEX_JOIN = "distributed_index_join";
     public static final String HASH_PARTITION_COUNT = "hash_partition_count";
@@ -121,9 +127,22 @@ public final class SystemSessionProperties
                         false),
                 booleanSessionProperty(
                         DISTRIBUTED_JOIN,
-                        "Use a distributed join instead of a broadcast join",
-                        featuresConfig.isDistributedJoinsEnabled(),
+                        "(DEPRECATED) Use a distributed join instead of a broadcast join. If this is set join_distribution_type is ignored.",
+                        null,
                         false),
+
+                new PropertyMetadata<>(
+                        JOIN_DISTRIBUTION_TYPE,
+                        format("The join method to use. Options are %s",
+                                Stream.of(JoinDistributionType.values())
+                                        .map(FeaturesConfig.JoinDistributionType::name)
+                                        .collect(joining(","))),
+                        VARCHAR,
+                        JoinDistributionType.class,
+                        featuresConfig.getJoinDistributionType(),
+                        false,
+                        value -> JoinDistributionType.valueOf(((String) value).toUpperCase()),
+                        JoinDistributionType::name),
                 booleanSessionProperty(
                         DISTRIBUTED_INDEX_JOIN,
                         "Distribute index joins on join keys instead of executing inline",
@@ -446,9 +465,18 @@ public final class SystemSessionProperties
         return session.getSystemProperty(OPTIMIZE_HASH_GENERATION, Boolean.class);
     }
 
-    public static boolean isDistributedJoinEnabled(Session session)
+    public static JoinDistributionType getJoinDistributionType(Session session)
     {
-        return session.getSystemProperty(DISTRIBUTED_JOIN, Boolean.class);
+        // distributed_join takes precedence until we remove it
+        Boolean distributedJoin = session.getSystemProperty(DISTRIBUTED_JOIN, Boolean.class);
+        if (distributedJoin != null) {
+            if (!distributedJoin) {
+                return BROADCAST;
+            }
+            return REPARTITIONED;
+        }
+
+        return session.getSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.class);
     }
 
     public static boolean isDistributedIndexJoinEnabled(Session session)
