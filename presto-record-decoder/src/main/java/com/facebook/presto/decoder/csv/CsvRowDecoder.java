@@ -91,7 +91,7 @@ public class CsvRowDecoder
             @Override
             public boolean isNull()
             {
-                return (value == null) || value.isEmpty();
+                return value.isEmpty();
             }
 
             @SuppressWarnings("SimplifiableConditionalExpression")
