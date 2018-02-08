@@ -219,6 +219,15 @@ public class TestFilterStatsCalculator
     }
 
     @Test
+    public void testUnsupportedExpression()
+    {
+        assertExpression("sin(x)")
+                .outputRowsCount(900);
+        assertExpression("x = sin(x)")
+                .outputRowsCount(900);
+    }
+
+    @Test
     public void testAndStats()
     {
         assertExpression("x < 0e0 AND x > DOUBLE '-7.5'")
@@ -235,6 +244,33 @@ public class TestFilterStatsCalculator
                 .outputRowsCount(0)
                 .symbolStats(new Symbol("x"), SymbolStatsAssertion::emptyRange);
         // TODO .symbolStats(new Symbol("y"), SymbolStatsAssertion::emptyRange);
+
+        // first argument unknown
+        assertExpression("json_array_contains(JSON '[]', x) AND x < 0e0")
+                .outputRowsCount(337.5)
+                .symbolStats(new Symbol("x"), symbolAssert ->
+                        symbolAssert.lowValue(-10)
+                                .highValue(0)
+                                .distinctValuesCount(20)
+                                .nullsFraction(0));
+
+        // second argument unknown
+        assertExpression("x < 0e0 AND json_array_contains(JSON '[]', x)")
+                .outputRowsCount(337.5)
+                .symbolStats(new Symbol("x"), symbolAssert ->
+                        symbolAssert.lowValue(-10)
+                                .highValue(0)
+                                .distinctValuesCount(20)
+                                .nullsFraction(0));
+
+        // both arguments unknown
+        assertExpression("json_array_contains(JSON '[11]', x) AND json_array_contains(JSON '[13]', x)")
+                .outputRowsCount(900)
+                .symbolStats(new Symbol("x"), symbolAssert ->
+                        symbolAssert.lowValue(-10)
+                                .highValue(10)
+                                .distinctValuesCount(40)
+                                .nullsFraction(0.25));
     }
 
     @Test
@@ -248,6 +284,15 @@ public class TestFilterStatsCalculator
                                 .highValue(10.0)
                                 .distinctValuesCount(20.0)
                                 .nullsFraction(0.4)); // FIXME - nulls shouldn't be restored
+
+        assertExpression("NOT(json_array_contains(JSON '[]', x))")
+                .outputRowsCount(900)
+                .symbolStats(new Symbol("x"), symbolAssert ->
+                        symbolAssert.averageRowSize(4.0)
+                                .lowValue(-10.0)
+                                .highValue(10.0)
+                                .distinctValuesCount(40.0)
+                                .nullsFraction(0.25));
     }
 
     @Test
