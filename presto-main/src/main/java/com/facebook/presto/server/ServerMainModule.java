@@ -22,6 +22,7 @@ import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.system.SystemConnectorModule;
+import com.facebook.presto.cost.AggregationStatsRule;
 import com.facebook.presto.cost.CoefficientBasedStatsCalculator;
 import com.facebook.presto.cost.ComposableStatsCalculator;
 import com.facebook.presto.cost.CostCalculator;
@@ -523,6 +524,7 @@ public class ServerMainModule
         rules.add(new ProjectStatsRule(scalarStatsCalculator, normalizer));
         rules.add(new ExchangeStatsRule(normalizer));
         rules.add(new JoinStatsRule(filterStatsCalculator, normalizer));
+        rules.add(new AggregationStatsRule(normalizer));
 
         return new ComposableStatsCalculator(rules.build());
     }
