@@ -22,12 +22,23 @@ import static java.util.Objects.requireNonNull;
 public enum TestedFeature
 {
     DATE_TYPE,
+    TYPES,
+    FUNCTIONS,
+
+    PREPARED_STATEMENT,
 
     SCAN,
     JOIN,
+    SEMI_JOIN,
     ORDER_BY,
+    LIMIT,
+    TOP_N(ORDER_BY, LIMIT),
     FILTERED_AGGREGATION,
     AGGREGATION(FILTERED_AGGREGATION),
+    WINDOW,
+    TABLE_SUBQUERY,
+    SCALAR_SUBQUERY(JOIN, AGGREGATION),
+    TABLESAMPLE,
     DELETE,
     INSERT,
 
