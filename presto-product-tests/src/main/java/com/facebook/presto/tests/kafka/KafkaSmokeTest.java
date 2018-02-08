@@ -41,9 +41,6 @@ public class KafkaSmokeTest
 {
     private static final String KAFKA_CATALOG = "kafka";
 
-    private static final String ALL_DATATYPES_RAW_TABLE_NAME = "product_tests.all_datatypes_raw";
-    private static final String ALL_DATATYPES_RAW_TOPIC_NAME = "all_datatypes_raw";
-
     private static final String SIMPLE_KEY_AND_VALUE_TABLE_NAME = "product_tests.simple_key_and_value";
     private static final String SIMPLE_KEY_AND_VALUE_TOPIC_NAME = "simple_key_and_value";
 
@@ -81,6 +78,10 @@ public class KafkaSmokeTest
                 row("jasio", 1, "ania", 2),
                 row("piotr", 3, "kasia", 4));
     }
+
+
+    private static final String ALL_DATATYPES_RAW_TABLE_NAME = "product_tests.all_datatypes_raw";
+    private static final String ALL_DATATYPES_RAW_TOPIC_NAME = "all_datatypes_raw";
 
     private static class AllDataTypesRawTable
             implements RequirementsProvider
