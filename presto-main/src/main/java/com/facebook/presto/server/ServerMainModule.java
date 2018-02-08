@@ -28,6 +28,7 @@ import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.cost.CostCalculator.EstimatedExchanges;
 import com.facebook.presto.cost.CostCalculatorUsingExchanges;
 import com.facebook.presto.cost.CostCalculatorWithEstimatedExchanges;
+import com.facebook.presto.cost.CostComparator;
 import com.facebook.presto.cost.EnforceSingleRowStatsRule;
 import com.facebook.presto.cost.FilterStatsCalculator;
 import com.facebook.presto.cost.FilterStatsRule;
@@ -390,6 +391,7 @@ public class ServerMainModule
         // cost calculator
         binder.bind(CostCalculator.class).to(CostCalculatorUsingExchanges.class).in(Scopes.SINGLETON);
         binder.bind(CostCalculator.class).annotatedWith(EstimatedExchanges.class).to(CostCalculatorWithEstimatedExchanges.class).in(Scopes.SINGLETON);
+        binder.bind(CostComparator.class).in(Scopes.SINGLETON);
 
         // type
         binder.bind(TypeRegistry.class).in(Scopes.SINGLETON);

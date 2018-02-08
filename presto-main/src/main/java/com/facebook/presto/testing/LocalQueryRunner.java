@@ -33,6 +33,7 @@ import com.facebook.presto.cost.CoefficientBasedStatsCalculator;
 import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.cost.CostCalculatorUsingExchanges;
 import com.facebook.presto.cost.CostCalculatorWithEstimatedExchanges;
+import com.facebook.presto.cost.CostComparator;
 import com.facebook.presto.cost.SelectingStatsCalculator;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.execution.CommitTask;
@@ -774,7 +775,8 @@ public class LocalQueryRunner
                 new MBeanExporter(new TestingMBeanServer()),
                 statsCalculator,
                 costCalculator,
-                estimatedExchangesCostCalculator).get();
+                estimatedExchangesCostCalculator,
+                new CostComparator(featuresConfig)).get();
     }
 
     public Plan createPlan(Session session, @Language("SQL") String sql, List<PlanOptimizer> optimizers)
