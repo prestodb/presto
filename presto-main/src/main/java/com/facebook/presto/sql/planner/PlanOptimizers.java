@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.cost.CostCalculator.EstimatedExchanges;
+import com.facebook.presto.cost.CostComparator;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -130,7 +131,8 @@ public class PlanOptimizers
             MBeanExporter exporter,
             StatsCalculator statsCalculator,
             CostCalculator costCalculator,
-            @EstimatedExchanges CostCalculator estimatedExchangesCostCalculator)
+            @EstimatedExchanges CostCalculator estimatedExchangesCostCalculator,
+            CostComparator costComparator)
     {
         this(metadata,
                 sqlParser,
@@ -139,7 +141,8 @@ public class PlanOptimizers
                 exporter,
                 statsCalculator,
                 costCalculator,
-                estimatedExchangesCostCalculator);
+                estimatedExchangesCostCalculator,
+                costComparator);
     }
 
     @PostConstruct
@@ -162,7 +165,8 @@ public class PlanOptimizers
             MBeanExporter exporter,
             StatsCalculator statsCalculator,
             CostCalculator costCalculator,
-            CostCalculator estimatedExchangesCostCalculator)
+            CostCalculator estimatedExchangesCostCalculator,
+            CostComparator costComparator)
     {
         this.exporter = exporter;
         ImmutableList.Builder<PlanOptimizer> builder = ImmutableList.builder();

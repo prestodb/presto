@@ -42,6 +42,9 @@ public class TestFeaturesConfig
     public void testDefaults()
     {
         assertRecordedDefaults(ConfigAssertions.recordDefaults(FeaturesConfig.class)
+                .setCpuCostWeight(75)
+                .setMemoryCostWeight(10)
+                .setNetworkCostWeight(15)
                 .setResourceGroupsEnabled(false)
                 .setDistributedIndexJoinsEnabled(false)
                 .setDistributedJoinsEnabled(true)
@@ -89,6 +92,9 @@ public class TestFeaturesConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+                .put("cpu-cost-weight", "0.4")
+                .put("memory-cost-weight", "0.3")
+                .put("network-cost-weight", "0.2")
                 .put("experimental.resource-groups-enabled", "true")
                 .put("experimental.iterative-optimizer-enabled", "false")
                 .put("experimental.iterative-optimizer-timeout", "10s")
@@ -133,6 +139,9 @@ public class TestFeaturesConfig
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
+                .setCpuCostWeight(0.4)
+                .setMemoryCostWeight(0.3)
+                .setNetworkCostWeight(0.2)
                 .setResourceGroupsEnabled(true)
                 .setIterativeOptimizerEnabled(false)
                 .setIterativeOptimizerTimeout(new Duration(10, SECONDS))
