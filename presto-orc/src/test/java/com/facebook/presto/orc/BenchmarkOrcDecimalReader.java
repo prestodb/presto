@@ -47,7 +47,7 @@ import java.util.concurrent.TimeUnit;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcTester.Format.ORC_12;
-import static com.facebook.presto.orc.OrcTester.writeOrcColumnOld;
+import static com.facebook.presto.orc.OrcTester.writeOrcColumnHive;
 import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.google.common.io.Files.createTempDir;
@@ -103,7 +103,7 @@ public class BenchmarkOrcDecimalReader
             temporary = createTempDir();
             dataPath = new File(temporary, randomUUID().toString());
 
-            writeOrcColumnOld(dataPath, ORC_12, NONE, DECIMAL_TYPE, createDecimalValues().iterator());
+            writeOrcColumnHive(dataPath, ORC_12, NONE, DECIMAL_TYPE, createDecimalValues().iterator());
         }
 
         @TearDown
