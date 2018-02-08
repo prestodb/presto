@@ -119,7 +119,6 @@ import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler;
 import com.facebook.presto.sql.gen.PageFunctionCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.CompilerConfig;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import com.facebook.presto.sql.planner.LogicalPlanner;
@@ -649,7 +648,6 @@ public class LocalQueryRunner
                 pageFunctionCompiler,
                 joinFilterFunctionCompiler,
                 new IndexJoinLookupStats(),
-                new CompilerConfig().setInterpreterEnabled(false), // make sure tests fail if compiler breaks
                 new TaskManagerConfig().setTaskConcurrency(4),
                 spillerFactory,
                 singleStreamSpillerFactory,
