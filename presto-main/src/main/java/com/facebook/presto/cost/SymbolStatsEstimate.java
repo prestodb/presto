@@ -105,9 +105,9 @@ public class SymbolStatsEstimate
             return false;
         }
         SymbolStatsEstimate that = (SymbolStatsEstimate) o;
-        return Double.compare(that.nullsFraction, nullsFraction) == 0 &&
-                Double.compare(that.averageRowSize, averageRowSize) == 0 &&
-                Double.compare(that.distinctValuesCount, distinctValuesCount) == 0 &&
+        return Double.compare(nullsFraction, that.nullsFraction) == 0 &&
+                Double.compare(averageRowSize, that.averageRowSize) == 0 &&
+                Double.compare(distinctValuesCount, that.distinctValuesCount) == 0 &&
                 Objects.equals(lowValue, that.lowValue) &&
                 Objects.equals(highValue, that.highValue);
     }
