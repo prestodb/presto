@@ -300,6 +300,7 @@ public class TestReorderWindows
                 new IterativeOptimizer(
                         new StatsRecorder(),
                         getQueryRunner().getStatsCalculator(),
+                        getQueryRunner().getEstimatedExchangesCostCalculator(),
                         ImmutableSet.of(
                                 new RemoveRedundantIdentityProjections(),
                                 new GatherAndMergeWindows.SwapAdjacentWindowsBySpecifications(0),

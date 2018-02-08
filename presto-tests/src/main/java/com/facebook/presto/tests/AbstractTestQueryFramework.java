@@ -14,6 +14,9 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.cost.CostCalculator;
+import com.facebook.presto.cost.CostCalculatorUsingExchanges;
+import com.facebook.presto.cost.CostCalculatorWithEstimatedExchanges;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.security.AccessDeniedException;
 import com.facebook.presto.spi.type.Type;
@@ -302,13 +305,16 @@ public abstract class AbstractTestQueryFramework
         Metadata metadata = queryRunner.getMetadata();
         FeaturesConfig featuresConfig = new FeaturesConfig().setOptimizeHashGeneration(true);
         boolean forceSingleNode = queryRunner.getNodeCount() == 1;
+        CostCalculator costCalculator = new CostCalculatorUsingExchanges(queryRunner::getNodeCount);
         List<PlanOptimizer> optimizers = new PlanOptimizers(
                 metadata,
                 sqlParser,
                 featuresConfig,
                 forceSingleNode,
                 new MBeanExporter(new TestingMBeanServer()),
-                queryRunner.getStatsCalculator()).get();
+                queryRunner.getStatsCalculator(),
+                costCalculator,
+                new CostCalculatorWithEstimatedExchanges(costCalculator, queryRunner::getNodeCount)).get();
         return new QueryExplainer(
                 optimizers,
                 metadata,

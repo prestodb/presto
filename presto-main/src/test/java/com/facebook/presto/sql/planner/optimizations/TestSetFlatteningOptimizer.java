@@ -131,6 +131,7 @@ public class TestSetFlatteningOptimizer
                 new IterativeOptimizer(
                         new StatsRecorder(),
                         getQueryRunner().getStatsCalculator(),
+                        getQueryRunner().getEstimatedExchangesCostCalculator(),
                         ImmutableSet.of(new RemoveRedundantIdentityProjections())),
                 new SetFlatteningOptimizer());
         assertPlan(sql, pattern, optimizers);
