@@ -78,7 +78,6 @@ public class KafkaSmokeTest
                 row("piotr", 3, "kasia", 4));
     }
 
-
     private static final String ALL_DATATYPES_RAW_TABLE_NAME = "product_tests.all_datatypes_raw";
     private static final String ALL_DATATYPES_RAW_TOPIC_NAME = "all_datatypes_raw";
 
@@ -140,5 +139,46 @@ public class KafkaSmokeTest
                 true,
                 true,
                 true));
+    }
+
+    private static final String ALL_DATATYPES_CSV_TABLE_NAME = "product_tests.all_datatypes_csv";
+    private static final String ALL_DATATYPES_CSV_TOPIC_NAME = "all_datatypes_csv";
+
+    private static class AllDataTypesCsvTable
+            implements RequirementsProvider
+    {
+        @Override
+        public Requirement getRequirements(Configuration configuration)
+        {
+            return immutableTable(new KafkaTableDefinition(
+                    ALL_DATATYPES_CSV_TABLE_NAME,
+                    ALL_DATATYPES_CSV_TOPIC_NAME,
+                    new ListKafkaDataSource(ImmutableList.of(
+                            utf8KafkaMessage("jasio,9223372036854775807,2147483647,32767,127,1234567890.123456789,true"),
+                            utf8KafkaMessage("stasio,-9223372036854775808,-2147483648,-32768,-128,-1234567890.123456789,blah"),
+                            utf8KafkaMessage(",,,,,,"),
+                            utf8KafkaMessage("krzysio,9223372036854775807,2147483647,32767,127,1234567890.123456789,false,extra,fields"),
+                            utf8KafkaMessage("kasia,9223372036854775807,2147483647,32767"))),
+                    1,
+                    1));
+        }
+    }
+
+    @Test(groups = {KAFKA})
+    @Requires(AllDataTypesCsvTable.class)
+    public void testSelectAllCsvTable()
+    {
+        QueryResult queryResult = query(format("select * from %s.%s", KAFKA_CATALOG, ALL_DATATYPES_CSV_TABLE_NAME));
+        assertThat(queryResult).containsOnly(
+                row("jasio", 9223372036854775807L, 2147483647, 32767, 127, 1234567890.123456789, true),
+                row("stasio", -9223372036854775808L, -2147483648, -32768, -128, -1234567890.123456789, false),
+                row(null, null, null, null, null, null, null),
+                row("krzysio", 9223372036854775807L, 2147483647, 32767, 127, 1234567890.123456789, false),
+                row("kasia", 9223372036854775807L, 2147483647, 32767, null, null, null));
+    }
+
+    private static KafkaMessage utf8KafkaMessage(String val)
+    {
+        return new KafkaMessage(contentsBuilder().appendUTF8(val).build());
     }
 }
