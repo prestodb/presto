@@ -137,7 +137,7 @@ public class TestTpchDistributedStats
                 checks -> checks.estimate(OUTPUT_ROW_COUNT, noError()));
     }
 
-    @Test(enabled = false) // TODO re-enable
+    @Test
     public void testSemiJoin()
     {
         statisticsAssertion.check("SELECT * FROM nation WHERE n_regionkey IN (SELECT r_regionkey FROM region)",
