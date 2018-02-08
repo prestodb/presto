@@ -16,7 +16,9 @@ package com.facebook.presto.cost;
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher;
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.HashMap;
@@ -60,6 +62,13 @@ public class StatsCalculatorAssertion
     {
         checkArgument(sourceIndex < planNode.getSources().size(), "invalid sourceIndex %s; planNode has %s sources", sourceIndex, planNode.getSources().size());
         sourcesStats.put(planNode.getSources().get(sourceIndex), sourceStats);
+        return this;
+    }
+
+    public StatsCalculatorAssertion withSourceStats(PlanNodeId planNodeId, PlanNodeStatsEstimate sourceStats)
+    {
+        PlanNode sourceNode = PlanNodeSearcher.searchFrom(planNode).where(node -> node.getId().equals(planNodeId)).findOnlyElement();
+        sourcesStats.put(sourceNode, sourceStats);
         return this;
     }
 
