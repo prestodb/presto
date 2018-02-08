@@ -17,6 +17,7 @@ import com.facebook.presto.decoder.DecoderColumnHandle;
 import com.facebook.presto.decoder.RowDecoder;
 import com.facebook.presto.decoder.RowDecoderFactory;
 
+import java.util.Map;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -28,7 +29,7 @@ public class ZsetRedisRowDecoderFactory
     private static final RowDecoder DECODER_INSTANCE = new ZsetRedisRowDecoder();
 
     @Override
-    public RowDecoder create(Set<DecoderColumnHandle> columns)
+    public RowDecoder create(Map<String, String> decoderParams, Set<DecoderColumnHandle> columns)
     {
         requireNonNull(columns, "columnHandles is null");
         checkArgument(columns.stream().noneMatch(DecoderColumnHandle::isInternal), "unexpected internal column");

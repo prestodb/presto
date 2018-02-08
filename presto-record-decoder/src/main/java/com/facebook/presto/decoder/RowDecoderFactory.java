@@ -13,9 +13,10 @@
  */
 package com.facebook.presto.decoder;
 
+import java.util.Map;
 import java.util.Set;
 
 public interface RowDecoderFactory
 {
-    RowDecoder create(Set<DecoderColumnHandle> columns);
+    RowDecoder create(Map<String, String> decoderParams, Set<DecoderColumnHandle> columns);
 }

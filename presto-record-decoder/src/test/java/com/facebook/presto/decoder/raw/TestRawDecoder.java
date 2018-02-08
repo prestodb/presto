@@ -30,6 +30,7 @@ import java.util.Set;
 import static com.facebook.presto.decoder.util.DecoderTestUtil.checkIsNull;
 import static com.facebook.presto.decoder.util.DecoderTestUtil.checkValue;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
+import static java.util.Collections.emptyMap;
 import static org.testng.Assert.assertEquals;
 
 public class TestRawDecoder
@@ -42,7 +43,7 @@ public class TestRawDecoder
         byte[] emptyRow = new byte[0];
         DecoderTestColumnHandle column = new DecoderTestColumnHandle("", 0, "row1", BigintType.BIGINT, null, "LONG", null, false, false, false);
         Set<DecoderColumnHandle> columns = ImmutableSet.of(column);
-        RowDecoder rowDecoder = DECODER_FACTORY.create(columns);
+        RowDecoder rowDecoder = DECODER_FACTORY.create(emptyMap(), columns);
 
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(emptyRow, null)
                 .orElseThrow(AssertionError::new);
@@ -70,7 +71,7 @@ public class TestRawDecoder
         DecoderTestColumnHandle row5 = new DecoderTestColumnHandle("", 4, "row5", createVarcharType(10), "15", null, null, false, false, false);
 
         Set<DecoderColumnHandle> columns = ImmutableSet.of(row1, row2, row3, row4, row5);
-        RowDecoder rowDecoder = DECODER_FACTORY.create(columns);
+        RowDecoder rowDecoder = DECODER_FACTORY.create(emptyMap(), columns);
 
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(row, null)
                 .orElseThrow(AssertionError::new);
@@ -96,7 +97,7 @@ public class TestRawDecoder
         DecoderTestColumnHandle row4 = new DecoderTestColumnHandle("", 3, "row4", createVarcharType(100), "5:8", null, null, false, false, false);
 
         Set<DecoderColumnHandle> columns = ImmutableSet.of(row1, row2, row3, row4);
-        RowDecoder rowDecoder = DECODER_FACTORY.create(columns);
+        RowDecoder rowDecoder = DECODER_FACTORY.create(emptyMap(), columns);
 
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(row, null)
                 .orElseThrow(AssertionError::new);
@@ -126,7 +127,7 @@ public class TestRawDecoder
         DecoderTestColumnHandle row2 = new DecoderTestColumnHandle("", 1, "row2", createVarcharType(100), "8", "FLOAT", null, false, false, false);
 
         Set<DecoderColumnHandle> columns = ImmutableSet.of(row1, row2);
-        RowDecoder rowDecoder = DECODER_FACTORY.create(columns);
+        RowDecoder rowDecoder = DECODER_FACTORY.create(emptyMap(), columns);
 
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(row, null)
                 .orElseThrow(AssertionError::new);
@@ -200,7 +201,7 @@ public class TestRawDecoder
                 row32,
                 row33,
                 row34);
-        RowDecoder rowDecoder = DECODER_FACTORY.create(columns);
+        RowDecoder rowDecoder = DECODER_FACTORY.create(emptyMap(), columns);
 
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(row, null)
                 .orElseThrow(AssertionError::new);
