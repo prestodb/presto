@@ -74,7 +74,7 @@ public class TestTpchDistributedStats
                 checks -> checks.estimate(OUTPUT_ROW_COUNT, defaultTolerance()));
     }
 
-    @Test(enabled = false) // TODO re-enable
+    @Test
     public void testSetOperations()
     {
         statisticsAssertion.check("SELECT * FROM nation UNION SELECT * FROM nation",
@@ -125,7 +125,7 @@ public class TestTpchDistributedStats
                 checks -> checks.estimate(OUTPUT_ROW_COUNT, noError()));
     }
 
-    @Test(enabled = false) // TODO re-enable
+    @Test
     public void testGroupBy()
     {
         statisticsAssertion.check("SELECT l_returnflag, l_linestatus FROM lineitem GROUP BY l_returnflag, l_linestatus",
