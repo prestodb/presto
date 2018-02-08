@@ -324,6 +324,7 @@ public abstract class AbstractTestQueryFramework
                 queryRunner.getAccessControl(),
                 sqlParser,
                 queryRunner.getStatsCalculator(),
+                costCalculator,
                 ImmutableMap.of());
     }
 
