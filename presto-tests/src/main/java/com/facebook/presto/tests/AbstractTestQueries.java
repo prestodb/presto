@@ -192,8 +192,8 @@ public abstract class AbstractTestQueries
     @Test
     public void testLimitIntMax()
     {
-        assertQuery("SELECT orderkey from orders LIMIT " + Integer.MAX_VALUE);
-        assertQuery("SELECT orderkey from orders ORDER BY orderkey LIMIT " + Integer.MAX_VALUE);
+        assertQuery("SELECT orderkey FROM orders LIMIT " + Integer.MAX_VALUE);
+        assertQuery("SELECT orderkey FROM orders ORDER BY orderkey LIMIT " + Integer.MAX_VALUE);
     }
 
     @Test
@@ -239,15 +239,15 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT apply(1, x -> apply(10, y -> apply(100, z -> x))) FROM (VALUES 'abc') t(x)", "VALUES 1");
 
         // in join post-filter
-        assertQuery("SELECT * from (VALUES true) t(x) left join (VALUES 1001) t2(y) ON (apply(false, z -> apply(false, y -> x)))", "SELECT true, 1001");
+        assertQuery("SELECT * FROM (VALUES true) t(x) left JOIN (VALUES 1001) t2(y) ON (apply(false, z -> apply(false, y -> x)))", "SELECT true, 1001");
     }
 
     @Test
     public void testLambdaInAggregationContext()
     {
         assertQuery("SELECT apply(sum(x), i -> i * i) FROM (VALUES 1, 2, 3, 4, 5) t(x)", "SELECT 225");
-        assertQuery("SELECT apply(x, i -> i - 1), sum(y) FROM (VALUES (1, 10), (1, 20), (2, 50)) t(x,y) group by x", "VALUES (0, 30), (1, 50)");
-        assertQuery("SELECT x, apply(sum(y), i -> i * 10) FROM (VALUES (1, 10), (1, 20), (2, 50)) t(x,y) group by x", "VALUES (1, 300), (2, 500)");
+        assertQuery("SELECT apply(x, i -> i - 1), sum(y) FROM (VALUES (1, 10), (1, 20), (2, 50)) t(x,y) GROUP BY x", "VALUES (0, 30), (1, 50)");
+        assertQuery("SELECT x, apply(sum(y), i -> i * 10) FROM (VALUES (1, 10), (1, 20), (2, 50)) t(x,y) GROUP BY x", "VALUES (1, 300), (2, 500)");
         assertQuery("SELECT apply(8, x -> x + 1) FROM (VALUES (1, 2)) t(x,y) GROUP BY y", "SELECT 9");
 
         assertQuery("SELECT apply(CAST(ROW(1) AS ROW(someField BIGINT)), x -> x.someField) FROM (VALUES (1,2)) t(x,y) GROUP BY y", "SELECT 1");
@@ -291,17 +291,17 @@ public abstract class AbstractTestQueries
         MaterializedResult materializedResult = computeActual("SELECT u FROM ( SELECT if(rand() > 0.5, 0, 1) AS u ) WHERE u <> u");
         assertEquals(materializedResult.getRowCount(), 0);
 
-        materializedResult = computeActual("SELECT u, v FROM ( SELECT if(rand() > 0.5, 0, 1) AS u, 4*4 as v ) WHERE u <> u and v > 10");
+        materializedResult = computeActual("SELECT u, v FROM ( SELECT if(rand() > 0.5, 0, 1) AS u, 4*4 AS v ) WHERE u <> u and v > 10");
         assertEquals(materializedResult.getRowCount(), 0);
 
-        materializedResult = computeActual("SELECT u, v, w FROM ( SELECT if(rand() > 0.5, 0, 1) AS u, 4*4 as v, 'abc' as w ) WHERE v > 10");
+        materializedResult = computeActual("SELECT u, v, w FROM ( SELECT if(rand() > 0.5, 0, 1) AS u, 4*4 AS v, 'abc' AS w ) WHERE v > 10");
         assertEquals(materializedResult.getRowCount(), 1);
     }
 
     @Test
     public void testNonDeterministicProjection()
     {
-        MaterializedResult materializedResult = computeActual("select r, r + 1 from (select rand(100) r from orders) limit 10");
+        MaterializedResult materializedResult = computeActual("SELECT r, r + 1 FROM (SELECT rand(100) r FROM orders) LIMIT 10");
         assertEquals(materializedResult.getRowCount(), 10);
         for (MaterializedRow materializedRow : materializedResult) {
             assertEquals(materializedRow.getFieldCount(), 2);
@@ -312,16 +312,16 @@ public abstract class AbstractTestQueries
     @Test
     public void testMapSubscript()
     {
-        assertQuery("select map(array[1], array['aa'])[1]", "select 'aa'");
-        assertQuery("select map(array['a'], array['aa'])['a']", "select 'aa'");
-        assertQuery("select map(array[array[1,1]], array['a'])[array[1,1]]", "select 'a'");
-        assertQuery("select map(array[(1,2)], array['a'])[(1,2)]", "select 'a'");
+        assertQuery("SELECT map(array[1], array['aa'])[1]", "SELECT 'aa'");
+        assertQuery("SELECT map(array['a'], array['aa'])['a']", "SELECT 'aa'");
+        assertQuery("SELECT map(array[array[1,1]], array['a'])[array[1,1]]", "SELECT 'a'");
+        assertQuery("SELECT map(array[(1,2)], array['a'])[(1,2)]", "SELECT 'a'");
     }
 
     @Test
     public void testVarbinary()
     {
-        assertQuery("SELECT LENGTH(x) FROM (SELECT from_base64('gw==') as x)", "SELECT 1");
+        assertQuery("SELECT LENGTH(x) FROM (SELECT from_base64('gw==') AS x)", "SELECT 1");
         assertQuery("SELECT LENGTH(from_base64('gw=='))", "SELECT 1");
     }
 
@@ -336,14 +336,14 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT a.col2.col1 FROM (VALUES ROW(CAST(ROW(1.0, ARRAY[2], row(3, 4.0)) AS ROW(col0 double, col1 array(int), col2 row(col0 integer, col1 double))))) t(a)", "SELECT 4.0");
 
         // mixture of row field reference and table field reference
-        assertQuery("SELECT cast(row(1, t.x) as row(col0 bigint, col1 bigint)).col1 FROM (VALUES 1, 2, 3) t(x)", "SELECT * FROM (VALUES 1, 2, 3)");
-        assertQuery("SELECT Y.col1 FROM (SELECT cast(row(1, t.x) as row(col0 bigint, col1 bigint)) AS Y FROM (VALUES 1, 2, 3) t(x)) test_t", "SELECT * FROM (VALUES 1, 2, 3)");
+        assertQuery("SELECT CAST(row(1, t.x) AS row(col0 bigint, col1 bigint)).col1 FROM (VALUES 1, 2, 3) t(x)", "SELECT * FROM (VALUES 1, 2, 3)");
+        assertQuery("SELECT Y.col1 FROM (SELECT CAST(row(1, t.x) AS row(col0 bigint, col1 bigint)) AS Y FROM (VALUES 1, 2, 3) t(x)) test_t", "SELECT * FROM (VALUES 1, 2, 3)");
 
         // Subscript + Dereference
         assertQuery("SELECT a.col1[2] FROM (VALUES ROW(CAST(ROW(1.0, ARRAY[22, 33, 44, 55], row(3, 4.0E0)) AS ROW(col0 double, col1 array(integer), col2 row(col0 integer, col1 double))))) t(a)", "SELECT 33");
         assertQuery("SELECT a.col1[2].col0, a.col1[2].col1 FROM (VALUES ROW(cast(row(1.0, ARRAY[row(31, 4.1E0), row(32, 4.2E0)], row(3, 4.0E0)) AS ROW(col0 double, col1 array(row(col0 integer, col1 double)), col2 row(col0 integer, col1 double))))) t(a)", "SELECT 32, 4.2");
 
-        assertQuery("SELECT cast(row(11, 12) as row(col0 bigint, col1 bigint)).col0", "SELECT 11");
+        assertQuery("SELECT CAST(row(11, 12) AS row(col0 bigint, col1 bigint)).col0", "SELECT 11");
     }
 
     @Test
@@ -467,12 +467,12 @@ public abstract class AbstractTestQueries
     @Test
     public void testRowCast()
     {
-        assertQuery("SELECT cast(row(1, 2) as row(aa bigint, bb boolean)).aa", "SELECT 1");
-        assertQuery("SELECT cast(row(1, 2) as row(aa bigint, bb boolean)).bb", "SELECT true");
-        assertQuery("SELECT cast(row(1, 2) as row(aa bigint, bb varchar)).bb", "SELECT '2'");
-        assertQuery("SELECT cast(row(true, array[0, 2]) as row(aa boolean, bb array(boolean))).bb[1]", "SELECT false");
-        assertQuery("SELECT cast(row(0.1, array[0, 2], row(1, 0.5)) as row(aa bigint, bb array(boolean), cc row(dd varchar, ee varchar))).cc.ee", "SELECT '0.5'");
-        assertQuery("SELECT cast(array[row(0.1, array[0, 2], row(1, 0.5))] as array<row(aa bigint, bb array(boolean), cc row(dd varchar, ee varchar))>)[1].cc.ee", "SELECT '0.5'");
+        assertQuery("SELECT CAST(row(1, 2) AS row(aa bigint, bb boolean)).aa", "SELECT 1");
+        assertQuery("SELECT CAST(row(1, 2) AS row(aa bigint, bb boolean)).bb", "SELECT true");
+        assertQuery("SELECT CAST(row(1, 2) AS row(aa bigint, bb varchar)).bb", "SELECT '2'");
+        assertQuery("SELECT CAST(row(true, array[0, 2]) AS row(aa boolean, bb array(boolean))).bb[1]", "SELECT false");
+        assertQuery("SELECT CAST(row(0.1, array[0, 2], row(1, 0.5)) AS row(aa bigint, bb array(boolean), cc row(dd varchar, ee varchar))).cc.ee", "SELECT '0.5'");
+        assertQuery("SELECT CAST(array[row(0.1, array[0, 2], row(1, 0.5))] AS array<row(aa bigint, bb array(boolean), cc row(dd varchar, ee varchar))>)[1].cc.ee", "SELECT '0.5'");
     }
 
     @Test
@@ -488,7 +488,7 @@ public abstract class AbstractTestQueries
                 "SELECT * FROM VALUES 1, 2, 3");
 
         assertQuery("" +
-                        "SELECT t2.*, max(t1.b) as max_b " +
+                        "SELECT t2.*, max(t1.b) AS max_b " +
                         "FROM (VALUES (1, 'a'),  (2, 'b'), (1, 'c'), (3, 'd')) t1(a, b) " +
                         "INNER JOIN " +
                         "(VALUES 1, 2, 3, 4) t2(a) " +
@@ -497,7 +497,7 @@ public abstract class AbstractTestQueries
                 "SELECT * FROM VALUES (1, 'c'), (2, 'b'), (3, 'd')");
 
         assertQuery("" +
-                        "SELECT t2.*, max(t1.b1) as max_b1 " +
+                        "SELECT t2.*, max(t1.b1) AS max_b1 " +
                         "FROM (VALUES (1, 'a'),  (2, 'b'), (1, 'c'), (3, 'd')) t1(a1, b1) " +
                         "INNER JOIN " +
                         "(VALUES (1, 11, 111), (2, 22, 222), (3, 33, 333), (4, 44, 444)) t2(a2, b2, c2) " +
@@ -511,7 +511,7 @@ public abstract class AbstractTestQueries
                 "   SELECT x.custkey, SUM(x.orders) + 1 orders2 " +
                 "   FROM ( " +
                 "      SELECT x.custkey, COUNT(x.orderkey) orders " +
-                "      FROM ORDERS x " +
+                "      FROM orders x " +
                 "      WHERE x.custkey < 100 " +
                 "      GROUP BY x.custkey " +
                 "   ) x " +
@@ -527,7 +527,7 @@ public abstract class AbstractTestQueries
                 "SELECT COUNT(DISTINCT custkey) " +
                 "FROM ( " +
                 "  SELECT x.custkey " +
-                "  FROM ORDERS x " +
+                "  FROM orders x " +
                 "  WHERE custkey < 100 " +
                 ") t");
     }
@@ -537,7 +537,7 @@ public abstract class AbstractTestQueries
     {
         assertQuery("" +
                 "SELECT orders.custkey, orders.orderkey " +
-                "FROM ORDERS " +
+                "FROM orders " +
                 "WHERE orders.custkey > orders.orderkey AND orders.custkey < 200.3");
     }
 
@@ -545,7 +545,7 @@ public abstract class AbstractTestQueries
     public void testMissingRowFieldInGroupBy()
     {
         assertQueryFails(
-                "SELECT a.col0, count(*) FROM (VALUES ROW(cast(ROW(1, 1) as ROW(col0 integer, col1 integer)))) t(a)",
+                "SELECT a.col0, count(*) FROM (VALUES ROW(cast(ROW(1, 1) AS ROW(col0 integer, col1 integer)))) t(a)",
                 "line 1:8: 'a.col0' must be an aggregate expression or appear in GROUP BY clause");
     }
 
@@ -635,7 +635,7 @@ public abstract class AbstractTestQueries
     public void testArrays()
     {
         assertQuery("SELECT a[1] FROM (SELECT ARRAY[orderkey] AS a FROM orders ORDER BY orderkey) t", "SELECT orderkey FROM orders");
-        assertQuery("SELECT a[1 + cast(round(rand()) AS BIGINT)] FROM (SELECT ARRAY[orderkey, orderkey] AS a FROM orders ORDER BY orderkey) t", "SELECT orderkey FROM orders");
+        assertQuery("SELECT a[1 + CAST(round(rand()) AS BIGINT)] FROM (SELECT ARRAY[orderkey, orderkey] AS a FROM orders ORDER BY orderkey) t", "SELECT orderkey FROM orders");
         assertQuery("SELECT a[1] + 1 FROM (SELECT ARRAY[orderkey] AS a FROM orders ORDER BY orderkey) t", "SELECT orderkey + 1 FROM orders");
         assertQuery("SELECT a[1] FROM (SELECT ARRAY[orderkey + 1] AS a FROM orders ORDER BY orderkey) t", "SELECT orderkey + 1 FROM orders");
         assertQuery("SELECT a[1][1] FROM (SELECT ARRAY[ARRAY[orderkey + 1]] AS a FROM orders ORDER BY orderkey) t", "SELECT orderkey + 1 FROM orders");
@@ -712,7 +712,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testApproxPercentile()
     {
-        MaterializedResult raw = computeActual("SELECT orderstatus, orderkey, totalprice FROM ORDERS");
+        MaterializedResult raw = computeActual("SELECT orderstatus, orderkey, totalprice FROM orders");
 
         Multimap<String, Long> orderKeyByStatus = ArrayListMultimap.create();
         Multimap<String, Double> totalPriceByStatus = ArrayListMultimap.create();
@@ -727,7 +727,7 @@ public abstract class AbstractTestQueries
                 "   approx_percentile(totalprice, 0.5)," +
                 "   approx_percentile(orderkey, 2, 0.5)," +
                 "   approx_percentile(totalprice, 2, 0.5)\n" +
-                "FROM ORDERS\n" +
+                "FROM orders\n" +
                 "GROUP BY orderstatus");
 
         for (MaterializedRow row : actual.getMaterializedRows()) {
@@ -775,7 +775,7 @@ public abstract class AbstractTestQueries
         // This query is has this strange shape to force the compiler to leave a true on the stack
         // with the null flag set so if the filter method is not handling nulls correctly, this
         // query will fail
-        assertQuery("SELECT custkey FROM orders WHERE custkey = custkey AND cast(nullif(custkey, custkey) as boolean) AND cast(nullif(custkey, custkey) as boolean)");
+        assertQuery("SELECT custkey FROM orders WHERE custkey = custkey AND CAST(nullif(custkey, custkey) AS boolean) AND CAST(nullif(custkey, custkey) AS boolean)");
     }
 
     @Test
@@ -844,7 +844,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testJoinWithMultiFieldGroupBy()
     {
-        assertQuery("SELECT orderstatus FROM lineitem JOIN (SELECT DISTINCT orderkey, orderstatus FROM ORDERS) T on lineitem.orderkey = T.orderkey");
+        assertQuery("SELECT orderstatus FROM lineitem JOIN (SELECT DISTINCT orderkey, orderstatus FROM orders) T on lineitem.orderkey = T.orderkey");
     }
 
     @Test
@@ -856,26 +856,26 @@ public abstract class AbstractTestQueries
     @Test
     public void testGroupByRepeatedField2()
     {
-        assertQuery("SELECT count(*) FROM (select orderstatus a, orderstatus b FROM orders) GROUP BY a, b");
+        assertQuery("SELECT count(*) FROM (SELECT orderstatus a, orderstatus b FROM orders) GROUP BY a, b");
     }
 
     @Test
     public void testGroupByMultipleFieldsWithPredicateOnAggregationArgument()
     {
-        assertQuery("SELECT custkey, orderstatus, MAX(orderkey) FROM ORDERS WHERE orderkey = 1 GROUP BY custkey, orderstatus");
+        assertQuery("SELECT custkey, orderstatus, MAX(orderkey) FROM orders WHERE orderkey = 1 GROUP BY custkey, orderstatus");
     }
 
     @Test
     public void testReorderOutputsOfGroupByAggregation()
     {
         assertQuery(
-                "SELECT orderstatus, a, custkey, b FROM (SELECT custkey, orderstatus, -COUNT(*) a, MAX(orderkey) b FROM ORDERS WHERE orderkey = 1 GROUP BY custkey, orderstatus) T");
+                "SELECT orderstatus, a, custkey, b FROM (SELECT custkey, orderstatus, -COUNT(*) a, MAX(orderkey) b FROM orders WHERE orderkey = 1 GROUP BY custkey, orderstatus) T");
     }
 
     @Test
     public void testGroupAggregationOverNestedGroupByAggregation()
     {
-        assertQuery("SELECT sum(custkey), max(orderstatus), min(c) FROM (SELECT orderstatus, custkey, COUNT(*) c FROM ORDERS GROUP BY orderstatus, custkey) T");
+        assertQuery("SELECT sum(custkey), max(orderstatus), min(c) FROM (SELECT orderstatus, custkey, COUNT(*) c FROM orders GROUP BY orderstatus, custkey) T");
     }
 
     @Test
@@ -896,7 +896,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testDistinctMultipleFields()
     {
-        assertQuery("SELECT DISTINCT custkey, orderstatus FROM ORDERS");
+        assertQuery("SELECT DISTINCT custkey, orderstatus FROM orders");
     }
 
     @Test
@@ -924,7 +924,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testDistinctGroupBy()
     {
-        assertQuery("SELECT COUNT(DISTINCT clerk) as count, orderdate FROM orders GROUP BY orderdate ORDER BY count, orderdate");
+        assertQuery("SELECT COUNT(DISTINCT clerk) AS count, orderdate FROM orders GROUP BY orderdate ORDER BY count, orderdate");
     }
 
     @Test
@@ -952,13 +952,13 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT custkey, orderstatus, avg(shippriority), SUM(DISTINCT orderkey) FROM orders GROUP BY custkey, orderstatus");
 
         assertQuery("SELECT s, MAX(custkey), SUM(a) FROM (" +
-                "    SELECT custkey, avg(shippriority) as a, SUM(DISTINCT orderkey) as s FROM orders GROUP BY custkey, orderstatus" +
+                "    SELECT custkey, avg(shippriority) AS a, SUM(DISTINCT orderkey) AS s FROM orders GROUP BY custkey, orderstatus" +
                 ") " +
                 "GROUP BY s");
 
-        assertQuery("SELECT max(orderstatus), COUNT(distinct orderkey), sum(DISTINCT orderkey) FROM orders");
+        assertQuery("SELECT max(orderstatus), COUNT(DISTINCT orderkey), sum(DISTINCT orderkey) FROM orders");
 
-        assertQuery("SELECT max(orderstatus), COUNT(distinct shippriority), sum(DISTINCT orderkey) FROM orders");
+        assertQuery("SELECT max(orderstatus), COUNT(DISTINCT shippriority), sum(DISTINCT orderkey) FROM orders");
 
         assertQuery("SELECT COUNT(tan(shippriority)), sum(DISTINCT orderkey) FROM orders");
 
@@ -1004,7 +1004,7 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT count(1) FILTER (WHERE orderstatus = 'O') FROM orders", "SELECT count(*) FROM orders WHERE orderstatus = 'O'");
 
         // TODO: enable when DISTINCT is allowed with filtered aggregations
-        // assertQuery("SELECT count(distinct x) FILTER (where y = 1) FROM (VALUES (2, 1), (1, 2), (1,1)) t(x, y)", "SELECT 2");
+        // assertQuery("SELECT count(DISTINCT x) FILTER (where y = 1) FROM (VALUES (2, 1), (1, 2), (1,1)) t(x, y)", "SELECT 2");
         // assertQuery("SELECT sum(DISTINCT x) FILTER (WHERE x > 1) AS x FROM (VALUES (1), (2), (2), (4)) t (x)", "SELECT 6");
         // assertQuery("SELECT sum(DISTINCT x) FILTER (WHERE y > 3), sum(DISTINCT y) FILTER (WHERE x > 1) FROM (VALUES (1, 3), (2, 4), (2, 4), (4, 5)) t (x, y)", "SELECT 6, 9");
         // assertQuery("SELECT sum(x) FILTER (WHERE x > 1) AS x, sum(DISTINCT x) FROM (VALUES (1), (2), (2), (4)) t (x)", "SELECT 8, 9");
@@ -1099,13 +1099,13 @@ public abstract class AbstractTestQueries
     @Test
     public void testOrderByLimit()
     {
-        assertQueryOrdered("SELECT custkey, orderstatus FROM ORDERS ORDER BY orderkey DESC LIMIT 10");
+        assertQueryOrdered("SELECT custkey, orderstatus FROM orders ORDER BY orderkey DESC LIMIT 10");
     }
 
     @Test
     public void testOrderByExpressionWithLimit()
     {
-        assertQueryOrdered("SELECT custkey, orderstatus FROM ORDERS ORDER BY orderkey + 1 DESC LIMIT 10");
+        assertQueryOrdered("SELECT custkey, orderstatus FROM orders ORDER BY orderkey + 1 DESC LIMIT 10");
     }
 
     @Test
@@ -1119,48 +1119,48 @@ public abstract class AbstractTestQueries
         assertQueryOrdered("SELECT a*-2 FROM (VALUES -1, 0, 2) t(a) ORDER BY t.a*-1", "VALUES -4, 0, 2");
         assertQueryOrdered("SELECT a, a* -1 AS a FROM (VALUES -1, 0, 2) t(a) ORDER BY t.a", "VALUES (-1, 1), (0, 0), (2, -2)");
         assertQueryOrdered("SELECT a, a* -2 AS b FROM (VALUES -1, 0, 2) t(a) ORDER BY a + b", "VALUES (2, -4), (0, 0), (-1, 2)");
-        assertQueryOrdered("SELECT a as b, a* -2 AS a FROM (VALUES -1, 0, 2) t(a) ORDER BY a + b", "VALUES (2, -4), (0, 0), (-1, 2)");
+        assertQueryOrdered("SELECT a AS b, a* -2 AS a FROM (VALUES -1, 0, 2) t(a) ORDER BY a + b", "VALUES (2, -4), (0, 0), (-1, 2)");
         assertQueryOrdered("SELECT a* -2 AS a FROM (VALUES -1, 0, 2) t(a) ORDER BY a + t.a", "VALUES -4, 0, 2");
 
         // coercions
         assertQueryOrdered("SELECT 1 x ORDER BY degrees(x)", "VALUES 1");
-        assertQueryOrdered("SELECT a + 1 as b FROM (VALUES 1, 2) t(a) ORDER BY -1.0 * b", "VALUES 3, 2");
-        assertQueryOrdered("SELECT a as b FROM (VALUES 1, 2) t(a) ORDER BY -1.0 * b", "VALUES 2, 1");
-        assertQueryOrdered("SELECT a as a FROM (VALUES 1, 2) t(a) ORDER BY -1.0 * a", "VALUES 2, 1");
+        assertQueryOrdered("SELECT a + 1 AS b FROM (VALUES 1, 2) t(a) ORDER BY -1.0 * b", "VALUES 3, 2");
+        assertQueryOrdered("SELECT a AS b FROM (VALUES 1, 2) t(a) ORDER BY -1.0 * b", "VALUES 2, 1");
+        assertQueryOrdered("SELECT a AS a FROM (VALUES 1, 2) t(a) ORDER BY -1.0 * a", "VALUES 2, 1");
         assertQueryOrdered("SELECT 1 x ORDER BY degrees(x)", "VALUES 1");
 
         // groups
-        assertQueryOrdered("select max(a+b), min(a+b) as a FROM (values (1,2),(3,2),(1,5)) t(a,b) GROUP BY a ORDER BY max(t.a+t.b)", "VALUES (5, 5), (6, 3)");
-        assertQueryOrdered("select max(a+b), min(a+b) as a FROM (values (1,2),(3,2),(1,5)) t(a,b) GROUP BY a ORDER BY max(t.a+t.b)*-0.1", "VALUES (6, 3), (5, 5)");
+        assertQueryOrdered("SELECT max(a+b), min(a+b) AS a FROM (values (1,2),(3,2),(1,5)) t(a,b) GROUP BY a ORDER BY max(t.a+t.b)", "VALUES (5, 5), (6, 3)");
+        assertQueryOrdered("SELECT max(a+b), min(a+b) AS a FROM (values (1,2),(3,2),(1,5)) t(a,b) GROUP BY a ORDER BY max(t.a+t.b)*-0.1", "VALUES (6, 3), (5, 5)");
         assertQueryOrdered("SELECT max(a) FROM (values (1,2), (2,1)) t(a,b) GROUP BY b ORDER BY max(b*1.0)", "VALUES 2, 1");
         assertQueryOrdered("SELECT max(a) AS b FROM (values (1,2), (2,1)) t(a,b) GROUP BY b ORDER BY b", "VALUES 1, 2");
         assertQueryOrdered("SELECT max(a) FROM (values (1,2), (2,1)) t(a,b) GROUP BY b ORDER BY b*1.0", "VALUES 2, 1");
         assertQueryOrdered("SELECT max(a)*100 AS c FROM (values (1,2), (2,1)) t(a,b) GROUP BY b ORDER BY max(b) + c", "VALUES 100, 200");
         assertQueryOrdered("SELECT max(a) FROM (values (1,2), (2,1)) t(a,b) GROUP BY b ORDER BY b", "VALUES 2, 1");
         assertQueryOrdered("SELECT max(a) FROM (values (1,2), (2,1)) t(a,b) GROUP BY t.b ORDER BY t.b*1.0", "VALUES 2, 1");
-        assertQueryOrdered("SELECT -(a+b) as a, -(a+b) as b, a+b from (values (41, 42), (-41, -42)) t(a,b) group by a+b order by a+b", "VALUES (-83, -83, 83), (83, 83, -83)");
-        assertQueryOrdered("SELECT c.a FROM (SELECT CAST(ROW(-a.a) as ROW(a BIGINT)) a FROM (VALUES (2), (1)) a(a) GROUP BY a.a ORDER BY a.a) t(c)", "VALUES -2, -1");
-        assertQueryOrdered("select -a as a FROM (values (1,2),(3,2)) t(a,b) GROUP BY GROUPING SETS ((a), (a, b)) ORDER BY -a", "VALUES -1, -1, -3, -3");
-        assertQueryOrdered("select a as foo FROM (values (1,2),(3,2)) t(a,b) GROUP BY GROUPING SETS ((a), (a, b)) HAVING b IS NOT NULL ORDER BY -a", "VALUES 3, 1");
-        assertQueryOrdered("select max(a) FROM (values (1,2),(3,2)) t(a,b) ORDER BY max(-a)", "VALUES 3");
-        assertQueryFails("SELECT max(a) AS a FROM (values (1,2)) t(a,b) GROUP BY b ORDER BY max(a+b)", ".*Invalid reference to output projection attribute from ORDER BY aggregation");
-        assertQueryOrdered("SELECT -a as a, a as b FROM (VALUES 1, 2) t(a) GROUP BY t.a ORDER BY a", "VALUES (-2, 2), (-1, 1)");
-        assertQueryOrdered("SELECT -a as a, a as b FROM (VALUES 1, 2) t(a) GROUP BY t.a ORDER BY t.a", "VALUES (-1, 1), (-2, 2)");
-        assertQueryOrdered("SELECT -a as a, a as b FROM (VALUES 1, 2) t(a) GROUP BY a ORDER BY t.a", "VALUES (-1, 1), (-2, 2)");
-        assertQueryOrdered("SELECT -a as a, a as b FROM (VALUES 1, 2) t(a) GROUP BY a ORDER BY t.a+2*a", "VALUES (-2, 2), (-1, 1)");
-        assertQueryOrdered("SELECT -a as a, a as b FROM (VALUES 1, 2) t(a) GROUP BY t.a ORDER BY t.a+2*a", "VALUES (-2, 2), (-1, 1)");
+        assertQueryOrdered("SELECT -(a+b) AS a, -(a+b) AS b, a+b FROM (values (41, 42), (-41, -42)) t(a,b) GROUP BY a+b ORDER BY a+b", "VALUES (-83, -83, 83), (83, 83, -83)");
+        assertQueryOrdered("SELECT c.a FROM (SELECT CAST(ROW(-a.a) AS ROW(a BIGINT)) a FROM (VALUES (2), (1)) a(a) GROUP BY a.a ORDER BY a.a) t(c)", "VALUES -2, -1");
+        assertQueryOrdered("SELECT -a AS a FROM (values (1,2),(3,2)) t(a,b) GROUP BY GROUPING SETS ((a), (a, b)) ORDER BY -a", "VALUES -1, -1, -3, -3");
+        assertQueryOrdered("SELECT a AS foo FROM (values (1,2),(3,2)) t(a,b) GROUP BY GROUPING SETS ((a), (a, b)) HAVING b IS NOT NULL ORDER BY -a", "VALUES 3, 1");
+        assertQueryOrdered("SELECT max(a) FROM (values (1,2),(3,2)) t(a,b) ORDER BY max(-a)", "VALUES 3");
+        assertQueryFails("SELECT max(a) AS a FROM (values (1,2)) t(a,b) GROUP BY b ORDER BY max(a+b)", ".*Invalid reference to output projection attribute FROM ORDER BY aggregation");
+        assertQueryOrdered("SELECT -a AS a, a AS b FROM (VALUES 1, 2) t(a) GROUP BY t.a ORDER BY a", "VALUES (-2, 2), (-1, 1)");
+        assertQueryOrdered("SELECT -a AS a, a AS b FROM (VALUES 1, 2) t(a) GROUP BY t.a ORDER BY t.a", "VALUES (-1, 1), (-2, 2)");
+        assertQueryOrdered("SELECT -a AS a, a AS b FROM (VALUES 1, 2) t(a) GROUP BY a ORDER BY t.a", "VALUES (-1, 1), (-2, 2)");
+        assertQueryOrdered("SELECT -a AS a, a AS b FROM (VALUES 1, 2) t(a) GROUP BY a ORDER BY t.a+2*a", "VALUES (-2, 2), (-1, 1)");
+        assertQueryOrdered("SELECT -a AS a, a AS b FROM (VALUES 1, 2) t(a) GROUP BY t.a ORDER BY t.a+2*a", "VALUES (-2, 2), (-1, 1)");
 
         // lambdas
-        assertQueryOrdered("SELECT x as y FROM (values (1,2), (2,3)) t(x, y) GROUP BY x ORDER BY apply(x, x -> -x) + 2*x", "VALUES 1, 2");
+        assertQueryOrdered("SELECT x AS y FROM (values (1,2), (2,3)) t(x, y) GROUP BY x ORDER BY apply(x, x -> -x) + 2*x", "VALUES 1, 2");
         assertQueryOrdered("SELECT -y AS x FROM (values (1,2), (2,3)) t(x, y) GROUP BY y ORDER BY apply(x, x -> -x)", "VALUES -2, -3");
         assertQueryOrdered("SELECT -y AS x FROM (values (1,2), (2,3)) t(x, y) GROUP BY y ORDER BY sum(apply(-y, x -> x * 1.0))", "VALUES -3, -2");
 
         // distinct
-        assertQueryOrdered("SELECT DISTINCT -a as b FROM (VALUES 1, 2) t(a) ORDER BY b", "VALUES -2, -1");
-        assertQueryOrdered("SELECT DISTINCT -a as b FROM (VALUES 1, 2) t(a) ORDER BY 1", "VALUES -2, -1");
-        assertQueryOrdered("SELECT DISTINCT max(a) as b FROM (values (1,2), (2,1)) t(a,b) GROUP BY b ORDER BY b", "VALUES 1, 2");
-        assertQueryFails("SELECT DISTINCT -a as b FROM (VALUES (1, 2), (3, 4)) t(a, c) ORDER BY c", ".*For SELECT DISTINCT, ORDER BY expressions must appear in select list");
-        assertQueryFails("SELECT DISTINCT -a as b FROM (VALUES (1, 2), (3, 4)) t(a, c) ORDER BY 2", ".*ORDER BY position 2 is not in select list");
+        assertQueryOrdered("SELECT DISTINCT -a AS b FROM (VALUES 1, 2) t(a) ORDER BY b", "VALUES -2, -1");
+        assertQueryOrdered("SELECT DISTINCT -a AS b FROM (VALUES 1, 2) t(a) ORDER BY 1", "VALUES -2, -1");
+        assertQueryOrdered("SELECT DISTINCT max(a) AS b FROM (values (1,2), (2,1)) t(a,b) GROUP BY b ORDER BY b", "VALUES 1, 2");
+        assertQueryFails("SELECT DISTINCT -a AS b FROM (VALUES (1, 2), (3, 4)) t(a, c) ORDER BY c", ".*For SELECT DISTINCT, ORDER BY expressions must appear in SELECT list");
+        assertQueryFails("SELECT DISTINCT -a AS b FROM (VALUES (1, 2), (3, 4)) t(a, c) ORDER BY 2", ".*ORDER BY position 2 is not in SELECT list");
 
         // window
         assertQueryOrdered("SELECT a FROM (VALUES 1, 2) t(a) ORDER BY -row_number() OVER ()", "VALUES 2, 1");
@@ -1183,27 +1183,27 @@ public abstract class AbstractTestQueries
         assertQueryFails(session, "SELECT -a AS b FROM (VALUES -1, 0, 2) t(a) ORDER BY 1.0+b", ".*Column 'b' cannot be resolved");
 
         // groups
-        assertQueryOrdered(session, "select max(a+b), min(a+b) as a FROM (values (1,2),(3,2),(1,5)) t(a,b) GROUP BY a ORDER BY max(a+b)", "VALUES (5, 5), (6, 3)");
-        assertQueryOrdered(session, "select max(a+b), min(a+b) as a FROM (values (1,2),(3,2),(1,5)) t(a,b) GROUP BY a ORDER BY 1", "VALUES (5, 5), (6, 3)");
+        assertQueryOrdered(session, "SELECT max(a+b), min(a+b) AS a FROM (values (1,2),(3,2),(1,5)) t(a,b) GROUP BY a ORDER BY max(a+b)", "VALUES (5, 5), (6, 3)");
+        assertQueryOrdered(session, "SELECT max(a+b), min(a+b) AS a FROM (values (1,2),(3,2),(1,5)) t(a,b) GROUP BY a ORDER BY 1", "VALUES (5, 5), (6, 3)");
         assertQueryOrdered(session, "SELECT max(a) FROM (values (1,2), (2,1)) t(a,b) GROUP BY b ORDER BY max(b)", "VALUES 2, 1");
         assertQueryOrdered(session, "SELECT max(a) FROM (values (1,2), (2,1)) t(a,b) GROUP BY b ORDER BY b", "VALUES 2, 1");
         assertQueryOrdered(session, "SELECT max(a) FROM (values (1,2), (2,1)) t(a,b) GROUP BY t.b ORDER BY t.b", "VALUES 2, 1");
 
         // distinct
-        assertQueryOrdered(session, "SELECT DISTINCT -a as b FROM (VALUES 1, 2) t(a) ORDER BY b", "VALUES -2, -1");
-        assertQueryOrdered(session, "SELECT DISTINCT -a as b FROM (VALUES 1, 2) t(a) ORDER BY 1", "VALUES -2, -1");
-        assertQueryFails(session, "SELECT DISTINCT -a as b FROM (VALUES (1, 2), (3, 4)) t(a, c) ORDER BY c", ".*For SELECT DISTINCT, ORDER BY expressions must appear in select list");
-        assertQueryFails(session, "SELECT DISTINCT -a as b FROM (VALUES (1, 2), (3, 4)) t(a, c) ORDER BY 2", ".*ORDER BY position 2 is not in select list");
+        assertQueryOrdered(session, "SELECT DISTINCT -a AS b FROM (VALUES 1, 2) t(a) ORDER BY b", "VALUES -2, -1");
+        assertQueryOrdered(session, "SELECT DISTINCT -a AS b FROM (VALUES 1, 2) t(a) ORDER BY 1", "VALUES -2, -1");
+        assertQueryFails(session, "SELECT DISTINCT -a AS b FROM (VALUES (1, 2), (3, 4)) t(a, c) ORDER BY c", ".*For SELECT DISTINCT, ORDER BY expressions must appear in SELECT list");
+        assertQueryFails(session, "SELECT DISTINCT -a AS b FROM (VALUES (1, 2), (3, 4)) t(a, c) ORDER BY 2", ".*ORDER BY position 2 is not in SELECT list");
 
         // window
         assertQueryOrdered(session, "SELECT a FROM (VALUES 1, 2) t(a) ORDER BY -row_number() OVER ()", "VALUES 2, 1");
         assertQueryOrdered(session, "SELECT -a AS a FROM (VALUES 1, 2) t(a) ORDER BY first_value(a) OVER (ORDER BY a ROWS 0 PRECEDING)", "VALUES -1, -2");
         assertQueryOrdered(session, "SELECT -a AS a FROM (VALUES 1, 2) t(a) ORDER BY first_value(a+t.a*2) OVER (ORDER BY a ROWS 0 PRECEDING)", "VALUES -1, -2");
 
-        assertQueryFails(session, "SELECT a as a, a* -1 AS a FROM (VALUES -1, 0, 2) t(a) ORDER BY a", ".*'a' in ORDER BY is ambiguous");
+        assertQueryFails(session, "SELECT a AS a, a* -1 AS a FROM (VALUES -1, 0, 2) t(a) ORDER BY a", ".*'a' in ORDER BY is ambiguous");
 
         // grouping
-        assertQueryOrdered(session, "SELECT grouping(a) as c FROM (VALUES (-1, -1), (1, 1)) AS t (a, b) GROUP BY GROUPING SETS (a, b) ORDER BY c ASC", "VALUES 0, 0, 1, 1");
+        assertQueryOrdered(session, "SELECT grouping(a) AS c FROM (VALUES (-1, -1), (1, 1)) AS t (a, b) GROUP BY GROUPING SETS (a, b) ORDER BY c ASC", "VALUES 0, 0, 1, 1");
     }
 
     @Test
@@ -1220,9 +1220,9 @@ public abstract class AbstractTestQueries
                 .setSystemProperty(LEGACY_ORDER_BY, "true")
                 .build();
 
-        queryTemplate("select count(*) %output% from (select substr(name,1,1) letter from nation) x group by %groupBy% order by %orderBy%")
+        queryTemplate("SELECT count(*) %output% FROM (SELECT substr(name,1,1) letter FROM nation) x GROUP BY %groupBy% ORDER BY %orderBy%")
                 .replaceAll(
-                        parameter("output").of("", ", letter", ", letter as y"),
+                        parameter("output").of("", ", letter", ", letter AS y"),
                         parameter("groupBy").of("x.letter", "letter"),
                         parameter("orderBy").of("x.letter", "letter"))
                 .forEach(query -> {
@@ -1234,7 +1234,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testGroupByOrderByLimit()
     {
-        assertQueryOrdered("SELECT custkey, SUM(totalprice) FROM ORDERS GROUP BY custkey ORDER BY SUM(totalprice) DESC LIMIT 10");
+        assertQueryOrdered("SELECT custkey, SUM(totalprice) FROM orders GROUP BY custkey ORDER BY SUM(totalprice) DESC LIMIT 10");
     }
 
     @Test
@@ -1264,28 +1264,28 @@ public abstract class AbstractTestQueries
     @Test
     public void testRepeatedAggregations()
     {
-        assertQuery("SELECT SUM(orderkey), SUM(orderkey) FROM ORDERS");
+        assertQuery("SELECT SUM(orderkey), SUM(orderkey) FROM orders");
     }
 
     @Test
     public void testRepeatedOutputs()
     {
-        assertQuery("SELECT orderkey a, orderkey b FROM ORDERS WHERE orderstatus = 'F'");
+        assertQuery("SELECT orderkey a, orderkey b FROM orders WHERE orderstatus = 'F'");
     }
 
     @Test
     public void testRepeatedOutputs2()
     {
         // this test exposed a bug that wasn't caught by other tests that resulted in the execution engine
-        // trying to read orderkey as the second field, causing a type mismatch
+        // trying to read orderkey AS the second field, causing a type mismatch
         assertQuery("SELECT orderdate, orderdate, orderkey FROM orders");
     }
 
     @Test
     public void testLimit()
     {
-        MaterializedResult actual = computeActual("SELECT orderkey FROM ORDERS LIMIT 10");
-        MaterializedResult all = computeExpected("SELECT orderkey FROM ORDERS", actual.getTypes());
+        MaterializedResult actual = computeActual("SELECT orderkey FROM orders LIMIT 10");
+        MaterializedResult all = computeExpected("SELECT orderkey FROM orders", actual.getTypes());
 
         assertEquals(actual.getMaterializedRows().size(), 10);
         assertContains(all, actual);
@@ -1294,8 +1294,8 @@ public abstract class AbstractTestQueries
     @Test
     public void testAggregationWithLimit()
     {
-        MaterializedResult actual = computeActual("SELECT custkey, SUM(CAST(totalprice * 100 AS BIGINT)) FROM ORDERS GROUP BY custkey LIMIT 10");
-        MaterializedResult all = computeExpected("SELECT custkey, SUM(CAST(totalprice * 100 AS BIGINT)) FROM ORDERS GROUP BY custkey", actual.getTypes());
+        MaterializedResult actual = computeActual("SELECT custkey, SUM(CAST(totalprice * 100 AS BIGINT)) FROM orders GROUP BY custkey LIMIT 10");
+        MaterializedResult all = computeExpected("SELECT custkey, SUM(CAST(totalprice * 100 AS BIGINT)) FROM orders GROUP BY custkey", actual.getTypes());
 
         assertEquals(actual.getMaterializedRows().size(), 10);
         assertContains(all, actual);
@@ -1304,8 +1304,8 @@ public abstract class AbstractTestQueries
     @Test
     public void testLimitInInlineView()
     {
-        MaterializedResult actual = computeActual("SELECT orderkey FROM (SELECT orderkey FROM ORDERS LIMIT 100) T LIMIT 10");
-        MaterializedResult all = computeExpected("SELECT orderkey FROM ORDERS", actual.getTypes());
+        MaterializedResult actual = computeActual("SELECT orderkey FROM (SELECT orderkey FROM orders LIMIT 100) T LIMIT 10");
+        MaterializedResult all = computeExpected("SELECT orderkey FROM orders", actual.getTypes());
 
         assertEquals(actual.getMaterializedRows().size(), 10);
         assertContains(all, actual);
@@ -1314,34 +1314,34 @@ public abstract class AbstractTestQueries
     @Test
     public void testCountAll()
     {
-        assertQuery("SELECT COUNT(*) FROM ORDERS");
-        assertQuery("SELECT COUNT(42) FROM ORDERS", "SELECT COUNT(*) FROM ORDERS");
-        assertQuery("SELECT COUNT(42 + 42) FROM ORDERS", "SELECT COUNT(*) FROM ORDERS");
-        assertQuery("SELECT COUNT(null) FROM ORDERS", "SELECT 0");
+        assertQuery("SELECT COUNT(*) FROM orders");
+        assertQuery("SELECT COUNT(42) FROM orders", "SELECT COUNT(*) FROM orders");
+        assertQuery("SELECT COUNT(42 + 42) FROM orders", "SELECT COUNT(*) FROM orders");
+        assertQuery("SELECT COUNT(null) FROM orders", "SELECT 0");
     }
 
     @Test
     public void testCountColumn()
     {
-        assertQuery("SELECT COUNT(orderkey) FROM ORDERS");
-        assertQuery("SELECT COUNT(orderstatus) FROM ORDERS");
-        assertQuery("SELECT COUNT(orderdate) FROM ORDERS");
-        assertQuery("SELECT COUNT(1) FROM ORDERS");
+        assertQuery("SELECT COUNT(orderkey) FROM orders");
+        assertQuery("SELECT COUNT(orderstatus) FROM orders");
+        assertQuery("SELECT COUNT(orderdate) FROM orders");
+        assertQuery("SELECT COUNT(1) FROM orders");
 
-        assertQuery("SELECT COUNT(NULLIF(orderstatus, 'F')) FROM ORDERS");
-        assertQuery("SELECT COUNT(CAST(NULL AS BIGINT)) FROM ORDERS"); // todo: make COUNT(null) work
+        assertQuery("SELECT COUNT(NULLIF(orderstatus, 'F')) FROM orders");
+        assertQuery("SELECT COUNT(CAST(NULL AS BIGINT)) FROM orders"); // todo: make COUNT(null) work
     }
 
     @Test
     public void testWildcard()
     {
-        assertQuery("SELECT * FROM ORDERS");
+        assertQuery("SELECT * FROM orders");
     }
 
     @Test
     public void testMultipleWildcards()
     {
-        assertQuery("SELECT *, 123, * FROM ORDERS");
+        assertQuery("SELECT *, 123, * FROM orders");
     }
 
     @Test
@@ -1353,107 +1353,107 @@ public abstract class AbstractTestQueries
     @Test
     public void testQualifiedWildcardFromAlias()
     {
-        assertQuery("SELECT T.* FROM ORDERS T");
+        assertQuery("SELECT T.* FROM orders T");
     }
 
     @Test
     public void testQualifiedWildcardFromInlineView()
     {
-        assertQuery("SELECT T.* FROM (SELECT orderkey + custkey FROM ORDERS) T");
+        assertQuery("SELECT T.* FROM (SELECT orderkey + custkey FROM orders) T");
     }
 
     @Test
     public void testQualifiedWildcard()
     {
-        assertQuery("SELECT ORDERS.* FROM ORDERS");
+        assertQuery("SELECT orders.* FROM orders");
     }
 
     @Test
     public void testAverageAll()
     {
-        assertQuery("SELECT AVG(totalprice) FROM ORDERS");
+        assertQuery("SELECT AVG(totalprice) FROM orders");
     }
 
     @Test
     public void testVariance()
     {
         // int64
-        assertQuery("SELECT VAR_SAMP(custkey) FROM ORDERS");
-        assertQuery("SELECT VAR_SAMP(custkey) FROM (SELECT custkey FROM ORDERS ORDER BY custkey LIMIT 2) T");
-        assertQuery("SELECT VAR_SAMP(custkey) FROM (SELECT custkey FROM ORDERS ORDER BY custkey LIMIT 1) T");
-        assertQuery("SELECT VAR_SAMP(custkey) FROM (SELECT custkey FROM ORDERS LIMIT 0) T");
+        assertQuery("SELECT VAR_SAMP(custkey) FROM orders");
+        assertQuery("SELECT VAR_SAMP(custkey) FROM (SELECT custkey FROM orders ORDER BY custkey LIMIT 2) T");
+        assertQuery("SELECT VAR_SAMP(custkey) FROM (SELECT custkey FROM orders ORDER BY custkey LIMIT 1) T");
+        assertQuery("SELECT VAR_SAMP(custkey) FROM (SELECT custkey FROM orders LIMIT 0) T");
 
         // double
-        assertQuery("SELECT VAR_SAMP(totalprice) FROM ORDERS");
-        assertQuery("SELECT VAR_SAMP(totalprice) FROM (SELECT totalprice FROM ORDERS ORDER BY totalprice LIMIT 2) T");
-        assertQuery("SELECT VAR_SAMP(totalprice) FROM (SELECT totalprice FROM ORDERS ORDER BY totalprice LIMIT 1) T");
-        assertQuery("SELECT VAR_SAMP(totalprice) FROM (SELECT totalprice FROM ORDERS LIMIT 0) T");
+        assertQuery("SELECT VAR_SAMP(totalprice) FROM orders");
+        assertQuery("SELECT VAR_SAMP(totalprice) FROM (SELECT totalprice FROM orders ORDER BY totalprice LIMIT 2) T");
+        assertQuery("SELECT VAR_SAMP(totalprice) FROM (SELECT totalprice FROM orders ORDER BY totalprice LIMIT 1) T");
+        assertQuery("SELECT VAR_SAMP(totalprice) FROM (SELECT totalprice FROM orders LIMIT 0) T");
     }
 
     @Test
     public void testVariancePop()
     {
         // int64
-        assertQuery("SELECT VAR_POP(custkey) FROM ORDERS");
-        assertQuery("SELECT VAR_POP(custkey) FROM (SELECT custkey FROM ORDERS ORDER BY custkey LIMIT 2) T");
-        assertQuery("SELECT VAR_POP(custkey) FROM (SELECT custkey FROM ORDERS ORDER BY custkey LIMIT 1) T");
-        assertQuery("SELECT VAR_POP(custkey) FROM (SELECT custkey FROM ORDERS LIMIT 0) T");
+        assertQuery("SELECT VAR_POP(custkey) FROM orders");
+        assertQuery("SELECT VAR_POP(custkey) FROM (SELECT custkey FROM orders ORDER BY custkey LIMIT 2) T");
+        assertQuery("SELECT VAR_POP(custkey) FROM (SELECT custkey FROM orders ORDER BY custkey LIMIT 1) T");
+        assertQuery("SELECT VAR_POP(custkey) FROM (SELECT custkey FROM orders LIMIT 0) T");
 
         // double
-        assertQuery("SELECT VAR_POP(totalprice) FROM ORDERS");
-        assertQuery("SELECT VAR_POP(totalprice) FROM (SELECT totalprice FROM ORDERS ORDER BY totalprice LIMIT 2) T");
-        assertQuery("SELECT VAR_POP(totalprice) FROM (SELECT totalprice FROM ORDERS ORDER BY totalprice LIMIT 1) T");
-        assertQuery("SELECT VAR_POP(totalprice) FROM (SELECT totalprice FROM ORDERS LIMIT 0) T");
+        assertQuery("SELECT VAR_POP(totalprice) FROM orders");
+        assertQuery("SELECT VAR_POP(totalprice) FROM (SELECT totalprice FROM orders ORDER BY totalprice LIMIT 2) T");
+        assertQuery("SELECT VAR_POP(totalprice) FROM (SELECT totalprice FROM orders ORDER BY totalprice LIMIT 1) T");
+        assertQuery("SELECT VAR_POP(totalprice) FROM (SELECT totalprice FROM orders LIMIT 0) T");
     }
 
     @Test
     public void testStdDev()
     {
         // int64
-        assertQuery("SELECT STDDEV_SAMP(custkey) FROM ORDERS");
-        assertQuery("SELECT STDDEV_SAMP(custkey) FROM (SELECT custkey FROM ORDERS ORDER BY custkey LIMIT 2) T");
-        assertQuery("SELECT STDDEV_SAMP(custkey) FROM (SELECT custkey FROM ORDERS ORDER BY custkey LIMIT 1) T");
-        assertQuery("SELECT STDDEV_SAMP(custkey) FROM (SELECT custkey FROM ORDERS LIMIT 0) T");
+        assertQuery("SELECT STDDEV_SAMP(custkey) FROM orders");
+        assertQuery("SELECT STDDEV_SAMP(custkey) FROM (SELECT custkey FROM orders ORDER BY custkey LIMIT 2) T");
+        assertQuery("SELECT STDDEV_SAMP(custkey) FROM (SELECT custkey FROM orders ORDER BY custkey LIMIT 1) T");
+        assertQuery("SELECT STDDEV_SAMP(custkey) FROM (SELECT custkey FROM orders LIMIT 0) T");
 
         // double
-        assertQuery("SELECT STDDEV_SAMP(totalprice) FROM ORDERS");
-        assertQuery("SELECT STDDEV_SAMP(totalprice) FROM (SELECT totalprice FROM ORDERS ORDER BY totalprice LIMIT 2) T");
-        assertQuery("SELECT STDDEV_SAMP(totalprice) FROM (SELECT totalprice FROM ORDERS ORDER BY totalprice LIMIT 1) T");
-        assertQuery("SELECT STDDEV_SAMP(totalprice) FROM (SELECT totalprice FROM ORDERS LIMIT 0) T");
+        assertQuery("SELECT STDDEV_SAMP(totalprice) FROM orders");
+        assertQuery("SELECT STDDEV_SAMP(totalprice) FROM (SELECT totalprice FROM orders ORDER BY totalprice LIMIT 2) T");
+        assertQuery("SELECT STDDEV_SAMP(totalprice) FROM (SELECT totalprice FROM orders ORDER BY totalprice LIMIT 1) T");
+        assertQuery("SELECT STDDEV_SAMP(totalprice) FROM (SELECT totalprice FROM orders LIMIT 0) T");
     }
 
     @Test
     public void testStdDevPop()
     {
         // int64
-        assertQuery("SELECT STDDEV_POP(custkey) FROM ORDERS");
-        assertQuery("SELECT STDDEV_POP(custkey) FROM (SELECT custkey FROM ORDERS ORDER BY custkey LIMIT 2) T");
-        assertQuery("SELECT STDDEV_POP(custkey) FROM (SELECT custkey FROM ORDERS ORDER BY custkey LIMIT 1) T");
-        assertQuery("SELECT STDDEV_POP(custkey) FROM (SELECT custkey FROM ORDERS LIMIT 0) T");
+        assertQuery("SELECT STDDEV_POP(custkey) FROM orders");
+        assertQuery("SELECT STDDEV_POP(custkey) FROM (SELECT custkey FROM orders ORDER BY custkey LIMIT 2) T");
+        assertQuery("SELECT STDDEV_POP(custkey) FROM (SELECT custkey FROM orders ORDER BY custkey LIMIT 1) T");
+        assertQuery("SELECT STDDEV_POP(custkey) FROM (SELECT custkey FROM orders LIMIT 0) T");
 
         // double
-        assertQuery("SELECT STDDEV_POP(totalprice) FROM ORDERS");
-        assertQuery("SELECT STDDEV_POP(totalprice) FROM (SELECT totalprice FROM ORDERS ORDER BY totalprice LIMIT 2) T");
-        assertQuery("SELECT STDDEV_POP(totalprice) FROM (SELECT totalprice FROM ORDERS ORDER BY totalprice LIMIT 1) T");
-        assertQuery("SELECT STDDEV_POP(totalprice) FROM (SELECT totalprice FROM ORDERS LIMIT 0) T");
+        assertQuery("SELECT STDDEV_POP(totalprice) FROM orders");
+        assertQuery("SELECT STDDEV_POP(totalprice) FROM (SELECT totalprice FROM orders ORDER BY totalprice LIMIT 2) T");
+        assertQuery("SELECT STDDEV_POP(totalprice) FROM (SELECT totalprice FROM orders ORDER BY totalprice LIMIT 1) T");
+        assertQuery("SELECT STDDEV_POP(totalprice) FROM (SELECT totalprice FROM orders LIMIT 0) T");
     }
 
     @Test
     public void testCountAllWithPredicate()
     {
-        assertQuery("SELECT COUNT(*) FROM ORDERS WHERE orderstatus = 'F'");
+        assertQuery("SELECT COUNT(*) FROM orders WHERE orderstatus = 'F'");
     }
 
     @Test
     public void testGroupByArray()
     {
-        assertQuery("SELECT col[1], count FROM (SELECT ARRAY[custkey] col, COUNT(*) count FROM ORDERS GROUP BY 1 ORDER BY 1)", "SELECT custkey, COUNT(*) FROM orders GROUP BY custkey ORDER BY custkey");
+        assertQuery("SELECT col[1], count FROM (SELECT ARRAY[custkey] col, COUNT(*) count FROM orders GROUP BY 1 ORDER BY 1)", "SELECT custkey, COUNT(*) FROM orders GROUP BY custkey ORDER BY custkey");
     }
 
     @Test
     public void testGroupByMap()
     {
-        assertQuery("SELECT col[1], count FROM (SELECT MAP(ARRAY[1], ARRAY[custkey]) col, COUNT(*) count FROM ORDERS GROUP BY 1)", "SELECT custkey, COUNT(*) FROM orders GROUP BY custkey");
+        assertQuery("SELECT col[1], count FROM (SELECT MAP(ARRAY[1], ARRAY[custkey]) col, COUNT(*) count FROM orders GROUP BY 1)", "SELECT custkey, COUNT(*) FROM orders GROUP BY custkey");
     }
 
     @Test
@@ -1465,13 +1465,13 @@ public abstract class AbstractTestQueries
     @Test
     public void testGroupByRow()
     {
-        assertQuery("SELECT col.col1, count FROM (SELECT cast(row(custkey, custkey) as row(col0 bigint, col1 bigint)) col, COUNT(*) count FROM ORDERS GROUP BY 1)", "SELECT custkey, COUNT(*) FROM orders GROUP BY custkey");
+        assertQuery("SELECT col.col1, count FROM (SELECT CAST(row(custkey, custkey) AS row(col0 bigint, col1 bigint)) col, COUNT(*) count FROM orders GROUP BY 1)", "SELECT custkey, COUNT(*) FROM orders GROUP BY custkey");
     }
 
     @Test
     public void testJoinCoercion()
     {
-        assertQuery("SELECT COUNT(*) FROM orders t join (SELECT * FROM orders LIMIT 1) t2 ON sin(t2.custkey) = 0");
+        assertQuery("SELECT COUNT(*) FROM orders t JOIN (SELECT * FROM orders LIMIT 1) t2 ON sin(t2.custkey) = 0");
     }
 
     @Test
@@ -1483,21 +1483,21 @@ public abstract class AbstractTestQueries
     @Test
     public void testGroupByNoAggregations()
     {
-        assertQuery("SELECT custkey FROM ORDERS GROUP BY custkey");
+        assertQuery("SELECT custkey FROM orders GROUP BY custkey");
     }
 
     @Test
     public void testGroupByCount()
     {
         assertQuery(
-                "SELECT orderstatus, COUNT(*) FROM ORDERS GROUP BY orderstatus",
+                "SELECT orderstatus, COUNT(*) FROM orders GROUP BY orderstatus",
                 "SELECT orderstatus, CAST(COUNT(*) AS INTEGER) FROM orders GROUP BY orderstatus");
     }
 
     @Test
     public void testGroupByMultipleFields()
     {
-        assertQuery("SELECT custkey, orderstatus, COUNT(*) FROM ORDERS GROUP BY custkey, orderstatus");
+        assertQuery("SELECT custkey, orderstatus, COUNT(*) FROM orders GROUP BY custkey, orderstatus");
     }
 
     @Test
@@ -1902,7 +1902,7 @@ public abstract class AbstractTestQueries
     public void testGrouping()
     {
         assertQuery(
-                "SELECT a, b as t, sum(c), grouping(a, b) + grouping(a) " +
+                "SELECT a, b AS t, sum(c), grouping(a, b) + grouping(a) " +
                         "FROM (VALUES ('h', 'j', 11), ('k', 'l', 7)) AS t (a, b, c) " +
                         "GROUP BY GROUPING SETS ( (a), (b)) " +
                         "ORDER BY grouping(b) ASC",
@@ -1937,9 +1937,9 @@ public abstract class AbstractTestQueries
                 "ba, bb, bc, bd, be, bf, bg, bh, bi, bj, bk, bl, bm, bn";
         String fortyIntegers = "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, " +
                 "31, 32, 33, 34, 35, 36, 37, 38, 39, 40";
-        // 20, 2, 13, 33, 40, 9 , 14 (corresponding indices from left to right in the above fortyLetterSequence)
+        // 20, 2, 13, 33, 40, 9 , 14 (corresponding indices FROM left to right in the above fortyLetterSequence)
         String groupingSet1 = "at, ab, am, bg, bn, ai, an";
-        // 28, 4, 5, 29, 31, 10 (corresponding indices from left to right in the above fortyLetterSequence)
+        // 28, 4, 5, 29, 31, 10 (corresponding indices FROM left to right in the above fortyLetterSequence)
         String groupingSet2 = "bb, ad, ae, bc, be, aj";
         String query = String.format(
                 "SELECT grouping(%s) FROM (VALUES (%s)) AS t(%s) GROUP BY GROUPING SETS ((%s), (%s), (%s))",
@@ -1957,9 +1957,9 @@ public abstract class AbstractTestQueries
     public void testGroupingInWindowFunction()
     {
         assertQuery(
-                "SELECT orderkey, custkey, sum(totalprice), grouping(orderkey)+grouping(custkey) as g, " +
+                "SELECT orderkey, custkey, sum(totalprice), grouping(orderkey)+grouping(custkey) AS g, " +
                         "       rank() OVER (PARTITION BY grouping(orderkey)+grouping(custkey), " +
-                        "       CASE WHEN grouping(orderkey) = 0 THEN custkey END ORDER BY orderkey ASC) as r " +
+                        "       CASE WHEN grouping(orderkey) = 0 THEN custkey END ORDER BY orderkey ASC) AS r " +
                         "FROM orders " +
                         "GROUP BY ROLLUP (orderkey, custkey) " +
                         "ORDER BY orderkey, custkey " +
@@ -1987,13 +1987,13 @@ public abstract class AbstractTestQueries
 
         // Inner query has a single GROUP BY and outer query has GROUPING SETS
         assertQuery(
-                "SELECT orderkey, custkey, sum(agg_price) as outer_sum, grouping(orderkey, custkey), g " +
+                "SELECT orderkey, custkey, sum(agg_price) AS outer_sum, grouping(orderkey, custkey), g " +
                         "FROM " +
-                        "    (SELECT orderkey, custkey, sum(totalprice) as agg_price, grouping(custkey, orderkey) as g " +
+                        "    (SELECT orderkey, custkey, sum(totalprice) AS agg_price, grouping(custkey, orderkey) AS g " +
                         "        FROM orders " +
                         "        GROUP BY orderkey, custkey " +
                         "        ORDER BY agg_price ASC " +
-                        "        LIMIT 5) as t " +
+                        "        LIMIT 5) AS t " +
                         "GROUP BY GROUPING SETS ((orderkey, custkey), g) " +
                         "ORDER BY outer_sum",
                 "VALUES (35271, 334, 874.89, 0, NULL), " +
@@ -2005,13 +2005,13 @@ public abstract class AbstractTestQueries
 
         // Inner query has GROUPING SETS and outer query has GROUP BY
         assertQuery(
-                "SELECT orderkey, custkey, g, sum(agg_price) as outer_sum, grouping(orderkey, custkey) " +
+                "SELECT orderkey, custkey, g, sum(agg_price) AS outer_sum, grouping(orderkey, custkey) " +
                         "FROM " +
-                        "    (SELECT orderkey, custkey, sum(totalprice) as agg_price, grouping(custkey, orderkey) as g " +
+                        "    (SELECT orderkey, custkey, sum(totalprice) AS agg_price, grouping(custkey, orderkey) AS g " +
                         "     FROM orders " +
                         "     GROUP BY GROUPING SETS ((custkey), (orderkey)) " +
                         "     ORDER BY agg_price ASC " +
-                        "     LIMIT 5) as t " +
+                        "     LIMIT 5) AS t " +
                         "GROUP BY orderkey, custkey, g",
                 "VALUES (28647, NULL, 2, 924.33, 0), " +
                         "       (8354, NULL, 2, 974.04, 0), " +
@@ -2021,12 +2021,12 @@ public abstract class AbstractTestQueries
 
         // Inner query has GROUPING SETS but no grouping and outer query has a simple GROUP BY
         assertQuery(
-                "SELECT orderkey, custkey, sum(agg_price) as outer_sum, grouping(orderkey, custkey) " +
+                "SELECT orderkey, custkey, sum(agg_price) AS outer_sum, grouping(orderkey, custkey) " +
                         "FROM " +
-                        "   (SELECT orderkey, custkey, sum(totalprice) as agg_price " +
+                        "   (SELECT orderkey, custkey, sum(totalprice) AS agg_price " +
                         "    FROM orders " +
                         "    GROUP BY GROUPING SETS ((custkey), (orderkey)) " +
-                        "    ORDER BY agg_price ASC NULLS FIRST) as t " +
+                        "    ORDER BY agg_price ASC NULLS FIRST) AS t " +
                         "GROUP BY orderkey, custkey " +
                         "ORDER BY outer_sum ASC NULLS FIRST " +
                         "LIMIT 5",
@@ -2042,7 +2042,7 @@ public abstract class AbstractTestQueries
     {
         assertQuery(
                 "SELECT regionkey FROM nation WHERE nationkey < 7 " +
-                        "INTERSECT select regionkey FROM nation WHERE nationkey > 21");
+                        "INTERSECT SELECT regionkey FROM nation WHERE nationkey > 21");
         assertQuery(
                 "SELECT regionkey FROM nation WHERE nationkey < 7 " +
                         "INTERSECT DISTINCT SELECT regionkey FROM nation WHERE nationkey > 21",
@@ -2052,7 +2052,7 @@ public abstract class AbstractTestQueries
                         "SELECT regionkey FROM wnation WHERE nationkey < 7 " +
                         "INTERSECT SELECT regionkey FROM wnation WHERE nationkey > 21", "VALUES 1, 3");
         assertQuery(
-                "SELECT num FROM (SELECT 1 as num FROM nation WHERE nationkey=10 " +
+                "SELECT num FROM (SELECT 1 AS num FROM nation WHERE nationkey=10 " +
                         "INTERSECT SELECT 1 FROM nation WHERE nationkey=20) T");
         assertQuery(
                 "SELECT nationkey, nationkey / 2 FROM (SELECT nationkey FROM nation WHERE nationkey < 10 " +
@@ -2105,7 +2105,7 @@ public abstract class AbstractTestQueries
     {
         assertQuery(
                 "SELECT regionkey FROM nation WHERE nationkey < 7 " +
-                        "EXCEPT select regionkey FROM nation WHERE nationkey > 21");
+                        "EXCEPT SELECT regionkey FROM nation WHERE nationkey > 21");
         assertQuery(
                 "SELECT regionkey FROM nation WHERE nationkey < 7 " +
                         "EXCEPT DISTINCT SELECT regionkey FROM nation WHERE nationkey > 21",
@@ -2116,7 +2116,7 @@ public abstract class AbstractTestQueries
                         "EXCEPT SELECT regionkey FROM wnation WHERE nationkey > 21",
                 "VALUES 0, 4");
         assertQuery(
-                "SELECT num FROM (SELECT 1 as num FROM nation WHERE nationkey=10 " +
+                "SELECT num FROM (SELECT 1 AS num FROM nation WHERE nationkey=10 " +
                         "EXCEPT SELECT 2 FROM nation WHERE nationkey=20) T");
         assertQuery(
                 "SELECT nationkey, nationkey / 2 FROM (SELECT nationkey FROM nation WHERE nationkey < 10 " +
@@ -2149,8 +2149,8 @@ public abstract class AbstractTestQueries
     @Test
     public void testExceptWithAggregation()
     {
-        assertQuery("SELECT COUNT(*) FROM nation EXCEPT SELECT COUNT(regionkey) FROM nation where regionkey < 3 HAVING SUM(regionkey) IS NOT NULL");
-        assertQuery("SELECT SUM(nationkey), COUNT(name) FROM (SELECT nationkey, name FROM nation where nationkey < 6 EXCEPT SELECT regionkey, name FROM nation) n");
+        assertQuery("SELECT COUNT(*) FROM nation EXCEPT SELECT COUNT(regionkey) FROM nation WHERE regionkey < 3 HAVING SUM(regionkey) IS NOT NULL");
+        assertQuery("SELECT SUM(nationkey), COUNT(name) FROM (SELECT nationkey, name FROM nation WHERE nationkey < 6 EXCEPT SELECT regionkey, name FROM nation) n");
         assertQuery("(SELECT SUM(nationkey) FROM nation GROUP BY regionkey ORDER BY 1 LIMIT 2) EXCEPT SELECT COUNT(*) * 2 FROM nation");
         assertQuery("SELECT COUNT(a) FROM (SELECT nationkey AS a FROM (SELECT nationkey FROM nation EXCEPT SELECT regionkey FROM nation) n1 EXCEPT SELECT regionkey FROM nation) n2");
         assertQuery("SELECT COUNT(*), SUM(2), regionkey FROM (SELECT nationkey, regionkey FROM nation EXCEPT SELECT regionkey, regionkey FROM nation) n GROUP BY regionkey HAVING regionkey < 3");
@@ -2262,19 +2262,19 @@ public abstract class AbstractTestQueries
     @Test
     public void testInlineView()
     {
-        assertQuery("SELECT orderkey, custkey FROM (SELECT orderkey, custkey FROM ORDERS) U");
+        assertQuery("SELECT orderkey, custkey FROM (SELECT orderkey, custkey FROM orders) U");
     }
 
     @Test
     public void testAliasedInInlineView()
     {
-        assertQuery("SELECT x, y FROM (SELECT orderkey x, custkey y FROM ORDERS) U");
+        assertQuery("SELECT x, y FROM (SELECT orderkey x, custkey y FROM orders) U");
     }
 
     @Test
     public void testInlineViewWithProjections()
     {
-        assertQuery("SELECT x + 1, y FROM (SELECT orderkey * 10 x, custkey y FROM ORDERS) u");
+        assertQuery("SELECT x + 1, y FROM (SELECT orderkey * 10 x, custkey y FROM orders) u");
     }
 
     @Test
@@ -2297,7 +2297,7 @@ public abstract class AbstractTestQueries
                 "  WHEN orderkey % 3 = 0 THEN NULL " +
                 "  WHEN orderkey % 5 = 0 THEN 0 " +
                 "  ELSE orderkey " +
-                "  END as key " +
+                "  END AS key " +
                 "FROM lineitem) " +
                 "GROUP BY key");
     }
@@ -2501,8 +2501,8 @@ public abstract class AbstractTestQueries
         // Covers #7520
 
         // Cannot use assertQuery because H2 behaves differently than Presto in CHAR(x) = CHAR(y) comparison, when x != y
-        // assertQuery("select (cast ('a' as char(1)) = cast ('a' as char(2)))") would fail
-        MaterializedResult actual = computeActual("select count(*) > 0 from nation join region on (cast('a' as char(1)) = cast('a' as char(2)))");
+        // assertQuery("SELECT (cast ('a' AS char(1)) = cast ('a' AS char(2)))") would fail
+        MaterializedResult actual = computeActual("SELECT count(*) > 0 FROM nation JOIN region ON (cast('a' AS char(1)) = CAST('a' AS char(2)))");
 
         MaterializedResult expected = resultBuilder(getSession(), BOOLEAN)
                 .row(false)
@@ -2515,7 +2515,7 @@ public abstract class AbstractTestQueries
     public void testJoinWithConstantTrueExpressionWithCoercion()
     {
         // Covers #7520
-        assertQuery("select count(*) > 0 from nation join region on (cast(1.2 as real) = cast(1.2 as decimal(2,1)))");
+        assertQuery("SELECT count(*) > 0 FROM nation JOIN region ON (cast(1.2 AS real) = CAST(1.2 AS decimal(2,1)))");
     }
 
     @Test
@@ -2524,8 +2524,8 @@ public abstract class AbstractTestQueries
         // Covers #7520
 
         // Cannot use assertQuery because H2 behaves differently than Presto in CHAR(x) = CHAR(y) comparison, when x != y
-        // assertQuery("select (cast ('a' as char(1)) = cast ('a' as char(2)))") would fail
-        MaterializedResult actual = computeActual("select count(*) > 0 from nation join region ON CAST((CASE WHEN (TRUE IS NOT NULL) THEN 'a' ELSE 'a' END) as char(1)) = CAST('a' as char(2))");
+        // assertQuery("SELECT (cast ('a' AS char(1)) = cast ('a' AS char(2)))") would fail
+        MaterializedResult actual = computeActual("SELECT count(*) > 0 FROM nation JOIN region ON CAST((CASE WHEN (TRUE IS NOT NULL) THEN 'a' ELSE 'a' END) AS char(1)) = CAST('a' AS char(2))");
 
         MaterializedResult expected = resultBuilder(getSession(), BOOLEAN)
                 .row(false)
@@ -2538,7 +2538,7 @@ public abstract class AbstractTestQueries
     public void testJoinWithCanonicalizedConstantTrueExpressionWithCoercion()
     {
         // Covers #7520
-        assertQuery("select count(*) > 0 from nation join region ON CAST((CASE WHEN (TRUE IS NOT NULL) THEN '1.2' ELSE '1.2' END) as real) = CAST(1.2 as decimal(2,1))");
+        assertQuery("SELECT count(*) > 0 FROM nation JOIN region ON CAST((CASE WHEN (TRUE IS NOT NULL) THEN '1.2' ELSE '1.2' END) AS real) = CAST(1.2 AS decimal(2,1))");
     }
 
     @Test
@@ -2575,8 +2575,8 @@ public abstract class AbstractTestQueries
     public void testJoinUsing()
     {
         assertQuery(
-                "SELECT COUNT(*) FROM lineitem join orders using (orderkey)",
-                "SELECT COUNT(*) FROM lineitem join orders on lineitem.orderkey = orders.orderkey");
+                "SELECT COUNT(*) FROM lineitem JOIN orders USING (orderkey)",
+                "SELECT COUNT(*) FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey");
     }
 
     @Test
@@ -2655,8 +2655,8 @@ public abstract class AbstractTestQueries
                 "VALUES (1, 2, 0, 3)");
         assertQuery(
                 format("SELECT * FROM " +
-                        "   (VALUES CAST(1 as decimal(%d,0))) t1 (a), " +
-                        "   (VALUES CAST(1 as decimal(%d,0))) t2 (b) " +
+                        "   (VALUES CAST(1 AS decimal(%d,0))) t1 (a), " +
+                        "   (VALUES CAST(1 AS decimal(%d,0))) t2 (b) " +
                         "   WHERE a = b", Decimals.MAX_SHORT_PRECISION, Decimals.MAX_SHORT_PRECISION + 1),
                 "VALUES (1, 1)");
     }
@@ -2692,11 +2692,11 @@ public abstract class AbstractTestQueries
     @Test
     public void testJoinWithNormalization()
     {
-        assertQuery("select COUNT(*) from nation a join nation b on not ((a.nationkey + b.nationkey) <> b.nationkey)");
-        assertQuery("select COUNT(*) from nation a join nation b on not (a.nationkey <> b.nationkey)");
-        assertQuery("select COUNT(*) from nation a join nation b on not (a.nationkey = b.nationkey)");
-        assertQuery("select COUNT(*) from nation a join nation b on not (not cast(a.nationkey as boolean))");
-        assertQuery("select COUNT(*) from nation a join nation b on not not not (a.nationkey = b.nationkey)");
+        assertQuery("SELECT COUNT(*) FROM nation a JOIN nation b on not ((a.nationkey + b.nationkey) <> b.nationkey)");
+        assertQuery("SELECT COUNT(*) FROM nation a JOIN nation b on not (a.nationkey <> b.nationkey)");
+        assertQuery("SELECT COUNT(*) FROM nation a JOIN nation b on not (a.nationkey = b.nationkey)");
+        assertQuery("SELECT COUNT(*) FROM nation a JOIN nation b on not (not CAST(a.nationkey AS boolean))");
+        assertQuery("SELECT COUNT(*) FROM nation a JOIN nation b on not not not (a.nationkey = b.nationkey)");
     }
 
     @Test
@@ -2709,16 +2709,16 @@ public abstract class AbstractTestQueries
     public void testWildcardFromJoin()
     {
         assertQuery(
-                "SELECT * FROM (select orderkey, partkey from lineitem) a join (select orderkey, custkey from orders) b using (orderkey)",
-                "SELECT * FROM (select orderkey, partkey from lineitem) a join (select orderkey, custkey from orders) b on a.orderkey = b.orderkey");
+                "SELECT * FROM (SELECT orderkey, partkey FROM lineitem) a JOIN (SELECT orderkey, custkey FROM orders) b using (orderkey)",
+                "SELECT * FROM (SELECT orderkey, partkey FROM lineitem) a JOIN (SELECT orderkey, custkey FROM orders) b on a.orderkey = b.orderkey");
     }
 
     @Test
     public void testQualifiedWildcardFromJoin()
     {
         assertQuery(
-                "SELECT a.*, b.* FROM (select orderkey, partkey from lineitem) a join (select orderkey, custkey from orders) b using (orderkey)",
-                "SELECT a.*, b.* FROM (select orderkey, partkey from lineitem) a join (select orderkey, custkey from orders) b on a.orderkey = b.orderkey");
+                "SELECT a.*, b.* FROM (SELECT orderkey, partkey FROM lineitem) a JOIN (SELECT orderkey, custkey FROM orders) b using (orderkey)",
+                "SELECT a.*, b.* FROM (SELECT orderkey, partkey FROM lineitem) a JOIN (SELECT orderkey, custkey FROM orders) b on a.orderkey = b.orderkey");
     }
 
     @Test
@@ -3072,7 +3072,7 @@ public abstract class AbstractTestQueries
     public void testJoinUsingMultipleFields()
     {
         assertQuery(
-                "SELECT COUNT(*) FROM lineitem JOIN (SELECT orderkey, orderdate shipdate FROM ORDERS) T USING (orderkey, shipdate)",
+                "SELECT COUNT(*) FROM lineitem JOIN (SELECT orderkey, orderdate shipdate FROM orders) T USING (orderkey, shipdate)",
                 "SELECT COUNT(*) FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.shipdate = orders.orderdate");
     }
 
@@ -3080,8 +3080,8 @@ public abstract class AbstractTestQueries
     public void testColocatedJoinWithLocalUnion()
     {
         assertQuery(
-                "select count(*) from ((select * from orders) union all (select * from orders)) join orders using (orderkey)",
-                "select 2 * count(*) from orders");
+                "SELECT count(*) FROM ((SELECT * FROM orders) union all (SELECT * FROM orders)) JOIN orders USING (orderkey)",
+                "SELECT 2 * count(*) FROM orders");
     }
 
     @Test
@@ -3319,7 +3319,7 @@ public abstract class AbstractTestQueries
                 "SELECT CASE WHEN false THEN 1 IN (VALUES 2) END",
                 "SELECT NULL");
         assertQuery(
-                "SELECT x FROM (VALUES 2) t(x) where MAP(ARRAY[8589934592], ARRAY[x]) IN (VALUES MAP(ARRAY[8589934592],ARRAY[2]))",
+                "SELECT x FROM (VALUES 2) t(x) WHERE MAP(ARRAY[8589934592], ARRAY[x]) IN (VALUES MAP(ARRAY[8589934592],ARRAY[2]))",
                 "SELECT 2");
         assertQuery(
                 "SELECT a IN (VALUES 2), a FROM (VALUES (2)) t(a)",
@@ -3417,7 +3417,7 @@ public abstract class AbstractTestQueries
                         ")");
 
         // The above outer join queries will produce the same result even if they are inner join.
-        // The below query uses "orderkey = custkey" as join condition.
+        // The below query uses "orderkey = custkey" AS join condition.
         assertQuery("SELECT COUNT(*) FROM lineitem FULL JOIN orders ON lineitem.orderkey = orders.custkey",
                 "SELECT COUNT(*) FROM (" +
                         "SELECT lineitem.orderkey, orders.orderkey AS o2 FROM lineitem LEFT OUTER JOIN orders ON lineitem.orderkey = orders.custkey " +
@@ -3434,7 +3434,7 @@ public abstract class AbstractTestQueries
                 "SELECT COUNT(*) FROM lineitem LEFT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey WHERE lineitem.orderkey IS NOT NULL");
 
         // The above outer join queries will produce the same result even if they are inner join.
-        // The below query uses "orderkey = custkey" as join condition.
+        // The below query uses "orderkey = custkey" AS join condition.
         assertQuery("SELECT COUNT(*) FROM lineitem FULL JOIN orders ON lineitem.orderkey = orders.custkey WHERE lineitem.orderkey IS NOT NULL",
                 "SELECT COUNT(*) FROM lineitem LEFT OUTER JOIN orders ON lineitem.orderkey = orders.custkey WHERE lineitem.orderkey IS NOT NULL");
     }
@@ -3446,7 +3446,7 @@ public abstract class AbstractTestQueries
                 "SELECT COUNT(*) FROM lineitem RIGHT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey  WHERE orders.orderkey IS NOT NULL");
 
         // The above outer join queries will produce the same result even if they are inner join.
-        // The below query uses "orderkey = custkey" as join condition.
+        // The below query uses "orderkey = custkey" AS join condition.
         assertQuery("SELECT COUNT(*) FROM lineitem FULL JOIN orders ON lineitem.orderkey = orders.custkey WHERE orders.custkey IS NOT NULL",
                 "SELECT COUNT(*) FROM lineitem RIGHT OUTER JOIN orders ON lineitem.orderkey = orders.custkey  WHERE orders.custkey IS NOT NULL");
     }
@@ -3530,8 +3530,8 @@ public abstract class AbstractTestQueries
     public void testOuterJoinWithCommonExpression()
     {
         MaterializedResult actual = computeActual("SELECT count(1), count(one) " +
-                "FROM (values (1, 'a'), (2, 'a')) as l(k, a) " +
-                "LEFT JOIN (select k, 1 one from (values 1) as r(k)) r " +
+                "FROM (values (1, 'a'), (2, 'a')) AS l(k, a) " +
+                "LEFT JOIN (SELECT k, 1 one FROM (values 1) AS r(k)) r " +
                 "ON l.k = r.k GROUP BY a");
 
         MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT)
@@ -3550,9 +3550,9 @@ public abstract class AbstractTestQueries
         // With null base (null row value) in dereference expression
         assertQuery(
                 "SELECT x.val FROM " +
-                        "(SELECT CAST(ROW(v) as ROW(val integer)) FROM (VALUES 1, 2, 3) t(v)) ta (x) " +
+                        "(SELECT CAST(ROW(v) AS ROW(val integer)) FROM (VALUES 1, 2, 3) t(v)) ta (x) " +
                         "LEFT OUTER JOIN " +
-                        "(SELECT CAST(ROW(v) as ROW(val integer)) FROM (VALUES 1, 2, 3) t(v)) tb (y) " +
+                        "(SELECT CAST(ROW(v) AS ROW(val integer)) FROM (VALUES 1, 2, 3) t(v)) tb (y) " +
                         "ON x.val=y.val " +
                         "WHERE y.val=1",
                 "SELECT 1");
@@ -3814,8 +3814,8 @@ public abstract class AbstractTestQueries
                         "    SELECT\n" +
                         "        key\n" +
                         "    FROM\n" +
-                        "        (VALUES 'match') as a(key)\n" +
-                        "        LEFT JOIN (SELECT * FROM (VALUES (0)) limit 0) AS x(ignored)\n" +
+                        "        (VALUES 'match') AS a(key)\n" +
+                        "        LEFT JOIN (SELECT * FROM (VALUES (0)) LIMIT 0) AS x(ignored)\n" +
                         "        ON TRUE\n" +
                         "    GROUP BY 1\n" +
                         ") a\n" +
@@ -3953,7 +3953,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testGroupBySearchedCaseNoElse()
     {
-        // whole CASE in group by clause
+        // whole CASE in GROUP BY clause
         assertQuery("SELECT CASE WHEN orderstatus = 'O' THEN 'a' END, count(*)\n" +
                 "FROM orders\n" +
                 "GROUP BY CASE WHEN orderstatus = 'O' THEN 'a' END");
@@ -3974,7 +3974,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testGroupByCase()
     {
-        // whole CASE in group by clause
+        // whole CASE in GROUP BY clause
         assertQuery("SELECT CASE orderstatus WHEN 'O' THEN 'a' ELSE 'b' END, count(*)\n" +
                 "FROM orders\n" +
                 "GROUP BY CASE orderstatus WHEN 'O' THEN 'a' ELSE 'b' END");
@@ -3987,22 +3987,22 @@ public abstract class AbstractTestQueries
                         "FROM orders\n" +
                         "GROUP BY CASE orderstatus WHEN 'O' THEN 'a' ELSE 'b' END");
 
-        // operand in group by clause
+        // operand in GROUP BY clause
         assertQuery("SELECT CASE orderstatus WHEN 'O' THEN 'a' ELSE 'b' END, count(*)\n" +
                 "FROM orders\n" +
                 "GROUP BY orderstatus");
 
-        // condition in group by clause
+        // condition in GROUP BY clause
         assertQuery("SELECT CASE 'O' WHEN orderstatus THEN 'a' ELSE 'b' END, count(*)\n" +
                 "FROM orders\n" +
                 "GROUP BY orderstatus");
 
-        // 'then' in group by clause
+        // 'then' in GROUP BY clause
         assertQuery("SELECT CASE 1 WHEN 1 THEN orderstatus ELSE 'x' END, count(*)\n" +
                 "FROM orders\n" +
                 "GROUP BY orderstatus");
 
-        // 'else' in group by clause
+        // 'else' in GROUP BY clause
         assertQuery("SELECT CASE 1 WHEN 1 THEN 'x' ELSE orderstatus END, count(*)\n" +
                 "FROM orders\n" +
                 "GROUP BY orderstatus");
@@ -4011,22 +4011,22 @@ public abstract class AbstractTestQueries
     @Test
     public void testGroupByCaseNoElse()
     {
-        // whole CASE in group by clause
+        // whole CASE in GROUP BY clause
         assertQuery("SELECT CASE orderstatus WHEN 'O' THEN 'a' END, count(*)\n" +
                 "FROM orders\n" +
                 "GROUP BY CASE orderstatus WHEN 'O' THEN 'a' END");
 
-        // operand in group by clause
+        // operand in GROUP BY clause
         assertQuery("SELECT CASE orderstatus WHEN 'O' THEN 'a' END, count(*)\n" +
                 "FROM orders\n" +
                 "GROUP BY orderstatus");
 
-        // condition in group by clause
+        // condition in GROUP BY clause
         assertQuery("SELECT CASE 'O' WHEN orderstatus THEN 'a' END, count(*)\n" +
                 "FROM orders\n" +
                 "GROUP BY orderstatus");
 
-        // 'then' in group by clause
+        // 'then' in GROUP BY clause
         assertQuery("SELECT CASE 1 WHEN 1 THEN orderstatus END, count(*)\n" +
                 "FROM orders\n" +
                 "GROUP BY orderstatus");
@@ -4035,14 +4035,14 @@ public abstract class AbstractTestQueries
     @Test
     public void testGroupByCast()
     {
-        // whole CAST in group by expression
+        // whole CAST in GROUP BY expression
         assertQuery("SELECT CAST(orderkey AS VARCHAR), count(*) FROM orders GROUP BY CAST(orderkey AS VARCHAR)");
 
         assertQuery(
                 "SELECT CAST(orderkey AS VARCHAR), count(*) FROM orders GROUP BY 1",
                 "SELECT CAST(orderkey AS VARCHAR), count(*) FROM orders GROUP BY CAST(orderkey AS VARCHAR)");
 
-        // argument in group by expression
+        // argument in GROUP BY expression
         assertQuery("SELECT CAST(orderkey AS VARCHAR), count(*) FROM orders GROUP BY orderkey");
     }
 
@@ -4100,7 +4100,7 @@ public abstract class AbstractTestQueries
         assertQuery("" +
                 "SELECT count(*)\n" +
                 "FROM (\n" +
-                "  SELECT cast(null as VARCHAR) constant, orderdate\n" +
+                "  SELECT CAST(null AS VARCHAR) constant, orderdate\n" +
                 "  FROM orders\n" +
                 ") a\n" +
                 "group by constant, orderdate\n");
@@ -4109,7 +4109,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testChecksum()
     {
-        assertQuery("SELECT to_hex(checksum(0))", "select '0000000000000000'");
+        assertQuery("SELECT to_hex(checksum(0))", "SELECT '0000000000000000'");
     }
 
     @Test
@@ -4275,7 +4275,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testDependentWindows()
     {
-        // For such query as below generated plan has two adjacent window nodes where second depends on output of first.
+        // For such query AS below generated plan has two adjacent window nodes WHERE second depends on output of first.
 
         String sql = "WITH " +
                 "t1 AS (" +
@@ -4292,7 +4292,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testWindowFunctionWithoutParameters()
     {
-        MaterializedResult actual = computeActual("SELECT count() over(partition by custkey) from orders where custkey < 3 order by custkey");
+        MaterializedResult actual = computeActual("SELECT count() over(partition by custkey) FROM orders WHERE custkey < 3 ORDER BY custkey");
 
         MaterializedResult expected = resultBuilder(getSession(), BIGINT)
                 .row(9L)
@@ -4496,7 +4496,7 @@ public abstract class AbstractTestQueries
                 "   SELECT row_number() OVER () rn, orderkey, orderstatus\n" +
                 "   FROM orders\n" +
                 ") WHERE NOT rn <= 10");
-        MaterializedResult all = computeExpected("SELECT orderkey, orderstatus FROM ORDERS", actual.getTypes());
+        MaterializedResult all = computeExpected("SELECT orderkey, orderstatus FROM orders", actual.getTypes());
         assertEquals(actual.getMaterializedRows().size(), all.getMaterializedRows().size() - 10);
         assertContains(all, actual);
 
@@ -4505,7 +4505,7 @@ public abstract class AbstractTestQueries
                 "   SELECT row_number() OVER () rn, orderkey, orderstatus\n" +
                 "   FROM orders\n" +
                 ") WHERE rn - 5 <= 10");
-        all = computeExpected("SELECT orderkey, orderstatus FROM ORDERS", actual.getTypes());
+        all = computeExpected("SELECT orderkey, orderstatus FROM orders", actual.getTypes());
         assertEquals(actual.getMaterializedRows().size(), 15);
         assertContains(all, actual);
     }
@@ -4635,7 +4635,7 @@ public abstract class AbstractTestQueries
                 "   SELECT row_number() OVER () rn, orderkey, orderstatus\n" +
                 "   FROM orders\n" +
                 ") WHERE rn <= 5 AND orderstatus != 'Z'");
-        MaterializedResult all = computeExpected("SELECT orderkey, orderstatus FROM ORDERS", actual.getTypes());
+        MaterializedResult all = computeExpected("SELECT orderkey, orderstatus FROM orders", actual.getTypes());
         assertEquals(actual.getMaterializedRows().size(), 5);
         assertContains(all, actual);
 
@@ -4644,7 +4644,7 @@ public abstract class AbstractTestQueries
                 "   SELECT row_number() OVER () rn, orderkey, orderstatus\n" +
                 "   FROM orders\n" +
                 ") WHERE rn < 5");
-        all = computeExpected("SELECT orderkey, orderstatus FROM ORDERS", actual.getTypes());
+        all = computeExpected("SELECT orderkey, orderstatus FROM orders", actual.getTypes());
 
         assertEquals(actual.getMaterializedRows().size(), 4);
         assertContains(all, actual);
@@ -4654,7 +4654,7 @@ public abstract class AbstractTestQueries
                 "   SELECT row_number() OVER () rn, orderkey, orderstatus\n" +
                 "   FROM orders\n" +
                 ") LIMIT 5");
-        all = computeExpected("SELECT orderkey, orderstatus FROM ORDERS", actual.getTypes());
+        all = computeExpected("SELECT orderkey, orderstatus FROM orders", actual.getTypes());
 
         assertEquals(actual.getMaterializedRows().size(), 5);
         assertContains(all, actual);
@@ -4668,9 +4668,9 @@ public abstract class AbstractTestQueries
                 "   SELECT row_number() OVER (PARTITION BY orderstatus) rn, orderkey, orderstatus\n" +
                 "   FROM orders\n" +
                 ") WHERE rn <= 5");
-        MaterializedResult all = computeExpected("SELECT orderkey, orderstatus FROM ORDERS", actual.getTypes());
+        MaterializedResult all = computeExpected("SELECT orderkey, orderstatus FROM orders", actual.getTypes());
 
-        // there are 3 distinct orderstatus, so expect 15 rows.
+        // there are 3 DISTINCT orderstatus, so expect 15 rows.
         assertEquals(actual.getMaterializedRows().size(), 15);
         assertContains(all, actual);
 
@@ -4680,9 +4680,9 @@ public abstract class AbstractTestQueries
                 "   SELECT row_number() OVER (PARTITION BY orderstatus) rn, orderkey\n" +
                 "   FROM orders\n" +
                 ") WHERE rn <= 5");
-        all = computeExpected("SELECT orderkey FROM ORDERS", actual.getTypes());
+        all = computeExpected("SELECT orderkey FROM orders", actual.getTypes());
 
-        // there are 3 distinct orderstatus, so expect 15 rows.
+        // there are 3 DISTINCT orderstatus, so expect 15 rows.
         assertEquals(actual.getMaterializedRows().size(), 15);
         assertContains(all, actual);
     }
@@ -5183,7 +5183,7 @@ public abstract class AbstractTestQueries
     public void testInvalidColumn()
     {
         assertQueryFails(
-                "select * from lineitem l join (select orderkey_1, custkey from orders) o on l.orderkey = o.orderkey_1",
+                "SELECT * FROM lineitem l JOIN (SELECT orderkey_1, custkey FROM orders) o on l.orderkey = o.orderkey_1",
                 "line 1:39: Column 'orderkey_1' cannot be resolved");
     }
 
@@ -5203,8 +5203,8 @@ public abstract class AbstractTestQueries
     public void testJoinUnaliasedSubqueries()
     {
         assertQuery(
-                "SELECT COUNT(*) FROM (SELECT * FROM lineitem) join (SELECT * FROM orders) using (orderkey)",
-                "SELECT COUNT(*) FROM lineitem join orders on lineitem.orderkey = orders.orderkey");
+                "SELECT COUNT(*) FROM (SELECT * FROM lineitem) JOIN (SELECT * FROM orders) USING (orderkey)",
+                "SELECT COUNT(*) FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey");
     }
 
     @Test
@@ -5346,7 +5346,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testCaseWithSupertypeCast()
     {
-        assertQuery(" SELECT CASE x WHEN 1 THEN cast(1 as decimal(4,1)) WHEN 2 THEN cast(1 as decimal(4,2)) ELSE cast(1 as decimal(4,3)) END FROM (values 1) t(x)", "SELECT 1.000");
+        assertQuery(" SELECT CASE x WHEN 1 THEN CAST(1 AS decimal(4,1)) WHEN 2 THEN CAST(1 AS decimal(4,2)) ELSE CAST(1 AS decimal(4,3)) END FROM (values 1) t(x)", "SELECT 1.000");
     }
 
     @Test
@@ -5369,7 +5369,7 @@ public abstract class AbstractTestQueries
                 "SELECT sum(CASE WHEN NULLIF(orderstatus, 'F') <> 'F' THEN totalprice ELSE 5.1 END) FROM orders");
 
         // coercions to supertype
-        assertQuery("SELECT if(true, cast(1 as decimal(2,1)), 1)", "SELECT 1.0");
+        assertQuery("SELECT if(true, CAST(1 AS decimal(2,1)), 1)", "SELECT 1.0");
     }
 
     @Test
@@ -5382,12 +5382,12 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT x FROM (values 3, 100) t(x) WHERE x IN (2147483649)", "SELECT * WHERE false");
         assertQuery("SELECT x FROM (values 3, 100, 2147483648, 2147483649, 2147483650) t(x) WHERE x IN (2147483648, 2147483650)", "values 2147483648, 2147483650");
         assertQuery("SELECT x FROM (values 3, 100, 2147483648, 2147483649, 2147483650) t(x) WHERE x IN (3, 4, 2147483648, 2147483650)", "values 3, 2147483648, 2147483650");
-        assertQuery("SELECT x FROM (values 1, 2, 3) t(x) WHERE x IN (1 + cast(rand() < 0 as bigint), 2 + cast(rand() < 0 as bigint))", "values 1, 2");
-        assertQuery("SELECT x FROM (values 1, 2, 3, 4) t(x) WHERE x IN (1 + cast(rand() < 0 as bigint), 2 + cast(rand() < 0 as bigint), 4)", "values 1, 2, 4");
+        assertQuery("SELECT x FROM (values 1, 2, 3) t(x) WHERE x IN (1 + CAST(rand() < 0 AS bigint), 2 + CAST(rand() < 0 AS bigint))", "values 1, 2");
+        assertQuery("SELECT x FROM (values 1, 2, 3, 4) t(x) WHERE x IN (1 + CAST(rand() < 0 AS bigint), 2 + CAST(rand() < 0 AS bigint), 4)", "values 1, 2, 4");
         assertQuery("SELECT x FROM (values 1, 2, 3, 4) t(x) WHERE x IN (4, 2, 1)", "values 1, 2, 4");
-        assertQuery("SELECT x FROM (values 1, 2, 3, 2147483648) t(x) WHERE x IN (1 + cast(rand() < 0 as bigint), 2 + cast(rand() < 0 as bigint), 2147483648)", "values 1, 2, 2147483648");
+        assertQuery("SELECT x FROM (values 1, 2, 3, 2147483648) t(x) WHERE x IN (1 + CAST(rand() < 0 AS bigint), 2 + CAST(rand() < 0 AS bigint), 2147483648)", "values 1, 2, 2147483648");
         assertQuery("SELECT x IN (0) FROM (values 4294967296) t(x)", "values false");
-        assertQuery("SELECT x IN (0, 4294967297 + cast(rand() < 0 as bigint)) FROM (values 4294967296, 4294967297) t(x)", "values false, true");
+        assertQuery("SELECT x IN (0, 4294967297 + CAST(rand() < 0 AS bigint)) FROM (values 4294967296, 4294967297) t(x)", "values false, true");
         assertQuery("SELECT NULL in (1, 2, 3)", "values null");
         assertQuery("SELECT 1 in (1, NULL, 3)", "values true");
         assertQuery("SELECT 2 in (1, NULL, 3)", "values null");
@@ -5435,7 +5435,7 @@ public abstract class AbstractTestQueries
     public void testInSubqueryWithCrossJoin()
     {
         assertQuery("SELECT a FROM (VALUES (1),(2)) t(a) WHERE a IN " +
-                "(SELECT b FROM (VALUES (ARRAY[2])) AS t1 (a) CROSS JOIN UNNEST(a) as t2(b))", "SELECT 2");
+                "(SELECT b FROM (VALUES (ARRAY[2])) AS t1 (a) CROSS JOIN UNNEST(a) AS t2(b))", "SELECT 2");
     }
 
     @Test
@@ -5497,31 +5497,31 @@ public abstract class AbstractTestQueries
     @Test
     public void testCaseInsensitiveRowFieldReference()
     {
-        assertQuery("SELECT a.Col0 FROM (VALUES row(cast(ROW(1,2) as ROW(col0 integer, col1 integer)))) AS t (a)", "SELECT 1");
+        assertQuery("SELECT a.Col0 FROM (VALUES row(cast(ROW(1,2) AS ROW(col0 integer, col1 integer)))) AS t (a)", "SELECT 1");
     }
 
     @Test
     public void testSubqueryBody()
     {
-        assertQuery("(SELECT orderkey, custkey FROM ORDERS)");
+        assertQuery("(SELECT orderkey, custkey FROM orders)");
     }
 
     @Test
     public void testSubqueryBodyOrderLimit()
     {
-        assertQueryOrdered("(SELECT orderkey AS a, custkey AS b FROM ORDERS) ORDER BY a LIMIT 1");
+        assertQueryOrdered("(SELECT orderkey AS a, custkey AS b FROM orders) ORDER BY a LIMIT 1");
     }
 
     @Test
     public void testSubqueryBodyProjectedOrderby()
     {
-        assertQueryOrdered("(SELECT orderkey, custkey FROM ORDERS) ORDER BY orderkey * -1");
+        assertQueryOrdered("(SELECT orderkey, custkey FROM orders) ORDER BY orderkey * -1");
     }
 
     @Test
     public void testSubqueryBodyDoubleOrderby()
     {
-        assertQueryOrdered("(SELECT orderkey, custkey FROM ORDERS ORDER BY custkey) ORDER BY orderkey");
+        assertQueryOrdered("(SELECT orderkey, custkey FROM orders ORDER BY custkey) ORDER BY orderkey");
     }
 
     @Test
@@ -5681,10 +5681,10 @@ public abstract class AbstractTestQueries
     public void testExplainExecuteWithUsing()
     {
         Session session = Session.builder(getSession())
-                .addPreparedStatement("my_query", "SELECT * FROM orders where orderkey < ?")
+                .addPreparedStatement("my_query", "SELECT * FROM orders WHERE orderkey < ?")
                 .build();
         MaterializedResult result = computeActual(session, "EXPLAIN (TYPE LOGICAL) EXECUTE my_query USING 7");
-        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan("SELECT * FROM orders where orderkey < 7", LOGICAL));
+        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan("SELECT * FROM orders WHERE orderkey < 7", LOGICAL));
     }
 
     @Test
@@ -5867,7 +5867,7 @@ public abstract class AbstractTestQueries
         // TODO the expected values here are non-sensical due to https://github.com/prestodb/presto/issues/7122
         assertEquals(evaluateScalar("SELECT TIMESTAMP '2012-10-31 01:00' AT TIME ZONE INTERVAL '07:09' hour to minute"), zonedDateTime("2012-10-31 08:09:00.000 +07:09"));
         assertEquals(evaluateScalar("SELECT TIMESTAMP '2012-10-31 01:00' AT TIME ZONE 'Asia/Oral'"), zonedDateTime("2012-10-31 06:00:00.000 Asia/Oral"));
-        assertEquals(evaluateScalar("SELECT MIN(x) AT TIME ZONE 'America/Chicago' from (VALUES TIMESTAMP '1970-01-01 00:01:00+00:00') t(x)"), zonedDateTime("1969-12-31 18:01:00.000 America/Chicago"));
+        assertEquals(evaluateScalar("SELECT MIN(x) AT TIME ZONE 'America/Chicago' FROM (VALUES TIMESTAMP '1970-01-01 00:01:00+00:00') t(x)"), zonedDateTime("1969-12-31 18:01:00.000 America/Chicago"));
         assertEquals(evaluateScalar("SELECT TIMESTAMP '2012-10-31 01:00' AT TIME ZONE '+07:09'"), zonedDateTime("2012-10-31 08:09:00.000 +07:09"));
         assertEquals(evaluateScalar("SELECT TIMESTAMP '2012-10-31 01:00 UTC' AT TIME ZONE 'America/Los_Angeles'"), zonedDateTime("2012-10-30 18:00:00.000 America/Los_Angeles"));
         assertEquals(evaluateScalar("SELECT TIMESTAMP '2012-10-31 01:00' AT TIME ZONE 'America/Los_Angeles'"), zonedDateTime("2012-10-30 18:00:00.000 America/Los_Angeles"));
@@ -5886,7 +5886,7 @@ public abstract class AbstractTestQueries
                 zonedDateTime("1970-01-01 00:01:00.000 UTC"));
 
         // with AT TIME ZONE in VALUES
-        assertEquals(evaluateScalar("SELECT * from (VALUES TIMESTAMP '2012-10-31 01:00' AT TIME ZONE 'Asia/Oral')"), zonedDateTime("2012-10-31 06:00:00.000 Asia/Oral"));
+        assertEquals(evaluateScalar("SELECT * FROM (VALUES TIMESTAMP '2012-10-31 01:00' AT TIME ZONE 'Asia/Oral')"), zonedDateTime("2012-10-31 06:00:00.000 Asia/Oral"));
     }
 
     private Object evaluateScalar(@Language("SQL") String sql)
@@ -5969,7 +5969,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testSelectCaseInsensitive()
     {
-        assertQuery("SELECT ORDERKEY FROM ORDERS");
+        assertQuery("SELECT ORDERKEY FROM orders");
         assertQuery("SELECT OrDeRkEy FROM OrDeRs");
     }
 
@@ -6035,7 +6035,7 @@ public abstract class AbstractTestQueries
                 "SELECT COUNT(TRY(to_base(100, CAST(round(totalprice/100) AS BIGINT)))) FROM orders",
                 "SELECT SUM(CASE WHEN CAST(round(totalprice/100) AS BIGINT) BETWEEN 2 AND 36 THEN 1 ELSE 0 END) FROM orders");
 
-        // as part of a complex expression
+        // AS part of a complex expression
         assertQuery(
                 "SELECT COUNT(CAST(orderkey AS VARCHAR) || TRY(to_base(100, CAST(round(totalprice/100) AS BIGINT)))) FROM orders",
                 "SELECT SUM(CASE WHEN CAST(round(totalprice/100) AS BIGINT) BETWEEN 2 AND 36 THEN 1 ELSE 0 END) FROM orders");
@@ -6044,8 +6044,8 @@ public abstract class AbstractTestQueries
         assertQueryFails("SELECT TRY()", "line 1:8: The 'try' function must have exactly one argument");
 
         // check that TRY is not pushed down
-        assertQueryFails("SELECT TRY(x) IS NULL FROM (SELECT 1/y as x FROM (VALUES 1, 2, 3, 0, 4) t(y))", "/ by zero");
-        assertQuery("SELECT x IS NULL FROM (SELECT TRY(1/y) as x FROM (VALUES 3, 0, 4) t(y))", "VALUES false, true, false");
+        assertQueryFails("SELECT TRY(x) IS NULL FROM (SELECT 1/y AS x FROM (VALUES 1, 2, 3, 0, 4) t(y))", "/ by zero");
+        assertQuery("SELECT x IS NULL FROM (SELECT TRY(1/y) AS x FROM (VALUES 3, 0, 4) t(y))", "VALUES false, true, false");
 
         // test try with lambda function
         assertQuery("SELECT TRY(apply(5, x -> x + 1) / 0)", "SELECT NULL");
@@ -6079,7 +6079,7 @@ public abstract class AbstractTestQueries
     public void testTryNoMergeProjections()
     {
         // no regexp specified because the JVM optimizes away exception message constructor if run enough times
-        assertQueryFails("SELECT TRY(x) FROM (SELECT 1/y as x FROM (VALUES 1, 2, 3, 0, 4) t(y))", ".*");
+        assertQueryFails("SELECT TRY(x) FROM (SELECT 1/y AS x FROM (VALUES 1, 2, 3, 0, 4) t(y))", ".*");
     }
 
     @Test
@@ -6251,31 +6251,31 @@ public abstract class AbstractTestQueries
         assertQuery(
                 "SELECT count(orderkey), sum(sc) FROM (" +
                         "    SELECT sum(custkey) sc, orderkey FROM (" +
-                        "        SELECT custkey,orderkey, orderkey+1 from orders where orderkey=0" +
+                        "        SELECT custkey,orderkey, orderkey+1 FROM orders WHERE orderkey=0" +
                         "        UNION ALL " +
-                        "        SELECT custkey,orderkey,orderkey+1 from orders where orderkey<>0) " +
+                        "        SELECT custkey,orderkey,orderkey+1 FROM orders WHERE orderkey<>0) " +
                         "    GROUP BY orderkey)");
 
         assertQuery(
                 "SELECT count(orderkey), sum(sc) FROM (\n" +
                         "    SELECT sum(custkey) sc, orderkey FROM (\n" +
-                        "        SELECT custkey, orderkey, orderkey+1, orderstatus from orders where orderkey=0\n" +
+                        "        SELECT custkey, orderkey, orderkey+1, orderstatus FROM orders WHERE orderkey=0\n" +
                         "        UNION ALL \n" +
-                        "        SELECT custkey, orderkey, orderkey+1, orderstatus from orders where orderkey<>0) \n" +
+                        "        SELECT custkey, orderkey, orderkey+1, orderstatus FROM orders WHERE orderkey<>0) \n" +
                         "    GROUP BY GROUPING SETS ((orderkey, orderstatus), (orderkey)))",
                 "SELECT count(orderkey), sum(sc) FROM (\n" +
                         "    SELECT sum(custkey) sc, orderkey FROM (\n" +
-                        "        SELECT custkey, orderkey, orderkey+1, orderstatus from orders where orderkey=0\n" +
+                        "        SELECT custkey, orderkey, orderkey+1, orderstatus FROM orders WHERE orderkey=0\n" +
                         "        UNION ALL \n" +
-                        "        SELECT custkey, orderkey, orderkey+1, orderstatus from orders where orderkey<>0) \n" +
+                        "        SELECT custkey, orderkey, orderkey+1, orderstatus FROM orders WHERE orderkey<>0) \n" +
                         "    GROUP BY orderkey, orderstatus \n" +
                         "    \n" +
                         "    UNION ALL \n" +
                         "    \n" +
                         "    SELECT sum(custkey) sc, orderkey FROM (\n" +
-                        "        SELECT custkey, orderkey, orderkey+1, orderstatus from orders where orderkey=0\n" +
+                        "        SELECT custkey, orderkey, orderkey+1, orderstatus FROM orders WHERE orderkey=0\n" +
                         "        UNION ALL \n" +
-                        "        SELECT custkey, orderkey, orderkey+1, orderstatus from orders where orderkey<>0) \n" +
+                        "        SELECT custkey, orderkey, orderkey+1, orderstatus FROM orders WHERE orderkey<>0) \n" +
                         "    GROUP BY orderkey)");
     }
 
@@ -6379,7 +6379,7 @@ public abstract class AbstractTestQueries
         assertQuery("VALUES 1 UNION ALL VALUES 1.0, 2", "SELECT * FROM (VALUES 1) UNION ALL SELECT * FROM (VALUES 1.0, 2)");
         assertQuery("(VALUES 1) UNION ALL (VALUES 1.0, 2)", "SELECT * FROM (VALUES 1) UNION ALL SELECT * FROM (VALUES 1.0, 2)");
         assertQuery("SELECT 0, 0 UNION ALL SELECT 1.0, 0"); // This test case generates a RelationPlan whose .outputSymbols is different .root.outputSymbols
-        assertQuery("SELECT 0, 0, 0, 0 UNION ALL SELECT 0.0, 0.0, 0, 0"); // This test case generates a RelationPlan where multiple positions share the same symbol
+        assertQuery("SELECT 0, 0, 0, 0 UNION ALL SELECT 0.0, 0.0, 0, 0"); // This test case generates a RelationPlan WHERE multiple positions share the same symbol
         assertQuery("SELECT * FROM (VALUES 1) UNION ALL SELECT * FROM (VALUES 1.0, 2)");
 
         assertQuery("SELECT * FROM (VALUES 1) UNION SELECT * FROM (VALUES 1.0, 2)", "VALUES 1.0, 2.0"); // H2 produces incorrect result for the original query: 1.0 1.0 2.0
@@ -6389,13 +6389,13 @@ public abstract class AbstractTestQueries
 
         // Test for https://github.com/prestodb/presto/issues/7496
         // Cast varchar(1) -> varchar(4) for orderstatus in first source of union was not added. It was not done for type-only coercions.
-        // Then as a result of predicate pushdown orderstatus (without cast) was compared with cast('aaa' as varchar(4)) which trigger checkArgument that
+        // Then AS a result of predicate pushdown orderstatus (without cast) was compared with CAST('aaa' AS varchar(4)) which trigger checkArgument that
         // both types of comparison should be equal in DomainTranslator.
         assertQuery("SELECT a FROM " +
                 "(" +
-                "  (SELECT orderstatus as a FROM orders LIMIT 1) " +
+                "  (SELECT orderstatus AS a FROM orders LIMIT 1) " +
                 "UNION ALL " +
-                "  SELECT 'aaaa' as a" +
+                "  SELECT 'aaaa' AS a" +
                 ") " +
                 "WHERE  a = 'aaa'");
     }
@@ -6433,7 +6433,7 @@ public abstract class AbstractTestQueries
                         "(TABLE orders ORDER BY orderkey LIMIT 20) UNION ALL " +
                         "(TABLE orders LIMIT 5) UNION ALL " +
                         "TABLE orders LIMIT 10");
-        MaterializedResult all = computeExpected("SELECT * FROM ORDERS", actual.getTypes());
+        MaterializedResult all = computeExpected("SELECT * FROM orders", actual.getTypes());
 
         assertEquals(actual.getMaterializedRows().size(), 10);
         assertContains(all, actual);
@@ -6509,8 +6509,8 @@ public abstract class AbstractTestQueries
     {
         assertQuery("" +
                 "SELECT * " +
-                "FROM (SELECT 'AAA' a1, 11 b1, 33.3 c1, true as d1, 21 e1) x " +
-                "CROSS JOIN (SELECT 4444.4 a2, false as b2, 'BBB' c2, 22 d2) y");
+                "FROM (SELECT 'AAA' a1, 11 b1, 33.3 c1, true AS d1, 21 e1) x " +
+                "CROSS JOIN (SELECT 4444.4 a2, false AS b2, 'BBB' c2, 22 d2) y");
     }
 
     @Test
@@ -6613,19 +6613,19 @@ public abstract class AbstractTestQueries
         // test multiple IN subqueries with coercions
         assertQuery("SELECT 1.0 IN (SELECT 1), 1 IN (SELECT 1)");
         assertQuery("SELECT 1 WHERE 1 IN (SELECT 1) AND 1.0 IN (SELECT 1)");
-        assertQuery("select 1.0 in (values (1), (2), (3))", "SELECT true");
+        assertQuery("SELECT 1.0 in (values (1), (2), (3))", "SELECT true");
 
         // test IN subqueries with supertype coercions
-        assertQuery("SELECT cast(1 as decimal(3,2)) IN (SELECT cast(1 as decimal(3,1)))", "SELECT true");
-        assertQuery("SELECT cast(1 as decimal(3,2)) IN (values (cast(1 as decimal(3,1))), (cast (2 as decimal(3,1))))", "SELECT true");
+        assertQuery("SELECT CAST(1 AS decimal(3,2)) IN (SELECT CAST(1 AS decimal(3,1)))", "SELECT true");
+        assertQuery("SELECT CAST(1 AS decimal(3,2)) IN (values (cast(1 AS decimal(3,1))), (cast (2 AS decimal(3,1))))", "SELECT true");
 
         // test multi level IN subqueries
         assertQuery("SELECT 1 IN (SELECT 1), 2 IN (SELECT 1) WHERE 1 IN (SELECT 1)");
 
         // test with subqueries on left
-        assertQuery("SELECT (select 1) IN (SELECT 1)");
-        assertQuery("SELECT (select 2) IN (1, (SELECT 2))");
-        assertQuery("SELECT (2 + (select 1)) IN (SELECT 1)");
+        assertQuery("SELECT (SELECT 1) IN (SELECT 1)");
+        assertQuery("SELECT (SELECT 2) IN (1, (SELECT 2))");
+        assertQuery("SELECT (2 + (SELECT 1)) IN (SELECT 1)");
         assertQuery("SELECT (1 IN (SELECT 1)) IN (SELECT TRUE)");
         assertQuery("SELECT ((SELECT 1) IN (SELECT 1)) IN (SELECT TRUE)");
         assertQuery("SELECT (EXISTS(SELECT 1)) IN (SELECT TRUE)");
@@ -6984,7 +6984,7 @@ public abstract class AbstractTestQueries
                 multipleRowsErrorMsg);
 
         // exposes a bug in optimize hash generation because EnforceSingleNode does not
-        // support more than one column from the underlying query
+        // support more than one column FROM the underlying query
         assertQuery("SELECT custkey, (SELECT DISTINCT custkey FROM orders ORDER BY custkey LIMIT 1) FROM orders");
 
         // cast scalar sub-query
@@ -7054,8 +7054,8 @@ public abstract class AbstractTestQueries
                 joinType,
                 condition);
         List<QueryTemplate.Parameter> conditions = condition.of(
-                "EXISTS(SELECT avg(orderkey) FROM ORDERS)",
-                "(SELECT avg(orderkey) FROM ORDERS) > 3");
+                "EXISTS(SELECT avg(orderkey) FROM orders)",
+                "(SELECT avg(orderkey) FROM orders) > 3");
         for (QueryTemplate.Parameter actualCondition : conditions) {
             for (QueryTemplate.Parameter actualJoinType : joinType.of("", "LEFT", "RIGHT")) {
                 assertQuery(queryTemplate.replace(actualJoinType, actualCondition));
@@ -7209,7 +7209,7 @@ public abstract class AbstractTestQueries
                 "SELECT * FROM lineitem l WHERE 1 = (SELECT (SELECT 2 * l.orderkey))",
                 "line 1.37: Given correlated subquery is not supported"); // check also the position of subqueyr
 
-        // explicit limit in subquery
+        // explicit LIMIT in subquery
         assertQueryFails(
                 "SELECT (SELECT count(*) FROM (VALUES (7,1)) t(orderkey, value) WHERE orderkey = corr_key LIMIT 1) FROM (values 7) t(corr_key)",
                 UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
@@ -7344,8 +7344,8 @@ public abstract class AbstractTestQueries
 
         //count in subquery
         assertQuery("SELECT * " +
-                        "FROM (VALUES (0),( 1), (2), (7)) as v1(c1) " +
-                        "WHERE v1.c1 > (SELECT count(c1) from (VALUES (0),( 1), (2)) as v2(c1) WHERE v1.c1 = v2.c1)",
+                        "FROM (VALUES (0),( 1), (2), (7)) AS v1(c1) " +
+                        "WHERE v1.c1 > (SELECT count(c1) FROM (VALUES (0),( 1), (2)) AS v2(c1) WHERE v1.c1 = v2.c1)",
                 "VALUES (2), (7)");
     }
 
@@ -7357,15 +7357,15 @@ public abstract class AbstractTestQueries
 
         // all cases of IN (as one test query to avoid pruning, over-eager push down)
         assertQuery(
-                "select t1.a, t1.b, " +
-                        "  t1.b in (select t2.b " +
-                        "    from (values (2, 3), (2, 4), (3, 0), (30,NULL)) t2(a, b) " +
-                        "    where t1.a - 5 <= t2.a and t2.a <= t1.a and 0 <= t2.a) " +
+                "SELECT t1.a, t1.b, " +
+                        "  t1.b in (SELECT t2.b " +
+                        "    FROM (values (2, 3), (2, 4), (3, 0), (30,NULL)) t2(a, b) " +
+                        "    WHERE t1.a - 5 <= t2.a and t2.a <= t1.a and 0 <= t2.a) " +
                         "from (values (1,1), (2,4), (3,5), (4,NULL), (30,2), (40,NULL) ) t1(a, b) " +
                         "order by t1.a",
                 "VALUES (1,1,FALSE), (2,4,TRUE), (3,5,FALSE), (4,NULL,NULL), (30,2,NULL), (40,NULL,FALSE)");
 
-        // subquery with limit (correlated filter below any unhandled node type)
+        // subquery with LIMIT (correlated filter below any unhandled node type)
         assertQueryFails(
                 "SELECT orderkey FROM orders o WHERE clerk IN (SELECT clerk FROM orders s WHERE s.custkey = o.custkey AND s.orderkey < o.orderkey ORDER BY 1 LIMIT 1)",
                 UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
@@ -7585,7 +7585,7 @@ public abstract class AbstractTestQueries
         assertQuery("" +
                 "SELECT *\n" +
                 "FROM (\n" +
-                "  SELECT orderkey+1 as a FROM orders WHERE orderstatus = 'F' UNION ALL \n" +
+                "  SELECT orderkey+1 AS a FROM orders WHERE orderstatus = 'F' UNION ALL \n" +
                 "  SELECT orderkey FROM orders WHERE orderkey % 2 = 0 UNION ALL \n" +
                 "  (SELECT orderkey+custkey FROM orders ORDER BY orderkey LIMIT 10)\n" +
                 ") \n" +
@@ -7763,10 +7763,10 @@ public abstract class AbstractTestQueries
                 "FROM (\n" +
                 "  SELECT DISTINCT *\n" +
                 "  FROM (\n" +
-                "    SELECT 'abc' as col1a, 500 as col1b FROM lineitem limit 1\n" +
+                "    SELECT 'abc' AS col1a, 500 AS col1b FROM lineitem LIMIT 1\n" +
                 "  ) table1\n" +
                 "  JOIN (\n" +
-                "    SELECT 'abc' as col2a FROM lineitem limit 1000000\n" +
+                "    SELECT 'abc' AS col2a FROM lineitem LIMIT 1000000\n" +
                 "  ) table2\n" +
                 "  ON table1.col1a = table2.col2a\n" +
                 "  WHERE rand() * 1000 > table1.col1b\n" +
@@ -7842,16 +7842,16 @@ public abstract class AbstractTestQueries
         assertQuery("" +
                 "SELECT COUNT(*)\n" +
                 "FROM (\n" +
-                "  SELECT orderkey AS x, orderkey as y\n" +
+                "  SELECT orderkey AS x, orderkey AS y\n" +
                 "  FROM orders\n" +
                 "  WHERE orderkey % 3 = 0\n" +
                 "  UNION ALL\n" +
-                "  SELECT orderkey AS x, orderkey as y\n" +
+                "  SELECT orderkey AS x, orderkey AS y\n" +
                 "  FROM orders\n" +
                 "  WHERE orderkey % 2 = 0\n" +
                 ") a\n" +
                 "JOIN (\n" +
-                "  SELECT orderkey AS x, orderkey as y\n" +
+                "  SELECT orderkey AS x, orderkey AS y\n" +
                 "  FROM orders\n" +
                 ") b\n" +
                 "ON a.x = b.x");
@@ -7876,7 +7876,7 @@ public abstract class AbstractTestQueries
         int total = computeExpected("SELECT orderkey FROM orders", ImmutableList.of(BIGINT)).getMaterializedRows().size();
 
         for (int i = 0; i < 100; i++) {
-            List<MaterializedRow> values = computeActual("SELECT orderkey FROM ORDERS TABLESAMPLE BERNOULLI (50)").getMaterializedRows();
+            List<MaterializedRow> values = computeActual("SELECT orderkey FROM orders TABLESAMPLE BERNOULLI (50)").getMaterializedRows();
 
             assertEquals(values.size(), ImmutableSet.copyOf(values).size(), "TABLESAMPLE produced duplicate rows");
             stats.addValue(values.size() * 1.0 / total);
@@ -7976,7 +7976,7 @@ public abstract class AbstractTestQueries
 
         distinctResults.add(expected);
         for (int i = 0; i < 3; i++) {
-            MaterializedResult results = computeActual(format("SELECT shuffle(ARRAY %s) from orders limit 10", expected));
+            MaterializedResult results = computeActual(format("SELECT shuffle(ARRAY %s) FROM orders LIMIT 10", expected));
             List<MaterializedRow> rows = results.getMaterializedRows();
             assertTrue(rows.size() == 10);
 
@@ -7989,7 +7989,7 @@ public abstract class AbstractTestQueries
                 distinctResults.add(actual);
             }
         }
-        assertTrue(distinctResults.size() >= 24, "shuffle must produce at least 24 distinct results");
+        assertTrue(distinctResults.size() >= 24, "shuffle must produce at least 24 DISTINCT results");
     }
 
     @Test
@@ -8269,7 +8269,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testMergeEmptyNonEmptyApproxSet()
     {
-        MaterializedResult actual = computeActual("SELECT cardinality(merge(c)) FROM (SELECT create_hll(custkey) c FROM ORDERS UNION ALL SELECT empty_approx_set())");
+        MaterializedResult actual = computeActual("SELECT cardinality(merge(c)) FROM (SELECT create_hll(custkey) c FROM orders UNION ALL SELECT empty_approx_set())");
         MaterializedResult expected = resultBuilder(getSession(), BIGINT)
                 .row(1002L)
                 .build();
@@ -8450,7 +8450,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testValuesWithUnusedColumns()
     {
-        MaterializedResult actual = computeActual("SELECT foo from (values (1, 2)) a(foo, bar)");
+        MaterializedResult actual = computeActual("SELECT foo FROM (values (1, 2)) a(foo, bar)");
 
         MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
                 .row(1)
@@ -8469,16 +8469,16 @@ public abstract class AbstractTestQueries
     @Test
     public void testAccessControl()
     {
-        assertAccessDenied("SELECT COUNT(true) FROM orders", "Cannot select from table .*.orders.*", privilege("orders", SELECT_TABLE));
+        assertAccessDenied("SELECT COUNT(true) FROM orders", "Cannot SELECT FROM table .*.orders.*", privilege("orders", SELECT_TABLE));
         assertAccessDenied("INSERT INTO orders SELECT * FROM orders", "Cannot insert into table .*.orders.*", privilege("orders", INSERT_TABLE));
-        assertAccessDenied("DELETE FROM orders", "Cannot delete from table .*.orders.*", privilege("orders", DELETE_TABLE));
+        assertAccessDenied("DELETE FROM orders", "Cannot delete FROM table .*.orders.*", privilege("orders", DELETE_TABLE));
         assertAccessDenied("CREATE TABLE foo AS SELECT * FROM orders", "Cannot create table .*.foo.*", privilege("foo", CREATE_TABLE));
     }
 
     @Test
     public void testEmptyInputForUnnest()
     {
-        assertQuery("select val from (select distinct vals from (values (array[2])) t(vals) where false) tmp cross join unnest(tmp.vals) tt(val)", "select 1 where 1=2");
+        assertQuery("SELECT val FROM (SELECT DISTINCT vals FROM (values (array[2])) t(vals) WHERE false) tmp CROSS JOIN unnest(tmp.vals) tt(val)", "SELECT 1 WHERE 1=2");
     }
 
     @Test
@@ -8530,11 +8530,11 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT * FROM (" +
                         "  SELECT t2.x || t2.z cc FROM (" +
                         "    SELECT *" +
-                        "    FROM (VALUES (CAST('a' as VARCHAR), CAST('c' as VARCHAR))) t(x, z)" +
+                        "    FROM (VALUES (CAST('a' AS VARCHAR), CAST('c' AS VARCHAR))) t(x, z)" +
                         "  ) t2" +
                         "  JOIN (" +
                         "    SELECT *" +
-                        "    FROM (VALUES (CAST('a' as VARCHAR), CAST('c' as VARCHAR))) u(x, z)" +
+                        "    FROM (VALUES (CAST('a' AS VARCHAR), CAST('c' AS VARCHAR))) u(x, z)" +
                         "    WHERE z='c'" +
                         "  ) u2" +
                         "  ON t2.z = u2.z" +
@@ -8574,9 +8574,9 @@ public abstract class AbstractTestQueries
 
         assertQuery("SELECT c = 'x'" +
                 "FROM (" +
-                "    SELECT 'x' as c" +
+                "    SELECT 'x' AS c" +
                 "    UNION ALL" +
-                "    SELECT 'yy' as c" +
+                "    SELECT 'yy' AS c" +
                 ")");
     }
 
@@ -8654,7 +8654,7 @@ public abstract class AbstractTestQueries
                     .addPreparedStatement("my_query", query)
                     .build();
             computeActual(session, "EXECUTE my_query USING 1, 1");
-            fail("parameters in group by and select should fail");
+            fail("parameters in GROUP BY and SELECT should fail");
         }
         catch (SemanticException e) {
             assertEquals(e.getCode(), MUST_BE_AGGREGATE_OR_GROUP_BY);
@@ -8689,7 +8689,7 @@ public abstract class AbstractTestQueries
     public void testDescribeInput()
     {
         Session session = Session.builder(getSession())
-                .addPreparedStatement("my_query", "select ? from nation where nationkey = ? and name < ?")
+                .addPreparedStatement("my_query", "SELECT ? FROM nation WHERE nationkey = ? and name < ?")
                 .build();
         MaterializedResult actual = computeActual(session, "DESCRIBE INPUT my_query");
         MaterializedResult expected = resultBuilder(session, BIGINT, VARCHAR)
@@ -8704,7 +8704,7 @@ public abstract class AbstractTestQueries
     public void testDescribeInputWithAggregation()
     {
         Session session = Session.builder(getSession())
-                .addPreparedStatement("my_query", "select count(*) + ? from nation")
+                .addPreparedStatement("my_query", "SELECT count(*) + ? FROM nation")
                 .build();
         MaterializedResult actual = computeActual(session, "DESCRIBE INPUT my_query");
         MaterializedResult expected = resultBuilder(session, BIGINT, VARCHAR)
@@ -8717,7 +8717,7 @@ public abstract class AbstractTestQueries
     public void testDescribeInputNoParameters()
     {
         Session session = Session.builder(getSession())
-                .addPreparedStatement("my_query", "select * from nation")
+                .addPreparedStatement("my_query", "SELECT * FROM nation")
                 .build();
         MaterializedResult actual = computeActual(session, "DESCRIBE INPUT my_query");
         MaterializedResult expected = resultBuilder(session, UNKNOWN, UNKNOWN).build();
@@ -8767,14 +8767,14 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT 1.0 = ANY(SELECT 1), 2 = ANY(SELECT 1) WHERE 1 = ANY(SELECT 1)");
 
         // subquery with supertype coercion
-        assertQuery("SELECT cast(1 as decimal(3,2)) < ALL(SELECT cast(1 as decimal(3,1)))");
-        assertQuery("SELECT cast(1 as decimal(3,2)) < ANY(SELECT cast(1 as decimal(3,1)))");
-        assertQuery("SELECT cast(1 as decimal(3,2)) <= ALL(SELECT cast(1 as decimal(3,1)))");
-        assertQuery("SELECT cast(1 as decimal(3,2)) <= ANY(SELECT cast(1 as decimal(3,1)))");
-        assertQuery("SELECT cast(1 as decimal(3,2)) = ALL(SELECT cast(1 as decimal(3,1)))");
-        assertQuery("SELECT cast(1 as decimal(3,2)) = ANY(SELECT cast(1 as decimal(3,1)))", "SELECT true");
-        assertQuery("SELECT cast(1 as decimal(3,2)) <> ALL(SELECT cast(1 as decimal(3,1)))");
-        assertQuery("SELECT cast(1 as decimal(3,2)) <> ANY(SELECT cast(1 as decimal(3,1)))");
+        assertQuery("SELECT CAST(1 AS decimal(3,2)) < ALL(SELECT CAST(1 AS decimal(3,1)))");
+        assertQuery("SELECT CAST(1 AS decimal(3,2)) < ANY(SELECT CAST(1 AS decimal(3,1)))");
+        assertQuery("SELECT CAST(1 AS decimal(3,2)) <= ALL(SELECT CAST(1 AS decimal(3,1)))");
+        assertQuery("SELECT CAST(1 AS decimal(3,2)) <= ANY(SELECT CAST(1 AS decimal(3,1)))");
+        assertQuery("SELECT CAST(1 AS decimal(3,2)) = ALL(SELECT CAST(1 AS decimal(3,1)))");
+        assertQuery("SELECT CAST(1 AS decimal(3,2)) = ANY(SELECT CAST(1 AS decimal(3,1)))", "SELECT true");
+        assertQuery("SELECT CAST(1 AS decimal(3,2)) <> ALL(SELECT CAST(1 AS decimal(3,1)))");
+        assertQuery("SELECT CAST(1 AS decimal(3,2)) <> ANY(SELECT CAST(1 AS decimal(3,1)))");
     }
 
     @Test(dataProvider = "quantified_comparisons_corner_cases")
@@ -8842,7 +8842,7 @@ public abstract class AbstractTestQueries
     public void testDescribeOutputNamedAndUnnamed()
     {
         Session session = Session.builder(getSession())
-                .addPreparedStatement("my_query", "select 1, name, regionkey as my_alias from nation")
+                .addPreparedStatement("my_query", "SELECT 1, name, regionkey AS my_alias FROM nation")
                 .build();
 
         MaterializedResult actual = computeActual(session, "DESCRIBE OUTPUT my_query");
@@ -8925,7 +8925,7 @@ public abstract class AbstractTestQueries
     public void testDescribeOutputOnAliasedColumnsAndExpressions()
     {
         Session session = Session.builder(getSession())
-                .addPreparedStatement("my_query", "select count(*) as this_is_aliased, 1 + 2 from nation")
+                .addPreparedStatement("my_query", "SELECT count(*) AS this_is_aliased, 1 + 2 FROM nation")
                 .build();
 
         MaterializedResult actual = computeActual(session, "DESCRIBE OUTPUT my_query");
@@ -8997,7 +8997,7 @@ public abstract class AbstractTestQueries
                         "WHERE n1.regionkey=n2.regionkey))");
         assertQuery(
                 "SELECT max(name), min(name), count(nationkey) + 1, count(nationkey) " +
-                        "FROM (SELECT DISTINCT regionkey FROM region) as r1 " +
+                        "FROM (SELECT DISTINCT regionkey FROM region) AS r1 " +
                         "LEFT JOIN " +
                         "nation " +
                         "ON r1.regionkey = nation.regionkey " +
@@ -9006,14 +9006,14 @@ public abstract class AbstractTestQueries
 
         assertQuery(
                 "SELECT DISTINCT r1.regionkey " +
-                        "FROM (SELECT regionkey FROM region INTERSECT SELECT regionkey FROM region where regionkey < 4) as r1 " +
+                        "FROM (SELECT regionkey FROM region INTERSECT SELECT regionkey FROM region WHERE regionkey < 4) AS r1 " +
                         "LEFT JOIN " +
                         "nation " +
                         "ON r1.regionkey = nation.regionkey");
 
         assertQuery(
                 "SELECT max(nationkey) " +
-                        "FROM (SELECT regionkey FROM region EXCEPT SELECT regionkey FROM region where regionkey < 4) as r1 " +
+                        "FROM (SELECT regionkey FROM region EXCEPT SELECT regionkey FROM region WHERE regionkey < 4) AS r1 " +
                         "LEFT JOIN " +
                         "nation " +
                         "ON r1.regionkey = nation.regionkey " +
@@ -9101,7 +9101,7 @@ public abstract class AbstractTestQueries
     {
         assertQuery("SELECT COUNT(*) FROM (SELECT SUM(orderkey) FROM orders)");
         assertQuery(
-                "SELECT COUNT(*) FROM (SELECT SUM(orderkey) FROM orders group by custkey)",
+                "SELECT COUNT(*) FROM (SELECT SUM(orderkey) FROM orders GROUP BY custkey)",
                 "VALUES 1000");
         assertQuery("SELECT count(*) FROM (VALUES 2) t(a) GROUP BY a", "VALUES 1");
         assertQuery("SELECT a, count(*) FROM (VALUES 2) t(a) GROUP BY a", "VALUES (2, 1)");
@@ -9163,7 +9163,7 @@ public abstract class AbstractTestQueries
                 "VALUES (1, 2, (3, 2, 1)), (1, NULL, (3, 2, 1)), (2, 1, (4, 3, NULL)), (2, NULL, (4, 3, NULL))");
 
         assertQuery(
-                "SELECT x, array_agg(distinct z + y ORDER BY z + y DESC) FROM (VALUES (1, 2, 2), (2, 2, 3), (2, 4, 5), (3, 4, 4), (3, 2, 1), (1, 1, 1)) t(x, y, z) GROUP BY x",
+                "SELECT x, array_agg(DISTINCT z + y ORDER BY z + y DESC) FROM (VALUES (1, 2, 2), (2, 2, 3), (2, 4, 5), (3, 4, 4), (3, 2, 1), (1, 1, 1)) t(x, y, z) GROUP BY x",
                 "VALUES (1, (4, 2)), (2, (9, 5)), (3, (8, 3))");
 
         assertQuery(
@@ -9198,7 +9198,7 @@ public abstract class AbstractTestQueries
                 ".* For aggregate function with DISTINCT, ORDER BY expressions must appear in arguments");
 
         assertQueryFails(
-                "SELECT x, array_agg(distinct y ORDER BY z + y DESC) FROM (VALUES (1, 2, 2), (2, 2, 3), (2, 4, 5), (3, 4, 4), (3, 2, 1), (1, 1, 1)) t(x, y, z) GROUP BY x",
+                "SELECT x, array_agg(DISTINCT y ORDER BY z + y DESC) FROM (VALUES (1, 2, 2), (2, 2, 3), (2, 4, 5), (3, 4, 4), (3, 2, 1), (1, 1, 1)) t(x, y, z) GROUP BY x",
                 ".* For aggregate function with DISTINCT, ORDER BY expressions must appear in arguments");
     }
 
