@@ -44,7 +44,6 @@ import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler;
 import com.facebook.presto.sql.gen.PageFunctionCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.CompilerConfig;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.sql.planner.Partitioning;
@@ -141,7 +140,6 @@ public final class TaskTestUtils
                 pageFunctionCompiler,
                 new JoinFilterFunctionCompiler(metadata),
                 new IndexJoinLookupStats(),
-                new CompilerConfig(),
                 new TaskManagerConfig(),
                 new GenericSpillerFactory((types, spillContext, memoryContext) -> {
                     throw new UnsupportedOperationException();
