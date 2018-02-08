@@ -29,6 +29,10 @@ import static com.facebook.presto.tests.statistics.MetricComparisonStrategies.de
 import static com.facebook.presto.tests.statistics.MetricComparisonStrategies.noError;
 import static com.facebook.presto.tests.statistics.MetricComparisonStrategies.relativeError;
 import static com.facebook.presto.tests.statistics.Metrics.OUTPUT_ROW_COUNT;
+import static com.facebook.presto.tests.statistics.Metrics.distinctValuesCount;
+import static com.facebook.presto.tests.statistics.Metrics.highValue;
+import static com.facebook.presto.tests.statistics.Metrics.lowValue;
+import static com.facebook.presto.tests.statistics.Metrics.nullsFraction;
 import static com.facebook.presto.tpch.TpchConnectorFactory.TPCH_COLUMN_NAMING_PROPERTY;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 
@@ -334,5 +338,123 @@ public class TestTpchLocalStats
                         .estimate(OUTPUT_ROW_COUNT, defaultTolerance())
                         .verifyNoColumnStatistics("count")
                         .verifyExactColumnStatistics("n_name"));
+    }
+
+    @Test
+    public void testUnion()
+    {
+        statisticsAssertion.check("SELECT * FROM nation UNION SELECT * FROM nation",
+                // real count is 25, estimation cannot know all rows are duplicate.
+                checks -> checks
+                        .estimate(OUTPUT_ROW_COUNT, relativeError(1, 1))
+                        .verifyExactColumnStatistics("n_nationkey")
+                        .verifyExactColumnStatistics("n_regionkey"));
+
+        statisticsAssertion.check("SELECT * FROM nation UNION ALL SELECT * FROM nation",
+                checks -> checks
+                        .estimate(OUTPUT_ROW_COUNT, noError())
+                        .verifyExactColumnStatistics("n_nationkey")
+                        .verifyExactColumnStatistics("n_regionkey"));
+
+        statisticsAssertion.check("SELECT * FROM orders WHERE o_custkey < 755 OR o_orderstatus = '0' UNION SELECT * FROM orders WHERE o_custkey > 755 OR o_orderstatus = 'F'",
+                checks -> checks
+                        .estimate(OUTPUT_ROW_COUNT, relativeError(.3, .35))
+                        .estimate(distinctValuesCount("o_orderkey"), relativeError(-.4, -.3))
+                        .estimate(nullsFraction("o_orderkey"), relativeError(.3, .35))
+                        .estimate(lowValue("o_orderkey"), noError())
+                        .estimate(highValue("o_orderkey"), noError())
+                        .estimate(distinctValuesCount("o_custkey"), relativeError(0.2))
+                        .estimate(nullsFraction("o_custkey"), relativeError(.45, .55))
+                        .estimate(lowValue("o_custkey"), noError())
+                        .estimate(highValue("o_custkey"), noError())
+                        .estimate(distinctValuesCount("o_orderstatus"), relativeError(0.2))
+                        .estimate(nullsFraction("o_orderstatus"), noError())
+                        .estimate(lowValue("o_orderstatus"), noError())
+                        .estimate(highValue("o_orderstatus"), noError()));
+
+        statisticsAssertion.check("SELECT * FROM orders WHERE o_custkey < 755 OR o_orderstatus = '0' UNION ALL SELECT * FROM orders WHERE o_custkey > 755 OR o_orderstatus = 'F'",
+                checks -> checks
+                        .estimate(OUTPUT_ROW_COUNT, defaultTolerance())
+                        .estimate(distinctValuesCount("o_orderkey"), relativeError(-.4, -.3))
+                        .estimate(nullsFraction("o_orderkey"), relativeError(.3, .35))
+                        .estimate(lowValue("o_orderkey"), noError())
+                        .estimate(highValue("o_orderkey"), noError())
+                        .estimate(distinctValuesCount("o_custkey"), relativeError(0.2))
+                        .estimate(nullsFraction("o_custkey"), relativeError(.45, .55))
+                        .estimate(lowValue("o_custkey"), noError())
+                        .estimate(highValue("o_custkey"), noError())
+                        .estimate(distinctValuesCount("o_orderstatus"), relativeError(0.2))
+                        .estimate(nullsFraction("o_orderstatus"), noError())
+                        .estimate(lowValue("o_orderstatus"), noError())
+                        .estimate(highValue("o_orderstatus"), noError()));
+
+        statisticsAssertion.check("SELECT * FROM orders WHERE o_custkey < 900 UNION SELECT * FROM orders WHERE o_custkey > 600",
+                checks -> checks
+                        .estimate(OUTPUT_ROW_COUNT, relativeError(.15, .25))
+                        .estimate(distinctValuesCount("o_orderkey"), relativeError(-.4, -.3))
+                        .estimate(nullsFraction("o_orderkey"), relativeError(.15, .25))
+                        .estimate(lowValue("o_orderkey"), noError())
+                        .estimate(highValue("o_orderkey"), noError())
+                        .estimate(distinctValuesCount("o_custkey"), relativeError(-.4, -.3))
+                        .estimate(nullsFraction("o_custkey"), relativeError(.15, .25))
+                        .estimate(lowValue("o_custkey"), noError())
+                        .estimate(highValue("o_custkey"), noError()));
+
+        statisticsAssertion.check("SELECT * FROM orders WHERE o_custkey < 900 UNION ALL SELECT * FROM orders WHERE o_custkey > 600",
+                checks -> checks
+                        .estimate(OUTPUT_ROW_COUNT, defaultTolerance())
+                        .estimate(distinctValuesCount("o_orderkey"), relativeError(-.4, -.3))
+                        .estimate(nullsFraction("o_orderkey"), relativeError(-.4, -.3))
+                        .estimate(lowValue("o_orderkey"), noError())
+                        .estimate(highValue("o_orderkey"), noError())
+                        .estimate(distinctValuesCount("o_custkey"), relativeError(-.4, -.3))
+                        .estimate(nullsFraction("o_custkey"), relativeError(.15, .25))
+                        .estimate(lowValue("o_custkey"), noError())
+                        .estimate(highValue("o_custkey"), noError()));
+    }
+
+    @Test
+    public void testIntersect()
+    {
+        statisticsAssertion.check("SELECT * FROM nation INTERSECT SELECT * FROM nation",
+                // real count is 25, estimation cannot know all rows are duplicate.
+                checks -> checks
+                        .estimate(OUTPUT_ROW_COUNT, relativeError(.7, .9))
+                        .verifyExactColumnStatistics("n_nationkey")
+                        .verifyExactColumnStatistics("n_regionkey"));
+
+        statisticsAssertion.check("SELECT * FROM orders WHERE o_custkey < 900 INTERSECT SELECT * FROM orders WHERE o_custkey > 600",
+                // TODO fix INTERSECT stats calculation as custkey values distribution is pretty linear
+                checks -> checks
+                        .estimate(OUTPUT_ROW_COUNT, relativeError(4, 5))
+                        .estimate(distinctValuesCount("o_orderkey"), relativeError(1.5, 2))
+                        .estimate(nullsFraction("o_orderkey"), relativeError(4, 5))
+                        .estimate(lowValue("o_orderkey"), absoluteError(-1, -1))
+                        .estimate(highValue("o_orderkey"), absoluteError(25, 25))
+                        .estimate(distinctValuesCount("o_custkey"), relativeError(1.5, 2.5))
+                        .estimate(nullsFraction("o_custkey"), relativeError(5, 6))
+                        .estimate(lowValue("o_custkey"), absoluteError(-600, -600))
+                        .estimate(highValue("o_custkey"), relativeError(.5, 1)));
+    }
+
+    @Test
+    public void testExcept()
+    {
+        statisticsAssertion.check("SELECT * FROM nation EXCEPT SELECT * FROM nation",
+                // real count is 0, estimation cannot know all rows are eliminated
+                checks -> checks.estimate(OUTPUT_ROW_COUNT, absoluteError(45, 45)));
+
+        statisticsAssertion.check("SELECT * FROM orders WHERE o_custkey < 900 EXCEPT SELECT * FROM orders WHERE o_custkey > 600",
+                // TODO fix EXCEPT stats calculation as custkey values distirbution is pretty linear
+                checks -> checks
+                        .estimate(OUTPUT_ROW_COUNT, relativeError(1.5, 2))
+                        .estimate(distinctValuesCount("o_orderkey"), relativeError(0.5, 1))
+                        .estimate(nullsFraction("o_orderkey"), relativeError(1.5, 2))
+                        .estimate(lowValue("o_orderkey"), noError())
+                        .estimate(highValue("o_orderkey"), absoluteError(27, 27))
+                        .estimate(distinctValuesCount("o_custkey"), relativeError(0.5, 0.8))
+                        .estimate(nullsFraction("o_custkey"), relativeError(2, 2.5))
+                        .estimate(lowValue("o_custkey"), noError())
+                        .estimate(highValue("o_custkey"), relativeError(1.5, 2)));
     }
 }

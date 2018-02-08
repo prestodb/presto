@@ -86,6 +86,12 @@ public class SymbolStatsAssertion
         return this;
     }
 
+    public SymbolStatsAssertion unknownRange()
+    {
+        return lowValueUnknown()
+                .highValueUnknown();
+    }
+
     public SymbolStatsAssertion distinctValuesCount(double expected)
     {
         assertEstimateEquals(statistics.getDistinctValuesCount(), expected, "distinctValuesCount mismatch");
