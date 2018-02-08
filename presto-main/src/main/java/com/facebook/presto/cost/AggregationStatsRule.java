@@ -22,7 +22,7 @@ import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 
-import java.util.List;
+import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
 
@@ -56,10 +56,14 @@ public class AggregationStatsRule
             return Optional.empty();
         }
 
-        PlanNodeStatsEstimate sourceStats = statsProvider.getStats(aggregationNode.getSource());
+        return Optional.of(groupBy(
+                statsProvider.getStats(aggregationNode.getSource()),
+                getOnlyElement(aggregationNode.getGroupingSets()),
+                aggregationNode.getAggregations()));
+    }
 
-        List<Symbol> groupBySymbols = getOnlyElement(aggregationNode.getGroupingSets());
-
+    public static PlanNodeStatsEstimate groupBy(PlanNodeStatsEstimate sourceStats, Collection<Symbol> groupBySymbols, Map<Symbol, Aggregation> aggregations)
+    {
         PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.builder();
         for (Symbol groupBySymbol : groupBySymbols) {
             SymbolStatsEstimate symbolStatistics = sourceStats.getSymbolStatistics(groupBySymbol);
@@ -80,14 +84,14 @@ public class AggregationStatsRule
         }
         result.setOutputRowCount(min(rowsCount, sourceStats.getOutputRowCount()));
 
-        for (Map.Entry<Symbol, Aggregation> aggregationEntry : aggregationNode.getAggregations().entrySet()) {
+        for (Map.Entry<Symbol, Aggregation> aggregationEntry : aggregations.entrySet()) {
             result.addSymbolStatistics(aggregationEntry.getKey(), estimateAggregationStats(aggregationEntry.getValue(), sourceStats));
         }
 
-        return Optional.of(result.build());
+        return result.build();
     }
 
-    private SymbolStatsEstimate estimateAggregationStats(Aggregation aggregation, PlanNodeStatsEstimate sourceStats)
+    private static SymbolStatsEstimate estimateAggregationStats(Aggregation aggregation, PlanNodeStatsEstimate sourceStats)
     {
         requireNonNull(aggregation, "aggregation is null");
         requireNonNull(sourceStats, "sourceStats is null");
