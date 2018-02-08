@@ -108,6 +108,8 @@ public class KafkaSplitManager
                                 metadata.topic(),
                                 kafkaTableHandle.getKeyDataFormat(),
                                 kafkaTableHandle.getMessageDataFormat(),
+                                kafkaTableHandle.getKeyDataSchemaLocation(),
+                                kafkaTableHandle.getMessageDataSchemaLocation(),
                                 part.partitionId(),
                                 offsets[i],
                                 offsets[i - 1],
