@@ -186,7 +186,7 @@ public abstract class AbstractTestQueries
     @Test
     public void selectNull()
     {
-        assertQuery("SELECT NULL", "SELECT NULL FROM (SELECT * FROM ORDERS LIMIT 1)");
+        assertQuery("SELECT NULL");
     }
 
     @Test
@@ -1459,7 +1459,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testGroupByComplexMap()
     {
-        assertQuery("SELECT MAP_KEYS(x)[1] FROM (VALUES MAP(ARRAY['a'], ARRAY[ARRAY[1]]), MAP(ARRAY['b'], ARRAY[ARRAY[2]])) t(x) GROUP BY x", "SELECT * FROM (VALUES 'a', 'b')");
+        assertQuery("SELECT MAP_KEYS(x)[1] FROM (VALUES MAP(ARRAY['a'], ARRAY[ARRAY[1]]), MAP(ARRAY['b'], ARRAY[ARRAY[2]])) t(x) GROUP BY x", "VALUES 'a', 'b'");
     }
 
     @Test
@@ -5111,31 +5111,31 @@ public abstract class AbstractTestQueries
     @Test
     public void testScalarFunction()
     {
-        assertQuery("SELECT SUBSTR('Quadratically', 5, 6) FROM orders LIMIT 1");
+        assertQuery("SELECT SUBSTR('Quadratically', 5, 6)");
     }
 
     @Test
     public void testCast()
     {
-        assertQuery("SELECT CAST('1' AS BIGINT) FROM orders");
+        assertQuery("SELECT CAST('1' AS BIGINT)");
         assertQuery("SELECT CAST(totalprice AS BIGINT) FROM orders");
         assertQuery("SELECT CAST(orderkey AS DOUBLE) FROM orders");
         assertQuery("SELECT CAST(orderkey AS VARCHAR) FROM orders");
         assertQuery("SELECT CAST(orderkey AS BOOLEAN) FROM orders");
 
-        assertQuery("SELECT try_cast('1' AS BIGINT) FROM orders", "SELECT CAST('1' AS BIGINT) FROM orders");
+        assertQuery("SELECT try_cast('1' AS BIGINT)", "SELECT CAST('1' AS BIGINT)");
         assertQuery("SELECT try_cast(totalprice AS BIGINT) FROM orders", "SELECT CAST(totalprice AS BIGINT) FROM orders");
         assertQuery("SELECT try_cast(orderkey AS DOUBLE) FROM orders", "SELECT CAST(orderkey AS DOUBLE) FROM orders");
         assertQuery("SELECT try_cast(orderkey AS VARCHAR) FROM orders", "SELECT CAST(orderkey AS VARCHAR) FROM orders");
         assertQuery("SELECT try_cast(orderkey AS BOOLEAN) FROM orders", "SELECT CAST(orderkey AS BOOLEAN) FROM orders");
 
-        assertQuery("SELECT try_cast('foo' AS BIGINT) FROM orders", "SELECT CAST(null AS BIGINT) FROM orders");
+        assertQuery("SELECT try_cast('foo' AS BIGINT)", "SELECT CAST(null AS BIGINT)");
         assertQuery("SELECT try_cast(clerk AS BIGINT) FROM orders", "SELECT CAST(null AS BIGINT) FROM orders");
         assertQuery("SELECT try_cast(orderkey * orderkey AS VARCHAR) FROM orders", "SELECT CAST(orderkey * orderkey AS VARCHAR) FROM orders");
         assertQuery("SELECT try_cast(try_cast(orderkey AS VARCHAR) AS BIGINT) FROM orders", "SELECT orderkey FROM orders");
         assertQuery("SELECT try_cast(clerk AS VARCHAR) || try_cast(clerk AS VARCHAR) FROM orders", "SELECT clerk || clerk FROM orders");
 
-        assertQuery("SELECT coalesce(try_cast('foo' AS BIGINT), 456) FROM orders", "SELECT 456 FROM orders");
+        assertQuery("SELECT coalesce(try_cast('foo' AS BIGINT), 456)", "SELECT 456");
         assertQuery("SELECT coalesce(try_cast(clerk AS BIGINT), 456) FROM orders", "SELECT 456 FROM orders");
 
         assertQuery("SELECT CAST(x AS BIGINT) FROM (VALUES 1, 2, 3, NULL) t (x)", "VALUES 1, 2, 3, NULL");
@@ -5146,7 +5146,7 @@ public abstract class AbstractTestQueries
     public void testInvalidCast()
     {
         assertQueryFails(
-                "SELECT CAST(1 AS DATE) FROM orders",
+                "SELECT CAST(1 AS DATE)",
                 "line 1:8: Cannot cast integer to date");
     }
 
@@ -5170,7 +5170,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testConcatOperator()
     {
-        assertQuery("SELECT '12' || '34' FROM orders LIMIT 1");
+        assertQuery("SELECT '12' || '34'");
     }
 
     @Test
@@ -5220,9 +5220,9 @@ public abstract class AbstractTestQueries
     public void testWithQualifiedPrefix()
     {
         assertQuery("" +
-                        "WITH a AS (SELECT 123 FROM orders LIMIT 1)" +
+                        "WITH a AS (SELECT 123)" +
                         "SELECT a.* FROM a",
-                "SELECT 123 FROM orders LIMIT 1");
+                "SELECT 123");
     }
 
     @Test
@@ -5295,8 +5295,8 @@ public abstract class AbstractTestQueries
     public void testWithColumnAliasing()
     {
         assertQuery(
-                "WITH a (id) AS (SELECT 123 FROM orders LIMIT 1) SELECT id FROM a",
-                "SELECT 123 FROM orders LIMIT 1");
+                "WITH a (id) AS (SELECT 123) SELECT id FROM a",
+                "SELECT 123");
 
         assertQuery(
                 "WITH t (a, b, c) AS (SELECT 1, custkey x, orderkey FROM orders) SELECT c, b, a FROM t",
@@ -5962,12 +5962,8 @@ public abstract class AbstractTestQueries
     @Test
     public void testSelectColumnOfNulls()
     {
-        // Currently nulls can confuse the local planner, so select some
-        assertQueryOrdered("SELECT \n" +
-                " CAST(NULL AS VARCHAR),\n" +
-                " CAST(NULL AS BIGINT)\n" +
-                "FROM ORDERS\n" +
-                " ORDER BY 1");
+        // Currently nulls can confuse the local planner, so SELECT some
+        assertQueryOrdered("SELECT CAST(NULL AS VARCHAR), CAST(NULL AS BIGINT)");
     }
 
     @Test
@@ -6089,7 +6085,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testNoFrom()
     {
-        assertQuery("SELECT 1 + 2, 3 + 4", "SELECT 1 + 2, 3 + 4 FROM orders LIMIT 1");
+        assertQuery("SELECT 1 + 2, 3 + 4", "SELECT 1 + 2, 3 + 4");
     }
 
     @Test
@@ -6178,7 +6174,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testUnionArray()
     {
-        assertQuery("SELECT a[1] FROM (SELECT ARRAY[1] UNION ALL SELECT ARRAY[1]) t(a) LIMIT 1", "SELECT 1");
+        assertQuery("SELECT a[1] FROM (SELECT ARRAY[1] UNION ALL SELECT ARRAY[1]) t(a)", "SELECT 1");
     }
 
     @Test
