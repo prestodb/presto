@@ -78,7 +78,7 @@ public class TableScanStatsRule
 
         return Optional.of(PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(tableStatistics.getRowCount().getValue())
-                .setSymbolStatistics(outputSymbolStats)
+                .addSymbolStatistics(outputSymbolStats)
                 .build());
     }
 
