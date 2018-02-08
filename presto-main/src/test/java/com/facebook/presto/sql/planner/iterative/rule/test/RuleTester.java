@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableMap;
 import java.io.Closeable;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.util.Collections.emptyList;
@@ -53,20 +54,27 @@ public class RuleTester
         this(plugins, ImmutableMap.of());
     }
 
-    public RuleTester(List<Plugin> plugins, Map<String, String> properties)
+    public RuleTester(List<Plugin> plugins, Map<String, String> sessionProperties)
+    {
+        this(plugins, sessionProperties, Optional.empty());
+    }
+
+    public RuleTester(List<Plugin> plugins, Map<String, String> sessionProperties, Optional<Integer> nodeCountForStats)
     {
         Session.SessionBuilder sessionBuilder = testSessionBuilder()
                 .setCatalog(CATALOG_ID)
                 .setSchema("tiny")
                 .setSystemProperty("task_concurrency", "1"); // these tests don't handle exchanges from local parallel
 
-        for (Map.Entry<String, String> entry : properties.entrySet()) {
+        for (Map.Entry<String, String> entry : sessionProperties.entrySet()) {
             sessionBuilder.setSystemProperty(entry.getKey(), entry.getValue());
         }
 
         session = sessionBuilder.build();
 
-        queryRunner = new LocalQueryRunner(session);
+        queryRunner = nodeCountForStats
+                .map(nodeCount -> LocalQueryRunner.queryRunnerWithFakeNodeCountForStats(session, nodeCount))
+                .orElseGet(() -> new LocalQueryRunner(session));
         queryRunner.createCatalog(session.getCatalog().get(),
                 new TpchConnectorFactory(1),
                 ImmutableMap.of());
