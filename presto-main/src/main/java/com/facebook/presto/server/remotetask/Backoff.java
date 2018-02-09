@@ -32,6 +32,7 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 @ThreadSafe
 public class Backoff
 {
+    private static final int MIN_RETRIES = 3;
     private static final List<Duration> DEFAULT_BACKOFF_DELAY_INTERVALS = ImmutableList.<Duration>builder()
             .add(new Duration(0, MILLISECONDS))
             .add(new Duration(50, MILLISECONDS))
@@ -40,6 +41,7 @@ public class Backoff
             .add(new Duration(500, MILLISECONDS))
             .build();
 
+    private final int minTries;
     private final long maxFailureIntervalNanos;
     private final Ticker ticker;
     private final long[] backoffDelayIntervalsNanos;
@@ -58,17 +60,19 @@ public class Backoff
 
     public Backoff(Duration maxFailureInterval, Ticker ticker)
     {
-        this(maxFailureInterval, ticker, DEFAULT_BACKOFF_DELAY_INTERVALS);
+        this(MIN_RETRIES, maxFailureInterval, ticker, DEFAULT_BACKOFF_DELAY_INTERVALS);
     }
 
     @VisibleForTesting
-    public Backoff(Duration maxFailureInterval, Ticker ticker, List<Duration> backoffDelayIntervals)
+    public Backoff(int minTries, Duration maxFailureInterval, Ticker ticker, List<Duration> backoffDelayIntervals)
     {
+        checkArgument(minTries > 0, "minTries must be at least 1");
         requireNonNull(maxFailureInterval, "maxFailureInterval is null");
         requireNonNull(ticker, "ticker is null");
         requireNonNull(backoffDelayIntervals, "backoffDelayIntervals is null");
         checkArgument(!backoffDelayIntervals.isEmpty(), "backoffDelayIntervals must contain at least one entry");
 
+        this.minTries = minTries;
         this.maxFailureIntervalNanos = maxFailureInterval.roundTo(NANOSECONDS);
         this.ticker = ticker;
         this.backoffDelayIntervalsNanos = backoffDelayIntervals.stream()
@@ -125,6 +129,10 @@ public class Backoff
         if (firstFailureTime == 0) {
             firstFailureTime = now;
             // can not fail on first failure
+            return false;
+        }
+
+        if (failureCount < minTries) {
             return false;
         }
 

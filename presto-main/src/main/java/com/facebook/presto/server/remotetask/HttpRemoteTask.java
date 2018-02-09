@@ -91,7 +91,6 @@ import static io.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
 import static io.airlift.http.client.Request.Builder.prepareDelete;
 import static io.airlift.http.client.Request.Builder.preparePost;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 public final class HttpRemoteTask
@@ -99,7 +98,6 @@ public final class HttpRemoteTask
 {
     private static final Logger log = Logger.get(HttpRemoteTask.class);
     private static final Duration MAX_CLEANUP_RETRY_TIME = new Duration(2, TimeUnit.MINUTES);
-    private static final int MIN_RETRIES = 3;
 
     private final TaskId taskId;
 
@@ -135,7 +133,6 @@ public final class HttpRemoteTask
     private OptionalInt whenSplitQueueHasSpaceThreshold = OptionalInt.empty();
 
     private final boolean summarizeTaskInfo;
-    private final Duration requestTimeout;
 
     private final HttpClient httpClient;
     private final Executor executor;
@@ -255,8 +252,6 @@ public final class HttpRemoteTask
                 }
             });
 
-            long timeout = maxErrorDuration.toMillis() / MIN_RETRIES;
-            this.requestTimeout = new Duration(timeout + taskStatusRefreshMaxWait.toMillis(), MILLISECONDS);
             partitionedSplitCountTracker.setPartitionedSplitCount(getPartitionedSplitCount());
             updateSplitQueueSpace();
         }
@@ -469,14 +464,6 @@ public final class HttpRemoteTask
         // don't update if the task hasn't been started yet or if it is already finished
         if (!needsUpdate.get() || taskStatus.getState().isDone()) {
             return;
-        }
-
-        // if we have an old request outstanding, cancel it
-        if (currentRequest != null && Duration.nanosSince(currentRequestStartNanos).compareTo(requestTimeout) >= 0) {
-            needsUpdate.set(true);
-            currentRequest.cancel(true);
-            currentRequest = null;
-            currentRequestStartNanos = 0;
         }
 
         // if there is a request already running, wait for it to complete
