@@ -58,6 +58,7 @@ import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.FunctionReference;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.InListExpression;
@@ -971,6 +972,33 @@ public class ExpressionInterpreter
             // do not optimize non-deterministic functions
             if (optimize && (!function.isDeterministic() || hasUnresolvedValue(argumentValues) || node.getName().equals(QualifiedName.of("fail")))) {
                 return new FunctionCall(node.getName(), node.getWindow(), node.isDistinct(), toExpressions(argumentValues, argumentTypes));
+            }
+            return functionInvoker.invoke(functionSignature, session, argumentValues);
+        }
+
+        @Override
+        protected Object visitFunctionReference(FunctionReference node, Object context)
+        {
+            List<Type> argumentTypes = new ArrayList<>();
+            List<Object> argumentValues = new ArrayList<>();
+            for (Expression expression : node.getArguments()) {
+                Object value = process(expression, context);
+                Type type = type(expression);
+                argumentValues.add(value);
+                argumentTypes.add(type);
+            }
+            Signature functionSignature = metadata.getFunctionRegistry().resolveFunction(node.getName(), fromTypes(argumentTypes));
+            ScalarFunctionImplementation function = metadata.getFunctionRegistry().getScalarFunctionImplementation(functionSignature);
+            for (int i = 0; i < argumentValues.size(); i++) {
+                Object value = argumentValues.get(i);
+                if (value == null && function.getArgumentProperty(i).getNullConvention() == RETURN_NULL_ON_NULL) {
+                    return null;
+                }
+            }
+
+            // do not optimize non-deterministic functions
+            if (optimize && (!function.isDeterministic() || node.getName().equals(QualifiedName.of("fail")))) {
+                return node;
             }
             return functionInvoker.invoke(functionSignature, session, argumentValues);
         }
