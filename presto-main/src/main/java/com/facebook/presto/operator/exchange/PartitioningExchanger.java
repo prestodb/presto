@@ -69,7 +69,7 @@ class PartitioningExchanger
     }
 
     @Override
-    public synchronized void accept(Page page)
+    public void accept(Page page)
     {
         // reset the assignment lists
         for (IntList partitionAssignment : partitionAssignments) {
