@@ -14,7 +14,7 @@
 package com.facebook.presto.redis;
 
 import com.facebook.presto.redis.util.EmbeddedRedis;
-import com.facebook.presto.tests.AbstractTestQueries;
+import com.facebook.presto.tests.AbstractTestConnectorQueries;
 import io.airlift.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
@@ -23,7 +23,7 @@ import static com.facebook.presto.redis.util.EmbeddedRedis.createEmbeddedRedis;
 
 @Test
 public class TestRedisDistributedHash
-        extends AbstractTestQueries
+        extends AbstractTestConnectorQueries
 {
     private final EmbeddedRedis embeddedRedis;
 
