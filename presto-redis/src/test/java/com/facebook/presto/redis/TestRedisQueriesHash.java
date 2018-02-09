@@ -22,18 +22,18 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.redis.util.EmbeddedRedis.createEmbeddedRedis;
 
 @Test
-public class TestRedisDistributedHash
+public class TestRedisQueriesHash
         extends AbstractTestConnectorQueries
 {
     private final EmbeddedRedis embeddedRedis;
 
-    public TestRedisDistributedHash()
+    public TestRedisQueriesHash()
             throws Exception
     {
         this(createEmbeddedRedis());
     }
 
-    public TestRedisDistributedHash(EmbeddedRedis embeddedRedis)
+    public TestRedisQueriesHash(EmbeddedRedis embeddedRedis)
     {
         super(() -> RedisQueryRunner.createRedisQueryRunner(embeddedRedis, "hash", TpchTable.getTables()));
         this.embeddedRedis = embeddedRedis;
