@@ -41,8 +41,8 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-import static com.facebook.presto.tests.AbstractTestQueries.TEST_CATALOG_PROPERTIES;
-import static com.facebook.presto.tests.AbstractTestQueries.TEST_SYSTEM_PROPERTIES;
+import static com.facebook.presto.tests.AbstractTestEngineQueries.TEST_CATALOG_PROPERTIES;
+import static com.facebook.presto.tests.AbstractTestEngineQueries.TEST_SYSTEM_PROPERTIES;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -72,7 +72,7 @@ public final class StandaloneQueryRunner
 
         refreshNodes();
 
-        server.getMetadata().addFunctions(AbstractTestQueries.CUSTOM_FUNCTIONS);
+        server.getMetadata().addFunctions(AbstractTestEngineQueries.CUSTOM_FUNCTIONS);
 
         SessionPropertyManager sessionPropertyManager = server.getMetadata().getSessionPropertyManager();
         sessionPropertyManager.addSystemSessionProperties(TEST_SYSTEM_PROPERTIES);

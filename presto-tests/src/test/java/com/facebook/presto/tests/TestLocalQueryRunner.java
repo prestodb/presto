@@ -20,7 +20,7 @@ public class TestLocalQueryRunner
 {
     public TestLocalQueryRunner()
     {
-        super(TestLocalQueries::createLocalQueryRunner);
+        super(TestLocalEngineQueries::createLocalQueryRunner);
     }
 
     @Test

@@ -14,7 +14,6 @@
 package com.facebook.presto.connector.thrift.integration;
 
 import com.facebook.presto.tests.AbstractTestConnectorQueries;
-import com.facebook.presto.tests.AbstractTestQueries;
 
 import static com.facebook.presto.connector.thrift.integration.ThriftQueryRunner.createThriftQueryRunner;
 

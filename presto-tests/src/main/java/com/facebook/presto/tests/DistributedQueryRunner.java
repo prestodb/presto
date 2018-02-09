@@ -57,8 +57,8 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
 import static com.facebook.presto.testing.TestingSession.createBogusTestingCatalog;
-import static com.facebook.presto.tests.AbstractTestQueries.TEST_CATALOG_PROPERTIES;
-import static com.facebook.presto.tests.AbstractTestQueries.TEST_SYSTEM_PROPERTIES;
+import static com.facebook.presto.tests.AbstractTestEngineQueries.TEST_CATALOG_PROPERTIES;
+import static com.facebook.presto.tests.AbstractTestEngineQueries.TEST_SYSTEM_PROPERTIES;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.units.Duration.nanosSince;
@@ -150,7 +150,7 @@ public class DistributedQueryRunner
 
         start = System.nanoTime();
         for (TestingPrestoServer server : servers) {
-            server.getMetadata().addFunctions(AbstractTestQueries.CUSTOM_FUNCTIONS);
+            server.getMetadata().addFunctions(AbstractTestEngineQueries.CUSTOM_FUNCTIONS);
         }
         log.info("Added functions in %s", nanosSince(start).convertToMostSuccinctTimeUnit());
 
