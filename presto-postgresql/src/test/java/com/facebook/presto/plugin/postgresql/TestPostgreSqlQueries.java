@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.plugin.postgresql;
 
-import com.facebook.presto.tests.AbstractTestQueries;
+import com.facebook.presto.tests.AbstractTestConnectorQueries;
 import io.airlift.testing.postgresql.TestingPostgreSqlServer;
 import io.airlift.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
@@ -24,18 +24,18 @@ import java.io.IOException;
 import static com.facebook.presto.plugin.postgresql.PostgreSqlQueryRunner.createPostgreSqlQueryRunner;
 
 @Test
-public class TestPostgreSqlDistributedQueries
-        extends AbstractTestQueries
+public class TestPostgreSqlQueries
+        extends AbstractTestConnectorQueries
 {
     private final TestingPostgreSqlServer postgreSqlServer;
 
-    public TestPostgreSqlDistributedQueries()
+    public TestPostgreSqlQueries()
             throws Exception
     {
         this(new TestingPostgreSqlServer("testuser", "tpch"));
     }
 
-    public TestPostgreSqlDistributedQueries(TestingPostgreSqlServer postgreSqlServer)
+    public TestPostgreSqlQueries(TestingPostgreSqlServer postgreSqlServer)
     {
         super(() -> createPostgreSqlQueryRunner(postgreSqlServer, TpchTable.getTables()));
         this.postgreSqlServer = postgreSqlServer;
@@ -46,14 +46,6 @@ public class TestPostgreSqlDistributedQueries
             throws IOException
     {
         postgreSqlServer.close();
-    }
-
-    @Override
-    public void testLargeIn()
-    {
-        // the PostgreSQL query fails with "stack depth limit exceeded"
-        // TODO: fix QueryBuilder not to generate such a large query
-        // https://github.com/prestodb/presto/issues/5752
     }
 
     // PostgreSQL specific tests should normally go in TestPostgreSqlDistributedQueries
