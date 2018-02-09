@@ -24,12 +24,12 @@ import java.nio.file.Paths;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 
-public class TestDistributedSpilledQueries
+public class TestSpillingQueries
         extends AbstractTestQueries
 {
-    public TestDistributedSpilledQueries()
+    public TestSpillingQueries()
     {
-        super(TestDistributedSpilledQueries::createQueryRunner);
+        super(TestSpillingQueries::createQueryRunner);
     }
 
     private static DistributedQueryRunner createQueryRunner()
