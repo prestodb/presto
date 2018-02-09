@@ -13,21 +13,16 @@
  */
 package com.facebook.presto.connector.thrift.integration;
 
+import com.facebook.presto.tests.AbstractTestConnectorQueries;
 import com.facebook.presto.tests.AbstractTestQueries;
 
 import static com.facebook.presto.connector.thrift.integration.ThriftQueryRunner.createThriftQueryRunner;
 
-public class TestThriftDistributedQueries
-        extends AbstractTestQueries
+public class TestThriftQueries
+        extends AbstractTestConnectorQueries
 {
-    public TestThriftDistributedQueries()
+    public TestThriftQueries()
     {
         super(() -> createThriftQueryRunner(3, 3, false));
-    }
-
-    @Override
-    public void testAssignUniqueId()
-    {
-        // this test can take a long time
     }
 }
