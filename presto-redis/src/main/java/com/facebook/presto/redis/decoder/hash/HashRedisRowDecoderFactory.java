@@ -24,6 +24,7 @@ import java.util.Set;
 
 import static com.facebook.presto.decoder.FieldDecoder.DEFAULT_FIELD_DECODER_NAME;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 
@@ -52,6 +53,6 @@ public class HashRedisRowDecoderFactory
         if (column.getType().getJavaType() == long.class && "iso8601".equals(column.getDataFormat())) {
             return new ISO8601HashRedisFieldDecoder();
         }
-        throw new IllegalArgumentException(String.format("unknown data format '%s' for column '%s'", column.getName(), column.getDataFormat()));
+        throw new IllegalArgumentException(format("unknown data format '%s' for column '%s'", column.getDataFormat(), column.getName()));
     }
 }
