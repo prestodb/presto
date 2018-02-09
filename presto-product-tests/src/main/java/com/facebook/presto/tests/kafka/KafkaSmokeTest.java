@@ -23,7 +23,13 @@ import io.prestodb.tempto.fulfillment.table.kafka.KafkaMessage;
 import io.prestodb.tempto.fulfillment.table.kafka.KafkaTableDefinition;
 import io.prestodb.tempto.fulfillment.table.kafka.ListKafkaDataSource;
 import io.prestodb.tempto.query.QueryResult;
+import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
+
+import java.sql.Date;
+import java.sql.Time;
+import java.time.LocalDate;
+import java.time.LocalTime;
 
 import static com.facebook.presto.tests.TestGroups.KAFKA;
 import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
@@ -31,6 +37,7 @@ import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
 import static io.prestodb.tempto.fulfillment.table.TableRequirements.immutableTable;
 import static io.prestodb.tempto.fulfillment.table.kafka.KafkaMessageContentsBuilder.contentsBuilder;
 import static io.prestodb.tempto.query.QueryExecutor.query;
+import static io.prestodb.tempto.util.DateTimeUtils.parseTimestampInLocalTime;
 import static java.lang.Double.doubleToRawLongBits;
 import static java.lang.Float.floatToIntBits;
 import static java.lang.String.format;
@@ -175,6 +182,97 @@ public class KafkaSmokeTest
                 row(null, null, null, null, null, null, null),
                 row("krzysio", 9223372036854775807L, 2147483647, 32767, 127, 1234567890.123456789, false),
                 row("kasia", 9223372036854775807L, 2147483647, 32767, null, null, null));
+    }
+
+    private static final String ALL_DATATYPES_JSON_TABLE_NAME = "product_tests.all_datatypes_json";
+    private static final String ALL_DATATYPES_JSON_TOPIC_NAME = "all_datatypes_json";
+
+    private static class AllDataTypesJsonTable
+            implements RequirementsProvider
+    {
+        @Override
+        public Requirement getRequirements(Configuration configuration)
+        {
+            return immutableTable(new KafkaTableDefinition(
+                    ALL_DATATYPES_JSON_TABLE_NAME,
+                    ALL_DATATYPES_JSON_TOPIC_NAME,
+                    new ListKafkaDataSource(ImmutableList.of(
+                            utf8KafkaMessage("{" +
+                                    "\"j_varchar\"                              : \"ala ma kota\"                    ," +
+                                    "\"j_bigint\"                               : \"9223372036854775807\"            ," +
+                                    "\"j_integer\"                              : \"2147483647\"                     ," +
+                                    "\"j_smallint\"                             : \"32767\"                          ," +
+                                    "\"j_tinyint\"                              : \"127\"                            ," +
+                                    "\"j_double\"                               : \"1234567890.123456789\"           ," +
+                                    "\"j_boolean\"                              : \"true\"                           ," +
+                                    "\"j_timestamp_milliseconds_since_epoch\"   : \"1518182116000\"                  ," +
+                                    "\"j_timestamp_seconds_since_epoch\"        : \"1518182117\"                     ," +
+                                    "\"j_timestamp_iso8601\"                    : \"2018-02-09T13:15:18\"            ," +
+                                    "\"j_timestamp_rfc2822\"                    : \"Fri Feb 09 13:15:19 Z 2018\"     ," +
+                                    "\"j_timestamp_custom\"                     : \"02/2018/09 13:15:20\"            ," +
+                                    "\"j_date_milliseconds_since_epoch\"        : \"1518134400000\"                  ," +
+                                    "\"j_date_seconds_since_epoch\"             : \"1518220800\"                     ," +
+                                    "\"j_date_iso8601\"                         : \"2018-02-11\"                     ," +
+                                    "\"j_date_rfc2822\"                         : \"Mon Feb 12 13:15:16 Z 2018\"     ," +
+                                    "\"j_date_custom\"                          : \"2018/13/02\"                     ," +
+                                    "\"j_time_milliseconds_since_epoch\"        : \"47716000\"                       ," +
+                                    "\"j_time_seconds_since_epoch\"             : \"47717\"                          ," +
+                                    "\"j_time_iso8601\"                         : \"1970-01-01T13:15:18\"            ," +
+                                    "\"j_time_rfc2822\"                         : \"Thu Jan 01 13:15:19 Z 1970\"     ," +
+                                    "\"j_time_custom\"                          : \"15:13:20\"                       ," +
+                                    "\"j_timestamptz_milliseconds_since_epoch\" : \"1518182116000\"                  ," +
+                                    "\"j_timestamptz_seconds_since_epoch\"      : \"1518182117\"                     ," +
+                                    "\"j_timestamptz_iso8601\"                  : \"2018-02-09T13:15:18\"            ," +
+                                    "\"j_timestamptz_rfc2822\"                  : \"Fri Feb 09 13:15:19 Z 2018\"     ," +
+                                    "\"j_timestamptz_custom\"                   : \"02/2018/09 13:15:20\"            ," +
+                                    "\"j_timetz_milliseconds_since_epoch\"      : \"47716000\"                       ," +
+                                    "\"j_timetz_seconds_since_epoch\"           : \"47717\"                          ," +
+                                    "\"j_timetz_iso8601\"                       : \"1970-01-01T13:15:18\"            ," +
+                                    "\"j_timetz_rfc2822\"                       : \"Thu Jan 01 13:15:19 Z 1970\"     ," +
+                                    "\"j_timetz_custom\"                        : \"15:13:20\"                       }"))),
+                    1,
+                    1));
+        }
+    }
+
+    @Test(groups = {KAFKA})
+    @Requires(AllDataTypesJsonTable.class)
+    public void testSelectAllJsonTable()
+    {
+        QueryResult queryResult = query(format("select * from %s.%s", KAFKA_CATALOG, ALL_DATATYPES_JSON_TABLE_NAME));
+        assertThat(queryResult).containsOnly(row(
+                "ala ma kota",
+                9223372036854775807L,
+                2147483647,
+                32767,
+                127,
+                1234567890.123456789,
+                true,
+                parseTimestampInLocalTime("2018-02-09 13:15:16.000", DateTimeZone.UTC),
+                parseTimestampInLocalTime("2018-02-09 13:15:17.000", DateTimeZone.UTC),
+                parseTimestampInLocalTime("2018-02-09 13:15:18.000", DateTimeZone.UTC),
+                parseTimestampInLocalTime("2018-02-09 13:15:19.000", DateTimeZone.UTC),
+                parseTimestampInLocalTime("2018-02-09 13:15:20.000", DateTimeZone.UTC),
+                Date.valueOf(LocalDate.of(2018, 2, 9)),
+                Date.valueOf(LocalDate.of(2018, 2, 10)),
+                Date.valueOf(LocalDate.of(2018, 2, 11)),
+                Date.valueOf(LocalDate.of(2018, 2, 12)),
+                Date.valueOf(LocalDate.of(2018, 2, 13)),
+                Time.valueOf(LocalTime.of(18, 45, 16)), // different due to broken TIME datatype semantics
+                Time.valueOf(LocalTime.of(18, 45, 17)),
+                Time.valueOf(LocalTime.of(18, 45, 18)),
+                Time.valueOf(LocalTime.of(18, 45, 19)),
+                Time.valueOf(LocalTime.of(18, 45, 20)),
+                parseTimestampInLocalTime("2018-02-09 13:15:16.000", DateTimeZone.UTC),
+                parseTimestampInLocalTime("2018-02-09 13:15:17.000", DateTimeZone.UTC),
+                parseTimestampInLocalTime("2018-02-09 13:15:18.000", DateTimeZone.UTC),
+                parseTimestampInLocalTime("2018-02-09 13:15:19.000", DateTimeZone.UTC),
+                parseTimestampInLocalTime("2018-02-09 13:15:20.000", DateTimeZone.UTC),
+                Time.valueOf(LocalTime.of(18, 45, 16)), // different due to broken TIME datatype semantics
+                Time.valueOf(LocalTime.of(18, 45, 17)),
+                Time.valueOf(LocalTime.of(18, 45, 18)),
+                Time.valueOf(LocalTime.of(18, 45, 19)),
+                Time.valueOf(LocalTime.of(18, 45, 20))));
     }
 
     private static KafkaMessage utf8KafkaMessage(String val)
