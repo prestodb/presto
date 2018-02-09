@@ -78,6 +78,6 @@ public class JsonRowDecoderFactory
             }
         }
         // fallback to default one
-        throw new IllegalArgumentException(String.format("unknown data format '%s' for column '%s'", column.getName(), column.getDataFormat()));
+        throw new IllegalArgumentException(String.format("unknown data format '%s' for column '%s'", column.getDataFormat(), column.getName()));
     }
 }
