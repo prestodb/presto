@@ -83,8 +83,7 @@ public class TaskInfoFetcher
             HttpClient httpClient,
             Duration updateInterval,
             JsonCodec<TaskInfo> taskInfoCodec,
-            Duration minErrorDuration,
-            Duration maxErrorDuration,
+            Backoff backoff,
             boolean summarizeTaskInfo,
             Executor executor,
             ScheduledExecutorService updateScheduledExecutor,
@@ -92,7 +91,6 @@ public class TaskInfoFetcher
             RemoteTaskStats stats)
     {
         requireNonNull(initialTask, "initialTask is null");
-        requireNonNull(minErrorDuration, "minErrorDuration is null");
         requireNonNull(errorScheduledExecutor, "errorScheduledExecutor is null");
 
         this.taskId = initialTask.getTaskStatus().getTaskId();
@@ -102,7 +100,7 @@ public class TaskInfoFetcher
 
         this.updateIntervalMillis = requireNonNull(updateInterval, "updateInterval is null").toMillis();
         this.updateScheduledExecutor = requireNonNull(updateScheduledExecutor, "updateScheduledExecutor is null");
-        this.errorTracker = new RequestErrorTracker(taskId, initialTask.getTaskStatus().getSelf(), minErrorDuration, maxErrorDuration, errorScheduledExecutor, "getting info for task");
+        this.errorTracker = new RequestErrorTracker(taskId, initialTask.getTaskStatus().getSelf(), backoff, errorScheduledExecutor, "getting info for task");
 
         this.summarizeTaskInfo = summarizeTaskInfo;
 

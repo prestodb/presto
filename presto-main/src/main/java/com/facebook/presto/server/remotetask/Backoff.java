@@ -13,10 +13,14 @@
  */
 package com.facebook.presto.server.remotetask;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ticker;
+import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.ThreadSafe;
+
+import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -26,6 +30,14 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 @ThreadSafe
 public class Backoff
 {
+    private static final List<Duration> DEFAULT_BACKOFF_DELAY_INTERVALS = ImmutableList.<Duration>builder()
+            .add(new Duration(0, MILLISECONDS))
+            .add(new Duration(50, MILLISECONDS))
+            .add(new Duration(100, MILLISECONDS))
+            .add(new Duration(200, MILLISECONDS))
+            .add(new Duration(500, MILLISECONDS))
+            .build();
+
     private final long minFailureIntervalNanos;
     private final long maxFailureIntervalNanos;
     private final Ticker ticker;
@@ -37,38 +49,37 @@ public class Backoff
     private long lastFailureTime;
     private long failureCount;
 
-    public Backoff(Duration minFailureInterval, Duration maxFailureInterval)
+    public Backoff(Duration executionElapsedTime, Duration minFailureInterval, Duration maxFailureInterval)
     {
-        this(minFailureInterval,
-                maxFailureInterval,
-                Ticker.systemTicker(),
-                new Duration(0, MILLISECONDS),
-                new Duration(50, MILLISECONDS),
-                new Duration(100, MILLISECONDS),
-                new Duration(200, MILLISECONDS),
-                new Duration(500, MILLISECONDS));
+        this(executionElapsedTime, minFailureInterval, maxFailureInterval, Ticker.systemTicker());
     }
 
-    public Backoff(Duration minFailureInterval, Duration maxFailureInterval, Ticker ticker, Duration... backoffDelayIntervals)
+    public Backoff(Duration executionElapsedTime, Duration minFailureInterval, Duration maxFailureInterval, Ticker ticker)
     {
+        this(executionElapsedTime, minFailureInterval, maxFailureInterval, ticker, DEFAULT_BACKOFF_DELAY_INTERVALS);
+    }
+
+    @VisibleForTesting
+    public Backoff(Duration executionElapsedTime, Duration minFailureInterval, Duration maxFailureInterval, Ticker ticker, List<Duration> backoffDelayIntervals)
+    {
+        requireNonNull(executionElapsedTime, "executionElapsedTime is null");
         requireNonNull(minFailureInterval, "minFailureInterval is null");
         requireNonNull(maxFailureInterval, "maxFailureInterval is null");
         requireNonNull(ticker, "ticker is null");
         requireNonNull(backoffDelayIntervals, "backoffDelayIntervals is null");
-        checkArgument(backoffDelayIntervals.length > 0, "backoffDelayIntervals must contain at least one entry");
+        checkArgument(!backoffDelayIntervals.isEmpty(), "backoffDelayIntervals must contain at least one entry");
         checkArgument(maxFailureInterval.compareTo(minFailureInterval) >= 0, "maxFailureInterval is less than minFailureInterval");
 
         this.minFailureIntervalNanos = minFailureInterval.roundTo(NANOSECONDS);
         this.maxFailureIntervalNanos = maxFailureInterval.roundTo(NANOSECONDS);
         this.ticker = ticker;
-        this.backoffDelayIntervalsNanos = new long[backoffDelayIntervals.length];
-        for (int i = 0; i < backoffDelayIntervals.length; i++) {
-            this.backoffDelayIntervalsNanos[i] = backoffDelayIntervals[i].roundTo(NANOSECONDS);
-        }
+        this.backoffDelayIntervalsNanos = backoffDelayIntervals.stream()
+                .mapToLong(duration -> duration.roundTo(NANOSECONDS))
+                .toArray();
 
         this.lastSuccessTime = this.ticker.read();
         this.firstRequestAfterSuccessTime = Long.MIN_VALUE;
-        this.createTime = this.ticker.read();
+        this.createTime = ticker.read() - executionElapsedTime.roundTo(NANOSECONDS);
     }
 
     public synchronized long getFailureCount()

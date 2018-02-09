@@ -98,7 +98,7 @@ public final class HttpRemoteTask
         implements RemoteTask
 {
     private static final Logger log = Logger.get(HttpRemoteTask.class);
-    private static final Duration MAX_CLEANUP_RETRY_TIME = new Duration(2, TimeUnit.MINUTES);
+    private static final Duration MAX_CLEANUP_RETRY_TIME = new Duration(10, TimeUnit.MINUTES);
     private static final int MIN_RETRIES = 3;
 
     private final TaskId taskId;
@@ -201,7 +201,12 @@ public final class HttpRemoteTask
             this.summarizeTaskInfo = summarizeTaskInfo;
             this.taskInfoCodec = taskInfoCodec;
             this.taskUpdateRequestCodec = taskUpdateRequestCodec;
-            this.updateErrorTracker = new RequestErrorTracker(taskId, location, minErrorDuration, maxErrorDuration, errorScheduledExecutor, "updating task");
+            this.updateErrorTracker = new RequestErrorTracker(
+                    taskId,
+                    location,
+                    new Backoff(getQueryElapsedTime(), minErrorDuration, maxErrorDuration),
+                    errorScheduledExecutor,
+                    "updating task");
             this.partitionedSplitCountTracker = requireNonNull(partitionedSplitCountTracker, "partitionedSplitCountTracker is null");
             this.stats = stats;
 
@@ -228,8 +233,7 @@ public final class HttpRemoteTask
                     taskStatusCodec,
                     executor,
                     httpClient,
-                    minErrorDuration,
-                    maxErrorDuration,
+                    new Backoff(getQueryElapsedTime(), minErrorDuration, maxErrorDuration),
                     errorScheduledExecutor,
                     stats);
 
@@ -239,8 +243,7 @@ public final class HttpRemoteTask
                     httpClient,
                     taskInfoUpdateInterval,
                     taskInfoCodec,
-                    minErrorDuration,
-                    maxErrorDuration,
+                    new Backoff(getQueryElapsedTime(), minErrorDuration, maxErrorDuration),
                     summarizeTaskInfo,
                     executor,
                     updateScheduledExecutor,
@@ -562,7 +565,8 @@ public final class HttpRemoteTask
             Request request = prepareDelete()
                     .setUri(uriBuilder.build())
                     .build();
-            scheduleAsyncCleanupRequest(new Backoff(MAX_CLEANUP_RETRY_TIME, MAX_CLEANUP_RETRY_TIME), request, "cancel");
+            Duration queryElapsedTime = getQueryElapsedTime();
+            scheduleAsyncCleanupRequest(new Backoff(queryElapsedTime, MAX_CLEANUP_RETRY_TIME, MAX_CLEANUP_RETRY_TIME), request, "cancel");
         }
     }
 
@@ -593,7 +597,7 @@ public final class HttpRemoteTask
                 .setUri(uriBuilder.build())
                 .build();
 
-        scheduleAsyncCleanupRequest(new Backoff(MAX_CLEANUP_RETRY_TIME, MAX_CLEANUP_RETRY_TIME), request, "cleanup");
+        scheduleAsyncCleanupRequest(new Backoff(getQueryElapsedTime(), MAX_CLEANUP_RETRY_TIME, MAX_CLEANUP_RETRY_TIME), request, "cleanup");
     }
 
     @Override
@@ -618,7 +622,7 @@ public final class HttpRemoteTask
             Request request = prepareDelete()
                     .setUri(uriBuilder.build())
                     .build();
-            scheduleAsyncCleanupRequest(new Backoff(MAX_CLEANUP_RETRY_TIME, MAX_CLEANUP_RETRY_TIME), request, "abort");
+            scheduleAsyncCleanupRequest(new Backoff(getQueryElapsedTime(), MAX_CLEANUP_RETRY_TIME, MAX_CLEANUP_RETRY_TIME), request, "abort");
         }
     }
 
@@ -652,9 +656,8 @@ public final class HttpRemoteTask
             @Override
             public void onFailure(Throwable t)
             {
-                if (t instanceof RejectedExecutionException) {
-                    // TODO: we should only give up retrying when the client has been shutdown
-                    logError(t, "Unable to %s task at %s. Got RejectedExecutionException.", action, request.getUri());
+                if (t instanceof RejectedExecutionException && httpClient.isClosed()) {
+                    logError(t, "Unable to %s task at %s. HTTP client is closed.", action, request.getUri());
                     cleanUpLocally();
                     return;
                 }
@@ -719,6 +722,12 @@ public final class HttpRemoteTask
             uriBuilder.addParameter("summarize");
         }
         return uriBuilder;
+    }
+
+    private Duration getQueryElapsedTime()
+    {
+        // remote task runs on the coordinator, so start time uses the same machine clock
+        return new Duration(Math.max(0, System.currentTimeMillis() - session.getStartTime()), MILLISECONDS);
     }
 
     @Override

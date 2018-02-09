@@ -89,6 +89,7 @@ public final class HttpPageBufferClient
         implements Closeable
 {
     private static final Logger log = Logger.get(HttpPageBufferClient.class);
+    private static final Duration ZERO_EXECUTION_ELAPSED_TIME = new Duration(0, MILLISECONDS);
 
     /**
      * For each request, the addPage method will be called zero or more times,
@@ -176,15 +177,9 @@ public final class HttpPageBufferClient
         requireNonNull(minErrorDuration, "minErrorDuration is null");
         requireNonNull(maxErrorDuration, "maxErrorDuration is null");
         requireNonNull(ticker, "ticker is null");
-        this.backoff = new Backoff(
-                minErrorDuration,
-                maxErrorDuration,
-                ticker,
-                new Duration(0, MILLISECONDS),
-                new Duration(50, MILLISECONDS),
-                new Duration(100, MILLISECONDS),
-                new Duration(200, MILLISECONDS),
-                new Duration(500, MILLISECONDS));
+        // The exchange buffer is typically on another machine, so calculating elapsed time requires some form of
+        // clock synchronization.  For now, we just assume there is no elapsed time.
+        this.backoff = new Backoff(ZERO_EXECUTION_ELAPSED_TIME, minErrorDuration, maxErrorDuration, ticker);
     }
 
     public synchronized PageBufferClientStatus getStatus()
