@@ -14,7 +14,7 @@
 package com.facebook.presto.redis;
 
 import com.facebook.presto.redis.util.EmbeddedRedis;
-import com.facebook.presto.tests.AbstractTestQueries;
+import com.facebook.presto.tests.AbstractTestConnectorQueries;
 import io.airlift.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
@@ -22,18 +22,18 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.redis.util.EmbeddedRedis.createEmbeddedRedis;
 
 @Test
-public class TestRedisDistributed
-        extends AbstractTestQueries
+public class TestRedisQueries
+        extends AbstractTestConnectorQueries
 {
     private final EmbeddedRedis embeddedRedis;
 
-    public TestRedisDistributed()
+    public TestRedisQueries()
             throws Exception
     {
         this(createEmbeddedRedis());
     }
 
-    public TestRedisDistributed(EmbeddedRedis embeddedRedis)
+    public TestRedisQueries(EmbeddedRedis embeddedRedis)
     {
         super(() -> RedisQueryRunner.createRedisQueryRunner(embeddedRedis, "string", TpchTable.getTables()));
         this.embeddedRedis = embeddedRedis;
