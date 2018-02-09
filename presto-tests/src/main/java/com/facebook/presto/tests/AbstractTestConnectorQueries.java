@@ -68,10 +68,10 @@ import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-public abstract class AbstractTestDistributedQueries
+public abstract class AbstractTestConnectorQueries
         extends AbstractTestQueries
 {
-    protected AbstractTestDistributedQueries(QueryRunnerSupplier supplier)
+    protected AbstractTestConnectorQueries(QueryRunnerSupplier supplier)
     {
         super(supplier);
     }

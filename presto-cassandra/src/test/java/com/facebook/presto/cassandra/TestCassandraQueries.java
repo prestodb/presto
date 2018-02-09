@@ -14,7 +14,7 @@
 package com.facebook.presto.cassandra;
 
 import com.facebook.presto.testing.MaterializedResult;
-import com.facebook.presto.tests.AbstractTestDistributedQueries;
+import com.facebook.presto.tests.AbstractTestConnectorQueries;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -24,10 +24,10 @@ import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 //Integrations tests fail when parallel, due to a bug or configuration error in the embedded
 //cassandra instance. This problem results in either a hang in Thrift calls or broken sockets.
 @Test(singleThreaded = true)
-public class TestCassandraDistributed
-        extends AbstractTestDistributedQueries
+public class TestCassandraQueries
+        extends AbstractTestConnectorQueries
 {
-    public TestCassandraDistributed()
+    public TestCassandraQueries()
     {
         super(CassandraQueryRunner::createCassandraQueryRunner);
     }

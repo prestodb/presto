@@ -14,7 +14,7 @@
 package com.facebook.presto.accumulo;
 
 import com.facebook.presto.testing.MaterializedResult;
-import com.facebook.presto.tests.AbstractTestDistributedQueries;
+import com.facebook.presto.tests.AbstractTestConnectorQueries;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.intellij.lang.annotations.Language;
@@ -34,10 +34,10 @@ import static org.testng.Assert.assertTrue;
  * This is the same for any test cases that were creating tables with duplicate rows,
  * so some test cases are overriden from the base class and slightly modified to add an additional UUID column.
  */
-public class TestAccumuloDistributedQueries
-        extends AbstractTestDistributedQueries
+public class TestAccumuloQueries
+        extends AbstractTestConnectorQueries
 {
-    public TestAccumuloDistributedQueries()
+    public TestAccumuloQueries()
     {
         super(() -> createAccumuloQueryRunner(ImmutableMap.of()));
     }

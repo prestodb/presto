@@ -93,6 +93,7 @@ public class TestCassandraConnector
         String connectorId = "cassandra-test";
         CassandraConnectorFactory connectorFactory = new CassandraConnectorFactory(connectorId);
 
+
         Connector connector = connectorFactory.create(connectorId, ImmutableMap.of(
                 "cassandra.contact-points", EmbeddedCassandra.getHost(),
                 "cassandra.native-protocol-port", Integer.toString(EmbeddedCassandra.getPort())),

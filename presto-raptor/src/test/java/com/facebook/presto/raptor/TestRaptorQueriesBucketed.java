@@ -13,22 +13,15 @@
  */
 package com.facebook.presto.raptor;
 
-import com.facebook.presto.tests.AbstractTestDistributedQueries;
 import com.google.common.collect.ImmutableMap;
 
 import static com.facebook.presto.raptor.RaptorQueryRunner.createRaptorQueryRunner;
 
-public class TestRaptorDistributedQueries
-        extends AbstractTestDistributedQueries
+public class TestRaptorQueriesBucketed
+        extends TestRaptorQueries
 {
-    @SuppressWarnings("unused")
-    public TestRaptorDistributedQueries()
+    public TestRaptorQueriesBucketed()
     {
-        this(() -> createRaptorQueryRunner(ImmutableMap.of(), true, false));
-    }
-
-    protected TestRaptorDistributedQueries(QueryRunnerSupplier supplier)
-    {
-        super(supplier);
+        super(() -> createRaptorQueryRunner(ImmutableMap.of(), true, true));
     }
 }

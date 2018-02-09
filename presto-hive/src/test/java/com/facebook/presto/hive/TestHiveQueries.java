@@ -13,15 +13,15 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.tests.AbstractTestDistributedQueries;
+import com.facebook.presto.tests.AbstractTestConnectorQueries;
 
 import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
 import static io.airlift.tpch.TpchTable.getTables;
 
-public class TestHiveDistributedQueries
-        extends AbstractTestDistributedQueries
+public class TestHiveQueries
+        extends AbstractTestConnectorQueries
 {
-    public TestHiveDistributedQueries()
+    public TestHiveQueries()
     {
         super(() -> createQueryRunner(getTables()));
     }
