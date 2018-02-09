@@ -36,6 +36,7 @@ import java.util.function.Supplier;
 
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_MEMORY;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.INFORMATION_SCHEMA;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.ADD_COLUMN;
@@ -69,7 +70,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public abstract class AbstractTestConnectorQueries
-        extends AbstractTestQueries
+        extends AbstractTestQueryFramework
 {
     protected AbstractTestConnectorQueries(QueryRunnerSupplier supplier)
     {
@@ -79,6 +80,115 @@ public abstract class AbstractTestConnectorQueries
     protected boolean supportsViews()
     {
         return true;
+    }
+
+    @Test
+    public void testShowPartitions()
+    {
+        assertQueryFails("SHOW PARTITIONS FROM orders", "line 1:1: Table does not have partition columns: \\S+\\.orders");
+        assertQueryFails("SHOW PARTITIONS FROM orders WHERE orderkey < 10", "line 1:1: Table does not have partition columns: \\S+\\.orders");
+        assertQueryFails("SHOW PARTITIONS FROM orders WHERE invalid_column < 10", "line 1:35: Column 'invalid_column' cannot be resolved");
+        assertQueryFails("SHOW PARTITIONS FROM orders LIMIT 2", "line 1:1: Table does not have partition columns: \\S+\\.orders");
+    }
+
+    @Test
+    public void testSingleDistinctOptimizer()
+    {
+        assertQuery("SELECT custkey, orderstatus, COUNT(DISTINCT orderkey) FROM orders GROUP BY custkey, orderstatus");
+        assertQuery("SELECT custkey, orderstatus, COUNT(DISTINCT orderkey), SUM(DISTINCT orderkey) FROM orders GROUP BY custkey, orderstatus");
+        assertQuery("" +
+                "SELECT custkey, COUNT(DISTINCT orderstatus) FROM (" +
+                "   SELECT orders.custkey AS custkey, orders.orderstatus AS orderstatus " +
+                "   FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.orderkey = lineitem.partkey " +
+                "   GROUP BY orders.custkey, orders.orderstatus" +
+                ") " +
+                "GROUP BY custkey");
+        assertQuery("SELECT custkey, COUNT(DISTINCT orderkey), COUNT(DISTINCT orderstatus) FROM orders GROUP BY custkey");
+
+        assertQuery("SELECT SUM(DISTINCT x) FROM (SELECT custkey, COUNT(DISTINCT orderstatus) x FROM orders GROUP BY custkey) t");
+    }
+
+    @Test
+    public void testExtractDistinctAggregationOptimizer()
+    {
+        assertQuery("SELECT max(orderstatus), COUNT(orderkey), sum(DISTINCT orderkey) FROM orders");
+
+        assertQuery("SELECT custkey, orderstatus, avg(shippriority), SUM(DISTINCT orderkey) FROM orders GROUP BY custkey, orderstatus");
+
+        assertQuery("SELECT s, MAX(custkey), SUM(a) FROM (" +
+                "    SELECT custkey, avg(shippriority) as a, SUM(DISTINCT orderkey) as s FROM orders GROUP BY custkey, orderstatus" +
+                ") " +
+                "GROUP BY s");
+
+        assertQuery("SELECT max(orderstatus), COUNT(distinct orderkey), sum(DISTINCT orderkey) FROM orders");
+
+        assertQuery("SELECT max(orderstatus), COUNT(distinct shippriority), sum(DISTINCT orderkey) FROM orders");
+
+        assertQuery("SELECT COUNT(tan(shippriority)), sum(DISTINCT orderkey) FROM orders");
+
+        assertQuery("SELECT count(DISTINCT a), max(b) FROM (VALUES (row(1, 2), 3)) t(a, b)", "VALUES (1, 3)");
+
+        // Test overlap between GroupBy columns and aggregation columns
+        assertQuery("SELECT shippriority, MAX(orderstatus), SUM(DISTINCT shippriority) FROM orders GROUP BY shippriority");
+
+        assertQuery("SELECT shippriority, COUNT(shippriority), SUM(DISTINCT orderkey) FROM orders GROUP BY shippriority");
+
+        assertQuery("SELECT shippriority, COUNT(shippriority), SUM(DISTINCT shippriority) FROM orders GROUP BY shippriority");
+
+        assertQuery("SELECT clerk, shippriority, MAX(orderstatus), SUM(DISTINCT shippriority) FROM orders GROUP BY clerk, shippriority");
+
+        assertQuery("SELECT clerk, shippriority, COUNT(shippriority), SUM(DISTINCT orderkey) FROM orders GROUP BY clerk, shippriority");
+
+        assertQuery("SELECT clerk, shippriority, COUNT(shippriority), SUM(DISTINCT shippriority) FROM orders GROUP BY clerk, shippriority");
+    }
+
+    @Test
+    public void testDistinctWindow()
+    {
+        MaterializedResult actual = computeActual(
+                "SELECT RANK() OVER (PARTITION BY orderdate ORDER BY COUNT(DISTINCT clerk)) rnk " +
+                        "FROM orders " +
+                        "GROUP BY orderdate, custkey " +
+                        "ORDER BY rnk " +
+                        "LIMIT 1");
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT).row(1L).build();
+        assertEquals(actual, expected);
+    }
+
+    @Test
+    public void testDistinctWhere()
+    {
+        assertQuery("SELECT COUNT(DISTINCT clerk) FROM orders WHERE LENGTH(clerk) > 5");
+    }
+
+    @Test
+    public void testMultipleDifferentDistinct()
+    {
+        assertQuery("SELECT COUNT(DISTINCT orderstatus), SUM(DISTINCT custkey) FROM orders");
+    }
+
+    @Test
+    public void testMultipleDistinct()
+    {
+        assertQuery(
+                "SELECT COUNT(DISTINCT custkey), SUM(DISTINCT custkey) FROM orders",
+                "SELECT COUNT(*), SUM(custkey) FROM (SELECT DISTINCT custkey FROM orders) t");
+    }
+
+    @Test
+    public void testComplexDistinct()
+    {
+        assertQuery(
+                "SELECT COUNT(DISTINCT custkey), " +
+                        "SUM(DISTINCT custkey), " +
+                        "SUM(DISTINCT custkey + 1.0E0), " +
+                        "AVG(DISTINCT custkey), " +
+                        "VARIANCE(DISTINCT custkey) FROM orders",
+                "SELECT COUNT(*), " +
+                        "SUM(custkey), " +
+                        "SUM(custkey + 1.0), " +
+                        "AVG(custkey), " +
+                        "VARIANCE(custkey) FROM (SELECT DISTINCT custkey FROM orders) t");
     }
 
     @Test
@@ -613,6 +723,38 @@ public abstract class AbstractTestConnectorQueries
     }
 
     @Test
+    public void testGroupingSets()
+    {
+        assertQuery("SELECT linenumber, suppkey, SUM(CAST(quantity AS BIGINT)) FROM lineitem GROUP BY GROUPING SETS ((linenumber, suppkey), (suppkey))",
+                "SELECT linenumber, suppkey, SUM(CAST(quantity AS BIGINT)) FROM lineitem GROUP BY linenumber, suppkey UNION " +
+                        "SELECT NULL, suppkey, SUM(CAST(quantity AS BIGINT)) FROM lineitem GROUP BY suppkey");
+    }
+
+    @Test
+    public void testGroupByArray()
+    {
+        assertQuery("SELECT col[1], count FROM (SELECT ARRAY[custkey] col, COUNT(*) count FROM ORDERS GROUP BY 1 ORDER BY 1)", "SELECT custkey, COUNT(*) FROM orders GROUP BY custkey ORDER BY custkey");
+    }
+
+    @Test
+    public void testGroupByMap()
+    {
+        assertQuery("SELECT col[1], count FROM (SELECT MAP(ARRAY[1], ARRAY[custkey]) col, COUNT(*) count FROM ORDERS GROUP BY 1)", "SELECT custkey, COUNT(*) FROM orders GROUP BY custkey");
+    }
+
+    @Test
+    public void testGroupByComplexMap()
+    {
+        assertQuery("SELECT MAP_KEYS(x)[1] FROM (VALUES MAP(ARRAY['a'], ARRAY[ARRAY[1]]), MAP(ARRAY['b'], ARRAY[ARRAY[2]])) t(x) GROUP BY x", "SELECT * FROM (VALUES 'a', 'b')");
+    }
+
+    @Test
+    public void testGroupByRow()
+    {
+        assertQuery("SELECT col.col1, count FROM (SELECT cast(row(custkey, custkey) as row(col0 bigint, col1 bigint)) col, COUNT(*) count FROM ORDERS GROUP BY 1)", "SELECT custkey, COUNT(*) FROM orders GROUP BY custkey");
+    }
+
+    @Test
     public void testViewCaseSensitivity()
     {
         skipTestUnless(supportsViews());
@@ -661,6 +803,324 @@ public abstract class AbstractTestConnectorQueries
 
         assertUpdate("DROP VIEW test_view_2");
         assertUpdate("DROP TABLE test_table_2");
+    }
+
+    @Test
+    public void testGroupingInWindowFunction()
+    {
+        assertQuery(
+                "SELECT orderkey, custkey, sum(totalprice), grouping(orderkey)+grouping(custkey) as g, " +
+                        "       rank() OVER (PARTITION BY grouping(orderkey)+grouping(custkey), " +
+                        "       CASE WHEN grouping(orderkey) = 0 THEN custkey END ORDER BY orderkey ASC) as r " +
+                        "FROM orders " +
+                        "GROUP BY ROLLUP (orderkey, custkey) " +
+                        "ORDER BY orderkey, custkey " +
+                        "LIMIT 10",
+                "VALUES (1, 370, 172799.49, 0, 1), " +
+                        "       (1, NULL, 172799.49, 1, 1), " +
+                        "       (2, 781, 38426.09, 0, 1), " +
+                        "       (2, NULL, 38426.09, 1, 2), " +
+                        "       (3, 1234, 205654.30, 0, 1), " +
+                        "       (3, NULL, 205654.30, 1, 3), " +
+                        "       (4, 1369, 56000.91, 0, 1), " +
+                        "       (4, NULL, 56000.91, 1, 4), " +
+                        "       (5, 445, 105367.67, 0, 1), " +
+                        "       (5, NULL, 105367.67, 1, 5)");
+    }
+
+    @Test
+    public void testIntersect()
+    {
+        assertQuery(
+                "SELECT regionkey FROM nation WHERE nationkey < 7 " +
+                        "INTERSECT select regionkey FROM nation WHERE nationkey > 21");
+        assertQuery(
+                "SELECT regionkey FROM nation WHERE nationkey < 7 " +
+                        "INTERSECT DISTINCT SELECT regionkey FROM nation WHERE nationkey > 21",
+                "VALUES 1, 3");
+        assertQuery(
+                "WITH wnation AS (SELECT nationkey, regionkey FROM nation) " +
+                        "SELECT regionkey FROM wnation WHERE nationkey < 7 " +
+                        "INTERSECT SELECT regionkey FROM wnation WHERE nationkey > 21", "VALUES 1, 3");
+        assertQuery(
+                "SELECT num FROM (SELECT 1 as num FROM nation WHERE nationkey=10 " +
+                        "INTERSECT SELECT 1 FROM nation WHERE nationkey=20) T");
+        assertQuery(
+                "SELECT nationkey, nationkey / 2 FROM (SELECT nationkey FROM nation WHERE nationkey < 10 " +
+                        "INTERSECT SELECT nationkey FROM nation WHERE nationkey > 4) T WHERE nationkey % 2 = 0");
+        assertQuery(
+                "SELECT regionkey FROM (SELECT regionkey FROM nation WHERE nationkey < 7 " +
+                        "INTERSECT SELECT regionkey FROM nation WHERE nationkey > 21) " +
+                        "UNION SELECT 4");
+        assertQuery(
+                "SELECT regionkey FROM (SELECT regionkey FROM nation WHERE nationkey < 7 " +
+                        "UNION SELECT regionkey FROM nation WHERE nationkey > 21) " +
+                        "INTERSECT SELECT 1");
+        assertQuery(
+                "SELECT regionkey FROM (SELECT regionkey FROM nation WHERE nationkey < 7 " +
+                        "INTERSECT SELECT regionkey FROM nation WHERE nationkey > 21) " +
+                        "UNION ALL SELECT 3");
+        assertQuery(
+                "SELECT regionkey FROM (SELECT regionkey FROM nation WHERE nationkey < 7 " +
+                        "INTERSECT SELECT regionkey FROM nation WHERE nationkey > 21) " +
+                        "UNION ALL SELECT 3");
+        assertQuery(
+                "SELECT * FROM (VALUES 1, 2) " +
+                        "INTERSECT SELECT * FROM (VALUES 1.0, 2)",
+                "VALUES 1.0, 2.0");
+        assertQuery("SELECT NULL, NULL INTERSECT SELECT NULL, NULL FROM nation");
+
+        MaterializedResult emptyResult = computeActual("SELECT 100 INTERSECT (SELECT regionkey FROM nation WHERE nationkey <10)");
+        assertEquals(emptyResult.getMaterializedRows().size(), 0);
+    }
+
+    @Test
+    public void testIntersectWithAggregation()
+    {
+        assertQuery("SELECT COUNT(*) FROM nation INTERSECT SELECT COUNT(regionkey) FROM nation HAVING SUM(regionkey) IS NOT NULL");
+        assertQuery("SELECT SUM(nationkey), COUNT(name) FROM (SELECT nationkey,name FROM nation INTERSECT SELECT regionkey, name FROM nation) n");
+        assertQuery("SELECT COUNT(*) * 2 FROM nation INTERSECT (SELECT SUM(nationkey) FROM nation GROUP BY regionkey ORDER BY 1 LIMIT 2)");
+        assertQuery("SELECT COUNT(a) FROM (SELECT nationkey AS a FROM (SELECT nationkey FROM nation INTERSECT SELECT regionkey FROM nation) n1 INTERSECT SELECT regionkey FROM nation) n2");
+        assertQuery("SELECT COUNT(*), SUM(2), regionkey FROM (SELECT nationkey, regionkey FROM nation INTERSECT SELECT regionkey, regionkey FROM nation) n GROUP BY regionkey");
+        assertQuery("SELECT COUNT(*) FROM (SELECT nationkey FROM nation INTERSECT SELECT 2) n1 INTERSECT SELECT regionkey FROM nation");
+    }
+
+    @Test
+    public void testIntersectAllFails()
+    {
+        assertQueryFails("SELECT * FROM (VALUES 1, 2, 3, 4) INTERSECT ALL SELECT * FROM (VALUES 3, 4)", "line 1:35: INTERSECT ALL not yet implemented");
+    }
+
+    @Test
+    public void testExcept()
+    {
+        assertQuery(
+                "SELECT regionkey FROM nation WHERE nationkey < 7 " +
+                        "EXCEPT select regionkey FROM nation WHERE nationkey > 21");
+        assertQuery(
+                "SELECT regionkey FROM nation WHERE nationkey < 7 " +
+                        "EXCEPT DISTINCT SELECT regionkey FROM nation WHERE nationkey > 21",
+                "VALUES 0, 4");
+        assertQuery(
+                "WITH wnation AS (SELECT nationkey, regionkey FROM nation) " +
+                        "SELECT regionkey FROM wnation WHERE nationkey < 7 " +
+                        "EXCEPT SELECT regionkey FROM wnation WHERE nationkey > 21",
+                "VALUES 0, 4");
+        assertQuery(
+                "SELECT num FROM (SELECT 1 as num FROM nation WHERE nationkey=10 " +
+                        "EXCEPT SELECT 2 FROM nation WHERE nationkey=20) T");
+        assertQuery(
+                "SELECT nationkey, nationkey / 2 FROM (SELECT nationkey FROM nation WHERE nationkey < 10 " +
+                        "EXCEPT SELECT nationkey FROM nation WHERE nationkey > 4) T WHERE nationkey % 2 = 0");
+        assertQuery(
+                "SELECT regionkey FROM (SELECT regionkey FROM nation WHERE nationkey < 7 " +
+                        "EXCEPT SELECT regionkey FROM nation WHERE nationkey > 21) " +
+                        "UNION SELECT 3");
+        assertQuery(
+                "SELECT regionkey FROM (SELECT regionkey FROM nation WHERE nationkey < 7 " +
+                        "UNION SELECT regionkey FROM nation WHERE nationkey > 21) " +
+                        "EXCEPT SELECT 1");
+        assertQuery(
+                "SELECT regionkey FROM (SELECT regionkey FROM nation WHERE nationkey < 7 " +
+                        "EXCEPT SELECT regionkey FROM nation WHERE nationkey > 21) " +
+                        "UNION ALL SELECT 4");
+        assertQuery(
+                "SELECT * FROM (VALUES 1, 2) " +
+                        "EXCEPT SELECT * FROM (VALUES 3.0, 2)");
+        assertQuery("SELECT NULL, NULL EXCEPT SELECT NULL, NULL FROM nation");
+
+        assertQuery(
+                "(SELECT * FROM (VALUES 1) EXCEPT SELECT * FROM (VALUES 0))" +
+                        "EXCEPT (SELECT * FROM (VALUES 1) EXCEPT SELECT * FROM (VALUES 1))");
+
+        MaterializedResult emptyResult = computeActual("SELECT 0 EXCEPT (SELECT regionkey FROM nation WHERE nationkey <10)");
+        assertEquals(emptyResult.getMaterializedRows().size(), 0);
+    }
+
+    @Test
+    public void testExceptWithAggregation()
+    {
+        assertQuery("SELECT COUNT(*) FROM nation EXCEPT SELECT COUNT(regionkey) FROM nation where regionkey < 3 HAVING SUM(regionkey) IS NOT NULL");
+        assertQuery("SELECT SUM(nationkey), COUNT(name) FROM (SELECT nationkey, name FROM nation where nationkey < 6 EXCEPT SELECT regionkey, name FROM nation) n");
+        assertQuery("(SELECT SUM(nationkey) FROM nation GROUP BY regionkey ORDER BY 1 LIMIT 2) EXCEPT SELECT COUNT(*) * 2 FROM nation");
+        assertQuery("SELECT COUNT(a) FROM (SELECT nationkey AS a FROM (SELECT nationkey FROM nation EXCEPT SELECT regionkey FROM nation) n1 EXCEPT SELECT regionkey FROM nation) n2");
+        assertQuery("SELECT COUNT(*), SUM(2), regionkey FROM (SELECT nationkey, regionkey FROM nation EXCEPT SELECT regionkey, regionkey FROM nation) n GROUP BY regionkey HAVING regionkey < 3");
+        assertQuery("SELECT COUNT(*) FROM (SELECT nationkey FROM nation EXCEPT SELECT 10) n1 EXCEPT SELECT regionkey FROM nation");
+    }
+
+    @Test
+    public void testJoinWithLessThanInJoinClause()
+    {
+        assertQuery("SELECT n.nationkey, r.regionkey FROM region r JOIN nation n ON n.regionkey = r.regionkey AND n.name < r.name");
+        assertQuery("SELECT l.suppkey, n.nationkey, l.partkey, n.regionkey FROM nation n JOIN lineitem l ON l.suppkey = n.nationkey AND l.partkey < n.regionkey");
+        // test with single null value in build side
+        assertQuery("SELECT b FROM nation n, (VALUES (0, CAST(-1 AS BIGINT)), (0, NULL), (0, CAST(0 AS BIGINT))) t(a, b) WHERE n.regionkey - 100 < t.b AND n.nationkey = t.a",
+                "VALUES -1, 0");
+        // test with single (first) null value in build side
+        assertQuery("SELECT b FROM nation n, (VALUES (0, NULL), (0, CAST(-1 AS BIGINT)), (0, CAST(0 AS BIGINT))) t(a, b) WHERE n.regionkey - 100 < t.b AND n.nationkey = t.a",
+                "VALUES -1, 0");
+        // test with multiple null values in build side
+        assertQuery("SELECT b FROM nation n, (VALUES (0, NULL), (0, NULL), (0, CAST(-1 AS BIGINT)), (0, NULL)) t(a, b) WHERE n.regionkey - 100 < t.b AND n.nationkey = t.a",
+                "VALUES -1");
+        // test with only null value in build side
+        assertQuery("SELECT b FROM nation n, (VALUES (0, NULL)) t(a, b) WHERE n.regionkey - 100 < t.b AND n.nationkey = t.a", "SELECT 1 WHERE FALSE");
+        // test with function predicate in ON clause
+        assertQuery("SELECT n.nationkey, r.regionkey FROM nation n JOIN region r ON n.regionkey = r.regionkey AND length(n.name) < length(substr(r.name, 5))");
+
+        assertQuery("SELECT * FROM " +
+                        "(VALUES (1,1),(2,1)) t1(a,b), " +
+                        "(VALUES (1,1),(1,2),(2,1)) t2(x,y) " +
+                        "WHERE a=x and b<=y",
+                "VALUES (1,1,1,1), (1,1,1,2), (2,1,2,1)");
+
+        assertQuery("SELECT * FROM " +
+                        "(VALUES (1,1),(2,1)) t1(a,b), " +
+                        "(VALUES (1,1),(1,2),(2,1)) t2(x,y) " +
+                        "WHERE a=x and b<y",
+                "VALUES (1,1,1,2)");
+    }
+
+    @Test
+    public void testJoinWithGreaterThanInJoinClause()
+    {
+        assertQuery("SELECT n.nationkey, r.regionkey FROM region r JOIN nation n ON n.regionkey = r.regionkey AND n.name > r.name AND r.regionkey = 0");
+        assertQuery("SELECT l.suppkey, n.nationkey, l.partkey, n.regionkey FROM nation n JOIN lineitem l ON l.suppkey = n.nationkey AND l.partkey > n.regionkey");
+        // test with single null value in build side
+        assertQuery("SELECT b FROM nation n, (VALUES (0, CAST(-1 AS BIGINT)), (0, NULL), (0, CAST(0 AS BIGINT))) t(a, b) WHERE n.regionkey + 100 > t.b AND n.nationkey = t.a",
+                "VALUES -1, 0");
+        // test with single (first) null value in build side
+        assertQuery("SELECT b FROM nation n, (VALUES (0, NULL), (0, CAST(-1 AS BIGINT)), (0, CAST(0 AS BIGINT))) t(a, b) WHERE n.regionkey + 100 > t.b AND n.nationkey = t.a",
+                "VALUES -1, 0");
+        // test with multiple null values in build side
+        assertQuery("SELECT b FROM nation n, (VALUES (0, NULL), (0, NULL), (0, CAST(-1 AS BIGINT)), (0, NULL)) t(a, b) WHERE n.regionkey + 100 > t.b AND n.nationkey = t.a",
+                "VALUES -1");
+        // test with only null value in build side
+        assertQuery("SELECT b FROM nation n, (VALUES (0, NULL)) t(a, b) WHERE n.regionkey + 100 > t.b AND n.nationkey = t.a", "SELECT 1 WHERE FALSE");
+        /// test with function predicate in ON clause
+        assertQuery("SELECT n.nationkey, r.regionkey FROM nation n JOIN region r ON n.regionkey = r.regionkey AND length(n.name) > length(substr(r.name, 5))");
+
+        assertQuery("SELECT * FROM " +
+                        "(VALUES (1,1),(2,1)) t1(a,b), " +
+                        "(VALUES (1,1),(1,2),(2,1)) t2(x,y) " +
+                        "WHERE a=x and b>=y",
+                "VALUES (1,1,1,1), (2,1,2,1)");
+
+        assertQuery("SELECT * FROM " +
+                        "(VALUES (1,1),(2,1)) t1(a,b), " +
+                        "(VALUES (1,1),(1,2),(2,1)) t2(x,y) " +
+                        "WHERE a=x and b>y",
+                "SELECT 1 WHERE FALSE");
+    }
+
+    @Test
+    public void testJoinWithRangePredicatesinJoinClause()
+    {
+        assertQuery("SELECT COUNT(*) " +
+                "FROM (SELECT * FROM lineitem WHERE orderkey % 16 = 0 AND partkey % 2 = 0) lineitem " +
+                "JOIN (SELECT * FROM orders WHERE orderkey % 16 = 0 AND custkey % 2 = 0) orders " +
+                "ON lineitem.orderkey % 8 = orders.orderkey % 8 AND lineitem.linenumber % 2 = 0 " +
+                "AND orders.custkey % 8 < 7 AND lineitem.suppkey % 10 < orders.custkey % 7 AND lineitem.suppkey % 7 > orders.custkey % 7");
+
+        assertQuery("SELECT COUNT(*) " +
+                "FROM (SELECT * FROM lineitem WHERE orderkey % 16 = 0 AND partkey % 2 = 0) lineitem " +
+                "JOIN (SELECT * FROM orders WHERE orderkey % 16 = 0 AND custkey % 2 = 0) orders " +
+                "ON lineitem.orderkey % 8 = orders.orderkey % 8 AND lineitem.linenumber % 2 = 0 " +
+                "AND orders.custkey % 8 < lineitem.linenumber % 2 AND lineitem.suppkey % 10 < orders.custkey % 7 AND lineitem.suppkey % 7 > orders.custkey % 7");
+    }
+
+    @Test
+    public void testJoinWithMultipleLessThanPredicatesDifferentOrders()
+    {
+        // test that fast inequality join is not sensitive to order of search conjuncts.
+        assertQuery("SELECT count(*) FROM lineitem l JOIN nation n ON l.suppkey % 5 = n.nationkey % 5 AND l.partkey % 3 < n.regionkey AND l.partkey % 3 + 1 < n.regionkey AND l.partkey % 3 + 2 < n.regionkey");
+        assertQuery("SELECT count(*) FROM lineitem l JOIN nation n ON l.suppkey % 5 = n.nationkey % 5 AND l.partkey % 3 + 2 < n.regionkey AND l.partkey % 3 + 1 < n.regionkey AND l.partkey % 3 < n.regionkey");
+        assertQuery("SELECT count(*) FROM lineitem l JOIN nation n ON l.suppkey % 5 = n.nationkey % 5 AND l.partkey % 3 > n.regionkey AND l.partkey % 3 + 1 > n.regionkey AND l.partkey % 3 + 2 > n.regionkey");
+        assertQuery("SELECT count(*) FROM lineitem l JOIN nation n ON l.suppkey % 5 = n.nationkey % 5 AND l.partkey % 3 + 2 > n.regionkey AND l.partkey % 3 + 1 > n.regionkey AND l.partkey % 3 > n.regionkey");
+    }
+
+    @Test
+    public void testJoinWithLessThanOnDatesInJoinClause()
+    {
+        assertQuery(
+                "SELECT o.orderkey, o.orderdate, l.shipdate FROM orders o JOIN lineitem l ON l.orderkey = o.orderkey AND l.shipdate < o.orderdate + INTERVAL '10' DAY",
+                "SELECT o.orderkey, o.orderdate, l.shipdate FROM orders o JOIN lineitem l ON l.orderkey = o.orderkey AND l.shipdate < DATEADD('DAY', 10, o.orderdate)");
+        assertQuery(
+                "SELECT o.orderkey, o.orderdate, l.shipdate FROM lineitem l JOIN orders o ON l.orderkey = o.orderkey AND l.shipdate < DATE_ADD('DAY', 10, o.orderdate)",
+                "SELECT o.orderkey, o.orderdate, l.shipdate FROM orders o JOIN lineitem l ON l.orderkey = o.orderkey AND l.shipdate < DATEADD('DAY', 10, o.orderdate)");
+        assertQuery(
+                "SELECT o.orderkey, o.orderdate, l.shipdate FROM orders o JOIN lineitem l ON o.orderkey=l.orderkey AND o.orderdate + INTERVAL '2' DAY <= l.shipdate AND l.shipdate < o.orderdate + INTERVAL '7' DAY",
+                "SELECT o.orderkey, o.orderdate, l.shipdate FROM orders o JOIN lineitem l ON o.orderkey=l.orderkey AND DATEADD('DAY', 2, o.orderdate) <= l.shipdate AND l.shipdate < DATEADD('DAY', 7, o.orderdate)");
+    }
+
+    @Test
+    public void testJoinWithNonDeterministicLessThan()
+    {
+        MaterializedRow actualRow = getOnlyElement(computeActual(
+                "SELECT count(*) FROM " +
+                        "customer c1 JOIN customer c2 ON c1.nationkey=c2.nationkey " +
+                        "WHERE c1.custkey - RANDOM(CAST(c1.custkey AS BIGINT)) < c2.custkey").getMaterializedRows());
+        assertEquals(actualRow.getFieldCount(), 1);
+        long actualCount = (Long) actualRow.getField(0); // this should be around ~69000
+
+        MaterializedRow expectedAtLeastRow = getOnlyElement(computeActual(
+                "SELECT count(*) FROM " +
+                        "customer c1 JOIN customer c2 ON c1.nationkey=c2.nationkey " +
+                        "WHERE c1.custkey < c2.custkey").getMaterializedRows());
+        assertEquals(expectedAtLeastRow.getFieldCount(), 1);
+        long expectedAtLeastCount = (Long) expectedAtLeastRow.getField(0); // this is exactly 45022
+
+        // Technically non-deterministic unit test but has hopefully a next to impossible chance of a false positive
+        assertTrue(actualCount > expectedAtLeastCount);
+    }
+
+    @Test
+    public void testSimpleJoin()
+    {
+        assertQuery("SELECT COUNT(*) FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey");
+        assertQuery("" +
+                "SELECT COUNT(*) FROM " +
+                "(SELECT orderkey FROM lineitem WHERE orderkey < 1000) a " +
+                "JOIN " +
+                "(SELECT orderkey FROM orders WHERE orderkey < 2000) b " +
+                "ON NOT (a.orderkey <= b.orderkey)");
+    }
+
+    @Test
+    public void testJoinWithRightConstantEquality()
+    {
+        assertQuery("SELECT COUNT(*) FROM lineitem JOIN orders ON lineitem.orderkey = 2");
+    }
+
+    @Test
+    public void testJoinWithLeftConstantEquality()
+    {
+        assertQuery("SELECT COUNT(*) FROM lineitem JOIN orders ON orders.orderkey = 2");
+    }
+
+    @Test
+    public void testSimpleJoinWithLeftConstantEquality()
+    {
+        assertQuery("SELECT COUNT(*) FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.orderkey = 2");
+    }
+
+    @Test
+    public void testSimpleJoinWithRightConstantEquality()
+    {
+        assertQuery("SELECT COUNT(*) FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.orderkey = 2");
+    }
+
+    @Test
+    public void testJoinDoubleClauseWithLeftOverlap()
+    {
+        // Checks to make sure that we properly handle duplicate field references in join clauses
+        assertQuery("SELECT COUNT(*) FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.orderkey = orders.custkey");
+    }
+
+    @Test
+    public void testJoinDoubleClauseWithRightOverlap()
+    {
+        // Checks to make sure that we properly handle duplicate field references in join clauses
+        assertQuery("SELECT COUNT(*) FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.orderkey = lineitem.partkey");
     }
 
     @Test
@@ -939,8 +1399,6 @@ public abstract class AbstractTestConnectorQueries
     @Test
     public void testJoinWithStatefulFilterFunction()
     {
-        super.testJoinWithStatefulFilterFunction();
-
         // Stateful function is placed in LEFT JOIN's ON clause and involves left & right symbols to prevent any kind of push down/pull down.
         Session session = Session.builder(getSession())
                 // With broadcast join, lineitem would be source-distributed and not executed concurrently.
