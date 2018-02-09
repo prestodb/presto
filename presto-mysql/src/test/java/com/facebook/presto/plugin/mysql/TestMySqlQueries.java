@@ -14,7 +14,7 @@
 package com.facebook.presto.plugin.mysql;
 
 import com.facebook.presto.testing.MaterializedResult;
-import com.facebook.presto.tests.AbstractTestQueries;
+import com.facebook.presto.tests.AbstractTestConnectorQueries;
 import io.airlift.testing.mysql.TestingMySqlServer;
 import io.airlift.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
@@ -26,18 +26,18 @@ import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 
 @Test
-public class TestMySqlDistributedQueries
-        extends AbstractTestQueries
+public class TestMySqlQueries
+        extends AbstractTestConnectorQueries
 {
     private final TestingMySqlServer mysqlServer;
 
-    public TestMySqlDistributedQueries()
+    public TestMySqlQueries()
             throws Exception
     {
         this(new TestingMySqlServer("testuser", "testpass", "tpch"));
     }
 
-    public TestMySqlDistributedQueries(TestingMySqlServer mysqlServer)
+    public TestMySqlQueries(TestingMySqlServer mysqlServer)
     {
         super(() -> createMySqlQueryRunner(mysqlServer, TpchTable.getTables()));
         this.mysqlServer = mysqlServer;
@@ -49,7 +49,7 @@ public class TestMySqlDistributedQueries
         mysqlServer.close();
     }
 
-    @Override
+    @Test
     public void testShowColumns()
     {
         MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
@@ -67,18 +67,6 @@ public class TestMySqlDistributedQueries
                 .build();
 
         assertEquals(actual, expectedParametrizedVarchar);
-    }
-
-    @Override
-    public void testDescribeOutput()
-    {
-        // this connector uses a non-canonical type for varchar columns in tpch
-    }
-
-    @Override
-    public void testDescribeOutputNamedAndUnnamed()
-    {
-        // this connector uses a non-canonical type for varchar columns in tpch
     }
 
     // MySQL specific tests should normally go in TestMySqlIntegrationSmokeTest
