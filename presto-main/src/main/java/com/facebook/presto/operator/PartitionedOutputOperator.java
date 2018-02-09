@@ -17,6 +17,7 @@ import com.facebook.presto.execution.buffer.OutputBuffer;
 import com.facebook.presto.execution.buffer.PagesSerde;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.execution.buffer.SerializedPage;
+import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
@@ -28,6 +29,7 @@ import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.util.Mergeable;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -46,6 +48,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class PartitionedOutputOperator
         implements Operator
@@ -195,11 +198,14 @@ public class PartitionedOutputOperator
         }
     }
 
+    private static final long ONE_SECOND = SECONDS.toNanos(1);
     private final OperatorContext operatorContext;
     private final Function<Page, Page> pagePreprocessor;
     private final PagePartitioner partitionFunction;
+    private final LocalMemoryContext systemMemoryContext;
     private ListenableFuture<?> blocked = NOT_BLOCKED;
     private boolean finished;
+    private long lastMemoryUsageUpdateNanos;
 
     public PartitionedOutputOperator(
             OperatorContext operatorContext,
@@ -228,10 +234,8 @@ public class PartitionedOutputOperator
                 maxMemory);
 
         operatorContext.setInfoSupplier(this::getInfo);
-        // TODO: We should try to make this more accurate
-        // Recalculating the retained size of all the PageBuilders is somewhat expensive,
-        // so we only do it once here rather than in addInput(), and assume that the size will be constant.
-        operatorContext.newLocalSystemMemoryContext().setBytes(this.partitionFunction.getRetainedSizeInBytes());
+        this.systemMemoryContext = operatorContext.newLocalSystemMemoryContext();
+        this.systemMemoryContext.setBytes(this.partitionFunction.getRetainedSizeInBytes());
     }
 
     @Override
@@ -281,6 +285,20 @@ public class PartitionedOutputOperator
 
     @Override
     public void addInput(Page page)
+    {
+        addPage(page);
+        // Calculating the retained size of all page builders in partitionFunction.getRetainedSizeInBytes()
+        // can be expensive especially for complex types. Therefore, we update the memory usage no
+        // more than once per second.
+        long now = System.nanoTime();
+        if (now - lastMemoryUsageUpdateNanos > ONE_SECOND) {
+            systemMemoryContext.setBytes(partitionFunction.getRetainedSizeInBytes());
+            lastMemoryUsageUpdateNanos = now;
+        }
+    }
+
+    @VisibleForTesting
+    void addPage(Page page)
     {
         requireNonNull(page, "page is null");
         checkState(isBlocked().isDone(), "output is already blocked");
