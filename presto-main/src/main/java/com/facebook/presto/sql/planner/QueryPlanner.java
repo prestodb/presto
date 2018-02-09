@@ -847,7 +847,21 @@ class QueryPlanner
             return subPlan;
         }
 
-        Iterator<SortItem> sortItems = orderBy.get().getSortItems().iterator();
+        OrderingScheme orderingScheme = toOrderingSchema(subPlan, orderBy.get(), orderByExpressions);
+        PlanNode planNode;
+        if (limit.isPresent() && !limit.get().equalsIgnoreCase("all")) {
+            planNode = new TopNNode(idAllocator.getNextId(), subPlan.getRoot(), Long.parseLong(limit.get()), orderingScheme, TopNNode.Step.SINGLE);
+        }
+        else {
+            planNode = new SortNode(idAllocator.getNextId(), subPlan.getRoot(), orderingScheme);
+        }
+
+        return subPlan.withNewRoot(planNode);
+    }
+
+    private OrderingScheme toOrderingSchema(PlanBuilder subPlan, OrderBy orderBy, List<Expression> orderByExpressions)
+    {
+        Iterator<SortItem> sortItems = orderBy.getSortItems().iterator();
 
         ImmutableList.Builder<Symbol> orderBySymbols = ImmutableList.builder();
         Map<Symbol, SortOrder> orderings = new HashMap<>();
@@ -861,16 +875,7 @@ class QueryPlanner
             }
         }
 
-        PlanNode planNode;
-        OrderingScheme orderingScheme = new OrderingScheme(orderBySymbols.build(), orderings);
-        if (limit.isPresent() && !limit.get().equalsIgnoreCase("all")) {
-            planNode = new TopNNode(idAllocator.getNextId(), subPlan.getRoot(), Long.parseLong(limit.get()), orderingScheme, TopNNode.Step.SINGLE);
-        }
-        else {
-            planNode = new SortNode(idAllocator.getNextId(), subPlan.getRoot(), orderingScheme);
-        }
-
-        return subPlan.withNewRoot(planNode);
+        return new OrderingScheme(orderBySymbols.build(), orderings);
     }
 
     private PlanBuilder limit(PlanBuilder subPlan, Query node)
