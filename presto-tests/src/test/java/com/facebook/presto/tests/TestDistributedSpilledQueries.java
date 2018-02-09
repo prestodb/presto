@@ -22,6 +22,9 @@ import com.google.common.collect.ImmutableMap;
 import java.nio.file.Paths;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.facebook.presto.tests.FeatureSelection.features;
+import static com.facebook.presto.tests.TestedFeature.AGGREGATION;
+import static com.facebook.presto.tests.TestedFeature.JOIN;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 
 public class TestDistributedSpilledQueries
@@ -29,7 +32,7 @@ public class TestDistributedSpilledQueries
 {
     public TestDistributedSpilledQueries()
     {
-        super(TestDistributedSpilledQueries::createQueryRunner);
+        super(TestDistributedSpilledQueries::createQueryRunner, features(JOIN, AGGREGATION).build());
     }
 
     private static DistributedQueryRunner createQueryRunner()
@@ -61,12 +64,5 @@ public class TestDistributedSpilledQueries
             queryRunner.close();
             throw e;
         }
-    }
-
-    @Override
-    public void testAssignUniqueId()
-    {
-        // TODO: disabled until https://github.com/prestodb/presto/issues/8926 is resolved
-        //       due to long running query test created many spill files on disk.
     }
 }

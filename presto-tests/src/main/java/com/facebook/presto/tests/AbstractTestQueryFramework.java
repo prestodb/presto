@@ -28,6 +28,7 @@ import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilege;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
@@ -43,6 +44,7 @@ import java.util.OptionalLong;
 import static com.facebook.presto.sql.ParsingUtil.createParsingOptions;
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -55,14 +57,21 @@ import static org.testng.Assert.fail;
 
 public abstract class AbstractTestQueryFramework
 {
+    private final FeatureSelection featureSelection;
     private QueryRunnerSupplier queryRunnerSupplier;
     private QueryRunner queryRunner;
     private H2QueryRunner h2QueryRunner;
     private SqlParser sqlParser;
 
-    protected AbstractTestQueryFramework(QueryRunnerSupplier supplier)
+    public AbstractTestQueryFramework(QueryRunnerSupplier supplier)
+    {
+        this(supplier, FeatureSelection.all());
+    }
+
+    protected AbstractTestQueryFramework(QueryRunnerSupplier supplier, FeatureSelection featureSelection)
     {
         this.queryRunnerSupplier = requireNonNull(supplier, "queryRunnerSupplier is null");
+        this.featureSelection = requireNonNull(featureSelection, "featureSelection is null");
     }
 
     @BeforeClass
@@ -319,10 +328,12 @@ public abstract class AbstractTestQueryFramework
                 ImmutableMap.of());
     }
 
-    protected static void skipTestUnless(boolean requirement)
+    protected void featuresToTest(TestedFeature... features)
     {
-        if (!requirement) {
-            throw new SkipException("requirement not met");
+        requireNonNull(features, "features is null");
+        checkArgument(features.length > 0, "No feature given");
+        if (!featureSelection.areSelected(ImmutableSet.copyOf(features))) {
+            throw new SkipException("test feature is not selected");
         }
     }
 

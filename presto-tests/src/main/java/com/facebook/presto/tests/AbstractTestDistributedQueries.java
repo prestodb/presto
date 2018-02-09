@@ -55,6 +55,9 @@ import static com.facebook.presto.testing.TestingAccessControlManager.privilege;
 import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.tests.QueryAssertions.assertContains;
+import static com.facebook.presto.tests.TestedFeature.DELETE;
+import static com.facebook.presto.tests.TestedFeature.INSERT;
+import static com.facebook.presto.tests.TestedFeature.VIEW;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static io.airlift.units.Duration.nanosSince;
@@ -71,14 +74,9 @@ import static org.testng.Assert.assertTrue;
 public abstract class AbstractTestDistributedQueries
         extends AbstractTestQueries
 {
-    protected AbstractTestDistributedQueries(QueryRunnerSupplier supplier)
+    protected AbstractTestDistributedQueries(QueryRunnerSupplier supplier, FeatureSelection featureSelection)
     {
-        super(supplier);
-    }
-
-    protected boolean supportsViews()
-    {
-        return true;
+        super(supplier, featureSelection);
     }
 
     @Test
@@ -132,6 +130,8 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testCreateTable()
     {
+        featuresToTest(TestedFeature.CREATE_TABLE);
+
         assertUpdate("CREATE TABLE test_create (a bigint, b double, c varchar)");
         assertTrue(getQueryRunner().tableExists(getSession(), "test_create"));
         assertTableColumnNames("test_create", "a", "b", "c");
@@ -169,6 +169,8 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testCreateTableAsSelect()
     {
+        featuresToTest(TestedFeature.CREATE_TABLE);
+
         assertUpdate("CREATE TABLE test_create_table_as_if_not_exists (a bigint, b double)");
         assertTrue(getQueryRunner().tableExists(getSession(), "test_create_table_as_if_not_exists"));
         assertTableColumnNames("test_create_table_as_if_not_exists", "a", "b");
@@ -327,6 +329,8 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testRenameTable()
     {
+        featuresToTest(TestedFeature.CREATE_TABLE, TestedFeature.RENAME_TABLE, TestedFeature.DROP_TABLE);
+
         assertUpdate("CREATE TABLE test_rename AS SELECT 123 x", 1);
 
         assertUpdate("ALTER TABLE test_rename RENAME TO test_rename_new");
@@ -347,6 +351,8 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testRenameColumn()
     {
+        featuresToTest(TestedFeature.CREATE_TABLE, TestedFeature.RENAME_COLUMN, TestedFeature.DROP_TABLE);
+
         assertUpdate("CREATE TABLE test_rename_column AS SELECT 123 x", 1);
 
         assertUpdate("ALTER TABLE test_rename_column RENAME COLUMN x TO y");
@@ -364,6 +370,8 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testDropColumn()
     {
+        featuresToTest(TestedFeature.DROP_COLUMN);
+
         assertUpdate("CREATE TABLE test_drop_column AS SELECT 123 x, 111 a", 1);
 
         assertUpdate("ALTER TABLE test_drop_column DROP COLUMN x");
@@ -375,6 +383,8 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testAddColumn()
     {
+        featuresToTest(TestedFeature.ADD_COLUMN);
+
         assertUpdate("CREATE TABLE test_add_column AS SELECT 123 x", 1);
         assertUpdate("CREATE TABLE test_add_column_a AS SELECT 234 x, 111 a", 1);
         assertUpdate("CREATE TABLE test_add_column_ab AS SELECT 345 x, 222 a, 33.3E0 b", 1);
@@ -414,6 +424,8 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testInsert()
     {
+        featuresToTest(INSERT, TestedFeature.CREATE_TABLE);
+
         @Language("SQL") String query = "SELECT orderdate, orderkey, totalprice FROM orders";
 
         assertUpdate("CREATE TABLE test_insert AS " + query + " WITH NO DATA", 0);
@@ -463,6 +475,8 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testDelete()
     {
+        featuresToTest(DELETE);
+
         // delete half the table, then delete the rest
 
         assertUpdate("CREATE TABLE test_delete AS SELECT * FROM orders", "SELECT count(*) FROM orders");
@@ -591,7 +605,7 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testView()
     {
-        skipTestUnless(supportsViews());
+        featuresToTest(VIEW);
 
         @Language("SQL") String query = "SELECT orderkey, orderstatus, totalprice / 2 half FROM orders";
 
@@ -615,7 +629,7 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testViewCaseSensitivity()
     {
-        skipTestUnless(supportsViews());
+        featuresToTest(VIEW);
 
         computeActual("CREATE VIEW test_view_uppercase AS SELECT X FROM (SELECT 123 X)");
         computeActual("CREATE VIEW test_view_mixedcase AS SELECT XyZ FROM (SELECT 456 XyZ)");
@@ -626,7 +640,7 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testCompatibleTypeChangeForView()
     {
-        skipTestUnless(supportsViews());
+        featuresToTest(VIEW);
 
         assertUpdate("CREATE TABLE test_table_1 AS SELECT 'abcdefg' a", 1);
         assertUpdate("CREATE VIEW test_view_1 AS SELECT a FROM test_table_1");
@@ -646,7 +660,7 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testCompatibleTypeChangeForView2()
     {
-        skipTestUnless(supportsViews());
+        featuresToTest(VIEW);
 
         assertUpdate("CREATE TABLE test_table_2 AS SELECT BIGINT '1' v", 1);
         assertUpdate("CREATE VIEW test_view_2 AS SELECT * FROM test_table_2");
@@ -666,7 +680,7 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testViewMetadata()
     {
-        skipTestUnless(supportsViews());
+        featuresToTest(VIEW);
 
         @Language("SQL") String query = "SELECT BIGINT '123' x, 'foo' y";
         assertUpdate("CREATE VIEW meta_test_view AS " + query);
@@ -837,7 +851,7 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testNonQueryAccessControl()
     {
-        skipTestUnless(supportsViews());
+        featuresToTest(VIEW);
 
         assertAccessDenied("SET SESSION " + QUERY_MAX_MEMORY + " = '10MB'",
                 "Cannot set system session property " + QUERY_MAX_MEMORY,
@@ -864,7 +878,7 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testViewAccessControl()
     {
-        skipTestUnless(supportsViews());
+        featuresToTest(VIEW);
 
         Session viewOwnerSession = TestingSession.testSessionBuilder()
                 .setIdentity(new Identity("test_view_access_owner", Optional.empty()))

@@ -17,6 +17,8 @@ import com.facebook.presto.tests.AbstractTestDistributedQueries;
 import com.google.common.collect.ImmutableMap;
 
 import static com.facebook.presto.raptor.RaptorQueryRunner.createRaptorQueryRunner;
+import static com.facebook.presto.tests.FeatureSelection.features;
+import static com.facebook.presto.tests.TestedFeature.CONNECTOR;
 
 public class TestRaptorDistributedQueries
         extends AbstractTestDistributedQueries
@@ -29,6 +31,6 @@ public class TestRaptorDistributedQueries
 
     protected TestRaptorDistributedQueries(QueryRunnerSupplier supplier)
     {
-        super(supplier);
+        super(supplier, features(CONNECTOR).build());
     }
 }
