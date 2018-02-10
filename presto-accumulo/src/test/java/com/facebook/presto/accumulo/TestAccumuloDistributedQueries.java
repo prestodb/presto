@@ -180,14 +180,6 @@ public class TestAccumuloDistributedQueries
     }
 
     @Override
-    @Test
-    public void testJoinWithDuplicateRelations()
-    {
-        // Override because of extra UUID column in lineitem table, cannot SELECT *
-        // Cannot munge test to pass due to aliased data sets 'x' containing duplicate orderkey and comment columns
-    }
-
-    @Override
     public void testLeftJoinWithEmptyInnerTable()
     {
         // Override because of extra UUID column in lineitem table, cannot SELECT *
