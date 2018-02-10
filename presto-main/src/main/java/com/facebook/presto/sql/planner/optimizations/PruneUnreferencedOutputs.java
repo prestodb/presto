@@ -309,12 +309,9 @@ public class PruneUnreferencedOutputs
 
                 if (context.get().contains(symbol)) {
                     Aggregation aggregation = entry.getValue();
-                    FunctionCall call = aggregation.getCall();
-                    expectedInputs.addAll(SymbolsExtractor.extractUnique(call));
-                    if (aggregation.getMask().isPresent()) {
-                        expectedInputs.add(aggregation.getMask().get());
-                    }
-                    aggregations.put(symbol, new Aggregation(call, aggregation.getSignature(), aggregation.getMask()));
+                    expectedInputs.addAll(SymbolsExtractor.extractUnique(aggregation.getCall()));
+                    aggregation.getMask().ifPresent(expectedInputs::add);
+                    aggregations.put(symbol, aggregation);
                 }
             }
 
