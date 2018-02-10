@@ -547,7 +547,7 @@ public class PlanPrinter
             for (JoinNode.EquiJoinClause clause : node.getCriteria()) {
                 joinExpressions.add(clause.toExpression());
             }
-            node.getFilter().ifPresent(expression -> joinExpressions.add(expression));
+            node.getFilter().ifPresent(joinExpressions::add);
 
             // Check if the node is actually a cross join node
             if (node.getType() == JoinNode.Type.INNER && joinExpressions.isEmpty()) {

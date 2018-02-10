@@ -55,7 +55,7 @@ public class ImplementFilteredAggregations
         implements Rule<AggregationNode>
 {
     private static final Pattern<AggregationNode> PATTERN = aggregation()
-            .matching(aggregation -> hasFilters(aggregation));
+            .matching(ImplementFilteredAggregations::hasFilters);
 
     private static boolean hasFilters(AggregationNode aggregation)
     {

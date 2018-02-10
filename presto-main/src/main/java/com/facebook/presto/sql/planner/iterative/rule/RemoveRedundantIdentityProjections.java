@@ -31,7 +31,7 @@ public class RemoveRedundantIdentityProjections
             .matching(ProjectNode::isIdentity)
             // only drop this projection if it does not constrain the outputs
             // of its child
-            .matching(project -> outputsSameAsSource(project));
+            .matching(RemoveRedundantIdentityProjections::outputsSameAsSource);
 
     private static boolean outputsSameAsSource(ProjectNode node)
     {

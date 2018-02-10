@@ -33,7 +33,7 @@ public class MergeLimitWithDistinct
 
     private static final Pattern<LimitNode> PATTERN = limit()
             .with(source().matching(aggregation().capturedAs(CHILD)
-                    .matching(aggregation -> isDistinct(aggregation))));
+                    .matching(MergeLimitWithDistinct::isDistinct)));
 
     /**
      * Whether this node corresponds to a DISTINCT operation in SQL
