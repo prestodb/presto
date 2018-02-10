@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -87,6 +88,9 @@ public class ImplementFilteredAggregations
             if (call.getFilter().isPresent()) {
                 Expression filter = call.getFilter().get();
                 Symbol symbol = context.getSymbolAllocator().newSymbol(filter, BOOLEAN);
+                if (mask.isPresent()) {
+                    filter = ExpressionUtils.and(filter, mask.get().toSymbolReference());
+                }
                 newAssignments.put(symbol, filter);
                 mask = Optional.of(symbol);
             }
