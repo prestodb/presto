@@ -42,12 +42,14 @@ import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.Cast;
+import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Except;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
+import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.Intersect;
 import com.facebook.presto.sql.tree.Join;
@@ -76,6 +78,7 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.collect.UnmodifiableIterator;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -203,6 +206,10 @@ class RelationPlanner
 
         RelationPlan rightPlan = process(node.getRight(), context);
 
+        if (node.getCriteria().isPresent() && node.getCriteria().get() instanceof JoinUsing) {
+            return planJoinUsing(node, leftPlan, rightPlan);
+        }
+
         PlanBuilder leftPlanBuilder = initializePlanBuilder(leftPlan);
         PlanBuilder rightPlanBuilder = initializePlanBuilder(rightPlan);
 
@@ -235,8 +242,7 @@ class RelationPlanner
                 }
 
                 Set<QualifiedName> dependencies = SymbolsExtractor.extractNames(conjunct, analysis.getColumnReferences());
-                boolean isJoinUsing = node.getCriteria().filter(JoinUsing.class::isInstance).isPresent();
-                if (!isJoinUsing && (dependencies.stream().allMatch(left::canResolve) || dependencies.stream().allMatch(right::canResolve))) {
+                if (dependencies.stream().allMatch(left::canResolve) || dependencies.stream().allMatch(right::canResolve)) {
                     // If the conjunct can be evaluated entirely with the inputs on either side of the join, add
                     // it to the list complex expressions and let the optimizers figure out how to push it down later.
                     // Due to legacy reasons, the expression for "join using" looks like "x = x", which (incorrectly)
@@ -364,6 +370,123 @@ class RelationPlanner
         }
 
         return new RelationPlan(root, analysis.getScope(node), outputSymbols);
+    }
+
+    private RelationPlan planJoinUsing(Join node, RelationPlan left, RelationPlan right)
+    {
+        /* Given: l JOIN r USING (k1, ..., kn)
+
+           produces:
+
+            - project
+                    coalesce(l.k1, r.k1)
+                    ...,
+                    coalesce(l.kn, r.kn)
+                    l.v1,
+                    ...,
+                    l.vn,
+                    r.v1,
+                    ...,
+                    r.vn
+              - join (l.k1 = r.k1 and ... l.kn = r.kn)
+                    - project
+                        cast(l.k1 as commonType(l.k1, r.k1))
+                        ...
+                    - project
+                        cast(rl.k1 as commonType(l.k1, r.k1))
+
+            If casts are redundant (due to column type and common type being equal),
+            they will be removed by optimization passes.
+        */
+
+        List<Identifier> joinColumns = ((JoinUsing) node.getCriteria().get()).getColumns();
+
+        Analysis.JoinUsingAnalysis joinAnalysis = analysis.getJoinUsing(node);
+
+        ImmutableList.Builder<JoinNode.EquiJoinClause> clauses = ImmutableList.builder();
+
+        Map<Identifier, Symbol> leftJoinColumns = new HashMap<>();
+        Map<Identifier, Symbol> rightJoinColumns = new HashMap<>();
+
+        Assignments.Builder leftCoercions = Assignments.builder();
+        Assignments.Builder rightCoercions = Assignments.builder();
+
+        leftCoercions.putIdentities(left.getRoot().getOutputSymbols());
+        rightCoercions.putIdentities(right.getRoot().getOutputSymbols());
+        for (int i = 0; i < joinColumns.size(); i++) {
+            Identifier identifier = joinColumns.get(i);
+            Type type = analysis.getType(identifier);
+
+            // compute the coercion for the field on the left to the common supertype of left & right
+            Symbol leftOutput = symbolAllocator.newSymbol(identifier, type);
+            int leftField = joinAnalysis.getLeftJoinFields().get(i);
+            leftCoercions.put(leftOutput, new Cast(
+                    left.getSymbol(leftField).toSymbolReference(),
+                    type.getTypeSignature().toString(),
+                    false,
+                    metadata.getTypeManager().isTypeOnlyCoercion(left.getDescriptor().getFieldByIndex(leftField).getType(), type)));
+            leftJoinColumns.put(identifier, leftOutput);
+
+            // compute the coercion for the field on the right to the common supertype of left & right
+            Symbol rightOutput = symbolAllocator.newSymbol(identifier, type);
+            int rightField = joinAnalysis.getRightJoinFields().get(i);
+            rightCoercions.put(rightOutput, new Cast(
+                    right.getSymbol(rightField).toSymbolReference(),
+                    type.getTypeSignature().toString(),
+                    false,
+                    metadata.getTypeManager().isTypeOnlyCoercion(right.getDescriptor().getFieldByIndex(rightField).getType(), type)));
+            rightJoinColumns.put(identifier, rightOutput);
+
+            clauses.add(new JoinNode.EquiJoinClause(leftOutput, rightOutput));
+        }
+
+        ProjectNode leftCoercion = new ProjectNode(idAllocator.getNextId(), left.getRoot(), leftCoercions.build());
+        ProjectNode rightCoercion = new ProjectNode(idAllocator.getNextId(), right.getRoot(), rightCoercions.build());
+
+        JoinNode join = new JoinNode(
+                idAllocator.getNextId(),
+                JoinNode.Type.typeConvert(node.getType()),
+                leftCoercion,
+                rightCoercion,
+                clauses.build(),
+                ImmutableList.<Symbol>builder()
+                        .addAll(leftCoercion.getOutputSymbols())
+                        .addAll(rightCoercion.getOutputSymbols())
+                        .build(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty());
+
+        // Add a projection to produce the outputs of the columns in the USING clause,
+        // which are defined as coalesce(l.k, r.k)
+        Assignments.Builder assignments = Assignments.builder();
+
+        ImmutableList.Builder<Symbol> outputs = ImmutableList.builder();
+        for (Identifier column : joinColumns) {
+            Symbol output = symbolAllocator.newSymbol(column, analysis.getType(column));
+            outputs.add(output);
+            assignments.put(output, new CoalesceExpression(
+                    leftJoinColumns.get(column).toSymbolReference(),
+                    rightJoinColumns.get(column).toSymbolReference()));
+        }
+
+        for (int field : joinAnalysis.getOtherLeftFields()) {
+            Symbol symbol = left.getFieldMappings().get(field);
+            outputs.add(symbol);
+            assignments.put(symbol, symbol.toSymbolReference());
+        }
+
+        for (int field : joinAnalysis.getOtherRightFields()) {
+            Symbol symbol = right.getFieldMappings().get(field);
+            outputs.add(symbol);
+            assignments.put(symbol, symbol.toSymbolReference());
+        }
+
+        return new RelationPlan(
+                new ProjectNode(idAllocator.getNextId(), join, assignments.build()),
+                analysis.getScope(node),
+                outputs.build());
     }
 
     private Optional<Unnest> getUnnest(Relation relation)

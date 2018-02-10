@@ -89,6 +89,8 @@ public class Analysis
     private final Map<NodeRef<OrderBy>, List<FunctionCall>> orderByWindowFunctions = new LinkedHashMap<>();
 
     private final Map<NodeRef<Join>, Expression> joins = new LinkedHashMap<>();
+    private final Map<NodeRef<Join>, JoinUsingAnalysis> joinUsing = new LinkedHashMap<>();
+
     private final ListMultimap<NodeRef<Node>, InPredicate> inPredicatesSubqueries = ArrayListMultimap.create();
     private final ListMultimap<NodeRef<Node>, SubqueryExpression> scalarSubqueries = ArrayListMultimap.create();
     private final ListMultimap<NodeRef<Node>, ExistsPredicate> existsSubqueries = ArrayListMultimap.create();
@@ -591,6 +593,16 @@ public class Analysis
         return isDescribe;
     }
 
+    public void setJoinUsing(Join node, JoinUsingAnalysis analysis)
+    {
+        joinUsing.put(NodeRef.of(node), analysis);
+    }
+
+    public JoinUsingAnalysis getJoinUsing(Join node)
+    {
+        return joinUsing.get(NodeRef.of(node));
+    }
+
     @Immutable
     public static final class Insert
     {
@@ -612,6 +624,44 @@ public class Analysis
         public TableHandle getTarget()
         {
             return target;
+        }
+    }
+
+    public static final class JoinUsingAnalysis
+    {
+        private final List<Integer> leftJoinFields;
+        private final List<Integer> rightJoinFields;
+        private final List<Integer> otherLeftFields;
+        private final List<Integer> otherRightFields;
+
+        JoinUsingAnalysis(List<Integer> leftJoinFields, List<Integer> rightJoinFields, List<Integer> otherLeftFields, List<Integer> otherRightFields)
+        {
+            this.leftJoinFields = ImmutableList.copyOf(leftJoinFields);
+            this.rightJoinFields = ImmutableList.copyOf(rightJoinFields);
+            this.otherLeftFields = ImmutableList.copyOf(otherLeftFields);
+            this.otherRightFields = ImmutableList.copyOf(otherRightFields);
+
+            checkArgument(leftJoinFields.size() == rightJoinFields.size(), "Expected join fields for left and right to have the same size");
+        }
+
+        public List<Integer> getLeftJoinFields()
+        {
+            return leftJoinFields;
+        }
+
+        public List<Integer> getRightJoinFields()
+        {
+            return rightJoinFields;
+        }
+
+        public List<Integer> getOtherLeftFields()
+        {
+            return otherLeftFields;
+        }
+
+        public List<Integer> getOtherRightFields()
+        {
+            return otherRightFields;
         }
     }
 }
