@@ -666,7 +666,7 @@ public class FeaturesConfig
     public FeaturesConfig setSpillerSpillPaths(String spillPaths)
     {
         List<String> spillPathsSplit = ImmutableList.copyOf(Splitter.on(",").trimResults().omitEmptyStrings().split(spillPaths));
-        this.spillerSpillPaths = spillPathsSplit.stream().map(path -> Paths.get(path)).collect(toImmutableList());
+        this.spillerSpillPaths = spillPathsSplit.stream().map(Paths::get).collect(toImmutableList());
         return this;
     }
 

@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.benchmark.driver;
 
-import com.google.common.base.Function;
 import com.google.common.base.Splitter;
 import com.google.common.base.Splitter.MapSplitter;
 import com.google.common.collect.ImmutableMap;
@@ -57,11 +56,6 @@ public final class BenchmarkQuery
             this.tags = ImmutableMap.of();
             this.sql = sections.get(0);
         }
-    }
-
-    public static Function<BenchmarkQuery, String> queryNameGetter()
-    {
-        return query -> query.getName();
     }
 
     public String getName()

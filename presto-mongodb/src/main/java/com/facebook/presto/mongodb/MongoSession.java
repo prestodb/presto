@@ -526,10 +526,10 @@ public class MongoSession
                 return Optional.empty();
             }
 
-            Set<TypeSignature> signatures = subTypes.stream().map(t -> t.get()).collect(toSet());
+            Set<TypeSignature> signatures = subTypes.stream().map(Optional::get).collect(toSet());
             if (signatures.size() == 1) {
                 typeSignature = new TypeSignature(StandardTypes.ARRAY, signatures.stream()
-                        .map(s -> TypeSignatureParameter.of(s))
+                        .map(TypeSignatureParameter::of)
                         .collect(Collectors.toList()));
             }
             else {
