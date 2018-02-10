@@ -34,6 +34,7 @@ import com.facebook.presto.server.TaskUpdateRequest;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.google.common.base.Ticker;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
@@ -91,13 +92,14 @@ import static io.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
 import static io.airlift.http.client.Request.Builder.prepareDelete;
 import static io.airlift.http.client.Request.Builder.preparePost;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public final class HttpRemoteTask
         implements RemoteTask
 {
     private static final Logger log = Logger.get(HttpRemoteTask.class);
-    private static final Duration MAX_CLEANUP_RETRY_TIME = new Duration(2, TimeUnit.MINUTES);
 
     private final TaskId taskId;
 
@@ -546,7 +548,7 @@ public final class HttpRemoteTask
             Request request = prepareDelete()
                     .setUri(uriBuilder.build())
                     .build();
-            scheduleAsyncCleanupRequest(new Backoff(MAX_CLEANUP_RETRY_TIME), request, "cancel");
+            scheduleAsyncCleanupRequest(createCleanupBackoff(), request, "cancel");
         }
     }
 
@@ -577,7 +579,7 @@ public final class HttpRemoteTask
                 .setUri(uriBuilder.build())
                 .build();
 
-        scheduleAsyncCleanupRequest(new Backoff(MAX_CLEANUP_RETRY_TIME), request, "cleanup");
+        scheduleAsyncCleanupRequest(createCleanupBackoff(), request, "cleanup");
     }
 
     @Override
@@ -602,7 +604,7 @@ public final class HttpRemoteTask
             Request request = prepareDelete()
                     .setUri(uriBuilder.build())
                     .build();
-            scheduleAsyncCleanupRequest(new Backoff(MAX_CLEANUP_RETRY_TIME), request, "abort");
+            scheduleAsyncCleanupRequest(createCleanupBackoff(), request, "abort");
         }
     }
 
@@ -702,6 +704,17 @@ public final class HttpRemoteTask
             uriBuilder.addParameter("summarize");
         }
         return uriBuilder;
+    }
+
+    private static Backoff createCleanupBackoff()
+    {
+        return new Backoff(10, new Duration(10, TimeUnit.MINUTES), Ticker.systemTicker(), ImmutableList.<Duration>builder()
+                    .add(new Duration(0, MILLISECONDS))
+                    .add(new Duration(100, MILLISECONDS))
+                    .add(new Duration(500, MILLISECONDS))
+                    .add(new Duration(1, SECONDS))
+                    .add(new Duration(10, SECONDS))
+                    .build());
     }
 
     @Override
