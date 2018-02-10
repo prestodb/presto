@@ -31,7 +31,6 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapreduce.TaskAttemptContext;
 import org.apache.hadoop.mapreduce.TaskAttemptID;
@@ -321,10 +320,8 @@ public class ParquetHiveRecordCursor
             boolean predicatePushdownEnabled,
             TupleDomain<HiveColumnHandle> effectivePredicate)
     {
-        ParquetDataSource dataSource = null;
-        try {
-            FileSystem fileSystem = hdfsEnvironment.getFileSystem(sessionUser, path, configuration);
-            dataSource = buildHdfsParquetDataSource(fileSystem, path, start, length, fileSize);
+        try (ParquetDataSource dataSource = buildHdfsParquetDataSource(
+                hdfsEnvironment.getFileSystem(sessionUser, path, configuration), path, start, length, fileSize)) {
             ParquetMetadata parquetMetadata = hdfsEnvironment.doAs(sessionUser, () -> ParquetFileReader.readFooter(configuration, path, NO_FILTER));
             List<BlockMetaData> blocks = parquetMetadata.getBlocks();
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
@@ -378,15 +375,6 @@ public class ParquetHiveRecordCursor
                 throw new PrestoException(HIVE_MISSING_DATA, message, e);
             }
             throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, message, e);
-        }
-        finally {
-            if (dataSource != null) {
-                try {
-                    dataSource.close();
-                }
-                catch (IOException ignored) {
-                }
-            }
         }
     }
 

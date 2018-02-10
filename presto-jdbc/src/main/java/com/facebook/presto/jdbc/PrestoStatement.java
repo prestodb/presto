@@ -231,10 +231,8 @@ public class PrestoStatement
         clearCurrentResults();
         checkOpen();
 
-        StatementClient client = null;
         ResultSet resultSet = null;
-        try {
-            client = connection().startQuery(sql, getStatementSessionProperties());
+        try (StatementClient client = connection().startQuery(sql, getStatementSessionProperties())) {
             if (client.isFinished()) {
                 QueryStatusInfo finalStatusInfo = client.finalStatusInfo();
                 if (finalStatusInfo.getError() != null) {
@@ -275,9 +273,6 @@ public class PrestoStatement
             if (currentResult.get() == null) {
                 if (resultSet != null) {
                     resultSet.close();
-                }
-                if (client != null) {
-                    client.close();
                 }
             }
         }
