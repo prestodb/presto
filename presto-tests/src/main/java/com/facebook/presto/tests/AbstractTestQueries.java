@@ -677,9 +677,6 @@ public abstract class AbstractTestQueries
         assertQuery("VALUES (1.1, 2), (sin(3.3), 2+2) ORDER BY 1", "VALUES (sin(3.3), 2+2), (1.1, 2)");
         assertQuery("VALUES (1.1, 2), (sin(3.3), 2+2) LIMIT 1", "VALUES (1.1, 2)");
         assertQuery("SELECT * FROM (VALUES (1.1, 2), (sin(3.3), 2+2))");
-        assertQuery(
-                "SELECT * FROM (VALUES (1.1, 2), (sin(3.3), 2+2)) x (a, b) LEFT JOIN (VALUES (1.1, 2), (1.1, 2+2)) y (a, b) USING (a)",
-                "VALUES (1.1, 2, 1.1, 4), (1.1, 2, 1.1, 2), (sin(3.3), 4, NULL, NULL)");
         assertQuery("SELECT 1.1 in (VALUES (1.1), (2.2))", "VALUES (TRUE)");
 
         assertQuery("" +
@@ -2580,52 +2577,8 @@ public abstract class AbstractTestQueries
     }
 
     @Test
-    public void testJoinOnDecimalColumn()
-    {
-        assertQuery(
-                "SELECT * FROM (VALUES (1.0, 2.0)) x (a, b) JOIN (VALUES (1.0, 3.0)) y (a, b) USING(a)",
-                "VALUES (1.0, 2.0, 1.0, 3.0)");
-
-        assertQuery(
-                "SELECT * FROM (VALUES (123456789123456789.123456, 2.0)) x (a, b) JOIN (VALUES (123456789123456789.123456, 3.0)) y (a, b) USING(a)",
-                "VALUES (123456789123456789.123456, 2.0, 123456789123456789.123456, 3.0)");
-    }
-
-    @Test
     public void testJoinCriteriaCoercion()
     {
-        // long, double
-        assertQuery(
-                "SELECT * FROM (VALUES (1, 2.0)) x (a, b) JOIN (VALUES (DOUBLE '1.0', 3)) y (a, b) USING(a)",
-                "VALUES (1, 2.0, 1.0, 3)");
-
-        // double, long
-        assertQuery(
-                "SELECT * FROM (VALUES (1.0E0, 2.0)) x (a, b) JOIN (VALUES (1, 3)) y (a, b) USING(a)",
-                "VALUES (1.0, 2.0, 1, 3)");
-
-        // long decimal, bigint
-        assertQuery(
-                "SELECT * FROM (VALUES (DECIMAL '0000000000000000001', 2.0)) x (a, b) JOIN (VALUES (1, 3)) y (a, b) USING(a)",
-                "VALUES (1.0, 2.0, 1, 3)");
-
-        // bigint, long decimal
-        assertQuery(
-                "SELECT * FROM (VALUES (1, 2.0)) x (a, b) JOIN (VALUES (DECIMAL '0000000000000000001', 3)) y (a, b) USING(a)",
-                "VALUES (1.0, 2.0, 1, 3)");
-
-        // bigint, short decimal
-        assertQuery(
-                "SELECT * FROM (VALUES (1, 2.0)) x (a, b) JOIN (VALUES (1.0, 3)) y (a, b) USING(a)",
-                "VALUES (1.0, 2.0, 1, 3)");
-
-        // short decimal, bigint
-        assertQuery(
-                "SELECT * FROM (VALUES (1.0, 2.0)) x (a, b) JOIN (VALUES (1, 3)) y (a, b) USING(a)",
-                "VALUES (1.0, 2.0, 1, 3)");
-        assertQuery(
-                "SELECT * FROM (VALUES (1, 2)) x (a, b) JOIN (VALUES (CAST (1 AS SMALLINT), CAST(3 AS SMALLINT))) y (a, b) USING(a)",
-                "VALUES (1, 2, 1, 3)");
         assertQuery(
                 "SELECT * FROM (VALUES (1.0, 2.0)) x (a, b) JOIN (VALUES (1, 3)) y (a, b) ON x.a = y.a",
                 "VALUES (1.0, 2.0, 1, 3)");
@@ -2710,7 +2663,7 @@ public abstract class AbstractTestQueries
     {
         assertQuery(
                 "SELECT * FROM (SELECT orderkey, partkey FROM lineitem) a JOIN (SELECT orderkey, custkey FROM orders) b using (orderkey)",
-                "SELECT * FROM (SELECT orderkey, partkey FROM lineitem) a JOIN (SELECT orderkey, custkey FROM orders) b on a.orderkey = b.orderkey");
+                "SELECT a.orderkey, a.partkey, b.custkey FROM (SELECT orderkey, partkey FROM lineitem) a JOIN (SELECT orderkey, custkey FROM orders) b on a.orderkey = b.orderkey");
     }
 
     @Test
@@ -2718,7 +2671,7 @@ public abstract class AbstractTestQueries
     {
         assertQuery(
                 "SELECT a.*, b.* FROM (SELECT orderkey, partkey FROM lineitem) a JOIN (SELECT orderkey, custkey FROM orders) b using (orderkey)",
-                "SELECT a.*, b.* FROM (SELECT orderkey, partkey FROM lineitem) a JOIN (SELECT orderkey, custkey FROM orders) b on a.orderkey = b.orderkey");
+                "SELECT a.partkey, b.custkey FROM (SELECT orderkey, partkey FROM lineitem) a JOIN (SELECT orderkey, custkey FROM orders) b on a.orderkey = b.orderkey");
     }
 
     @Test
@@ -3781,13 +3734,6 @@ public abstract class AbstractTestQueries
                 "  WHERE custkey % 512 = 0\n" +
                 ") AS orders\n" +
                 "ON lineitem.orderkey = orders.orderkey");
-    }
-
-    @Test
-    public void testJoinWithDuplicateRelations()
-    {
-        assertQuery("SELECT * FROM orders JOIN orders USING (orderkey)", "SELECT * FROM orders o1 JOIN orders o2 ON o1.orderkey = o2.orderkey");
-        assertQuery("SELECT * FROM lineitem x JOIN orders x USING (orderkey)", "SELECT * FROM lineitem l JOIN orders o ON l.orderkey = o.orderkey");
     }
 
     @Test

@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.OperatorNotFoundException;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableMetadata;
@@ -28,13 +29,13 @@ import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
-import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
@@ -44,7 +45,6 @@ import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.Call;
 import com.facebook.presto.sql.tree.Commit;
-import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.CreateSchema;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
@@ -164,6 +164,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PROCEDU
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_WINDOW_FRAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISMATCHED_COLUMN_ALIASES;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISMATCHED_SET_COLUMN_TYPES;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_ATTRIBUTE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_CATALOG;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_COLUMN;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_SCHEMA;
@@ -184,7 +185,6 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WILDCARD_WITHOU
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static com.facebook.presto.sql.planner.DeterminismEvaluator.isDeterministic;
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.expressionOptimizer;
-import static com.facebook.presto.sql.tree.ComparisonExpressionType.EQUAL;
 import static com.facebook.presto.sql.tree.ExplainType.Type.DISTRIBUTED;
 import static com.facebook.presto.sql.tree.FrameBound.Type.CURRENT_ROW;
 import static com.facebook.presto.sql.tree.FrameBound.Type.FOLLOWING;
@@ -1116,34 +1116,16 @@ class StatementAnalyzer
             Scope left = process(node.getLeft(), scope);
             Scope right = process(node.getRight(), isLateralRelation(node.getRight()) ? Optional.of(left) : scope);
 
+            if (criteria instanceof JoinUsing) {
+                return analyzeJoinUsing(node, ((JoinUsing) criteria).getColumns(), scope, left, right);
+            }
+
             Scope output = createAndAssignScope(node, scope, left.getRelationType().joinWith(right.getRelationType()));
 
             if (node.getType() == Join.Type.CROSS || node.getType() == Join.Type.IMPLICIT) {
                 return output;
             }
 
-            if (criteria instanceof JoinUsing) {
-                // TODO: implement proper "using" semantics with respect to output columns
-                List<Identifier> columns = ((JoinUsing) criteria).getColumns();
-
-                List<Expression> expressions = new ArrayList<>();
-                for (Identifier column : columns) {
-                    Expression leftExpression = new Identifier(column.getValue());
-                    Expression rightExpression = new Identifier(column.getValue());
-
-                    ExpressionAnalysis leftExpressionAnalysis = analyzeExpression(leftExpression, left);
-                    ExpressionAnalysis rightExpressionAnalysis = analyzeExpression(rightExpression, right);
-                    checkState(leftExpressionAnalysis.getSubqueryInPredicates().isEmpty(), "INVARIANT");
-                    checkState(rightExpressionAnalysis.getSubqueryInPredicates().isEmpty(), "INVARIANT");
-                    checkState(leftExpressionAnalysis.getScalarSubqueries().isEmpty(), "INVARIANT");
-                    checkState(rightExpressionAnalysis.getScalarSubqueries().isEmpty(), "INVARIANT");
-
-                    addCoercionForJoinCriteria(node, leftExpression, rightExpression);
-                    expressions.add(new ComparisonExpression(EQUAL, leftExpression, rightExpression));
-                }
-
-                analysis.setJoinCriteria(node, ExpressionUtils.and(expressions));
-            }
             else if (criteria instanceof JoinOn) {
                 Expression expression = ((JoinOn) criteria).getExpression();
 
@@ -1170,28 +1152,77 @@ class StatementAnalyzer
             return output;
         }
 
+        private Scope analyzeJoinUsing(Join node, List<Identifier> columns, Optional<Scope> scope, Scope left, Scope right)
+        {
+            List<Field> joinFields = new ArrayList<>();
+
+            List<Integer> leftJoinFields = new ArrayList<>();
+            List<Integer> rightJoinFields = new ArrayList<>();
+
+            Set<Identifier> seen = new HashSet<>();
+            for (Identifier column : columns) {
+                if (!seen.add(column)) {
+                    throw new SemanticException(DUPLICATE_COLUMN_NAME, column, "Column '%s' appears multiple times in USING clause", column.getValue());
+                }
+
+                Optional<ResolvedField> leftField = left.tryResolveField(column);
+                Optional<ResolvedField> rightField = right.tryResolveField(column);
+
+                if (!leftField.isPresent()) {
+                    throw new SemanticException(MISSING_ATTRIBUTE, column, "Column '%s' is missing from left side of join", column.getValue());
+                }
+                if (!rightField.isPresent()) {
+                    throw new SemanticException(MISSING_ATTRIBUTE, column, "Column '%s' is missing from right side of join", column.getValue());
+                }
+
+                // ensure a comparison operator exists for the given types (applying coercions if necessary)
+                try {
+                    metadata.getFunctionRegistry().resolveOperator(OperatorType.EQUAL, ImmutableList.of(
+                            leftField.get().getType(), rightField.get().getType()));
+                }
+                catch (OperatorNotFoundException e) {
+                    throw new SemanticException(TYPE_MISMATCH, column, "%s", e.getMessage());
+                }
+
+                Optional<Type> type = metadata.getTypeManager().getCommonSuperType(leftField.get().getType(), rightField.get().getType());
+                analysis.addTypes(ImmutableMap.of(NodeRef.of(column), type.get()));
+
+                joinFields.add(Field.newUnqualified(column.getValue(), type.get()));
+
+                leftJoinFields.add(leftField.get().getRelationFieldIndex());
+                rightJoinFields.add(rightField.get().getRelationFieldIndex());
+            }
+
+            ImmutableList.Builder<Field> outputs = ImmutableList.builder();
+            outputs.addAll(joinFields);
+
+            ImmutableList.Builder<Integer> leftFields = ImmutableList.builder();
+            for (int i = 0; i < left.getRelationType().getAllFieldCount(); i++) {
+                if (!leftJoinFields.contains(i)) {
+                    outputs.add(left.getRelationType().getFieldByIndex(i));
+                    leftFields.add(i);
+                }
+            }
+
+            ImmutableList.Builder<Integer> rightFields = ImmutableList.builder();
+            for (int i = 0; i < right.getRelationType().getAllFieldCount(); i++) {
+                if (!rightJoinFields.contains(i)) {
+                    outputs.add(right.getRelationType().getFieldByIndex(i));
+                    rightFields.add(i);
+                }
+            }
+
+            analysis.setJoinUsing(node, new Analysis.JoinUsingAnalysis(leftJoinFields, rightJoinFields, leftFields.build(), rightFields.build()));
+
+            return createAndAssignScope(node, scope, new RelationType(outputs.build()));
+        }
+
         private boolean isLateralRelation(Relation node)
         {
             if (node instanceof AliasedRelation) {
                 return isLateralRelation(((AliasedRelation) node).getRelation());
             }
             return node instanceof Unnest || node instanceof Lateral;
-        }
-
-        private void addCoercionForJoinCriteria(Join node, Expression leftExpression, Expression rightExpression)
-        {
-            Type leftType = analysis.getTypeWithCoercions(leftExpression);
-            Type rightType = analysis.getTypeWithCoercions(rightExpression);
-            Optional<Type> superType = metadata.getTypeManager().getCommonSuperType(leftType, rightType);
-            if (!superType.isPresent()) {
-                throw new SemanticException(TYPE_MISMATCH, node, "Join criteria has incompatible types: %s, %s", leftType.getDisplayName(), rightType.getDisplayName());
-            }
-            if (!leftType.equals(superType.get())) {
-                analysis.addCoercion(leftExpression, superType.get(), metadata.getTypeManager().isTypeOnlyCoercion(leftType, rightType));
-            }
-            if (!rightType.equals(superType.get())) {
-                analysis.addCoercion(rightExpression, superType.get(), metadata.getTypeManager().isTypeOnlyCoercion(rightType, leftType));
-            }
         }
 
         @Override
