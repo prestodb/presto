@@ -311,10 +311,8 @@ public class PruneUnreferencedOutputs
                     Aggregation aggregation = entry.getValue();
                     FunctionCall call = aggregation.getCall();
                     expectedInputs.addAll(SymbolsExtractor.extractUnique(call));
-                    if (aggregation.getMask().isPresent()) {
-                        expectedInputs.add(aggregation.getMask().get());
-                    }
-                    aggregations.put(symbol, new Aggregation(call, aggregation.getSignature(), aggregation.getMask()));
+                    aggregation.getMask().ifPresent(expectedInputs::add);
+                    aggregations.put(symbol, aggregation);
                 }
             }
 
