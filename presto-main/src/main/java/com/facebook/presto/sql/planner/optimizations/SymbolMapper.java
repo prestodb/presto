@@ -25,7 +25,7 @@ import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
-import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.FunctionReference;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -87,7 +87,10 @@ public class SymbolMapper
             Aggregation aggregation = entry.getValue();
 
             aggregations.put(map(symbol), new Aggregation(
-                    (FunctionCall) map(aggregation.getCall()),
+                    (FunctionReference) map(aggregation.getCall()),
+                    aggregation.getOrderingScheme().map(this::map),
+                    aggregation.getPredicate().map(this::map),
+                    aggregation.isDistinct(),
                     aggregation.getSignature(),
                     aggregation.getMask().map(this::map)));
         }
@@ -104,6 +107,21 @@ public class SymbolMapper
                 node.getStep(),
                 node.getHashSymbol().map(this::map),
                 node.getGroupIdSymbol().map(this::map));
+    }
+
+    private OrderingScheme map(OrderingScheme orderingScheme)
+    {
+        ImmutableList.Builder<Symbol> orderByBuilder = ImmutableList.builder();
+        ImmutableMap.Builder<Symbol, SortOrder> orderingBuilder = ImmutableMap.builder();
+        Set<Symbol> added = new HashSet<>();
+        for (Symbol orderBy : orderingScheme.getOrderBy()) {
+            Symbol canonicalOrderBy = map(orderBy);
+            if (added.add(canonicalOrderBy)) {
+                orderByBuilder.add(canonicalOrderBy);
+                orderingBuilder.put(canonicalOrderBy, orderingScheme.getOrdering(orderBy));
+            }
+        }
+        return new OrderingScheme(orderByBuilder.build(), orderingBuilder.build());
     }
 
     public TopNNode map(TopNNode node, PlanNode source, PlanNodeId newNodeId)

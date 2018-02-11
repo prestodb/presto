@@ -19,8 +19,8 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.ExpressionUtils;
+import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
@@ -36,7 +36,7 @@ import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.FunctionReference;
 import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
@@ -136,30 +136,16 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
             Symbol countAllValue = symbolAllocator.newSymbol("count_all", BigintType.BIGINT);
             Symbol countNonNullValue = symbolAllocator.newSymbol("count_non_null", BigintType.BIGINT);
 
-            FunctionRegistry functionRegistry = metadata.getFunctionRegistry();
             List<Expression> outputColumnReferences = ImmutableList.of(outputColumn.toSymbolReference());
-            List<TypeSignature> outputColumnTypeSignature = ImmutableList.of(outputColumnType.getTypeSignature());
-
+            List<TypeSignatureProvider> typeSignatureProviders = fromTypeSignatures(ImmutableList.of(outputColumnType.getTypeSignature()));
             subqueryPlan = new AggregationNode(
                     idAllocator.getNextId(),
                     subqueryPlan,
                     ImmutableMap.of(
-                            minValue, new Aggregation(
-                                    new FunctionCall(MIN, outputColumnReferences),
-                                    functionRegistry.resolveFunction(MIN, fromTypeSignatures(outputColumnTypeSignature)),
-                                    Optional.empty()),
-                            maxValue, new Aggregation(
-                                    new FunctionCall(MAX, outputColumnReferences),
-                                    functionRegistry.resolveFunction(MAX, fromTypeSignatures(outputColumnTypeSignature)),
-                                    Optional.empty()),
-                            countAllValue, new Aggregation(
-                                    new FunctionCall(COUNT, emptyList()),
-                                    functionRegistry.resolveFunction(COUNT, emptyList()),
-                                    Optional.empty()),
-                            countNonNullValue, new Aggregation(
-                                    new FunctionCall(COUNT, outputColumnReferences),
-                                    functionRegistry.resolveFunction(COUNT, fromTypeSignatures(outputColumnTypeSignature)),
-                                    Optional.empty())),
+                            minValue, aggregation(MIN, outputColumnReferences, typeSignatureProviders),
+                            maxValue, aggregation(MAX, outputColumnReferences, typeSignatureProviders),
+                            countAllValue, aggregation(COUNT, emptyList(), emptyList()),
+                            countNonNullValue, aggregation(COUNT, outputColumnReferences, typeSignatureProviders)),
                     ImmutableList.of(ImmutableList.of()),
                     AggregationNode.Step.SINGLE,
                     Optional.empty(),
@@ -178,6 +164,18 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
             Symbol quantifiedComparisonSymbol = getOnlyElement(node.getSubqueryAssignments().getSymbols());
 
             return projectExpressions(lateralJoinNode, Assignments.of(quantifiedComparisonSymbol, valueComparedToSubquery));
+        }
+
+        private Aggregation aggregation(QualifiedName name, List<Expression> outputColumnReferences, List<TypeSignatureProvider> typeSignatureProviders)
+        {
+            FunctionRegistry functionRegistry = metadata.getFunctionRegistry();
+            return new Aggregation(
+                    new FunctionReference(name, outputColumnReferences),
+                    Optional.empty(),
+                    Optional.empty(),
+                    false,
+                    functionRegistry.resolveFunction(name, typeSignatureProviders),
+                    Optional.empty());
         }
 
         public Expression rewriteUsingBounds(QuantifiedComparisonExpression quantifiedComparison, Symbol minValue, Symbol maxValue, Symbol countAllValue, Symbol countNonNullValue)

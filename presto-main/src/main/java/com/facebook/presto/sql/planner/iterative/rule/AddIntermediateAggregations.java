@@ -28,7 +28,7 @@ import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
-import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.FunctionReference;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -177,11 +177,14 @@ public class AddIntermediateAggregations
         for (Map.Entry<Symbol, AggregationNode.Aggregation> entry : assignments.entrySet()) {
             Symbol output = entry.getKey();
             AggregationNode.Aggregation aggregation = entry.getValue();
-            checkState(!aggregation.getCall().getOrderBy().isPresent(), "Intermediate aggregation does not support ORDER BY");
+            checkState(!aggregation.getOrderingScheme().isPresent(), "Intermediate aggregation does not support ORDER BY");
             builder.put(
                     output,
                     new AggregationNode.Aggregation(
-                            new FunctionCall(QualifiedName.of(aggregation.getSignature().getName()), ImmutableList.of(output.toSymbolReference())),
+                            new FunctionReference(QualifiedName.of(aggregation.getSignature().getName()), ImmutableList.of(output.toSymbolReference())),
+                            aggregation.getOrderingScheme(),
+                            aggregation.getPredicate(),
+                            aggregation.isDistinct(),
                             aggregation.getSignature(),
                             Optional.empty()));  // No mask for INTERMEDIATE
         }

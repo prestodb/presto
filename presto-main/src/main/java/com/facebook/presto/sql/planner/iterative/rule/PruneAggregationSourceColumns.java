@@ -58,6 +58,8 @@ public class PruneAggregationSourceColumns
     {
         return Streams.concat(
                 SymbolsExtractor.extractUnique(aggregation.getCall()).stream(),
-                aggregation.getMask().map(Stream::of).orElse(Stream.empty()));
+                aggregation.getMask().map(Stream::of).orElse(Stream.empty()),
+                aggregation.getOrderingScheme().map(orderingScheme -> orderingScheme.getOrderBy().stream()).orElse(Stream.empty()),
+                aggregation.getPredicate().map(predicate -> SymbolsExtractor.extractUnique(predicate).stream()).orElse(Stream.empty()));
     }
 }

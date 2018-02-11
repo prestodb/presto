@@ -36,6 +36,7 @@ import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.FunctionReference;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.WindowFrame;
 import com.facebook.presto.testing.TestingMetadata.TestingColumnHandle;
@@ -185,7 +186,10 @@ public class TestTypeValidator
                 newId(),
                 baseTableScan,
                 ImmutableMap.of(aggregationSymbol, new Aggregation(
-                        new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(columnC.toSymbolReference())),
+                        new FunctionReference(QualifiedName.of("sum"), ImmutableList.of(columnC.toSymbolReference())),
+                        Optional.empty(),
+                        Optional.empty(),
+                        false,
                         new Signature(
                                 "sum",
                                 FunctionKind.AGGREGATE,
@@ -242,7 +246,10 @@ public class TestTypeValidator
                 newId(),
                 baseTableScan,
                 ImmutableMap.of(aggregationSymbol, new Aggregation(
-                        new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(columnA.toSymbolReference())),
+                        new FunctionReference(QualifiedName.of("sum"), ImmutableList.of(columnA.toSymbolReference())),
+                        Optional.empty(),
+                        Optional.empty(),
+                        false,
                         new Signature(
                                 "sum",
                                 FunctionKind.AGGREGATE,
@@ -269,7 +276,10 @@ public class TestTypeValidator
                 newId(),
                 baseTableScan,
                 ImmutableMap.of(aggregationSymbol, new Aggregation(
-                        new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(columnC.toSymbolReference())),
+                        new FunctionReference(QualifiedName.of("sum"), ImmutableList.of(columnC.toSymbolReference())),
+                        Optional.empty(),
+                        Optional.empty(),
+                        false,
                         new Signature(
                                 "sum",
                                 FunctionKind.AGGREGATE,

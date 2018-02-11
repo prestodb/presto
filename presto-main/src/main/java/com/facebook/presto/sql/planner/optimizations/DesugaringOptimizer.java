@@ -35,7 +35,6 @@ import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FunctionCall;
 
 import java.util.Map;
 import java.util.Optional;
@@ -101,7 +100,13 @@ public class DesugaringOptimizer
             Map<Symbol, Aggregation> aggregations = node.getAggregations().entrySet().stream()
                     .collect(toImmutableMap(Map.Entry::getKey, entry -> {
                         Aggregation aggregation = entry.getValue();
-                        return new Aggregation((FunctionCall) desugar(aggregation.getCall()), aggregation.getSignature(), aggregation.getMask());
+                        return new Aggregation(
+                                aggregation.getCall(),
+                                aggregation.getOrderingScheme(),
+                                aggregation.getPredicate().map(this::desugar),
+                                aggregation.isDistinct(),
+                                aggregation.getSignature(),
+                                aggregation.getMask());
                     }));
             return new AggregationNode(
                     node.getId(),

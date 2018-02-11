@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
@@ -309,8 +310,13 @@ public class PruneUnreferencedOutputs
 
                 if (context.get().contains(symbol)) {
                     Aggregation aggregation = entry.getValue();
-                    FunctionCall call = aggregation.getCall();
-                    expectedInputs.addAll(SymbolsExtractor.extractUnique(call));
+                    expectedInputs.addAll(SymbolsExtractor.extractUnique(aggregation.getCall()));
+                    aggregation.getOrderingScheme()
+                            .map(OrderingScheme::getOrderBy)
+                            .ifPresent(expectedInputs::addAll);
+                    aggregation.getPredicate()
+                            .map(SymbolsExtractor::extractUnique)
+                            .ifPresent(expectedInputs::addAll);
                     aggregation.getMask().ifPresent(expectedInputs::add);
                     aggregations.put(symbol, aggregation);
                 }

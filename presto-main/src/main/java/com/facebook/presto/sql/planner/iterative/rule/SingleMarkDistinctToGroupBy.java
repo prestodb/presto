@@ -21,7 +21,8 @@ import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
-import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.FunctionReference;
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -59,16 +60,8 @@ public class SingleMarkDistinctToGroupBy
     private static final Capture<MarkDistinctNode> CHILD = newCapture();
 
     private static final Pattern<AggregationNode> PATTERN = aggregation()
-            .matching(aggregation -> !hasFilters(aggregation)) // DISTINCT + Aggregation filters not currently supported
+            .matching(Predicates.not(AggregationNode::hasPredicate)) // DISTINCT + Aggregation filters not currently supported
             .with(source().matching(markDistinct().capturedAs(CHILD)));
-
-    private static boolean hasFilters(AggregationNode aggregationNode)
-    {
-        return aggregationNode.getAggregations().values().stream()
-                .map(Aggregation::getCall)
-                .map(FunctionCall::getFilter)
-                .anyMatch(Optional::isPresent);
-    }
 
     @Override
     public Pattern<AggregationNode> getPattern()
@@ -129,15 +122,12 @@ public class SingleMarkDistinctToGroupBy
 
     private static AggregationNode.Aggregation removeDistinct(AggregationNode.Aggregation aggregation)
     {
-        FunctionCall call = aggregation.getCall();
+        FunctionReference call = aggregation.getCall();
         return new AggregationNode.Aggregation(
-                new FunctionCall(
-                        call.getName(),
-                        call.getWindow(),
-                        call.getFilter(),
-                        call.getOrderBy(),
-                        false,
-                        call.getArguments()),
+                new FunctionReference(call.getName(), call.getArguments()),
+                aggregation.getOrderingScheme(),
+                aggregation.getPredicate(),
+                false,
                 aggregation.getSignature(),
                 Optional.empty());
     }

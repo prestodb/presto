@@ -44,6 +44,7 @@ import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.FunctionReference;
 import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LongLiteral;
@@ -150,8 +151,8 @@ public class TestEffectivePredicateExtractor
                                 greaterThan(AE, bigintLiteral(2)),
                                 equals(EE, FE))),
                 ImmutableMap.of(
-                        C, new Aggregation(fakeFunction(), fakeFunctionHandle("test", AGGREGATE), Optional.empty()),
-                        D, new Aggregation(fakeFunction(), fakeFunctionHandle("test", AGGREGATE), Optional.empty())),
+                        C, new Aggregation(fakeFunction(), Optional.empty(), Optional.empty(), false, fakeFunctionHandle("test", AGGREGATE), Optional.empty()),
+                        D, new Aggregation(fakeFunction(), Optional.empty(), Optional.empty(), false, fakeFunctionHandle("test", AGGREGATE), Optional.empty())),
                 ImmutableList.of(ImmutableList.of(A, B, C)),
                 AggregationNode.Step.FINAL,
                 Optional.empty(),
@@ -748,9 +749,9 @@ public class TestEffectivePredicateExtractor
         return new IsNullPredicate(expression);
     }
 
-    private static FunctionCall fakeFunction()
+    private static FunctionReference fakeFunction()
     {
-        return new FunctionCall(QualifiedName.of("test"), ImmutableList.of());
+        return new FunctionReference(QualifiedName.of("test"), ImmutableList.of());
     }
 
     private static Signature fakeFunctionHandle(String name, FunctionKind kind)

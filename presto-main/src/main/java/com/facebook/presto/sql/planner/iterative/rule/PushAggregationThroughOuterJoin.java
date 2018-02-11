@@ -30,7 +30,7 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.FunctionReference;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
@@ -272,7 +272,10 @@ public class PushAggregationThroughOuterJoin
             Symbol aggregationSymbol = entry.getKey();
             AggregationNode.Aggregation aggregation = entry.getValue();
             AggregationNode.Aggregation overNullAggregation = new AggregationNode.Aggregation(
-                    (FunctionCall) inlineSymbols(sourcesSymbolMapping, aggregation.getCall()),
+                    (FunctionReference) inlineSymbols(sourcesSymbolMapping, aggregation.getCall()),
+                    aggregation.getOrderingScheme(),
+                    aggregation.getPredicate(),
+                    aggregation.isDistinct(),
                     aggregation.getSignature(),
                     aggregation.getMask().map(x -> Symbol.from(sourcesSymbolMapping.get(x))));
             Symbol overNullSymbol = symbolAllocator.newSymbol(overNullAggregation.getCall(), symbolAllocator.getTypes().get(aggregationSymbol));

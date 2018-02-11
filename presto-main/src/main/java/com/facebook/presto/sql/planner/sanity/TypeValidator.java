@@ -30,6 +30,7 @@ import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.FunctionReference;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ListMultimap;
@@ -159,6 +160,14 @@ public final class TypeValidator
         }
 
         private void checkCall(Symbol symbol, FunctionCall call)
+        {
+            Type expectedType = types.get(symbol);
+            Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, metadata, sqlParser, types, call, emptyList() /*parameters already replaced */);
+            Type actualType = expressionTypes.get(NodeRef.<Expression>of(call));
+            verifyTypeSignature(symbol, expectedType.getTypeSignature(), actualType.getTypeSignature());
+        }
+
+        private void checkCall(Symbol symbol, FunctionReference call)
         {
             Type expectedType = types.get(symbol);
             Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, metadata, sqlParser, types, call, emptyList() /*parameters already replaced */);

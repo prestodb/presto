@@ -27,7 +27,6 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FunctionCall;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -157,11 +156,17 @@ public class ExpressionRewriteRuleSet
             ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
             for (Map.Entry<Symbol, Aggregation> entry : aggregationNode.getAggregations().entrySet()) {
                 Aggregation aggregation = entry.getValue();
-                FunctionCall call = (FunctionCall) rewriter.rewrite(aggregation.getCall(), context);
+                Optional<Expression> rewrittenPredicate = aggregation.getPredicate().map(predicate -> rewriter.rewrite(predicate, context));
                 aggregations.put(
                         entry.getKey(),
-                        new Aggregation(call, aggregation.getSignature(), aggregation.getMask()));
-                if (!aggregation.getCall().equals(call)) {
+                        new Aggregation(
+                                aggregation.getCall(),
+                                aggregation.getOrderingScheme(),
+                                rewrittenPredicate,
+                                aggregation.isDistinct(),
+                                aggregation.getSignature(),
+                                aggregation.getMask()));
+                if (!aggregation.getPredicate().equals(rewrittenPredicate)) {
                     anyRewritten = true;
                 }
             }

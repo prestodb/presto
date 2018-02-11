@@ -50,6 +50,7 @@ import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.FunctionReference;
 import com.facebook.presto.sql.tree.GroupingOperation;
 import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
 import com.facebook.presto.sql.tree.Node;
@@ -575,7 +576,25 @@ class QueryPlanner
                 }
             }
 
-            aggregationsBuilder.put(newSymbol, new Aggregation((FunctionCall) rewritten, analysis.getFunctionSignature(aggregate), marker));
+            FunctionCall rewrittenAggregate = (FunctionCall) rewritten;
+            Optional<OrderingScheme> orderingScheme = Optional.empty();
+            if (rewrittenAggregate.getOrderBy().isPresent()) {
+                OrderBy orderBy = rewrittenAggregate.getOrderBy().get();
+                List<Symbol> orderBySymbols = orderBy.getSortItems().stream()
+                        .map(SortItem::getSortKey)
+                        .map(Symbol::from)
+                        .collect(toImmutableList());
+                Map<Symbol, SortOrder> orderings = orderBy.getSortItems().stream()
+                        .collect(toImmutableMap(sortItem -> Symbol.from(sortItem.getSortKey()), QueryPlanner::toSortOrder));
+                orderingScheme = Optional.of(new OrderingScheme(orderBySymbols, orderings));
+            }
+
+            aggregationsBuilder.put(newSymbol, new Aggregation(
+                    new FunctionReference(rewrittenAggregate.getName(), rewrittenAggregate.getArguments()),
+                    orderingScheme,
+                    rewrittenAggregate.getFilter(),
+                    aggregate.isDistinct(),
+                    analysis.getFunctionSignature(aggregate), marker));
         }
         Map<Symbol, Aggregation> aggregations = aggregationsBuilder.build();
 

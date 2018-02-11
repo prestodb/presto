@@ -34,7 +34,7 @@ import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.FunctionReference;
 import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NullLiteral;
@@ -117,7 +117,7 @@ public class OptimizeMixedDistinctAggregations
                 return context.defaultRewrite(node, Optional.empty());
             }
 
-            if (node.getAggregations().values().stream().map(Aggregation::getCall).map(FunctionCall::getFilter).anyMatch(Optional::isPresent)) {
+            if (node.hasPredicate()) {
                 // Skip if any aggregation contains a filter
                 return context.defaultRewrite(node, Optional.empty());
             }
@@ -150,15 +150,15 @@ public class OptimizeMixedDistinctAggregations
             //          SELECT a1, a2,..., an, arbitrary(if(group = 0, f1)),...., arbitrary(if(group = 0, fm)), F(if(group = 1, c))
             ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
             for (Map.Entry<Symbol, Aggregation> entry : node.getAggregations().entrySet()) {
-                FunctionCall functionCall = entry.getValue().getCall();
-                if (functionCall.isDistinct()) {
+                Aggregation aggregation = entry.getValue();
+                FunctionReference functionReference = aggregation.getCall();
+                if (aggregation.isDistinct()) {
                     aggregations.put(entry.getKey(), new Aggregation(
-                            new FunctionCall(
-                                    functionCall.getName(),
-                                    functionCall.getWindow(),
-                                    false,
-                                    ImmutableList.of(aggregateInfo.getNewDistinctAggregateSymbol().toSymbolReference())),
-                            entry.getValue().getSignature(),
+                            new FunctionReference(functionReference.getName(), ImmutableList.of(aggregateInfo.getNewDistinctAggregateSymbol().toSymbolReference())),
+                            aggregation.getOrderingScheme(),
+                            aggregation.getPredicate(),
+                            false,
+                            aggregation.getSignature(),
                             Optional.empty()));
                 }
                 else {
@@ -166,7 +166,10 @@ public class OptimizeMixedDistinctAggregations
                     Symbol argument = aggregateInfo.getNewNonDistinctAggregateSymbols().get(entry.getKey());
                     QualifiedName functionName = QualifiedName.of("arbitrary");
                     aggregations.put(entry.getKey(), new Aggregation(
-                            new FunctionCall(functionName, functionCall.getWindow(), false, ImmutableList.of(argument.toSymbolReference())),
+                            new FunctionReference(functionName, ImmutableList.of(argument.toSymbolReference())),
+                            aggregation.getOrderingScheme(),
+                            aggregation.getPredicate(),
+                            aggregation.isDistinct(),
                             getFunctionSignature(functionName, argument),
                             Optional.empty()));
                 }
@@ -392,16 +395,17 @@ public class OptimizeMixedDistinctAggregations
         {
             ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
             for (Map.Entry<Symbol, Aggregation> entry : aggregateInfo.getAggregations().entrySet()) {
-                FunctionCall functionCall = entry.getValue().getCall();
-                if (!functionCall.isDistinct()) {
+                Aggregation aggregation = entry.getValue();
+                FunctionReference functionReference = aggregation.getCall();
+                if (!aggregation.isDistinct()) {
                     Symbol newSymbol = symbolAllocator.newSymbol(entry.getKey().toSymbolReference(), symbolAllocator.getTypes().get(entry.getKey()));
                     aggregationOutputSymbolsMapBuilder.put(newSymbol, entry.getKey());
                     if (!duplicatedDistinctSymbol.equals(distinctSymbol)) {
                         // Handling for cases when mask symbol appears in non distinct aggregations too
                         // Now the aggregation should happen over the duplicate symbol added before
-                        if (functionCall.getArguments().contains(distinctSymbol.toSymbolReference())) {
+                        if (functionReference.getArguments().contains(distinctSymbol.toSymbolReference())) {
                             ImmutableList.Builder<Expression> arguments = ImmutableList.builder();
-                            for (Expression argument : functionCall.getArguments()) {
+                            for (Expression argument : functionReference.getArguments()) {
                                 if (distinctSymbol.toSymbolReference().equals(argument)) {
                                     arguments.add(duplicatedDistinctSymbol.toSymbolReference());
                                 }
@@ -409,10 +413,16 @@ public class OptimizeMixedDistinctAggregations
                                     arguments.add(argument);
                                 }
                             }
-                            functionCall = new FunctionCall(functionCall.getName(), functionCall.getWindow(), false, arguments.build());
+                            functionReference = new FunctionReference(functionReference.getName(), arguments.build());
                         }
                     }
-                    aggregations.put(newSymbol, new Aggregation(functionCall, entry.getValue().getSignature(), Optional.empty()));
+                    aggregations.put(newSymbol, new Aggregation(
+                            functionReference,
+                            aggregation.getOrderingScheme(),
+                            aggregation.getPredicate(),
+                            aggregation.isDistinct(),
+                            aggregation.getSignature(),
+                            Optional.empty()));
                 }
             }
             return new AggregationNode(
@@ -466,8 +476,8 @@ public class OptimizeMixedDistinctAggregations
         public List<Symbol> getOriginalNonDistinctAggregateArgs()
         {
             return aggregations.values().stream()
+                    .filter(aggregation -> !aggregation.isDistinct())
                     .map(Aggregation::getCall)
-                    .filter(function -> !function.isDistinct())
                     .flatMap(function -> function.getArguments().stream())
                     .distinct()
                     .map(Symbol::from)
@@ -477,8 +487,8 @@ public class OptimizeMixedDistinctAggregations
         public List<Symbol> getOriginalDistinctAggregateArgs()
         {
             return aggregations.values().stream()
+                    .filter(Aggregation::isDistinct)
                     .map(Aggregation::getCall)
-                    .filter(FunctionCall::isDistinct)
                     .flatMap(function -> function.getArguments().stream())
                     .distinct()
                     .map(Symbol::from)

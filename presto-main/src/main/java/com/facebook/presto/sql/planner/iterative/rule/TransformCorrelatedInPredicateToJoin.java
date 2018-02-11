@@ -37,7 +37,7 @@ import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.FunctionReference;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.IsNullPredicate;
@@ -48,7 +48,6 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.sql.tree.WhenClause;
-import com.facebook.presto.sql.tree.Window;
 import com.facebook.presto.sql.util.AstUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -243,16 +242,11 @@ public class TransformCorrelatedInPredicateToJoin
 
     private static AggregationNode.Aggregation countWithFilter(Expression condition)
     {
-        FunctionCall countCall = new FunctionCall(
-                QualifiedName.of("count"),
-                Optional.<Window>empty(),
-                Optional.of(condition),
-                Optional.empty(),
-                false,
-                ImmutableList.<Expression>of()); /* arguments */
-
         return new AggregationNode.Aggregation(
-                countCall,
+                new FunctionReference(QualifiedName.of("count"), ImmutableList.of()),
+                Optional.empty(), /* ordering schema */
+                Optional.of(condition),
+                false,
                 new Signature("count", FunctionKind.AGGREGATE, BIGINT.getTypeSignature()),
                 Optional.<Symbol>empty()); /* mask */
     }
