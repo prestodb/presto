@@ -572,6 +572,23 @@ public final class ExpressionTreeRewriter<C>
         }
 
         @Override
+        protected Expression visitFunctionReference(FunctionReference node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteFunctionReference(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            List<Expression> arguments = rewrite(node.getArguments(), context);
+            if (!sameElements(node.getArguments(), arguments)) {
+                return new FunctionReference(node.getName(), arguments);
+            }
+            return node;
+        }
+
+        @Override
         protected Expression visitLambdaExpression(LambdaExpression node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {
