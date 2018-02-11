@@ -36,6 +36,7 @@ public final class PlanSanityChecker
                     new NoDuplicatePlanNodeIdsChecker(),
                     new TypeValidator(),
                     new NoSubqueryExpressionLeftChecker(),
+                    new NoIdentifierLeftChecker(),
                     new VerifyOnlyOneOutputNode())
             .putAll(
                     Stage.FINAL,
@@ -43,6 +44,7 @@ public final class PlanSanityChecker
                     new NoDuplicatePlanNodeIdsChecker(),
                     new TypeValidator(),
                     new NoSubqueryExpressionLeftChecker(),
+                    new NoIdentifierLeftChecker(),
                     new VerifyOnlyOneOutputNode(),
                     new VerifyNoFilteredAggregations())
             .build();
