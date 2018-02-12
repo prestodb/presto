@@ -14,16 +14,12 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.testing.MaterializedResult;
-import com.google.common.collect.ImmutableList;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
-import java.util.List;
-
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.tests.QueryAssertions.assertContains;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 public abstract class AbstractTestIntegrationSmokeTest
         extends AbstractTestQueryFramework
@@ -31,6 +27,16 @@ public abstract class AbstractTestIntegrationSmokeTest
     protected AbstractTestIntegrationSmokeTest(QueryRunnerSupplier supplier)
     {
         super(supplier);
+    }
+
+    protected boolean isDateTypeSupported()
+    {
+        return true;
+    }
+
+    protected boolean isParameterizedVarcharSupported()
+    {
+        return true;
     }
 
     @Test
@@ -120,14 +126,7 @@ public abstract class AbstractTestIntegrationSmokeTest
     public void testDescribeTable()
     {
         MaterializedResult actualColumns = computeActual("DESC ORDERS").toTestTypes();
-
-        // some connectors don't support dates, and some do not support parametrized varchars, so we check multiple options
-        List<MaterializedResult> expectedColumnsPossibilities = ImmutableList.of(
-                getExpectedOrdersTableDescription(true, true),
-                getExpectedOrdersTableDescription(true, false),
-                getExpectedOrdersTableDescription(false, true),
-                getExpectedOrdersTableDescription(false, false));
-        assertTrue(expectedColumnsPossibilities.contains(actualColumns), String.format("%s not in %s", actualColumns, expectedColumnsPossibilities));
+        assertEquals(actualColumns, getExpectedOrdersTableDescription(isDateTypeSupported(), isParameterizedVarcharSupported()));
     }
 
     @Test
