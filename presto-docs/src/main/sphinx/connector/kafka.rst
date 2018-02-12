@@ -276,41 +276,61 @@ or key and converting it into Presto columns.
 For fields, the following attributes are supported:
 
 * ``dataFormat`` - selects the width of the data type converted
-* ``type`` - all Presto primitive data types are supported
+* ``type`` - Presto data type (see table below for list of supported data types)
 * ``mapping`` - ``<start>[:<end>]``; start and end position of bytes to convert (optional)
 
-The ``dataFormat`` column selects the number of bytes converted.
+The ``dataFormat`` attribute selects the number of bytes converted.
 If absent, ``BYTE`` is assumed. All values are signed.
 
 Supported values are:
 
 * ``BYTE`` - one byte
-* ``SHORT`` - two bytes
-* ``INT`` - four bytes
-* ``LONG`` - eight bytes
+* ``SHORT`` - two bytes (big-endian)
+* ``INT`` - four bytes (big-endian)
+* ``LONG`` - eight bytes (big-endian)
 * ``FLOAT`` - four bytes (IEEE 754 format)
 * ``DOUBLE`` - eight bytes (IEEE 754 format)
 
-The ``type`` column defines the Presto data type on which the value is mapped.
+The ``type`` attribute defines the Presto data type on which the value is mapped.
 
-* boolean based types require a ``dataFormat`` to be ``BYTE``, ``SHORT``, ``INT`` or ``LONG``.
-  Any other type will throw a conversion error.
-  A value of ``0`` returns false, everything else true.
-* long based types require a ``dataFormat`` to be ``BYTE``, ``SHORT``, ``INT`` or ``LONG``.
-  Any other type will throw a conversion error.
-* double based types require a ``dataFormat`` to be ``FLOAT`` or ``DOUBLE``.
-  Any other type will throw a conversion error.
-* string based types require a ``dataFormat`` to be ``BYTE``.
-  Any other type will throw a conversion error.
+Depending on Presto type assigned to column different values of dataFormat can be used:
 
-The ``mapping`` field specifies the position of the bytes in a key or
+===================================== =======================================
+Presto data type                      Allowed ``dataFormat`` values
+===================================== =======================================
+``BIGINT``                            ``BYTE``, ``SHORT``, ``INT``, ``LONG``
+``INTEGER``                           ``BYTE``, ``SHORT``, ``INT``
+``SMALLINT``                          ``BYTE``, ``SHORT``
+``TINYINT``                           ``BYTE``
+``DOUBLE``                            ``DOUBLE``, ``FLOAT``
+``BOOLEAN``                           ``BYTE``, ``SHORT``, ``INT``, ``LONG``
+``VARCHAR`` / ``VARCHAR(x)``          ``BYTE``
+===================================== =======================================
+
+The ``mapping`` attribute specifies the position of the bytes in a key or
 message. It can be one or two numbers separated by a colon (``<start>[:<end>]``).
-If only a start position is given, the column will use the appropriate
-number of bytes for the type (see above). string based types (``VARCHAR``)
-will use all bytes to the end of the message. If start and end position is
-given, then for fixed with types the size must be at least the size of the
-type. For string based types, all bytes between start (inclusive) and end
-(exclusive) are used.
+
+If only a start position is given:
+
+ * For fixed width types the column will use the appropriate number of bytes for the specified ``dateFormat`` (see above).
+ * When ``VARCHAR`` value is decoded all bytes from start position till the end of the message will be used.
+
+If start and end position are given, then:
+
+ * For fixed width types the size must be equal to number of bytes used by specified ``dataFormat``.
+ * For ``VARCHAR`` all bytes between start (inclusive) and end (exclusive) are used.
+
+If no ``mapping`` attribute is specified it is equivalent to setting start position to 0 and leaving end position undefined.
+
+Decoding scheme of numeric data types (``BIGINT``, ``INTEGER``, ``SMALLINT``, ``TINYINT``, ``DOUBLE``) is straightforward.
+A sequence of bytes is read from input message and decoded according to either:
+
+ * big-endian encoding (for integer types)
+ * IEEE 754 format for (for ``DOUBLE``).
+ 
+Length of byte sequence is implied by the ``dataFormat``.
+
+For ``VARCHAR`` data type a sequence of bytes is interpreted according to UTF-8 encoding.
 
 ``csv`` Decoder
 ^^^^^^^^^^^^^^^
