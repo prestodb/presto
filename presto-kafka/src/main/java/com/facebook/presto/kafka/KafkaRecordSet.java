@@ -20,6 +20,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
@@ -278,7 +279,7 @@ public class KafkaRecordSet
         @Override
         public Object getObject(int field)
         {
-            throw new UnsupportedOperationException();
+            return getFieldValueProvider(field, Block.class).getBlock();
         }
 
         @Override
