@@ -204,19 +204,6 @@ public abstract class AbstractTestIntegrationSmokeTest
             return MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                     .row("orderkey", "bigint", "", "")
                     .row("custkey", "bigint", "", "")
-                    .row("orderstatus", "varchar", "", "")
-                    .row("totalprice", "double", "", "")
-                    .row("orderdate", orderDateType, "", "")
-                    .row("orderpriority", "varchar", "", "")
-                    .row("clerk", "varchar", "", "")
-                    .row("shippriority", "integer", "", "")
-                    .row("comment", "varchar", "", "")
-                    .build();
-        }
-        else {
-            return MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                    .row("orderkey", "bigint", "", "")
-                    .row("custkey", "bigint", "", "")
                     .row("orderstatus", "varchar(1)", "", "")
                     .row("totalprice", "double", "", "")
                     .row("orderdate", orderDateType, "", "")
@@ -224,6 +211,19 @@ public abstract class AbstractTestIntegrationSmokeTest
                     .row("clerk", "varchar(15)", "", "")
                     .row("shippriority", "integer", "", "")
                     .row("comment", "varchar(79)", "", "")
+                    .build();
+        }
+        else {
+            return MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                    .row("orderkey", "bigint", "", "")
+                    .row("custkey", "bigint", "", "")
+                    .row("orderstatus", "varchar", "", "")
+                    .row("totalprice", "double", "", "")
+                    .row("orderdate", orderDateType, "", "")
+                    .row("orderpriority", "varchar", "", "")
+                    .row("clerk", "varchar", "", "")
+                    .row("shippriority", "integer", "", "")
+                    .row("comment", "varchar", "", "")
                     .build();
         }
     }
