@@ -35,7 +35,7 @@ import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 
-public class TestGeoQueries
+public class TestGeoFunctions
         extends AbstractTestFunctions
 {
     @BeforeClass
