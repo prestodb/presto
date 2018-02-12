@@ -66,7 +66,6 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.transform;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -229,7 +228,7 @@ public class HiveSplitManager
                         layout.getCompactEffectivePredicate(),
                         maxInitialSplits,
                         maxOutstandingSplits,
-                        new DataSize(32, MEGABYTE),
+                        maxOutstandingSplitsSize,
                         hiveSplitLoader,
                         executor,
                         new CounterStat());
