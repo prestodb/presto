@@ -84,6 +84,18 @@ public class TestCassandraIntegrationSmokeTest
         createTestTables(session, KEYSPACE, DATE_LOCAL);
     }
 
+    @Override
+    protected boolean isDateTypeSupported()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean isParameterizedVarcharSupported()
+    {
+        return false;
+    }
+
     @Test
     public void testPartitionKeyPredicate()
     {
