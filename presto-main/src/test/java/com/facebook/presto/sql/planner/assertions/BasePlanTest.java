@@ -42,8 +42,7 @@ import static java.util.stream.Collectors.toList;
 
 public class BasePlanTest
 {
-    private final Map<String, String> sessionProperties;
-
+    private final LocalQueryRunnerSupplier queryRunnerSupplier;
     private LocalQueryRunner queryRunner;
 
     public BasePlanTest()
@@ -53,11 +52,15 @@ public class BasePlanTest
 
     public BasePlanTest(Map<String, String> sessionProperties)
     {
-        this.sessionProperties = ImmutableMap.copyOf(requireNonNull(sessionProperties, "sessionProperties is null"));
+        this.queryRunnerSupplier = () -> createQueryRunner(sessionProperties);
     }
 
-    @BeforeClass
-    public final void initPlanTest()
+    public BasePlanTest(LocalQueryRunnerSupplier supplier)
+    {
+        this.queryRunnerSupplier = requireNonNull(supplier, "queryRunnerSupplier is null");
+    }
+
+    private static LocalQueryRunner createQueryRunner(Map<String, String> sessionProperties)
     {
         Session.SessionBuilder sessionBuilder = testSessionBuilder()
                 .setCatalog("local")
@@ -66,11 +69,19 @@ public class BasePlanTest
 
         sessionProperties.entrySet().forEach(entry -> sessionBuilder.setSystemProperty(entry.getKey(), entry.getValue()));
 
-        queryRunner = new LocalQueryRunner(sessionBuilder.build());
+        LocalQueryRunner queryRunner = new LocalQueryRunner(sessionBuilder.build());
 
         queryRunner.createCatalog(queryRunner.getDefaultSession().getCatalog().get(),
                 new TpchConnectorFactory(1),
                 ImmutableMap.of());
+        return queryRunner;
+    }
+
+    @BeforeClass
+    public final void initPlanTest()
+            throws Exception
+    {
+        queryRunner = queryRunnerSupplier.get();
     }
 
     @AfterClass(alwaysRun = true)
@@ -161,5 +172,11 @@ public class BasePlanTest
         catch (RuntimeException e) {
             throw new AssertionError("Planning failed for SQL: " + sql, e);
         }
+    }
+
+    public interface LocalQueryRunnerSupplier
+    {
+        LocalQueryRunner get()
+                throws Exception;
     }
 }

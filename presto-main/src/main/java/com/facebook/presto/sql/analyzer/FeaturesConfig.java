@@ -57,6 +57,7 @@ public class FeaturesConfig
     private boolean distributedIndexJoinsEnabled;
     private boolean distributedJoinsEnabled = true;
     private boolean colocatedJoinsEnabled;
+    private boolean spatialJoinsEnabled = true;
     private boolean fastInequalityJoins = true;
     private boolean reorderJoins = true;
     private boolean redistributeWrites = true;
@@ -243,6 +244,19 @@ public class FeaturesConfig
     public FeaturesConfig setColocatedJoinsEnabled(boolean colocatedJoinsEnabled)
     {
         this.colocatedJoinsEnabled = colocatedJoinsEnabled;
+        return this;
+    }
+
+    public boolean isSpatialJoinsEnabled()
+    {
+        return spatialJoinsEnabled;
+    }
+
+    @Config("spatial-joins-enabled")
+    @ConfigDescription("Use spatial index for spatial joins when possible")
+    public FeaturesConfig setSpatialJoinsEnabled(boolean spatialJoinsEnabled)
+    {
+        this.spatialJoinsEnabled = spatialJoinsEnabled;
         return this;
     }
 

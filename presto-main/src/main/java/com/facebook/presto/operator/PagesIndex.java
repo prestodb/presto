@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.esri.core.geometry.ogc.OGCGeometry;
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
@@ -42,6 +43,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.function.BiPredicate;
 import java.util.function.IntUnaryOperator;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
@@ -69,6 +71,7 @@ public class PagesIndex
         implements Swapper
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(PagesIndex.class).instanceSize();
+    private static final int IMMUTABLE_LIST_HEADER_SIZE = ClassLayout.parseClass(ImmutableList.class).headerSize();
     private static final Logger log = Logger.get(PagesIndex.class);
 
     private final OrderingCompiler orderingCompiler;
@@ -435,6 +438,18 @@ public class PagesIndex
             List<JoinFilterFunctionFactory> searchFunctionFactories)
     {
         return createLookupSourceSupplier(session, joinChannels, hashChannel, filterFunctionFactory, sortChannel, searchFunctionFactories, Optional.empty());
+    }
+
+    public PagesSpatialIndexSupplier createPagesSpatialIndex(
+            Session session,
+            int geometryChannel,
+            BiPredicate<OGCGeometry, OGCGeometry> spatialRelationshipTest,
+            Optional<JoinFilterFunctionFactory> filterFunctionFactory,
+            List<Integer> outputChannels)
+    {
+        // TODO probably shouldn't copy to reduce memory and for memory accounting's sake
+        List<List<Block>> channels = ImmutableList.copyOf(this.channels);
+        return new PagesSpatialIndexSupplier(session, valueAddresses, types, outputChannels, channels, geometryChannel, spatialRelationshipTest, filterFunctionFactory);
     }
 
     public LookupSourceSupplier createLookupSourceSupplier(
