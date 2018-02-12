@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
+import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.tpch.TpchConnectorFactory;
@@ -24,8 +25,10 @@ import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableMap;
 
 import java.io.Closeable;
+import java.util.List;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static java.util.Collections.emptyList;
 
 public class RuleTester
         implements Closeable
@@ -41,6 +44,11 @@ public class RuleTester
 
     public RuleTester()
     {
+        this(emptyList());
+    }
+
+    public RuleTester(List<Plugin> plugins)
+    {
         session = testSessionBuilder()
                 .setCatalog(CATALOG_ID)
                 .setSchema("tiny")
@@ -51,6 +59,7 @@ public class RuleTester
         queryRunner.createCatalog(session.getCatalog().get(),
                 new TpchConnectorFactory(1),
                 ImmutableMap.of());
+        plugins.stream().forEach(queryRunner::installPlugin);
 
         this.metadata = queryRunner.getMetadata();
         this.transactionManager = queryRunner.getTransactionManager();
