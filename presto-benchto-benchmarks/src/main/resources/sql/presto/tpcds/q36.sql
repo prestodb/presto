@@ -23,5 +23,5 @@ WHERE ("d1"."d_year" = 2001)
    , 'TN'
    , 'TN'))
 GROUP BY ROLLUP (i_category, i_class)
-ORDER BY "lochierarchy" DESC, (CASE WHEN ((GROUPING ("i_category") + GROUPING ("i_class")) = 0) THEN "i_category" END) ASC, "rank_within_parent" ASC, "i_category", "i_class"
+ORDER BY "lochierarchy" DESC, (CASE WHEN ("lochierarchy" = 0) THEN "i_category" END) ASC, "rank_within_parent" ASC, "i_category", "i_class"
 LIMIT 100
