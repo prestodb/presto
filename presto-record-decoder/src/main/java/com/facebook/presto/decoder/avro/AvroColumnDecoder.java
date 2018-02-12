@@ -16,11 +16,14 @@ package com.facebook.presto.decoder.avro;
 import com.facebook.presto.decoder.DecoderColumnHandle;
 import com.facebook.presto.decoder.FieldValueProvider;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarbinaryType;
+import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
@@ -29,9 +32,16 @@ import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.util.Utf8;
 
 import java.nio.ByteBuffer;
+import java.util.List;
+import java.util.Map;
 
 import static com.facebook.presto.decoder.DecoderErrorCode.DECODER_CONVERSION_NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
+import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
+import static com.facebook.presto.spi.type.StandardTypes.BIGINT;
+import static com.facebook.presto.spi.type.StandardTypes.BOOLEAN;
+import static com.facebook.presto.spi.type.StandardTypes.DOUBLE;
+import static com.facebook.presto.spi.type.StandardTypes.MAP;
 import static com.facebook.presto.spi.type.StandardTypes.VARBINARY;
 import static com.facebook.presto.spi.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
@@ -68,6 +78,26 @@ public class AvroColumnDecoder
     }
 
     private boolean isSupportedType(Type type)
+    {
+        if (isSupportedPrimitive(type)) {
+            return true;
+        }
+
+        if (type.getTypeSignature().getBase().equalsIgnoreCase(ARRAY)) {
+            checkArgument(type.getTypeParameters().size() == 1, "expecting exactly one type parameter for array");
+            return isSupportedPrimitive(type.getTypeParameters().get(0));
+        }
+
+        if (type.getTypeSignature().getBase().equalsIgnoreCase(MAP)) {
+            List<Type> typeParameters = type.getTypeParameters();
+            checkArgument(typeParameters.size() == 2, "expecting exactly two type parameters for map");
+            checkArgument(typeParameters.get(0) instanceof VarcharType, "Unsupported column type '%s' for map key", typeParameters.get(0));
+            return isSupportedPrimitive(type.getTypeParameters().get(1));
+        }
+        return false;
+    }
+
+    private boolean isSupportedPrimitive(Type type)
     {
         return isVarcharType(type) ||
                 ImmutableList.of(
@@ -147,6 +177,12 @@ public class AvroColumnDecoder
         {
             return AvroColumnDecoder.getSlice(value, columnType, columnName);
         }
+
+        @Override
+        public Block getBlock()
+        {
+            return serializeObject(null, value, columnType, columnName);
+        }
     }
 
     private static Slice getSlice(Object value, Type type, String columnName)
@@ -163,5 +199,111 @@ public class AvroColumnDecoder
             default:
                 throw new PrestoException(DECODER_CONVERSION_NOT_SUPPORTED, format("cannot decode object of '%s' as '%s' for column '%s'", value.getClass(), type, columnName));
         }
+    }
+
+    private static Block serializeObject(BlockBuilder builder, Object value, Type type, String columnName)
+    {
+        switch (type.getTypeSignature().getBase()) {
+            case ARRAY:
+                return serializeList(builder, value, type, columnName);
+            case MAP:
+                return serializeMap(builder, value, type, columnName);
+            default:
+                serializeGeneric(builder, value, type, columnName);
+        }
+        return null;
+    }
+
+    private static Block serializeList(BlockBuilder blockBuilder, Object value, Type type, String columnName)
+    {
+        if (value == null) {
+            requireNonNull(blockBuilder, "parent blockBuilder is null").appendNull();
+            return blockBuilder.build();
+        }
+
+        List<?> list = (List) value;
+        List<Type> typeParameters = type.getTypeParameters();
+        Type elementType = typeParameters.get(0);
+
+        BlockBuilder currentBlockBuilder;
+        if (blockBuilder != null) {
+            currentBlockBuilder = blockBuilder.beginBlockEntry();
+        }
+        else {
+            currentBlockBuilder = elementType.createBlockBuilder(null, list.size());
+        }
+
+        for (Object element : list) {
+            serializeObject(currentBlockBuilder, element, elementType, columnName);
+        }
+
+        if (blockBuilder != null) {
+            blockBuilder.closeEntry();
+            return null;
+        }
+        return currentBlockBuilder.build();
+    }
+
+    private static void serializeGeneric(BlockBuilder blockBuilder, Object value, Type type, String columnName)
+    {
+        requireNonNull(blockBuilder, "parent blockBuilder is null");
+
+        if (value == null) {
+            blockBuilder.appendNull();
+            return;
+        }
+
+        switch (type.getTypeSignature().getBase()) {
+            case BOOLEAN:
+                type.writeBoolean(blockBuilder, (Boolean) value);
+                break;
+            case BIGINT:
+                type.writeLong(blockBuilder, (Long) value);
+                break;
+            case DOUBLE:
+                type.writeDouble(blockBuilder, (Double) value);
+                break;
+            case VARCHAR:
+            case VARBINARY:
+                type.writeSlice(blockBuilder, getSlice(value, type, columnName));
+                break;
+            default:
+                throw new PrestoException(DECODER_CONVERSION_NOT_SUPPORTED, format("cannot decode object of '%s' as '%s' for column '%s'", value.getClass(), type, columnName));
+        }
+    }
+
+    private static Block serializeMap(BlockBuilder blockBuilder, Object value, Type type, String columnName)
+    {
+        if (value == null) {
+            requireNonNull(blockBuilder, "parent blockBuilder is null").appendNull();
+            return blockBuilder.build();
+        }
+
+        Map<?, ?> map = (Map) value;
+        List<Type> typeParameters = type.getTypeParameters();
+        Type keyType = typeParameters.get(0);
+        Type valueType = typeParameters.get(1);
+
+        BlockBuilder entryBuilder;
+        boolean builderSynthesized = false;
+
+        if (blockBuilder == null) {
+            builderSynthesized = true;
+            blockBuilder = type.createBlockBuilder(null, 1);
+        }
+        entryBuilder = blockBuilder.beginBlockEntry();
+
+        for (Map.Entry<?, ?> entry : map.entrySet()) {
+            if (entry.getKey() != null) {
+                keyType.writeSlice(entryBuilder, truncateToLength(utf8Slice(entry.getKey().toString()), keyType));
+                serializeObject(entryBuilder, entry.getValue(), valueType, columnName);
+            }
+        }
+
+        blockBuilder.closeEntry();
+        if (builderSynthesized) {
+            return (Block) type.getObject(blockBuilder, 0);
+        }
+        return null;
     }
 }

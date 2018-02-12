@@ -57,6 +57,11 @@ public class KafkaAvroSmokeTest
 
     private static final String ALL_NULL_AVRO_TABLE_NAME = "product_tests.all_null_avro";
     private static final String ALL_NULL_AVRO_TOPIC_NAME = "all_null_avro";
+
+    private static final String STRUCTURAL_AVRO_TABLE_NAME = "product_tests.structural_datatype_avro";
+    private static final String STRUCTURAL_AVRO_TOPIC_NAME = "structural_datatype_avro";
+    private static final String STRUCTURAL_SCHEMA_PATH = "/docker/volumes/conf/presto/etc/catalog/kafka/structural_datatype_avro_schema.avsc";
+
     // kafka-connectors requires tables to be predefined in presto configuration
     // the requirements here will be used to verify that table actually exists and to
     // create topics and propagate them with data
@@ -147,5 +152,27 @@ public class KafkaAvroSmokeTest
                 null,
                 null,
                 null));
+    }
+
+    private static class StructuralDataTypeTable
+            implements RequirementsProvider
+    {
+        @Override
+        public Requirement getRequirements(Configuration configuration)
+        {
+            ImmutableMap<String, Object> record = ImmutableMap.of(
+                    "a_array", ImmutableList.of(100L, 102L),
+                    "a_map", ImmutableMap.of("key1", "value1"));
+            return createAvroTable(STRUCTURAL_SCHEMA_PATH, STRUCTURAL_AVRO_TABLE_NAME, STRUCTURAL_AVRO_TOPIC_NAME, record);
+        }
+    }
+
+    @Test(groups = {KAFKA})
+    @Requires(StructuralDataTypeTable.class)
+    public void testSelectStructuralDataType()
+            throws SQLException
+    {
+        QueryResult queryResult = query(format("SELECT a[1], a[2], m['key1'] FROM (SELECT c_array as a, c_map as m FROM %s.%s) t", KAFKA_CATALOG, STRUCTURAL_AVRO_TABLE_NAME));
+        assertThat(queryResult).containsOnly(row(100, 102, "value1"));
     }
 }

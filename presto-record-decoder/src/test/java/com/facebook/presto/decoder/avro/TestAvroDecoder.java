@@ -18,6 +18,8 @@ import com.facebook.presto.decoder.DecoderTestColumnHandle;
 import com.facebook.presto.decoder.FieldValueProvider;
 import com.facebook.presto.decoder.RowDecoder;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.DecimalType;
@@ -28,6 +30,7 @@ import com.facebook.presto.spi.type.SmallintType;
 import com.facebook.presto.spi.type.TinyintType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarbinaryType;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.apache.avro.Schema;
@@ -41,6 +44,9 @@ import org.testng.annotations.Test;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -49,18 +55,27 @@ import static com.facebook.presto.decoder.util.DecoderTestUtil.checkValue;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
+import static com.facebook.presto.testing.TestingEnvironment.TYPE_MANAGER;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertTrue;
 
 public class TestAvroDecoder
 {
     private static final String DATA_SCHEMA = "dataSchema";
     private static final AvroRowDecoderFactory DECODER_FACTORY = new AvroRowDecoderFactory();
+
+    private static final Type VACHAR_MAP_TYPE = TYPE_MANAGER.getType(parseTypeSignature("map<varchar,varchar>"));
+    private static final Type DOUBLE_MAP_TYPE = TYPE_MANAGER.getType(parseTypeSignature("map<varchar,double>"));
+    private static final Type REAL_MAP_TYPE = TYPE_MANAGER.getType(parseTypeSignature("map<varchar,real>"));
 
     private static String getAvroSchema(String name, String dataType)
     {
@@ -258,6 +273,105 @@ public class TestAvroDecoder
     }
 
     @Test
+    public void testArrayDecodedAsArray()
+            throws Exception
+    {
+        DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", new ArrayType(BIGINT), "array_field", null, null, false, false, false);
+
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "array_field", "{\"type\": \"array\", \"items\": \"long\"}", ImmutableList.of(114L, 136L));
+        checkArrayValue(decodedRow, row, new long[] {114, 136});
+    }
+
+    @Test
+    public void testArrayWithNulls()
+            throws Exception
+    {
+        DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", new ArrayType(BIGINT), "array_field", null, null, false, false, false);
+
+        List<Long> values = new ArrayList<>();
+        values.add(null);
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "array_field", "{\"type\": \"array\", \"items\": \"null\"}", values);
+        checkArrayItemIsNull(decodedRow, row, new long[] {0});
+    }
+
+    @Test
+    public void testMapDecodedAsMap()
+            throws Exception
+    {
+        DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", VACHAR_MAP_TYPE, "map_field", null, null, false, false, false);
+
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "map_field", "{\"type\": \"map\", \"values\": \"string\"}", ImmutableMap.of(
+                "key1", "abc",
+                "key2", "def",
+                "key3", "zyx"));
+        checkMapValue(decodedRow, row, ImmutableMap.of(
+                "key1", "abc",
+                "key2", "def",
+                "key3", "zyx"));
+    }
+
+    @Test
+    public void testMapWithNull()
+            throws Exception
+    {
+        DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", VACHAR_MAP_TYPE, "map_field", null, null, false, false, false);
+
+        Map<String, String> expectedValues = new HashMap<>();
+        expectedValues.put("key1", null);
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "map_field", "{\"type\": \"map\", \"values\": \"null\"}", expectedValues);
+
+        checkMapValue(decodedRow, row, expectedValues);
+    }
+
+    private static void checkArrayValue(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle, long[] expected)
+    {
+        Block actualBlock = getBlock(decodedRow, handle);
+        assertEquals(actualBlock.getPositionCount(), expected.length);
+
+        for (int i = 0; i < actualBlock.getPositionCount(); i++) {
+            assertFalse(actualBlock.isNull(i));
+            assertEquals(BIGINT.getLong(actualBlock, i), expected[i]);
+        }
+    }
+
+    private static void checkArrayItemIsNull(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle, long[] expected)
+    {
+        Block actualBlock = getBlock(decodedRow, handle);
+        assertEquals(actualBlock.getPositionCount(), expected.length);
+
+        for (int i = 0; i < actualBlock.getPositionCount(); i++) {
+            assertTrue(actualBlock.isNull(i));
+            assertEquals(BIGINT.getLong(actualBlock, i), expected[i]);
+        }
+    }
+
+    private static void checkMapValue(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderTestColumnHandle handle, Map<String, String> expected)
+    {
+        Block actualBlock = getBlock(decodedRow, handle);
+        assertEquals(actualBlock.getPositionCount(), expected.size() * 2);
+
+        for (int i = 0; i < actualBlock.getPositionCount(); i += 2) {
+            String actualKey = VARCHAR.getSlice(actualBlock, i).toStringUtf8();
+            String actualValue;
+            if (actualBlock.isNull(i + 1)) {
+                actualValue = null;
+            }
+            else {
+                actualValue = VARCHAR.getSlice(actualBlock, i + 1).toStringUtf8();
+            }
+            assertTrue(expected.containsKey(actualKey));
+            assertEquals(actualValue, expected.get(actualKey));
+        }
+    }
+
+    private static Block getBlock(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle)
+    {
+        FieldValueProvider provider = decodedRow.get(handle);
+        assertNotNull(provider);
+        return provider.getBlock();
+    }
+
+    @Test
     public void testInvalidExtraneousParameters()
     {
         assertThatThrownBy(() -> singleColumnDecoder(BigintType.BIGINT, "mapping", null, "hint", false, false, false))
@@ -279,6 +393,9 @@ public class TestAvroDecoder
         singleColumnDecoder(DoubleType.DOUBLE);
         singleColumnDecoder(createUnboundedVarcharType());
         singleColumnDecoder(createVarcharType(100));
+        singleColumnDecoder(new ArrayType(BigintType.BIGINT));
+        singleColumnDecoder(VACHAR_MAP_TYPE);
+        singleColumnDecoder(DOUBLE_MAP_TYPE);
 
         // some unsupported types
         assertUnsupportedColumnTypeException(() -> singleColumnDecoder(RealType.REAL));
@@ -286,6 +403,8 @@ public class TestAvroDecoder
         assertUnsupportedColumnTypeException(() -> singleColumnDecoder(SmallintType.SMALLINT));
         assertUnsupportedColumnTypeException(() -> singleColumnDecoder(TinyintType.TINYINT));
         assertUnsupportedColumnTypeException(() -> singleColumnDecoder(DecimalType.createDecimalType(10, 4)));
+        assertUnsupportedColumnTypeException(() -> singleColumnDecoder(new ArrayType(RealType.REAL)));
+        assertUnsupportedColumnTypeException(() -> singleColumnDecoder(REAL_MAP_TYPE));
     }
 
     private void assertUnsupportedColumnTypeException(ThrowableAssert.ThrowingCallable callable)
