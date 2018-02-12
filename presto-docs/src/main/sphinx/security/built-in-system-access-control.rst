@@ -61,23 +61,26 @@ contents:
    access-control.name=file
    security.config-file=etc/rules.json
 
-The config file consists of a list of access control rules in JSON format. The
-rules are matched in the order specified in the file. All
-regular expressions default to ``.*`` if not specified.
+The config file is specified in JSON format.
 
-This plugin currently only supports catalog access control rules. If you want
-to limit access on a system level in any other way, you must implement a custom
-SystemAccessControl plugin (see :doc:`/develop/system-access-control`).
+* It contains the rules defining which catalog can be accessed by which user (see Catalog Rules below).
+* User extraction rules specifying what principals can identify as what users (see Username Extraction below).
+
+This plugin currently only supports catalog access control rules and username
+extraction. If you want to limit access on a system level in any other way, you
+must implement a custom SystemAccessControl plugin
+(see :doc:`/develop/system-access-control`).
 
 Catalog Rules
 -------------
 
 These rules govern the catalogs particular users can access. The user is
-granted access to a catalog based on the first matching rule. If no rule
-matches, access is denied. Each rule is composed of the following fields:
+granted access to a catalog based on the first matching rule read from top to
+bottom. If no rule matches, access is denied. Each rule is composed of the
+following fields:
 
-* ``user`` (optional): regex to match against user name.
-* ``catalog`` (optional): regex to match against catalog name.
+* ``user`` (optional): regex to match against user name. Defaults to ``.*``.
+* ``catalog`` (optional): regex to match against catalog name. Defaults to ``.*``.
 * ``allowed`` (required): boolean indicating whether a user has access to the catalog
 
 .. note::
@@ -109,3 +112,29 @@ catalog, and deny all other access, you can use the following rules:
       ]
     }
 
+Username Extraction
+-------------------
+
+These rules serve to enforce a specific matching between a principal and a
+specified user name. It consists of a list of regular expressions which will
+perform group extraction and compare it with the provided user name.
+If a provided expression extracts the same user name, the user will have
+access to the database.
+If no expression are specified, no checks will be performed.
+
+The following implements an exact matching of the full principal name for LDAP
+and Kerberos authentication:
+
+.. code-block:: json
+
+    {
+      "catalog": [
+        {
+          "allow": true
+        }
+      ],
+      "user_patterns": [
+        "(.*)",
+        "([a-zA-Z]+)/?.*@.*"
+      ]
+    }
