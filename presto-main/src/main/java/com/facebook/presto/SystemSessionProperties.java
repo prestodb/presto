@@ -60,6 +60,7 @@ public final class SystemSessionProperties
     public static final String EXECUTION_POLICY = "execution_policy";
     public static final String DICTIONARY_AGGREGATION = "dictionary_aggregation";
     public static final String PLAN_WITH_TABLE_NODE_PARTITIONING = "plan_with_table_node_partitioning";
+    public static final String SPATIAL_JOIN = "spatial_join";
     public static final String COLOCATED_JOIN = "colocated_join";
     public static final String CONCURRENT_LIFESPANS_PER_NODE = "concurrent_lifespans_per_task";
     public static final String REORDER_JOINS = "reorder_joins";
@@ -283,6 +284,11 @@ public final class SystemSessionProperties
                         COLOCATED_JOIN,
                         "Experimental: Use a colocated join when possible",
                         featuresConfig.isColocatedJoinsEnabled(),
+                        false),
+                booleanSessionProperty(
+                        SPATIAL_JOIN,
+                        "Use spatial index for spatial join when possible",
+                        featuresConfig.isSpatialJoinsEnabled(),
                         false),
                 integerSessionProperty(
                         CONCURRENT_LIFESPANS_PER_NODE,
@@ -518,6 +524,11 @@ public final class SystemSessionProperties
     public static boolean isColocatedJoinEnabled(Session session)
     {
         return session.getSystemProperty(COLOCATED_JOIN, Boolean.class);
+    }
+
+    public static boolean isSpatialJoinEanbled(Session session)
+    {
+        return session.getSystemProperty(SPATIAL_JOIN, Boolean.class);
     }
 
     public static OptionalInt getConcurrentLifespansPerNode(Session session)

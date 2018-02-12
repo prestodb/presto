@@ -1026,6 +1026,12 @@
             </dependency>
 
             <dependency>
+                <groupId>org.locationtech.jts</groupId>
+                <artifactId>jts-core</artifactId>
+                <version>1.15.0</version>
+            </dependency>
+
+            <dependency>
                 <groupId>org.anarres.lzo</groupId>
                 <artifactId>lzo-hadoop</artifactId>
                 <version>1.0.5</version>
