@@ -23,15 +23,22 @@ import java.util.Optional;
 public class FileBasedSystemAccessControlRules
 {
     private final List<CatalogAccessControlRule> catalogRules;
+    private final List<ImpersonateAccessControlRule> impersonationRules;
 
     @JsonCreator
-    public FileBasedSystemAccessControlRules(@JsonProperty("catalogs") Optional<List<CatalogAccessControlRule>> catalogRules)
+    public FileBasedSystemAccessControlRules(@JsonProperty("catalogs") Optional<List<CatalogAccessControlRule>> catalogRules,
+                                             @JsonProperty("impersonations") Optional<List<ImpersonateAccessControlRule>> impersonationRules)
     {
         this.catalogRules = catalogRules.map(ImmutableList::copyOf).orElse(ImmutableList.of());
+        this.impersonationRules = impersonationRules.map(ImmutableList::copyOf).orElse(ImmutableList.of());
     }
 
     public List<CatalogAccessControlRule> getCatalogRules()
     {
         return catalogRules;
+    }
+    public List<ImpersonateAccessControlRule> getImpersonateRules()
+    {
+        return impersonationRules;
     }
 }
