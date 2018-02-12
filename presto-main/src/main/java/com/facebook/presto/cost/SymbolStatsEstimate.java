@@ -55,8 +55,8 @@ public class SymbolStatsEstimate
                 (0 <= nullsFraction && nullsFraction <= 1.) || isNaN(nullsFraction),
                 "Nulls fraction should be within [0, 1] or NaN, got: %s",
                 nullsFraction);
-        // TODO normalize nullsFraction for an empty range (or validate it is already normalized)
-        this.nullsFraction = nullsFraction;
+        boolean isEmptyRange = isNaN(lowValue) && isNaN(highValue);
+        this.nullsFraction = isEmptyRange ? 1.0 : nullsFraction;
 
         checkArgument(averageRowSize >= 0 || isNaN(averageRowSize), "Average row size should be non-negative or NaN, got: %s", averageRowSize);
         this.averageRowSize = averageRowSize;
@@ -83,9 +83,6 @@ public class SymbolStatsEstimate
 
     public double getNullsFraction()
     {
-        if (isRangeEmpty()) {
-            return 1.0;
-        }
         return nullsFraction;
     }
 
