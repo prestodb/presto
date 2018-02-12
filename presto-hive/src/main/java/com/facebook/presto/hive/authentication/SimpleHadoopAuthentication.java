@@ -25,7 +25,7 @@ public class SimpleHadoopAuthentication
     public UserGroupInformation getUserGroupInformation()
     {
         try {
-            return UserGroupInformation.getCurrentUser();
+            return UserGroupInformation.getLoginUser();
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
