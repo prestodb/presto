@@ -123,10 +123,10 @@ public abstract class AbstractTestIntegrationSmokeTest
 
         // some connectors don't support dates, and some do not support parametrized varchars, so we check multiple options
         List<MaterializedResult> expectedColumnsPossibilities = ImmutableList.of(
-                getExpectedTableDescription(true, true),
-                getExpectedTableDescription(true, false),
-                getExpectedTableDescription(false, true),
-                getExpectedTableDescription(false, false));
+                getExpectedOrdersTableDescription(true, true),
+                getExpectedOrdersTableDescription(true, false),
+                getExpectedOrdersTableDescription(false, true),
+                getExpectedOrdersTableDescription(false, false));
         assertTrue(expectedColumnsPossibilities.contains(actualColumns), String.format("%s not in %s", actualColumns, expectedColumnsPossibilities));
     }
 
@@ -191,7 +191,7 @@ public abstract class AbstractTestIntegrationSmokeTest
                 "line 1:49: Column name 'orderkey' specified more than once");
     }
 
-    private MaterializedResult getExpectedTableDescription(boolean dateSupported, boolean parametrizedVarchar)
+    private MaterializedResult getExpectedOrdersTableDescription(boolean dateSupported, boolean parametrizedVarchar)
     {
         String orderDateType;
         if (dateSupported) {
