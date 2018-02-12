@@ -18,10 +18,14 @@ import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskStateMachine;
 import com.facebook.presto.memory.MemoryPool;
 import com.facebook.presto.memory.QueryContext;
+import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.QualifiedObjectName;
+import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.plugin.memory.MemoryConnectorFactory;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spiller.SpillSpaceTracker;
@@ -35,9 +39,11 @@ import org.intellij.lang.annotations.Language;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
+import static org.testng.Assert.assertTrue;
 
 public class MemoryLocalQueryRunner
 {
@@ -56,6 +62,11 @@ public class MemoryLocalQueryRunner
         properties.forEach(sessionBuilder::setSystemProperty);
 
         localQueryRunner = createMemoryLocalQueryRunner(sessionBuilder.build());
+    }
+
+    public void installPlugin(Plugin plugin)
+    {
+        localQueryRunner.installPlugin(plugin);
     }
 
     public List<Page> execute(@Language("SQL") String query)
@@ -104,5 +115,14 @@ public class MemoryLocalQueryRunner
                 ImmutableMap.of("memory.max-data-per-node", "4GB"));
 
         return localQueryRunner;
+    }
+
+    public void dropTable(String tableName)
+    {
+        Session session = localQueryRunner.getDefaultSession();
+        Metadata metadata = localQueryRunner.getMetadata();
+        Optional<TableHandle> tableHandle = metadata.getTableHandle(session, QualifiedObjectName.valueOf(tableName));
+        assertTrue(tableHandle.isPresent(), "Table " + tableName + " does not exist");
+        metadata.dropTable(session, tableHandle.get());
     }
 }
