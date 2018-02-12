@@ -56,5 +56,5 @@ public class TestPostgreSqlDistributedQueries
         // https://github.com/prestodb/presto/issues/5752
     }
 
-    // PostgreSQL specific tests should normally go in TestPostgreSqlDistributedQueries
+    // PostgreSQL specific tests should normally go in TestPostgreSqlIntegrationSmokeTest
 }
