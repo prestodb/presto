@@ -23,6 +23,7 @@ import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 
+@Test(singleThreaded = true)
 public class TestValuesNodeStats
         extends BaseStatsCalculatorTest
 {
