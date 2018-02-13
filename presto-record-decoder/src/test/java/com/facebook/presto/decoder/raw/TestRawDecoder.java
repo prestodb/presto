@@ -17,9 +17,19 @@ import com.facebook.presto.decoder.DecoderColumnHandle;
 import com.facebook.presto.decoder.DecoderTestColumnHandle;
 import com.facebook.presto.decoder.FieldValueProvider;
 import com.facebook.presto.decoder.RowDecoder;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.IntegerType;
+import com.facebook.presto.spi.type.RealType;
+import com.facebook.presto.spi.type.SmallintType;
+import com.facebook.presto.spi.type.TinyintType;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarbinaryType;
 import com.google.common.collect.ImmutableSet;
+import org.assertj.core.api.ThrowableAssert;
 import org.testng.annotations.Test;
 
 import java.nio.ByteBuffer;
@@ -29,8 +39,11 @@ import java.util.Set;
 
 import static com.facebook.presto.decoder.util.DecoderTestUtil.checkIsNull;
 import static com.facebook.presto.decoder.util.DecoderTestUtil.checkValue;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static java.util.Collections.emptyMap;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
 public class TestRawDecoder
@@ -41,7 +54,7 @@ public class TestRawDecoder
     public void testEmptyRecord()
     {
         byte[] emptyRow = new byte[0];
-        DecoderTestColumnHandle column = new DecoderTestColumnHandle("", 0, "row1", BigintType.BIGINT, null, "LONG", null, false, false, false);
+        DecoderTestColumnHandle column = new DecoderTestColumnHandle("", 0, "row1", createUnboundedVarcharType(), null, "BYTE", null, false, false, false);
         Set<DecoderColumnHandle> columns = ImmutableSet.of(column);
         RowDecoder rowDecoder = DECODER_FACTORY.create(emptyMap(), columns);
 
@@ -123,8 +136,8 @@ public class TestRawDecoder
         byte[] row = new byte[buf.position()];
         System.arraycopy(buf.array(), 0, row, 0, buf.position());
 
-        DecoderTestColumnHandle row1 = new DecoderTestColumnHandle("", 0, "row1", createVarcharType(100), null, "DOUBLE", null, false, false, false);
-        DecoderTestColumnHandle row2 = new DecoderTestColumnHandle("", 1, "row2", createVarcharType(100), "8", "FLOAT", null, false, false, false);
+        DecoderTestColumnHandle row1 = new DecoderTestColumnHandle("", 0, "row1", DOUBLE, null, "DOUBLE", null, false, false, false);
+        DecoderTestColumnHandle row2 = new DecoderTestColumnHandle("", 1, "row2", DOUBLE, "8", "FLOAT", null, false, false, false);
 
         Set<DecoderColumnHandle> columns = ImmutableSet.of(row1, row2);
         RowDecoder rowDecoder = DECODER_FACTORY.create(emptyMap(), columns);
@@ -227,5 +240,169 @@ public class TestRawDecoder
         checkValue(decodedRow, row32, false);
         checkValue(decodedRow, row33, 120);
         checkValue(decodedRow, row34, true);
+    }
+
+    @Test
+    public void testMappingForFixedWidthTypesValidation()
+    {
+        singleColumnDecoder(BigintType.BIGINT, "0", "BYTE");
+        singleColumnDecoder(BigintType.BIGINT, "0:1", "BYTE");
+        assertMappingDoesNotMatchDataFormatException(() -> singleColumnDecoder(BigintType.BIGINT, "0:0", "BYTE"));
+        assertMappingDoesNotMatchDataFormatException(() -> singleColumnDecoder(BigintType.BIGINT, "0:2", "BYTE"));
+
+        singleColumnDecoder(BigintType.BIGINT, "0", "SHORT");
+        singleColumnDecoder(BigintType.BIGINT, "0:2", "SHORT");
+        assertMappingDoesNotMatchDataFormatException(() -> singleColumnDecoder(BigintType.BIGINT, "0:1", "SHORT"));
+        assertMappingDoesNotMatchDataFormatException(() -> singleColumnDecoder(BigintType.BIGINT, "0:3", "SHORT"));
+
+        singleColumnDecoder(BigintType.BIGINT, "0", "INT");
+        singleColumnDecoder(BigintType.BIGINT, "0:4", "INT");
+        assertMappingDoesNotMatchDataFormatException(() -> singleColumnDecoder(BigintType.BIGINT, "0:3", "INT"));
+        assertMappingDoesNotMatchDataFormatException(() -> singleColumnDecoder(BigintType.BIGINT, "0:5", "INT"));
+
+        singleColumnDecoder(BigintType.BIGINT, "0", "LONG");
+        singleColumnDecoder(BigintType.BIGINT, "0:8", "LONG");
+        assertMappingDoesNotMatchDataFormatException(() -> singleColumnDecoder(BigintType.BIGINT, "0:7", "LONG"));
+        assertMappingDoesNotMatchDataFormatException(() -> singleColumnDecoder(BigintType.BIGINT, "0:9", "LONG"));
+
+        singleColumnDecoder(BigintType.BIGINT, "0", "LONG");
+        singleColumnDecoder(BigintType.BIGINT, "0:8", "LONG");
+        assertMappingDoesNotMatchDataFormatException(() -> singleColumnDecoder(BigintType.BIGINT, "0:7", "LONG"));
+        assertMappingDoesNotMatchDataFormatException(() -> singleColumnDecoder(BigintType.BIGINT, "0:9", "LONG"));
+
+        singleColumnDecoder(DoubleType.DOUBLE, "0", "FLOAT");
+        singleColumnDecoder(DoubleType.DOUBLE, "0:4", "FLOAT");
+        assertMappingDoesNotMatchDataFormatException(() -> singleColumnDecoder(DoubleType.DOUBLE, "0:3", "FLOAT"));
+        assertMappingDoesNotMatchDataFormatException(() -> singleColumnDecoder(DoubleType.DOUBLE, "0:5", "FLOAT"));
+
+        singleColumnDecoder(DoubleType.DOUBLE, "0", "DOUBLE");
+        singleColumnDecoder(DoubleType.DOUBLE, "0:8", "DOUBLE");
+        assertMappingDoesNotMatchDataFormatException(() -> singleColumnDecoder(DoubleType.DOUBLE, "0:7", "DOUBLE"));
+        assertMappingDoesNotMatchDataFormatException(() -> singleColumnDecoder(DoubleType.DOUBLE, "0:9", "DOUBLE"));
+    }
+
+    private void assertMappingDoesNotMatchDataFormatException(ThrowableAssert.ThrowingCallable callable)
+    {
+        assertThatThrownBy(callable)
+                .isInstanceOf(PrestoException.class)
+                .hasMessageContaining("Bytes mapping for column 'some_column' does not match dataFormat");
+    }
+
+    @Test
+    public void testInvalidMapping()
+    {
+        assertThatThrownBy(() -> singleColumnDecoder(DoubleType.DOUBLE, "x", "DOUBLE"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessageContaining("invalid mapping format 'x' for column 'some_column'");
+    }
+
+    @Test
+    public void testInvalidDataFormat()
+    {
+        assertThatThrownBy(() -> singleColumnDecoder(BigintType.BIGINT, "0", "format", null, false, false, false))
+                .isInstanceOf(PrestoException.class)
+                .hasMessageMatching("invalid dataFormat 'format' for column 'some_column'");
+    }
+
+    @Test
+    public void testInvalidExtraneousParameters()
+    {
+        assertThatThrownBy(() -> singleColumnDecoder(BigintType.BIGINT, "0", null, "hint", false, false, false))
+                .isInstanceOf(PrestoException.class)
+                .hasMessageMatching("unexpected format hint 'hint' defined for column 'some_column'");
+
+        assertThatThrownBy(() -> singleColumnDecoder(BigintType.BIGINT, "0", null, null, false, false, true))
+                .isInstanceOf(PrestoException.class)
+                .hasMessageMatching("unexpected internal column 'some_column'");
+    }
+
+    @Test
+    public void testTypeMatchesDataFormatValidation()
+    {
+        singleColumnDecoder(BigintType.BIGINT, "0", "BYTE");
+        singleColumnDecoder(BigintType.BIGINT, "0", "SHORT");
+        singleColumnDecoder(BigintType.BIGINT, "0", "INT");
+        singleColumnDecoder(BigintType.BIGINT, "0", "LONG");
+        singleColumnDecoder(IntegerType.INTEGER, "0", "BYTE");
+        singleColumnDecoder(IntegerType.INTEGER, "0", "SHORT");
+        singleColumnDecoder(IntegerType.INTEGER, "0", "INT");
+        singleColumnDecoder(SmallintType.SMALLINT, "0", "BYTE");
+        singleColumnDecoder(SmallintType.SMALLINT, "0", "SHORT");
+        singleColumnDecoder(TinyintType.TINYINT, "0", "BYTE");
+        singleColumnDecoder(BooleanType.BOOLEAN, "0", "BYTE");
+        singleColumnDecoder(BooleanType.BOOLEAN, "0", "SHORT");
+        singleColumnDecoder(BooleanType.BOOLEAN, "0", "INT");
+        singleColumnDecoder(BooleanType.BOOLEAN, "0", "LONG");
+        singleColumnDecoder(DoubleType.DOUBLE, "0", "DOUBLE");
+        singleColumnDecoder(DoubleType.DOUBLE, "0", "FLOAT");
+        singleColumnDecoder(createUnboundedVarcharType(), "0", "BYTE");
+        singleColumnDecoder(createVarcharType(100), "0", "BYTE");
+
+        assertWrongDataFormatException(() -> singleColumnDecoder(BigintType.BIGINT, "0", "FLOAT"));
+        assertWrongDataFormatException(() -> singleColumnDecoder(BigintType.BIGINT, "0", "DOUBLE"));
+        assertWrongDataFormatException(() -> singleColumnDecoder(IntegerType.INTEGER, "0", "FLOAT"));
+        assertWrongDataFormatException(() -> singleColumnDecoder(IntegerType.INTEGER, "0", "DOUBLE"));
+        assertWrongDataFormatException(() -> singleColumnDecoder(IntegerType.INTEGER, "0", "LONG"));
+        assertWrongDataFormatException(() -> singleColumnDecoder(SmallintType.SMALLINT, "0", "FLOAT"));
+        assertWrongDataFormatException(() -> singleColumnDecoder(SmallintType.SMALLINT, "0", "DOUBLE"));
+        assertWrongDataFormatException(() -> singleColumnDecoder(SmallintType.SMALLINT, "0", "LONG"));
+        assertWrongDataFormatException(() -> singleColumnDecoder(SmallintType.SMALLINT, "0", "INT"));
+        assertWrongDataFormatException(() -> singleColumnDecoder(TinyintType.TINYINT, "0", "FLOAT"));
+        assertWrongDataFormatException(() -> singleColumnDecoder(TinyintType.TINYINT, "0", "DOUBLE"));
+        assertWrongDataFormatException(() -> singleColumnDecoder(TinyintType.TINYINT, "0", "LONG"));
+        assertWrongDataFormatException(() -> singleColumnDecoder(TinyintType.TINYINT, "0", "INT"));
+        assertWrongDataFormatException(() -> singleColumnDecoder(TinyintType.TINYINT, "0", "SHORT"));
+        assertWrongDataFormatException(() -> singleColumnDecoder(DoubleType.DOUBLE, "0", "LONG"));
+        assertWrongDataFormatException(() -> singleColumnDecoder(DoubleType.DOUBLE, "0", "INT"));
+        assertWrongDataFormatException(() -> singleColumnDecoder(DoubleType.DOUBLE, "0", "SHORT"));
+        assertWrongDataFormatException(() -> singleColumnDecoder(DoubleType.DOUBLE, "0", "BYTE"));
+        assertWrongDataFormatException(() -> singleColumnDecoder(createVarcharType(100), "0", "FLOAT"));
+        assertWrongDataFormatException(() -> singleColumnDecoder(createVarcharType(100), "0", "DOUBLE"));
+        assertWrongDataFormatException(() -> singleColumnDecoder(createVarcharType(100), "0", "LONG"));
+        assertWrongDataFormatException(() -> singleColumnDecoder(createVarcharType(100), "0", "INT"));
+        assertWrongDataFormatException(() -> singleColumnDecoder(createVarcharType(100), "0", "SHORT"));
+    }
+
+    private void assertWrongDataFormatException(ThrowableAssert.ThrowingCallable callable)
+    {
+        assertThatThrownBy(callable)
+                .isInstanceOf(PrestoException.class)
+                .hasMessageMatching("Wrong dataFormat .* specified for column .*");
+    }
+
+    @Test
+    public void testSupportedDataTypeValidation()
+    {
+        // supported types
+        singleColumnDecoder(BigintType.BIGINT, "0", "LONG");
+        singleColumnDecoder(IntegerType.INTEGER, "0", "INT");
+        singleColumnDecoder(SmallintType.SMALLINT, "0", "SHORT");
+        singleColumnDecoder(TinyintType.TINYINT, "0", "BYTE");
+        singleColumnDecoder(BooleanType.BOOLEAN, "0", "LONG");
+        singleColumnDecoder(DoubleType.DOUBLE, "0", "DOUBLE");
+        singleColumnDecoder(createUnboundedVarcharType(), "0", "BYTE");
+        singleColumnDecoder(createVarcharType(100), "0", "BYTE");
+
+        // some unsupported types
+        assertUnsupportedColumnTypeException(() -> singleColumnDecoder(RealType.REAL, "0", "BYTE"));
+        assertUnsupportedColumnTypeException(() -> singleColumnDecoder(DecimalType.createDecimalType(10, 4), "0", "BYTE"));
+        assertUnsupportedColumnTypeException(() -> singleColumnDecoder(VarbinaryType.VARBINARY, "0", "BYTE"));
+    }
+
+    private void assertUnsupportedColumnTypeException(ThrowableAssert.ThrowingCallable callable)
+    {
+        assertThatThrownBy(callable)
+                .isInstanceOf(PrestoException.class)
+                .hasMessageMatching("Unsupported column type .* for column .*");
+    }
+
+    private void singleColumnDecoder(Type columnType, String mapping, String dataFormat)
+    {
+        singleColumnDecoder(columnType, mapping, dataFormat, null, false, false, false);
+    }
+
+    private void singleColumnDecoder(Type columnType, String mapping, String dataFormat, String formatHint, boolean keyDecoder, boolean hidden, boolean internal)
+    {
+        DECODER_FACTORY.create(emptyMap(), ImmutableSet.of(new DecoderTestColumnHandle("", 0, "some_column", columnType, mapping, dataFormat, formatHint, keyDecoder, hidden, internal)));
     }
 }
