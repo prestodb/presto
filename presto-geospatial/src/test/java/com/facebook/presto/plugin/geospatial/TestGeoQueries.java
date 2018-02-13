@@ -276,6 +276,7 @@ public class TestGeoQueries
         assertFunction("ST_AsText(ST_Envelope(ST_GeometryFromText('MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))')))", VARCHAR, "POLYGON ((1 1, 5 1, 5 4, 1 4, 1 1))");
         assertFunction("ST_AsText(ST_Envelope(ST_GeometryFromText('POLYGON ((1 1, 4 1, 1 4))')))", VARCHAR, "POLYGON ((1 1, 4 1, 4 4, 1 4, 1 1))");
         assertFunction("ST_AsText(ST_Envelope(ST_GeometryFromText('MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1)), ((0 0, 0 2, 2 2, 2 0)))')))", VARCHAR, "POLYGON ((0 0, 3 0, 3 3, 0 3, 0 0))");
+        assertFunction("ST_AsText(ST_Envelope(ST_GeometryFromText('GEOMETRYCOLLECTION (POINT (5 1), LINESTRING (3 4, 4 4))')))", VARCHAR, "POLYGON ((3 1, 5 1, 5 4, 3 4, 3 1))");
     }
 
     @Test
