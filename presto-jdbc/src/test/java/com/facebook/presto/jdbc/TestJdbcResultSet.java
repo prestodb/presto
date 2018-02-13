@@ -23,18 +23,25 @@ import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
 import java.sql.Connection;
+import java.sql.Date;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Time;
+import java.sql.Timestamp;
 import java.sql.Types;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 
 import static com.facebook.presto.jdbc.TestPrestoDriver.closeQuietly;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
@@ -108,6 +115,41 @@ public class TestJdbcResultSet
         checkRepresentation("cast('foo' as char(5))", Types.CHAR, "foo  ");
         checkRepresentation("ARRAY[1, 2]", Types.ARRAY, (rs, column) -> assertEquals(rs.getArray(column).getArray(), new int[] {1, 2}));
         checkRepresentation("DECIMAL '0.1'", Types.DECIMAL, new BigDecimal("0.1"));
+
+        checkRepresentation("DATE '2018-02-13'", Types.DATE, (rs, column) -> {
+            assertEquals(rs.getObject(column), Date.valueOf(LocalDate.of(2018, 2, 13)));
+            assertEquals(rs.getDate(column), Date.valueOf(LocalDate.of(2018, 2, 13)));
+            assertThrows(IllegalArgumentException.class, () -> rs.getTime(column));
+            assertThrows(IllegalArgumentException.class, () -> rs.getTimestamp(column));
+        });
+
+        checkRepresentation("TIME '09:39:05'", Types.TIME, (rs, column) -> {
+            assertEquals(rs.getObject(column), Time.valueOf(LocalTime.of(9, 39, 5)));
+            assertThrows(() -> rs.getDate(column));
+            assertEquals(rs.getTime(column), Time.valueOf(LocalTime.of(9, 39, 5)));
+            assertThrows(() -> rs.getTimestamp(column));
+        });
+
+        checkRepresentation("TIME '09:39:07 +01:00'", Types.TIME /* TODO TIME_WITH_TIMEZONE */, (rs, column) -> {
+            assertEquals(rs.getObject(column), Time.valueOf(LocalTime.of(14, 9, 7))); // TODO this should represent TIME '09:39:07 +01:00'
+            assertThrows(() -> rs.getDate(column));
+            assertEquals(rs.getTime(column), Time.valueOf(LocalTime.of(14, 9, 7))); // TODO this should fail, or represent TIME '09:39:07 +01:00'
+            assertThrows(() -> rs.getTimestamp(column));
+        });
+
+        checkRepresentation("TIMESTAMP '2018-02-13 13:14:15.123'", Types.TIMESTAMP, (rs, column) -> {
+            assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 13, 14, 15, 123_000_000)));
+            assertThrows(() -> rs.getDate(column));
+            assertThrows(() -> rs.getTime(column));
+            assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 13, 14, 15, 123_000_000)));
+        });
+
+        checkRepresentation("TIMESTAMP '2018-02-13 13:14:15.227 Europe/Warsaw'", Types.TIMESTAMP /* TODO TIMESTAMP_WITH_TIMEZONE */, (rs, column) -> {
+            assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 17, 59, 15, 227_000_000))); // TODO this should represent TIMESTAMP '2018-02-13 13:14:15.227 Europe/Warsaw'
+            assertThrows(() -> rs.getDate(column));
+            assertThrows(() -> rs.getTime(column));
+            assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 17, 59, 15, 227_000_000))); // TODO this should fail or represent TIMESTAMP '2018-02-13 13:14:15.227 Europe/Warsaw'
+        });
     }
 
     private void checkRepresentation(String expression, int expectedSqlType, Object expectedRepresentation)
