@@ -60,6 +60,7 @@ import static java.lang.String.format;
 public final class GeoFunctions
 {
     private static final Joiner OR_JOINER = Joiner.on(" or ");
+    private static final Slice EMPTY_POLYGON = serialize(createFromEsriGeometry(new Polygon(), null));
 
     private GeoFunctions() {}
 
@@ -392,10 +393,11 @@ public final class GeoFunctions
     @SqlType(GEOMETRY_TYPE_NAME)
     public static Slice stEnvelope(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
     {
-        OGCGeometry geometry = deserialize(input);
-        SpatialReference reference = geometry.getEsriSpatialReference();
-        Envelope envelope = getEnvelope(geometry);
-        return serialize(createFromEsriGeometry(envelope, reference));
+        Envelope envelope = deserializeEnvelope(input);
+        if (envelope == null) {
+            return EMPTY_POLYGON;
+        }
+        return serialize(createFromEsriGeometry(envelope, null));
     }
 
     @Description("Returns the Geometry value that represents the point set difference of two geometries")
