@@ -686,6 +686,9 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("cast(bound_integer + 1 as VARCHAR)", "'1235'");
         assertOptimizedEquals("cast(bound_long + 1 as VARCHAR)", "'1235'");
         assertOptimizedEquals("cast(unbound_string as VARCHAR)", "cast(unbound_string as VARCHAR)");
+        assertOptimizedMatches("cast(unbound_string as VARCHAR)", "unbound_string");
+        assertOptimizedMatches("cast(unbound_integer as INTEGER)", "unbound_integer");
+        assertOptimizedMatches("cast(unbound_string as VARCHAR(10))", "cast(unbound_string as VARCHAR(10))");
     }
 
     @Test
