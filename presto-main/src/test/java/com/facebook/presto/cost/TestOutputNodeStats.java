@@ -20,6 +20,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static java.lang.Double.POSITIVE_INFINITY;
 
+@Test(singleThreaded = true)
 public class TestOutputNodeStats
         extends BaseStatsCalculatorTest
 {
