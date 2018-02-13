@@ -60,6 +60,7 @@ public class MySqlClient
             throws SQLException
     {
         Properties connectionProperties = basicConnectionProperties(config);
+        connectionProperties.setProperty("useInformationSchema", "true");
         connectionProperties.setProperty("nullCatalogMeansCurrent", "false");
         connectionProperties.setProperty("useUnicode", "true");
         connectionProperties.setProperty("characterEncoding", "utf8");
