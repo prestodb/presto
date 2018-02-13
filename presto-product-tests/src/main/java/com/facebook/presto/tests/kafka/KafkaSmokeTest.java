@@ -132,8 +132,31 @@ public class KafkaSmokeTest
     @Requires(AllDataTypesRawTable.class)
     public void testSelectAllRawTable()
     {
-        QueryResult queryResult = query(format("select * from %s.%s.%s", KAFKA_CATALOG, SCHEMA_NAME, ALL_DATATYPES_RAW_TABLE_NAME));
-        assertThat(queryResult).containsOnly(row(
+        assertThat(query(format(
+                "select column_name,data_type from %s.information_schema.columns where table_schema='%s' and table_name='%s'",
+                KAFKA_CATALOG,
+                SCHEMA_NAME,
+                ALL_DATATYPES_RAW_TABLE_NAME
+        ))).containsOnly(
+                row("c_varchar", "varchar"),
+                row("c_byte_bigint", "bigint"),
+                row("c_short_bigint", "bigint"),
+                row("c_int_bigint", "bigint"),
+                row("c_long_bigint", "bigint"),
+                row("c_byte_integer", "integer"),
+                row("c_short_integer", "integer"),
+                row("c_int_integer", "integer"),
+                row("c_byte_smallint", "smallint"),
+                row("c_short_smallint", "smallint"),
+                row("c_byte_tinyint", "tinyint"),
+                row("c_float_double", "double"),
+                row("c_double_double", "double"),
+                row("c_byte_boolean", "boolean"),
+                row("c_short_boolean", "boolean"),
+                row("c_int_boolean", "boolean"),
+                row("c_long_boolean", "boolean"));
+
+        assertThat(query(format("select * from %s.%s.%s", KAFKA_CATALOG, SCHEMA_NAME, ALL_DATATYPES_RAW_TABLE_NAME))).containsOnly(row(
                 "jasio",
                 0x01,
                 0x0203,
@@ -180,8 +203,21 @@ public class KafkaSmokeTest
     @Requires(AllDataTypesCsvTable.class)
     public void testSelectAllCsvTable()
     {
-        QueryResult queryResult = query(format("select * from %s.%s.%s", KAFKA_CATALOG, SCHEMA_NAME, ALL_DATATYPES_CSV_TABLE_NAME));
-        assertThat(queryResult).containsOnly(
+        assertThat(query(format(
+                "select column_name,data_type from %s.information_schema.columns where table_schema='%s' and table_name='%s'",
+                KAFKA_CATALOG,
+                SCHEMA_NAME,
+                ALL_DATATYPES_CSV_TABLE_NAME
+        ))).containsOnly(
+                row("c_varchar", "varchar"),
+                row("c_bigint", "bigint"),
+                row("c_integer", "integer"),
+                row("c_smallint", "smallint"),
+                row("c_tinyint", "tinyint"),
+                row("c_double", "double"),
+                row("c_boolean", "boolean"));
+
+        assertThat(query(format("select * from %s.%s.%s", KAFKA_CATALOG, SCHEMA_NAME, ALL_DATATYPES_CSV_TABLE_NAME))).containsOnly(
                 row("jasio", 9223372036854775807L, 2147483647, 32767, 127, 1234567890.123456789, true),
                 row("stasio", -9223372036854775808L, -2147483648, -32768, -128, -1234567890.123456789, false),
                 row(null, null, null, null, null, null, null),
@@ -244,8 +280,46 @@ public class KafkaSmokeTest
     @Requires(AllDataTypesJsonTable.class)
     public void testSelectAllJsonTable()
     {
-        QueryResult queryResult = query(format("select * from %s.%s.%s", KAFKA_CATALOG, SCHEMA_NAME, ALL_DATATYPES_JSON_TABLE_NAME));
-        assertThat(queryResult).containsOnly(row(
+        assertThat(query(format(
+                "select column_name,data_type from %s.information_schema.columns where table_schema='%s' and table_name='%s'",
+                KAFKA_CATALOG,
+                SCHEMA_NAME,
+                ALL_DATATYPES_JSON_TABLE_NAME
+        ))).containsOnly(
+                row("c_varchar", "varchar"),
+                row("c_bigint", "bigint"),
+                row("c_integer", "integer"),
+                row("c_smallint", "smallint"),
+                row("c_tinyint", "tinyint"),
+                row("c_double", "double"),
+                row("c_boolean", "boolean"),
+                row("c_timestamp_milliseconds_since_epoch", "timestamp"),
+                row("c_timestamp_seconds_since_epoch", "timestamp"),
+                row("c_timestamp_iso8601", "timestamp"),
+                row("c_timestamp_rfc2822", "timestamp"),
+                row("c_timestamp_custom", "timestamp"),
+                row("c_date_milliseconds_since_epoch", "date"),
+                row("c_date_seconds_since_epoch", "date"),
+                row("c_date_iso8601", "date"),
+                row("c_date_rfc2822", "date"),
+                row("c_date_custom", "date"),
+                row("c_time_milliseconds_since_epoch", "time"),
+                row("c_time_seconds_since_epoch", "time"),
+                row("c_time_iso8601", "time"),
+                row("c_time_rfc2822", "time"),
+                row("c_time_custom", "time"),
+                row("c_timestamptz_milliseconds_since_epoch", "timestamp with time zone"),
+                row("c_timestamptz_seconds_since_epoch", "timestamp with time zone"),
+                row("c_timestamptz_iso8601", "timestamp with time zone"),
+                row("c_timestamptz_rfc2822", "timestamp with time zone"),
+                row("c_timestamptz_custom", "timestamp with time zone"),
+                row("c_timetz_milliseconds_since_epoch", "time with time zone"),
+                row("c_timetz_seconds_since_epoch", "time with time zone"),
+                row("c_timetz_iso8601", "time with time zone"),
+                row("c_timetz_rfc2822", "time with time zone"),
+                row("c_timetz_custom", "time with time zone"));
+
+        assertThat(query(format("select * from %s.%s.%s", KAFKA_CATALOG, SCHEMA_NAME, ALL_DATATYPES_JSON_TABLE_NAME))).containsOnly(row(
                 "ala ma kota",
                 9223372036854775807L,
                 2147483647,
