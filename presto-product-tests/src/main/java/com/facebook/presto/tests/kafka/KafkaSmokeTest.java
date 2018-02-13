@@ -46,8 +46,9 @@ public class KafkaSmokeTest
         extends ProductTest
 {
     private static final String KAFKA_CATALOG = "kafka";
+    private static final String SCHEMA_NAME = "product_tests";
 
-    private static final String SIMPLE_KEY_AND_VALUE_TABLE_NAME = "product_tests.simple_key_and_value";
+    private static final String SIMPLE_KEY_AND_VALUE_TABLE_NAME = "simple_key_and_value";
     private static final String SIMPLE_KEY_AND_VALUE_TOPIC_NAME = "simple_key_and_value";
 
     // kafka-connectors requires tables to be predefined in presto configuration
@@ -61,7 +62,7 @@ public class KafkaSmokeTest
         public Requirement getRequirements(Configuration configuration)
         {
             return immutableTable(new KafkaTableDefinition(
-                    SIMPLE_KEY_AND_VALUE_TABLE_NAME,
+                    SCHEMA_NAME + "." + SIMPLE_KEY_AND_VALUE_TABLE_NAME,
                     SIMPLE_KEY_AND_VALUE_TOPIC_NAME,
                     new ListKafkaDataSource(ImmutableList.of(
                             new KafkaMessage(
@@ -79,13 +80,17 @@ public class KafkaSmokeTest
     @Requires(SimpleKeyAndValueTable.class)
     public void testSelectSimpleKeyAndValue()
     {
-        QueryResult queryResult = query(format("select varchar_key, bigint_key, varchar_value, bigint_value from %s.%s", KAFKA_CATALOG, SIMPLE_KEY_AND_VALUE_TABLE_NAME));
+        QueryResult queryResult = query(format(
+                "select varchar_key, bigint_key, varchar_value, bigint_value from %s.%s.%s",
+                KAFKA_CATALOG,
+                SCHEMA_NAME,
+                SIMPLE_KEY_AND_VALUE_TABLE_NAME));
         assertThat(queryResult).containsOnly(
                 row("jasio", 1, "ania", 2),
                 row("piotr", 3, "kasia", 4));
     }
 
-    private static final String ALL_DATATYPES_RAW_TABLE_NAME = "product_tests.all_datatypes_raw";
+    private static final String ALL_DATATYPES_RAW_TABLE_NAME = "all_datatypes_raw";
     private static final String ALL_DATATYPES_RAW_TOPIC_NAME = "all_datatypes_raw";
 
     private static class AllDataTypesRawTable
@@ -95,7 +100,7 @@ public class KafkaSmokeTest
         public Requirement getRequirements(Configuration configuration)
         {
             return immutableTable(new KafkaTableDefinition(
-                    ALL_DATATYPES_RAW_TABLE_NAME,
+                    SCHEMA_NAME + "." + ALL_DATATYPES_RAW_TABLE_NAME,
                     ALL_DATATYPES_RAW_TOPIC_NAME,
                     new ListKafkaDataSource(ImmutableList.of(
                             new KafkaMessage(
@@ -127,7 +132,7 @@ public class KafkaSmokeTest
     @Requires(AllDataTypesRawTable.class)
     public void testSelectAllRawTable()
     {
-        QueryResult queryResult = query(format("select * from %s.%s", KAFKA_CATALOG, ALL_DATATYPES_RAW_TABLE_NAME));
+        QueryResult queryResult = query(format("select * from %s.%s.%s", KAFKA_CATALOG, SCHEMA_NAME, ALL_DATATYPES_RAW_TABLE_NAME));
         assertThat(queryResult).containsOnly(row(
                 "jasio",
                 0x01,
@@ -148,7 +153,7 @@ public class KafkaSmokeTest
                 true));
     }
 
-    private static final String ALL_DATATYPES_CSV_TABLE_NAME = "product_tests.all_datatypes_csv";
+    private static final String ALL_DATATYPES_CSV_TABLE_NAME = "all_datatypes_csv";
     private static final String ALL_DATATYPES_CSV_TOPIC_NAME = "all_datatypes_csv";
 
     private static class AllDataTypesCsvTable
@@ -158,7 +163,7 @@ public class KafkaSmokeTest
         public Requirement getRequirements(Configuration configuration)
         {
             return immutableTable(new KafkaTableDefinition(
-                    ALL_DATATYPES_CSV_TABLE_NAME,
+                    SCHEMA_NAME + "." + ALL_DATATYPES_CSV_TABLE_NAME,
                     ALL_DATATYPES_CSV_TOPIC_NAME,
                     new ListKafkaDataSource(ImmutableList.of(
                             utf8KafkaMessage("jasio,9223372036854775807,2147483647,32767,127,1234567890.123456789,true"),
@@ -175,7 +180,7 @@ public class KafkaSmokeTest
     @Requires(AllDataTypesCsvTable.class)
     public void testSelectAllCsvTable()
     {
-        QueryResult queryResult = query(format("select * from %s.%s", KAFKA_CATALOG, ALL_DATATYPES_CSV_TABLE_NAME));
+        QueryResult queryResult = query(format("select * from %s.%s.%s", KAFKA_CATALOG, SCHEMA_NAME, ALL_DATATYPES_CSV_TABLE_NAME));
         assertThat(queryResult).containsOnly(
                 row("jasio", 9223372036854775807L, 2147483647, 32767, 127, 1234567890.123456789, true),
                 row("stasio", -9223372036854775808L, -2147483648, -32768, -128, -1234567890.123456789, false),
@@ -184,7 +189,7 @@ public class KafkaSmokeTest
                 row("kasia", 9223372036854775807L, 2147483647, 32767, null, null, null));
     }
 
-    private static final String ALL_DATATYPES_JSON_TABLE_NAME = "product_tests.all_datatypes_json";
+    private static final String ALL_DATATYPES_JSON_TABLE_NAME = "all_datatypes_json";
     private static final String ALL_DATATYPES_JSON_TOPIC_NAME = "all_datatypes_json";
 
     private static class AllDataTypesJsonTable
@@ -194,7 +199,7 @@ public class KafkaSmokeTest
         public Requirement getRequirements(Configuration configuration)
         {
             return immutableTable(new KafkaTableDefinition(
-                    ALL_DATATYPES_JSON_TABLE_NAME,
+                    SCHEMA_NAME + "." + ALL_DATATYPES_JSON_TABLE_NAME,
                     ALL_DATATYPES_JSON_TOPIC_NAME,
                     new ListKafkaDataSource(ImmutableList.of(
                             utf8KafkaMessage("{" +
@@ -239,7 +244,7 @@ public class KafkaSmokeTest
     @Requires(AllDataTypesJsonTable.class)
     public void testSelectAllJsonTable()
     {
-        QueryResult queryResult = query(format("select * from %s.%s", KAFKA_CATALOG, ALL_DATATYPES_JSON_TABLE_NAME));
+        QueryResult queryResult = query(format("select * from %s.%s.%s", KAFKA_CATALOG, SCHEMA_NAME, ALL_DATATYPES_JSON_TABLE_NAME));
         assertThat(queryResult).containsOnly(row(
                 "ala ma kota",
                 9223372036854775807L,
