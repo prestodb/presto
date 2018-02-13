@@ -2,7 +2,7 @@ datasource: presto
 query-names: presto/tpch/${query}.sql
 runs: 6
 prewarm-runs: 2
-before-execution: sleep-4s, presto/session_set_reorder_joins.sql
+before-execution: sleep-4s
 frequency: 7
 database: hive
 tpch_300: tpch_sf300_orc
@@ -13,14 +13,11 @@ variables:
   1:
     query: q5, q7, q8, q9, q17, q18, q21
     schema: ${tpch_300}
-    reorder_joins: true
 
   2:
     query: q10, q12, q13, q15, q1, q20, q2, q3, q4
     schema: ${tpch_1000}
-    reorder_joins: true
 
   3:
     query: q6, q11, q14, q16, q19, q22
     schema: ${tpch_3000}
-    reorder_joins: true
