@@ -21,7 +21,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
@@ -39,8 +38,6 @@ public class RawRowDecoder
     public RawRowDecoder(Set<DecoderColumnHandle> columnHandles)
     {
         requireNonNull(columnHandles, "columnHandles is null");
-        checkArgument(columnHandles.stream().noneMatch(DecoderColumnHandle::isInternal), "unexpected internal column");
-
         columnDecoders = columnHandles.stream()
                 .collect(toImmutableMap(identity(), this::createColumnDecoder));
     }
