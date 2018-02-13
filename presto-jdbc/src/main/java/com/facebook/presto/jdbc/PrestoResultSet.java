@@ -20,6 +20,7 @@ import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryStatusInfo;
 import com.facebook.presto.client.StatementClient;
 import com.facebook.presto.jdbc.ColumnInfo.Nullable;
+import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -51,6 +52,7 @@ import java.sql.Statement;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.sql.Types;
+import java.time.ZonedDateTime;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -86,14 +88,7 @@ public class PrestoResultSet
             .withOffsetParsed();
 
     private static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS");
-    private static final DateTimeFormatter TIMESTAMP_WITH_TIME_ZONE_FORMATTER = new DateTimeFormatterBuilder()
-            .append(DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS ZZZ").getPrinter(),
-                    new DateTimeParser[] {
-                            DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS Z").getParser(),
-                            DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS ZZZ").getParser(),
-                    })
-            .toFormatter()
-            .withOffsetParsed();
+    private static final java.time.format.DateTimeFormatter TIMESTAMP_WITH_TIME_ZONE_FORMATTER = java.time.format.DateTimeFormatter.ofPattern(SqlTimestampWithTimeZone.JSON_FORMAT);
 
     private final StatementClient client;
     private final DateTimeZone sessionTimeZone;
@@ -330,16 +325,28 @@ public class PrestoResultSet
             }
         }
 
+        throw new IllegalArgumentException("Expected column to be a timestamp type but is " + columnInfo.getColumnTypeName());
+    }
+
+    private ZonedDateTime getTimestampWithTimeZone(int columnIndex)
+            throws SQLException
+    {
+        Object value = column(columnIndex);
+        if (value == null) {
+            return null;
+        }
+
+        ColumnInfo columnInfo = columnInfo(columnIndex);
         if (columnInfo.getColumnTypeName().equalsIgnoreCase("timestamp with time zone")) {
             try {
-                return new Timestamp(TIMESTAMP_WITH_TIME_ZONE_FORMATTER.parseMillis(String.valueOf(value)));
+                return TIMESTAMP_WITH_TIME_ZONE_FORMATTER.parse(String.valueOf(value), ZonedDateTime::from);
             }
             catch (IllegalArgumentException e) {
-                throw new SQLException("Invalid timestamp from server: " + value, e);
+                throw new SQLException("Invalid value from server: " + value, e);
             }
         }
 
-        throw new IllegalArgumentException("Expected column to be a timestamp type but is " + columnInfo.getColumnTypeName());
+        throw new IllegalArgumentException("Expected column to be a timestamp with time zone type but is " + columnInfo.getColumnTypeName());
     }
 
     @Override
@@ -518,6 +525,8 @@ public class PrestoResultSet
                 return getTime(columnIndex);
             case Types.TIMESTAMP:
                 return getTimestamp(columnIndex);
+            case Types.TIMESTAMP_WITH_TIMEZONE:
+                return getTimestampWithTimeZone(columnIndex);
             case Types.ARRAY:
                 return getArray(columnIndex);
             case Types.DECIMAL:

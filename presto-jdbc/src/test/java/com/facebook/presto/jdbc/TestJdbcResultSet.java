@@ -35,6 +35,8 @@ import java.sql.Types;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 
 import static com.facebook.presto.jdbc.TestPrestoDriver.closeQuietly;
 import static java.lang.String.format;
@@ -144,11 +146,11 @@ public class TestJdbcResultSet
             assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 13, 14, 15, 123_000_000)));
         });
 
-        checkRepresentation("TIMESTAMP '2018-02-13 13:14:15.227 Europe/Warsaw'", Types.TIMESTAMP /* TODO TIMESTAMP_WITH_TIMEZONE */, (rs, column) -> {
-            assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 17, 59, 15, 227_000_000))); // TODO this should represent TIMESTAMP '2018-02-13 13:14:15.227 Europe/Warsaw'
+        checkRepresentation("TIMESTAMP '2018-02-13 13:14:15.227 Europe/Warsaw'", Types.TIMESTAMP_WITH_TIMEZONE, (rs, column) -> {
+            assertEquals(rs.getObject(column), ZonedDateTime.of(2018, 2, 13, 13, 14, 15, 227_000_000, ZoneId.of("Europe/Warsaw")));
             assertThrows(() -> rs.getDate(column));
             assertThrows(() -> rs.getTime(column));
-            assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 17, 59, 15, 227_000_000))); // TODO this should fail or represent TIMESTAMP '2018-02-13 13:14:15.227 Europe/Warsaw'
+            assertThrows(() -> rs.getTimestamp(column));
         });
     }
 
