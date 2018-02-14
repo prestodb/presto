@@ -138,6 +138,11 @@ public class DictionaryBuilder
         int length = block.getSliceLength(position);
         long hashPosition = getMaskedHash(block.hash(position, 0, length));
         while (true) {
+            if (hashPosition == NULL_POSITION) {
+                // Need to skip the reserved null slot
+                hashPosition = getMaskedHash(hashPosition + 1);
+            }
+
             int blockPosition = blockPositionByHash.get(hashPosition);
             if (blockPosition == EMPTY_SLOT) {
                 // Doesn't have this element
