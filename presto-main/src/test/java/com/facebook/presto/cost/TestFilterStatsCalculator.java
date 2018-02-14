@@ -31,7 +31,7 @@ import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -45,7 +45,6 @@ import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.NaN;
 import static java.lang.Double.POSITIVE_INFINITY;
 
-@Test(singleThreaded = true)
 public class TestFilterStatsCalculator
 {
     private FilterStatsCalculator statsCalculator;
@@ -53,7 +52,7 @@ public class TestFilterStatsCalculator
     private Map<Symbol, Type> standardTypes;
     private Session session;
 
-    @BeforeMethod
+    @BeforeClass
     public void setUp()
             throws Exception
     {
@@ -130,7 +129,7 @@ public class TestFilterStatsCalculator
         statsCalculator = new FilterStatsCalculator(MetadataManager.createTestMetadataManager());
     }
 
-    public PlanNodeStatsAssertion assertExpression(Expression expression)
+    private PlanNodeStatsAssertion assertExpression(Expression expression)
     {
         return PlanNodeStatsAssertion.assertThat(statsCalculator.filterStats(standardInputStatistics,
                 expression,
