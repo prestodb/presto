@@ -17,22 +17,15 @@ import au.com.bytecode.opencsv.CSVParser;
 import com.facebook.presto.decoder.DecoderColumnHandle;
 import com.facebook.presto.decoder.FieldValueProvider;
 import com.facebook.presto.decoder.RowDecoder;
-import com.google.common.collect.ImmutableSet;
-import io.airlift.slice.Slice;
 
 import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.decoder.FieldValueProviders.nullValueProvider;
-import static com.facebook.presto.spi.type.Varchars.isVarcharType;
-import static com.facebook.presto.spi.type.Varchars.truncateToLength;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.slice.Slices.utf8Slice;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 
 /**
  * Decode row as CSV. This is an extremely primitive CSV decoder using {@link au.com.bytecode.opencsv.CSVParser]}.
@@ -42,14 +35,19 @@ public class CsvRowDecoder
 {
     public static final String NAME = "csv";
 
-    private final Set<DecoderColumnHandle> columnHandles;
+    private final Map<DecoderColumnHandle, CsvColumnDecoder> columnDecoders;
     private final CSVParser parser = new CSVParser();
 
     public CsvRowDecoder(Set<DecoderColumnHandle> columnHandles)
     {
         requireNonNull(columnHandles, "columnHandles is null");
-        checkArgument(columnHandles.stream().noneMatch(DecoderColumnHandle::isInternal), "unexpected internal column");
-        this.columnHandles = ImmutableSet.copyOf(columnHandles);
+        columnDecoders = columnHandles.stream()
+                .collect(toImmutableMap(identity(), this::createColumnDecoder));
+    }
+
+    private CsvColumnDecoder createColumnDecoder(DecoderColumnHandle columnHandle)
+    {
+        return new CsvColumnDecoder(columnHandle);
     }
 
     @Override
@@ -66,62 +64,9 @@ public class CsvRowDecoder
             return Optional.empty();
         }
 
-        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = new HashMap<>();
-        for (DecoderColumnHandle columnHandle : columnHandles) {
-            String mapping = columnHandle.getMapping();
-            checkState(mapping != null, "No mapping for column handle %s!", columnHandle);
-            int columnIndex = Integer.parseInt(mapping);
-
-            if (columnIndex >= tokens.length) {
-                decodedRow.put(columnHandle, nullValueProvider());
-            }
-            else {
-                decodedRow.put(columnHandle, decodeField(tokens[columnIndex], columnHandle));
-            }
-        }
-        return Optional.of(decodedRow);
-    }
-
-    private static FieldValueProvider decodeField(String value, DecoderColumnHandle columnHandle)
-    {
-        requireNonNull(columnHandle, "columnHandle is null");
-
-        return new FieldValueProvider()
-        {
-            @Override
-            public boolean isNull()
-            {
-                return value.isEmpty();
-            }
-
-            @SuppressWarnings("SimplifiableConditionalExpression")
-            @Override
-            public boolean getBoolean()
-            {
-                return Boolean.parseBoolean(value.trim());
-            }
-
-            @Override
-            public long getLong()
-            {
-                return Long.parseLong(value.trim());
-            }
-
-            @Override
-            public double getDouble()
-            {
-                return Double.parseDouble(value.trim());
-            }
-
-            @Override
-            public Slice getSlice()
-            {
-                Slice slice = utf8Slice(value);
-                if (isVarcharType(columnHandle.getType())) {
-                    slice = truncateToLength(slice, columnHandle.getType());
-                }
-                return slice;
-            }
-        };
+        return Optional.of(columnDecoders.entrySet().stream()
+                .collect(toImmutableMap(
+                        Map.Entry::getKey,
+                        entry -> entry.getValue().decodeField(tokens))));
     }
 }
