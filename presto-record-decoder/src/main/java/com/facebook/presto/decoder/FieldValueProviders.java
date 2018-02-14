@@ -77,4 +77,18 @@ public final class FieldValueProviders
             }
         };
     }
+
+    private static final FieldValueProvider NULL_VALUE_PROVIDER = new FieldValueProvider()
+    {
+        @Override
+        public boolean isNull()
+        {
+            return true;
+        }
+    };
+
+    public static FieldValueProvider nullValueProvider()
+    {
+        return NULL_VALUE_PROVIDER;
+    }
 }
