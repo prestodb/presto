@@ -67,10 +67,6 @@ public class CsvRowDecoder
 
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = new HashMap<>();
         for (DecoderColumnHandle columnHandle : columnHandles) {
-            if (columnHandle.isInternal()) {
-                continue;
-            }
-
             String mapping = columnHandle.getMapping();
             checkState(mapping != null, "No mapping for column handle %s!", columnHandle);
             int columnIndex = Integer.parseInt(mapping);
