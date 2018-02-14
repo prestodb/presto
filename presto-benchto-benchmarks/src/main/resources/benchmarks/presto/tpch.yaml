@@ -10,6 +10,8 @@ tpch_1000: tpch_sf1000_orc
 tpch_3000: tpch_sf3000_orc
 prefix: ""
 variables:
+# queries are assigned to groups so they execute within 15-60s each (for an arbitrary benchmark cluster)
+# groups are sorted by schema size
   1:
     query: q5, q7, q8, q9, q17, q18, q21
     schema: ${tpch_300}
