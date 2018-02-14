@@ -26,7 +26,6 @@ public class TestOutputNodeStats
 {
     @Test
     public void testStatsForOutputNode()
-            throws Exception
     {
         PlanNodeStatsEstimate stats = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(100)
