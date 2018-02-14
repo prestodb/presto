@@ -310,7 +310,7 @@ public class PartitionedOutputOperator
         private final List<Integer> partitionChannels;
         private final List<Optional<Block>> partitionConstants;
         private final PagesSerde serde;
-        private final List<PageBuilder> pageBuilders;
+        private final PageBuilder[] pageBuilders;
         private final boolean replicatesAnyRow;
         private final OptionalInt nullChannel; // when present, send the position to every partition if this channel is null.
         private final AtomicLong rowsAdded = new AtomicLong();
@@ -339,14 +339,14 @@ public class PartitionedOutputOperator
             this.sourceTypes = requireNonNull(sourceTypes, "sourceTypes is null");
             this.serde = requireNonNull(serdeFactory, "serdeFactory is null").createPagesSerde();
 
-            int pageSize = min(DEFAULT_MAX_PAGE_SIZE_IN_BYTES, ((int) maxMemory.toBytes()) / partitionFunction.getPartitionCount());
+            int partitionCount = partitionFunction.getPartitionCount();
+            int pageSize = min(DEFAULT_MAX_PAGE_SIZE_IN_BYTES, ((int) maxMemory.toBytes()) / partitionCount);
             pageSize = max(1, pageSize);
 
-            ImmutableList.Builder<PageBuilder> pageBuilders = ImmutableList.builder();
-            for (int i = 0; i < partitionFunction.getPartitionCount(); i++) {
-                pageBuilders.add(PageBuilder.withMaxPageSize(pageSize, sourceTypes));
+            this.pageBuilders = new PageBuilder[partitionCount];
+            for (int i = 0; i < partitionCount; i++) {
+                pageBuilders[i] = PageBuilder.withMaxPageSize(pageSize, sourceTypes);
             }
-            this.pageBuilders = pageBuilders.build();
         }
 
         // Does not include size of SharedBuffer
@@ -382,9 +382,7 @@ public class PartitionedOutputOperator
                 }
                 else {
                     int partition = partitionFunction.getPartition(partitionFunctionArgs, position);
-
-                    PageBuilder pageBuilder = pageBuilders.get(partition);
-                    appendRow(pageBuilder, page, position);
+                    appendRow(pageBuilders[partition], page, position);
                 }
             }
             return flush(false);
@@ -419,8 +417,8 @@ public class PartitionedOutputOperator
         {
             // add all full pages to output buffer
             List<ListenableFuture<?>> blockedFutures = new ArrayList<>();
-            for (int partition = 0; partition < pageBuilders.size(); partition++) {
-                PageBuilder partitionPageBuilder = pageBuilders.get(partition);
+            for (int partition = 0; partition < pageBuilders.length; partition++) {
+                PageBuilder partitionPageBuilder = pageBuilders[partition];
                 if (!partitionPageBuilder.isEmpty() && (force || partitionPageBuilder.isFull())) {
                     Page pagePartition = partitionPageBuilder.build();
                     partitionPageBuilder.reset();
