@@ -35,11 +35,9 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.List;
 import java.util.concurrent.TimeUnit;
+
+import static com.facebook.presto.plugin.geospatial.GeometryBenchmarkUtils.loadPolygon;
 
 @State(Scope.Thread)
 @Fork(2)
@@ -144,12 +142,7 @@ public class BenchmarkSTContains
         public void setup()
                 throws IOException
         {
-            Path filePath = Paths.get(this.getClass().getClassLoader().getResource("large_polygon.txt").getPath());
-            List<String> lines = Files.readAllLines(filePath);
-            String line = lines.get(0);
-            String[] parts = line.split("\\|");
-            String wkt = parts[0];
-            geometry = GeoFunctions.stGeometryFromText(Slices.utf8Slice(wkt));
+            geometry = GeoFunctions.stGeometryFromText(Slices.utf8Slice(loadPolygon("large_polygon.txt")));
             simpleGeometry = GeoFunctions.stGeometryFromText(Slices.utf8Slice("POLYGON ((16.5 54, 16.5 54.1, 16.8 54.1, 16.8 54))"));
             innerPoint = GeoFunctions.stPoint(16.6, 54.0167);
             outerPointInEnvelope = GeoFunctions.stPoint(16.6667, 54.05);
