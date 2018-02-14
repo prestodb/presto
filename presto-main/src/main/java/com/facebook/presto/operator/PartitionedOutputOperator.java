@@ -21,7 +21,6 @@ import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.PageBuilderStatus;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.type.Type;
@@ -47,6 +46,8 @@ import static com.facebook.presto.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_S
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.lang.Math.max;
+import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -356,8 +357,8 @@ public class PartitionedOutputOperator
             this.sourceTypes = requireNonNull(sourceTypes, "sourceTypes is null");
             this.serde = requireNonNull(serdeFactory, "serdeFactory is null").createPagesSerde();
 
-            int pageSize = Math.min(PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES, ((int) maxMemory.toBytes()) / partitionFunction.getPartitionCount());
-            pageSize = Math.max(1, pageSize);
+            int pageSize = min(DEFAULT_MAX_PAGE_SIZE_IN_BYTES, ((int) maxMemory.toBytes()) / partitionFunction.getPartitionCount());
+            pageSize = max(1, pageSize);
 
             ImmutableList.Builder<PageBuilder> pageBuilders = ImmutableList.builder();
             for (int i = 0; i < partitionFunction.getPartitionCount(); i++) {
