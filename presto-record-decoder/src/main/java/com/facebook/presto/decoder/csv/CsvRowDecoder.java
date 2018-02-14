@@ -55,12 +55,12 @@ public class CsvRowDecoder
     @Override
     public Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodeRow(byte[] data, Map<String, String> dataMap)
     {
-        String[] fields;
+        String[] tokens;
         try {
             // TODO - There is no reason why the row can't have a formatHint and it could be used
             // to set the charset here.
             String line = new String(data, StandardCharsets.UTF_8);
-            fields = parser.parseLine(line);
+            tokens = parser.parseLine(line);
         }
         catch (Exception e) {
             return Optional.empty();
@@ -72,11 +72,11 @@ public class CsvRowDecoder
             checkState(mapping != null, "No mapping for column handle %s!", columnHandle);
             int columnIndex = Integer.parseInt(mapping);
 
-            if (columnIndex >= fields.length) {
+            if (columnIndex >= tokens.length) {
                 decodedRow.put(columnHandle, nullValueProvider());
             }
             else {
-                decodedRow.put(columnHandle, decodeField(fields[columnIndex], columnHandle));
+                decodedRow.put(columnHandle, decodeField(tokens[columnIndex], columnHandle));
             }
         }
         return Optional.of(decodedRow);
