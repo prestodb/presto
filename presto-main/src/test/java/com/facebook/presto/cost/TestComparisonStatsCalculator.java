@@ -25,7 +25,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableMap;
-import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -39,7 +39,6 @@ import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.NaN;
 import static java.lang.Double.POSITIVE_INFINITY;
 
-@Test(singleThreaded = true)
 public class TestComparisonStatsCalculator
 {
     private FilterStatsCalculator filterStatsCalculator;
@@ -47,7 +46,7 @@ public class TestComparisonStatsCalculator
     private PlanNodeStatsEstimate standardInputStatistics;
     private Map<Symbol, Type> types;
 
-    @BeforeMethod
+    @BeforeClass
     public void setUp()
             throws Exception
     {

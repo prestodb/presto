@@ -13,20 +13,20 @@
  */
 package com.facebook.presto.cost;
 
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 
 public abstract class BaseStatsCalculatorTest
 {
     private StatsCalculatorTester tester;
 
-    @BeforeMethod
+    @BeforeClass
     public void setUp()
     {
         tester = new StatsCalculatorTester();
     }
 
-    @AfterMethod
+    @AfterClass
     public void tearDown()
     {
         tester.close();
