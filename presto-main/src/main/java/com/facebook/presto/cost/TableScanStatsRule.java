@@ -18,17 +18,13 @@ import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Constraint;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.DomainTranslator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
-import com.facebook.presto.sql.tree.BooleanLiteral;
-import com.facebook.presto.sql.tree.Expression;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -64,7 +60,8 @@ public class TableScanStatsRule
     {
         TableScanNode tableScanNode = (TableScanNode) node;
 
-        Constraint<ColumnHandle> constraint = getConstraint(tableScanNode, BooleanLiteral.TRUE_LITERAL, session, types);
+        // TODO Construct predicate like AddExchanges's LayoutConstraintEvaluator
+        Constraint<ColumnHandle> constraint = new Constraint<>(tableScanNode.getCurrentConstraint(), bindings -> true);
 
         TableStatistics tableStatistics = metadata.getTableStatistics(session, tableScanNode.getTable(), constraint);
         Map<Symbol, SymbolStatsEstimate> outputSymbolStats = new HashMap<>();
@@ -100,21 +97,5 @@ public class TableScanStatsRule
         return optionalValue
                 .map(value -> toStatsRepresentation(metadata, session, type, value))
                 .orElseGet(OptionalDouble::empty);
-    }
-
-    private Constraint<ColumnHandle> getConstraint(TableScanNode node, Expression predicate, Session session, Map<Symbol, Type> types)
-    {
-        DomainTranslator.ExtractionResult decomposedPredicate = DomainTranslator.fromPredicate(
-                metadata,
-                session,
-                predicate,
-                types);
-
-        TupleDomain<ColumnHandle> simplifiedConstraint = decomposedPredicate.getTupleDomain()
-                .transform(node.getAssignments()::get)
-                .intersect(node.getCurrentConstraint());
-
-        // TODO Construct predicate like AddExchanges's LayoutConstraintEvaluator
-        return new Constraint<>(simplifiedConstraint, bindings -> true);
     }
 }
