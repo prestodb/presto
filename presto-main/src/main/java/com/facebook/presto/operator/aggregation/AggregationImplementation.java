@@ -32,6 +32,7 @@ import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 import java.lang.annotation.Annotation;
 import java.lang.invoke.MethodHandle;
@@ -39,6 +40,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -48,6 +50,7 @@ import static com.facebook.presto.operator.aggregation.AggregationMetadata.Param
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.inputChannelParameterType;
 import static com.facebook.presto.operator.annotations.FunctionsParserHelper.containsAnnotation;
 import static com.facebook.presto.operator.annotations.FunctionsParserHelper.createTypeVariableConstraints;
+import static com.facebook.presto.operator.annotations.FunctionsParserHelper.getDeclaredSpecializedTypeParameters;
 import static com.facebook.presto.operator.annotations.FunctionsParserHelper.parseLiteralParameters;
 import static com.facebook.presto.operator.annotations.ImplementationDependency.Factory.createDependency;
 import static com.facebook.presto.operator.annotations.ImplementationDependency.getImplementationDependencyAnnotation;
@@ -59,6 +62,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class AggregationImplementation
@@ -95,6 +99,7 @@ public class AggregationImplementation
     private final MethodHandle combineFunction;
     private final Optional<MethodHandle> stateSerializerFactory;
     private final List<AggregateNativeContainerType> argumentNativeContainerTypes;
+    private final Map<String, Class<?>> specializedTypeParameters;
     private final List<ImplementationDependency> inputDependencies;
     private final List<ImplementationDependency> combineDependencies;
     private final List<ImplementationDependency> outputDependencies;
@@ -110,6 +115,7 @@ public class AggregationImplementation
             MethodHandle combineFunction,
             Optional<MethodHandle> stateSerializerFactory,
             List<AggregateNativeContainerType> argumentNativeContainerTypes,
+            Map<String, Class<?>> specializedTypeParameters,
             List<ImplementationDependency> inputDependencies,
             List<ImplementationDependency> combineDependencies,
             List<ImplementationDependency> outputDependencies,
@@ -124,6 +130,7 @@ public class AggregationImplementation
         this.combineFunction = requireNonNull(combineFunction, "combineFunction cannot be null");
         this.stateSerializerFactory = requireNonNull(stateSerializerFactory, "stateSerializerFactory cannot be null");
         this.argumentNativeContainerTypes = requireNonNull(argumentNativeContainerTypes, "argumentNativeContainerTypes cannot be null");
+        this.specializedTypeParameters = requireNonNull(specializedTypeParameters, "specializedTypeParameters cannot be null");
         this.inputDependencies = requireNonNull(inputDependencies, "inputDependencies cannot be null");
         this.outputDependencies = requireNonNull(outputDependencies, "outputDependencies cannot be null");
         this.combineDependencies = requireNonNull(combineDependencies, "combineDependencies cannot be null");
@@ -140,7 +147,7 @@ public class AggregationImplementation
     @Override
     public boolean hasSpecializedTypeParameters()
     {
-        return false;
+        return !specializedTypeParameters.isEmpty();
     }
 
     public Class<?> getDefinitionClass()
@@ -198,11 +205,16 @@ public class AggregationImplementation
         return inputParameterMetadataTypes;
     }
 
-    public boolean areTypesAssignable(Signature boundSignature, BoundVariables variables, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public boolean areTypesAssignable(Signature boundSignature, BoundVariables boundVariables, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
         checkState(argumentNativeContainerTypes.size() == boundSignature.getArgumentTypes().size(), "Number of argument assigned to AggregationImplementation is different than number parsed from annotations.");
 
-        // TODO specialized functions variants support is missing here
+        for (Map.Entry<String, Class<?>> entry : specializedTypeParameters.entrySet()) {
+            if (!entry.getValue().isAssignableFrom(boundVariables.getTypeVariable(entry.getKey()).getJavaType())) {
+                return false;
+            }
+        }
+
         for (int i = 0; i < boundSignature.getArgumentTypes().size(); i++) {
             Class<?> argumentType = typeManager.getType(boundSignature.getArgumentTypes().get(i)).getJavaType();
             Class<?> methodDeclaredType = argumentNativeContainerTypes.get(i).getJavaType();
@@ -243,6 +255,7 @@ public class AggregationImplementation
         private final AggregationHeader header;
         private final Set<String> literalParameters;
         private final List<TypeParameter> typeParameters;
+        private final Map<String, Class<?>> specializedTypeParameters;
 
         private Parser(
                 Class<?> aggregationDefinition,
@@ -262,6 +275,7 @@ public class AggregationImplementation
             // it is required to declare all literal and type parameters in input function
             literalParameters = parseLiteralParameters(inputFunction);
             typeParameters = Arrays.asList(inputFunction.getAnnotationsByType(TypeParameter.class));
+            specializedTypeParameters = getDeclaredSpecializedTypeParameters(inputFunction, ImmutableSet.copyOf(typeParameters));
 
             // parse dependencies
             inputDependencies = parseImplementationDependencies(inputFunction);
@@ -319,6 +333,7 @@ public class AggregationImplementation
                     combineHandle,
                     stateSerializerFactoryHandle,
                     argumentNativeContainerTypes,
+                    specializedTypeParameters,
                     inputDependencies,
                     combineDependencies,
                     outputDependencies,
@@ -397,11 +412,9 @@ public class AggregationImplementation
             return annotation;
         }
 
-        public static List<AggregateNativeContainerType> parseSignatureArgumentsTypes(Method inputFunction)
+        private List<AggregateNativeContainerType> parseSignatureArgumentsTypes(Method inputFunction)
         {
             ImmutableList.Builder<AggregateNativeContainerType> builder = ImmutableList.builder();
-
-            int stateId = findAggregationStateParamId(inputFunction);
 
             for (int i = 0; i < inputFunction.getParameterCount(); i++) {
                 Class<?> parameterType = inputFunction.getParameterTypes()[i];
@@ -416,7 +429,16 @@ public class AggregationImplementation
                     continue;
                 }
 
-                builder.add(new AggregateNativeContainerType(inputFunction.getParameterTypes()[i], isParameterBlock(annotations)));
+                SqlType type = Stream.of(annotations)
+                        .filter(SqlType.class::isInstance)
+                        .map(SqlType.class::cast)
+                        .findFirst()
+                        .orElseThrow(() -> new IllegalArgumentException(format("Method [%s] is missing @SqlType annotation for parameter", inputFunction)));
+
+                Class<?> specialization = specializedTypeParameters.get(type.value());
+                checkArgument(specialization == null || specialization.equals(parameterType) || parameterType.equals(Block.class), "Method [%s] type %s has conflicting specializations %s and %s", inputFunction, type.value(), specialization, parameterType);
+
+                builder.add(new AggregateNativeContainerType(parameterType, isParameterBlock(annotations)));
             }
 
             return builder.build();

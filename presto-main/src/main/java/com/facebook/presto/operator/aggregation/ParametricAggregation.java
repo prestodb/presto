@@ -129,25 +129,37 @@ public class ParametricAggregation
 
     private AggregationImplementation findMatchingImplementation(Signature boundSignature, BoundVariables variables, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
-        Optional<AggregationImplementation> foundImplementation = Optional.empty();
         if (implementations.getExactImplementations().containsKey(boundSignature)) {
-            foundImplementation = Optional.of(implementations.getExactImplementations().get(boundSignature));
-        }
-        else {
-            for (AggregationImplementation candidate : implementations.getGenericImplementations()) {
-                if (candidate.areTypesAssignable(boundSignature, variables, typeManager, functionRegistry)) {
-                    if (foundImplementation.isPresent()) {
-                        throw new PrestoException(AMBIGUOUS_FUNCTION_CALL, format("Ambiguous function call (%s) for %s", variables, getSignature()));
-                    }
-                    foundImplementation = Optional.of(candidate);
-                }
-            }
+            return implementations.getExactImplementations().get(boundSignature);
         }
 
-        if (!foundImplementation.isPresent()) {
-            throw new PrestoException(FUNCTION_IMPLEMENTATION_MISSING, format("Unsupported type parameters (%s) for %s", variables, getSignature()));
+        Optional<AggregationImplementation> foundImplementation = Optional.empty();
+
+        for (AggregationImplementation candidate : implementations.getSpecializedImplementations()) {
+            if (candidate.areTypesAssignable(boundSignature, variables, typeManager, functionRegistry)) {
+                if (foundImplementation.isPresent()) {
+                    throw new PrestoException(AMBIGUOUS_FUNCTION_CALL, format("Ambiguous function call (%s) for %s", variables, getSignature()));
+                }
+                foundImplementation = Optional.of(candidate);
+            }
         }
-        return foundImplementation.get();
+        if (foundImplementation.isPresent()) {
+            return foundImplementation.get();
+        }
+
+        for (AggregationImplementation candidate : implementations.getGenericImplementations()) {
+            if (candidate.areTypesAssignable(boundSignature, variables, typeManager, functionRegistry)) {
+                if (foundImplementation.isPresent()) {
+                    throw new PrestoException(AMBIGUOUS_FUNCTION_CALL, format("Ambiguous function call (%s) for %s", variables, getSignature()));
+                }
+                foundImplementation = Optional.of(candidate);
+            }
+        }
+        if (foundImplementation.isPresent()) {
+            return foundImplementation.get();
+        }
+
+        throw new PrestoException(FUNCTION_IMPLEMENTATION_MISSING, format("Unsupported type parameters (%s) for %s", variables, getSignature()));
     }
 
     private static AccumulatorStateSerializer<?> getAccumulatorStateSerializer(AggregationImplementation implementation, BoundVariables variables, TypeManager typeManager, FunctionRegistry functionRegistry, Class<?> stateClass, DynamicClassLoader classLoader)

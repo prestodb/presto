@@ -16,6 +16,7 @@ package com.facebook.presto.type.setdigest;
 
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.AggregationFunction;
+import com.facebook.presto.spi.function.AggregationState;
 import com.facebook.presto.spi.function.CombineFunction;
 import com.facebook.presto.spi.function.InputFunction;
 import com.facebook.presto.spi.function.OutputFunction;
@@ -30,14 +31,14 @@ public final class MergeSetDigestAggregation
     private MergeSetDigestAggregation() {}
 
     @InputFunction
-    public static void input(SetDigestState state, @SqlType(SetDigestType.NAME) Slice value)
+    public static void input(@AggregationState SetDigestState state, @SqlType(SetDigestType.NAME) Slice value)
     {
         SetDigest instance = SetDigest.newInstance(value);
         merge(state, instance);
     }
 
     @CombineFunction
-    public static void combine(SetDigestState state, SetDigestState otherState)
+    public static void combine(@AggregationState SetDigestState state, @AggregationState SetDigestState otherState)
     {
         merge(state, otherState.getDigest());
     }
@@ -53,7 +54,7 @@ public final class MergeSetDigestAggregation
     }
 
     @OutputFunction(SetDigestType.NAME)
-    public static void output(SetDigestState state, BlockBuilder out)
+    public static void output(@AggregationState SetDigestState state, BlockBuilder out)
     {
         if (state.getDigest() == null) {
             out.appendNull();

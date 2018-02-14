@@ -181,19 +181,19 @@ public class TestAnnotationEngineForAggregates
     public static class NotAnnotatedAggregateStateAggregationFunction
     {
         @InputFunction
-        public static void input(NullableDoubleState state, @SqlType(DOUBLE) double value)
+        public static void input(@AggregationState NullableDoubleState state, @SqlType(DOUBLE) double value)
         {
             // noop this is only for annotation testing puproses
         }
 
         @CombineFunction
-        public static void combine(NullableDoubleState combine1, NullableDoubleState combine2)
+        public static void combine(@AggregationState NullableDoubleState combine1, @AggregationState NullableDoubleState combine2)
         {
             // noop this is only for annotation testing puproses
         }
 
         @OutputFunction(DOUBLE)
-        public static void output(NullableDoubleState state, BlockBuilder out)
+        public static void output(@AggregationState NullableDoubleState state, BlockBuilder out)
         {
             // noop this is only for annotation testing puproses
         }
@@ -536,7 +536,7 @@ public class TestAnnotationEngineForAggregates
         }
     }
 
-    // @Test - this is not yet supported
+    @Test
     public void testSimpleImplicitSpecializedAggregationParse()
     {
         Signature expectedSignature = new Signature(
@@ -555,18 +555,16 @@ public class TestAnnotationEngineForAggregates
         ParametricImplementationsGroup<AggregationImplementation> implementations = aggregation.getImplementations();
         assertImplementationCount(implementations, 0, 0, 2);
 
-        AggregationImplementation implementation1 = implementations.getSpecializedImplementations().get(0);
-        assertTrue(implementation1.hasSpecializedTypeParameters());
+        AggregationImplementation implementation1 = implementations.getGenericImplementations().get(0);
         assertFalse(implementation1.hasSpecializedTypeParameters());
         List<AggregationMetadata.ParameterMetadata.ParameterType> expectedMetadataTypes = ImmutableList.of(AggregationMetadata.ParameterMetadata.ParameterType.STATE, AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL, AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL);
         assertTrue(implementation1.getInputParameterMetadataTypes().equals(expectedMetadataTypes));
 
-        AggregationImplementation implementation2 = implementations.getSpecializedImplementations().get(1);
-        assertTrue(implementation2.hasSpecializedTypeParameters());
+        AggregationImplementation implementation2 = implementations.getGenericImplementations().get(1);
         assertFalse(implementation2.hasSpecializedTypeParameters());
         assertTrue(implementation2.getInputParameterMetadataTypes().equals(expectedMetadataTypes));
 
-        InternalAggregationFunction specialized = aggregation.specialize(BoundVariables.builder().setTypeVariable("T", DoubleType.DOUBLE).build(), 1, new TypeRegistry(), null);
+        InternalAggregationFunction specialized = aggregation.specialize(BoundVariables.builder().setTypeVariable("T", DoubleType.DOUBLE).build(), 2, new TypeRegistry(), null);
         assertEquals(specialized.getFinalType(), DoubleType.DOUBLE);
         assertTrue(specialized.isDecomposable());
         assertEquals(specialized.name(), "implicit_specialized_aggregate");
@@ -628,7 +626,7 @@ public class TestAnnotationEngineForAggregates
         }
     }
 
-    // @Test - this is not yet supported
+    @Test
     public void testSimpleExplicitSpecializedAggregationParse()
     {
         Signature expectedSignature = new Signature(
@@ -646,21 +644,20 @@ public class TestAnnotationEngineForAggregates
         assertEquals(aggregation.getSignature(), expectedSignature);
         ParametricImplementationsGroup<AggregationImplementation> implementations = aggregation.getImplementations();
         assertImplementationCount(implementations, 0, 1, 1);
+
         AggregationImplementation implementation1 = implementations.getSpecializedImplementations().get(0);
         assertTrue(implementation1.hasSpecializedTypeParameters());
-        assertFalse(implementation1.hasSpecializedTypeParameters());
         List<AggregationMetadata.ParameterMetadata.ParameterType> expectedMetadataTypes = ImmutableList.of(AggregationMetadata.ParameterMetadata.ParameterType.STATE, AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL);
         assertTrue(implementation1.getInputParameterMetadataTypes().equals(expectedMetadataTypes));
 
-        AggregationImplementation implementation2 = implementations.getSpecializedImplementations().get(1);
-        assertTrue(implementation2.hasSpecializedTypeParameters());
+        AggregationImplementation implementation2 = implementations.getGenericImplementations().get(0);
         assertFalse(implementation2.hasSpecializedTypeParameters());
         assertTrue(implementation2.getInputParameterMetadataTypes().equals(expectedMetadataTypes));
 
         InternalAggregationFunction specialized = aggregation.specialize(BoundVariables.builder().setTypeVariable("T", DoubleType.DOUBLE).build(), 1, new TypeRegistry(), null);
         assertEquals(specialized.getFinalType(), DoubleType.DOUBLE);
         assertTrue(specialized.isDecomposable());
-        assertEquals(specialized.name(), "implicit_specialized_aggregate");
+        assertEquals(specialized.name(), "explicit_specialized_aggregate");
     }
 
     @AggregationFunction("multi_output_aggregate")
