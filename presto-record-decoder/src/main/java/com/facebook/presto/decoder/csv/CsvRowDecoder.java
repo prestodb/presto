@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.decoder.FieldValueProviders.nullValueProvider;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.facebook.presto.spi.type.Varchars.truncateToLength;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -72,10 +73,11 @@ public class CsvRowDecoder
             int columnIndex = Integer.parseInt(mapping);
 
             if (columnIndex >= fields.length) {
-                continue;
+                decodedRow.put(columnHandle, nullValueProvider());
             }
-
-            decodedRow.put(columnHandle, decodeField(fields[columnIndex], columnHandle));
+            else {
+                decodedRow.put(columnHandle, decodeField(fields[columnIndex], columnHandle));
+            }
         }
         return Optional.of(decodedRow);
     }
