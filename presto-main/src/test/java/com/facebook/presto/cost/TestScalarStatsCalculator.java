@@ -24,7 +24,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SymbolReference;
-import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.cost.PlanNodeStatsEstimate.UNKNOWN_STATS;
@@ -39,7 +39,7 @@ public class TestScalarStatsCalculator
     private Session session;
     private final SqlParser sqlParser = new SqlParser();
 
-    @BeforeMethod
+    @BeforeClass
     public void setUp()
     {
         calculator = new ScalarStatsCalculator(MetadataManager.createTestMetadataManager());
