@@ -13,13 +13,13 @@ variables:
 # queries are assigned to groups so they execute within 15-60s each (for an arbitrary benchmark cluster)
 # groups are sorted by schema size
   1:
-    query: q5, q7, q8, q9, q17, q18, q21
+    query: q05, q07, q08, q09, q17, q18, q21
     schema: ${tpch_300}
 
   2:
-    query: q1, q2, q3, q4, q10, q12, q13, q15, q20
+    query: q01, q02, q03, q04, q10, q12, q13, q15, q20
     schema: ${tpch_1000}
 
   3:
-    query: q6, q11, q14, q16, q19, q22
+    query: q06, q11, q14, q16, q19, q22
     schema: ${tpch_3000}
