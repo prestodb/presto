@@ -21,6 +21,7 @@ import org.testng.annotations.Test;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static org.testng.Assert.assertEquals;
 
+@Test(singleThreaded = true)
 public class TestSpillSpaceTracker
 {
     private static final DataSize MAX_DATA_SIZE = new DataSize(10, MEGABYTE);

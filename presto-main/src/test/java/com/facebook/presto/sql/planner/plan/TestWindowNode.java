@@ -34,7 +34,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.slice.Slice;
-import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -70,7 +70,7 @@ public class TestWindowNode
         objectMapper = provider.get();
     }
 
-    @BeforeMethod
+    @BeforeClass
     public void setUp()
     {
         symbolAllocator = new SymbolAllocator();

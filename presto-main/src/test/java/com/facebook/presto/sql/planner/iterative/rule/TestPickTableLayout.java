@@ -28,7 +28,7 @@ import com.facebook.presto.tpch.TpchTableHandle;
 import com.facebook.presto.tpch.TpchTableLayoutHandle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -46,13 +46,13 @@ import static io.airlift.slice.Slices.utf8Slice;
 public class TestPickTableLayout
         extends BaseRuleTest
 {
-    protected PickTableLayout pickTableLayout;
+    private PickTableLayout pickTableLayout;
     private TableHandle nationTableHandle;
     private TableLayoutHandle nationTableLayoutHandle;
-    protected ConnectorId connectorId;
+    private ConnectorId connectorId;
 
-    @BeforeMethod
-    public void setUpPerMethod()
+    @BeforeClass
+    public void setUpBeforeClass()
     {
         pickTableLayout = new PickTableLayout(tester().getMetadata());
 
