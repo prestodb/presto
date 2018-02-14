@@ -17,10 +17,19 @@ import com.facebook.presto.decoder.DecoderColumnHandle;
 import com.facebook.presto.decoder.DecoderTestColumnHandle;
 import com.facebook.presto.decoder.FieldValueProvider;
 import com.facebook.presto.decoder.RowDecoder;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.IntegerType;
+import com.facebook.presto.spi.type.RealType;
+import com.facebook.presto.spi.type.SmallintType;
+import com.facebook.presto.spi.type.TinyintType;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarbinaryType;
 import com.google.common.collect.ImmutableSet;
+import org.assertj.core.api.ThrowableAssert;
 import org.testng.annotations.Test;
 
 import java.nio.charset.StandardCharsets;
@@ -29,8 +38,10 @@ import java.util.Set;
 
 import static com.facebook.presto.decoder.util.DecoderTestUtil.checkIsNull;
 import static com.facebook.presto.decoder.util.DecoderTestUtil.checkValue;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static java.util.Collections.emptyMap;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
 public class TestCsvDecoder
@@ -121,5 +132,128 @@ public class TestCsvDecoder
         checkIsNull(decodedRow, row2);
         checkIsNull(decodedRow, row3);
         checkIsNull(decodedRow, row4);
+    }
+
+    @Test
+    public void testLessTokensThanColumns()
+    {
+        String csv = "ala,10";
+
+        DecoderTestColumnHandle column1 = new DecoderTestColumnHandle("", 0, "column1", createVarcharType(10), "0", null, null, false, false, false);
+        DecoderTestColumnHandle column2 = new DecoderTestColumnHandle("", 1, "column2", BigintType.BIGINT, "1", null, null, false, false, false);
+        DecoderTestColumnHandle column3 = new DecoderTestColumnHandle("", 2, "column3", createVarcharType(10), "2", null, null, false, false, false);
+        DecoderTestColumnHandle column4 = new DecoderTestColumnHandle("", 0, "column4", BigintType.BIGINT, "3", null, null, false, false, false);
+        DecoderTestColumnHandle column5 = new DecoderTestColumnHandle("", 0, "column5", DoubleType.DOUBLE, "4", null, null, false, false, false);
+        DecoderTestColumnHandle column6 = new DecoderTestColumnHandle("", 0, "column6", BooleanType.BOOLEAN, "5", null, null, false, false, false);
+
+        Set<DecoderColumnHandle> columns = ImmutableSet.of(column1, column2, column3, column4, column5, column6);
+        RowDecoder rowDecoder = DECODER_FACTORY.create(emptyMap(), columns);
+
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(csv.getBytes(StandardCharsets.UTF_8), null)
+                .orElseThrow(AssertionError::new);
+
+        assertEquals(decodedRow.size(), columns.size());
+
+        checkValue(decodedRow, column1, "ala");
+        checkValue(decodedRow, column2, 10);
+        checkIsNull(decodedRow, column3);
+        checkIsNull(decodedRow, column4);
+        checkIsNull(decodedRow, column5);
+        checkIsNull(decodedRow, column6);
+    }
+
+    @Test
+    public void testWrongMappingDefined()
+    {
+        assertThatThrownBy(() -> singleColumnDecoder(BigintType.BIGINT, null, null, null, false, false, false))
+                .isInstanceOf(PrestoException.class)
+                .hasMessageMatching("mapping not defined for column 'column'");
+
+        assertThatThrownBy(() -> singleColumnDecoder(BigintType.BIGINT, "x", null, null, false, false, false))
+                .isInstanceOf(PrestoException.class)
+                .hasMessageMatching("invalid mapping 'x' for column 'column'");
+
+        assertThatThrownBy(() -> singleColumnDecoder(BigintType.BIGINT, "-1", null, null, false, false, false))
+                .isInstanceOf(PrestoException.class)
+                .hasMessageMatching("invalid mapping '-1' for column 'column'");
+
+        assertThatThrownBy(() -> singleColumnDecoder(BigintType.BIGINT, "1:1", null, null, false, false, false))
+                .isInstanceOf(PrestoException.class)
+                .hasMessageMatching("invalid mapping '1:1' for column 'column'");
+    }
+
+    @Test
+    public void testInvalidExtraneousParameters()
+    {
+        assertThatThrownBy(() -> singleColumnDecoder(BigintType.BIGINT, "0", "format", null, false, false, false))
+                .isInstanceOf(PrestoException.class)
+                .hasMessageMatching("unexpected data format 'format' defined for column 'column'");
+
+        assertThatThrownBy(() -> singleColumnDecoder(BigintType.BIGINT, "0", null, "hint", false, false, false))
+                .isInstanceOf(PrestoException.class)
+                .hasMessageMatching("unexpected format hint 'hint' defined for column 'column'");
+
+        assertThatThrownBy(() -> singleColumnDecoder(BigintType.BIGINT, "0", null, null, false, false, true))
+                .isInstanceOf(PrestoException.class)
+                .hasMessageMatching("unexpected internal column 'column'");
+    }
+
+    @Test
+    public void testSupportedDataTypeValidation()
+    {
+        // supported types
+        singleColumnDecoder(BigintType.BIGINT);
+        singleColumnDecoder(IntegerType.INTEGER);
+        singleColumnDecoder(SmallintType.SMALLINT);
+        singleColumnDecoder(TinyintType.TINYINT);
+        singleColumnDecoder(BooleanType.BOOLEAN);
+        singleColumnDecoder(DoubleType.DOUBLE);
+        singleColumnDecoder(createUnboundedVarcharType());
+        singleColumnDecoder(createVarcharType(100));
+
+        // some unsupported types
+        assertUnsupportedColumnTypeException(() -> singleColumnDecoder(RealType.REAL));
+        assertUnsupportedColumnTypeException(() -> singleColumnDecoder(DecimalType.createDecimalType(10, 4)));
+        assertUnsupportedColumnTypeException(() -> singleColumnDecoder(VarbinaryType.VARBINARY));
+    }
+
+    private void assertUnsupportedColumnTypeException(ThrowableAssert.ThrowingCallable callable)
+    {
+        assertThatThrownBy(callable)
+                .isInstanceOf(PrestoException.class)
+                .hasMessageMatching("Unsupported column type .* for column .*");
+    }
+
+    private void singleColumnDecoder(Type columnType)
+    {
+        singleColumnDecoder(columnType, "0", null, null, false, false, false);
+    }
+
+    private void singleColumnDecoder(Type columnType, String mapping, String dataFormat, String formatHint, boolean keyDecoder, boolean hidden, boolean internal)
+    {
+        DECODER_FACTORY.create(emptyMap(), ImmutableSet.of(new DecoderTestColumnHandle("", 0, "column", columnType, mapping, dataFormat, formatHint, keyDecoder, hidden, internal)));
+    }
+
+    @Test
+    public void testRuntimeDecodingFailure()
+    {
+        assertRuntimeDecodingFailure(() -> fieldValueDecoderFor(BigintType.BIGINT, "blah").getLong());
+    }
+
+    private FieldValueProvider fieldValueDecoderFor(BigintType type, String csv)
+    {
+        DecoderTestColumnHandle column = new DecoderTestColumnHandle("", 0, "column", type, "0", null, null, false, false, false);
+        Set<DecoderColumnHandle> columns = ImmutableSet.of(column);
+        RowDecoder rowDecoder = DECODER_FACTORY.create(emptyMap(), columns);
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(csv.getBytes(StandardCharsets.UTF_8), null)
+                .orElseThrow(AssertionError::new);
+        return decodedRow.get(column);
+    }
+
+    private void assertRuntimeDecodingFailure(ThrowableAssert.ThrowingCallable callable)
+    {
+        assertThatThrownBy(callable)
+                .isInstanceOf(PrestoException.class)
+                .hasMessageMatching("could not parse value .* as .* for column .*");
     }
 }
