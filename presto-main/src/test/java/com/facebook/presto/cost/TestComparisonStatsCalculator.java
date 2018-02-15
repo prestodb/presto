@@ -126,11 +126,11 @@ public class TestComparisonStatsCalculator
                 .setNullsFraction(0.1)
                 .build();
         emptyRangeStats = SymbolStatsEstimate.builder()
-                .setAverageRowSize(4.0)
+                .setAverageRowSize(0.0)
                 .setDistinctValuesCount(0.0)
                 .setLowValue(NaN)
                 .setHighValue(NaN)
-                .setNullsFraction(NaN)
+                .setNullsFraction(1.0)
                 .build();
         varcharStats = SymbolStatsEstimate.builder()
                 .setAverageRowSize(4.0)
@@ -270,12 +270,7 @@ public class TestComparisonStatsCalculator
         // Literal in empty range
         assertCalculate(new ComparisonExpression(EQUAL, new SymbolReference("emptyRange"), new DoubleLiteral("0.0")))
                 .outputRowsCount(0.0)
-                .symbolStats("emptyRange", symbolAssert -> {
-                    symbolAssert.averageRowSize(4.0)
-                            .distinctValuesCount(0.0)
-                            .emptyRange()
-                            .nullsFraction(1.0);
-                });
+                .symbolStats("emptyRange", equalTo(emptyRangeStats));
 
         // Column with values not representable as double (unknown range)
         assertCalculate(new ComparisonExpression(EQUAL, new SymbolReference("varchar"), new StringLiteral("blah")))
@@ -361,12 +356,7 @@ public class TestComparisonStatsCalculator
         // Literal in empty range
         assertCalculate(new ComparisonExpression(NOT_EQUAL, new SymbolReference("emptyRange"), new DoubleLiteral("0.0")))
                 .outputRowsCount(0.0)
-                .symbolStats("emptyRange", symbolAssert -> {
-                    symbolAssert.averageRowSize(4.0)
-                            .distinctValuesCount(0.0)
-                            .emptyRange()
-                            .nullsFraction(1.0);
-                });
+                .symbolStats("emptyRange", equalTo(emptyRangeStats));
 
         // Column with values not representable as double (unknown range)
         assertCalculate(new ComparisonExpression(NOT_EQUAL, new SymbolReference("varchar"), new StringLiteral("blah")))
@@ -462,12 +452,7 @@ public class TestComparisonStatsCalculator
         // Literal in empty range
         assertCalculate(new ComparisonExpression(LESS_THAN, new SymbolReference("emptyRange"), new DoubleLiteral("0.0")))
                 .outputRowsCount(0.0)
-                .symbolStats("emptyRange", symbolAssert -> {
-                    symbolAssert.averageRowSize(4.0)
-                            .distinctValuesCount(0.0)
-                            .emptyRange()
-                            .nullsFraction(1.0);
-                });
+                .symbolStats("emptyRange", equalTo(emptyRangeStats));
     }
 
     @Test
@@ -552,12 +537,7 @@ public class TestComparisonStatsCalculator
         // Literal in empty range
         assertCalculate(new ComparisonExpression(GREATER_THAN, new SymbolReference("emptyRange"), new DoubleLiteral("0.0")))
                 .outputRowsCount(0.0)
-                .symbolStats("emptyRange", symbolAssert -> {
-                    symbolAssert.averageRowSize(4.0)
-                            .distinctValuesCount(0.0)
-                            .emptyRange()
-                            .nullsFraction(1.0);
-                });
+                .symbolStats("emptyRange", equalTo(emptyRangeStats));
     }
 
     @Test
