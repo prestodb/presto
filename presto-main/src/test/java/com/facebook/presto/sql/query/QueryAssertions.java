@@ -66,6 +66,8 @@ class QueryAssertions
             fail("Execution of 'expected' query failed: " + expected, ex);
         }
 
+        assertEquals(actualResults.getTypes(), expectedResults.getTypes(), "Types mismatch for query: \n " + actual + "\n:");
+
         List<MaterializedRow> actualRows = actualResults.getMaterializedRows();
         List<MaterializedRow> expectedRows = expectedResults.getMaterializedRows();
 
