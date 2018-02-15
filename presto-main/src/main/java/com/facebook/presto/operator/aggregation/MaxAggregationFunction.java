@@ -13,19 +13,16 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.spi.function.OperatorType;
-
 public class MaxAggregationFunction
         extends AbstractMinMaxAggregationFunction
 {
-    private static final OperatorType OPERATOR_TYPE = OperatorType.GREATER_THAN;
     private static final String NAME = "max";
 
     public static final MaxAggregationFunction MAX_AGGREGATION = new MaxAggregationFunction();
 
     public MaxAggregationFunction()
     {
-        super(NAME, OPERATOR_TYPE);
+        super(NAME, false);
     }
 
     @Override
