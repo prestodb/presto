@@ -15,6 +15,8 @@ package com.facebook.presto.hive.parquet;
 
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.predicate.Domain;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.DecimalType;
@@ -24,6 +26,7 @@ import com.facebook.presto.spi.type.RealType;
 import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
+import parquet.column.ColumnDescriptor;
 import parquet.column.Encoding;
 import parquet.io.ColumnIO;
 import parquet.io.ColumnIOFactory;
@@ -156,13 +159,13 @@ public final class ParquetTypeUtils
         return index;
     }
 
-    public static Type getPrestoType(RichColumnDescriptor descriptor)
+    public static Type getPrestoType(TupleDomain<ColumnDescriptor> effectivePredicate, RichColumnDescriptor descriptor)
     {
         switch (descriptor.getType()) {
             case BOOLEAN:
                 return BooleanType.BOOLEAN;
             case BINARY:
-                return createDecimalType(descriptor).orElse(VarcharType.VARCHAR);
+                return createDecimalType(descriptor).orElse(createVarcharType(effectivePredicate, descriptor));
             case FLOAT:
                 return RealType.REAL;
             case DOUBLE:
@@ -178,6 +181,22 @@ public final class ParquetTypeUtils
             default:
                 throw new PrestoException(NOT_SUPPORTED, "Unsupported parquet type: " + descriptor.getType());
         }
+    }
+
+    private static Type createVarcharType(TupleDomain<ColumnDescriptor> effectivePredicate, RichColumnDescriptor column)
+    {
+        // We look at the effectivePredicate domain here, because it matches the Hive column type
+        // more accurately than the type available in the RichColumnDescriptor.
+        // For example, a Hive column of type varchar(length) is encoded as a Parquet BINARY, but
+        // when that is converted to a Presto Type the length information wasn't retained.
+        Optional<Map<ColumnDescriptor, Domain>> predicateDomains = effectivePredicate.getDomains();
+        if (predicateDomains.isPresent()) {
+            Domain domain = predicateDomains.get().get(column);
+            if (domain != null) {
+                return domain.getType();
+            }
+        }
+        return VarcharType.VARCHAR;
     }
 
     public static int getFieldIndex(MessageType fileSchema, String name)
