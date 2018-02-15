@@ -52,6 +52,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
+@Test(singleThreaded = true)
 public class TestMemoryTracking
 {
     private static final DataSize queryMaxMemory = new DataSize(1, GIGABYTE);
