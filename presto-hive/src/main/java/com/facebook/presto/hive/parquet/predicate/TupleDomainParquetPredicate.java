@@ -79,7 +79,7 @@ public class TupleDomainParquetPredicate
             Statistics<?> columnStatistics = statistics.get(column);
 
             Domain domain;
-            Type type = getPrestoType(column);
+            Type type = getType(column);
             if (columnStatistics == null || columnStatistics.isEmpty()) {
                 // no stats for column
                 domain = Domain.all(type);
@@ -101,7 +101,7 @@ public class TupleDomainParquetPredicate
 
         for (RichColumnDescriptor column : columns) {
             ParquetDictionaryDescriptor dictionaryDescriptor = dictionaries.get(column);
-            Domain domain = getDomain(getPrestoType(column), dictionaryDescriptor);
+            Domain domain = getDomain(getType(column), dictionaryDescriptor);
             if (domain != null) {
                 domains.put(column, domain);
             }
@@ -109,6 +109,21 @@ public class TupleDomainParquetPredicate
         TupleDomain<ColumnDescriptor> stripeDomain = TupleDomain.withColumnDomains(domains.build());
 
         return effectivePredicate.overlaps(stripeDomain);
+    }
+
+    private Type getType(RichColumnDescriptor column)
+    {
+        // we look at effective predicate domain because it more accurately matches the hive column
+        // than the type available in the parquet metadata passed here as RichColumnDescriptor
+        // for example varchar(len) hive column is translated to binary and then to varchar type using parquet metadata
+        Optional<Map<ColumnDescriptor, Domain>> predicateDomains = effectivePredicate.getDomains();
+        if (predicateDomains.isPresent()) {
+            Domain domain = predicateDomains.get().get(column);
+            if (domain != null) {
+                return domain.getType();
+            }
+        }
+        return getPrestoType(column);
     }
 
     @VisibleForTesting
