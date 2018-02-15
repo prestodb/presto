@@ -72,6 +72,7 @@ public class FeaturesConfig
     private boolean legacyOrderBy;
     private boolean legacyTimestamp = true;
     private boolean legacyMapSubscript;
+    private boolean legacyJoinUsing;
     private boolean optimizeMixedDistinctAggregations;
     private boolean forceSingleNodeOutput = true;
     private boolean pagesIndexEagerCompactionEnabled;
@@ -163,6 +164,18 @@ public class FeaturesConfig
     public boolean isDistributedJoinsEnabled()
     {
         return distributedJoinsEnabled;
+    }
+
+    @Config("deprecated.legacy-join-using")
+    public FeaturesConfig setLegacyJoinUsing(boolean value)
+    {
+        this.legacyJoinUsing = value;
+        return this;
+    }
+
+    public boolean isLegacyJoinUsing()
+    {
+        return legacyJoinUsing;
     }
 
     @Config("deprecated.legacy-array-agg")
