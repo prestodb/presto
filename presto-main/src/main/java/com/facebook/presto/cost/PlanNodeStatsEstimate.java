@@ -17,6 +17,7 @@ import com.facebook.presto.sql.planner.Symbol;
 import org.pcollections.HashTreePMap;
 import org.pcollections.PMap;
 
+import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -26,6 +27,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Double.NaN;
 import static java.lang.Double.isNaN;
+import static java.util.Objects.requireNonNull;
 
 public class PlanNodeStatsEstimate
 {
@@ -55,16 +57,18 @@ public class PlanNodeStatsEstimate
      * Returns estimated data size.
      * Unknown value is represented by {@link Double#NaN}
      */
-    public double getOutputSizeInBytes()
+    public double getOutputSizeInBytes(Collection<Symbol> outputSymbols)
     {
+        requireNonNull(outputSymbols, "outputSymbols is null");
+
         if (isNaN(outputRowCount)) {
             return Double.NaN;
         }
-        double outputSizeInBytes = 0;
-        for (Map.Entry<Symbol, SymbolStatsEstimate> entry : symbolStatistics.entrySet()) {
-            outputSizeInBytes += getOutputSizeForSymbol(entry.getValue());
-        }
-        return outputSizeInBytes;
+
+        return outputSymbols.stream()
+                .map(this::getSymbolStatistics)
+                .mapToDouble(this::getOutputSizeForSymbol)
+                .sum();
     }
 
     private double getOutputSizeForSymbol(SymbolStatsEstimate symbolStatistics)
