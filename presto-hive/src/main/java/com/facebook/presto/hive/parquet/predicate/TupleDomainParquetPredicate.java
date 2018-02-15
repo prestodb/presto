@@ -79,7 +79,7 @@ public class TupleDomainParquetPredicate
             Statistics<?> columnStatistics = statistics.get(column);
 
             Domain domain;
-            Type type = getPrestoType(column);
+            Type type = getPrestoType(effectivePredicate, column);
             if (columnStatistics == null || columnStatistics.isEmpty()) {
                 // no stats for column
                 domain = Domain.all(type);
@@ -101,7 +101,7 @@ public class TupleDomainParquetPredicate
 
         for (RichColumnDescriptor column : columns) {
             ParquetDictionaryDescriptor dictionaryDescriptor = dictionaries.get(column);
-            Domain domain = getDomain(getPrestoType(column), dictionaryDescriptor);
+            Domain domain = getDomain(getPrestoType(effectivePredicate, column), dictionaryDescriptor);
             if (domain != null) {
                 domains.put(column, domain);
             }
