@@ -1310,7 +1310,7 @@ public class PlanPrinter
         {
             PlanNodeStatsEstimate stats = statsProvider.getStats(node);
             double outputRowCount = stats.getOutputRowCount();
-            double outputSizeInBytes = stats.getOutputSizeInBytes();
+            double outputSizeInBytes = stats.getOutputSizeInBytes(node.getOutputSymbols());
             return String.format("{rows: %s, bytes: %s}",
                     Double.isNaN(outputRowCount) ? "?" : String.valueOf((long) outputRowCount),
                     Double.isNaN(outputSizeInBytes) ? "?" : succinctBytes((long) outputSizeInBytes));
