@@ -322,9 +322,11 @@ public class HiveMetadata
     {
         HiveTableLayoutHandle tableLayoutHandle = (HiveTableLayoutHandle) layoutHandle;
         if (tableLayoutHandle.getPartitions().isPresent()) {
-            return Optional.of(new HiveInputInfo(tableLayoutHandle.getPartitions().get().stream()
-                    .map(HivePartition::getPartitionId)
-                    .collect(Collectors.toList())));
+            return Optional.of(new HiveInputInfo(
+                    tableLayoutHandle.getPartitions().get().stream()
+                            .map(HivePartition::getPartitionId)
+                            .collect(Collectors.toList()),
+                    false));
         }
 
         return Optional.empty();
