@@ -37,12 +37,15 @@ class QueryAssertions
 
     public QueryAssertions()
     {
-        Session defaultSession = testSessionBuilder()
+        this(testSessionBuilder()
                 .setCatalog("local")
                 .setSchema("default")
-                .build();
+                .build());
+    }
 
-        runner = new LocalQueryRunner(defaultSession);
+    public QueryAssertions(Session session)
+    {
+        runner = new LocalQueryRunner(session);
     }
 
     public void assertFails(@Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp)
