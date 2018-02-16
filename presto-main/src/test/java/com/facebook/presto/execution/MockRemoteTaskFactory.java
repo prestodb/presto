@@ -48,7 +48,9 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import io.airlift.stats.TestingGcMonitor;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -83,6 +85,7 @@ import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class MockRemoteTaskFactory
         implements RemoteTaskFactory
@@ -178,7 +181,7 @@ public class MockRemoteTaskFactory
             MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE));
             MemoryPool memorySystemPool = new MemoryPool(new MemoryPoolId("testSystem"), new DataSize(1, GIGABYTE));
             SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(new DataSize(1, GIGABYTE));
-            QueryContext queryContext = new QueryContext(taskId.getQueryId(), new DataSize(1, MEGABYTE), memoryPool, memorySystemPool, executor, scheduledExecutor, new DataSize(1, MEGABYTE), spillSpaceTracker);
+            QueryContext queryContext = new QueryContext(taskId.getQueryId(), new DataSize(1, MEGABYTE), memoryPool, memorySystemPool, new TestingGcMonitor(), executor, scheduledExecutor, new DataSize(1, MEGABYTE), spillSpaceTracker);
             this.taskContext = queryContext.addTaskContext(taskStateMachine, TEST_SESSION, true, true);
 
             this.location = URI.create("fake://task/" + taskId);
@@ -234,7 +237,9 @@ public class MockRemoteTaskFactory
                             false,
                             new DataSize(0, BYTE),
                             new DataSize(0, BYTE),
-                            new DataSize(0, BYTE)),
+                            new DataSize(0, BYTE),
+                            0,
+                            new Duration(0, MILLISECONDS)),
                     DateTime.now(),
                     outputBuffer.getInfo(),
                     ImmutableSet.of(),
@@ -260,7 +265,9 @@ public class MockRemoteTaskFactory
                     false,
                     stats.getPhysicalWrittenDataSize(),
                     stats.getUserMemoryReservation(),
-                    stats.getSystemMemoryReservation());
+                    stats.getSystemMemoryReservation(),
+                    0,
+                    new Duration(0, MILLISECONDS));
         }
 
         private synchronized void updateSplitQueueSpace()

@@ -39,6 +39,8 @@ public class QueryStatistics
 
     private final double cumulativeMemory;
 
+    private final List<StageGcStatistics> stageGcStatistics;
+
     private final int completedSplits;
     private final boolean complete;
 
@@ -61,6 +63,7 @@ public class QueryStatistics
             long writtenBytes,
             long writtenRows,
             double cumulativeMemory,
+            List<StageGcStatistics> stageGcStatistics,
             int completedSplits,
             boolean complete,
             List<StageCpuDistribution> cpuTimeDistribution,
@@ -80,6 +83,7 @@ public class QueryStatistics
         this.writtenBytes = writtenBytes;
         this.writtenRows = writtenRows;
         this.cumulativeMemory = cumulativeMemory;
+        this.stageGcStatistics = requireNonNull(stageGcStatistics, "stageGcStatistics is null");
         this.completedSplits = completedSplits;
         this.complete = complete;
         this.cpuTimeDistribution = requireNonNull(cpuTimeDistribution, "cpuTimeDistribution is null");
@@ -154,6 +158,11 @@ public class QueryStatistics
     public double getCumulativeMemory()
     {
         return cumulativeMemory;
+    }
+
+    public List<StageGcStatistics> getStageGcStatistics()
+    {
+        return stageGcStatistics;
     }
 
     public int getCompletedSplits()

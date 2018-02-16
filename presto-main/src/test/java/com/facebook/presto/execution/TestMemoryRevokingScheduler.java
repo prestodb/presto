@@ -39,6 +39,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.node.NodeInfo;
+import io.airlift.stats.TestingGcMonitor;
 import io.airlift.units.DataSize;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
@@ -295,7 +296,16 @@ public class TestMemoryRevokingScheduler
                 taskId,
                 location,
                 "fake",
-                new QueryContext(new QueryId("query"), new DataSize(1, MEGABYTE), memoryPool, new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE)), executor, scheduledExecutor, new DataSize(1, GIGABYTE), spillSpaceTracker),
+                new QueryContext(
+                        new QueryId("query"),
+                        new DataSize(1, MEGABYTE),
+                        memoryPool,
+                        new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE)),
+                        new TestingGcMonitor(),
+                        executor,
+                        scheduledExecutor,
+                        new DataSize(1, GIGABYTE),
+                        spillSpaceTracker),
                 sqlTaskExecutionFactory,
                 executor,
                 Functions.<SqlTask>identity(),

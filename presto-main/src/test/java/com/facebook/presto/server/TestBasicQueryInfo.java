@@ -18,6 +18,7 @@ import com.facebook.presto.execution.QueryStats;
 import com.facebook.presto.operator.BlockedReason;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.StandardErrorCode;
+import com.facebook.presto.spi.eventlistener.StageGcStatistics;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -87,6 +88,14 @@ public class TestBasicQueryInfo
                                 DataSize.valueOf("31GB"),
                                 32,
                                 DataSize.valueOf("32GB"),
+                                ImmutableList.of(new StageGcStatistics(
+                                        101,
+                                        102,
+                                        103,
+                                        104,
+                                        105,
+                                        106,
+                                        107)),
                                 ImmutableList.of()),
                         Optional.empty(),
                         Optional.empty(),

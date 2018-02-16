@@ -17,6 +17,7 @@ import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spiller.SpillSpaceTracker;
 import com.facebook.presto.testing.LocalQueryRunner;
+import io.airlift.stats.TestingGcMonitor;
 import io.airlift.units.DataSize;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -55,6 +56,7 @@ public class TestQueryContext
                     new DataSize(10, BYTE),
                     new MemoryPool(GENERAL_POOL, new DataSize(10, BYTE)),
                     new MemoryPool(SYSTEM_POOL, new DataSize(10, BYTE)),
+                    new TestingGcMonitor(),
                     localQueryRunner.getExecutor(),
                     localQueryRunner.getScheduler(),
                     new DataSize(0, BYTE),

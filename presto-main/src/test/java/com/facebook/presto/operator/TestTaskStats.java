@@ -68,6 +68,9 @@ public class TestTaskStats
 
             new DataSize(25, BYTE),
 
+            26,
+            new Duration(27, NANOSECONDS),
+
             ImmutableList.of(TestPipelineStats.EXPECTED));
 
     @Test

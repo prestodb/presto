@@ -30,6 +30,7 @@ import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spiller.SpillSpaceTracker;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import io.airlift.stats.TestingGcMonitor;
 import io.airlift.units.DataSize;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -103,6 +104,7 @@ public class TestMemoryTracking
                 queryMaxMemory,
                 userPool,
                 systemPool,
+                new TestingGcMonitor(),
                 notificationExecutor,
                 yieldExecutor,
                 queryMaxSpillSize,

@@ -23,6 +23,7 @@ import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spiller.SpillSpaceTracker;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.stats.GcMonitor;
 import io.airlift.units.DataSize;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -54,6 +55,7 @@ public class QueryContext
     private static final long GUARANTEED_MEMORY = new DataSize(1, MEGABYTE).toBytes();
 
     private final QueryId queryId;
+    private final GcMonitor gcMonitor;
     private final Executor notificationExecutor;
     private final ScheduledExecutorService yieldExecutor;
     private final long maxSpill;
@@ -78,6 +80,7 @@ public class QueryContext
             DataSize maxMemory,
             MemoryPool memoryPool,
             MemoryPool systemMemoryPool,
+            GcMonitor gcMonitor,
             Executor notificationExecutor,
             ScheduledExecutorService yieldExecutor,
             DataSize maxSpill,
@@ -87,6 +90,7 @@ public class QueryContext
         this.maxMemory = requireNonNull(maxMemory, "maxMemory is null").toBytes();
         this.memoryPool = requireNonNull(memoryPool, "memoryPool is null");
         this.systemMemoryPool = requireNonNull(systemMemoryPool, "systemMemoryPool is null");
+        this.gcMonitor = requireNonNull(gcMonitor, "gcMonitor is null");
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
         this.yieldExecutor = requireNonNull(yieldExecutor, "yieldExecutor is null");
         this.maxSpill = requireNonNull(maxSpill, "maxSpill is null").toBytes();
@@ -216,6 +220,7 @@ public class QueryContext
         TaskContext taskContext = TaskContext.createTaskContext(
                 this,
                 taskStateMachine,
+                gcMonitor,
                 notificationExecutor,
                 yieldExecutor,
                 session,

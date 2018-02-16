@@ -32,6 +32,7 @@ import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.transaction.TransactionId;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.stats.CpuTimer;
+import io.airlift.stats.TestingGcMonitor;
 import io.airlift.units.DataSize;
 
 import java.util.List;
@@ -134,7 +135,16 @@ public abstract class AbstractOperatorBenchmark
         MemoryPool systemMemoryPool = new MemoryPool(new MemoryPoolId("testSystem"), new DataSize(1, GIGABYTE));
         SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(new DataSize(1, GIGABYTE));
 
-        TaskContext taskContext = new QueryContext(new QueryId("test"), new DataSize(256, MEGABYTE), memoryPool, systemMemoryPool, localQueryRunner.getExecutor(), localQueryRunner.getScheduler(), new DataSize(256, MEGABYTE), spillSpaceTracker)
+        TaskContext taskContext = new QueryContext(
+                new QueryId("test"),
+                new DataSize(256, MEGABYTE),
+                memoryPool,
+                systemMemoryPool,
+                new TestingGcMonitor(),
+                localQueryRunner.getExecutor(),
+                localQueryRunner.getScheduler(),
+                new DataSize(256, MEGABYTE),
+                spillSpaceTracker)
                 .addTaskContext(new TaskStateMachine(new TaskId("query", 0, 0), localQueryRunner.getExecutor()),
                         session,
                         false,

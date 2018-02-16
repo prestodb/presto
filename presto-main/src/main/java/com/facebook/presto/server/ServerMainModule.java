@@ -158,6 +158,8 @@ import io.airlift.discovery.client.ServiceDescriptor;
 import io.airlift.discovery.server.EmbeddedDiscoveryModule;
 import io.airlift.http.client.HttpClientConfig;
 import io.airlift.slice.Slice;
+import io.airlift.stats.GcMonitor;
+import io.airlift.stats.JmxGcMonitor;
 import io.airlift.stats.PauseMeter;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -250,6 +252,9 @@ public class ServerMainModule
         configBinder(binder).bindConfig(QueryManagerConfig.class);
 
         jsonCodecBinder(binder).bindJsonCodec(ViewDefinition.class);
+
+        // GC Monitor
+        binder.bind(GcMonitor.class).to(JmxGcMonitor.class).in(Scopes.SINGLETON);
 
         // session properties
         binder.bind(SessionPropertyManager.class).in(Scopes.SINGLETON);

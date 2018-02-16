@@ -74,6 +74,9 @@ public class TaskStats
 
     private final DataSize physicalWrittenDataSize;
 
+    private final int fullGcCount;
+    private final Duration fullGcTime;
+
     private final List<PipelineStats> pipelines;
 
     public TaskStats(DateTime createTime, DateTime endTime)
@@ -109,6 +112,8 @@ public class TaskStats
                 new DataSize(0, BYTE),
                 0,
                 new DataSize(0, BYTE),
+                0,
+                new Duration(0, MILLISECONDS),
                 ImmutableList.of());
     }
 
@@ -152,6 +157,9 @@ public class TaskStats
             @JsonProperty("outputPositions") long outputPositions,
 
             @JsonProperty("physicalWrittenDataSize") DataSize physicalWrittenDataSize,
+
+            @JsonProperty("fullGcCount") int fullGcCount,
+            @JsonProperty("fullGcTime") Duration fullGcTime,
 
             @JsonProperty("pipelines") List<PipelineStats> pipelines)
     {
@@ -206,6 +214,10 @@ public class TaskStats
         this.outputPositions = outputPositions;
 
         this.physicalWrittenDataSize = requireNonNull(physicalWrittenDataSize, "writtenDataSize is null");
+
+        checkArgument(fullGcCount >= 0, "fullGcCount is negative");
+        this.fullGcCount = fullGcCount;
+        this.fullGcTime = requireNonNull(fullGcTime, "fullGcTime is null");
 
         this.pipelines = ImmutableList.copyOf(requireNonNull(pipelines, "pipelines is null"));
     }
@@ -406,6 +418,18 @@ public class TaskStats
         return runningPartitionedDrivers;
     }
 
+    @JsonProperty
+    public int getFullGcCount()
+    {
+        return fullGcCount;
+    }
+
+    @JsonProperty
+    public Duration getFullGcTime()
+    {
+        return fullGcTime;
+    }
+
     public TaskStats summarize()
     {
         return new TaskStats(
@@ -440,6 +464,8 @@ public class TaskStats
                 outputDataSize,
                 outputPositions,
                 physicalWrittenDataSize,
+                fullGcCount,
+                fullGcTime,
                 ImmutableList.of());
     }
 
@@ -477,6 +503,8 @@ public class TaskStats
                 outputDataSize,
                 outputPositions,
                 physicalWrittenDataSize,
+                fullGcCount,
+                fullGcTime,
                 pipelines.stream()
                         .map(PipelineStats::summarize)
                         .collect(Collectors.toList()));

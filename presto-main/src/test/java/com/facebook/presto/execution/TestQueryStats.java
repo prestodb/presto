@@ -16,6 +16,7 @@ package com.facebook.presto.execution;
 import com.facebook.presto.operator.FilterAndProjectOperator;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.TableWriterOperator;
+import com.facebook.presto.spi.eventlistener.StageGcStatistics;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -175,6 +176,15 @@ public class TestQueryStats
 
             new DataSize(30, BYTE),
 
+            ImmutableList.of(new StageGcStatistics(
+                    101,
+                    102,
+                    103,
+                    104,
+                    105,
+                    106,
+                    107)),
+
             operatorSummaries);
 
     @Test
@@ -234,6 +244,16 @@ public class TestQueryStats
         assertEquals(actual.getOutputPositions(), 29);
 
         assertEquals(actual.getPhysicalWrittenDataSize(), new DataSize(30, BYTE));
+
+        assertEquals(actual.getStageGcStatistics().size(), 1);
+        StageGcStatistics gcStatistics = actual.getStageGcStatistics().get(0);
+        assertEquals(gcStatistics.getStageId(), 101);
+        assertEquals(gcStatistics.getTasks(), 102);
+        assertEquals(gcStatistics.getFullGcTasks(), 103);
+        assertEquals(gcStatistics.getMinFullGcSec(), 104);
+        assertEquals(gcStatistics.getMaxFullGcSec(), 105);
+        assertEquals(gcStatistics.getTotalFullGcSec(), 106);
+        assertEquals(gcStatistics.getAverageFullGcSec(), 107);
 
         assertEquals(400L, actual.getWrittenPositions());
         assertEquals(1500L, actual.getLogicalWrittenDataSize().toBytes());
