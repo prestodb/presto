@@ -33,12 +33,12 @@ public class AircompressorDecompressor
 
     @Override
     public void decompress(Slice compressed, Slice uncompressed)
-            throws IOException
+            throws RcFileCorruptionException
     {
         try (CompressionInputStream decompressorStream = codec.createInputStream(compressed.getInput())) {
             uncompressed.setBytes(0, decompressorStream, uncompressed.length());
         }
-        catch (IndexOutOfBoundsException e) {
+        catch (IndexOutOfBoundsException | IOException e) {
             throw new RcFileCorruptionException(e, "Compressed stream is truncated");
         }
     }
