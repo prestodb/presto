@@ -173,6 +173,8 @@ Property Name                                      Description                  
                                                    See :ref:`hive-file-based-authorization` for details.
 
 ``hive.non-managed-table-writes-enabled``          Enable writes to non-managed (external) Hive tables.         ``false``
+
+``hive.non-managed-table-creates-enabled``         Enable creating non-managed (external) Hive tables.          ``true``
 ================================================== ============================================================ ==========
 
 Amazon S3 Configuration
