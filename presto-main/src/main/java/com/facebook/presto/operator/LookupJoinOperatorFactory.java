@@ -286,13 +286,13 @@ public class LookupJoinOperatorFactory
 
             // When all probe and build-outer operators finish, destroy the lookup source (freeing the memory)
             // * Whole probe side (operator and operatorFactory) is counted as 1 lookup source factory user
-            // * Each LookupOuterOperatorFactory count as 1 lookup source factory user, until noMoreOperators(DLC) is called.
+            // * Each LookupOuterOperatorFactory count as 1 lookup source factory user, until noMoreOperators(LifeSpan) is called.
             //   * There is at most 1 LookupOuterOperatorFactory
             // * Each LookupOuterOperator count as 1 lookup source factory user, until close() is called.
             lookupSourceFactoryUsersCount = new ReferenceCount(1);
             lookupSourceFactoryUsersCount.getFreeFuture().addListener(lookupSourceFactory::destroy, directExecutor());
 
-            // * Each LookupJoinOperatorFactory count as 1 probe, until noMoreOperators(DLC) is called.
+            // * Each LookupJoinOperatorFactory count as 1 probe, until noMoreOperators(LifeSpan) is called.
             // * Each LookupJoinOperator count as 1 probe, until close() is called.
             probeReferenceCount = new ReferenceCount(factoryCount);
             probeReferenceCount.getFreeFuture().addListener(lookupSourceFactoryUsersCount::release, directExecutor());
@@ -304,14 +304,16 @@ public class LookupJoinOperatorFactory
                 // increment the user count by 1 to account for the build-outer factory
                 lookupSourceFactoryUsersCount.retain();
 
-                // When all join operators finish (and lookup source is ready), set the outer position future to start the outer operator.
-                // * When all join operators finish, wait until lookup source is ready;
-                // * When both are ready, set the outer position future to start the outer operator.
-                ListenableFuture<LookupSourceProvider> lookupSourceAfterProbeFinished = transformAsync(
+                // Set the outer position future to start the outer operator:
+                // 1. when all probe operators finish, and
+                // 2. when lookup source is ready
+                ListenableFuture<LookupSourceProvider> lookupSourceProviderAfterProbeFinished = transformAsync(
                         probeReferenceCount.getFreeFuture(),
                         ignored -> lookupSourceFactory.createLookupSourceProvider());
-                outerPositionsFuture = transform(lookupSourceAfterProbeFinished, lookupSource -> {
-                    lookupSource.close();
+                outerPositionsFuture = transform(lookupSourceProviderAfterProbeFinished, lookupSourceProvider -> {
+                    // Close the lookupSourceProvider we just created.
+                    // The only reason we created it is to wait until lookup source is ready.
+                    lookupSourceProvider.close();
                     return lookupSourceFactory.getOuterPositionIterator();
                 });
             }
