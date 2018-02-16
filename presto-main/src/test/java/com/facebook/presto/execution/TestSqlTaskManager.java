@@ -23,6 +23,7 @@ import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.execution.buffer.BufferState;
 import com.facebook.presto.execution.executor.TaskExecutor;
 import com.facebook.presto.memory.LocalMemoryManager;
+import com.facebook.presto.memory.MemoryPool;
 import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.memory.ReservedSystemMemoryConfig;
 import com.facebook.presto.memory.context.LocalMemoryContext;
@@ -53,6 +54,7 @@ import static com.facebook.presto.execution.TaskTestUtils.PLAN_FRAGMENT;
 import static com.facebook.presto.execution.TaskTestUtils.SPLIT;
 import static com.facebook.presto.execution.TaskTestUtils.TABLE_SCAN_NODE_ID;
 import static com.facebook.presto.execution.TaskTestUtils.createTestingPlanner;
+import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
@@ -269,6 +271,25 @@ public class TestSqlTaskManager
             for (TaskInfo info : sqlTaskManager.getAllTaskInfo()) {
                 assertNotEquals(info.getTaskStatus().getTaskId(), taskId);
             }
+        }
+    }
+
+    @Test
+    public void testRemoveOrphanMemoryReservation()
+    {
+        try (SqlTaskManager sqlTaskManager = createSqlTaskManager(new TaskManagerConfig().setInfoMaxAge(new Duration(5, TimeUnit.MILLISECONDS)))) {
+            TaskId taskId = TASK_ID;
+
+            TaskInfo taskInfo = sqlTaskManager.cancelTask(taskId);
+            MemoryPool pool = localMemoryManager.getPool(GENERAL_POOL);
+            // simulate orphan reserved memory
+            pool.reserve(taskId.getQueryId(), 100);
+            pool.reserveRevocable(taskId.getQueryId(), 200);
+            sqlTaskManager.removeOrphanMemoryReservation(taskInfo);
+
+            pool = localMemoryManager.getPool(GENERAL_POOL);
+            assertNull(pool.getInfo().getQueryMemoryReservations().get(taskId.getQueryId()));
+            assertNull(pool.getInfo().getQueryMemoryRevocableReservations().get(taskId.getQueryId()));
         }
     }
 
