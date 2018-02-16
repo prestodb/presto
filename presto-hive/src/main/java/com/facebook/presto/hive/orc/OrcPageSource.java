@@ -41,6 +41,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class OrcPageSource
@@ -160,7 +161,7 @@ public class OrcPageSource
         }
         catch (IOException | RuntimeException e) {
             closeWithSuppression(e);
-            throw new PrestoException(HIVE_CURSOR_ERROR, e);
+            throw new PrestoException(HIVE_CURSOR_ERROR, format("Failed to read ORC file: %s", orcDataSource.getId()), e);
         }
     }
 
@@ -241,8 +242,8 @@ public class OrcPageSource
             catch (OrcCorruptionException e) {
                 throw new PrestoException(HIVE_BAD_DATA, e);
             }
-            catch (IOException e) {
-                throw new PrestoException(HIVE_CURSOR_ERROR, e);
+            catch (IOException | RuntimeException e) {
+                throw new PrestoException(HIVE_CURSOR_ERROR, format("Failed to read ORC file: %s", orcDataSource.getId()), e);
             }
 
             loaded = true;
