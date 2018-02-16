@@ -19,6 +19,8 @@ import java.io.IOException;
 public interface RcFileDataSource
         extends Closeable
 {
+    RcFileDataSourceId getId();
+
     long getReadBytes();
 
     long getReadTimeNanos();
