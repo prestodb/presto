@@ -17,6 +17,7 @@ import com.facebook.presto.execution.buffer.OutputBuffer;
 import com.facebook.presto.execution.buffer.PagesSerde;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.execution.buffer.SerializedPage;
+import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
@@ -199,6 +200,8 @@ public class PartitionedOutputOperator
     private final OperatorContext operatorContext;
     private final Function<Page, Page> pagePreprocessor;
     private final PagePartitioner partitionFunction;
+    private final LocalMemoryContext systemMemoryContext;
+    private final long partitionsInitialRetainedSize;
     private ListenableFuture<?> blocked = NOT_BLOCKED;
     private boolean finished;
 
@@ -229,10 +232,9 @@ public class PartitionedOutputOperator
                 maxMemory);
 
         operatorContext.setInfoSupplier(this::getInfo);
-        // TODO: We should try to make this more accurate
-        // Recalculating the retained size of all the PageBuilders is somewhat expensive,
-        // so we only do it once here rather than in addInput(), and assume that the size will be constant.
-        operatorContext.newLocalSystemMemoryContext().setBytes(this.partitionFunction.getRetainedSizeInBytes());
+        this.systemMemoryContext = operatorContext.newLocalSystemMemoryContext();
+        this.partitionsInitialRetainedSize = this.partitionFunction.getRetainedSizeInBytes();
+        this.systemMemoryContext.setBytes(partitionsInitialRetainedSize);
     }
 
     @Override
@@ -294,6 +296,14 @@ public class PartitionedOutputOperator
         blocked = partitionFunction.partitionPage(page);
 
         operatorContext.recordGeneratedOutput(page.getSizeInBytes(), page.getPositionCount());
+
+        // We use getSizeInBytes() here instead of getRetainedSizeInBytes() for an approximation of
+        // the amount of memory used by the pageBuilders, because calculating the retained
+        // size can be expensive especially for complex types.
+        long partitionsSizeInBytes = partitionFunction.getSizeInBytes();
+
+        // We also add partitionsInitialRetainedSize as an approximation of the object overhead of the partitions.
+        systemMemoryContext.setBytes(partitionsSizeInBytes + partitionsInitialRetainedSize);
     }
 
     @Override
@@ -349,16 +359,27 @@ public class PartitionedOutputOperator
             }
         }
 
-        // Does not include size of SharedBuffer
-        public long getRetainedSizeInBytes()
+        public long getSizeInBytes()
         {
             // We use a foreach loop instead of streams
             // as it has much better performance.
-            long retainedSizeInBytes = 0;
+            long sizeInBytes = 0;
             for (PageBuilder pageBuilder : pageBuilders) {
-                retainedSizeInBytes += pageBuilder.getRetainedSizeInBytes();
+                sizeInBytes += pageBuilder.getSizeInBytes();
             }
-            return retainedSizeInBytes;
+            return sizeInBytes;
+        }
+
+        /**
+         * This method can be expensive for complex types.
+         */
+        public long getRetainedSizeInBytes()
+        {
+            long sizeInBytes = 0;
+            for (PageBuilder pageBuilder : pageBuilders) {
+                sizeInBytes += pageBuilder.getRetainedSizeInBytes();
+            }
+            return sizeInBytes;
         }
 
         public PartitionedOutputInfo getInfo()
