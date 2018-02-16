@@ -185,6 +185,7 @@ public class HiveMetadata
     private final JsonCodec<PartitionUpdate> partitionUpdateCodec;
     private final boolean bucketWritingEnabled;
     private final boolean writesToNonManagedTablesEnabled;
+    private final boolean createsOfNonManagedTablesEnabled;
     private final TypeTranslator typeTranslator;
     private final String prestoVersion;
     private final HiveStatisticsProvider hiveStatisticsProvider;
@@ -197,6 +198,7 @@ public class HiveMetadata
             boolean allowCorruptWritesForTesting,
             boolean bucketWritingEnabled,
             boolean writesToNonManagedTablesEnabled,
+            boolean createsOfNonManagedTablesEnabled,
             TypeManager typeManager,
             LocationService locationService,
             TableParameterCodec tableParameterCodec,
@@ -217,6 +219,7 @@ public class HiveMetadata
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
         this.bucketWritingEnabled = bucketWritingEnabled;
         this.writesToNonManagedTablesEnabled = writesToNonManagedTablesEnabled;
+        this.createsOfNonManagedTablesEnabled = createsOfNonManagedTablesEnabled;
         this.typeTranslator = requireNonNull(typeTranslator, "typeTranslator is null");
         this.prestoVersion = requireNonNull(prestoVersion, "prestoVersion is null");
         this.hiveStatisticsProvider = requireNonNull(hiveStatisticsProvider, "hiveStatisticsProvider is null");
@@ -479,6 +482,10 @@ public class HiveMetadata
         boolean external;
         String externalLocation = getExternalLocation(tableMetadata.getProperties());
         if (externalLocation != null) {
+            if (!createsOfNonManagedTablesEnabled) {
+                throw new PrestoException(NOT_SUPPORTED, "Cannot create non-managed Hive table");
+            }
+
             external = true;
             targetPath = getExternalPath(new HdfsContext(session, schemaName, tableName), externalLocation);
         }
