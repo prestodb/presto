@@ -18,6 +18,7 @@ import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
+import com.facebook.presto.sql.planner.iterative.GroupReference;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.FilterNode;
@@ -218,6 +219,12 @@ public class PlanNodeDecorrelator
                     .build();
 
             return new ProjectNode(idAllocator.getNextId(), rewrittenNode.getSource(), assignments);
+        }
+
+        @Override
+        public PlanNode visitGroupReference(GroupReference node, RewriteContext<PlanNode> context)
+        {
+            return node;
         }
     }
 }
