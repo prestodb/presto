@@ -375,7 +375,6 @@ public class PlanOptimizers
                     stats,
                     statsCalculator,
                     estimatedExchangesCostCalculator,
-                    ImmutableList.of(new com.facebook.presto.sql.planner.optimizations.DetermineJoinDistributionType()), // Must run before AddExchanges
                     ImmutableSet.of(new DetermineJoinDistributionType())))); // Must run before AddExchanges
             builder.add(new DetermineSemiJoinDistributionType()); // Must run before AddExchanges
             builder.add(
