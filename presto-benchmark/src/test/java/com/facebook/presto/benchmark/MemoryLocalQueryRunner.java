@@ -34,6 +34,7 @@ import com.facebook.presto.testing.PageConsumerOperator;
 import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.stats.TestingGcMonitor;
 import io.airlift.units.DataSize;
 import org.intellij.lang.annotations.Language;
 
@@ -75,7 +76,18 @@ public class MemoryLocalQueryRunner
         MemoryPool systemMemoryPool = new MemoryPool(new MemoryPoolId("testSystem"), new DataSize(2, GIGABYTE));
 
         SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(new DataSize(1, GIGABYTE));
-        TaskContext taskContext = new QueryContext(new QueryId("test"), new DataSize(1, GIGABYTE), memoryPool, systemMemoryPool, localQueryRunner.getExecutor(), localQueryRunner.getScheduler(), new DataSize(4, GIGABYTE), spillSpaceTracker)
+        QueryContext queryContext = new QueryContext(
+                new QueryId("test"),
+                new DataSize(1, GIGABYTE),
+                memoryPool,
+                systemMemoryPool,
+                new TestingGcMonitor(),
+                localQueryRunner.getExecutor(),
+                localQueryRunner.getScheduler(),
+                new DataSize(4, GIGABYTE),
+                spillSpaceTracker);
+
+        TaskContext taskContext = queryContext
                 .addTaskContext(new TaskStateMachine(new TaskId("query", 0, 0), localQueryRunner.getExecutor()),
                         localQueryRunner.getDefaultSession(),
                         false,

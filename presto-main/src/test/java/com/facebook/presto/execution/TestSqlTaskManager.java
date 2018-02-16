@@ -36,6 +36,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.node.NodeInfo;
+import io.airlift.stats.TestingGcMonitor;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
@@ -285,7 +286,8 @@ public class TestSqlTaskManager
                 config,
                 new NodeMemoryConfig(),
                 localSpillManager,
-                new NodeSpillConfig());
+                new NodeSpillConfig(),
+                new TestingGcMonitor());
     }
 
     public static class MockExchangeClientSupplier

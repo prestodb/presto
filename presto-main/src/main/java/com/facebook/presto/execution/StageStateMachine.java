@@ -20,6 +20,7 @@ import com.facebook.presto.operator.BlockedReason;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.PipelineStats;
 import com.facebook.presto.operator.TaskStats;
+import com.facebook.presto.spi.eventlistener.StageGcStatistics;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.util.Failures;
 import com.google.common.collect.ImmutableList;
@@ -54,8 +55,10 @@ import static com.facebook.presto.execution.StageState.TERMINAL_STAGE_STATES;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.airlift.units.Duration.succinctDuration;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 @ThreadSafe
 public class StageStateMachine
@@ -233,6 +236,12 @@ public class StageStateMachine
 
         long physicalWrittenDataSize = 0;
 
+        int fullGcCount = 0;
+        int fullGcTaskCount = 0;
+        int minFullGcSec = 0;
+        int maxFullGcSec = 0;
+        int totalFullGcSec = 0;
+
         boolean fullyBlocked = true;
         Set<BlockedReason> blockedReasons = new HashSet<>();
 
@@ -278,6 +287,14 @@ public class StageStateMachine
 
             physicalWrittenDataSize += taskStats.getPhysicalWrittenDataSize().toBytes();
 
+            fullGcCount += taskStats.getFullGcCount();
+            fullGcTaskCount += taskStats.getFullGcCount() > 0 ? 1 : 0;
+
+            int gcSec = toIntExact(taskStats.getFullGcTime().roundTo(SECONDS));
+            totalFullGcSec += gcSec;
+            minFullGcSec = Math.min(minFullGcSec, gcSec);
+            maxFullGcSec = Math.max(maxFullGcSec, gcSec);
+
             for (PipelineStats pipeline : taskStats.getPipelines()) {
                 for (OperatorStats operatorStats : pipeline.getOperatorSummaries()) {
                     String id = pipeline.getPipelineId() + "." + operatorStats.getOperatorId();
@@ -320,6 +337,16 @@ public class StageStateMachine
                 succinctBytes(outputDataSize),
                 outputPositions,
                 succinctBytes(physicalWrittenDataSize),
+
+                new StageGcStatistics(
+                        stageId.getId(),
+                        totalTasks,
+                        fullGcTaskCount,
+                        minFullGcSec,
+                        maxFullGcSec,
+                        totalFullGcSec,
+                        (int) (1.0 * totalFullGcSec / fullGcCount)),
+
                 ImmutableList.copyOf(operatorToStats.values()));
 
         ExecutionFailureInfo failureInfo = null;

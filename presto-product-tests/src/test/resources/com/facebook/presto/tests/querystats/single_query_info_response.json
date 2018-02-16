@@ -54,6 +54,7 @@
     "outputDataSize": "0B",
     "outputPositions": 0,
     "physicalWrittenDataSize": "0B",
+    "stageGcStatistics": [],
     "operatorSummaries": []
   },
   "setSessionProperties": {},

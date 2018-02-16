@@ -66,6 +66,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.node.NodeInfo;
+import io.airlift.stats.TestingGcMonitor;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.testng.annotations.DataProvider;
@@ -603,6 +604,7 @@ public class TestSqlTaskExecution
                 new QueryId("queryid"),
                 new DataSize(1, MEGABYTE),
                 new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE)), new MemoryPool(new MemoryPoolId("testSystem"), new DataSize(1, GIGABYTE)),
+                new TestingGcMonitor(),
                 taskNotificationExecutor,
                 driverYieldExecutor,
                 new DataSize(1, MEGABYTE),

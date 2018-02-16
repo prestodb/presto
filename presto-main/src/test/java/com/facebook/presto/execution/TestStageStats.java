@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.spi.eventlistener.StageGcStatistics;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
@@ -69,6 +70,15 @@ public class TestStageStats
 
             new DataSize(26, BYTE),
 
+            new StageGcStatistics(
+                    101,
+                    102,
+                    103,
+                    104,
+                    105,
+                    106,
+                    107),
+
             ImmutableList.of());
 
     @Test
@@ -120,6 +130,14 @@ public class TestStageStats
         assertEquals(actual.getOutputPositions(), 25);
 
         assertEquals(actual.getPhysicalWrittenDataSize(), new DataSize(26, BYTE));
+
+        assertEquals(actual.getGcInfo().getStageId(), 101);
+        assertEquals(actual.getGcInfo().getTasks(), 102);
+        assertEquals(actual.getGcInfo().getFullGcTasks(), 103);
+        assertEquals(actual.getGcInfo().getMinFullGcSec(), 104);
+        assertEquals(actual.getGcInfo().getMaxFullGcSec(), 105);
+        assertEquals(actual.getGcInfo().getTotalFullGcSec(), 106);
+        assertEquals(actual.getGcInfo().getAverageFullGcSec(), 107);
     }
 
     private static DistributionSnapshot getTestDistribution(int count)

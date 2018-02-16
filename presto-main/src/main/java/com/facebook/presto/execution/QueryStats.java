@@ -16,6 +16,7 @@ package com.facebook.presto.execution;
 import com.facebook.presto.operator.BlockedReason;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.TableWriterOperator;
+import com.facebook.presto.spi.eventlistener.StageGcStatistics;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
@@ -85,6 +86,8 @@ public class QueryStats
 
     private final DataSize physicalWrittenDataSize;
 
+    private final List<StageGcStatistics> stageGcStatistics;
+
     private final List<OperatorStats> operatorSummaries;
 
     @VisibleForTesting
@@ -126,6 +129,7 @@ public class QueryStats
         this.outputDataSize = null;
         this.outputPositions = 0;
         this.physicalWrittenDataSize = null;
+        this.stageGcStatistics = null;
         this.operatorSummaries = null;
     }
 
@@ -176,6 +180,8 @@ public class QueryStats
             @JsonProperty("outputPositions") long outputPositions,
 
             @JsonProperty("physicalWrittenDataSize") DataSize physicalWrittenDataSize,
+
+            @JsonProperty("stageGcStatistics") List<StageGcStatistics> stageGcStatistics,
 
             @JsonProperty("operatorSummaries") List<OperatorStats> operatorSummaries)
     {
@@ -234,6 +240,8 @@ public class QueryStats
         this.outputPositions = outputPositions;
 
         this.physicalWrittenDataSize = requireNonNull(physicalWrittenDataSize, "physicalWrittenDataSize is null");
+
+        this.stageGcStatistics = ImmutableList.copyOf(requireNonNull(stageGcStatistics, "stageGcStatistics is null"));
 
         this.operatorSummaries = ImmutableList.copyOf(requireNonNull(operatorSummaries, "operatorSummaries is null"));
     }
@@ -486,6 +494,12 @@ public class QueryStats
                         .filter(stats -> stats.getOperatorType().equals(TableWriterOperator.class.getSimpleName()))
                         .mapToLong(stats -> stats.getInputDataSize().toBytes())
                         .sum());
+    }
+
+    @JsonProperty
+    public List<StageGcStatistics> getStageGcStatistics()
+    {
+        return stageGcStatistics;
     }
 
     @JsonProperty

@@ -40,6 +40,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
+import io.airlift.stats.GcMonitor;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
@@ -111,7 +112,8 @@ public class SqlTaskManager
             TaskManagerConfig config,
             NodeMemoryConfig nodeMemoryConfig,
             LocalSpillManager localSpillManager,
-            NodeSpillConfig nodeSpillConfig)
+            NodeSpillConfig nodeSpillConfig,
+            GcMonitor gcMonitor)
     {
         requireNonNull(nodeInfo, "nodeInfo is null");
         requireNonNull(config, "config is null");
@@ -139,6 +141,7 @@ public class SqlTaskManager
                         maxQueryMemoryPerNode,
                         localMemoryManager.getPool(LocalMemoryManager.GENERAL_POOL),
                         localMemoryManager.getPool(LocalMemoryManager.SYSTEM_POOL),
+                        gcMonitor,
                         taskNotificationExecutor,
                         driverYieldExecutor,
                         maxQuerySpillPerNode,

@@ -22,6 +22,7 @@ import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spiller.SpillSpaceTracker;
 import com.google.common.collect.ImmutableList;
+import io.airlift.stats.TestingGcMonitor;
 import io.airlift.units.DataSize;
 
 import java.util.LinkedList;
@@ -83,6 +84,7 @@ public final class GroupByHashYieldAssertion
                 new DataSize(512, MEGABYTE),
                 memoryPool,
                 new MemoryPool(new MemoryPoolId("test-system"), new DataSize(512, MEGABYTE)),
+                new TestingGcMonitor(),
                 EXECUTOR,
                 SCHEDULED_EXECUTOR,
                 new DataSize(512, MEGABYTE),

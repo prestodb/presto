@@ -22,6 +22,8 @@ import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spiller.SpillSpaceTracker;
+import io.airlift.stats.GcMonitor;
+import io.airlift.stats.TestingGcMonitor;
 import io.airlift.units.DataSize;
 
 import java.util.concurrent.Executor;
@@ -32,6 +34,9 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 public final class TestingTaskContext
 {
+    // Don't start this monitor
+    private static final GcMonitor GC_MONITOR = new TestingGcMonitor();
+
     private TestingTaskContext() {}
 
     public static TaskContext createTaskContext(Executor notificationExecutor, ScheduledExecutorService yieldExecutor, Session session)
@@ -138,6 +143,7 @@ public final class TestingTaskContext
                     queryMaxMemory,
                     memoryPool,
                     systemMemoryPool,
+                    GC_MONITOR,
                     notificationExecutor,
                     yieldExecutor,
                     queryMaxSpillSize,

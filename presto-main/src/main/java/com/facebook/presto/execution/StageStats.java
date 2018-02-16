@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.operator.BlockedReason;
 import com.facebook.presto.operator.OperatorStats;
+import com.facebook.presto.spi.eventlistener.StageGcStatistics;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -74,6 +75,8 @@ public class StageStats
 
     private final DataSize physicalWrittenDataSize;
 
+    private final StageGcStatistics gcInfo;
+
     private final List<OperatorStats> operatorSummaries;
 
     @JsonCreator
@@ -116,6 +119,8 @@ public class StageStats
             @JsonProperty("outputPositions") long outputPositions,
 
             @JsonProperty("physicalWrittenDataSize") DataSize physicalWrittenDataSize,
+
+            @JsonProperty("gcInfo") StageGcStatistics gcInfo,
 
             @JsonProperty("operatorSummaries") List<OperatorStats> operatorSummaries)
     {
@@ -167,6 +172,8 @@ public class StageStats
         this.outputPositions = outputPositions;
 
         this.physicalWrittenDataSize = requireNonNull(physicalWrittenDataSize, "writtenDataSize is null");
+
+        this.gcInfo = requireNonNull(gcInfo, "gcInfo is null");
 
         this.operatorSummaries = ImmutableList.copyOf(requireNonNull(operatorSummaries, "operatorSummaries is null"));
     }
@@ -343,6 +350,12 @@ public class StageStats
     public DataSize getPhysicalWrittenDataSize()
     {
         return physicalWrittenDataSize;
+    }
+
+    @JsonProperty
+    public StageGcStatistics getGcInfo()
+    {
+        return gcInfo;
     }
 
     @JsonProperty

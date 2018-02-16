@@ -26,6 +26,7 @@ import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.eventlistener.StageGcStatistics;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.PlanFragment;
@@ -350,6 +351,8 @@ public class QueryStateMachine
 
         long physicalWrittenDataSize = 0;
 
+        ImmutableList.Builder<StageGcStatistics> stageGcStatistics = ImmutableList.builder();
+
         boolean fullyBlocked = rootStage.isPresent();
         Set<BlockedReason> blockedReasons = new HashSet<>();
 
@@ -388,6 +391,8 @@ public class QueryStateMachine
             }
 
             physicalWrittenDataSize += stageStats.getPhysicalWrittenDataSize().toBytes();
+
+            stageGcStatistics.add(stageStats.getGcInfo());
 
             completeInfo = completeInfo && stageInfo.isCompleteInfo();
             operatorStatsSummary.addAll(stageInfo.getStageStats().getOperatorSummaries());
@@ -446,6 +451,8 @@ public class QueryStateMachine
                 outputPositions,
 
                 succinctBytes(physicalWrittenDataSize),
+
+                stageGcStatistics.build(),
 
                 operatorStatsSummary.build());
 
@@ -891,6 +898,7 @@ public class QueryStateMachine
                 queryStats.getOutputDataSize(),
                 queryStats.getOutputPositions(),
                 queryStats.getPhysicalWrittenDataSize(),
+                queryStats.getStageGcStatistics(),
                 ImmutableList.of()); // Remove the operator summaries as OperatorInfo (especially ExchangeClientStatus) can hold onto a large amount of memory
     }
 

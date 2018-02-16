@@ -35,6 +35,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.node.NodeInfo;
+import io.airlift.stats.TestingGcMonitor;
 import io.airlift.units.DataSize;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
@@ -301,7 +302,16 @@ public class TestSqlTask
                 taskId,
                 location,
                 "fake",
-                new QueryContext(new QueryId("query"), new DataSize(1, MEGABYTE), new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE)), new MemoryPool(new MemoryPoolId("testSystem"), new DataSize(1, GIGABYTE)), taskNotificationExecutor, driverYieldExecutor, new DataSize(1, MEGABYTE), new SpillSpaceTracker(new DataSize(1, GIGABYTE))),
+                new QueryContext(
+                        new QueryId("query"),
+                        new DataSize(1, MEGABYTE),
+                        new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE)),
+                        new MemoryPool(new MemoryPoolId("testSystem"), new DataSize(1, GIGABYTE)),
+                        new TestingGcMonitor(),
+                        taskNotificationExecutor,
+                        driverYieldExecutor,
+                        new DataSize(1, MEGABYTE),
+                        new SpillSpaceTracker(new DataSize(1, GIGABYTE))),
                 sqlTaskExecutionFactory,
                 taskNotificationExecutor,
                 Functions.identity(),

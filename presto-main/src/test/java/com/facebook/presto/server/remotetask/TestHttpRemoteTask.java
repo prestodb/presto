@@ -481,7 +481,9 @@ public class TestHttpRemoteTask
                     initialTaskStatus.isOutputBufferOverutilized(),
                     initialTaskStatus.getPhysicalWrittenDataSize(),
                     initialTaskStatus.getMemoryReservation(),
-                    initialTaskStatus.getSystemMemoryReservation());
+                    initialTaskStatus.getSystemMemoryReservation(),
+                    initialTaskStatus.getFullGcCount(),
+                    initialTaskStatus.getFullGcTime());
         }
     }
 }
