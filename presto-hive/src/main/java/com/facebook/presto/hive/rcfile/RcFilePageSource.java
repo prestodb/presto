@@ -157,7 +157,7 @@ public class RcFilePageSource
         }
         catch (RcFileCorruptionException e) {
             closeWithSuppression(e);
-            throw new PrestoException(HIVE_BAD_DATA, e);
+            throw new PrestoException(HIVE_BAD_DATA, format("Corrupted RC file: %s", rcFileReader.getId()), e);
         }
         catch (IOException | RuntimeException e) {
             closeWithSuppression(e);
@@ -241,7 +241,7 @@ public class RcFilePageSource
                 lazyBlock.setBlock(block);
             }
             catch (RcFileCorruptionException e) {
-                throw new PrestoException(HIVE_BAD_DATA, e);
+                throw new PrestoException(HIVE_BAD_DATA, format("Corrupted RC file: %s", rcFileReader.getId()), e);
             }
             catch (IOException | RuntimeException e) {
                 throw new PrestoException(HIVE_CURSOR_ERROR, format("Failed to read RC file: %s", rcFileReader.getId()), e);
