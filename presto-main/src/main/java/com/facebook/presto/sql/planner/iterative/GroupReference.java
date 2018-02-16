@@ -21,8 +21,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkArgument;
-
 public class GroupReference
         extends PlanNode
 {
@@ -44,7 +42,7 @@ public class GroupReference
     @Override
     public List<PlanNode> getSources()
     {
-        return ImmutableList.of();
+        throw new UnsupportedOperationException();
     }
 
     @Override
@@ -62,7 +60,6 @@ public class GroupReference
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        checkArgument(newChildren.isEmpty(), "newChildren is not empty");
-        return this;
+        throw new UnsupportedOperationException();
     }
 }

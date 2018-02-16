@@ -92,7 +92,7 @@ final class PlanMatchingVisitor
         if (match.isMatch()) {
             return match;
         }
-        return visitPlan(node, pattern);
+        return matchLeaf(node, pattern, pattern.shapeMatches(node));
     }
 
     @Override
