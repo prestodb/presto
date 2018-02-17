@@ -151,13 +151,7 @@ public class ArrayType
     @Override
     public void appendTo(Block block, int position, BlockBuilder blockBuilder)
     {
-        if (block.isNull(position)) {
-            blockBuilder.appendNull();
-        }
-        else {
-            block.writePositionTo(position, blockBuilder);
-            blockBuilder.closeEntry();
-        }
+        block.appendPositionTo(position, blockBuilder);
     }
 
     @Override
