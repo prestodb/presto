@@ -22,6 +22,7 @@ import java.util.Arrays;
 import java.util.function.BiConsumer;
 
 import static com.facebook.presto.spi.block.BlockUtil.calculateBlockResetSize;
+import static com.facebook.presto.spi.block.ColumnarArray.toColumnarArray;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
@@ -192,6 +193,28 @@ public class ArrayBlockBuilder
         return this;
     }
 
+    public BlockBuilder appendRegion(Block block, int position, int length)
+    {
+        ColumnarArray columnarArray = toColumnarArray(block);
+        ensureCapacity(positionCount + length);
+
+        int startElementBlockOffset = columnarArray.getElementBlockOffset(position);
+        int endElementBlockOffset = columnarArray.getElementBlockOffset(position + length);
+
+        for (int i = 0; i < length; i++) {
+            valueIsNull[positionCount + i] = columnarArray.isNull(position + i);
+            offsets[positionCount + i + 1] = offsets[positionCount + i] + columnarArray.getLength(position + i);
+        }
+        columnarArray.getElementsBlock().appendRegionTo(startElementBlockOffset, endElementBlockOffset - startElementBlockOffset, values);
+        positionCount += length;
+
+        if (blockBuilderStatus != null) {
+            blockBuilderStatus.addBytes((Integer.BYTES + Byte.BYTES) * length);
+        }
+
+        return this;
+    }
+
     private void entryAdded(boolean isNull)
     {
         if (valueIsNull.length <= positionCount) {
@@ -204,6 +227,25 @@ public class ArrayBlockBuilder
         if (blockBuilderStatus != null) {
             blockBuilderStatus.addBytes(Integer.BYTES + Byte.BYTES);
         }
+    }
+
+    private void ensureCapacity(int capacity)
+    {
+        int newSize;
+        if (initialized) {
+            newSize = valueIsNull.length;
+            while (newSize < capacity) {
+                newSize = BlockUtil.calculateNewArraySize(newSize);
+            }
+        }
+        else {
+            newSize = capacity;
+            initialized = true;
+        }
+
+        valueIsNull = Arrays.copyOf(valueIsNull, newSize);
+        offsets = Arrays.copyOf(offsets, newSize + 1);
+        updateDataSize();
     }
 
     private void growCapacity()

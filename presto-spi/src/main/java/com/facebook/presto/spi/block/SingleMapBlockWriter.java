@@ -177,6 +177,19 @@ public class SingleMapBlockWriter
     }
 
     @Override
+    public BlockBuilder appendPosition(Block block, int position)
+    {
+        if (writeToValueNext) {
+            valueBlockBuilder.appendPosition(block, position);
+        }
+        else {
+            keyBlockBuilder.appendPosition(block, position);
+        }
+        entryAdded();
+        return this;
+    }
+
+    @Override
     public BlockBuilder closeEntry()
     {
         if (writeToValueNext) {

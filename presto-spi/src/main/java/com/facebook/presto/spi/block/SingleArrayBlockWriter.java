@@ -117,6 +117,14 @@ public class SingleArrayBlockWriter
     }
 
     @Override
+    public BlockBuilder appendPosition(Block block, int position)
+    {
+        blockBuilder.appendPosition(block, position);
+        entryAdded();
+        return this;
+    }
+
+    @Override
     public BlockBuilder closeEntry()
     {
         blockBuilder.closeEntry();

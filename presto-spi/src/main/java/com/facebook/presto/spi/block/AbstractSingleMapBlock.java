@@ -217,6 +217,18 @@ public abstract class AbstractSingleMapBlock
     }
 
     @Override
+    public void appendPositionTo(int position, BlockBuilder blockBuilder)
+    {
+        position = getAbsolutePosition(position);
+        if (position % 2 == 0) {
+            getKeyBlock().appendPositionTo(position / 2, blockBuilder);
+        }
+        else {
+            getValueBlock().appendPositionTo(position / 2, blockBuilder);
+        }
+    }
+
+    @Override
     public Block getSingleValueBlock(int position)
     {
         position = getAbsolutePosition(position);

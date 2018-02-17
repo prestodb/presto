@@ -150,6 +150,13 @@ public abstract class AbstractArrayBlock
     }
 
     @Override
+    public void appendPositionTo(int position, BlockBuilder blockBuilder)
+    {
+        checkReadablePosition(position);
+        blockBuilder.appendPosition(this, position);
+    }
+
+    @Override
     public Block getSingleValueBlock(int position)
     {
         checkReadablePosition(position);

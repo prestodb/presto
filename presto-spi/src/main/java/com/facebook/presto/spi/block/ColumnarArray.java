@@ -135,6 +135,11 @@ public class ColumnarArray
         return getOffset(position + 1) - getOffset(position);
     }
 
+    public int getElementBlockOffset(int position)
+    {
+        return getOffset(position) - getOffset(0);
+    }
+
     private int getOffset(int position)
     {
         return offsets[position + offsetsOffset];

@@ -152,6 +152,7 @@ public class ArrayType
     public void appendTo(Block block, int position, BlockBuilder blockBuilder)
     {
         block.appendPositionTo(position, blockBuilder);
+//        blockBuilder.appendPosition(block, position);
     }
 
     @Override

@@ -112,6 +112,13 @@ public abstract class AbstractSingleArrayBlock
     }
 
     @Override
+    public void appendPositionTo(int position, BlockBuilder blockBuilder)
+    {
+        checkReadablePosition(position);
+        getBlock().appendPositionTo(position + start, blockBuilder);
+    }
+
+    @Override
     public boolean equals(int position, int offset, Block otherBlock, int otherPosition, int otherOffset, int length)
     {
         checkReadablePosition(position);

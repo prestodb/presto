@@ -94,6 +94,16 @@ public interface BlockBuilder
      */
     BlockBuilder appendNull();
 
+    default BlockBuilder appendPosition(Block block, int position)
+    {
+        return appendRegion(block, position, 1);
+    }
+
+    default BlockBuilder appendRegion(Block block, int position, int length)
+    {
+        throw new UnsupportedOperationException(getClass().getName());
+    }
+
     /**
      * Builds the block. This method can be called multiple times.
      */

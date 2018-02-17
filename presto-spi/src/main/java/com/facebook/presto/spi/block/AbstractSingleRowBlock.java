@@ -141,6 +141,13 @@ public abstract class AbstractSingleRowBlock
     }
 
     @Override
+    public void appendPositionTo(int position, BlockBuilder blockBuilder)
+    {
+        checkFieldIndex(position);
+        getFieldBlock(position).appendPositionTo(rowIndex, blockBuilder);
+    }
+
+    @Override
     public Block getSingleValueBlock(int position)
     {
         checkFieldIndex(position);
