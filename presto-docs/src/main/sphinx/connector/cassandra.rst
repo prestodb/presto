@@ -228,5 +228,3 @@ Limitations
 * Queries without filters containing the partition key result in fetching all partitions.
   This causes a full scan of the entire data set, therefore it's much slower compared to a similar
   query with a partition key as a filter.
-* ``IN`` list filters are only allowed on index (that is, partition key or clustering key) columns.
-* Range (``<`` or ``>`` and ``BETWEEN``) filters can be applied only to the partition keys.
