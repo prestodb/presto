@@ -19,10 +19,8 @@ import com.facebook.presto.decoder.FieldValueProvider;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.decoder.DecoderErrorCode.DECODER_CONVERSION_NOT_SUPPORTED;
@@ -44,12 +42,6 @@ import static java.util.Objects.requireNonNull;
 public class JsonFieldDecoder
         implements FieldDecoder<JsonNode>
 {
-    @Override
-    public Set<Class<?>> getJavaTypes()
-    {
-        return ImmutableSet.of(boolean.class, long.class, double.class, Slice.class);
-    }
-
     @Override
     public final String getRowDecoderName()
     {

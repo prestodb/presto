@@ -17,13 +17,11 @@ import com.facebook.presto.decoder.DecoderColumnHandle;
 import com.facebook.presto.decoder.FieldValueProvider;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
 
 import java.util.Locale;
-import java.util.Set;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.util.Objects.requireNonNull;
@@ -44,12 +42,6 @@ public class MillisecondsSinceEpochJsonFieldDecoder
      */
     @VisibleForTesting
     static final DateTimeFormatter FORMATTER = ISODateTimeFormat.dateTime().withLocale(Locale.ENGLISH).withZoneUTC();
-
-    @Override
-    public Set<Class<?>> getJavaTypes()
-    {
-        return ImmutableSet.of(long.class, Slice.class);
-    }
 
     @Override
     public String getFieldDecoderName()
