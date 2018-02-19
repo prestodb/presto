@@ -54,7 +54,8 @@ public class TestComparisonStatsCalculator
             throws Exception
     {
         session = testSessionBuilder().build();
-        filterStatsCalculator = new FilterStatsCalculator(MetadataManager.createTestMetadataManager());
+        MetadataManager metadata = MetadataManager.createTestMetadataManager();
+        filterStatsCalculator = new FilterStatsCalculator(metadata, new ScalarStatsCalculator(metadata));
 
         SymbolStatsEstimate uStats = SymbolStatsEstimate.builder()
                 .setAverageRowSize(8.0)
