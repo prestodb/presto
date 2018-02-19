@@ -15,6 +15,8 @@ package com.facebook.presto.util;
 
 import java.util.stream.DoubleStream;
 
+import static java.lang.Double.isNaN;
+
 public final class MoreMath
 {
     private MoreMath() {}
@@ -75,5 +77,15 @@ public final class MoreMath
         return DoubleStream.of(values)
                 .max()
                 .getAsDouble();
+    }
+
+    public static double firstNonNaN(double... values)
+    {
+        for (double value : values) {
+            if (!isNaN(value)) {
+                return value;
+            }
+        }
+        throw new IllegalArgumentException("All values are NaN");
     }
 }
