@@ -578,14 +578,14 @@ public class TestComparisonStatsCalculator
         assertCalculate(new ComparisonExpression(EQUAL, new SymbolReference("x"), new SymbolReference("w")))
                 .outputRowsCount(rowCount)
                 .symbolStats("x", symbolAssert -> {
-                    symbolAssert.averageRowSize(4)
+                    symbolAssert.averageRowSize(6)
                             .lowValue(0)
                             .highValue(10)
                             .distinctValuesCount(15)
                             .nullsFraction(0);
                 })
                 .symbolStats("w", symbolAssert -> {
-                    symbolAssert.averageRowSize(8)
+                    symbolAssert.averageRowSize(6)
                             .lowValue(0)
                             .highValue(10)
                             .distinctValuesCount(15)
@@ -598,14 +598,14 @@ public class TestComparisonStatsCalculator
         assertCalculate(new ComparisonExpression(EQUAL, new SymbolReference("x"), new SymbolReference("u")))
                 .outputRowsCount(rowCount)
                 .symbolStats("x", symbolAssert -> {
-                    symbolAssert.averageRowSize(4)
+                    symbolAssert.averageRowSize(6)
                             .lowValue(0)
                             .highValue(10)
                             .distinctValuesCount(20)
                             .nullsFraction(0);
                 })
                 .symbolStats("u", symbolAssert -> {
-                    symbolAssert.averageRowSize(8)
+                    symbolAssert.averageRowSize(6)
                             .lowValue(0)
                             .highValue(10)
                             .distinctValuesCount(20)

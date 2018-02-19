@@ -40,8 +40,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalDouble;
 
+import static com.facebook.presto.cost.ComparisonStatsCalculator.comparisonExpressionToExpressionStats;
 import static com.facebook.presto.cost.ComparisonStatsCalculator.comparisonExpressionToLiteralStats;
-import static com.facebook.presto.cost.ComparisonStatsCalculator.comparisonSymbolToSymbolStats;
 import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.addStatsAndSumDistinctValues;
 import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.differenceInNonRangeStats;
 import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.differenceInStats;
@@ -250,20 +250,19 @@ public class FilterStatsCalculator
                 return process(new ComparisonExpression(type.flip(), right, left));
             }
 
+            Optional<Symbol> leftSymbol = asSymbol(left);
+            SymbolStatsEstimate leftStats = getExpressionStats(left);
+
             if (right instanceof Literal) {
                 // TODO support Cast(Literal) same way as Literal (nested Casts too)
-                Optional<Symbol> symbol = asSymbol(left);
-                SymbolStatsEstimate leftStats = getExpressionStats(left);
                 OptionalDouble literal = doubleValueFromLiteral(getType(left), (Literal) right);
-                return comparisonExpressionToLiteralStats(input, symbol, leftStats, literal, type);
+                return comparisonExpressionToLiteralStats(input, leftSymbol, leftStats, literal, type);
             }
 
-            if (right instanceof SymbolReference) {
-                // left is SymbolReference too
-                return comparisonSymbolToSymbolStats(input, Symbol.from(left), Symbol.from(right), type);
-            }
+            Optional<Symbol> rightSymbol = asSymbol(right);
+            SymbolStatsEstimate rightStats = getExpressionStats(right);
 
-            return filterStatsForUnknownExpression(input);
+            return comparisonExpressionToExpressionStats(input, leftSymbol, leftStats, rightSymbol, rightStats, type);
         }
 
         private Optional<Symbol> asSymbol(Expression expression)
