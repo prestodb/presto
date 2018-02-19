@@ -23,6 +23,7 @@ import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
 import com.facebook.presto.sql.analyzer.Scope;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
+import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CoalesceExpression;
@@ -159,6 +160,23 @@ public class ScalarStatsCalculator
                     return decimalType.getScale() == 0;
                 default:
                     return false;
+            }
+        }
+
+        @Override
+        protected SymbolStatsEstimate visitArithmeticUnary(ArithmeticUnaryExpression node, Void context)
+        {
+            SymbolStatsEstimate stats = process(node.getValue());
+            switch (node.getSign()) {
+                case PLUS:
+                    return stats;
+                case MINUS:
+                    return SymbolStatsEstimate.buildFrom(stats)
+                            .setLowValue(-stats.getHighValue())
+                            .setHighValue(-stats.getLowValue())
+                            .build();
+                default:
+                    throw new IllegalStateException("Unexpected sign: " + node.getSign());
             }
         }
 
