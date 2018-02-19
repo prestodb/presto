@@ -19,8 +19,8 @@ import com.facebook.presto.spi.function.AccumulatorState;
 import com.facebook.presto.spi.function.AccumulatorStateMetadata;
 import com.facebook.presto.spi.type.Type;
 
-@AccumulatorStateMetadata(stateSerializerClass = ObjectBlockPositionStateSerializer.class)
-public interface ObjectBlockPositionState
+@AccumulatorStateMetadata(stateSerializerClass = BlockPositionStateSerializer.class)
+public interface BlockPositionState
         extends AccumulatorState
 {
     Block getBlock();
@@ -31,13 +31,13 @@ public interface ObjectBlockPositionState
 
     void setPosition(int position);
 
-    static void write(Type type, ObjectBlockPositionState state, BlockBuilder out)
+    static void write(Type type, BlockPositionState state, BlockBuilder out)
     {
         if (state.getBlock() == null) {
             out.appendNull();
         }
         else {
-            type.writeObject(out, type.getObject(state.getBlock(), state.getPosition()));
+            type.appendTo(state.getBlock(), state.getPosition(), out);
         }
     }
 }
