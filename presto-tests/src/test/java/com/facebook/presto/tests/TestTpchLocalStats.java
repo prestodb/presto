@@ -111,4 +111,11 @@ public class TestTpchLocalStats
                         // TODO .estimate(distinctValuesCount("sub"), defaultTolerance())
                         .estimate(OUTPUT_ROW_COUNT, noError()));
     }
+
+    @Test
+    public void testVarcharComparisons()
+    {
+        statisticsAssertion.check("SELECT * FROM orders WHERE o_comment = 'requests above the furiously even instructions use alw'",
+                checks -> checks.estimate(OUTPUT_ROW_COUNT, defaultTolerance()));
+    }
 }

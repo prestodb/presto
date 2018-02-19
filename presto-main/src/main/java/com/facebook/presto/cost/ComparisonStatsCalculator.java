@@ -145,16 +145,19 @@ public final class ComparisonStatsCalculator
         return expressionToLiteralRangeComparison(inputStatistics, symbol, expressionStats, new StatisticRange(literal.orElse(NEGATIVE_INFINITY), POSITIVE_INFINITY, NaN));
     }
 
-    public static PlanNodeStatsEstimate comparisonSymbolToSymbolStats(PlanNodeStatsEstimate inputStatistics,
-            Symbol left,
-            Symbol right,
+    public static PlanNodeStatsEstimate comparisonExpressionToExpressionStats(
+            PlanNodeStatsEstimate inputStatistics,
+            Optional<Symbol> left,
+            SymbolStatsEstimate leftStats,
+            Optional<Symbol> right,
+            SymbolStatsEstimate rightStats,
             ComparisonExpressionType type)
     {
         switch (type) {
             case EQUAL:
-                return symbolToSymbolEquality(inputStatistics, left, right);
+                return expressionToExpressionEquality(inputStatistics, left, leftStats, right, rightStats);
             case NOT_EQUAL:
-                return symbolToSymbolNonEquality(inputStatistics, left, right);
+                return expressionToExpressionNonEquality(inputStatistics, left, leftStats, right, rightStats);
             case LESS_THAN:
             case LESS_THAN_OR_EQUAL:
             case GREATER_THAN:
@@ -165,13 +168,13 @@ public final class ComparisonStatsCalculator
         }
     }
 
-    private static PlanNodeStatsEstimate symbolToSymbolEquality(PlanNodeStatsEstimate inputStatistics,
-            Symbol left,
-            Symbol right)
+    private static PlanNodeStatsEstimate expressionToExpressionEquality(
+            PlanNodeStatsEstimate inputStatistics,
+            Optional<Symbol> left,
+            SymbolStatsEstimate leftStats,
+            Optional<Symbol> right,
+            SymbolStatsEstimate rightStats)
     {
-        SymbolStatsEstimate leftStats = inputStatistics.getSymbolStatistics(left);
-        SymbolStatsEstimate rightStats = inputStatistics.getSymbolStatistics(right);
-
         if (isNaN(leftStats.getDistinctValuesCount()) || isNaN(rightStats.getDistinctValuesCount())) {
             filterStatsForUnknownExpression(inputStatistics);
         }
@@ -189,27 +192,41 @@ public final class ComparisonStatsCalculator
         double filterFactor = 1 * leftFilterFactor * rightFilterFactor / max(leftNdvInRange, rightNdvInRange, 1);
         double retainedNdv = min(leftNdvInRange, rightNdvInRange);
 
-        SymbolStatsEstimate newLeftStats = buildFrom(leftStats)
-                .setNullsFraction(0)
-                .setStatisticsRange(intersect)
-                .setDistinctValuesCount(retainedNdv)
-                .build();
-        SymbolStatsEstimate newRightStats = buildFrom(rightStats)
+        PlanNodeStatsEstimate.Builder estimate = PlanNodeStatsEstimate.buildFrom(inputStatistics)
+                .setOutputRowCount(inputStatistics.getOutputRowCount() * nullsFilterFactor * filterFactor);
+
+        SymbolStatsEstimate equalityStats = SymbolStatsEstimate.builder()
+                .setAverageRowSize(averageExcludingNaNs(leftStats.getAverageRowSize(), rightStats.getAverageRowSize()))
                 .setNullsFraction(0)
                 .setStatisticsRange(intersect)
                 .setDistinctValuesCount(retainedNdv)
                 .build();
 
-        return inputStatistics.mapOutputRowCount(rowCount -> rowCount * filterFactor * nullsFilterFactor)
-                .mapSymbolColumnStatistics(left, oldLeftStats -> newLeftStats)
-                .mapSymbolColumnStatistics(right, oldRightStats -> newRightStats);
+        left.ifPresent(symbol -> estimate.addSymbolStatistics(symbol, equalityStats));
+        right.ifPresent(symbol -> estimate.addSymbolStatistics(symbol, equalityStats));
+
+        return estimate.build();
     }
 
-    private static PlanNodeStatsEstimate symbolToSymbolNonEquality(PlanNodeStatsEstimate inputStatistics,
-            Symbol left,
-            Symbol right)
+    private static double averageExcludingNaNs(double first, double second)
+    {
+        if (isNaN(first) && isNaN(second)) {
+            return NaN;
+        }
+        if (!isNaN(first) && !isNaN(second)) {
+            return (first + second) / 2;
+        }
+        return firstNonNaN(first, second);
+    }
+
+    private static PlanNodeStatsEstimate expressionToExpressionNonEquality(
+            PlanNodeStatsEstimate inputStatistics,
+            Optional<Symbol> left,
+            SymbolStatsEstimate leftStats,
+            Optional<Symbol> right,
+            SymbolStatsEstimate rightStats)
     {
         // TODO this is just a stub
-        return PlanNodeStatsEstimateMath.differenceInStats(inputStatistics, symbolToSymbolEquality(inputStatistics, left, right));
+        return PlanNodeStatsEstimateMath.differenceInStats(inputStatistics, expressionToExpressionEquality(inputStatistics, left, leftStats, right, rightStats));
     }
 }
