@@ -16,6 +16,8 @@ package com.facebook.presto.cost;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
+import com.facebook.presto.sql.analyzer.Scope;
 import com.facebook.presto.sql.planner.LiteralInterpreter;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.AstVisitor;
@@ -32,11 +34,13 @@ import com.facebook.presto.sql.tree.Literal;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.SymbolReference;
+import com.google.common.collect.ImmutableList;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalDouble;
 
-import static com.facebook.presto.cost.ComparisonStatsCalculator.comparisonSymbolToLiteralStats;
+import static com.facebook.presto.cost.ComparisonStatsCalculator.comparisonExpressionToLiteralStats;
 import static com.facebook.presto.cost.ComparisonStatsCalculator.comparisonSymbolToSymbolStats;
 import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.addStatsAndSumDistinctValues;
 import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.differenceInNonRangeStats;
@@ -51,6 +55,7 @@ import static java.lang.Double.NaN;
 import static java.lang.Double.isInfinite;
 import static java.lang.Double.isNaN;
 import static java.lang.Double.min;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class FilterStatsCalculator
@@ -58,10 +63,12 @@ public class FilterStatsCalculator
     private static final double UNKNOWN_FILTER_COEFFICIENT = 0.9;
 
     private final Metadata metadata;
+    private final ScalarStatsCalculator scalarStatsCalculator;
 
-    public FilterStatsCalculator(Metadata metadata)
+    public FilterStatsCalculator(Metadata metadata, ScalarStatsCalculator scalarStatsCalculator)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.scalarStatsCalculator = requireNonNull(scalarStatsCalculator, "scalarStatsCalculator is null");
     }
 
     public PlanNodeStatsEstimate filterStats(
@@ -238,10 +245,17 @@ public class FilterStatsCalculator
                 return process(new ComparisonExpression(type.flip(), right, left));
             }
 
-            if (left instanceof SymbolReference && right instanceof Literal) {
-                Symbol symbol = Symbol.from(left);
-                OptionalDouble literal = doubleValueFromLiteral(types.get(symbol), (Literal) right);
-                return comparisonSymbolToLiteralStats(input, symbol, literal, type);
+            if (left instanceof Literal && !(right instanceof Literal)) {
+                // normalize so that literal is on the right
+                return process(new ComparisonExpression(type.flip(), right, left));
+            }
+
+            if (right instanceof Literal) {
+                // TODO support Cast(Literal) same way as Literal (nested Casts too)
+                Optional<Symbol> symbol = asSymbol(left);
+                SymbolStatsEstimate leftStats = getExpressionStats(left);
+                OptionalDouble literal = doubleValueFromLiteral(getType(left), (Literal) right);
+                return comparisonExpressionToLiteralStats(input, symbol, leftStats, literal, type);
             }
 
             if (right instanceof SymbolReference) {
@@ -250,6 +264,40 @@ public class FilterStatsCalculator
             }
 
             return filterStatsForUnknownExpression(input);
+        }
+
+        private Optional<Symbol> asSymbol(Expression expression)
+        {
+            if (expression instanceof SymbolReference) {
+                return Optional.of(Symbol.from(expression));
+            }
+            return Optional.empty();
+        }
+
+        private Type getType(Expression expression)
+        {
+            return asSymbol(expression)
+                    .map(symbol -> requireNonNull(types.get(symbol), () -> format("No type for symbol %s", symbol)))
+                    .orElseGet(() -> {
+                        ExpressionAnalyzer expressionAnalyzer = ExpressionAnalyzer.createWithoutSubqueries(
+                                metadata.getFunctionRegistry(),
+                                metadata.getTypeManager(),
+                                session,
+                                types,
+                                ImmutableList.of(),
+                                // At this stage, there should be no subqueries in the plan.
+                                node -> new IllegalStateException("Unexpected Subquery"),
+                                false);
+                        Type type = expressionAnalyzer.analyze(expression, Scope.create());
+                        return type;
+                    });
+        }
+
+        private SymbolStatsEstimate getExpressionStats(Expression expression)
+        {
+            return asSymbol(expression)
+                    .map(symbol -> requireNonNull(input.getSymbolStatistics(symbol), () -> format("No statistics for symbol %s", symbol)))
+                    .orElseGet(() -> scalarStatsCalculator.calculate(expression, input, session));
         }
 
         private OptionalDouble doubleValueFromLiteral(Type type, Literal literal)
