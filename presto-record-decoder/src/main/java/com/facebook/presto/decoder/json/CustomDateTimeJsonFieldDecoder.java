@@ -16,13 +16,10 @@ package com.facebook.presto.decoder.json;
 import com.facebook.presto.decoder.DecoderColumnHandle;
 import com.facebook.presto.decoder.FieldValueProvider;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.google.common.collect.ImmutableSet;
-import io.airlift.slice.Slice;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 
 import java.util.Locale;
-import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
@@ -36,12 +33,6 @@ import static java.util.Objects.requireNonNull;
 public class CustomDateTimeJsonFieldDecoder
         extends JsonFieldDecoder
 {
-    @Override
-    public Set<Class<?>> getJavaTypes()
-    {
-        return ImmutableSet.of(long.class, Slice.class);
-    }
-
     @Override
     public String getFieldDecoderName()
     {

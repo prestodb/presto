@@ -16,22 +16,12 @@ package com.facebook.presto.redis.decoder.hash;
 import com.facebook.presto.decoder.DecoderColumnHandle;
 import com.facebook.presto.decoder.FieldDecoder;
 import com.facebook.presto.decoder.FieldValueProvider;
-import com.google.common.collect.ImmutableSet;
-import io.airlift.slice.Slice;
-
-import java.util.Set;
 
 import static java.lang.String.format;
 
 public class HashRedisFieldDecoder
         implements FieldDecoder<String>
 {
-    @Override
-    public Set<Class<?>> getJavaTypes()
-    {
-        return ImmutableSet.of(boolean.class, long.class, double.class, Slice.class);
-    }
-
     @Override
     public String getRowDecoderName()
     {

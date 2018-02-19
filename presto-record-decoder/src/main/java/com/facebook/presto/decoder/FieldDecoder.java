@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.decoder;
 
-import java.util.Set;
-
 /**
  * Format specific field decoder description.
  */
@@ -24,11 +22,6 @@ public interface FieldDecoder<T>
      * Default name. Each decoder type *must* have a default decoder as fallback.
      */
     String DEFAULT_FIELD_DECODER_NAME = "_default";
-
-    /**
-     * Returns the types which the field decoder can process.
-     */
-    Set<Class<?>> getJavaTypes();
 
     /**
      * Returns the name of the row decoder to which this field decoder belongs.
