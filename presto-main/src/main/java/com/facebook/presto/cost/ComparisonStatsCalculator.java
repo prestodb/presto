@@ -27,6 +27,7 @@ import static com.facebook.presto.util.MoreMath.min;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.NaN;
 import static java.lang.Double.POSITIVE_INFINITY;
+import static java.lang.Double.isFinite;
 import static java.lang.Double.isNaN;
 
 public final class ComparisonStatsCalculator
@@ -226,7 +227,24 @@ public final class ComparisonStatsCalculator
             Optional<Symbol> right,
             SymbolStatsEstimate rightStats)
     {
-        // TODO this is just a stub
-        return PlanNodeStatsEstimateMath.differenceInStats(inputStatistics, expressionToExpressionEquality(inputStatistics, left, leftStats, right, rightStats));
+        double nullsFilterFactor = (1 - leftStats.getNullsFraction()) * (1 - rightStats.getNullsFraction());
+        PlanNodeStatsEstimate inputNullsFiltered = inputStatistics.mapOutputRowCount(size -> size * nullsFilterFactor);
+        SymbolStatsEstimate leftNullsFiltered = leftStats.mapNullsFraction(nullsFraction -> 0.0);
+        SymbolStatsEstimate rightNullsFiltered = rightStats.mapNullsFraction(nullsFration -> 0.0);
+        PlanNodeStatsEstimate resultStats = inputNullsFiltered.mapOutputRowCount(rowCount -> {
+            double equalityFilterFactor = expressionToExpressionEquality(inputNullsFiltered, left, leftNullsFiltered, right, rightNullsFiltered).getOutputRowCount() / inputNullsFiltered.getOutputRowCount();
+            if (!isFinite(equalityFilterFactor)) {
+                equalityFilterFactor = 0.0;
+            }
+            return rowCount * (1 - equalityFilterFactor);
+        });
+        if (left.isPresent()) {
+            resultStats = resultStats.mapSymbolColumnStatistics(left.get(), stats -> leftNullsFiltered);
+        }
+        if (right.isPresent()) {
+            resultStats = resultStats.mapSymbolColumnStatistics(right.get(), stats -> rightNullsFiltered);
+        }
+
+        return resultStats;
     }
 }
