@@ -500,14 +500,16 @@ public class ServerMainModule
     @New
     public static StatsCalculator createNewStatsCalculator(Metadata metadata)
     {
+        ScalarStatsCalculator scalarStatsCalculator = new ScalarStatsCalculator(metadata);
+
         ImmutableList.Builder<ComposableStatsCalculator.Rule> rules = ImmutableList.builder();
         rules.add(new OutputStatsRule());
         rules.add(new TableScanStatsRule(metadata));
-        rules.add(new FilterStatsRule(new FilterStatsCalculator(metadata)));
+        rules.add(new FilterStatsRule(new FilterStatsCalculator(metadata, scalarStatsCalculator)));
         rules.add(new ValuesStatsRule(metadata));
         rules.add(new LimitStatsRule());
         rules.add(new EnforceSingleRowStatsRule());
-        rules.add(new ProjectStatsRule(new ScalarStatsCalculator(metadata)));
+        rules.add(new ProjectStatsRule(scalarStatsCalculator));
         return new ComposableStatsCalculator(rules.build());
     }
 

@@ -126,7 +126,8 @@ public class TestFilterStatsCalculator
                 .put(new Symbol("emptyRange"), DoubleType.DOUBLE).build();
 
         session = testSessionBuilder().build();
-        statsCalculator = new FilterStatsCalculator(MetadataManager.createTestMetadataManager());
+        MetadataManager metadata = MetadataManager.createTestMetadataManager();
+        statsCalculator = new FilterStatsCalculator(metadata, new ScalarStatsCalculator(metadata));
     }
 
     private PlanNodeStatsAssertion assertExpression(Expression expression)
