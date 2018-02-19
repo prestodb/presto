@@ -153,7 +153,16 @@ public abstract class AbstractArrayBlock
     public void appendPositionTo(int position, BlockBuilder blockBuilder)
     {
         checkReadablePosition(position);
-        blockBuilder.appendPosition(this, position);
+        blockBuilder.appendObject(this, position);
+    }
+
+    @Override
+    public void appendRegionTo(int position, int length, BlockBuilder blockBuilder)
+    {
+        int positionCount = getPositionCount();
+        checkValidRegion(positionCount, position, length);
+
+        blockBuilder.appendObjects(this, position, length);
     }
 
     @Override

@@ -161,6 +161,33 @@ public class ArrayBlockBuilder
     }
 
     @Override
+    public BlockBuilder appendObjects(Block block, int position, int length)
+    {
+        if (currentEntryOpened) {
+            throw new IllegalStateException("Expected current entry to be closed but was opened");
+        }
+
+        ColumnarArray columnarArray = toColumnarArray(block);
+        ensureCapacity(positionCount + length);
+
+        int startElementBlockOffset = columnarArray.getElementBlockOffset(position);
+        int endElementBlockOffset = columnarArray.getElementBlockOffset(position + length);
+
+        for (int i = 0; i < length; i++) {
+            valueIsNull[positionCount + i] = columnarArray.isNull(position + i);
+            offsets[positionCount + i + 1] = offsets[positionCount + i] + columnarArray.getLength(position + i);
+        }
+        columnarArray.getElementsBlock().appendRegionTo(startElementBlockOffset, endElementBlockOffset - startElementBlockOffset, values);
+        positionCount += length;
+
+        if (blockBuilderStatus != null) {
+            blockBuilderStatus.addBytes((Integer.BYTES + Byte.BYTES) * length);
+        }
+
+        return this;
+    }
+
+    @Override
     public SingleArrayBlockWriter beginBlockEntry()
     {
         if (currentEntryOpened) {
@@ -190,28 +217,6 @@ public class ArrayBlockBuilder
         }
 
         entryAdded(true);
-        return this;
-    }
-
-    public BlockBuilder appendRegion(Block block, int position, int length)
-    {
-        ColumnarArray columnarArray = toColumnarArray(block);
-        ensureCapacity(positionCount + length);
-
-        int startElementBlockOffset = columnarArray.getElementBlockOffset(position);
-        int endElementBlockOffset = columnarArray.getElementBlockOffset(position + length);
-
-        for (int i = 0; i < length; i++) {
-            valueIsNull[positionCount + i] = columnarArray.isNull(position + i);
-            offsets[positionCount + i + 1] = offsets[positionCount + i] + columnarArray.getLength(position + i);
-        }
-        columnarArray.getElementsBlock().appendRegionTo(startElementBlockOffset, endElementBlockOffset - startElementBlockOffset, values);
-        positionCount += length;
-
-        if (blockBuilderStatus != null) {
-            blockBuilderStatus.addBytes((Integer.BYTES + Byte.BYTES) * length);
-        }
-
         return this;
     }
 

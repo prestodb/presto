@@ -94,12 +94,39 @@ public interface BlockBuilder
      */
     BlockBuilder appendNull();
 
-    default BlockBuilder appendPosition(Block block, int position)
+    // Semantically equivalent to calling this.writeByte(values[i]).closeEntry() or this.appendNull repeatedly.
+    default BlockBuilder appendBytes(int[] values, boolean[] isNull, int offset, int length)
     {
-        return appendRegion(block, position, 1);
+        throw new UnsupportedOperationException(getClass().getName());
     }
 
-    default BlockBuilder appendRegion(Block block, int position, int length)
+    default BlockBuilder appendShorts(int[] values, boolean[] isNull, int offset, int length)
+    {
+        throw new UnsupportedOperationException(getClass().getName());
+    }
+
+    default BlockBuilder appendInts(int[] values, boolean[] isNull, int offset, int length)
+    {
+        throw new UnsupportedOperationException(getClass().getName());
+    }
+
+    default BlockBuilder appendLongs(int[] values, boolean[] isNull, int offset, int length)
+    {
+        throw new UnsupportedOperationException(getClass().getName());
+    }
+
+    default BlockBuilder appendSlices(int[] values, boolean[] isNull, int offset, int length)
+    {
+        throw new UnsupportedOperationException(getClass().getName());
+    }
+
+    // Semantically equivalent to this.writeObject(block.getObject(position)).closeEntry()
+    default BlockBuilder appendObject(Block block, int position)
+    {
+        return appendObjects(block, position, 1);
+    }
+
+    default BlockBuilder appendObjects(Block block, int position, int length)
     {
         throw new UnsupportedOperationException(getClass().getName());
     }

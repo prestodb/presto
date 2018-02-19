@@ -127,6 +127,8 @@ public interface Block
 
     default void appendRegionTo(int position, int length, BlockBuilder blockBuilder)
     {
+        // TODO: Override in each block and delegate to corresponding BlockBuilder.appendXTo()
+        // And make this default method to throw.
         for (int i = 0; i < length; i++) {
             appendPositionTo(position + i, blockBuilder);
         }

@@ -68,6 +68,19 @@ public class IntArrayBlockBuilder
         return this;
     }
 
+    public BlockBuilder appendInts(int[] intValues, boolean[] isNull, int offset, int length)
+    {
+        ensureCapacity(this.values.length + length);
+
+        System.arraycopy(intValues, offset, this.values, positionCount, length);
+        System.arraycopy(isNull, offset, this.valueIsNull, positionCount, length);
+        positionCount += length;
+        if (blockBuilderStatus != null) {
+            blockBuilderStatus.addBytes((Byte.BYTES + Integer.BYTES) * length);
+        }
+        return this;
+    }
+
     @Override
     public BlockBuilder closeEntry()
     {
@@ -115,6 +128,23 @@ public class IntArrayBlockBuilder
 
         valueIsNull = Arrays.copyOf(valueIsNull, newSize);
         values = Arrays.copyOf(values, newSize);
+        updateDataSize();
+    }
+
+    private void ensureCapacity(int capacity)
+    {
+        if (values.length >= capacity) {
+            return;
+        }
+
+        int newSize = initialized ? values.length : initialEntryCount;
+        while (newSize < capacity) {
+            newSize = BlockUtil.calculateNewArraySize(newSize);
+        }
+
+        valueIsNull = Arrays.copyOf(valueIsNull, newSize);
+        values = Arrays.copyOf(values, newSize);
+        initialized = true;
         updateDataSize();
     }
 

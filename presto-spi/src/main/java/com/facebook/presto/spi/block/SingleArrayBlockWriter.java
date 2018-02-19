@@ -117,9 +117,9 @@ public class SingleArrayBlockWriter
     }
 
     @Override
-    public BlockBuilder appendPosition(Block block, int position)
+    public BlockBuilder appendObject(Block block, int position)
     {
-        blockBuilder.appendPosition(block, position);
+        blockBuilder.appendObject(block, position);
         entryAdded();
         return this;
     }

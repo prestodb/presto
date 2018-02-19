@@ -122,6 +122,13 @@ public class IntArrayBlock
     }
 
     @Override
+    public void appendRegionTo(int position, int length, BlockBuilder blockBuilder)
+    {
+        checkValidRegion(getPositionCount(), position, length);
+        blockBuilder.appendInts(values, valueIsNull, position + arrayOffset, length);
+    }
+
+    @Override
     public Block getSingleValueBlock(int position)
     {
         checkReadablePosition(position);
