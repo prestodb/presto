@@ -117,5 +117,8 @@ public class TestTpchLocalStats
     {
         statisticsAssertion.check("SELECT * FROM orders WHERE o_comment = 'requests above the furiously even instructions use alw'",
                 checks -> checks.estimate(OUTPUT_ROW_COUNT, defaultTolerance()));
+
+        statisticsAssertion.check("SELECT * FROM orders WHERE 'this is always ...' = '... false'",
+                checks -> checks.estimate(OUTPUT_ROW_COUNT, noError()));
     }
 }

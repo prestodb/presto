@@ -51,6 +51,7 @@ import static com.facebook.presto.sql.ExpressionUtils.and;
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.EQUAL;
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.GREATER_THAN_OR_EQUAL;
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.LESS_THAN_OR_EQUAL;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Double.NaN;
 import static java.lang.Double.isInfinite;
 import static java.lang.Double.isNaN;
@@ -240,11 +241,11 @@ public class FilterStatsCalculator
         @Override
         protected PlanNodeStatsEstimate visitComparisonExpression(ComparisonExpression node, Void context)
         {
-            // TODO: verify we eliminate Literal-Literal earlier or support them here
-
             ComparisonExpressionType type = node.getType();
             Expression left = node.getLeft();
             Expression right = node.getRight();
+
+            checkArgument(!(left instanceof Literal && right instanceof Literal), "Literal-to-literal not supported here, should be eliminated earlier");
 
             if (!(left instanceof SymbolReference) && right instanceof SymbolReference) {
                 // normalize so that symbol is on the left
