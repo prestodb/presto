@@ -207,18 +207,18 @@ public class StatisticRange
     }
 
     @Override
-    public boolean equals(Object obj)
+    public boolean equals(Object o)
     {
-        if (this == obj) {
+        if (this == o) {
             return true;
         }
-        if (!(obj instanceof StatisticRange)) {
+        if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        StatisticRange other = (StatisticRange) obj;
-        return low == other.low &&
-                high == other.high &&
-                distinctValues == other.distinctValues;
+        StatisticRange that = (StatisticRange) o;
+        return Double.compare(that.low, low) == 0 &&
+                Double.compare(that.high, high) == 0 &&
+                Double.compare(that.distinctValues, distinctValues) == 0;
     }
 
     @Override
