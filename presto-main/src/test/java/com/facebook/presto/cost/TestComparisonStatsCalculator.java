@@ -178,6 +178,11 @@ public class TestComparisonStatsCalculator
         };
     }
 
+    private SymbolStatsEstimate updateNDV(SymbolStatsEstimate symbolStats, double delta)
+    {
+        return symbolStats.mapDistinctValuesCount(ndv -> ndv + delta);
+    }
+
     private SymbolStatsEstimate capNDV(SymbolStatsEstimate symbolStats, double rowCount)
     {
         // todo: add capping in test when logic actually does that
@@ -689,7 +694,7 @@ public class TestComparisonStatsCalculator
         rowCount = 897.0;
         assertCalculate(new ComparisonExpression(NOT_EQUAL, new SymbolReference("u"), new Cast(new LongLiteral("10"), BIGINT)))
                 .outputRowsCount(rowCount)
-                .symbolStats("u", equalTo(capNDV(zeroNullsFraction(uStats), rowCount)))
+                .symbolStats("u", equalTo(capNDV(updateNDV(zeroNullsFraction(uStats), -1), rowCount)))
                 .symbolStats("z", equalTo(capNDV(zStats, rowCount)));
     }
 }

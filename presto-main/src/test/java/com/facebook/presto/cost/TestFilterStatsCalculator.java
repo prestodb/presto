@@ -20,6 +20,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.Expression;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -148,6 +149,45 @@ public class TestFilterStatsCalculator
     }
 
     @Test
+    public void testComparison()
+    {
+        double lessThan3Rows = 487.5;
+        assertExpression("x < 3e0")
+                .outputRowsCount(lessThan3Rows)
+                .symbolStats(new Symbol("x"), symbolAssert ->
+                        symbolAssert.averageRowSize(4.0)
+                                .lowValue(-10)
+                                .highValue(3)
+                                .distinctValuesCount(26)
+                                .nullsFraction(0.0));
+
+        assertExpression("-x > -3e0")
+                .outputRowsCount(lessThan3Rows);
+
+        for (String minusThree : ImmutableList.of("DECIMAL '-3'", "-3e0", "(4e0-7e0)", "CAST(-3 AS DECIMAL)")) {
+            System.out.println(minusThree);
+
+            assertExpression("x = " + minusThree)
+                    .outputRowsCount(18.75)
+                    .symbolStats(new Symbol("x"), symbolAssert ->
+                            symbolAssert.averageRowSize(4.0)
+                                    .lowValue(-3)
+                                    .highValue(-3)
+                                    .distinctValuesCount(1)
+                                    .nullsFraction(0.0));
+
+            assertExpression("x < " + minusThree)
+                    .outputRowsCount(262.5)
+                    .symbolStats(new Symbol("x"), symbolAssert ->
+                            symbolAssert.averageRowSize(4.0)
+                                    .lowValue(-10)
+                                    .highValue(-3)
+                                    .distinctValuesCount(14)
+                                    .nullsFraction(0.0));
+        }
+    }
+
+    @Test
     public void testOrStats()
     {
         assertExpression("x < 0e0 OR x < DOUBLE '-7.5'")
@@ -265,6 +305,14 @@ public class TestFilterStatsCalculator
                             .highValue(-7.5)
                             .nullsFraction(0.0);
                 });
+        assertExpression("x BETWEEN -12e0 AND -7.5e0")
+                .outputRowsCount(93.75)
+                .symbolStats("x", symbolStats -> {
+                    symbolStats.distinctValuesCount(5.0)
+                            .lowValue(-10)
+                            .highValue(-7.5)
+                            .nullsFraction(0.0);
+                });
 
         // Both sides cut
         assertExpression("x BETWEEN DOUBLE '-2.5' AND 2.5e0")
@@ -342,6 +390,30 @@ public class TestFilterStatsCalculator
                     symbolStats.distinctValuesCount(1.0)
                             .lowValue(7.5)
                             .highValue(7.5)
+                            .nullsFraction(0.0);
+                });
+        assertExpression("x IN (DOUBLE '-7.5')")
+                .outputRowsCount(18.75)
+                .symbolStats("x", symbolStats -> {
+                    symbolStats.distinctValuesCount(1.0)
+                            .lowValue(-7.5)
+                            .highValue(-7.5)
+                            .nullsFraction(0.0);
+                });
+        assertExpression("x IN (BIGINT '2' + 5.5e0)")
+                .outputRowsCount(18.75)
+                .symbolStats("x", symbolStats -> {
+                    symbolStats.distinctValuesCount(1.0)
+                            .lowValue(7.5)
+                            .highValue(7.5)
+                            .nullsFraction(0.0);
+                });
+        assertExpression("x IN (-7.5e0)")
+                .outputRowsCount(18.75)
+                .symbolStats("x", symbolStats -> {
+                    symbolStats.distinctValuesCount(1.0)
+                            .lowValue(-7.5)
+                            .highValue(-7.5)
                             .nullsFraction(0.0);
                 });
 

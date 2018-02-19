@@ -184,7 +184,13 @@ public class FilterStatsCalculator
         @Override
         protected PlanNodeStatsEstimate visitBetweenPredicate(BetweenPredicate node, Void context)
         {
-            if (!(node.getValue() instanceof SymbolReference) || !(node.getMin() instanceof Literal) || !(node.getMax() instanceof Literal)) {
+            if (!(node.getValue() instanceof SymbolReference)) {
+                return visitExpression(node, context);
+            }
+            if (!(node.getMin() instanceof Literal || isSingleValue(getExpressionStats(node.getMin())))) {
+                return visitExpression(node, context);
+            }
+            if (!(node.getMax() instanceof Literal || isSingleValue(getExpressionStats(node.getMax())))) {
                 return visitExpression(node, context);
             }
 
@@ -254,13 +260,17 @@ public class FilterStatsCalculator
             SymbolStatsEstimate leftStats = getExpressionStats(left);
 
             if (right instanceof Literal) {
-                // TODO support Cast(Literal) same way as Literal (nested Casts too)
                 OptionalDouble literal = doubleValueFromLiteral(getType(left), (Literal) right);
                 return comparisonExpressionToLiteralStats(input, leftSymbol, leftStats, literal, type);
             }
 
             Optional<Symbol> rightSymbol = asSymbol(right);
             SymbolStatsEstimate rightStats = getExpressionStats(right);
+
+            if (isSingleValue(rightStats)) {
+                OptionalDouble value = isNaN(rightStats.getLowValue()) ? OptionalDouble.empty() : OptionalDouble.of(rightStats.getLowValue());
+                return comparisonExpressionToLiteralStats(input, leftSymbol, leftStats, value, type);
+            }
 
             return comparisonExpressionToExpressionStats(input, leftSymbol, leftStats, rightSymbol, rightStats, type);
         }
@@ -271,6 +281,13 @@ public class FilterStatsCalculator
                 return Optional.of(Symbol.from(expression));
             }
             return Optional.empty();
+        }
+
+        private boolean isSingleValue(SymbolStatsEstimate stats)
+        {
+            return stats.getDistinctValuesCount() == 1.0
+                    && Double.compare(stats.getLowValue(), stats.getHighValue()) == 0
+                    && !isInfinite(stats.getLowValue());
         }
 
         private Type getType(Expression expression)
