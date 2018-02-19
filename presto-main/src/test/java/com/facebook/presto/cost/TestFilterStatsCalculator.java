@@ -19,36 +19,19 @@ import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
-import com.facebook.presto.sql.tree.BetweenPredicate;
-import com.facebook.presto.sql.tree.Cast;
-import com.facebook.presto.sql.tree.ComparisonExpression;
-import com.facebook.presto.sql.tree.ComparisonExpressionType;
-import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.InListExpression;
-import com.facebook.presto.sql.tree.InPredicate;
-import com.facebook.presto.sql.tree.IsNotNullPredicate;
-import com.facebook.presto.sql.tree.IsNullPredicate;
-import com.facebook.presto.sql.tree.NotExpression;
-import com.facebook.presto.sql.tree.StringLiteral;
-import com.facebook.presto.sql.tree.SymbolReference;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 
-import static com.facebook.presto.sql.ExpressionUtils.and;
-import static com.facebook.presto.sql.ExpressionUtils.or;
-import static com.facebook.presto.sql.tree.ArithmeticBinaryExpression.Type.ADD;
-import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
-import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.NaN;
 import static java.lang.Double.POSITIVE_INFINITY;
+import static java.lang.String.format;
 
 public class TestFilterStatsCalculator
 {
@@ -147,20 +130,14 @@ public class TestFilterStatsCalculator
         statsCalculator = new FilterStatsCalculator(metadata, new ScalarStatsCalculator(metadata));
     }
 
-    private PlanNodeStatsAssertion assertExpression(Expression expression)
-    {
-        return PlanNodeStatsAssertion.assertThat(statsCalculator.filterStats(standardInputStatistics,
-                expression,
-                session,
-                standardTypes));
-    }
-
     @Test
     public void testBooleanLiteralStats()
     {
-        assertExpression(TRUE_LITERAL).equalTo(standardInputStatistics);
+        assertExpression("true")
+                .equalTo(standardInputStatistics);
 
-        assertExpression(FALSE_LITERAL).outputRowsCount(0.0)
+        assertExpression("false")
+                .outputRowsCount(0.0)
                 .symbolStats("x", SymbolStatsAssertion::empty)
                 .symbolStats("y", SymbolStatsAssertion::empty)
                 .symbolStats("z", SymbolStatsAssertion::empty)
@@ -173,10 +150,7 @@ public class TestFilterStatsCalculator
     @Test
     public void testOrStats()
     {
-        Expression leftExpression = new ComparisonExpression(ComparisonExpressionType.LESS_THAN, new SymbolReference("x"), new DoubleLiteral("0.0"));
-        Expression rightExpression = new ComparisonExpression(ComparisonExpressionType.LESS_THAN, new SymbolReference("x"), new DoubleLiteral("-7.5"));
-
-        assertExpression(or(leftExpression, rightExpression))
+        assertExpression("x < 0e0 OR x < DOUBLE '-7.5'")
                 .outputRowsCount(375)
                 .symbolStats(new Symbol("x"), symbolAssert ->
                         symbolAssert.averageRowSize(4.0)
@@ -185,10 +159,7 @@ public class TestFilterStatsCalculator
                                 .distinctValuesCount(20.0)
                                 .nullsFraction(0.0));
 
-        Expression leftExpressionSingleValue = new ComparisonExpression(ComparisonExpressionType.EQUAL, new SymbolReference("x"), new DoubleLiteral("0.0"));
-        Expression rightExpressionSingleValue = new ComparisonExpression(ComparisonExpressionType.EQUAL, new SymbolReference("x"), new DoubleLiteral("-7.5"));
-
-        assertExpression(or(leftExpressionSingleValue, rightExpressionSingleValue))
+        assertExpression("x = 0e0 OR x = DOUBLE '-7.5'")
                 .outputRowsCount(37.5)
                 .symbolStats(new Symbol("x"), symbolAssert ->
                         symbolAssert.averageRowSize(4.0)
@@ -197,9 +168,7 @@ public class TestFilterStatsCalculator
                                 .distinctValuesCount(2.0)
                                 .nullsFraction(0.0));
 
-        assertExpression(or(
-                new ComparisonExpression(ComparisonExpressionType.EQUAL, new SymbolReference("x"), new DoubleLiteral("1")),
-                new ComparisonExpression(ComparisonExpressionType.EQUAL, new SymbolReference("x"), new DoubleLiteral("3"))))
+        assertExpression("x = 1e0 OR x = 3e0")
                 .outputRowsCount(37.5)
                 .symbolStats(new Symbol("x"), symbolAssert ->
                         symbolAssert.averageRowSize(4.0)
@@ -212,10 +181,7 @@ public class TestFilterStatsCalculator
     @Test
     public void testAndStats()
     {
-        Expression leftExpression = new ComparisonExpression(ComparisonExpressionType.LESS_THAN, new SymbolReference("x"), new DoubleLiteral("0.0"));
-        Expression rightExpression = new ComparisonExpression(ComparisonExpressionType.GREATER_THAN, new SymbolReference("x"), new DoubleLiteral("-7.5"));
-
-        assertExpression(and(leftExpression, rightExpression))
+        assertExpression("x < 0e0 AND x > DOUBLE '-7.5'")
                 .outputRowsCount(281.25)
                 .symbolStats(new Symbol("x"), symbolAssert ->
                         symbolAssert.averageRowSize(4.0)
@@ -225,9 +191,7 @@ public class TestFilterStatsCalculator
                                 .nullsFraction(0.0));
 
         // Impossible, with symbol-to-expression comparisons
-        assertExpression(and(
-                new ComparisonExpression(ComparisonExpressionType.EQUAL, new SymbolReference("x"), new ArithmeticBinaryExpression(ADD, new DoubleLiteral("0"), new DoubleLiteral("1"))),
-                new ComparisonExpression(ComparisonExpressionType.EQUAL, new SymbolReference("x"), new ArithmeticBinaryExpression(ADD, new DoubleLiteral("0"), new DoubleLiteral("3")))))
+        assertExpression("x = (0e0 + 1e0) AND x = (0e0 + 3e0)")
                 .outputRowsCount(0)
                 .symbolStats(new Symbol("x"), SymbolStatsAssertion::emptyRange);
         // TODO .symbolStats(new Symbol("y"), SymbolStatsAssertion::emptyRange);
@@ -236,9 +200,7 @@ public class TestFilterStatsCalculator
     @Test
     public void testNotStats()
     {
-        Expression innerExpression = new ComparisonExpression(ComparisonExpressionType.LESS_THAN, new SymbolReference("x"), new DoubleLiteral("0.0"));
-
-        assertExpression(new NotExpression(innerExpression))
+        assertExpression("NOT(x < 0e0)")
                 .outputRowsCount(625) // FIXME - nulls shouldn't be restored
                 .symbolStats(new Symbol("x"), symbolAssert ->
                         symbolAssert.averageRowSize(4.0)
@@ -251,8 +213,7 @@ public class TestFilterStatsCalculator
     @Test
     public void testIsNullFilter()
     {
-        Expression isNullPredicate = new IsNullPredicate(new SymbolReference("x"));
-        assertExpression(isNullPredicate)
+        assertExpression("x IS NULL")
                 .outputRowsCount(250.0)
                 .symbolStats(new Symbol("x"), symbolStats -> {
                     symbolStats.distinctValuesCount(0)
@@ -260,8 +221,7 @@ public class TestFilterStatsCalculator
                             .nullsFraction(1.0);
                 });
 
-        Expression isNullEmptyRangePredicate = new IsNullPredicate(new SymbolReference("emptyRange"));
-        assertExpression(isNullEmptyRangePredicate)
+        assertExpression("emptyRange IS NULL")
                 .outputRowsCount(1000.0)
                 .symbolStats(new Symbol("emptyRange"), SymbolStatsAssertion::empty);
     }
@@ -269,8 +229,7 @@ public class TestFilterStatsCalculator
     @Test
     public void testIsNotNullFilter()
     {
-        Expression isNotNullPredicate = new IsNotNullPredicate(new SymbolReference("x"));
-        assertExpression(isNotNullPredicate)
+        assertExpression("x IS NOT NULL")
                 .outputRowsCount(750.0)
                 .symbolStats("x", symbolStats -> {
                     symbolStats.distinctValuesCount(40.0)
@@ -279,8 +238,7 @@ public class TestFilterStatsCalculator
                             .nullsFraction(0.0);
                 });
 
-        Expression isNotNullEmptyRangePredicate = new IsNotNullPredicate(new SymbolReference("emptyRange"));
-        assertExpression(isNotNullEmptyRangePredicate)
+        assertExpression("emptyRange IS NOT NULL")
                 .outputRowsCount(0.0)
                 .symbolStats("emptyRange", SymbolStatsAssertion::empty);
     }
@@ -289,8 +247,7 @@ public class TestFilterStatsCalculator
     public void testBetweenOperatorFilter()
     {
         // Only right side cut
-        Expression betweenPredicateRightCut = new BetweenPredicate(new SymbolReference("x"), new DoubleLiteral("7.5"), new DoubleLiteral("12.0"));
-        assertExpression(betweenPredicateRightCut)
+        assertExpression("x BETWEEN 7.5e0 AND 12e0")
                 .outputRowsCount(93.75)
                 .symbolStats("x", symbolStats -> {
                     symbolStats.distinctValuesCount(5.0)
@@ -300,8 +257,7 @@ public class TestFilterStatsCalculator
                 });
 
         // Only left side cut
-        Expression betweenPredicateLeftCut = new BetweenPredicate(new SymbolReference("x"), new DoubleLiteral("-12.0"), new DoubleLiteral("-7.5"));
-        assertExpression(betweenPredicateLeftCut)
+        assertExpression("x BETWEEN DOUBLE '-12' AND DOUBLE '-7.5'")
                 .outputRowsCount(93.75)
                 .symbolStats("x", symbolStats -> {
                     symbolStats.distinctValuesCount(5.0)
@@ -311,8 +267,7 @@ public class TestFilterStatsCalculator
                 });
 
         // Both sides cut
-        Expression betweenPredicateBothSidesCut = new BetweenPredicate(new SymbolReference("x"), new DoubleLiteral("-2.5"), new DoubleLiteral("2.5"));
-        assertExpression(betweenPredicateBothSidesCut)
+        assertExpression("x BETWEEN DOUBLE '-2.5' AND 2.5e0")
                 .outputRowsCount(187.5)
                 .symbolStats("x", symbolStats -> {
                     symbolStats.distinctValuesCount(10.0)
@@ -322,8 +277,7 @@ public class TestFilterStatsCalculator
                 });
 
         // Both sides cut unknownRange
-        Expression betweenPredicateBothSidesCutUnknownRange = new BetweenPredicate(new SymbolReference("unknownRange"), new DoubleLiteral("2.72"), new DoubleLiteral("3.14"));
-        assertExpression(betweenPredicateBothSidesCutUnknownRange)
+        assertExpression("unknownRange BETWEEN 2.72e0 AND 3.14e0")
                 .outputRowsCount(112.5)
                 .symbolStats("unknownRange", symbolStats -> {
                     symbolStats.distinctValuesCount(6.25)
@@ -333,8 +287,7 @@ public class TestFilterStatsCalculator
                 });
 
         // Left side open, cut on open side
-        Expression betweenPredicateCutOnLeftOpenSide = new BetweenPredicate(new SymbolReference("leftOpen"), new DoubleLiteral("-10.0"), new DoubleLiteral("10.0"));
-        assertExpression(betweenPredicateCutOnLeftOpenSide)
+        assertExpression("leftOpen BETWEEN DOUBLE '-10' AND 10e0")
                 .outputRowsCount(180.0)
                 .symbolStats("leftOpen", symbolStats -> {
                     symbolStats.distinctValuesCount(10.0)
@@ -344,8 +297,7 @@ public class TestFilterStatsCalculator
                 });
 
         // Right side open, cut on open side
-        Expression betweenPredicateCutOnRightOpenSide = new BetweenPredicate(new SymbolReference("rightOpen"), new DoubleLiteral("-10.0"), new DoubleLiteral("10.0"));
-        assertExpression(betweenPredicateCutOnRightOpenSide)
+        assertExpression("rightOpen BETWEEN DOUBLE '-10' AND 10e0")
                 .outputRowsCount(180.0)
                 .symbolStats("rightOpen", symbolStats -> {
                     symbolStats.distinctValuesCount(10.0)
@@ -355,14 +307,12 @@ public class TestFilterStatsCalculator
                 });
 
         // Filter all
-        Expression betweenPredicateFilterAll = new BetweenPredicate(new SymbolReference("y"), new DoubleLiteral("27.5"), new DoubleLiteral("107.0"));
-        assertExpression(betweenPredicateFilterAll)
+        assertExpression("y BETWEEN 27.5e0 AND 107e0")
                 .outputRowsCount(0.0)
                 .symbolStats("y", SymbolStatsAssertion::empty);
 
         // Filter nothing
-        Expression betweenPredicateFilterNothing = new BetweenPredicate(new SymbolReference("y"), new DoubleLiteral("-100.0"), new DoubleLiteral("100.0"));
-        assertExpression(betweenPredicateFilterNothing)
+        assertExpression("y BETWEEN DOUBLE '-100' AND 100e0")
                 .outputRowsCount(500.0)
                 .symbolStats("y", symbolStats -> {
                     symbolStats.distinctValuesCount(20.0)
@@ -372,8 +322,7 @@ public class TestFilterStatsCalculator
                 });
 
         // Filter non exact match
-        Expression betweenPredicateFilterNothingExact = new BetweenPredicate(new SymbolReference("z"), new DoubleLiteral("-100.0"), new DoubleLiteral("100.0"));
-        assertExpression(betweenPredicateFilterNothingExact)
+        assertExpression("z BETWEEN DOUBLE '-100' AND 100e0")
                 .outputRowsCount(900.0)
                 .symbolStats("z", symbolStats -> {
                     symbolStats.distinctValuesCount(5.0)
@@ -387,8 +336,7 @@ public class TestFilterStatsCalculator
     public void testInPredicateFilter()
     {
         // One value in range
-        Expression singleValueInIn = new InPredicate(new SymbolReference("x"), new InListExpression(ImmutableList.of(new DoubleLiteral("7.5"))));
-        assertExpression(singleValueInIn)
+        assertExpression("x IN (7.5e0)")
                 .outputRowsCount(18.75)
                 .symbolStats("x", symbolStats -> {
                     symbolStats.distinctValuesCount(1.0)
@@ -398,11 +346,7 @@ public class TestFilterStatsCalculator
                 });
 
         // Multiple values in range
-        Expression multipleValuesInIn = new InPredicate(new SymbolReference("x"), new InListExpression(
-                ImmutableList.of(new DoubleLiteral("1.5"),
-                        new DoubleLiteral("2.5"),
-                        new DoubleLiteral("7.5"))));
-        assertExpression(multipleValuesInIn)
+        assertExpression("x IN (1.5e0, 2.5e0, 7.5e0)")
                 .outputRowsCount(56.25)
                 .symbolStats("x", symbolStats -> {
                     symbolStats.distinctValuesCount(3.0)
@@ -419,13 +363,7 @@ public class TestFilterStatsCalculator
                 });
 
         // Multiple values some in some out of range
-        Expression multipleValuesInInSomeOutOfRange = new InPredicate(new SymbolReference("x"), new InListExpression(
-                ImmutableList.of(new DoubleLiteral("-42.0"),
-                        new DoubleLiteral("1.5"),
-                        new DoubleLiteral("2.5"),
-                        new DoubleLiteral("7.5"),
-                        new DoubleLiteral("314.0"))));
-        assertExpression(multipleValuesInInSomeOutOfRange)
+        assertExpression("x IN (DOUBLE '-42', 1.5e0, 2.5e0, 7.5e0, 314e0)")
                 .outputRowsCount(56.25)
                 .symbolStats("x", symbolStats -> {
                     symbolStats.distinctValuesCount(3.0)
@@ -435,13 +373,7 @@ public class TestFilterStatsCalculator
                 });
 
         // Multiple values in unknown range
-        Expression multipleValuesInUnknownRange = new InPredicate(new SymbolReference("unknownRange"), new InListExpression(
-                ImmutableList.of(new DoubleLiteral("-42.0"),
-                        new DoubleLiteral("1.5"),
-                        new DoubleLiteral("2.5"),
-                        new DoubleLiteral("7.5"),
-                        new DoubleLiteral("314.0"))));
-        assertExpression(multipleValuesInUnknownRange)
+        assertExpression("unknownRange IN (DOUBLE '-42', 1.5e0, 2.5e0, 7.5e0, 314e0)")
                 .outputRowsCount(90.0)
                 .symbolStats("unknownRange", symbolStats -> {
                     symbolStats.distinctValuesCount(5.0)
@@ -451,21 +383,14 @@ public class TestFilterStatsCalculator
                 });
 
         // Casted literals as value
-        assertExpression(
-                new InPredicate(new SymbolReference("mediumVarchar"), new InListExpression(
-                        ImmutableList.of(
-                                new Cast(new StringLiteral("abc"), MEDIUM_VARCHAR_TYPE.toString())))))
+        assertExpression(format("mediumVarchar IN (CAST('abc' AS %s))", MEDIUM_VARCHAR_TYPE.toString()))
                 .outputRowsCount(4)
                 .symbolStats("mediumVarchar", symbolStats -> {
                     symbolStats.distinctValuesCount(1)
                             .nullsFraction(0.0);
                 });
 
-        assertExpression(
-                new InPredicate(new SymbolReference("mediumVarchar"), new InListExpression(
-                        ImmutableList.of(
-                                new Cast(new StringLiteral("abc"), MEDIUM_VARCHAR_TYPE.toString()),
-                                new Cast(new StringLiteral("def"), MEDIUM_VARCHAR_TYPE.toString())))))
+        assertExpression(format("mediumVarchar IN (CAST('abc' AS %1$s), CAST('def' AS %1$s))", MEDIUM_VARCHAR_TYPE.toString()))
                 .outputRowsCount(8)
                 .symbolStats("mediumVarchar", symbolStats -> {
                     symbolStats.distinctValuesCount(2)
@@ -473,31 +398,12 @@ public class TestFilterStatsCalculator
                 });
 
         // No value in range
-        Expression noValuesInRange = new InPredicate(new SymbolReference("y"), new InListExpression(
-                ImmutableList.of(new DoubleLiteral("-42.0"),
-                        new DoubleLiteral("6.0"),
-                        new DoubleLiteral("31.1341"),
-                        new DoubleLiteral("-0.000000002"),
-                        new DoubleLiteral("314.0"))));
-        assertExpression(noValuesInRange)
+        assertExpression("y IN (DOUBLE '-42', 6e0, 31.1341e0, DOUBLE '-0.000000002', 314e0)")
                 .outputRowsCount(0.0)
                 .symbolStats("y", SymbolStatsAssertion::empty);
 
         // More values in range than distinct values
-        Expression ndvOverflowInIn = new InPredicate(new SymbolReference("z"), new InListExpression(
-                ImmutableList.of(new DoubleLiteral("-1.0"),
-                        new DoubleLiteral("3.14"),
-                        new DoubleLiteral("0.0"),
-                        new DoubleLiteral("1.0"),
-                        new DoubleLiteral("2.0"),
-                        new DoubleLiteral("3.0"),
-                        new DoubleLiteral("4.0"),
-                        new DoubleLiteral("5.0"),
-                        new DoubleLiteral("6.0"),
-                        new DoubleLiteral("7.0"),
-                        new DoubleLiteral("8.0"),
-                        new DoubleLiteral("-2.0"))));
-        assertExpression(ndvOverflowInIn)
+        assertExpression("z IN (DOUBLE '-1', 3.14e0, 0e0, 1e0, 2e0, 3e0, 4e0, 5e0, 6e0, 7e0, 8e0, DOUBLE '-2')")
                 .outputRowsCount(900.0)
                 .symbolStats("z", symbolStats -> {
                     symbolStats.distinctValuesCount(5.0)
@@ -507,11 +413,7 @@ public class TestFilterStatsCalculator
                 });
 
         // Values in weird order
-        Expression ndvOverflowInNotSortedValues = new InPredicate(new SymbolReference("z"), new InListExpression(
-                ImmutableList.of(new DoubleLiteral("-1.0"),
-                        new DoubleLiteral("1.0"),
-                        new DoubleLiteral("0.0"))));
-        assertExpression(ndvOverflowInNotSortedValues)
+        assertExpression("z IN (DOUBLE '-1', 1e0, 0e0)")
                 .outputRowsCount(540.0)
                 .symbolStats("z", symbolStats -> {
                     symbolStats.distinctValuesCount(3.0)
@@ -519,5 +421,19 @@ public class TestFilterStatsCalculator
                             .highValue(1.0)
                             .nullsFraction(0.0);
                 });
+    }
+
+    private PlanNodeStatsAssertion assertExpression(String expression)
+    {
+        return assertExpression(expression(expression));
+    }
+
+    private PlanNodeStatsAssertion assertExpression(Expression expression)
+    {
+        return PlanNodeStatsAssertion.assertThat(statsCalculator.filterStats(
+                standardInputStatistics,
+                expression,
+                session,
+                standardTypes));
     }
 }
