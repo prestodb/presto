@@ -161,16 +161,50 @@ public class PlanPrinter
             int indent,
             boolean verbose)
     {
+        this(plan, types, metadata, new CachingStatsProvider(statsCalculator, session, types), costCalculator, session, indent, verbose);
+    }
+
+    private PlanPrinter(
+            PlanNode plan,
+            Map<Symbol, Type> types,
+            Metadata metadata,
+            StatsProvider statsProvider,
+            CostCalculator costCalculator,
+            Session session,
+            int indent,
+            boolean verbose)
+    {
+        this(
+                plan,
+                types,
+                metadata,
+                statsProvider,
+                new CachingCostProvider(costCalculator, statsProvider, session, types),
+                session,
+                indent,
+                verbose);
+    }
+
+    private PlanPrinter(
+            PlanNode plan,
+            Map<Symbol, Type> types,
+            Metadata metadata,
+            StatsProvider statsProvider,
+            CostProvider costProvider,
+            Session session,
+            int indent,
+            boolean verbose)
+    {
         requireNonNull(plan, "plan is null");
         requireNonNull(types, "types is null");
         requireNonNull(metadata, "metadata is null");
-        requireNonNull(statsCalculator, "statsCalculator is null");
+        requireNonNull(statsProvider, "statsProvider is null");
 
         this.metadata = metadata;
         this.stats = Optional.empty();
         this.verbose = verbose;
 
-        Visitor visitor = new Visitor(statsCalculator, costCalculator, types, session);
+        Visitor visitor = new Visitor(statsProvider, costProvider, types, session);
         plan.accept(visitor, indent);
     }
 
@@ -194,7 +228,9 @@ public class PlanPrinter
         this.stats = Optional.of(stats);
         this.verbose = verbose;
 
-        Visitor visitor = new Visitor(statsCalculator, costCalculator, types, session);
+        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types);
+        CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, session, types);
+        Visitor visitor = new Visitor(statsProvider, costProvider, types, session);
         plan.accept(visitor, indent);
     }
 
@@ -212,6 +248,11 @@ public class PlanPrinter
     public static String textLogicalPlan(PlanNode plan, Map<Symbol, Type> types, Metadata metadata, StatsCalculator statsCalculator, CostCalculator costCalculator, Session session, int indent)
     {
         return textLogicalPlan(plan, types, metadata, statsCalculator, costCalculator, session, indent, false);
+    }
+
+    public static String textLogicalPlan(PlanNode plan, Map<Symbol, Type> types, Metadata metadata, StatsProvider statsProvider, CostProvider costProvider, Session session, int indent)
+    {
+        return new PlanPrinter(plan, types, metadata, statsProvider, costProvider, session, indent, false).toString();
     }
 
     public static String textLogicalPlan(PlanNode plan, Map<Symbol, Type> types, Metadata metadata, StatsCalculator statsCalculator, CostCalculator costCalculator, Session session, int indent, boolean verbose)
@@ -556,12 +597,11 @@ public class PlanPrinter
         private final CostProvider costProvider;
         private final Session session;
 
-        @SuppressWarnings("AssignmentToCollectionOrArrayFieldFromParameter")
-        public Visitor(StatsCalculator statsCalculator, CostCalculator costCalculator, Map<Symbol, Type> types, Session session)
+        public Visitor(StatsProvider statsProvider, CostProvider costProvider, Map<Symbol, Type> types, Session session)
         {
             this.types = types;
-            this.statsProvider = new CachingStatsProvider(statsCalculator, session, types);
-            this.costProvider = new CachingCostProvider(costCalculator, statsProvider, session, types);
+            this.statsProvider = statsProvider;
+            this.costProvider = costProvider;
             this.session = session;
         }
 
