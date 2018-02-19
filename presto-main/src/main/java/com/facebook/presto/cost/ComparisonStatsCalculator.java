@@ -20,11 +20,13 @@ import java.util.OptionalDouble;
 
 import static com.facebook.presto.cost.FilterStatsCalculator.filterStatsForUnknownExpression;
 import static com.facebook.presto.cost.SymbolStatsEstimate.buildFrom;
+import static com.facebook.presto.util.MoreMath.firstNonNaN;
+import static com.facebook.presto.util.MoreMath.max;
+import static com.facebook.presto.util.MoreMath.min;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.NaN;
 import static java.lang.Double.POSITIVE_INFINITY;
 import static java.lang.Double.isNaN;
-import static java.lang.Math.max;
 
 public final class ComparisonStatsCalculator
 {
@@ -148,17 +150,24 @@ public final class ComparisonStatsCalculator
 
         StatisticRange intersect = leftRange.intersect(rightRange);
 
-        SymbolStatsEstimate newRightStats = buildFrom(rightStats)
-                .setNullsFraction(0)
-                .setStatisticsRange(intersect)
-                .build();
+        double nullsFilterFactor = (1 - leftStats.getNullsFraction()) * (1 - rightStats.getNullsFraction());
+        double leftFilterFactor = firstNonNaN(leftRange.overlapPercentWith(intersect), 1);
+        double rightFilterFactor = firstNonNaN(rightRange.overlapPercentWith(intersect), 1);
+        double leftNdvInRange = leftFilterFactor * leftRange.getDistinctValuesCount();
+        double rightNdvInRange = rightFilterFactor * rightRange.getDistinctValuesCount();
+        double filterFactor = 1 * leftFilterFactor * rightFilterFactor / max(leftNdvInRange, rightNdvInRange, 1);
+        double retainedNdv = min(leftNdvInRange, rightNdvInRange);
+
         SymbolStatsEstimate newLeftStats = buildFrom(leftStats)
                 .setNullsFraction(0)
                 .setStatisticsRange(intersect)
+                .setDistinctValuesCount(retainedNdv)
                 .build();
-
-        double nullsFilterFactor = (1 - leftStats.getNullsFraction()) * (1 - rightStats.getNullsFraction());
-        double filterFactor = 1 / max(leftRange.getDistinctValuesCount(), rightRange.getDistinctValuesCount());
+        SymbolStatsEstimate newRightStats = buildFrom(rightStats)
+                .setNullsFraction(0)
+                .setStatisticsRange(intersect)
+                .setDistinctValuesCount(retainedNdv)
+                .build();
 
         return inputStatistics.mapOutputRowCount(rowCount -> rowCount * filterFactor * nullsFilterFactor)
                 .mapSymbolColumnStatistics(left, oldLeftStats -> newLeftStats)

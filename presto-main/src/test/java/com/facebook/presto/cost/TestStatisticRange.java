@@ -18,6 +18,7 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.cost.EstimateAssertion.assertEstimateEquals;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.POSITIVE_INFINITY;
+import static org.testng.Assert.assertEquals;
 
 public class TestStatisticRange
 {
@@ -51,6 +52,14 @@ public class TestStatisticRange
         // Unbounded (infinite), NDV-based
         assertOverlap(unboundedRange(10), unboundedRange(20), 1);
         assertOverlap(unboundedRange(20), unboundedRange(10), 0.5);
+    }
+
+    @Test
+    public void testIntersect()
+    {
+        StatisticRange zeroToTen = range(0, 10, 10);
+        StatisticRange fiveToFifteen = range(5, 15, 60);
+        assertEquals(zeroToTen.intersect(fiveToFifteen), range(5, 10, 10));
     }
 
     private static StatisticRange range(double low, double high, double distinctValues)
