@@ -34,12 +34,6 @@ public class CustomDateTimeJsonFieldDecoder
         extends JsonFieldDecoder
 {
     @Override
-    public String getFieldDecoderName()
-    {
-        return "custom-date-time";
-    }
-
-    @Override
     public FieldValueProvider decode(JsonNode value, DecoderColumnHandle columnHandle)
     {
         requireNonNull(columnHandle, "columnHandle is null");

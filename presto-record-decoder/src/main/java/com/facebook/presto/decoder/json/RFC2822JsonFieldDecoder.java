@@ -42,12 +42,6 @@ public class RFC2822JsonFieldDecoder
     static final DateTimeFormatter FORMATTER = DateTimeFormat.forPattern("EEE MMM dd HH:mm:ss Z yyyy").withLocale(Locale.ENGLISH).withZoneUTC();
 
     @Override
-    public String getFieldDecoderName()
-    {
-        return NAME;
-    }
-
-    @Override
     public FieldValueProvider decode(JsonNode value, DecoderColumnHandle columnHandle)
     {
         requireNonNull(columnHandle, "columnHandle is null");

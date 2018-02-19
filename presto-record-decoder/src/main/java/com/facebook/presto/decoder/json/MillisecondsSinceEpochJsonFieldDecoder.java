@@ -44,12 +44,6 @@ public class MillisecondsSinceEpochJsonFieldDecoder
     static final DateTimeFormatter FORMATTER = ISODateTimeFormat.dateTime().withLocale(Locale.ENGLISH).withZoneUTC();
 
     @Override
-    public String getFieldDecoderName()
-    {
-        return NAME;
-    }
-
-    @Override
     public FieldValueProvider decode(JsonNode value, DecoderColumnHandle columnHandle)
     {
         requireNonNull(columnHandle, "columnHandle is null");
