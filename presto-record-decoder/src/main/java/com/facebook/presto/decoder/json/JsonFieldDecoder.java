@@ -33,7 +33,6 @@ import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_W
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.facebook.presto.spi.type.Varchars.truncateToLength;
 import static io.airlift.slice.Slices.utf8Slice;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -43,30 +42,12 @@ public class JsonFieldDecoder
         implements FieldDecoder<JsonNode>
 {
     @Override
-    public final String getRowDecoderName()
-    {
-        return JsonRowDecoder.NAME;
-    }
-
-    @Override
-    public String getFieldDecoderName()
-    {
-        return FieldDecoder.DEFAULT_FIELD_DECODER_NAME;
-    }
-
-    @Override
     public FieldValueProvider decode(JsonNode value, DecoderColumnHandle columnHandle)
     {
         requireNonNull(columnHandle, "columnHandle is null");
         requireNonNull(value, "value is null");
 
         return new JsonValueProvider(value, columnHandle);
-    }
-
-    @Override
-    public String toString()
-    {
-        return format("FieldDecoder[%s/%s]", getRowDecoderName(), getFieldDecoderName());
     }
 
     public static class JsonValueProvider

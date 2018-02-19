@@ -35,12 +35,6 @@ class ISO8601HashRedisFieldDecoder
     private static final DateTimeFormatter FORMATTER = ISODateTimeFormat.dateTimeParser().withLocale(Locale.ENGLISH).withZoneUTC();
 
     @Override
-    public String getFieldDecoderName()
-    {
-        return "iso8601";
-    }
-
-    @Override
     public FieldValueProvider decode(String value, DecoderColumnHandle columnHandle)
     {
         return new ISO8601HashRedisValueProvider(columnHandle, value);

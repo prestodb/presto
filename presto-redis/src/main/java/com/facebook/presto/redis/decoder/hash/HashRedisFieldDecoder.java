@@ -17,32 +17,12 @@ import com.facebook.presto.decoder.DecoderColumnHandle;
 import com.facebook.presto.decoder.FieldDecoder;
 import com.facebook.presto.decoder.FieldValueProvider;
 
-import static java.lang.String.format;
-
 public class HashRedisFieldDecoder
         implements FieldDecoder<String>
 {
     @Override
-    public String getRowDecoderName()
-    {
-        return HashRedisRowDecoder.NAME;
-    }
-
-    @Override
-    public String getFieldDecoderName()
-    {
-        return FieldDecoder.DEFAULT_FIELD_DECODER_NAME;
-    }
-
-    @Override
     public FieldValueProvider decode(String value, DecoderColumnHandle columnHandle)
     {
         return new HashRedisValueProvider(columnHandle, value);
-    }
-
-    @Override
-    public String toString()
-    {
-        return format("FieldDecoder[%s/%s]", getRowDecoderName(), getFieldDecoderName());
     }
 }
