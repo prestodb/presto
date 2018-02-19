@@ -15,7 +15,7 @@ package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.CachingStatsProvider;
-import com.facebook.presto.cost.CostCalculator;
+import com.facebook.presto.cost.CostProvider;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
@@ -41,12 +41,17 @@ public final class PlanAssert
     public static void assertPlan(Session session, Metadata metadata, StatsCalculator statsCalculator, Plan actual, Lookup lookup, PlanMatchPattern pattern)
     {
         StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, actual.getTypes());
-        CostCalculator costCalculator = (node, stats, lookup1, session1, types) -> UNKNOWN_COST;
+        assertPlan(session, metadata, statsProvider, actual, lookup, pattern);
+    }
+
+    public static void assertPlan(Session session, Metadata metadata, StatsProvider statsProvider, Plan actual, Lookup lookup, PlanMatchPattern pattern)
+    {
+        CostProvider costProvider = node -> UNKNOWN_COST;
         MatchResult matches = actual.getRoot().accept(new PlanMatchingVisitor(session, metadata, statsProvider, lookup), pattern);
         if (!matches.isMatch()) {
-            String formattedPlan = textLogicalPlan(actual.getRoot(), actual.getTypes(), metadata, statsCalculator, costCalculator, session);
+            String formattedPlan = textLogicalPlan(actual.getRoot(), actual.getTypes(), metadata, statsProvider, costProvider, session, 0);
             PlanNode resolvedPlan = resolveGroupReferences(actual.getRoot(), lookup);
-            String resolvedFormattedPlan = textLogicalPlan(resolvedPlan, actual.getTypes(), metadata, statsCalculator, costCalculator, session);
+            String resolvedFormattedPlan = textLogicalPlan(resolvedPlan, actual.getTypes(), metadata, statsProvider, costProvider, session, 0);
             throw new AssertionError(format(
                     "Plan does not match, expected [\n\n%s\n] but found [\n\n%s\n] which resolves to [\n\n%s\n]",
                     pattern,
