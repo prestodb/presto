@@ -18,12 +18,12 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
 import com.facebook.presto.spi.type.Type;
 
-public class ObjectBlockPositionStateSerializer
-        implements AccumulatorStateSerializer<ObjectBlockPositionState>
+public class BlockPositionStateSerializer
+        implements AccumulatorStateSerializer<BlockPositionState>
 {
     private final Type type;
 
-    public ObjectBlockPositionStateSerializer(Type type)
+    public BlockPositionStateSerializer(Type type)
     {
         this.type = type;
     }
@@ -35,18 +35,18 @@ public class ObjectBlockPositionStateSerializer
     }
 
     @Override
-    public void serialize(ObjectBlockPositionState state, BlockBuilder out)
+    public void serialize(BlockPositionState state, BlockBuilder out)
     {
         if (state.getBlock() == null) {
             out.appendNull();
         }
         else {
-            type.writeObject(out, type.getObject(state.getBlock(), state.getPosition()));
+            type.appendTo(state.getBlock(), state.getPosition(), out);
         }
     }
 
     @Override
-    public void deserialize(Block block, int index, ObjectBlockPositionState state)
+    public void deserialize(Block block, int index, BlockPositionState state)
     {
         // Use the original serialized block as the underlying block for the state to save object creation overhead
         state.setPosition(index);
