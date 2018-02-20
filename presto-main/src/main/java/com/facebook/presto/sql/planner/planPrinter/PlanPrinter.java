@@ -1207,7 +1207,7 @@ public class PlanPrinter
         {
             print(indent, "- GroupReference[%s] => [%s]", node.getGroupId(), formatOutputs(node.getOutputSymbols()));
 
-            return processChildren(node, indent + 1);
+            return null;
         }
 
         @Override
