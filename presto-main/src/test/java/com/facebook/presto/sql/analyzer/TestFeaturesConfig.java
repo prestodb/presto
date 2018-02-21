@@ -88,6 +88,7 @@ public class TestFeaturesConfig
                 .setFilterAndProjectMinOutputPageRowCount(256)
                 .setHistogramGroupImplementation(NEW)
                 .setDistributedSortEnabled(false)
+                .setRedistributeSort(true)
                 .setFilterAndProjectMinOutputPageRowCount(256));
     }
 
@@ -141,6 +142,7 @@ public class TestFeaturesConfig
                 .put("experimental.filter-and-project-min-output-page-row-count", "2048")
                 .put("histogram.implemenation", "LEGACY")
                 .put("experimental.distributed-sort", "true")
+                .put("experimental.redistribute-sort", "false")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -189,6 +191,7 @@ public class TestFeaturesConfig
                 .setFilterAndProjectMinOutputPageSize(new DataSize(1, MEGABYTE))
                 .setHistogramGroupImplementation(LEGACY)
                 .setDistributedSortEnabled(true)
+                .setRedistributeSort(false)
                 .setFilterAndProjectMinOutputPageRowCount(2048);
         assertFullMapping(properties, expected);
     }

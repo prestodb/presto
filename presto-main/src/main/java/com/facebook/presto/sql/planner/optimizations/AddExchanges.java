@@ -98,6 +98,7 @@ import java.util.function.Function;
 import static com.facebook.presto.SystemSessionProperties.isColocatedJoinEnabled;
 import static com.facebook.presto.SystemSessionProperties.isDistributedSortEnabled;
 import static com.facebook.presto.SystemSessionProperties.isForceSingleNodeOutput;
+import static com.facebook.presto.SystemSessionProperties.isRedistributeSort;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.filterConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.filterDeterministicConjuncts;
@@ -120,6 +121,7 @@ import static com.facebook.presto.sql.planner.plan.ExchangeNode.gatheringExchang
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.mergingExchange;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.partitionedExchange;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.replicatedExchange;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.roundRobinExchange;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -484,13 +486,18 @@ public class AddExchanges
 
             if (isDistributedSortEnabled(session)) {
                 child = planChild(node, context.withPreferredProperties(PreferredProperties.any()));
+                PlanNode source = child.getNode();
+                if (isRedistributeSort(session)) {
+                    source = roundRobinExchange(idAllocator.getNextId(), REMOTE, source);
+                }
+
                 return withDerivedProperties(
                         mergingExchange(
                                 idAllocator.getNextId(),
                                 REMOTE,
                                 new SortNode(
                                         idAllocator.getNextId(),
-                                        child.getNode(),
+                                        source,
                                         node.getOrderingScheme()),
                                 node.getOrderingScheme()),
                         child.getProperties());
