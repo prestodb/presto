@@ -16,6 +16,8 @@ package com.facebook.presto.decoder.json;
 import com.facebook.presto.spi.type.Type;
 import org.testng.annotations.Test;
 
+import java.util.concurrent.TimeUnit;
+
 import static com.facebook.presto.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.TimeType.TIME;
@@ -70,5 +72,11 @@ public class TestSecondsSinceEpochJsonFieldDecoder
             tester.assertInvalidInput("" + (Long.MIN_VALUE / 1000 - 1), type, "could not parse value '-9223372036854776' as '.*' for column 'some_column'");
             tester.assertInvalidInput("362016000.5", type, "could not parse value '3.620160005E8' as '.*' for column 'some_column'");
         }
+
+        // TIME specific range checks
+        tester.assertInvalidInput("-1", TIME, "could not parse value '-1' as 'time' for column 'some_column'");
+        tester.assertInvalidInput("" + TimeUnit.DAYS.toSeconds(1) + 1, TIME, "could not parse value '864001' as 'time' for column 'some_column'");
+        tester.assertInvalidInput("-1", TIME_WITH_TIME_ZONE, "could not parse value '-1' as 'time with time zone' for column 'some_column'");
+        tester.assertInvalidInput("" + TimeUnit.DAYS.toSeconds(1) + 1, TIME_WITH_TIME_ZONE, "could not parse value '864001' as 'time with time zone' for column 'some_column'");
     }
 }
