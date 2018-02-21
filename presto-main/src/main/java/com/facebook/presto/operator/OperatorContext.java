@@ -275,6 +275,12 @@ public class OperatorContext
         return operatorMemoryContext.newAggregateSystemMemoryContext();
     }
 
+    // caller should close this context as it's a new context
+    public AggregatedMemoryContext newAggregateUserMemoryContext()
+    {
+        return operatorMemoryContext.newAggregateUserMemoryContext();
+    }
+
     public long getReservedRevocableBytes()
     {
         return operatorMemoryContext.getRevocableMemory();
