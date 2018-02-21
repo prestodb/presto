@@ -17,9 +17,6 @@ import com.facebook.presto.decoder.DecoderColumnHandle;
 import com.facebook.presto.decoder.DecoderTestColumnHandle;
 import com.facebook.presto.decoder.FieldValueProvider;
 import com.facebook.presto.decoder.RowDecoder;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.BooleanType;
-import com.facebook.presto.spi.type.DoubleType;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
 import io.airlift.json.ObjectMapperProvider;
@@ -32,6 +29,9 @@ import java.util.Set;
 
 import static com.facebook.presto.decoder.util.DecoderTestUtil.checkIsNull;
 import static com.facebook.presto.decoder.util.DecoderTestUtil.checkValue;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static java.util.Collections.emptyMap;
 import static org.testng.Assert.assertEquals;
@@ -49,9 +49,9 @@ public class TestJsonDecoder
 
         DecoderTestColumnHandle column1 = new DecoderTestColumnHandle(0, "column1", createVarcharType(100), "source", null, null, false, false, false);
         DecoderTestColumnHandle column2 = new DecoderTestColumnHandle(1, "column2", createVarcharType(10), "user/screen_name", null, null, false, false, false);
-        DecoderTestColumnHandle column3 = new DecoderTestColumnHandle(2, "column3", BigintType.BIGINT, "id", null, null, false, false, false);
-        DecoderTestColumnHandle column4 = new DecoderTestColumnHandle(3, "column4", BigintType.BIGINT, "user/statuses_count", null, null, false, false, false);
-        DecoderTestColumnHandle column5 = new DecoderTestColumnHandle(4, "column5", BooleanType.BOOLEAN, "user/geo_enabled", null, null, false, false, false);
+        DecoderTestColumnHandle column3 = new DecoderTestColumnHandle(2, "column3", BIGINT, "id", null, null, false, false, false);
+        DecoderTestColumnHandle column4 = new DecoderTestColumnHandle(3, "column4", BIGINT, "user/statuses_count", null, null, false, false, false);
+        DecoderTestColumnHandle column5 = new DecoderTestColumnHandle(4, "column5", BOOLEAN, "user/geo_enabled", null, null, false, false, false);
 
         Set<DecoderColumnHandle> columns = ImmutableSet.of(column1, column2, column3, column4, column5);
         RowDecoder rowDecoder = DECODER_FACTORY.create(emptyMap(), columns);
@@ -74,9 +74,9 @@ public class TestJsonDecoder
         byte[] json = "{}".getBytes(StandardCharsets.UTF_8);
 
         DecoderTestColumnHandle column1 = new DecoderTestColumnHandle(0, "column1", createVarcharType(100), "very/deep/varchar", null, null, false, false, false);
-        DecoderTestColumnHandle column2 = new DecoderTestColumnHandle(1, "column2", BigintType.BIGINT, "no_bigint", null, null, false, false, false);
-        DecoderTestColumnHandle column3 = new DecoderTestColumnHandle(2, "column3", DoubleType.DOUBLE, "double/is_missing", null, null, false, false, false);
-        DecoderTestColumnHandle column4 = new DecoderTestColumnHandle(3, "column4", BooleanType.BOOLEAN, "hello", null, null, false, false, false);
+        DecoderTestColumnHandle column2 = new DecoderTestColumnHandle(1, "column2", BIGINT, "no_bigint", null, null, false, false, false);
+        DecoderTestColumnHandle column3 = new DecoderTestColumnHandle(2, "column3", DOUBLE, "double/is_missing", null, null, false, false, false);
+        DecoderTestColumnHandle column4 = new DecoderTestColumnHandle(3, "column4", BOOLEAN, "hello", null, null, false, false, false);
 
         Set<DecoderColumnHandle> columns = ImmutableSet.of(column1, column2, column3, column4);
         RowDecoder rowDecoder = DECODER_FACTORY.create(emptyMap(), columns);
@@ -98,9 +98,9 @@ public class TestJsonDecoder
         byte[] json = "{\"a_number\":481516,\"a_string\":\"2342\"}".getBytes(StandardCharsets.UTF_8);
 
         DecoderTestColumnHandle column1 = new DecoderTestColumnHandle(0, "column1", createVarcharType(100), "a_number", null, null, false, false, false);
-        DecoderTestColumnHandle column2 = new DecoderTestColumnHandle(1, "column2", BigintType.BIGINT, "a_number", null, null, false, false, false);
+        DecoderTestColumnHandle column2 = new DecoderTestColumnHandle(1, "column2", BIGINT, "a_number", null, null, false, false, false);
         DecoderTestColumnHandle column3 = new DecoderTestColumnHandle(2, "column3", createVarcharType(100), "a_string", null, null, false, false, false);
-        DecoderTestColumnHandle column4 = new DecoderTestColumnHandle(3, "column4", BigintType.BIGINT, "a_string", null, null, false, false, false);
+        DecoderTestColumnHandle column4 = new DecoderTestColumnHandle(3, "column4", BIGINT, "a_string", null, null, false, false, false);
 
         Set<DecoderColumnHandle> columns = ImmutableSet.of(column1, column2, column3, column4);
         RowDecoder rowDecoder = DECODER_FACTORY.create(emptyMap(), columns);

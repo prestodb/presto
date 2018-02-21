@@ -17,7 +17,6 @@ import com.facebook.presto.decoder.DecoderColumnHandle;
 import com.facebook.presto.decoder.DecoderTestColumnHandle;
 import com.facebook.presto.decoder.FieldValueProvider;
 import com.facebook.presto.decoder.RowDecoder;
-import com.facebook.presto.spi.type.BigintType;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.ObjectMapperProvider;
 import org.joda.time.format.DateTimeFormatter;
@@ -32,6 +31,7 @@ import java.util.Set;
 import static com.facebook.presto.decoder.FieldDecoder.DEFAULT_FIELD_DECODER_NAME;
 import static com.facebook.presto.decoder.util.DecoderTestUtil.checkIsNull;
 import static com.facebook.presto.decoder.util.DecoderTestUtil.checkValue;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static java.lang.String.format;
 import static java.util.Collections.emptyMap;
@@ -51,11 +51,11 @@ public class TestISO8601JsonFieldDecoder
 
         byte[] json = format("{\"a_number\":%d,\"a_string\":\"%s\"}", now, nowString).getBytes(StandardCharsets.UTF_8);
 
-        DecoderTestColumnHandle column1 = new DecoderTestColumnHandle(0, "column1", BigintType.BIGINT, "a_number", DEFAULT_FIELD_DECODER_NAME, null, false, false, false);
+        DecoderTestColumnHandle column1 = new DecoderTestColumnHandle(0, "column1", BIGINT, "a_number", DEFAULT_FIELD_DECODER_NAME, null, false, false, false);
         DecoderTestColumnHandle column2 = new DecoderTestColumnHandle(1, "column2", createVarcharType(100), "a_string", DEFAULT_FIELD_DECODER_NAME, null, false, false, false);
 
-        DecoderTestColumnHandle column3 = new DecoderTestColumnHandle(2, "column3", BigintType.BIGINT, "a_number", ISO8601JsonFieldDecoder.NAME, null, false, false, false);
-        DecoderTestColumnHandle column4 = new DecoderTestColumnHandle(3, "column4", BigintType.BIGINT, "a_string", ISO8601JsonFieldDecoder.NAME, null, false, false, false);
+        DecoderTestColumnHandle column3 = new DecoderTestColumnHandle(2, "column3", BIGINT, "a_number", ISO8601JsonFieldDecoder.NAME, null, false, false, false);
+        DecoderTestColumnHandle column4 = new DecoderTestColumnHandle(3, "column4", BIGINT, "a_string", ISO8601JsonFieldDecoder.NAME, null, false, false, false);
 
         DecoderTestColumnHandle column5 = new DecoderTestColumnHandle(4, "column5", createVarcharType(100), "a_number", ISO8601JsonFieldDecoder.NAME, null, false, false, false);
         DecoderTestColumnHandle column6 = new DecoderTestColumnHandle(5, "column6", createVarcharType(100), "a_string", ISO8601JsonFieldDecoder.NAME, null, false, false, false);
@@ -89,11 +89,11 @@ public class TestISO8601JsonFieldDecoder
     {
         byte[] json = "{}".getBytes(StandardCharsets.UTF_8);
 
-        DecoderTestColumnHandle column1 = new DecoderTestColumnHandle(0, "column1", BigintType.BIGINT, "a_number", DEFAULT_FIELD_DECODER_NAME, null, false, false, false);
+        DecoderTestColumnHandle column1 = new DecoderTestColumnHandle(0, "column1", BIGINT, "a_number", DEFAULT_FIELD_DECODER_NAME, null, false, false, false);
         DecoderTestColumnHandle column2 = new DecoderTestColumnHandle(1, "column2", createVarcharType(100), "a_string", DEFAULT_FIELD_DECODER_NAME, null, false, false, false);
 
-        DecoderTestColumnHandle column3 = new DecoderTestColumnHandle(2, "column3", BigintType.BIGINT, "a_number", ISO8601JsonFieldDecoder.NAME, null, false, false, false);
-        DecoderTestColumnHandle column4 = new DecoderTestColumnHandle(3, "column4", BigintType.BIGINT, "a_string", ISO8601JsonFieldDecoder.NAME, null, false, false, false);
+        DecoderTestColumnHandle column3 = new DecoderTestColumnHandle(2, "column3", BIGINT, "a_number", ISO8601JsonFieldDecoder.NAME, null, false, false, false);
+        DecoderTestColumnHandle column4 = new DecoderTestColumnHandle(3, "column4", BIGINT, "a_string", ISO8601JsonFieldDecoder.NAME, null, false, false, false);
 
         DecoderTestColumnHandle column5 = new DecoderTestColumnHandle(4, "column5", createVarcharType(100), "a_number", ISO8601JsonFieldDecoder.NAME, null, false, false, false);
         DecoderTestColumnHandle column6 = new DecoderTestColumnHandle(5, "column6", createVarcharType(100), "a_string", ISO8601JsonFieldDecoder.NAME, null, false, false, false);
