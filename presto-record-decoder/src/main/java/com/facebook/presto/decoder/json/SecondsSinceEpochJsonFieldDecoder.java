@@ -16,13 +16,7 @@ package com.facebook.presto.decoder.json;
 import com.facebook.presto.decoder.DecoderColumnHandle;
 import com.facebook.presto.decoder.FieldValueProvider;
 import com.fasterxml.jackson.databind.JsonNode;
-import io.airlift.slice.Slice;
-import org.joda.time.format.DateTimeFormatter;
-import org.joda.time.format.ISODateTimeFormat;
 
-import java.util.Locale;
-
-import static io.airlift.slice.Slices.utf8Slice;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -33,11 +27,6 @@ import static java.util.Objects.requireNonNull;
 public class SecondsSinceEpochJsonFieldDecoder
         extends JsonFieldDecoder
 {
-    /**
-     * Todo - configurable time zones and locales.
-     */
-    private static final DateTimeFormatter FORMATTER = ISODateTimeFormat.dateTimeNoMillis().withLocale(Locale.ENGLISH).withZoneUTC();
-
     @Override
     public FieldValueProvider decode(JsonNode value, DecoderColumnHandle columnHandle)
     {
@@ -59,12 +48,6 @@ public class SecondsSinceEpochJsonFieldDecoder
         protected long getMillis()
         {
             return value.asLong() * 1000L;
-        }
-
-        @Override
-        public Slice getSlice()
-        {
-            return utf8Slice(FORMATTER.print(value.asLong() * 1000L));
         }
     }
 }
