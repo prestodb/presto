@@ -29,6 +29,7 @@ import java.util.Set;
 import static com.facebook.presto.decoder.FieldDecoder.DEFAULT_FIELD_DECODER_NAME;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 
@@ -77,6 +78,6 @@ public class JsonRowDecoderFactory
                     return new RFC2822JsonFieldDecoder();
             }
         }
-        throw new IllegalArgumentException(String.format("unknown data format '%s' for column '%s'", column.getDataFormat(), column.getName()));
+        throw new IllegalArgumentException(format("unknown data format '%s' for column '%s'", column.getDataFormat(), column.getName()));
     }
 }
