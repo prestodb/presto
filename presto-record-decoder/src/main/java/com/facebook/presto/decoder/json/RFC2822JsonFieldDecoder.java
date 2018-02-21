@@ -16,7 +16,6 @@ package com.facebook.presto.decoder.json;
 import com.facebook.presto.decoder.DecoderColumnHandle;
 import com.facebook.presto.decoder.FieldValueProvider;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.google.common.annotations.VisibleForTesting;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 
@@ -32,9 +31,6 @@ import static java.util.Objects.requireNonNull;
 public class RFC2822JsonFieldDecoder
         extends JsonFieldDecoder
 {
-    @VisibleForTesting
-    static final String NAME = "rfc2822";
-
     /**
      * Todo - configurable time zones and locales.
      */

@@ -27,7 +27,7 @@ import static java.util.Arrays.asList;
 
 public class TestMillisecondsSinceEpochJsonFieldDecoder
 {
-    private TemporalFieldDecoderTester tester = new TemporalFieldDecoderTester(MillisecondsSinceEpochJsonFieldDecoder.NAME);
+    private TemporalFieldDecoderTester tester = new TemporalFieldDecoderTester("milliseconds-since-epoch");
 
     @Test
     public void testDecode()
