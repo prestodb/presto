@@ -54,7 +54,7 @@ public class TestRawDecoder
     public void testEmptyRecord()
     {
         byte[] emptyRow = new byte[0];
-        DecoderTestColumnHandle column = new DecoderTestColumnHandle("", 0, "row1", createUnboundedVarcharType(), null, "BYTE", null, false, false, false);
+        DecoderTestColumnHandle column = new DecoderTestColumnHandle(0, "row1", createUnboundedVarcharType(), null, "BYTE", null, false, false, false);
         Set<DecoderColumnHandle> columns = ImmutableSet.of(column);
         RowDecoder rowDecoder = DECODER_FACTORY.create(emptyMap(), columns);
 
@@ -77,11 +77,11 @@ public class TestRawDecoder
         byte[] row = new byte[buf.position()];
         System.arraycopy(buf.array(), 0, row, 0, buf.position());
 
-        DecoderTestColumnHandle row1 = new DecoderTestColumnHandle("", 0, "row1", BigintType.BIGINT, "0", "LONG", null, false, false, false);
-        DecoderTestColumnHandle row2 = new DecoderTestColumnHandle("", 1, "row2", BigintType.BIGINT, "8", "INT", null, false, false, false);
-        DecoderTestColumnHandle row3 = new DecoderTestColumnHandle("", 2, "row3", BigintType.BIGINT, "12", "SHORT", null, false, false, false);
-        DecoderTestColumnHandle row4 = new DecoderTestColumnHandle("", 3, "row4", BigintType.BIGINT, "14", "BYTE", null, false, false, false);
-        DecoderTestColumnHandle row5 = new DecoderTestColumnHandle("", 4, "row5", createVarcharType(10), "15", null, null, false, false, false);
+        DecoderTestColumnHandle row1 = new DecoderTestColumnHandle(0, "row1", BigintType.BIGINT, "0", "LONG", null, false, false, false);
+        DecoderTestColumnHandle row2 = new DecoderTestColumnHandle(1, "row2", BigintType.BIGINT, "8", "INT", null, false, false, false);
+        DecoderTestColumnHandle row3 = new DecoderTestColumnHandle(2, "row3", BigintType.BIGINT, "12", "SHORT", null, false, false, false);
+        DecoderTestColumnHandle row4 = new DecoderTestColumnHandle(3, "row4", BigintType.BIGINT, "14", "BYTE", null, false, false, false);
+        DecoderTestColumnHandle row5 = new DecoderTestColumnHandle(4, "row5", createVarcharType(10), "15", null, null, false, false, false);
 
         Set<DecoderColumnHandle> columns = ImmutableSet.of(row1, row2, row3, row4, row5);
         RowDecoder rowDecoder = DECODER_FACTORY.create(emptyMap(), columns);
@@ -104,10 +104,10 @@ public class TestRawDecoder
         String str = "Ich bin zwei Oeltanks";
         byte[] row = str.getBytes(StandardCharsets.UTF_8);
 
-        DecoderTestColumnHandle row1 = new DecoderTestColumnHandle("", 0, "row1", createVarcharType(100), null, null, null, false, false, false);
-        DecoderTestColumnHandle row2 = new DecoderTestColumnHandle("", 1, "row2", createVarcharType(100), "0", null, null, false, false, false);
-        DecoderTestColumnHandle row3 = new DecoderTestColumnHandle("", 2, "row3", createVarcharType(100), "0:4", null, null, false, false, false);
-        DecoderTestColumnHandle row4 = new DecoderTestColumnHandle("", 3, "row4", createVarcharType(100), "5:8", null, null, false, false, false);
+        DecoderTestColumnHandle row1 = new DecoderTestColumnHandle(0, "row1", createVarcharType(100), null, null, null, false, false, false);
+        DecoderTestColumnHandle row2 = new DecoderTestColumnHandle(1, "row2", createVarcharType(100), "0", null, null, false, false, false);
+        DecoderTestColumnHandle row3 = new DecoderTestColumnHandle(2, "row3", createVarcharType(100), "0:4", null, null, false, false, false);
+        DecoderTestColumnHandle row4 = new DecoderTestColumnHandle(3, "row4", createVarcharType(100), "5:8", null, null, false, false, false);
 
         Set<DecoderColumnHandle> columns = ImmutableSet.of(row1, row2, row3, row4);
         RowDecoder rowDecoder = DECODER_FACTORY.create(emptyMap(), columns);
@@ -136,8 +136,8 @@ public class TestRawDecoder
         byte[] row = new byte[buf.position()];
         System.arraycopy(buf.array(), 0, row, 0, buf.position());
 
-        DecoderTestColumnHandle row1 = new DecoderTestColumnHandle("", 0, "row1", DOUBLE, null, "DOUBLE", null, false, false, false);
-        DecoderTestColumnHandle row2 = new DecoderTestColumnHandle("", 1, "row2", DOUBLE, "8", "FLOAT", null, false, false, false);
+        DecoderTestColumnHandle row1 = new DecoderTestColumnHandle(0, "row1", DOUBLE, null, "DOUBLE", null, false, false, false);
+        DecoderTestColumnHandle row2 = new DecoderTestColumnHandle(1, "row2", DOUBLE, "8", "FLOAT", null, false, false, false);
 
         Set<DecoderColumnHandle> columns = ImmutableSet.of(row1, row2);
         RowDecoder rowDecoder = DECODER_FACTORY.create(emptyMap(), columns);
@@ -178,25 +178,25 @@ public class TestRawDecoder
         byte[] row = new byte[buf.position()];
         System.arraycopy(buf.array(), 0, row, 0, buf.position());
 
-        DecoderTestColumnHandle row01 = new DecoderTestColumnHandle("", 0, "row01", BigintType.BIGINT, "0", "BYTE", null, false, false, false);
-        DecoderTestColumnHandle row02 = new DecoderTestColumnHandle("", 1, "row02", BooleanType.BOOLEAN, "1", "LONG", null, false, false, false);
-        DecoderTestColumnHandle row03 = new DecoderTestColumnHandle("", 2, "row03", BigintType.BIGINT, "9", "BYTE", null, false, false, false);
-        DecoderTestColumnHandle row04 = new DecoderTestColumnHandle("", 3, "row04", BooleanType.BOOLEAN, "10", "LONG", null, false, false, false);
+        DecoderTestColumnHandle row01 = new DecoderTestColumnHandle(0, "row01", BigintType.BIGINT, "0", "BYTE", null, false, false, false);
+        DecoderTestColumnHandle row02 = new DecoderTestColumnHandle(1, "row02", BooleanType.BOOLEAN, "1", "LONG", null, false, false, false);
+        DecoderTestColumnHandle row03 = new DecoderTestColumnHandle(2, "row03", BigintType.BIGINT, "9", "BYTE", null, false, false, false);
+        DecoderTestColumnHandle row04 = new DecoderTestColumnHandle(3, "row04", BooleanType.BOOLEAN, "10", "LONG", null, false, false, false);
 
-        DecoderTestColumnHandle row11 = new DecoderTestColumnHandle("", 4, "row11", BigintType.BIGINT, "18", "BYTE", null, false, false, false);
-        DecoderTestColumnHandle row12 = new DecoderTestColumnHandle("", 5, "row12", BooleanType.BOOLEAN, "19", "INT", null, false, false, false);
-        DecoderTestColumnHandle row13 = new DecoderTestColumnHandle("", 6, "row13", BigintType.BIGINT, "23", "BYTE", null, false, false, false);
-        DecoderTestColumnHandle row14 = new DecoderTestColumnHandle("", 7, "row14", BooleanType.BOOLEAN, "24", "INT", null, false, false, false);
+        DecoderTestColumnHandle row11 = new DecoderTestColumnHandle(4, "row11", BigintType.BIGINT, "18", "BYTE", null, false, false, false);
+        DecoderTestColumnHandle row12 = new DecoderTestColumnHandle(5, "row12", BooleanType.BOOLEAN, "19", "INT", null, false, false, false);
+        DecoderTestColumnHandle row13 = new DecoderTestColumnHandle(6, "row13", BigintType.BIGINT, "23", "BYTE", null, false, false, false);
+        DecoderTestColumnHandle row14 = new DecoderTestColumnHandle(7, "row14", BooleanType.BOOLEAN, "24", "INT", null, false, false, false);
 
-        DecoderTestColumnHandle row21 = new DecoderTestColumnHandle("", 8, "row21", BigintType.BIGINT, "28", "BYTE", null, false, false, false);
-        DecoderTestColumnHandle row22 = new DecoderTestColumnHandle("", 9, "row22", BooleanType.BOOLEAN, "29", "SHORT", null, false, false, false);
-        DecoderTestColumnHandle row23 = new DecoderTestColumnHandle("", 10, "row23", BigintType.BIGINT, "31", "BYTE", null, false, false, false);
-        DecoderTestColumnHandle row24 = new DecoderTestColumnHandle("", 11, "row24", BooleanType.BOOLEAN, "32", "SHORT", null, false, false, false);
+        DecoderTestColumnHandle row21 = new DecoderTestColumnHandle(8, "row21", BigintType.BIGINT, "28", "BYTE", null, false, false, false);
+        DecoderTestColumnHandle row22 = new DecoderTestColumnHandle(9, "row22", BooleanType.BOOLEAN, "29", "SHORT", null, false, false, false);
+        DecoderTestColumnHandle row23 = new DecoderTestColumnHandle(10, "row23", BigintType.BIGINT, "31", "BYTE", null, false, false, false);
+        DecoderTestColumnHandle row24 = new DecoderTestColumnHandle(11, "row24", BooleanType.BOOLEAN, "32", "SHORT", null, false, false, false);
 
-        DecoderTestColumnHandle row31 = new DecoderTestColumnHandle("", 12, "row31", BigintType.BIGINT, "34", "BYTE", null, false, false, false);
-        DecoderTestColumnHandle row32 = new DecoderTestColumnHandle("", 13, "row32", BooleanType.BOOLEAN, "35", "BYTE", null, false, false, false);
-        DecoderTestColumnHandle row33 = new DecoderTestColumnHandle("", 14, "row33", BigintType.BIGINT, "36", "BYTE", null, false, false, false);
-        DecoderTestColumnHandle row34 = new DecoderTestColumnHandle("", 15, "row34", BooleanType.BOOLEAN, "37", "BYTE", null, false, false, false);
+        DecoderTestColumnHandle row31 = new DecoderTestColumnHandle(12, "row31", BigintType.BIGINT, "34", "BYTE", null, false, false, false);
+        DecoderTestColumnHandle row32 = new DecoderTestColumnHandle(13, "row32", BooleanType.BOOLEAN, "35", "BYTE", null, false, false, false);
+        DecoderTestColumnHandle row33 = new DecoderTestColumnHandle(14, "row33", BigintType.BIGINT, "36", "BYTE", null, false, false, false);
+        DecoderTestColumnHandle row34 = new DecoderTestColumnHandle(15, "row34", BooleanType.BOOLEAN, "37", "BYTE", null, false, false, false);
 
         Set<DecoderColumnHandle> columns = ImmutableSet.of(row01,
                 row02,
@@ -403,6 +403,6 @@ public class TestRawDecoder
 
     private void singleColumnDecoder(Type columnType, String mapping, String dataFormat, String formatHint, boolean keyDecoder, boolean hidden, boolean internal)
     {
-        DECODER_FACTORY.create(emptyMap(), ImmutableSet.of(new DecoderTestColumnHandle("", 0, "some_column", columnType, mapping, dataFormat, formatHint, keyDecoder, hidden, internal)));
+        DECODER_FACTORY.create(emptyMap(), ImmutableSet.of(new DecoderTestColumnHandle(0, "some_column", columnType, mapping, dataFormat, formatHint, keyDecoder, hidden, internal)));
     }
 }

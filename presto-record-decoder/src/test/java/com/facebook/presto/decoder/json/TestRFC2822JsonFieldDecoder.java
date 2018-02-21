@@ -47,14 +47,14 @@ public class TestRFC2822JsonFieldDecoder
 
         byte[] json = format("{\"a_number\":%d,\"a_string\":\"%s\"}", now, nowString).getBytes(StandardCharsets.UTF_8);
 
-        DecoderTestColumnHandle row1 = new DecoderTestColumnHandle("", 0, "row1", BigintType.BIGINT, "a_number", DEFAULT_FIELD_DECODER_NAME, null, false, false, false);
-        DecoderTestColumnHandle row2 = new DecoderTestColumnHandle("", 1, "row2", createVarcharType(100), "a_string", DEFAULT_FIELD_DECODER_NAME, null, false, false, false);
+        DecoderTestColumnHandle row1 = new DecoderTestColumnHandle(0, "row1", BigintType.BIGINT, "a_number", DEFAULT_FIELD_DECODER_NAME, null, false, false, false);
+        DecoderTestColumnHandle row2 = new DecoderTestColumnHandle(1, "row2", createVarcharType(100), "a_string", DEFAULT_FIELD_DECODER_NAME, null, false, false, false);
 
-        DecoderTestColumnHandle row3 = new DecoderTestColumnHandle("", 2, "row3", BigintType.BIGINT, "a_number", RFC2822JsonFieldDecoder.NAME, null, false, false, false);
-        DecoderTestColumnHandle row4 = new DecoderTestColumnHandle("", 3, "row4", BigintType.BIGINT, "a_string", RFC2822JsonFieldDecoder.NAME, null, false, false, false);
+        DecoderTestColumnHandle row3 = new DecoderTestColumnHandle(2, "row3", BigintType.BIGINT, "a_number", RFC2822JsonFieldDecoder.NAME, null, false, false, false);
+        DecoderTestColumnHandle row4 = new DecoderTestColumnHandle(3, "row4", BigintType.BIGINT, "a_string", RFC2822JsonFieldDecoder.NAME, null, false, false, false);
 
-        DecoderTestColumnHandle row5 = new DecoderTestColumnHandle("", 4, "row5", createVarcharType(100), "a_number", RFC2822JsonFieldDecoder.NAME, null, false, false, false);
-        DecoderTestColumnHandle row6 = new DecoderTestColumnHandle("", 5, "row6", createVarcharType(100), "a_string", RFC2822JsonFieldDecoder.NAME, null, false, false, false);
+        DecoderTestColumnHandle row5 = new DecoderTestColumnHandle(4, "row5", createVarcharType(100), "a_number", RFC2822JsonFieldDecoder.NAME, null, false, false, false);
+        DecoderTestColumnHandle row6 = new DecoderTestColumnHandle(5, "row6", createVarcharType(100), "a_string", RFC2822JsonFieldDecoder.NAME, null, false, false, false);
 
         Set<DecoderColumnHandle> columns = ImmutableSet.of(row1, row2, row3, row4, row5, row6);
         RowDecoder rowDecoder = DECODER_FACTORY.create(emptyMap(), columns);
@@ -85,14 +85,14 @@ public class TestRFC2822JsonFieldDecoder
     {
         byte[] json = "{}".getBytes(StandardCharsets.UTF_8);
 
-        DecoderTestColumnHandle row1 = new DecoderTestColumnHandle("", 0, "row1", BigintType.BIGINT, "a_number", DEFAULT_FIELD_DECODER_NAME, null, false, false, false);
-        DecoderTestColumnHandle row2 = new DecoderTestColumnHandle("", 1, "row2", createVarcharType(100), "a_string", DEFAULT_FIELD_DECODER_NAME, null, false, false, false);
+        DecoderTestColumnHandle row1 = new DecoderTestColumnHandle(0, "row1", BigintType.BIGINT, "a_number", DEFAULT_FIELD_DECODER_NAME, null, false, false, false);
+        DecoderTestColumnHandle row2 = new DecoderTestColumnHandle(1, "row2", createVarcharType(100), "a_string", DEFAULT_FIELD_DECODER_NAME, null, false, false, false);
 
-        DecoderTestColumnHandle row3 = new DecoderTestColumnHandle("", 2, "row3", BigintType.BIGINT, "a_number", RFC2822JsonFieldDecoder.NAME, null, false, false, false);
-        DecoderTestColumnHandle row4 = new DecoderTestColumnHandle("", 3, "row4", BigintType.BIGINT, "a_string", RFC2822JsonFieldDecoder.NAME, null, false, false, false);
+        DecoderTestColumnHandle row3 = new DecoderTestColumnHandle(2, "row3", BigintType.BIGINT, "a_number", RFC2822JsonFieldDecoder.NAME, null, false, false, false);
+        DecoderTestColumnHandle row4 = new DecoderTestColumnHandle(3, "row4", BigintType.BIGINT, "a_string", RFC2822JsonFieldDecoder.NAME, null, false, false, false);
 
-        DecoderTestColumnHandle row5 = new DecoderTestColumnHandle("", 4, "row5", createVarcharType(100), "a_number", RFC2822JsonFieldDecoder.NAME, null, false, false, false);
-        DecoderTestColumnHandle row6 = new DecoderTestColumnHandle("", 5, "row6", createVarcharType(100), "a_string", RFC2822JsonFieldDecoder.NAME, null, false, false, false);
+        DecoderTestColumnHandle row5 = new DecoderTestColumnHandle(4, "row5", createVarcharType(100), "a_number", RFC2822JsonFieldDecoder.NAME, null, false, false, false);
+        DecoderTestColumnHandle row6 = new DecoderTestColumnHandle(5, "row6", createVarcharType(100), "a_string", RFC2822JsonFieldDecoder.NAME, null, false, false, false);
 
         Set<DecoderColumnHandle> columns = ImmutableSet.of(row1, row2, row3, row4, row5, row6);
         RowDecoder rowDecoder = DECODER_FACTORY.create(emptyMap(), columns);
