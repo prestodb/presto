@@ -25,7 +25,6 @@ import javax.inject.Inject;
 import java.util.Map;
 import java.util.Set;
 
-import static com.facebook.presto.decoder.FieldDecoder.DEFAULT_FIELD_DECODER_NAME;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -61,7 +60,7 @@ public class JsonRowDecoderFactory
     {
         try {
             checkArgument(!column.isInternal(), "unexpected internal column '%s'", column.getName());
-            if (column.getDataFormat() == null || column.getDataFormat().equals(DEFAULT_FIELD_DECODER_NAME)) {
+            if (column.getDataFormat() == null) {
                 return new DefaultJsonFieldDecoder(column);
             }
             Class<?> javaType = column.getType().getJavaType();
