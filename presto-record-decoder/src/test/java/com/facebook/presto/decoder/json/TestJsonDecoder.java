@@ -17,9 +17,12 @@ import com.facebook.presto.decoder.DecoderColumnHandle;
 import com.facebook.presto.decoder.DecoderTestColumnHandle;
 import com.facebook.presto.decoder.FieldValueProvider;
 import com.facebook.presto.decoder.RowDecoder;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
 import io.airlift.json.ObjectMapperProvider;
+import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.testng.annotations.Test;
 
 import java.nio.charset.StandardCharsets;
@@ -31,9 +34,23 @@ import static com.facebook.presto.decoder.util.DecoderTestUtil.checkIsNull;
 import static com.facebook.presto.decoder.util.DecoderTestUtil.checkValue;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.RealType.REAL;
+import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
+import static com.facebook.presto.spi.type.TimeType.TIME;
+import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
+import static java.util.Arrays.asList;
 import static java.util.Collections.emptyMap;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -114,5 +131,79 @@ public class TestJsonDecoder
         checkValue(decodedRow.get(), column2, 481516);
         checkValue(decodedRow.get(), column3, "2342");
         checkValue(decodedRow.get(), column4, 2342);
+    }
+
+    @Test
+    public void testSupportedDataTypeValidation()
+    {
+        // supported types
+        singleColumnDecoder(BIGINT, null);
+        singleColumnDecoder(INTEGER, null);
+        singleColumnDecoder(SMALLINT, null);
+        singleColumnDecoder(TINYINT, null);
+        singleColumnDecoder(BOOLEAN, null);
+        singleColumnDecoder(DOUBLE, null);
+        singleColumnDecoder(createUnboundedVarcharType(), null);
+        singleColumnDecoder(createVarcharType(100), null);
+
+        for (String dataFormat : ImmutableSet.of("iso8601", "custom-date-time", "seconds-since-epoch", "milliseconds-since-epoch", "rfc2822")) {
+            singleColumnDecoder(DATE, dataFormat);
+            singleColumnDecoder(TIME, dataFormat);
+            singleColumnDecoder(TIME_WITH_TIME_ZONE, dataFormat);
+            singleColumnDecoder(TIMESTAMP, dataFormat);
+            singleColumnDecoder(TIMESTAMP_WITH_TIME_ZONE, dataFormat);
+        }
+
+        // some unsupported types
+        assertUnsupportedColumnTypeException(() -> singleColumnDecoder(REAL, null));
+        assertUnsupportedColumnTypeException(() -> singleColumnDecoder(createDecimalType(10, 4), null));
+        assertUnsupportedColumnTypeException(() -> singleColumnDecoder(VARBINARY, null));
+
+        // temporal types are not supported for default field decoder
+        assertUnsupportedColumnTypeException(() -> singleColumnDecoder(DATE, null));
+        assertUnsupportedColumnTypeException(() -> singleColumnDecoder(TIME, null));
+        assertUnsupportedColumnTypeException(() -> singleColumnDecoder(TIME_WITH_TIME_ZONE, null));
+        assertUnsupportedColumnTypeException(() -> singleColumnDecoder(TIMESTAMP, null));
+        assertUnsupportedColumnTypeException(() -> singleColumnDecoder(TIMESTAMP_WITH_TIME_ZONE, null));
+
+        // non temporal types are not supported by temporal field decoders
+        for (String dataFormat : ImmutableSet.of("iso8601", "custom-date-time", "seconds-since-epoch", "milliseconds-since-epoch", "rfc2822")) {
+            assertUnsupportedColumnTypeException(() -> singleColumnDecoder(BIGINT, dataFormat));
+            assertUnsupportedColumnTypeException(() -> singleColumnDecoder(INTEGER, dataFormat));
+            assertUnsupportedColumnTypeException(() -> singleColumnDecoder(SMALLINT, dataFormat));
+            assertUnsupportedColumnTypeException(() -> singleColumnDecoder(TINYINT, dataFormat));
+            assertUnsupportedColumnTypeException(() -> singleColumnDecoder(BOOLEAN, dataFormat));
+            assertUnsupportedColumnTypeException(() -> singleColumnDecoder(DOUBLE, dataFormat));
+            assertUnsupportedColumnTypeException(() -> singleColumnDecoder(createUnboundedVarcharType(), dataFormat));
+            assertUnsupportedColumnTypeException(() -> singleColumnDecoder(createVarcharType(100), dataFormat));
+        }
+    }
+
+    private void assertUnsupportedColumnTypeException(ThrowingCallable callable)
+    {
+        assertThatThrownBy(callable)
+                .isInstanceOf(PrestoException.class)
+                .hasMessageMatching("unsupported column type .* for column .*");
+    }
+
+    @Test
+    public void testDataFormatValidation()
+    {
+        for (Type type : asList(TIMESTAMP, DOUBLE)) {
+            assertThatThrownBy(() -> singleColumnDecoder(type, "wrong_format"))
+                    .isInstanceOf(PrestoException.class)
+                    .hasMessage("unknown data format 'wrong_format' used for column 'some_column'");
+        }
+    }
+
+    private void singleColumnDecoder(Type columnType, String dataFormat)
+    {
+        singleColumnDecoder(columnType, "mappedField", dataFormat);
+    }
+
+    private void singleColumnDecoder(Type columnType, String mapping, String dataFormat)
+    {
+        String formatHint = "custom-date-time".equals(dataFormat) ? "MM/yyyy/dd H:m:s" : null;
+        DECODER_FACTORY.create(emptyMap(), ImmutableSet.of(new DecoderTestColumnHandle(0, "some_column", columnType, mapping, dataFormat, formatHint, false, false, false)));
     }
 }
