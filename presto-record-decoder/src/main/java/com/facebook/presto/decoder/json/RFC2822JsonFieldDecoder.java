@@ -15,6 +15,7 @@ package com.facebook.presto.decoder.json;
 
 import com.facebook.presto.decoder.DecoderColumnHandle;
 import com.facebook.presto.decoder.FieldValueProvider;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.ImmutableSet;
@@ -24,12 +25,14 @@ import org.joda.time.format.DateTimeFormatter;
 import java.util.Locale;
 import java.util.Set;
 
+import static com.facebook.presto.decoder.DecoderErrorCode.DECODER_CONVERSION_NOT_SUPPORTED;
 import static com.facebook.presto.decoder.json.JsonRowDecoderFactory.throwUnsupportedColumnType;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -73,8 +76,19 @@ public class RFC2822JsonFieldDecoder
         @Override
         protected long getMillis()
         {
-            String textValue = value.isValueNode() ? value.asText() : value.toString();
-            return FORMATTER.parseMillis(textValue);
+            if (value.isValueNode()) {
+                try {
+                    return FORMATTER.parseMillis(value.asText());
+                }
+                catch (IllegalArgumentException e) {
+                    throw new PrestoException(
+                            DECODER_CONVERSION_NOT_SUPPORTED,
+                            format("could not parse value '%s' as '%s' for column '%s'", value.asText(), columnHandle.getType(), columnHandle.getName()));
+                }
+            }
+            throw new PrestoException(
+                    DECODER_CONVERSION_NOT_SUPPORTED,
+                    format("could not parse non-value node as '%s' for column '%s'", columnHandle.getType(), columnHandle.getName()));
         }
     }
 }
