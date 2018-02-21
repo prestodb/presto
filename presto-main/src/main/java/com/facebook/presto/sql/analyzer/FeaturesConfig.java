@@ -78,6 +78,7 @@ public class FeaturesConfig
     private boolean pagesIndexEagerCompactionEnabled;
     private boolean distributedSort;
     private boolean redistributeSort = true;
+    private boolean localDistributedSort = true;
 
     private boolean dictionaryAggregation;
     private boolean resourceGroups;
@@ -687,6 +688,18 @@ public class FeaturesConfig
     public FeaturesConfig setRedistributeSort(boolean redistributeSort)
     {
         this.redistributeSort = redistributeSort;
+        return this;
+    }
+
+    public boolean isLocalDistributedSortEnabled()
+    {
+        return localDistributedSort;
+    }
+
+    @Config("experimental.local-distributed-sort")
+    public FeaturesConfig setLocalDistributedSortEnabled(boolean enabled)
+    {
+        localDistributedSort = enabled;
         return this;
     }
 }

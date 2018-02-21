@@ -65,6 +65,7 @@ import java.util.Set;
 import static com.facebook.presto.SystemSessionProperties.getTaskConcurrency;
 import static com.facebook.presto.SystemSessionProperties.getTaskWriterCount;
 import static com.facebook.presto.SystemSessionProperties.isDistributedSortEnabled;
+import static com.facebook.presto.SystemSessionProperties.isLocalDistributedSortEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSpillEnabled;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
@@ -170,7 +171,8 @@ public class AddLocalExchanges
         @Override
         public PlanWithProperties visitSort(SortNode node, StreamPreferredProperties parentPreferences)
         {
-            if (isDistributedSortEnabled(session)) {
+            if (isDistributedSortEnabled(session)
+                    && isLocalDistributedSortEnabled(session)) {
                 PlanWithProperties sortPlan = planAndEnforceChildren(node, fixedParallelism(), fixedParallelism());
 
                 if (!sortPlan.getProperties().isSingleStream()) {
