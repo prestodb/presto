@@ -34,12 +34,16 @@ public class TestSecondsSinceEpochJsonFieldDecoder
     {
         tester.assertDecodedAs("362016000", DATE, 4190);
         tester.assertDecodedAs("\"362016000\"", DATE, 4190);
+        tester.assertDecodedAs("-362016000", DATE, -4190);
+        tester.assertDecodedAs("362016001", DATE, 4190);
         tester.assertDecodedAs("33701", TIME, 33701000);
         tester.assertDecodedAs("\"33701\"", TIME, 33701000);
         tester.assertDecodedAs("33701", TIME_WITH_TIME_ZONE, packDateTimeWithZone(33701000, UTC_KEY));
         tester.assertDecodedAs("\"33701\"", TIME_WITH_TIME_ZONE, packDateTimeWithZone(33701000, UTC_KEY));
         tester.assertDecodedAs("1519032101", TIMESTAMP, 1519032101000L);
         tester.assertDecodedAs("\"1519032101\"", TIMESTAMP, 1519032101000L);
+        tester.assertDecodedAs("" + (Long.MAX_VALUE / 1000), TIMESTAMP, Long.MAX_VALUE / 1000 * 1000);
+        tester.assertDecodedAs("" + (Long.MIN_VALUE / 1000), TIMESTAMP, Long.MIN_VALUE / 1000 * 1000);
         tester.assertDecodedAs("1519032101", TIMESTAMP_WITH_TIME_ZONE, packDateTimeWithZone(1519032101000L, UTC_KEY));
         tester.assertDecodedAs("\"1519032101\"", TIMESTAMP_WITH_TIME_ZONE, packDateTimeWithZone(1519032101000L, UTC_KEY));
     }
@@ -50,6 +54,21 @@ public class TestSecondsSinceEpochJsonFieldDecoder
         for (Type type : asList(DATE, TIME, TIME_WITH_TIME_ZONE, TIMESTAMP, TIMESTAMP_WITH_TIME_ZONE)) {
             tester.assertDecodedAsNull("null", type);
             tester.assertMissingDecodedAsNull(type);
+        }
+    }
+
+    @Test
+    public void testDecodeInvalid()
+    {
+        for (Type type : asList(DATE, TIME, TIME_WITH_TIME_ZONE, TIMESTAMP, TIMESTAMP_WITH_TIME_ZONE)) {
+            tester.assertInvalidInput("{}", type, "could not parse non-value node as '.*' for column 'some_column'");
+            tester.assertInvalidInput("[]", type, "could not parse non-value node as '.*' for column 'some_column'");
+            tester.assertInvalidInput("[10]", type, "could not parse non-value node as '.*' for column 'some_column'");
+            tester.assertInvalidInput("\"a\"", type, "could not parse value 'a' as '.*' for column 'some_column'");
+            tester.assertInvalidInput("12345678901234567890", type, "could not parse value '12345678901234567890' as '.*' for column 'some_column'");
+            tester.assertInvalidInput("" + (Long.MAX_VALUE / 1000 + 1), type, "could not parse value '9223372036854776' as '.*' for column 'some_column'");
+            tester.assertInvalidInput("" + (Long.MIN_VALUE / 1000 - 1), type, "could not parse value '-9223372036854776' as '.*' for column 'some_column'");
+            tester.assertInvalidInput("362016000.5", type, "could not parse value '3.620160005E8' as '.*' for column 'some_column'");
         }
     }
 }
