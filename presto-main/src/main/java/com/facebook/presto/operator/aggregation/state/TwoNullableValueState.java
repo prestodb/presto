@@ -15,6 +15,9 @@ package com.facebook.presto.operator.aggregation.state;
 
 import com.facebook.presto.spi.function.AccumulatorState;
 
+// TODO: Add multiple aggregation states support to aggregation framework to avoid
+// cartesian product of types for aggregation functions takes multiple parameters.
+// Deprecate this class once the support is added.
 public interface TwoNullableValueState
         extends AccumulatorState
 {

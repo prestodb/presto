@@ -14,16 +14,11 @@
 package com.facebook.presto.operator.aggregation.state;
 
 import com.facebook.presto.spi.block.Block;
-import io.airlift.slice.Slice;
 
-public interface BlockSliceState
-        extends TwoNullableValueState
+public interface BlockAndBlockPositionValueState
+        extends KeyAndBlockPositionValueState
 {
     Block getFirst();
 
     void setFirst(Block first);
-
-    Slice getSecond();
-
-    void setSecond(Slice second);
 }
