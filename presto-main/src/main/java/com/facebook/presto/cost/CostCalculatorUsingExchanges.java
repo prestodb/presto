@@ -15,7 +15,9 @@
 package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.metadata.InternalNodeManager;
+import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
@@ -41,12 +43,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.IntSupplier;
 
 import static com.facebook.presto.cost.PlanNodeCostEstimate.UNKNOWN_COST;
 import static com.facebook.presto.cost.PlanNodeCostEstimate.ZERO_COST;
 import static com.facebook.presto.cost.PlanNodeCostEstimate.cpuCost;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -60,9 +64,23 @@ public class CostCalculatorUsingExchanges
     private final IntSupplier numberOfNodes;
 
     @Inject
-    public CostCalculatorUsingExchanges(InternalNodeManager nodeManager)
+    public CostCalculatorUsingExchanges(NodeSchedulerConfig nodeSchedulerConfig, InternalNodeManager nodeManager)
     {
-        this(() -> nodeManager.getAllNodes().getActiveNodes().size());
+        this(currentNumberOfWorkerNodes(nodeSchedulerConfig.isIncludeCoordinator(), nodeManager));
+    }
+
+    static IntSupplier currentNumberOfWorkerNodes(boolean includeCoordinator, InternalNodeManager nodeManager)
+    {
+        requireNonNull(nodeManager, "nodeManager is null");
+        return () -> {
+            Set<Node> activeNodes = nodeManager.getAllNodes().getActiveNodes();
+            if (includeCoordinator) {
+                return activeNodes.size();
+            }
+            return toIntExact(activeNodes.stream()
+                    .filter(node -> !node.isCoordinator())
+                    .count());
+        };
     }
 
     public CostCalculatorUsingExchanges(IntSupplier numberOfNodes)
