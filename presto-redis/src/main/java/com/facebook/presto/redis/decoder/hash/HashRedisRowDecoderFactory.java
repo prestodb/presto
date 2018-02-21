@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableMap;
 import java.util.Map;
 import java.util.Set;
 
-import static com.facebook.presto.decoder.FieldDecoder.DEFAULT_FIELD_DECODER_NAME;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -47,7 +46,7 @@ public class HashRedisRowDecoderFactory
     private FieldDecoder<String> chooseFieldDecoder(DecoderColumnHandle column)
     {
         checkArgument(!column.isInternal(), "unexpected internal column '%s'", column.getName());
-        if (column.getDataFormat() == null || column.getDataFormat().equals(DEFAULT_FIELD_DECODER_NAME)) {
+        if (column.getDataFormat() == null) {
             return new HashRedisFieldDecoder();
         }
         if (column.getType().getJavaType() == long.class && "iso8601".equals(column.getDataFormat())) {
