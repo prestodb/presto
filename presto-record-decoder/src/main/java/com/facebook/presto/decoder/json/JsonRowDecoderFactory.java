@@ -14,11 +14,9 @@
 package com.facebook.presto.decoder.json;
 
 import com.facebook.presto.decoder.DecoderColumnHandle;
-import com.facebook.presto.decoder.FieldDecoder;
 import com.facebook.presto.decoder.RowDecoder;
 import com.facebook.presto.decoder.RowDecoderFactory;
 import com.facebook.presto.spi.PrestoException;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.airlift.slice.Slice;
 
@@ -53,32 +51,32 @@ public class JsonRowDecoderFactory
         return new JsonRowDecoder(objectMapper, chooseFieldDecoders(columns));
     }
 
-    private Map<DecoderColumnHandle, FieldDecoder<JsonNode>> chooseFieldDecoders(Set<DecoderColumnHandle> columns)
+    private Map<DecoderColumnHandle, JsonFieldDecoder> chooseFieldDecoders(Set<DecoderColumnHandle> columns)
     {
         return columns.stream()
                 .collect(toImmutableMap(identity(), this::chooseFieldDecoder));
     }
 
-    private FieldDecoder<JsonNode> chooseFieldDecoder(DecoderColumnHandle column)
+    private JsonFieldDecoder chooseFieldDecoder(DecoderColumnHandle column)
     {
         try {
             checkArgument(!column.isInternal(), "unexpected internal column '%s'", column.getName());
             if (column.getDataFormat() == null || column.getDataFormat().equals(DEFAULT_FIELD_DECODER_NAME)) {
-                return new JsonFieldDecoder();
+                return new DefaultJsonFieldDecoder(column);
             }
             Class<?> javaType = column.getType().getJavaType();
             if (javaType == Slice.class || javaType == long.class) {
                 switch (column.getDataFormat()) {
                     case "custom-date-time":
-                        return new CustomDateTimeJsonFieldDecoder();
+                        return new CustomDateTimeJsonFieldDecoder(column);
                     case "iso8601":
-                        return new ISO8601JsonFieldDecoder();
+                        return new ISO8601JsonFieldDecoder(column);
                     case "seconds-since-epoch":
-                        return new SecondsSinceEpochJsonFieldDecoder();
+                        return new SecondsSinceEpochJsonFieldDecoder(column);
                     case "milliseconds-since-epoch":
-                        return new MillisecondsSinceEpochJsonFieldDecoder();
+                        return new MillisecondsSinceEpochJsonFieldDecoder(column);
                     case "rfc2822":
-                        return new RFC2822JsonFieldDecoder();
+                        return new RFC2822JsonFieldDecoder(column);
                 }
             }
             throw new IllegalArgumentException(format("unknown data format '%s' for column '%s'", column.getDataFormat(), column.getName()));

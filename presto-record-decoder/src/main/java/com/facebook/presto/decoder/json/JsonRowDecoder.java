@@ -14,7 +14,6 @@
 package com.facebook.presto.decoder.json;
 
 import com.facebook.presto.decoder.DecoderColumnHandle;
-import com.facebook.presto.decoder.FieldDecoder;
 import com.facebook.presto.decoder.FieldValueProvider;
 import com.facebook.presto.decoder.RowDecoder;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -39,9 +38,9 @@ public class JsonRowDecoder
     public static final String NAME = "json";
 
     private final ObjectMapper objectMapper;
-    private final Map<DecoderColumnHandle, FieldDecoder<JsonNode>> fieldDecoders;
+    private final Map<DecoderColumnHandle, JsonFieldDecoder> fieldDecoders;
 
-    JsonRowDecoder(ObjectMapper objectMapper, Map<DecoderColumnHandle, FieldDecoder<JsonNode>> fieldDecoders)
+    JsonRowDecoder(ObjectMapper objectMapper, Map<DecoderColumnHandle, JsonFieldDecoder> fieldDecoders)
     {
         this.objectMapper = requireNonNull(objectMapper, "objectMapper is null");
         this.fieldDecoders = ImmutableMap.copyOf(fieldDecoders);
@@ -61,11 +60,11 @@ public class JsonRowDecoder
 
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = new HashMap<>();
 
-        for (Map.Entry<DecoderColumnHandle, FieldDecoder<JsonNode>> entry : fieldDecoders.entrySet()) {
+        for (Map.Entry<DecoderColumnHandle, JsonFieldDecoder> entry : fieldDecoders.entrySet()) {
             DecoderColumnHandle columnHandle = entry.getKey();
-            FieldDecoder<JsonNode> decoder = entry.getValue();
+            JsonFieldDecoder decoder = entry.getValue();
             JsonNode node = locateNode(tree, columnHandle);
-            decodedRow.put(columnHandle, decoder.decode(node, columnHandle));
+            decodedRow.put(columnHandle, decoder.decode(node));
         }
 
         return Optional.of(decodedRow);

@@ -13,77 +13,10 @@
  */
 package com.facebook.presto.decoder.json;
 
-import com.facebook.presto.decoder.DecoderColumnHandle;
-import com.facebook.presto.decoder.FieldDecoder;
 import com.facebook.presto.decoder.FieldValueProvider;
 import com.fasterxml.jackson.databind.JsonNode;
-import io.airlift.slice.Slice;
 
-import static com.facebook.presto.spi.type.Varchars.isVarcharType;
-import static com.facebook.presto.spi.type.Varchars.truncateToLength;
-import static io.airlift.slice.Slices.utf8Slice;
-import static java.util.Objects.requireNonNull;
-
-/**
- * Default field decoder for the JSON format. Supports json format coercions to implicitly convert e.g. string to long values.
- */
-public class JsonFieldDecoder
-        implements FieldDecoder<JsonNode>
+public interface JsonFieldDecoder
 {
-    @Override
-    public FieldValueProvider decode(JsonNode value, DecoderColumnHandle columnHandle)
-    {
-        requireNonNull(columnHandle, "columnHandle is null");
-        requireNonNull(value, "value is null");
-
-        return new JsonValueProvider(value, columnHandle);
-    }
-
-    public static class JsonValueProvider
-            extends FieldValueProvider
-    {
-        private final JsonNode value;
-        private final DecoderColumnHandle columnHandle;
-
-        public JsonValueProvider(JsonNode value, DecoderColumnHandle columnHandle)
-        {
-            this.value = value;
-            this.columnHandle = columnHandle;
-        }
-
-        @Override
-        public final boolean isNull()
-        {
-            return value.isMissingNode() || value.isNull();
-        }
-
-        @Override
-        public boolean getBoolean()
-        {
-            return value.asBoolean();
-        }
-
-        @Override
-        public long getLong()
-        {
-            return value.asLong();
-        }
-
-        @Override
-        public double getDouble()
-        {
-            return value.asDouble();
-        }
-
-        @Override
-        public Slice getSlice()
-        {
-            String textValue = value.isValueNode() ? value.asText() : value.toString();
-            Slice slice = utf8Slice(textValue);
-            if (isVarcharType(columnHandle.getType())) {
-                slice = truncateToLength(slice, columnHandle.getType());
-            }
-            return slice;
-        }
-    }
+    FieldValueProvider decode(JsonNode value);
 }
