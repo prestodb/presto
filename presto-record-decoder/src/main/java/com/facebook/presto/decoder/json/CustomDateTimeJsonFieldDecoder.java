@@ -71,10 +71,6 @@ public class CustomDateTimeJsonFieldDecoder
         @Override
         protected long getMillis()
         {
-            if (value.canConvertToLong()) {
-                return value.asLong();
-            }
-
             requireNonNull(columnHandle.getFormatHint(), "formatHint is null");
             String textValue = value.isValueNode() ? value.asText() : value.toString();
 
