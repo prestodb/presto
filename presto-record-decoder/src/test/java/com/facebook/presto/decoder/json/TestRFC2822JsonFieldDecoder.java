@@ -37,6 +37,8 @@ public class TestRFC2822JsonFieldDecoder
         tester.assertDecodedAs("\"Thu Jan 01 13:15:19 Z 1970\"", TIME_WITH_TIME_ZONE, packDateTimeWithZone(47719000, UTC_KEY)); // TODO should it be supported really?
         tester.assertDecodedAs("\"Fri Feb 09 13:15:19 Z 2018\"", TIMESTAMP, 1518182119000L);
         tester.assertDecodedAs("\"Fri Feb 09 13:15:19 Z 2018\"", TIMESTAMP_WITH_TIME_ZONE, packDateTimeWithZone(1518182119000L, UTC_KEY));
+        tester.assertDecodedAs("\"Fri Feb 09 15:15:19 +02:00 2018\"", TIMESTAMP, 1518182119000L);
+        tester.assertDecodedAs("\"Fri Feb 09 15:15:19 +02:00 2018\"", TIMESTAMP_WITH_TIME_ZONE, packDateTimeWithZone(1518182119000L, UTC_KEY));
     }
 
     @Test
@@ -46,5 +48,21 @@ public class TestRFC2822JsonFieldDecoder
             tester.assertDecodedAsNull("null", type);
             tester.assertMissingDecodedAsNull(type);
         }
+    }
+
+    @Test
+    public void testDecodeInvalid()
+    {
+        tester.assertInvalidInput("{}", TIMESTAMP, "could not parse non-value node as 'timestamp' for column 'some_column'");
+        tester.assertInvalidInput("\"a\"", TIMESTAMP, "could not parse value 'a' as 'timestamp' for column 'some_column'");
+        tester.assertInvalidInput("2018", TIMESTAMP, "could not parse value '2018' as 'timestamp' for column 'some_column'");
+        tester.assertInvalidInput("\"Mon Feb 12 13:15:16 Z\"", TIMESTAMP, "could not parse value '.*' as 'timestamp' for column 'some_column'");
+        tester.assertInvalidInput("\"Mon Feb 12 13:15:16 2018\"", TIMESTAMP, "could not parse value '.*' as 'timestamp' for column 'some_column'");
+        tester.assertInvalidInput("\"Mon Feb 12 Z 2018\"", TIMESTAMP, "could not parse value '.*' as 'timestamp' for column 'some_column'");
+        tester.assertInvalidInput("\"Mon Feb 13:15:16 Z 2018\"", TIMESTAMP, "could not parse value '.*' as 'timestamp' for column 'some_column'");
+        tester.assertInvalidInput("\"Mon 12 13:15:16 Z 2018\"", TIMESTAMP, "could not parse value '.*' as 'timestamp' for column 'some_column'");
+        tester.assertInvalidInput("\"Feb 12 13:15:16 Z 2018\"", TIMESTAMP, "could not parse value '.*' as 'timestamp' for column 'some_column'");
+        tester.assertInvalidInput("\"Fri Feb 09 13:15:19 Europe/Warsaw 2018\"", TIMESTAMP, "could not parse value '.*' as 'timestamp' for column 'some_column'");
+        tester.assertInvalidInput("\"Fri Feb 09 13:15:19 EST 2018\"", TIMESTAMP, "could not parse value '.*' as 'timestamp' for column 'some_column'");
     }
 }
