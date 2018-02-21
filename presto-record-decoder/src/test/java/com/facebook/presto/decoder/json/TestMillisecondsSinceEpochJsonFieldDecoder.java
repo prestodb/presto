@@ -34,6 +34,8 @@ public class TestMillisecondsSinceEpochJsonFieldDecoder
     {
         tester.assertDecodedAs("362016000000", DATE, 4190);
         tester.assertDecodedAs("\"362016000000\"", DATE, 4190);
+        tester.assertDecodedAs("-362016000000", DATE, -4190);
+        tester.assertDecodedAs("362016000001", DATE, 4190);
         tester.assertDecodedAs("33701000", TIME, 33701000);
         tester.assertDecodedAs("\"33701000\"", TIME, 33701000);
         tester.assertDecodedAs("33701000", TIME_WITH_TIME_ZONE, packDateTimeWithZone(33701000, UTC_KEY));
@@ -50,6 +52,19 @@ public class TestMillisecondsSinceEpochJsonFieldDecoder
         for (Type type : asList(DATE, TIME, TIME_WITH_TIME_ZONE, TIMESTAMP, TIMESTAMP_WITH_TIME_ZONE)) {
             tester.assertDecodedAsNull("null", type);
             tester.assertMissingDecodedAsNull(type);
+        }
+    }
+
+    @Test
+    public void testDecodeInvalid()
+    {
+        for (Type type : asList(DATE, TIME, TIME_WITH_TIME_ZONE, TIMESTAMP, TIMESTAMP_WITH_TIME_ZONE)) {
+            tester.assertInvalidInput("{}", type, "could not parse non-value node as '.*' for column 'some_column'");
+            tester.assertInvalidInput("[]", type, "could not parse non-value node as '.*' for column 'some_column'");
+            tester.assertInvalidInput("[10]", type, "could not parse non-value node as '.*' for column 'some_column'");
+            tester.assertInvalidInput("\"a\"", type, "could not parse value 'a' as '.*' for column 'some_column'");
+            tester.assertInvalidInput("12345678901234567890", type, "could not parse value '12345678901234567890' as '.*' for column 'some_column'");
+            tester.assertInvalidInput("362016000000.5", type, "could not parse value '3.620160000005E11' as '.*' for column 'some_column'");
         }
     }
 }
