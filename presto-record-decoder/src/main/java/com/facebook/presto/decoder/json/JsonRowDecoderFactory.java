@@ -77,7 +77,6 @@ public class JsonRowDecoderFactory
                     return new RFC2822JsonFieldDecoder();
             }
         }
-        // fallback to default one
         throw new IllegalArgumentException(String.format("unknown data format '%s' for column '%s'", column.getDataFormat(), column.getName()));
     }
 }
