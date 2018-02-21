@@ -15,9 +15,17 @@ package com.facebook.presto.decoder.json;
 
 import com.facebook.presto.decoder.DecoderColumnHandle;
 import com.facebook.presto.decoder.FieldValueProvider;
+import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.facebook.presto.spi.type.Varchars.truncateToLength;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -34,6 +42,27 @@ public class DefaultJsonFieldDecoder
     public DefaultJsonFieldDecoder(DecoderColumnHandle columnHandle)
     {
         this.columnHandle = requireNonNull(columnHandle, "columnHandle is null");
+        if (!isSupportedType(columnHandle.getType())) {
+            JsonRowDecoderFactory.throwUnsupportedColumnType(columnHandle);
+        }
+    }
+
+    private boolean isSupportedType(Type type)
+    {
+        if (isVarcharType(type)) {
+            return true;
+        }
+        if (ImmutableList.of(
+                BIGINT,
+                INTEGER,
+                SMALLINT,
+                TINYINT,
+                BOOLEAN,
+                DOUBLE
+        ).contains(type)) {
+            return true;
+        }
+        return false;
     }
 
     @Override
