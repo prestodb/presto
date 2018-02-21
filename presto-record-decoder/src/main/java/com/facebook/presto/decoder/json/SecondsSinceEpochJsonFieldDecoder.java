@@ -37,8 +37,6 @@ public class SecondsSinceEpochJsonFieldDecoder
     @Override
     public FieldValueProvider decode(JsonNode value)
     {
-        requireNonNull(value, "value is null");
-
         return new SecondsSinceEpochJsonValueProvider(value, columnHandle);
     }
 

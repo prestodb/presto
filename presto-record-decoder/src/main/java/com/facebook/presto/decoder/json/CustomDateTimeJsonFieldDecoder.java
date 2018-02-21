@@ -43,8 +43,6 @@ public class CustomDateTimeJsonFieldDecoder
     @Override
     public FieldValueProvider decode(JsonNode value)
     {
-        requireNonNull(value, "value is null");
-
         return new CustomDateTimeJsonValueProvider(value, columnHandle);
     }
 

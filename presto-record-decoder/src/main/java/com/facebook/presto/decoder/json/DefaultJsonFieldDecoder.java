@@ -39,8 +39,6 @@ public class DefaultJsonFieldDecoder
     @Override
     public FieldValueProvider decode(JsonNode value)
     {
-        requireNonNull(value, "value is null");
-
         return new JsonValueProvider(value, columnHandle);
     }
 

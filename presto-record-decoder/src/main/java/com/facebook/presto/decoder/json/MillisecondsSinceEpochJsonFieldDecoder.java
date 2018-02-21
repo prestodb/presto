@@ -37,8 +37,6 @@ public class MillisecondsSinceEpochJsonFieldDecoder
     @Override
     public FieldValueProvider decode(JsonNode value)
     {
-        requireNonNull(value, "value is null");
-
         return new MillisecondsSinceEpochJsonValueProvider(value, columnHandle);
     }
 
