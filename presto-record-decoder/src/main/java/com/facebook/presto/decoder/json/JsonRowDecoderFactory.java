@@ -18,11 +18,11 @@ import com.facebook.presto.decoder.RowDecoder;
 import com.facebook.presto.decoder.RowDecoderFactory;
 import com.facebook.presto.spi.PrestoException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.airlift.slice.Slice;
 
 import javax.inject.Inject;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
@@ -59,29 +59,37 @@ public class JsonRowDecoderFactory
     private JsonFieldDecoder chooseFieldDecoder(DecoderColumnHandle column)
     {
         try {
+            requireNonNull(column);
             checkArgument(!column.isInternal(), "unexpected internal column '%s'", column.getName());
-            if (column.getDataFormat() == null) {
-                return new DefaultJsonFieldDecoder(column);
+
+            String dataFormat = Optional.ofNullable(column.getDataFormat()).orElse("");
+            switch (dataFormat) {
+                case "custom-date-time":
+                    return new CustomDateTimeJsonFieldDecoder(column);
+                case "iso8601":
+                    return new ISO8601JsonFieldDecoder(column);
+                case "seconds-since-epoch":
+                    return new SecondsSinceEpochJsonFieldDecoder(column);
+                case "milliseconds-since-epoch":
+                    return new MillisecondsSinceEpochJsonFieldDecoder(column);
+                case "rfc2822":
+                    return new RFC2822JsonFieldDecoder(column);
+                case "":
+                    return new DefaultJsonFieldDecoder(column);
+                default:
+                    throw new IllegalArgumentException(format("unknown data format '%s' used for column '%s'", column.getDataFormat(), column.getName()));
             }
-            Class<?> javaType = column.getType().getJavaType();
-            if (javaType == Slice.class || javaType == long.class) {
-                switch (column.getDataFormat()) {
-                    case "custom-date-time":
-                        return new CustomDateTimeJsonFieldDecoder(column);
-                    case "iso8601":
-                        return new ISO8601JsonFieldDecoder(column);
-                    case "seconds-since-epoch":
-                        return new SecondsSinceEpochJsonFieldDecoder(column);
-                    case "milliseconds-since-epoch":
-                        return new MillisecondsSinceEpochJsonFieldDecoder(column);
-                    case "rfc2822":
-                        return new RFC2822JsonFieldDecoder(column);
-                }
-            }
-            throw new IllegalArgumentException(format("unknown data format '%s' for column '%s'", column.getDataFormat(), column.getName()));
         }
         catch (IllegalArgumentException e) {
             throw new PrestoException(GENERIC_USER_ERROR, e);
         }
+    }
+
+    public static JsonFieldDecoder throwUnsupportedColumnType(DecoderColumnHandle column)
+    {
+        if (column.getDataFormat() == null) {
+            throw new IllegalArgumentException(format("unsupported column type '%s' for column '%s'", column.getType().getDisplayName(), column.getName()));
+        }
+        throw new IllegalArgumentException(format("unsupported column type '%s' for column '%s' with data format '%s'", column.getType(), column.getName(), column.getDataFormat()));
     }
 }
