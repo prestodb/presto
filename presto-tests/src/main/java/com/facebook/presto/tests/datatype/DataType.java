@@ -127,7 +127,7 @@ public class DataType<T>
         return dataType("varbinary", VarbinaryType.VARBINARY, DataType::binaryLiteral, Function.identity());
     }
 
-    public static DataType<BigDecimal> decimalType(int precision, int scale)
+    public static DataType<BigDecimal> decimalDataType(int precision, int scale)
     {
         String databaseType = format("decimal(%s, %s)", precision, scale);
         return dataType(
