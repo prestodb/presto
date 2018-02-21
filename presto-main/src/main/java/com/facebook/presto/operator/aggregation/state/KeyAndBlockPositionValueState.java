@@ -15,14 +15,17 @@ package com.facebook.presto.operator.aggregation.state;
 
 import com.facebook.presto.spi.block.Block;
 
-public interface LongBlockState
+/**
+ * Used for MinMaxBy aggregation states where value's native container type is Block or Slice.
+ */
+public interface KeyAndBlockPositionValueState
         extends TwoNullableValueState
 {
-    long getFirst();
+    Block getSecondBlock();
 
-    void setFirst(long first);
+    void setSecondBlock(Block second);
 
-    Block getSecond();
+    int getSecondPosition();
 
-    void setSecond(Block second);
+    void setSecondPosition(int position);
 }

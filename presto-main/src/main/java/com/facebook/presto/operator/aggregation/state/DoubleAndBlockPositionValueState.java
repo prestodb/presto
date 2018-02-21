@@ -13,14 +13,10 @@
  */
 package com.facebook.presto.operator.aggregation.state;
 
-import com.facebook.presto.spi.block.Block;
-
-public interface UnknownBlockState
-        extends TwoNullableValueState
+public interface DoubleAndBlockPositionValueState
+        extends KeyAndBlockPositionValueState
 {
-    // First state is void and will always be null
+    double getFirst();
 
-    Block getSecond();
-
-    void setSecond(Block second);
+    void setFirst(double first);
 }

@@ -21,6 +21,7 @@ import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.SqlDecimal;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.type.UnknownType;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
@@ -29,7 +30,9 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.block.BlockAssertions.createArrayBigintBlock;
+import static com.facebook.presto.block.BlockAssertions.createBooleansBlock;
 import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
+import static com.facebook.presto.block.BlockAssertions.createIntsBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongDecimalsBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
 import static com.facebook.presto.block.BlockAssertions.createShortDecimalsBlock;
@@ -296,5 +299,261 @@ public class TestMinMaxByAggregation
                 SqlDecimal.of("3.3"),
                 createShortDecimalsBlock("1.1", "2.2", "3.3", "4.4"),
                 createShortDecimalsBlock("1.2", "1.0", "2.0", "1.5"));
+    }
+
+    @Test
+    public void testMinBooleanVarchar()
+    {
+        InternalAggregationFunction function = METADATA.getFunctionRegistry().getAggregateFunctionImplementation(new Signature("min_by", AGGREGATE, parseTypeSignature(StandardTypes.VARCHAR), parseTypeSignature(StandardTypes.VARCHAR), parseTypeSignature(StandardTypes.BOOLEAN)));
+        assertAggregation(
+                function,
+                "b",
+                createStringsBlock("a", "b", "c"),
+                createBooleansBlock(true, false, true));
+    }
+
+    @Test
+    public void testMaxBooleanVarchar()
+    {
+        InternalAggregationFunction function = METADATA.getFunctionRegistry().getAggregateFunctionImplementation(new Signature("max_by", AGGREGATE, parseTypeSignature(StandardTypes.VARCHAR), parseTypeSignature(StandardTypes.VARCHAR), parseTypeSignature(StandardTypes.BOOLEAN)));
+        assertAggregation(
+                function,
+                "c",
+                createStringsBlock("a", "b", "c"),
+                createBooleansBlock(false, false, true));
+    }
+
+    @Test
+    public void testMinIntegerVarchar()
+    {
+        InternalAggregationFunction function = METADATA.getFunctionRegistry().getAggregateFunctionImplementation(new Signature("min_by", AGGREGATE, parseTypeSignature(StandardTypes.VARCHAR), parseTypeSignature(StandardTypes.VARCHAR), parseTypeSignature(StandardTypes.INTEGER)));
+        assertAggregation(
+                function,
+                "a",
+                createStringsBlock("a", "b", "c"),
+                createIntsBlock(1, 2, 3));
+    }
+
+    @Test
+    public void testMaxIntegerVarchar()
+    {
+        InternalAggregationFunction function = METADATA.getFunctionRegistry().getAggregateFunctionImplementation(new Signature("max_by", AGGREGATE, parseTypeSignature(StandardTypes.VARCHAR), parseTypeSignature(StandardTypes.VARCHAR), parseTypeSignature(StandardTypes.INTEGER)));
+        assertAggregation(
+                function,
+                "c",
+                createStringsBlock("a", "b", "c"),
+                createIntsBlock(1, 2, 3));
+    }
+
+    @Test
+    public void testMinBooleanLongArray()
+    {
+        InternalAggregationFunction function = METADATA.getFunctionRegistry().getAggregateFunctionImplementation(new Signature("min_by", AGGREGATE, parseTypeSignature("array(bigint)"), parseTypeSignature("array(bigint)"), parseTypeSignature(StandardTypes.BOOLEAN)));
+        assertAggregation(
+                function,
+                null,
+                createArrayBigintBlock(asList(asList(3L, 4L), null, null)),
+                createBooleansBlock(true, false, true));
+    }
+
+    @Test
+    public void testMaxBooleanLongArray()
+    {
+        InternalAggregationFunction function = METADATA.getFunctionRegistry().getAggregateFunctionImplementation(new Signature("max_by", AGGREGATE, parseTypeSignature("array(bigint)"), parseTypeSignature("array(bigint)"), parseTypeSignature(StandardTypes.BOOLEAN)));
+        assertAggregation(
+                function,
+                asList(2L, 2L),
+                createArrayBigintBlock(asList(asList(3L, 4L), null, asList(2L, 2L))),
+                createBooleansBlock(false, false, true));
+    }
+
+    @Test
+    public void testMinLongVarchar()
+    {
+        InternalAggregationFunction function = METADATA.getFunctionRegistry().getAggregateFunctionImplementation(new Signature("min_by", AGGREGATE, parseTypeSignature(StandardTypes.VARCHAR), parseTypeSignature(StandardTypes.VARCHAR), parseTypeSignature(StandardTypes.BIGINT)));
+        assertAggregation(
+                function,
+                "a",
+                createStringsBlock("a", "b", "c"),
+                createLongsBlock(1, 2, 3));
+    }
+
+    @Test
+    public void testMaxLongVarchar()
+    {
+        InternalAggregationFunction function = METADATA.getFunctionRegistry().getAggregateFunctionImplementation(new Signature("max_by", AGGREGATE, parseTypeSignature(StandardTypes.VARCHAR), parseTypeSignature(StandardTypes.VARCHAR), parseTypeSignature(StandardTypes.BIGINT)));
+        assertAggregation(
+                function,
+                "c",
+                createStringsBlock("a", "b", "c"),
+                createLongsBlock(1, 2, 3));
+    }
+
+    @Test
+    public void testMinDoubleLongArray()
+    {
+        InternalAggregationFunction function = METADATA.getFunctionRegistry().getAggregateFunctionImplementation(
+                new Signature("min_by", AGGREGATE, parseTypeSignature("array(bigint)"), parseTypeSignature("array(bigint)"), parseTypeSignature(StandardTypes.DOUBLE)));
+        assertAggregation(
+                function,
+                asList(3L, 4L),
+                createArrayBigintBlock(asList(asList(3L, 4L), null, asList(2L, 2L))),
+                createDoublesBlock(1.0, 2.0, 3.0));
+
+        assertAggregation(
+                function,
+                null,
+                createArrayBigintBlock(asList(null, null, asList(2L, 2L))),
+                createDoublesBlock(0.0, 1.0, 2.0));
+    }
+
+    @Test
+    public void testMaxDoubleLongArray()
+    {
+        InternalAggregationFunction function = METADATA.getFunctionRegistry().getAggregateFunctionImplementation(
+                new Signature("max_by", AGGREGATE, parseTypeSignature("array(bigint)"), parseTypeSignature("array(bigint)"), parseTypeSignature(StandardTypes.DOUBLE)));
+        assertAggregation(
+                function,
+                null,
+                createArrayBigintBlock(asList(asList(3L, 4L), null, asList(2L, 2L))),
+                createDoublesBlock(1.0, 2.0, null));
+
+        assertAggregation(
+                function,
+                asList(2L, 2L),
+                createArrayBigintBlock(asList(asList(3L, 4L), null, asList(2L, 2L))),
+                createDoublesBlock(0.0, 1.0, 2.0));
+    }
+
+    @Test
+    public void testMinSliceLongArray()
+    {
+        InternalAggregationFunction function = METADATA.getFunctionRegistry().getAggregateFunctionImplementation(
+                new Signature("min_by", AGGREGATE, parseTypeSignature("array(bigint)"), parseTypeSignature("array(bigint)"), parseTypeSignature(StandardTypes.VARCHAR)));
+        assertAggregation(
+                function,
+                asList(3L, 4L),
+                createArrayBigintBlock(asList(asList(3L, 4L), null, asList(2L, 2L))),
+                createStringsBlock("a", "b", "c"));
+
+        assertAggregation(
+                function,
+                null,
+                createArrayBigintBlock(asList(null, null, asList(2L, 2L))),
+                createStringsBlock("a", "b", "c"));
+    }
+
+    @Test
+    public void testMaxSliceLongArray()
+    {
+        InternalAggregationFunction function = METADATA.getFunctionRegistry().getAggregateFunctionImplementation(
+                new Signature("max_by", AGGREGATE, parseTypeSignature("array(bigint)"), parseTypeSignature("array(bigint)"), parseTypeSignature(StandardTypes.VARCHAR)));
+        assertAggregation(
+                function,
+                asList(2L, 2L),
+                createArrayBigintBlock(asList(asList(3L, 4L), null, asList(2L, 2L))),
+                createStringsBlock("a", "b", "c"));
+
+        assertAggregation(
+                function,
+                null,
+                createArrayBigintBlock(asList(asList(3L, 4L), null, null)),
+                createStringsBlock("a", "b", "c"));
+    }
+
+    @Test
+    public void testMinLongArrayLongArray()
+    {
+        InternalAggregationFunction function = METADATA.getFunctionRegistry().getAggregateFunctionImplementation(
+                new Signature("min_by", AGGREGATE, parseTypeSignature("array(bigint)"), parseTypeSignature("array(bigint)"), parseTypeSignature("array(bigint)")));
+        assertAggregation(
+                function,
+                asList(1L, 2L),
+                createArrayBigintBlock(asList(asList(3L, 3L), null, asList(1L, 2L))),
+                createArrayBigintBlock(asList(asList(3L, 4L), null, asList(2L, 2L))));
+    }
+
+    @Test
+    public void testMaxLongArrayLongArray()
+    {
+        InternalAggregationFunction function = METADATA.getFunctionRegistry().getAggregateFunctionImplementation(
+                new Signature("max_by", AGGREGATE, parseTypeSignature("array(bigint)"), parseTypeSignature("array(bigint)"), parseTypeSignature("array(bigint)")));
+        assertAggregation(
+                function,
+                asList(3L, 3L),
+                createArrayBigintBlock(asList(asList(3L, 3L), null, asList(1L, 2L))),
+                createArrayBigintBlock(asList(asList(3L, 4L), null, asList(2L, 2L))));
+    }
+
+    @Test
+    public void testMinLongArraySlice()
+    {
+        InternalAggregationFunction function = METADATA.getFunctionRegistry().getAggregateFunctionImplementation(
+                new Signature("min_by", AGGREGATE, parseTypeSignature(StandardTypes.VARCHAR), parseTypeSignature(StandardTypes.VARCHAR), parseTypeSignature("array(bigint)")));
+        assertAggregation(
+                function,
+                "c",
+                createStringsBlock("a", "b", "c"),
+                createArrayBigintBlock(asList(asList(3L, 4L), null, asList(2L, 2L))));
+    }
+
+    @Test
+    public void testMaxLongArraySlice()
+    {
+        InternalAggregationFunction function = METADATA.getFunctionRegistry().getAggregateFunctionImplementation(
+                new Signature("max_by", AGGREGATE, parseTypeSignature(StandardTypes.VARCHAR), parseTypeSignature(StandardTypes.VARCHAR), parseTypeSignature("array(bigint)")));
+        assertAggregation(
+                function,
+                "a",
+                createStringsBlock("a", "b", "c"),
+                createArrayBigintBlock(asList(asList(3L, 4L), null, asList(2L, 2L))));
+    }
+
+    @Test
+    public void testMinUnknownSlice()
+    {
+        InternalAggregationFunction function = METADATA.getFunctionRegistry().getAggregateFunctionImplementation(
+                new Signature("min_by", AGGREGATE, parseTypeSignature(StandardTypes.VARCHAR), parseTypeSignature(StandardTypes.VARCHAR), parseTypeSignature(UnknownType.NAME)));
+        assertAggregation(
+                function,
+                null,
+                createStringsBlock("a", "b", "c"),
+                createArrayBigintBlock(asList(null, null, null)));
+    }
+
+    @Test
+    public void testMaxUnknownSlice()
+    {
+        InternalAggregationFunction function = METADATA.getFunctionRegistry().getAggregateFunctionImplementation(
+                new Signature("max_by", AGGREGATE, parseTypeSignature(StandardTypes.VARCHAR), parseTypeSignature(StandardTypes.VARCHAR), parseTypeSignature(UnknownType.NAME)));
+        assertAggregation(
+                function,
+                null,
+                createStringsBlock("a", "b", "c"),
+                createArrayBigintBlock(asList(null, null, null)));
+    }
+
+    @Test
+    public void testMinUnknownLongArray()
+    {
+        InternalAggregationFunction function = METADATA.getFunctionRegistry().getAggregateFunctionImplementation(
+                new Signature("min_by", AGGREGATE, parseTypeSignature("array(bigint)"), parseTypeSignature("array(bigint)"), parseTypeSignature(UnknownType.NAME)));
+        assertAggregation(
+                function,
+                null,
+                createArrayBigintBlock(asList(asList(3L, 3L), null, asList(1L, 2L))),
+                createArrayBigintBlock(asList(null, null, null)));
+    }
+
+    @Test
+    public void testMaxUnknownLongArray()
+    {
+        InternalAggregationFunction function = METADATA.getFunctionRegistry().getAggregateFunctionImplementation(
+                new Signature("max_by", AGGREGATE, parseTypeSignature("array(bigint)"), parseTypeSignature("array(bigint)"), parseTypeSignature(UnknownType.NAME)));
+        assertAggregation(
+                function,
+                null,
+                createArrayBigintBlock(asList(asList(3L, 3L), null, asList(1L, 2L))),
+                createArrayBigintBlock(asList(null, null, null)));
     }
 }

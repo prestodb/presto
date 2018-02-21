@@ -13,16 +13,10 @@
  */
 package com.facebook.presto.operator.aggregation.state;
 
-import com.facebook.presto.spi.block.Block;
-
-public interface BooleanBlockState
-        extends TwoNullableValueState
+public interface BooleanAndBlockPositionValueState
+        extends KeyAndBlockPositionValueState
 {
     boolean getFirst();
 
     void setFirst(boolean first);
-
-    Block getSecond();
-
-    void setSecond(Block second);
 }
