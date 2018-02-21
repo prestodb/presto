@@ -180,15 +180,15 @@ public class TestMySqlTypeMapping
     private DataTypeTest decimalTests()
     {
         return DataTypeTest.create()
-                .addRoundTrip(DataType.decimalType(3, 0), new BigDecimal("193"))
-                .addRoundTrip(DataType.decimalType(3, 0), new BigDecimal("19"))
-                .addRoundTrip(DataType.decimalType(3, 0), new BigDecimal("-193"))
-                .addRoundTrip(DataType.decimalType(3, 1), new BigDecimal("10.1"))
-                .addRoundTrip(DataType.decimalType(3, 1), new BigDecimal("-10.1"))
-                .addRoundTrip(DataType.decimalType(30, 5), new BigDecimal("3141592653589793238462643.38327"))
-                .addRoundTrip(DataType.decimalType(30, 5), new BigDecimal("-3141592653589793238462643.38327"))
-                .addRoundTrip(DataType.decimalType(38, 0), new BigDecimal("27182818284590452353602874713526624977"))
-                .addRoundTrip(DataType.decimalType(38, 0), new BigDecimal("-27182818284590452353602874713526624977"));
+                .addRoundTrip(DataType.decimalDataType(3, 0), new BigDecimal("193"))
+                .addRoundTrip(DataType.decimalDataType(3, 0), new BigDecimal("19"))
+                .addRoundTrip(DataType.decimalDataType(3, 0), new BigDecimal("-193"))
+                .addRoundTrip(DataType.decimalDataType(3, 1), new BigDecimal("10.1"))
+                .addRoundTrip(DataType.decimalDataType(3, 1), new BigDecimal("-10.1"))
+                .addRoundTrip(DataType.decimalDataType(30, 5), new BigDecimal("3141592653589793238462643.38327"))
+                .addRoundTrip(DataType.decimalDataType(30, 5), new BigDecimal("-3141592653589793238462643.38327"))
+                .addRoundTrip(DataType.decimalDataType(38, 0), new BigDecimal("27182818284590452353602874713526624977"))
+                .addRoundTrip(DataType.decimalDataType(38, 0), new BigDecimal("-27182818284590452353602874713526624977"));
     }
 
     @Test
