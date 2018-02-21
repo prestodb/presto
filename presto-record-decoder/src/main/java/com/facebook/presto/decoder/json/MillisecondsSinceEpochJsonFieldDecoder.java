@@ -40,8 +40,7 @@ public class MillisecondsSinceEpochJsonFieldDecoder
     /**
      * Todo - configurable time zones and locales.
      */
-    @VisibleForTesting
-    static final DateTimeFormatter FORMATTER = ISODateTimeFormat.dateTime().withLocale(Locale.ENGLISH).withZoneUTC();
+    private static final DateTimeFormatter FORMATTER = ISODateTimeFormat.dateTime().withLocale(Locale.ENGLISH).withZoneUTC();
 
     @Override
     public FieldValueProvider decode(JsonNode value, DecoderColumnHandle columnHandle)

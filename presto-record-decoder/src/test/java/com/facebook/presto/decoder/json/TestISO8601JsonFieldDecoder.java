@@ -13,105 +13,38 @@
  */
 package com.facebook.presto.decoder.json;
 
-import com.facebook.presto.decoder.DecoderColumnHandle;
-import com.facebook.presto.decoder.DecoderTestColumnHandle;
-import com.facebook.presto.decoder.FieldValueProvider;
-import com.facebook.presto.decoder.RowDecoder;
-import com.google.common.collect.ImmutableSet;
-import io.airlift.json.ObjectMapperProvider;
-import org.joda.time.format.DateTimeFormatter;
-import org.joda.time.format.ISODateTimeFormat;
+import com.facebook.presto.spi.type.Type;
 import org.testng.annotations.Test;
 
-import java.nio.charset.StandardCharsets;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
-
-import static com.facebook.presto.decoder.FieldDecoder.DEFAULT_FIELD_DECODER_NAME;
-import static com.facebook.presto.decoder.util.DecoderTestUtil.checkIsNull;
-import static com.facebook.presto.decoder.util.DecoderTestUtil.checkValue;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
-import static java.lang.String.format;
-import static java.util.Collections.emptyMap;
-import static org.testng.Assert.assertEquals;
+import static com.facebook.presto.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.TimeType.TIME;
+import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static java.util.Arrays.asList;
 
 public class TestISO8601JsonFieldDecoder
 {
-    private static final DateTimeFormatter PRINTER = ISODateTimeFormat.dateTime().withLocale(Locale.ENGLISH).withZoneUTC();
-
-    private static final JsonRowDecoderFactory DECODER_FACTORY = new JsonRowDecoderFactory(new ObjectMapperProvider().get());
+    private TemporalFieldDecoderTester tester = new TemporalFieldDecoderTester(ISO8601JsonFieldDecoder.NAME);
 
     @Test
-    public void testBasicFormatting()
+    public void testDecode()
     {
-        long now = System.currentTimeMillis();
-        String nowString = PRINTER.print(now);
-
-        byte[] json = format("{\"a_number\":%d,\"a_string\":\"%s\"}", now, nowString).getBytes(StandardCharsets.UTF_8);
-
-        DecoderTestColumnHandle column1 = new DecoderTestColumnHandle(0, "column1", BIGINT, "a_number", DEFAULT_FIELD_DECODER_NAME, null, false, false, false);
-        DecoderTestColumnHandle column2 = new DecoderTestColumnHandle(1, "column2", createVarcharType(100), "a_string", DEFAULT_FIELD_DECODER_NAME, null, false, false, false);
-
-        DecoderTestColumnHandle column3 = new DecoderTestColumnHandle(2, "column3", BIGINT, "a_number", ISO8601JsonFieldDecoder.NAME, null, false, false, false);
-        DecoderTestColumnHandle column4 = new DecoderTestColumnHandle(3, "column4", BIGINT, "a_string", ISO8601JsonFieldDecoder.NAME, null, false, false, false);
-
-        DecoderTestColumnHandle column5 = new DecoderTestColumnHandle(4, "column5", createVarcharType(100), "a_number", ISO8601JsonFieldDecoder.NAME, null, false, false, false);
-        DecoderTestColumnHandle column6 = new DecoderTestColumnHandle(5, "column6", createVarcharType(100), "a_string", ISO8601JsonFieldDecoder.NAME, null, false, false, false);
-
-        Set<DecoderColumnHandle> columns = ImmutableSet.of(column1, column2, column3, column4, column5, column6);
-        RowDecoder rowDecoder = DECODER_FACTORY.create(emptyMap(), columns);
-
-        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(json, null)
-                .orElseThrow(AssertionError::new);
-
-        assertEquals(decodedRow.size(), columns.size());
-
-        // sanity checks
-        checkValue(decodedRow, column1, now);
-        checkValue(decodedRow, column2, nowString);
-
-        // number parsed as number --> as is
-        checkValue(decodedRow, column3, now);
-        // string parsed as number --> parse text, convert to timestamp
-        checkValue(decodedRow, column4, now);
-
-        // number parsed as string --> parse text, convert to timestamp, turn into string
-        checkValue(decodedRow, column5, Long.toString(now));
-
-        // string parsed as string --> as is
-        checkValue(decodedRow, column6, nowString);
+        tester.assertDecodedAs("\"2018-02-11\"", DATE, 17573);
+        tester.assertDecodedAs("\"1970-01-01T13:15:18\"", TIME, 47718000); // should it be supported really?
+        tester.assertDecodedAs("\"1970-01-01T13:15:18\"", TIME_WITH_TIME_ZONE, packDateTimeWithZone(47718000, UTC_KEY)); // should it be supported really?
+        tester.assertDecodedAs("\"2018-02-19T09:20:11\"", TIMESTAMP, 1519032011000L);
+        tester.assertDecodedAs("\"2018-02-19T09:20:11\"", TIMESTAMP_WITH_TIME_ZONE, packDateTimeWithZone(1519032011000L, UTC_KEY));
     }
 
     @Test
-    public void testNullValues()
+    public void testDecodeNulls()
     {
-        byte[] json = "{}".getBytes(StandardCharsets.UTF_8);
-
-        DecoderTestColumnHandle column1 = new DecoderTestColumnHandle(0, "column1", BIGINT, "a_number", DEFAULT_FIELD_DECODER_NAME, null, false, false, false);
-        DecoderTestColumnHandle column2 = new DecoderTestColumnHandle(1, "column2", createVarcharType(100), "a_string", DEFAULT_FIELD_DECODER_NAME, null, false, false, false);
-
-        DecoderTestColumnHandle column3 = new DecoderTestColumnHandle(2, "column3", BIGINT, "a_number", ISO8601JsonFieldDecoder.NAME, null, false, false, false);
-        DecoderTestColumnHandle column4 = new DecoderTestColumnHandle(3, "column4", BIGINT, "a_string", ISO8601JsonFieldDecoder.NAME, null, false, false, false);
-
-        DecoderTestColumnHandle column5 = new DecoderTestColumnHandle(4, "column5", createVarcharType(100), "a_number", ISO8601JsonFieldDecoder.NAME, null, false, false, false);
-        DecoderTestColumnHandle column6 = new DecoderTestColumnHandle(5, "column6", createVarcharType(100), "a_string", ISO8601JsonFieldDecoder.NAME, null, false, false, false);
-
-        Set<DecoderColumnHandle> columns = ImmutableSet.of(column1, column2, column3, column4, column5, column6);
-        RowDecoder rowDecoder = DECODER_FACTORY.create(emptyMap(), columns);
-
-        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(json, null)
-                .orElseThrow(AssertionError::new);
-
-        assertEquals(decodedRow.size(), columns.size());
-
-        // sanity checks
-        checkIsNull(decodedRow, column1);
-        checkIsNull(decodedRow, column2);
-        checkIsNull(decodedRow, column3);
-        checkIsNull(decodedRow, column4);
-        checkIsNull(decodedRow, column5);
-        checkIsNull(decodedRow, column6);
+        for (Type type : asList(DATE, TIME, TIME_WITH_TIME_ZONE, TIMESTAMP, TIMESTAMP_WITH_TIME_ZONE)) {
+            tester.assertDecodedAsNull("null", type);
+            tester.assertMissingDecodedAsNull(type);
+        }
     }
 }
