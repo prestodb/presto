@@ -258,17 +258,17 @@ public class KafkaSmokeTest
                                     "\"j_date_custom\"                          : \"2018/13/02\"                     ," +
                                     "\"j_time_milliseconds_since_epoch\"        : \"47716000\"                       ," +
                                     "\"j_time_seconds_since_epoch\"             : \"47717\"                          ," +
-                                    "\"j_time_iso8601\"                         : \"1970-01-01T13:15:18\"            ," +
+                                    "\"j_time_iso8601\"                         : \"13:15:18\"                       ," +
                                     "\"j_time_rfc2822\"                         : \"Thu Jan 01 13:15:19 Z 1970\"     ," +
                                     "\"j_time_custom\"                          : \"15:13:20\"                       ," +
                                     "\"j_timestamptz_milliseconds_since_epoch\" : \"1518182116000\"                  ," +
                                     "\"j_timestamptz_seconds_since_epoch\"      : \"1518182117\"                     ," +
-                                    "\"j_timestamptz_iso8601\"                  : \"2018-02-09T13:15:18\"            ," +
+                                    "\"j_timestamptz_iso8601\"                  : \"2018-02-09T13:15:18Z\"           ," +
                                     "\"j_timestamptz_rfc2822\"                  : \"Fri Feb 09 13:15:19 Z 2018\"     ," +
                                     "\"j_timestamptz_custom\"                   : \"02/2018/09 13:15:20\"            ," +
                                     "\"j_timetz_milliseconds_since_epoch\"      : \"47716000\"                       ," +
                                     "\"j_timetz_seconds_since_epoch\"           : \"47717\"                          ," +
-                                    "\"j_timetz_iso8601\"                       : \"1970-01-01T13:15:18\"            ," +
+                                    "\"j_timetz_iso8601\"                       : \"13:15:18Z\"                      ," +
                                     "\"j_timetz_rfc2822\"                       : \"Thu Jan 01 13:15:19 Z 1970\"     ," +
                                     "\"j_timetz_custom\"                        : \"15:13:20\"                       }"))),
                     1,
