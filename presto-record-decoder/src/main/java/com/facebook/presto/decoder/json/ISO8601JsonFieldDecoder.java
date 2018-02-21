@@ -46,8 +46,6 @@ public class ISO8601JsonFieldDecoder
     @Override
     public FieldValueProvider decode(JsonNode value)
     {
-        requireNonNull(value, "value is null");
-
         return new ISO8601JsonValueProvider(value, columnHandle);
     }
 

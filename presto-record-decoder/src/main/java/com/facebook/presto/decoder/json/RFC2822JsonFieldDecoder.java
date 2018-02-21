@@ -46,8 +46,6 @@ public class RFC2822JsonFieldDecoder
     @Override
     public FieldValueProvider decode(JsonNode value)
     {
-        requireNonNull(value, "value is null");
-
         return new RFC2822JsonValueProvider(value, columnHandle);
     }
 
