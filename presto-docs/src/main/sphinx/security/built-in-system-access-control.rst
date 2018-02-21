@@ -20,6 +20,11 @@ Plugin Name                                        Description
 ``file``                                           Authorization checks are enforced using a config file
                                                    specified by the configuration property ``security.config-file``.
                                                    See :ref:`file-based-system-access-control` for details.
+
+``username-principal-matching``                    All operations are permitted as long as the username matches
+                                                   the principal.
+                                                   See :ref:`username-principal-matching-access-control` for
+                                                   details.
 ================================================== ============================================================
 
 Allow All System Access Control
@@ -108,4 +113,22 @@ catalog, and deny all other access, you can use the following rules:
         }
       ]
     }
+
+.. _username-principal-matching-access-control:
+
+Username-Principal Matching
+===========================
+
+This plugin is similar to ``allow-all`` except that the provided user should be
+equal to the principal used during the session.
+In the case of kerberos, only the username will be taken into account, not the
+instance, not the realm.
+For example, if a user has a principal ``username/instance@REALM``, it will only
+be able to do queries with the ``username`` user account.
+This plugin also works with LDAP authentication.
+If you want to use it, just edit ``etc/access-control.properties`` and set:
+
+.. code-block:: none
+
+   access-control.name=username-principal-matching
 

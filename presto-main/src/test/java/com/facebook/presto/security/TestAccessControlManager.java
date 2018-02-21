@@ -41,6 +41,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
+import javax.security.auth.kerberos.KerberosPrincipal;
+
 import java.security.Principal;
 import java.util.Map;
 import java.util.Optional;
@@ -110,6 +112,35 @@ public class TestAccessControlManager
                         accessControlManager.checkCanInsertIntoTable(transactionId, identity, tableName);
                     });
             fail();
+        }
+        catch (AccessDeniedException expected) {
+        }
+    }
+
+    @Test
+    public void testUsernamePrincipalMatchingAccessControl()
+    {
+        AccessControlManager accessControlManager = new AccessControlManager(createTestTransactionManager());
+        accessControlManager.setSystemAccessControl(UsernamePrincipalMatchingAccessControl.NAME, ImmutableMap.of());
+
+        accessControlManager.checkCanSetUser(null, USER_NAME);
+        accessControlManager.checkCanSetUser(new BasicPrincipal(USER_NAME), USER_NAME);
+        try {
+            accessControlManager.checkCanSetUser(PRINCIPAL, USER_NAME);
+            throw new AssertionError("expected AccessDeniedException");
+        }
+        catch (AccessDeniedException expected) {
+        }
+
+        KerberosPrincipal kerberosPrincipal = new KerberosPrincipal("user_name@EXAMPLE.COM");
+        KerberosPrincipal kerberosPrincipalWithHost = new KerberosPrincipal("user_name/example.com@EXAMPLE.COM");
+        KerberosPrincipal invalidKerberosPrincipal = new KerberosPrincipal("invalid_user_name@EXAMPLE.COM");
+
+        accessControlManager.checkCanSetUser(kerberosPrincipal, USER_NAME);
+        accessControlManager.checkCanSetUser(kerberosPrincipalWithHost, USER_NAME);
+        try {
+            accessControlManager.checkCanSetUser(invalidKerberosPrincipal, USER_NAME);
+            throw new AssertionError("expected AccessDeniedException");
         }
         catch (AccessDeniedException expected) {
         }
