@@ -276,6 +276,8 @@ final class StreamPropertyDerivations
                 if (node.getOrderingScheme().isPresent()) {
                     return StreamProperties.ordered();
                 }
+                // TODO: correctly determine if stream is parallelised
+                // based on session properties
                 return StreamProperties.fixedStreams();
             }
 
