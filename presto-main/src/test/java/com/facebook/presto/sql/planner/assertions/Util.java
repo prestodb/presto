@@ -19,7 +19,11 @@ import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.sql.planner.OrderingScheme;
+import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.assertions.PlanMatchPattern.Ordering;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -57,6 +61,26 @@ final class Util
                 return false;
             }
             if (!expectedColumnConstraint.getValue().contains(actualDomains.get().get(columnHandle))) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    static boolean orderingSchemeMatches(List<Ordering> expectedOrderBy, OrderingScheme orderingScheme, SymbolAliases symbolAliases)
+    {
+        if (expectedOrderBy.size() != orderingScheme.getOrderBy().size()) {
+            return false;
+        }
+
+        for (int i = 0; i < expectedOrderBy.size(); ++i) {
+            Ordering ordering = expectedOrderBy.get(i);
+            Symbol symbol = Symbol.from(symbolAliases.get(ordering.getField()));
+            if (!symbol.equals(orderingScheme.getOrderBy().get(i))) {
+                return false;
+            }
+            if (!ordering.getSortOrder().equals(orderingScheme.getOrdering(symbol))) {
                 return false;
             }
         }
