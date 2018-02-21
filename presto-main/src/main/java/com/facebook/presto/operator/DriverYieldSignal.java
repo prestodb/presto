@@ -29,7 +29,7 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 /**
  * Methods setWithDelay and reset should be used in pairs;
  * usually follow the following idiom:
- *  <pre> {@code
+ * <pre> {@code
  * DriverYieldSignal signal = ...;
  * signal.setWithDelay(duration, executor);
  * try {
