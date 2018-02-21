@@ -43,6 +43,7 @@ import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler;
+import com.facebook.presto.sql.gen.OrderingCompiler;
 import com.facebook.presto.sql.gen.PageFunctionCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
@@ -155,7 +156,8 @@ public final class TaskTestUtils
                 new TestingBlockEncodingSerde(new TestingTypeManager()),
                 new PagesIndex.TestingFactory(false),
                 new JoinCompiler(),
-                new LookupJoinOperators());
+                new LookupJoinOperators(),
+                new OrderingCompiler());
     }
 
     public static TaskInfo updateTask(SqlTask sqlTask, List<TaskSource> taskSources, OutputBuffers outputBuffers)

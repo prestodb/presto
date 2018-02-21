@@ -21,6 +21,7 @@ import com.facebook.presto.spi.UpdatablePageSource;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.RemoteSplit;
+import com.facebook.presto.sql.gen.OrderingCompiler;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -58,7 +59,7 @@ public class MergeOperator
         private final List<Type> outputTypes;
         private final List<Integer> sortChannels;
         private final List<SortOrder> sortOrder;
-        private final PageWithPositionComparatorFactory pageWithPositionComparatorFactory;
+        private final OrderingCompiler orderingCompiler;
         private LoadingCache<URI, ExchangeClient> exchangeClientCache;
         private boolean closed;
 
@@ -67,7 +68,7 @@ public class MergeOperator
                 PlanNodeId sourceId,
                 ExchangeClientSupplier exchangeClientSupplier,
                 PagesSerdeFactory serdeFactory,
-                PageWithPositionComparatorFactory pageWithPositionComparatorFactory,
+                OrderingCompiler orderingCompiler,
                 List<Type> types,
                 List<Integer> outputChannels,
                 List<Integer> sortChannels,
@@ -82,7 +83,7 @@ public class MergeOperator
             this.outputTypes = outputTypes(types, outputChannels);
             this.sortChannels = requireNonNull(sortChannels, "sortChannels is null");
             this.sortOrder = requireNonNull(sortOrder, "sortOrder is null");
-            this.pageWithPositionComparatorFactory = requireNonNull(pageWithPositionComparatorFactory, "pageWithPositionComparatorFactory is null");
+            this.orderingCompiler = requireNonNull(orderingCompiler, "mergeSortComparatorFactory is null");
         }
 
         private static List<Type> outputTypes(List<? extends Type> sourceTypes, List<Integer> outputChannels)
@@ -123,7 +124,7 @@ public class MergeOperator
                     sourceId,
                     exchangeClientCache,
                     serdeFactory.createPagesSerde(),
-                    pageWithPositionComparatorFactory.create(types, sortChannels, sortOrder),
+                    orderingCompiler.compilePageWithPositionComparator(types, sortChannels, sortOrder),
                     outputChannels,
                     outputTypes);
         }

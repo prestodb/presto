@@ -19,11 +19,11 @@ import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.PageWithPositionComparator;
-import com.facebook.presto.operator.PageWithPositionComparatorFactory;
 import com.facebook.presto.operator.exchange.LocalExchange.LocalExchangeFactory;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.gen.OrderingCompiler;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -45,9 +45,9 @@ public class LocalMergeSourceOperator
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;
-        private final PageWithPositionComparatorFactory comparatorFactory;
         private final LocalExchangeFactory localExchangeFactory;
         private final List<Type> types;
+        private final OrderingCompiler orderingCompiler;
         private final List<Integer> sortChannels;
         private final List<SortOrder> orderings;
         private boolean closed;
@@ -55,17 +55,17 @@ public class LocalMergeSourceOperator
         public LocalMergeSourceOperatorFactory(
                 int operatorId,
                 PlanNodeId planNodeId,
-                PageWithPositionComparatorFactory comparatorFactory,
                 LocalExchangeFactory localExchangeFactory,
                 List<Type> types,
+                OrderingCompiler orderingCompiler,
                 List<Integer> sortChannels,
                 List<SortOrder> orderings)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
-            this.comparatorFactory = requireNonNull(comparatorFactory, "comparator is null");
             this.localExchangeFactory = requireNonNull(localExchangeFactory, "exchange is null");
             this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+            this.orderingCompiler = requireNonNull(orderingCompiler, "orderingCompiler is null");
             this.sortChannels = ImmutableList.copyOf(requireNonNull(sortChannels, "sortChannels is null"));
             this.orderings = ImmutableList.copyOf(requireNonNull(orderings, "orderings is null"));
         }
@@ -84,7 +84,7 @@ public class LocalMergeSourceOperator
             LocalExchange inMemoryExchange = localExchangeFactory.getLocalExchange(driverContext.getLifespan());
 
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, LocalExchangeSourceOperator.class.getSimpleName());
-            PageWithPositionComparator comparator = comparatorFactory.create(types, sortChannels, orderings);
+            PageWithPositionComparator comparator = orderingCompiler.compilePageWithPositionComparator(types, sortChannels, orderings);
 
             List<LocalExchangeSource> sources = IntStream.range(0, inMemoryExchange.getBufferCount())
                     .boxed()
