@@ -11,12 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.decoder;
+package com.facebook.presto.redis;
+
+import com.facebook.presto.decoder.DecoderColumnHandle;
+import com.facebook.presto.decoder.FieldValueProvider;
 
 /**
  * Format specific field decoder description.
  */
-public interface FieldDecoder<T>
+public interface RedisFieldDecoder<T>
 {
     /**
      * Decode a value for the given column handle.

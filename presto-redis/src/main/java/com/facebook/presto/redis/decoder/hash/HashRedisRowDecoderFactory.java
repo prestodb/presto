@@ -14,9 +14,9 @@
 package com.facebook.presto.redis.decoder.hash;
 
 import com.facebook.presto.decoder.DecoderColumnHandle;
-import com.facebook.presto.decoder.FieldDecoder;
 import com.facebook.presto.decoder.RowDecoder;
 import com.facebook.presto.decoder.RowDecoderFactory;
+import com.facebook.presto.redis.RedisFieldDecoder;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
@@ -37,13 +37,13 @@ public class HashRedisRowDecoderFactory
         return new HashRedisRowDecoder(chooseFieldDecoders(columns));
     }
 
-    private Map<DecoderColumnHandle, FieldDecoder<String>> chooseFieldDecoders(Set<DecoderColumnHandle> columns)
+    private Map<DecoderColumnHandle, RedisFieldDecoder<String>> chooseFieldDecoders(Set<DecoderColumnHandle> columns)
     {
         return columns.stream()
                 .collect(ImmutableMap.toImmutableMap(identity(), this::chooseFieldDecoder));
     }
 
-    private FieldDecoder<String> chooseFieldDecoder(DecoderColumnHandle column)
+    private RedisFieldDecoder<String> chooseFieldDecoder(DecoderColumnHandle column)
     {
         checkArgument(!column.isInternal(), "unexpected internal column '%s'", column.getName());
         if (column.getDataFormat() == null) {

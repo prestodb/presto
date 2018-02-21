@@ -14,11 +14,11 @@
 package com.facebook.presto.redis.decoder.hash;
 
 import com.facebook.presto.decoder.DecoderColumnHandle;
-import com.facebook.presto.decoder.FieldDecoder;
 import com.facebook.presto.decoder.FieldValueProvider;
+import com.facebook.presto.redis.RedisFieldDecoder;
 
 public class HashRedisFieldDecoder
-        implements FieldDecoder<String>
+        implements RedisFieldDecoder<String>
 {
     @Override
     public FieldValueProvider decode(String value, DecoderColumnHandle columnHandle)
