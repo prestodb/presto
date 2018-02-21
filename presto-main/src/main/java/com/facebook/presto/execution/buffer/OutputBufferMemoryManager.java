@@ -58,7 +58,7 @@ class OutputBufferMemoryManager
     {
         systemMemoryContextSupplier.get().setBytes(bufferedBytes.addAndGet(bytesAdded));
         synchronized (this) {
-            if (!isFull() && !notFull.isDone()) {
+            if (!isBufferFull() && !notFull.isDone()) {
                 // Complete future in a new thread to avoid making a callback on the caller thread.
                 // This make is easier for callers to use this class since they can update the memory
                 // usage while holding locks.
@@ -70,7 +70,7 @@ class OutputBufferMemoryManager
 
     public synchronized ListenableFuture<?> getNotFullFuture()
     {
-        if (isFull() && notFull.isDone()) {
+        if (isBufferFull() && notFull.isDone()) {
             notFull = SettableFuture.create();
         }
         return notFull;
@@ -95,7 +95,12 @@ class OutputBufferMemoryManager
         return bufferedBytes.get() / (double) maxBufferedBytes;
     }
 
-    public boolean isFull()
+    public synchronized boolean isOverutilized()
+    {
+        return isBufferFull();
+    }
+
+    private synchronized boolean isBufferFull()
     {
         return bufferedBytes.get() > maxBufferedBytes && blockOnFull.get();
     }
