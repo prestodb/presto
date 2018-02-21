@@ -46,7 +46,7 @@ public class RFC2822JsonFieldDecoder
     }
 
     public static class RFC2822JsonValueProvider
-            extends DateTimeJsonValueProvider
+            extends AbstractDateTimeJsonValueProvider
     {
         public RFC2822JsonValueProvider(JsonNode value, DecoderColumnHandle columnHandle)
         {

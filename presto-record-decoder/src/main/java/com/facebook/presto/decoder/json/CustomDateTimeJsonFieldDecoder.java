@@ -43,7 +43,7 @@ public class CustomDateTimeJsonFieldDecoder
     }
 
     public static class CustomDateTimeJsonValueProvider
-            extends DateTimeJsonValueProvider
+            extends AbstractDateTimeJsonValueProvider
     {
         public CustomDateTimeJsonValueProvider(JsonNode value, DecoderColumnHandle columnHandle)
         {

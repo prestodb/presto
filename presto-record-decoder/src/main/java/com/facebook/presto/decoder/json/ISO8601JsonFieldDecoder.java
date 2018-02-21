@@ -46,7 +46,7 @@ public class ISO8601JsonFieldDecoder
     }
 
     public static class ISO8601JsonValueProvider
-            extends DateTimeJsonValueProvider
+            extends AbstractDateTimeJsonValueProvider
     {
         public ISO8601JsonValueProvider(JsonNode value, DecoderColumnHandle columnHandle)
         {
