@@ -93,6 +93,11 @@ public class PushPartialAggregationThroughExchange
 
         ExchangeNode exchangeNode = (ExchangeNode) childNode;
 
+        // currently, pushing partial aggregation though merging exchange is not supported
+        if (exchangeNode.getOrderingScheme().isPresent()) {
+            return Result.empty();
+        }
+
         // partial aggregation can only be pushed through exchange that doesn't change
         // the cardinality of the stream (i.e., gather or repartition)
         if ((exchangeNode.getType() != GATHER && exchangeNode.getType() != REPARTITION) ||
@@ -179,7 +184,8 @@ public class PushPartialAggregationThroughExchange
                 exchange.getScope(),
                 partitioning,
                 partials,
-                ImmutableList.copyOf(Collections.nCopies(partials.size(), aggregation.getOutputSymbols())));
+                ImmutableList.copyOf(Collections.nCopies(partials.size(), aggregation.getOutputSymbols())),
+                Optional.empty());
     }
 
     private PlanNode split(AggregationNode node, Context context)

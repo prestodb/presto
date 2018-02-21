@@ -32,6 +32,7 @@ import com.google.common.collect.ImmutableSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.sql.planner.ExpressionSymbolInliner.inlineSymbols;
@@ -69,7 +70,10 @@ public class PushProjectionThroughExchange
 
     private static final Pattern<ProjectNode> PATTERN = project()
             .matching(project -> !isSymbolToSymbolProjection(project))
-            .with(source().matching(exchange().capturedAs(CHILD)));
+            .with(source().matching(
+                    exchange()
+                            .matching(exchange -> !exchange.getOrderingScheme().isPresent())
+                            .capturedAs(CHILD)));
 
     @Override
     public Pattern<ProjectNode> getPattern()
@@ -140,7 +144,8 @@ public class PushProjectionThroughExchange
                 exchange.getScope(),
                 partitioningScheme,
                 newSourceBuilder.build(),
-                inputsBuilder.build());
+                inputsBuilder.build(),
+                Optional.empty());
 
         // we need to strip unnecessary symbols (hash, partitioning columns).
         return Result.ofPlanNode(restrictOutputs(context.getIdAllocator(), result, ImmutableSet.copyOf(project.getOutputSymbols())).orElse(result));

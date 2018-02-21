@@ -468,6 +468,13 @@ class PropertyDerivations
             Map<Symbol, NullableValue> constants = entries.stream()
                     .collect(toMap(Map.Entry::getKey, Map.Entry::getValue));
 
+            ImmutableList.Builder<SortingProperty<Symbol>> localProperties = ImmutableList.builder();
+            if (node.getOrderingScheme().isPresent()) {
+                node.getOrderingScheme().get().getOrderBy().stream()
+                        .map(column -> new SortingProperty<>(column, node.getOrderingScheme().get().getOrdering(column)))
+                        .forEach(localProperties::add);
+            }
+
             // Local exchanges are only created in AddLocalExchanges, at the end of optimization, and
             // local exchanges do not produce global properties as represented by ActualProperties.
             // This is acceptable because AddLocalExchanges does not use global properties and is only
@@ -475,6 +482,7 @@ class PropertyDerivations
             // TODO: implement full properties for local exchanges
             if (node.getScope() == LOCAL) {
                 return ActualProperties.builder()
+                        .local(localProperties.build())
                         .constants(constants)
                         .build();
             }
@@ -484,6 +492,7 @@ class PropertyDerivations
                     boolean coordinatorOnly = node.getPartitioningScheme().getPartitioning().getHandle().isCoordinatorOnly();
                     return ActualProperties.builder()
                             .global(coordinatorOnly ? coordinatorSingleStreamPartition() : singleStreamPartition())
+                            .local(localProperties.build())
                             .constants(constants)
                             .build();
                 case REPARTITION:
