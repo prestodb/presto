@@ -48,7 +48,7 @@ public class SecondsSinceEpochJsonFieldDecoder
     }
 
     public static class SecondsSinceEpochJsonValueProvider
-            extends DateTimeJsonValueProvider
+            extends AbstractDateTimeJsonValueProvider
     {
         public SecondsSinceEpochJsonValueProvider(JsonNode value, DecoderColumnHandle columnHandle)
         {
