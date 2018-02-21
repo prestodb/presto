@@ -14,9 +14,9 @@
 package com.facebook.presto.redis.decoder.hash;
 
 import com.facebook.presto.decoder.DecoderColumnHandle;
-import com.facebook.presto.decoder.FieldDecoder;
 import com.facebook.presto.decoder.FieldValueProvider;
 import com.facebook.presto.decoder.RowDecoder;
+import com.facebook.presto.redis.RedisFieldDecoder;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.HashMap;
@@ -34,9 +34,9 @@ public class HashRedisRowDecoder
 {
     public static final String NAME = "hash";
 
-    private final Map<DecoderColumnHandle, FieldDecoder<String>> fieldDecoders;
+    private final Map<DecoderColumnHandle, RedisFieldDecoder<String>> fieldDecoders;
 
-    public HashRedisRowDecoder(Map<DecoderColumnHandle, FieldDecoder<String>> fieldDecoders)
+    public HashRedisRowDecoder(Map<DecoderColumnHandle, RedisFieldDecoder<String>> fieldDecoders)
     {
         this.fieldDecoders = ImmutableMap.copyOf(fieldDecoders);
     }
@@ -49,7 +49,7 @@ public class HashRedisRowDecoder
         }
 
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = new HashMap<>();
-        for (Map.Entry<DecoderColumnHandle, FieldDecoder<String>> entry : fieldDecoders.entrySet()) {
+        for (Map.Entry<DecoderColumnHandle, RedisFieldDecoder<String>> entry : fieldDecoders.entrySet()) {
             DecoderColumnHandle columnHandle = entry.getKey();
 
             String mapping = columnHandle.getMapping();
@@ -57,7 +57,7 @@ public class HashRedisRowDecoder
 
             String valueField = dataMap.get(mapping);
 
-            FieldDecoder<String> decoder = entry.getValue();
+            RedisFieldDecoder<String> decoder = entry.getValue();
             decodedRow.put(columnHandle, decoder.decode(valueField, columnHandle));
         }
         return Optional.of(decodedRow);
