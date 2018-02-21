@@ -16,7 +16,6 @@ package com.facebook.presto.decoder.json;
 import com.facebook.presto.decoder.DecoderColumnHandle;
 import com.facebook.presto.decoder.FieldValueProvider;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.google.common.annotations.VisibleForTesting;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
 
@@ -32,9 +31,6 @@ import static java.util.Objects.requireNonNull;
 public class ISO8601JsonFieldDecoder
         extends JsonFieldDecoder
 {
-    @VisibleForTesting
-    static final String NAME = "iso8601";
-
     /**
      * TODO: configurable time zones and locales
      */

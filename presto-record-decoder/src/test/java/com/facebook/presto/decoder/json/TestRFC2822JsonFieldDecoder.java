@@ -27,7 +27,7 @@ import static java.util.Arrays.asList;
 
 public class TestRFC2822JsonFieldDecoder
 {
-    private TemporalFieldDecoderTester tester = new TemporalFieldDecoderTester(RFC2822JsonFieldDecoder.NAME);
+    private TemporalFieldDecoderTester tester = new TemporalFieldDecoderTester("rfc2822");
 
     @Test
     public void testDecode()

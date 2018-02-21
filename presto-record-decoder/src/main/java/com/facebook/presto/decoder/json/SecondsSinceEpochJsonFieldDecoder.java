@@ -16,7 +16,6 @@ package com.facebook.presto.decoder.json;
 import com.facebook.presto.decoder.DecoderColumnHandle;
 import com.facebook.presto.decoder.FieldValueProvider;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.Slice;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
@@ -34,9 +33,6 @@ import static java.util.Objects.requireNonNull;
 public class SecondsSinceEpochJsonFieldDecoder
         extends JsonFieldDecoder
 {
-    @VisibleForTesting
-    static final String NAME = "seconds-since-epoch";
-
     /**
      * Todo - configurable time zones and locales.
      */
