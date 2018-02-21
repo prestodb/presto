@@ -74,6 +74,7 @@ import com.facebook.presto.operator.aggregation.AccumulatorFactory;
 import com.facebook.presto.operator.exchange.LocalExchange.LocalExchangeFactory;
 import com.facebook.presto.operator.exchange.LocalExchangeSinkOperator.LocalExchangeSinkOperatorFactory;
 import com.facebook.presto.operator.exchange.LocalExchangeSourceOperator.LocalExchangeSourceOperatorFactory;
+import com.facebook.presto.operator.exchange.LocalMergeSourceOperator.LocalMergeSourceOperatorFactory;
 import com.facebook.presto.operator.exchange.PageChannelSelector;
 import com.facebook.presto.operator.index.DynamicTupleFilterFactory;
 import com.facebook.presto.operator.index.FieldSetFilteringRecordSet;
@@ -1961,6 +1962,68 @@ public class LocalExecutionPlanner
         {
             checkArgument(node.getScope() == LOCAL, "Only local exchanges are supported in the local planner");
 
+            if (node.getOrderingScheme().isPresent()) {
+                return createLocalMerge(node, context);
+            }
+            else {
+                return createLocalExchange(node, context);
+            }
+        }
+
+        private PhysicalOperation createLocalMerge(ExchangeNode node, LocalExecutionPlanContext context)
+        {
+            checkState(node.getSources().size() == 1, "single source is expected");
+
+            // local merge source must have a single driver
+            context.setDriverInstanceCount(1);
+
+            PlanNode sourceNode = getOnlyElement(node.getSources());
+            LocalExecutionPlanContext subContext = context.createSubContext();
+            PhysicalOperation source = sourceNode.accept(this, subContext);
+
+            int operatorsCount = subContext.getDriverInstanceCount().orElse(1);
+            List<Type> types = getSourceOperatorTypes(node, context.getTypes());
+            LocalExchangeFactory exchangeFactory = new LocalExchangeFactory(
+                    node.getPartitioningScheme().getPartitioning().getHandle(),
+                    operatorsCount,
+                    types,
+                    ImmutableList.of(),
+                    Optional.empty(),
+                    source.getPipelineExecutionStrategy());
+
+            List<OperatorFactory> operatorFactories = new ArrayList<>(source.getOperatorFactories());
+            List<Symbol> expectedLayout = node.getInputs().get(0);
+            Function<Page, Page> pagePreprocessor = enforceLayoutProcessor(expectedLayout, source.getLayout());
+            operatorFactories.add(new LocalExchangeSinkOperatorFactory(
+                    exchangeFactory,
+                    subContext.getNextOperatorId(),
+                    node.getId(),
+                    exchangeFactory.newSinkFactoryId(),
+                    pagePreprocessor));
+            context.addDriverFactory(subContext.isInputDriver(), false, operatorFactories, subContext.getDriverInstanceCount(), source.getPipelineExecutionStrategy());
+            // the main driver is not an input... the exchange sources are the input for the plan
+            context.setInputDriver(false);
+
+            OrderingScheme orderingScheme = node.getOrderingScheme().get();
+            List<Integer> sortChannels = orderingScheme.getOrderBy().stream()
+                    .map(argument -> node.getOutputSymbols().indexOf(argument))
+                    .collect(toImmutableList());
+            List<SortOrder> orderings = orderingScheme.getOrderBy().stream()
+                    .map(orderingScheme::getOrdering)
+                    .collect(toImmutableList());
+            OperatorFactory operatorFactory = new LocalMergeSourceOperatorFactory(
+                    context.getNextOperatorId(),
+                    node.getId(),
+                    new SimplePageWithPositionComparator.Factory(),
+                    exchangeFactory,
+                    types,
+                    sortChannels,
+                    orderings);
+            return new PhysicalOperation(operatorFactory, makeLayout(node), UNGROUPED_EXECUTION);
+        }
+
+        private PhysicalOperation createLocalExchange(ExchangeNode node, LocalExecutionPlanContext context)
+        {
             int driverInstanceCount;
             if (node.getType() == ExchangeNode.Type.GATHER) {
                 driverInstanceCount = 1;
