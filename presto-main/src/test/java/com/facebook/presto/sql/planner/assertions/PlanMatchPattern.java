@@ -255,6 +255,12 @@ public final class PlanMatchPattern
         return node(SortNode.class, source);
     }
 
+    public static PlanMatchPattern sort(List<Ordering> orderBy, PlanMatchPattern source)
+    {
+        return node(SortNode.class, source)
+                .with(new SortMatcher(orderBy));
+    }
+
     public static PlanMatchPattern topN(long count, List<Ordering> orderBy, PlanMatchPattern source)
     {
         return node(TopNNode.class, source).with(new TopNMatcher(count, orderBy));
