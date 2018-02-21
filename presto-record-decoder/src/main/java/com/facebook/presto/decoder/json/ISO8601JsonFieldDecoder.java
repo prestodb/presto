@@ -74,10 +74,6 @@ public class ISO8601JsonFieldDecoder
         @Override
         protected long getMillis()
         {
-            if (value.canConvertToLong()) {
-                return value.asLong();
-            }
-
             String textValue = value.isValueNode() ? value.asText() : value.toString();
             return FORMATTER.parseMillis(textValue);
         }
