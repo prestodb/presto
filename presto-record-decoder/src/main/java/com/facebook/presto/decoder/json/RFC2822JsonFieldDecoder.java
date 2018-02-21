@@ -29,17 +29,23 @@ import static java.util.Objects.requireNonNull;
  * Uses hardcoded UTC timezone and english locale.
  */
 public class RFC2822JsonFieldDecoder
-        extends JsonFieldDecoder
+        implements JsonFieldDecoder
 {
     /**
      * Todo - configurable time zones and locales.
      */
     private static final DateTimeFormatter FORMATTER = DateTimeFormat.forPattern("EEE MMM dd HH:mm:ss Z yyyy").withLocale(Locale.ENGLISH).withZoneUTC();
 
-    @Override
-    public FieldValueProvider decode(JsonNode value, DecoderColumnHandle columnHandle)
+    private final DecoderColumnHandle columnHandle;
+
+    public RFC2822JsonFieldDecoder(DecoderColumnHandle columnHandle)
     {
-        requireNonNull(columnHandle, "columnHandle is null");
+        this.columnHandle = requireNonNull(columnHandle, "columnHandle is null");
+    }
+
+    @Override
+    public FieldValueProvider decode(JsonNode value)
+    {
         requireNonNull(value, "value is null");
 
         return new RFC2822JsonValueProvider(value, columnHandle);

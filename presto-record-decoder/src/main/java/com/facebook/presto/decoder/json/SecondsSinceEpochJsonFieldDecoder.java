@@ -25,12 +25,18 @@ import static java.util.Objects.requireNonNull;
  * Uses hardcoded UTC timezone and english locale.
  */
 public class SecondsSinceEpochJsonFieldDecoder
-        extends JsonFieldDecoder
+        implements JsonFieldDecoder
 {
-    @Override
-    public FieldValueProvider decode(JsonNode value, DecoderColumnHandle columnHandle)
+    private final DecoderColumnHandle columnHandle;
+
+    public SecondsSinceEpochJsonFieldDecoder(DecoderColumnHandle columnHandle)
     {
-        requireNonNull(columnHandle, "columnHandle is null");
+        this.columnHandle = requireNonNull(columnHandle, "columnHandle is null");
+    }
+
+    @Override
+    public FieldValueProvider decode(JsonNode value)
+    {
         requireNonNull(value, "value is null");
 
         return new SecondsSinceEpochJsonValueProvider(value, columnHandle);
