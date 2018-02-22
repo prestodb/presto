@@ -19,19 +19,29 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
 public class FileBasedSystemAccessControlRules
 {
     private final List<CatalogAccessControlRule> catalogRules;
+    private final List<Pattern> userPatterns;
 
     @JsonCreator
-    public FileBasedSystemAccessControlRules(@JsonProperty("catalogs") Optional<List<CatalogAccessControlRule>> catalogRules)
+    public FileBasedSystemAccessControlRules(
+            @JsonProperty("catalogs") Optional<List<CatalogAccessControlRule>> catalogRules,
+            @JsonProperty("user_patterns") Optional<List<Pattern>> userPatterns)
     {
         this.catalogRules = catalogRules.map(ImmutableList::copyOf).orElse(ImmutableList.of());
+        this.userPatterns = userPatterns.map(ImmutableList::copyOf).orElse(ImmutableList.of());
     }
 
     public List<CatalogAccessControlRule> getCatalogRules()
     {
         return catalogRules;
+    }
+
+    public List<Pattern> getUserPatterns()
+    {
+        return userPatterns;
     }
 }
