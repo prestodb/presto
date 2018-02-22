@@ -16,10 +16,9 @@ package com.facebook.presto.cost;
 import com.facebook.presto.Session;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.Ordering;
 
 import javax.inject.Inject;
-
-import java.util.Comparator;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -47,10 +46,10 @@ public class CostComparator
         this.networkWeight = networkWeight;
     }
 
-    public Comparator<PlanNodeCostEstimate> forSession(Session session)
+    public Ordering<PlanNodeCostEstimate> forSession(Session session)
     {
         requireNonNull(session, "session is null");
-        return (left, right) -> this.compare(session, left, right);
+        return Ordering.from((left, right) -> this.compare(session, left, right));
     }
 
     public int compare(Session session, PlanNodeCostEstimate left, PlanNodeCostEstimate right)
