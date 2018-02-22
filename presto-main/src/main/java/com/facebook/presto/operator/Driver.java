@@ -50,6 +50,8 @@ import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static java.lang.Boolean.TRUE;
@@ -363,32 +365,42 @@ public class Driver
             }
 
             boolean movedPage = false;
+            List<Operator> blockedOperators = new ArrayList<>(operators.size());
+            List<ListenableFuture<?>> blockedFutures = new ArrayList<>(operators.size());
             for (int i = 0; i < operators.size() - 1 && !driverContext.isDone(); i++) {
                 Operator current = operators.get(i);
                 Operator next = operators.get(i + 1);
 
                 // skip blocked operator
-                if (getBlockedFuture(current).isPresent()) {
+                Optional<ListenableFuture<?>> currentBlocked = getBlockedFuture(current);
+                if (currentBlocked.isPresent()) {
+                    addBlockedOperator(blockedOperators, blockedFutures, current, currentBlocked.get());
                     continue;
                 }
 
                 // if the current operator is not finished and next operator isn't blocked and needs input...
-                if (!current.isFinished() && !getBlockedFuture(next).isPresent() && next.needsInput()) {
-                    // get an output page from current operator
-                    current.getOperatorContext().startIntervalTimer();
-                    Page page = current.getOutput();
-                    current.getOperatorContext().recordGetOutput(page);
-
-                    // if we got an output page, add it to the next operator
-                    if (page != null && page.getPositionCount() != 0) {
-                        next.getOperatorContext().startIntervalTimer();
-                        next.addInput(page);
-                        next.getOperatorContext().recordAddInput(page);
-                        movedPage = true;
+                if (!current.isFinished()) {
+                    Optional<ListenableFuture<?>> nextBlocked = getBlockedFuture(next);
+                    if (nextBlocked.isPresent()) {
+                        addBlockedOperator(blockedOperators, blockedFutures, next, nextBlocked.get());
                     }
+                    else if (next.needsInput()) {
+                        // get an output page from current operator
+                        current.getOperatorContext().startIntervalTimer();
+                        Page page = current.getOutput();
+                        current.getOperatorContext().recordGetOutput(page);
 
-                    if (current instanceof SourceOperator) {
-                        movedPage = true;
+                        // if we got an output page, add it to the next operator
+                        if (page != null && page.getPositionCount() != 0) {
+                            next.getOperatorContext().startIntervalTimer();
+                            next.addInput(page);
+                            next.getOperatorContext().recordAddInput(page);
+                            movedPage = true;
+                        }
+
+                        if (current instanceof SourceOperator) {
+                            movedPage = true;
+                        }
                     }
                 }
 
@@ -402,29 +414,18 @@ public class Driver
             }
 
             // if we did not move any pages, check if we are blocked
-            if (!movedPage) {
-                List<Operator> blockedOperators = new ArrayList<>();
-                List<ListenableFuture<?>> blockedFutures = new ArrayList<>();
-                for (Operator operator : operators) {
-                    Optional<ListenableFuture<?>> blocked = getBlockedFuture(operator);
-                    if (blocked.isPresent()) {
-                        blockedOperators.add(operator);
-                        blockedFutures.add(blocked.get());
-                    }
+            if (!movedPage && !blockedFutures.isEmpty() && allBlocked(blockedFutures)) {
+                verify(blockedOperators.size() == blockedFutures.size());
+                // unblock when the first future is complete
+                ListenableFuture<?> blocked = firstFinishedFuture(blockedFutures);
+                // driver records serial blocked time
+                driverContext.recordBlocked(blocked);
+                // each blocked operator is responsible for blocking the execution
+                // until one of the operators can continue
+                for (Operator operator : blockedOperators) {
+                    operator.getOperatorContext().recordBlocked(blocked);
                 }
-
-                if (!blockedFutures.isEmpty()) {
-                    // unblock when the first future is complete
-                    ListenableFuture<?> blocked = firstFinishedFuture(blockedFutures);
-                    // driver records serial blocked time
-                    driverContext.recordBlocked(blocked);
-                    // each blocked operator is responsible for blocking the execution
-                    // until one of the operators can continue
-                    for (Operator operator : blockedOperators) {
-                        operator.getOperatorContext().recordBlocked(blocked);
-                    }
-                    return blocked;
-                }
+                return blocked;
             }
 
             return NOT_BLOCKED;
@@ -445,6 +446,28 @@ public class Driver
             driverContext.failed(newException);
             throw newException;
         }
+    }
+
+    private void addBlockedOperator(List<Operator> blockedOperators, List<ListenableFuture<?>> blockedFutures, Operator operator, ListenableFuture<?> blockedFuture)
+    {
+        if (!blockedOperators.isEmpty() && getLast(blockedOperators) == operator) {
+            // We don't want to duplicate operators on the list. Just update its "entry" with new blocked future
+            blockedFutures.set(blockedFutures.size() - 1, blockedFuture);
+            return;
+        }
+
+        blockedOperators.add(operator);
+        blockedFutures.add(blockedFuture);
+    }
+
+    private static boolean allBlocked(List<ListenableFuture<?>> blockedFutures)
+    {
+        for (ListenableFuture<?> future : blockedFutures) {
+            if (future.isDone()) {
+                return false;
+            }
+        }
+        return true;
     }
 
     @GuardedBy("exclusiveLock")
