@@ -20,6 +20,7 @@ import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
@@ -45,6 +46,7 @@ import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.presto.kafka.KafkaErrorCode.KAFKA_SPLIT_ERROR;
 import static com.facebook.presto.kafka.KafkaHandleResolver.convertLayout;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -89,9 +91,8 @@ public class KafkaSplitManager
                 log.debug("Adding Partition %s/%s", metadata.topic(), part.partitionId());
 
                 Broker leader = part.leader();
-                if (leader == null) { // Leader election going on...
-                    log.warn("No leader for partition %s/%s found!", metadata.topic(), part.partitionId());
-                    continue;
+                if (leader == null) {
+                    throw new PrestoException(StandardErrorCode.GENERIC_INTERNAL_ERROR, format("Leader election in progress for Kafka topic '%s' partition %s", metadata.topic(), part.partitionId()));
                 }
 
                 HostAddress partitionLeader = HostAddress.fromParts(leader.host(), leader.port());
