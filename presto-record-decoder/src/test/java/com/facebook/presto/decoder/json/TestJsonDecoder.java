@@ -146,8 +146,15 @@ public class TestJsonDecoder
         singleColumnDecoder(createUnboundedVarcharType(), null);
         singleColumnDecoder(createVarcharType(100), null);
 
-        for (String dataFormat : ImmutableSet.of("iso8601", "custom-date-time", "seconds-since-epoch", "milliseconds-since-epoch", "rfc2822")) {
+        for (String dataFormat : ImmutableSet.of("iso8601", "custom-date-time", "rfc2822")) {
             singleColumnDecoder(DATE, dataFormat);
+            singleColumnDecoder(TIME, dataFormat);
+            singleColumnDecoder(TIME_WITH_TIME_ZONE, dataFormat);
+            singleColumnDecoder(TIMESTAMP, dataFormat);
+            singleColumnDecoder(TIMESTAMP_WITH_TIME_ZONE, dataFormat);
+        }
+
+        for (String dataFormat : ImmutableSet.of("seconds-since-epoch", "milliseconds-since-epoch")) {
             singleColumnDecoder(TIME, dataFormat);
             singleColumnDecoder(TIME_WITH_TIME_ZONE, dataFormat);
             singleColumnDecoder(TIMESTAMP, dataFormat);
@@ -176,6 +183,11 @@ public class TestJsonDecoder
             assertUnsupportedColumnTypeException(() -> singleColumnDecoder(DOUBLE, dataFormat));
             assertUnsupportedColumnTypeException(() -> singleColumnDecoder(createUnboundedVarcharType(), dataFormat));
             assertUnsupportedColumnTypeException(() -> singleColumnDecoder(createVarcharType(100), dataFormat));
+        }
+
+        // date are not supported by seconds-since-epoch and milliseconds-since-epoch field decoders
+        for (String dataFormat : ImmutableSet.of("seconds-since-epoch", "milliseconds-since-epoch")) {
+            assertUnsupportedColumnTypeException(() -> singleColumnDecoder(DATE, dataFormat));
         }
     }
 

@@ -251,8 +251,6 @@ public class KafkaSmokeTest
                                     "\"j_timestamp_iso8601\"                    : \"2018-02-09T13:15:18\"            ," +
                                     "\"j_timestamp_rfc2822\"                    : \"Fri Feb 09 13:15:19 Z 2018\"     ," +
                                     "\"j_timestamp_custom\"                     : \"02/2018/09 13:15:20\"            ," +
-                                    "\"j_date_milliseconds_since_epoch\"        : \"1518134400000\"                  ," +
-                                    "\"j_date_seconds_since_epoch\"             : \"1518220800\"                     ," +
                                     "\"j_date_iso8601\"                         : \"2018-02-11\"                     ," +
                                     "\"j_date_rfc2822\"                         : \"Mon Feb 12 13:15:16 Z 2018\"     ," +
                                     "\"j_date_custom\"                          : \"2018/13/02\"                     ," +
@@ -298,8 +296,6 @@ public class KafkaSmokeTest
                 row("c_timestamp_iso8601", "timestamp"),
                 row("c_timestamp_rfc2822", "timestamp"),
                 row("c_timestamp_custom", "timestamp"),
-                row("c_date_milliseconds_since_epoch", "date"),
-                row("c_date_seconds_since_epoch", "date"),
                 row("c_date_iso8601", "date"),
                 row("c_date_rfc2822", "date"),
                 row("c_date_custom", "date"),
@@ -332,8 +328,6 @@ public class KafkaSmokeTest
                 parseTimestampInLocalTime("2018-02-09 13:15:18.000", DateTimeZone.UTC),
                 parseTimestampInLocalTime("2018-02-09 13:15:19.000", DateTimeZone.UTC),
                 parseTimestampInLocalTime("2018-02-09 13:15:20.000", DateTimeZone.UTC),
-                Date.valueOf(LocalDate.of(2018, 2, 9)),
-                Date.valueOf(LocalDate.of(2018, 2, 10)),
                 Date.valueOf(LocalDate.of(2018, 2, 11)),
                 Date.valueOf(LocalDate.of(2018, 2, 12)),
                 Date.valueOf(LocalDate.of(2018, 2, 13)),

@@ -19,7 +19,6 @@ import org.testng.annotations.Test;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.spi.type.DateTimeEncoding.packDateTimeWithZone;
-import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
@@ -34,10 +33,6 @@ public class TestSecondsSinceEpochJsonFieldDecoder
     @Test
     public void testDecode()
     {
-        tester.assertDecodedAs("362016000", DATE, 4190);
-        tester.assertDecodedAs("\"362016000\"", DATE, 4190);
-        tester.assertDecodedAs("-362016000", DATE, -4190);
-        tester.assertDecodedAs("362016001", DATE, 4190);
         tester.assertDecodedAs("33701", TIME, 33701000);
         tester.assertDecodedAs("\"33701\"", TIME, 33701000);
         tester.assertDecodedAs("33701", TIME_WITH_TIME_ZONE, packDateTimeWithZone(33701000, UTC_KEY));
@@ -53,7 +48,7 @@ public class TestSecondsSinceEpochJsonFieldDecoder
     @Test
     public void testDecodeNulls()
     {
-        for (Type type : asList(DATE, TIME, TIME_WITH_TIME_ZONE, TIMESTAMP, TIMESTAMP_WITH_TIME_ZONE)) {
+        for (Type type : asList(TIME, TIME_WITH_TIME_ZONE, TIMESTAMP, TIMESTAMP_WITH_TIME_ZONE)) {
             tester.assertDecodedAsNull("null", type);
             tester.assertMissingDecodedAsNull(type);
         }
@@ -62,7 +57,7 @@ public class TestSecondsSinceEpochJsonFieldDecoder
     @Test
     public void testDecodeInvalid()
     {
-        for (Type type : asList(DATE, TIME, TIME_WITH_TIME_ZONE, TIMESTAMP, TIMESTAMP_WITH_TIME_ZONE)) {
+        for (Type type : asList(TIME, TIME_WITH_TIME_ZONE, TIMESTAMP, TIMESTAMP_WITH_TIME_ZONE)) {
             tester.assertInvalidInput("{}", type, "could not parse non-value node as '.*' for column 'some_column'");
             tester.assertInvalidInput("[]", type, "could not parse non-value node as '.*' for column 'some_column'");
             tester.assertInvalidInput("[10]", type, "could not parse non-value node as '.*' for column 'some_column'");

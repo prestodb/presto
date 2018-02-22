@@ -72,18 +72,6 @@
         "formatHint": "MM/yyyy/dd H:m:s"
       },
       {
-        "name": "c_date_milliseconds_since_epoch",
-        "type": "DATE",
-        "mapping": "j_date_milliseconds_since_epoch",
-        "dataFormat": "milliseconds-since-epoch"
-      },
-      {
-        "name": "c_date_seconds_since_epoch",
-        "type": "DATE",
-        "mapping": "j_date_seconds_since_epoch",
-        "dataFormat": "seconds-since-epoch"
-      },
-      {
         "name": "c_date_iso8601",
         "type": "DATE",
         "mapping": "j_date_iso8601",
