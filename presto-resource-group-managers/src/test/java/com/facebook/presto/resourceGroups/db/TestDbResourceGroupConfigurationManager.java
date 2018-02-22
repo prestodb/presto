@@ -355,9 +355,9 @@ public class TestDbResourceGroupConfigurationManager
             Duration runningTimeLimit)
     {
         assertEquals(group.getSoftMemoryLimit(), DataSize.valueOf(softMemoryLimit));
-        assertEquals(group.getInfo().getMaxQueuedQueries(), maxQueued);
-        assertEquals(group.getInfo().getHardConcurrencyLimit(), hardConcurrencyLimit);
-        assertEquals(group.getInfo().getSoftConcurrencyLimit(), softConcurrencyLimit);
+        assertEquals(group.getMaxQueuedQueries(), maxQueued);
+        assertEquals(group.getHardConcurrencyLimit(), hardConcurrencyLimit);
+        assertEquals(group.getSoftConcurrencyLimit(), softConcurrencyLimit);
         assertEquals(group.getSchedulingPolicy(), schedulingPolicy);
         assertEquals(group.getSchedulingWeight(), schedulingWeight);
         assertEquals(group.getJmxExport(), jmxExport);

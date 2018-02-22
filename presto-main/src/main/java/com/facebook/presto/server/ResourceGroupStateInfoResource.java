@@ -51,11 +51,11 @@ public class ResourceGroupStateInfoResource
     @Produces(MediaType.APPLICATION_JSON)
     @Encoded
     @Path("{resourceGroupId: .+}")
-    public ResourceGroupStateInfo getQueryStateInfos(@PathParam("resourceGroupId") String resourceGroupIdString)
+    public ResourceGroupInfo getQueryStateInfos(@PathParam("resourceGroupId") String resourceGroupIdString)
     {
         if (!isNullOrEmpty(resourceGroupIdString)) {
             try {
-                return resourceGroupManager.getResourceGroupStateInfo(
+                return resourceGroupManager.getResourceGroupInfo(
                         new ResourceGroupId(
                                 Arrays.stream(resourceGroupIdString.split("/"))
                                         .map(ResourceGroupStateInfoResource::urlDecode)
