@@ -362,13 +362,15 @@ public class Driver
                 return NOT_BLOCKED;
             }
 
-            boolean movedPage = false;
+            boolean canProgress = false;
+            boolean seenBlocked = false;
             for (int i = 0; i < operators.size() - 1 && !driverContext.isDone(); i++) {
                 Operator current = operators.get(i);
                 Operator next = operators.get(i + 1);
 
                 // skip blocked operator
                 if (getBlockedFuture(current).isPresent()) {
+                    seenBlocked = true;
                     continue;
                 }
 
@@ -384,11 +386,12 @@ public class Driver
                         next.getOperatorContext().startIntervalTimer();
                         next.addInput(page);
                         next.getOperatorContext().recordAddInput(page);
-                        movedPage = true;
+                        canProgress = true;
                     }
 
-                    if (current instanceof SourceOperator) {
-                        movedPage = true;
+                    if (!seenBlocked && !current.isFinished()) {
+                        // Current operator yielded. Don't potentially block on downstream operator
+                        canProgress = true;
                     }
                 }
 
@@ -398,11 +401,12 @@ public class Driver
                     next.getOperatorContext().startIntervalTimer();
                     next.finish();
                     next.getOperatorContext().recordFinish();
+                    canProgress = true;
                 }
             }
 
             // if we did not move any pages, check if we are blocked
-            if (!movedPage) {
+            if (!canProgress) {
                 List<Operator> blockedOperators = new ArrayList<>();
                 List<ListenableFuture<?>> blockedFutures = new ArrayList<>();
                 for (Operator operator : operators) {

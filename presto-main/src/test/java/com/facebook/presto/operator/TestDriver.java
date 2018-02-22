@@ -181,6 +181,19 @@ public class TestDriver
     }
 
     @Test
+    public void testDriverDoesntBlockOnDownstreamOperatorWhenUpstreamOperatorYields()
+    {
+        Driver driver = Driver.createDriver(driverContext, new ConsumingAndYieldingOperator(), new ConsumingAndYieldingOperator(), new AlwaysBlockedOperator());
+
+        assertSame(driver.getDriverContext(), driverContext);
+
+        assertFalse(driver.isFinished());
+        ListenableFuture<?> blocked = driver.processFor(new Duration(1, TimeUnit.MILLISECONDS));
+        assertTrue(blocked.isDone());
+        assertFalse(driver.isFinished());
+    }
+
+    @Test
     public void testBrokenOperatorCloseWhileProcessing()
             throws Exception
     {
@@ -485,6 +498,120 @@ public class TestDriver
             revocableMemoryContext.setBytes(100);
             getOperatorContext().requestMemoryRevoking();
             return SettableFuture.create();
+        }
+    }
+
+    private class ConsumingAndYieldingOperator
+            implements Operator
+    {
+        private final OperatorContext operatorContext;
+
+        public ConsumingAndYieldingOperator()
+        {
+            this.operatorContext = TestingOperatorContext.create();
+        }
+
+        @Override
+        public OperatorContext getOperatorContext()
+        {
+            return operatorContext;
+        }
+
+        @Override
+        public List<Type> getTypes()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public ListenableFuture<?> isBlocked()
+        {
+            return NOT_BLOCKED;
+        }
+
+        @Override
+        public boolean needsInput()
+        {
+            return true;
+        }
+
+        @Override
+        public void addInput(Page page)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void finish() {}
+
+        @Override
+        public boolean isFinished()
+        {
+            return false;
+        }
+
+        @Override
+        public Page getOutput()
+        {
+            return null;
+        }
+    }
+
+    private class AlwaysBlockedOperator
+            implements Operator
+    {
+        private final OperatorContext operatorContext;
+
+        private ListenableFuture<?> isBlocked = SettableFuture.create();
+
+        public AlwaysBlockedOperator()
+        {
+            this.operatorContext = TestingOperatorContext.create();
+        }
+
+        @Override
+        public OperatorContext getOperatorContext()
+        {
+            return operatorContext;
+        }
+
+        @Override
+        public List<Type> getTypes()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public ListenableFuture<?> isBlocked()
+        {
+            return isBlocked;
+        }
+
+        @Override
+        public boolean needsInput()
+        {
+            return false;
+        }
+
+        @Override
+        public void addInput(Page page)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void finish() {}
+
+        @Override
+        public boolean isFinished()
+        {
+            return false;
+        }
+
+        @Override
+        public Page getOutput()
+        {
+            return null;
         }
     }
 
