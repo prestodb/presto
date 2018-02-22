@@ -450,8 +450,13 @@ public class Driver
 
     private void addBlockedOperator(List<Operator> blockedOperators, List<ListenableFuture<?>> blockedFutures, Operator operator, ListenableFuture<?> blockedFuture)
     {
+        // We don't want to duplicate operators on the list. Just update its "entry" with new blocked future.
+        // Having duplicate operators would lead to suboptimal performance, as listeners on blocked futures
+        // would be duplicated, and `OperatorContext.recordBlocked` would be called second time, unnecessarily.
+
+        // We consider operators in order. Each operator is considered once as `next` and then, immediately
+        // afterwards, as `current`. Thus, if `operator` is already on the list, it must be the last one.
         if (!blockedOperators.isEmpty() && getLast(blockedOperators) == operator) {
-            // We don't want to duplicate operators on the list. Just update its "entry" with new blocked future
             blockedFutures.set(blockedFutures.size() - 1, blockedFuture);
             return;
         }
