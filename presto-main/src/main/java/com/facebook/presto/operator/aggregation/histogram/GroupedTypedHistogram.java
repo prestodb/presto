@@ -62,7 +62,6 @@ public class GroupedTypedHistogram
     private final int bucketId;
 
     private final Type type;
-    private final BlockBuilder values;
     private final BucketNodeFactory bucketNodeFactory;
     //** these parallel arrays represent a node in the hash table; index -> int, value -> long
     private final LongBigArray counts;
@@ -99,7 +98,7 @@ public class GroupedTypedHistogram
         this.bucketCount = computeBucketCount(expectedCount, MAX_FILL_RATIO);
         this.mask = bucketCount - 1;
         this.maxFill = calculateMaxFill(bucketCount, MAX_FILL_RATIO);
-        this.values = type.createBlockBuilder(null, computeBucketCount(expectedCount, GroupedTypedHistogram.MAX_FILL_RATIO));
+        BlockBuilder values = type.createBlockBuilder(null, computeBucketCount(expectedCount, GroupedTypedHistogram.MAX_FILL_RATIO));
         // buckets and node-arrays (bucket "points" to a node, so 1:1 relationship)
         buckets = new IntBigArray(-1);
         buckets.ensureCapacity(bucketCount);
@@ -147,16 +146,22 @@ public class GroupedTypedHistogram
     @Override
     public long getEstimatedSize()
     {
+//        private final LongBigArray counts;
+//        private final LongBigArray groupIds;
+//        private final IntBigArray nextPointers;
+//        private final IntBigArray valuePositions;
+//        private final LongBigArray valueAndGroupHashes;
+//        private final LongBigArray headPointers;
+//        private IntBigArray buckets;
         return INSTANCE_SIZE
                 + counts.sizeOf()
                 + groupIds.sizeOf()
                 + nextPointers.sizeOf()
                 + valuePositions.sizeOf()
                 + valueAndGroupHashes.sizeOf()
-                + buckets.sizeOf()
-                + values.getRetainedSizeInBytes()
-                + valueStore.getEstimatedSize()
-                + headPointers.sizeOf();
+                + headPointers.sizeOf()
+                + valueStore.getEstimatedSize();
+
     }
 
     @Override
@@ -171,7 +176,7 @@ public class GroupedTypedHistogram
             iterateGroupNodes(currentGroupId, nodePointer -> {
                 checkArgument(nodePointer != NULL, "should never see null here as we exclude in iterateGroupNodesCall");
                 ValueNode valueNode = bucketNodeFactory.createValueNode(nodePointer);
-                valueNode.writeNodeAsBlock(values, blockBuilder);
+                valueNode.writeNodeAsBlock(valueStore.getValues(), blockBuilder);
             });
 
             out.closeEntry();
@@ -190,7 +195,7 @@ public class GroupedTypedHistogram
         iterateGroupNodes(currentGroupId, nodePointer -> {
             checkArgument(nodePointer != NULL, "should never see null here as we exclude in iterateGroupNodesCall");
             ValueNode valueNode = bucketNodeFactory.createValueNode(nodePointer);
-            reader.read(values, valueNode.getValuePosition(), valueNode.getCount());
+            reader.read(valueStore.getValues(), valueNode.getValuePosition(), valueNode.getCount());
         });
     }
 

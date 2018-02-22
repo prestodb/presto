@@ -159,7 +159,11 @@ public class ValueStore
 
     public long getEstimatedSize()
     {
-        return INSTANCE_SIZE + buckets.sizeOf();
+        return INSTANCE_SIZE + buckets.sizeOf() + values.getRetainedSizeInBytes();
+    }
+
+    BlockBuilder getValues() {
+        return values;
     }
 
     private int nextProbe(int probe)
