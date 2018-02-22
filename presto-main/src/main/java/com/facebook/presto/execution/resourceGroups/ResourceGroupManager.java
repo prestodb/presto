@@ -14,17 +14,14 @@
 package com.facebook.presto.execution.resourceGroups;
 
 import com.facebook.presto.execution.QueryQueueManager;
-import com.facebook.presto.server.ResourceGroupStateInfo;
+import com.facebook.presto.server.ResourceGroupInfo;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerFactory;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupInfo;
 
 public interface ResourceGroupManager
         extends QueryQueueManager
 {
     ResourceGroupInfo getResourceGroupInfo(ResourceGroupId id);
-
-    ResourceGroupStateInfo getResourceGroupStateInfo(ResourceGroupId id);
 
     void addConfigurationManagerFactory(ResourceGroupConfigurationManagerFactory factory);
 

@@ -17,7 +17,6 @@ import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupInfo;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -26,10 +25,8 @@ import org.joda.time.DateTime;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.server.QueryProgressStats.createQueryProgressStats;
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class QueryStateInfo
@@ -77,40 +74,23 @@ public class QueryStateInfo
         this.progress = requireNonNull(progress, "progress is null");
     }
 
-    public static QueryStateInfo createQueryStateInfo(QueryInfo queryInfo, Optional<ResourceGroupId> resourceGroupId, Optional<ResourceGroupInfo> rootResourceGroupInfo)
+    public static QueryStateInfo createQueryStateInfo(QueryInfo queryInfo, Optional<ResourceGroupInfo> group)
     {
-        Optional<List<ResourceGroupInfo>> resourceGroups = Optional.empty();
+        Optional<List<ResourceGroupInfo>> pathToRoot = group.map(ResourceGroupInfo::getPathToRoot);
+        return createQueryStateInfo(queryInfo, group.map(ResourceGroupInfo::getId), pathToRoot);
+    }
+
+    public static QueryStateInfo createQueryStateInfo(QueryInfo queryInfo, Optional<ResourceGroupId> groupId, Optional<List<ResourceGroupInfo>> pathToRoot)
+    {
         Optional<QueryProgressStats> progress = Optional.empty();
-        if (queryInfo.getState() == QUEUED) {
-            resourceGroups = Optional.of(ImmutableList.of());
-            if (resourceGroupId.isPresent() && rootResourceGroupInfo.isPresent()) {
-                ImmutableList.Builder<ResourceGroupInfo> builder = ImmutableList.builder();
-                ResourceGroupId id = resourceGroupId.get();
-                ResourceGroupInfo resourceGroupInfo = rootResourceGroupInfo.get();
-
-                while (true) {
-                    builder.add(resourceGroupInfo.createSingleNodeInfo());
-
-                    if (resourceGroupInfo.getSubGroups().isEmpty()) {
-                        break;
-                    }
-
-                    Optional<ResourceGroupInfo> subGroupInfo = resourceGroupInfo.getSubGroup(id);
-                    checkArgument(subGroupInfo.isPresent(), "No path from root resource group %s to resource group %s", rootResourceGroupInfo.get().getId(), id);
-                    resourceGroupInfo = subGroupInfo.get();
-                }
-
-                resourceGroups = Optional.of(builder.build().reverse());
-            }
-        }
-        else if (queryInfo.getState() == RUNNING) {
+        if (queryInfo.getState() == RUNNING) {
             progress = Optional.of(createQueryProgressStats(queryInfo.getQueryStats()));
         }
 
         return new QueryStateInfo(
                 queryInfo.getQueryId(),
                 queryInfo.getState(),
-                resourceGroupId,
+                groupId,
                 queryInfo.getQuery(),
                 queryInfo.getQueryStats().getCreateTime(),
                 queryInfo.getSession().getUser(),
@@ -118,7 +98,7 @@ public class QueryStateInfo
                 queryInfo.getSession().getClientInfo(),
                 queryInfo.getSession().getCatalog(),
                 queryInfo.getSession().getSchema(),
-                resourceGroups,
+                pathToRoot,
                 progress);
     }
 

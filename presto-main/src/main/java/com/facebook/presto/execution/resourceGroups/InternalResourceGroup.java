@@ -17,13 +17,13 @@ import com.facebook.presto.execution.QueryExecution;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.resourceGroups.WeightedFairQueue.Usage;
 import com.facebook.presto.server.QueryStateInfo;
-import com.facebook.presto.server.ResourceGroupStateInfo;
+import com.facebook.presto.server.ResourceGroupInfo;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.resourceGroups.ResourceGroup;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupInfo;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupState;
 import com.facebook.presto.spi.resourceGroups.SchedulingPolicy;
+import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.weakref.jmx.Managed;
@@ -45,6 +45,8 @@ import java.util.function.BiConsumer;
 
 import static com.facebook.presto.SystemSessionProperties.getQueryPriority;
 import static com.facebook.presto.server.QueryStateInfo.createQueryStateInfo;
+import static com.facebook.presto.server.ResourceGroupInfo.resourceGroupInfo;
+import static com.facebook.presto.server.ResourceGroupInfo.summaryResourceGroupInfo;
 import static com.facebook.presto.spi.ErrorType.USER_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_TIME_LIMIT;
 import static com.facebook.presto.spi.resourceGroups.ResourceGroupState.CAN_QUEUE;
@@ -147,58 +149,48 @@ public class InternalResourceGroup
     public ResourceGroupInfo getInfo()
     {
         synchronized (root) {
-            checkState(!subGroups.isEmpty() || (descendantRunningQueries == 0 && descendantQueuedQueries == 0), "Leaf resource group has descendant queries.");
-
-            List<ResourceGroupInfo> infos = subGroups.values().stream()
-                    .map(InternalResourceGroup::getInfo)
-                    .collect(toImmutableList());
-
-            return new ResourceGroupInfo(
+            return resourceGroupInfo(
                     id,
-                    DataSize.succinctBytes(softMemoryLimitBytes),
-                    hardConcurrencyLimit,
-                    softConcurrencyLimit,
-                    runningTimeLimit,
-                    maxQueuedQueries,
-                    queuedTimeLimit,
                     getState(),
-                    eligibleSubGroups.size(),
+                    schedulingPolicy,
+                    schedulingWeight,
+                    DataSize.succinctBytes(softMemoryLimitBytes),
+                    softConcurrencyLimit,
+                    hardConcurrencyLimit,
+                    maxQueuedQueries,
+                    runningTimeLimit,
+                    queuedTimeLimit,
                     DataSize.succinctBytes(cachedMemoryUsageBytes),
-                    runningQueries.size() + descendantRunningQueries,
                     queuedQueries.size() + descendantQueuedQueries,
-                    infos);
+                    eligibleSubGroups.size(),
+                    subGroups.values().stream()
+                            .map(InternalResourceGroup::getSummaryInfo)
+                            .collect(toImmutableList()),
+                    getAggregatedRunningQueriesInfo(),
+                    getPathToRoot());
         }
     }
 
-    public ResourceGroupStateInfo getStateInfo()
+    private ResourceGroupInfo getSummaryInfo()
     {
         synchronized (root) {
-            return new ResourceGroupStateInfo(
+            return summaryResourceGroupInfo(
                     id,
                     getState(),
+                    schedulingPolicy,
+                    schedulingWeight,
                     DataSize.succinctBytes(softMemoryLimitBytes),
-                    DataSize.succinctBytes(cachedMemoryUsageBytes),
                     softConcurrencyLimit,
                     hardConcurrencyLimit,
                     maxQueuedQueries,
                     runningTimeLimit,
                     queuedTimeLimit,
-                    getAggregatedRunningQueriesInfo(),
+                    DataSize.succinctBytes(cachedMemoryUsageBytes),
                     queuedQueries.size() + descendantQueuedQueries,
+                    runningQueries.size() + descendantRunningQueries,
+                    eligibleSubGroups.size(),
                     subGroups.values().stream()
-                            .map(subGroup -> new ResourceGroupInfo(
-                                    subGroup.getId(),
-                                    DataSize.succinctBytes(subGroup.softMemoryLimitBytes),
-                                    subGroup.softConcurrencyLimit,
-                                    subGroup.hardConcurrencyLimit,
-                                    subGroup.runningTimeLimit,
-                                    subGroup.maxQueuedQueries,
-                                    subGroup.queuedTimeLimit,
-                                    subGroup.getState(),
-                                    subGroup.eligibleSubGroups.size(),
-                                    DataSize.succinctBytes(subGroup.cachedMemoryUsageBytes),
-                                    subGroup.runningQueries.size() + subGroup.descendantRunningQueries,
-                                    subGroup.queuedQueries.size() + subGroup.descendantQueuedQueries))
+                            .map(InternalResourceGroup::getSummaryInfo)
                             .collect(toImmutableList()));
         }
     }
@@ -222,15 +214,32 @@ public class InternalResourceGroup
     {
         synchronized (root) {
             if (subGroups.isEmpty()) {
+                List<ResourceGroupInfo> pathToRoot = getPathToRoot();
+
                 return runningQueries.stream()
                         .map(QueryExecution::getQueryInfo)
-                        .map(queryInfo -> createQueryStateInfo(queryInfo, Optional.of(id), Optional.empty()))
+                        .map(queryInfo -> createQueryStateInfo(queryInfo, Optional.of(id), Optional.of(pathToRoot)))
                         .collect(toImmutableList());
             }
+
             return subGroups.values().stream()
                     .map(InternalResourceGroup::getAggregatedRunningQueriesInfo)
                     .flatMap(List::stream)
                     .collect(toImmutableList());
+        }
+    }
+
+    private List<ResourceGroupInfo> getPathToRoot()
+    {
+        synchronized (root) {
+            ImmutableList.Builder<ResourceGroupInfo> builder = ImmutableList.builder();
+            InternalResourceGroup group = this;
+            while (group != null) {
+                builder.add(group.getSummaryInfo());
+                group = group.parent.orElse(null);
+            }
+
+            return builder.build();
         }
     }
 
