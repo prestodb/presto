@@ -68,7 +68,7 @@ public class TestQueryStateInfo
         assertEquals(query.getQueryState(), QUEUED);
         assertEquals(query.getProgress(), Optional.empty());
 
-        List<ResourceGroupInfo> chainInfo = query.getResourceGroupChain().get();
+        List<ResourceGroupInfo> chainInfo = query.getPathToRoot().get();
 
         assertEquals(chainInfo.size(), 3);
 

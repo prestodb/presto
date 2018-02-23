@@ -41,7 +41,7 @@ public class QueryStateInfo
     private final Optional<String> clientInfo;
     private final Optional<String> catalog;
     private final Optional<String> schema;
-    private final Optional<List<ResourceGroupInfo>> resourceGroupChain;
+    private final Optional<List<ResourceGroupInfo>> pathToRoot;
     private final Optional<QueryProgressStats> progress;
 
     @JsonCreator
@@ -56,7 +56,7 @@ public class QueryStateInfo
             @JsonProperty("clientInfo") Optional<String> clientInfo,
             @JsonProperty("catalog") Optional<String> catalog,
             @JsonProperty("schema") Optional<String> schema,
-            @JsonProperty("resourceGroupChainInfo") Optional<List<ResourceGroupInfo>> resourceGroupChain,
+            @JsonProperty("pathToRoot") Optional<List<ResourceGroupInfo>> pathToRoot,
             @JsonProperty("progress") Optional<QueryProgressStats> progress)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
@@ -69,8 +69,8 @@ public class QueryStateInfo
         this.clientInfo = requireNonNull(clientInfo, "clientInfo is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
-        requireNonNull(resourceGroupChain, "resourceGroupChain is null");
-        this.resourceGroupChain = resourceGroupChain.map(ImmutableList::copyOf);
+        requireNonNull(pathToRoot, "pathToRoot is null");
+        this.pathToRoot = pathToRoot.map(ImmutableList::copyOf);
         this.progress = requireNonNull(progress, "progress is null");
     }
 
@@ -157,9 +157,16 @@ public class QueryStateInfo
     }
 
     @JsonProperty
+    public Optional<List<ResourceGroupInfo>> getPathToRoot()
+    {
+        return pathToRoot;
+    }
+
+    @JsonProperty
+    @Deprecated
     public Optional<List<ResourceGroupInfo>> getResourceGroupChain()
     {
-        return resourceGroupChain;
+        return pathToRoot;
     }
 
     @JsonProperty
