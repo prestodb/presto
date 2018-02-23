@@ -93,11 +93,11 @@ import static com.facebook.presto.tests.StructuralTestUtil.mapType;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.transform;
-import static io.airlift.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.IntStream.range;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
@@ -5719,8 +5719,9 @@ public abstract class AbstractTestQueries
     @Test
     public void testShowTablesLike()
     {
-        MaterializedResult result = computeActual("SHOW TABLES LIKE 'or%'");
-        assertEquals(result.getOnlyColumnAsSet(), ImmutableSet.of(ORDERS.getTableName()));
+        assertThat(computeActual("SHOW TABLES LIKE 'or%'").getOnlyColumnAsSet())
+                .contains("orders")
+                .allMatch(tableName -> ((String) tableName).startsWith("or"));
     }
 
     @Test
