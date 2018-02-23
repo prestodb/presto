@@ -49,6 +49,7 @@ import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
+import static java.math.RoundingMode.UNNECESSARY;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.joda.time.DateTimeZone.UTC;
@@ -97,9 +98,19 @@ public final class StandardReadMappings
     public static ReadMapping decimalReadMapping(DecimalType decimalType)
     {
         if (decimalType.isShort()) {
-            return longReadMapping(decimalType, (resultSet, columnIndex) -> resultSet.getBigDecimal(columnIndex).unscaledValue().longValueExact());
+            return longReadMapping(decimalType, (resultSet, columnIndex) -> {
+                return resultSet.getBigDecimal(columnIndex)
+                        // JDBC driver can return BigDecimal with lower scale than column's scale when there are trailing zeroes
+                        .setScale(decimalType.getScale(), UNNECESSARY)
+                        .unscaledValue()
+                        .longValueExact();
+            });
         }
-        return sliceReadMapping(decimalType, (resultSet, columnIndex) -> encodeScaledValue(resultSet.getBigDecimal(columnIndex)));
+        return sliceReadMapping(decimalType, (resultSet, columnIndex) -> {
+            return encodeScaledValue(resultSet.getBigDecimal(columnIndex)
+                    // JDBC driver can return BigDecimal with lower scale than column's scale when there are trailing zeroes
+                    .setScale(decimalType.getScale(), UNNECESSARY));
+        });
     }
 
     public static ReadMapping charReadMapping(CharType charType)
