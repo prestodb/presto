@@ -24,9 +24,11 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupState;
 import com.facebook.presto.spi.resourceGroups.SchedulingPolicy;
 import com.google.common.collect.ImmutableList;
+import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
@@ -134,6 +136,10 @@ public class InternalResourceGroup
     private final Set<QueryExecution> runningQueries = new HashSet<>();
     @GuardedBy("root")
     private long cpuUsageMillis;
+    @GuardedBy("root")
+    private long lastStartMillis;
+    @GuardedBy("root")
+    private CounterStat timeBetweenStartsSec = new CounterStat();
 
     protected InternalResourceGroup(Optional<InternalResourceGroup> parent, String name, BiConsumer<InternalResourceGroup, Boolean> jmxExportListener, Executor executor)
     {
@@ -437,6 +443,13 @@ public class InternalResourceGroup
         }
     }
 
+    @Managed
+    @Nested
+    public CounterStat getTimeBetweenStartsSec()
+    {
+        return timeBetweenStartsSec;
+    }
+
     @Override
     public int getSchedulingWeight()
     {
@@ -650,6 +663,7 @@ public class InternalResourceGroup
             }
             else {
                 parent.get().eligibleSubGroups.remove(this);
+                lastStartMillis = 0;
             }
             parent.get().updateEligibility();
         }
@@ -784,6 +798,13 @@ public class InternalResourceGroup
             }
             boolean started = subGroup.internalStartNext();
             checkState(started, "Eligible sub group had no queries to run");
+
+            long currentTime = System.currentTimeMillis();
+            if (lastStartMillis != 0) {
+                timeBetweenStartsSec.update(Math.max(0, (currentTime - lastStartMillis) / 1000));
+            }
+            lastStartMillis = currentTime;
+
             descendantQueuedQueries--;
             // Don't call updateEligibility here, as we're in a recursive call, and don't want to repeatedly update our ancestors.
             if (subGroup.isEligibleToStartNext()) {
