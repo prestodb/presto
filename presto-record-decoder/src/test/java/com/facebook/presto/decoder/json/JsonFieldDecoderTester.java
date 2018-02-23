@@ -35,24 +35,24 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-public class TemporalFieldDecoderTester
+public class JsonFieldDecoderTester
 {
     private static final JsonRowDecoderFactory DECODER_FACTORY = new JsonRowDecoderFactory(new ObjectMapperProvider().get());
 
     private String dataFormat;
     private Optional<String> formatHint;
 
-    public TemporalFieldDecoderTester(String dataFormat)
+    public JsonFieldDecoderTester(String dataFormat)
     {
         this(dataFormat, Optional.empty());
     }
 
-    public TemporalFieldDecoderTester(String dataFormat, String formatHint)
+    public JsonFieldDecoderTester(String dataFormat, String formatHint)
     {
         this(dataFormat, Optional.of(formatHint));
     }
 
-    private TemporalFieldDecoderTester(String dataFormat, Optional<String> formatHint)
+    private JsonFieldDecoderTester(String dataFormat, Optional<String> formatHint)
     {
         this.dataFormat = requireNonNull(dataFormat, "dataFormat is null");
         this.formatHint = requireNonNull(formatHint, "formatHint is null");
