@@ -83,15 +83,8 @@ public class InternalResourceGroup
     private final BiConsumer<InternalResourceGroup, Boolean> jmxExportListener;
     private final Executor executor;
 
-    @GuardedBy("root")
-    private final Map<String, InternalResourceGroup> subGroups = new HashMap<>();
-    // Sub groups with queued queries, that have capacity to run them
-    // That is, they must return true when internalStartNext() is called on them
-    @GuardedBy("root")
-    private Queue<InternalResourceGroup> eligibleSubGroups = new FifoQueue<>();
-    // Sub groups whose memory usage may be out of date. Most likely because they have a running query.
-    @GuardedBy("root")
-    private final Set<InternalResourceGroup> dirtySubGroups = new HashSet<>();
+    // Configuration
+    // =============
     @GuardedBy("root")
     private long softMemoryLimitBytes;
     @GuardedBy("root")
@@ -105,8 +98,6 @@ public class InternalResourceGroup
     @GuardedBy("root")
     private long hardCpuLimitMillis = Long.MAX_VALUE;
     @GuardedBy("root")
-    private long cpuUsageMillis;
-    @GuardedBy("root")
     private long cpuQuotaGenerationMillisPerSecond = Long.MAX_VALUE;
     @GuardedBy("root")
     private int descendantRunningQueries;
@@ -118,10 +109,6 @@ public class InternalResourceGroup
     @GuardedBy("root")
     private int schedulingWeight = DEFAULT_WEIGHT;
     @GuardedBy("root")
-    private UpdateablePriorityQueue<QueryExecution> queuedQueries = new FifoQueue<>();
-    @GuardedBy("root")
-    private final Set<QueryExecution> runningQueries = new HashSet<>();
-    @GuardedBy("root")
     private SchedulingPolicy schedulingPolicy = FAIR;
     @GuardedBy("root")
     private boolean jmxExport;
@@ -129,6 +116,24 @@ public class InternalResourceGroup
     private Duration queuedTimeLimit = new Duration(Long.MAX_VALUE, MILLISECONDS);
     @GuardedBy("root")
     private Duration runningTimeLimit = new Duration(Long.MAX_VALUE, MILLISECONDS);
+
+    // Live data structures
+    // ====================
+    @GuardedBy("root")
+    private final Map<String, InternalResourceGroup> subGroups = new HashMap<>();
+    // Sub groups with queued queries, that have capacity to run them
+    // That is, they must return true when internalStartNext() is called on them
+    @GuardedBy("root")
+    private Queue<InternalResourceGroup> eligibleSubGroups = new FifoQueue<>();
+    // Sub groups whose memory usage may be out of date. Most likely because they have a running query.
+    @GuardedBy("root")
+    private final Set<InternalResourceGroup> dirtySubGroups = new HashSet<>();
+    @GuardedBy("root")
+    private UpdateablePriorityQueue<QueryExecution> queuedQueries = new FifoQueue<>();
+    @GuardedBy("root")
+    private final Set<QueryExecution> runningQueries = new HashSet<>();
+    @GuardedBy("root")
+    private long cpuUsageMillis;
 
     protected InternalResourceGroup(Optional<InternalResourceGroup> parent, String name, BiConsumer<InternalResourceGroup, Boolean> jmxExportListener, Executor executor)
     {
