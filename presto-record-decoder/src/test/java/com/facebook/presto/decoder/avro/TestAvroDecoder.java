@@ -152,7 +152,7 @@ public class TestAvroDecoder
             dataFileWriter.close();
         }
         catch (IOException e) {
-            throw new RuntimeException("Failed to convert to AVRO.", e);
+            throw new RuntimeException("Failed to convert to Avro.", e);
         }
         return record;
     }
@@ -286,7 +286,7 @@ public class TestAvroDecoder
                 .isInstanceOf(PrestoException.class)
                 .hasCauseExactlyInstanceOf(AvroTypeException.class)
                 .hasStackTraceContaining("Found int, expecting string")
-                .hasMessageMatching("Decoding AVRO record failed.");
+                .hasMessageMatching("Decoding Avro record failed.");
     }
 
     @Test

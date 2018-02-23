@@ -70,7 +70,7 @@ public class AvroRowDecoder
             }
         }
         catch (Exception e) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Decoding AVRO record failed.", e);
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Decoding Avro record failed.", e);
         }
         finally {
             closeQuietly(dataFileReader);
