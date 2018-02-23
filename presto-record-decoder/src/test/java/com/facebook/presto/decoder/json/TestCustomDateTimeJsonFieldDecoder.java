@@ -31,11 +31,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestCustomDateTimeJsonFieldDecoder
 {
-    private final TemporalFieldDecoderTester timestampTester = new TemporalFieldDecoderTester("custom-date-time", "MM/yyyy/dd H:m:s");
-    private final TemporalFieldDecoderTester timestampWithTimeZoneTester = new TemporalFieldDecoderTester("custom-date-time", "MM/yyyy/dd H:m:s Z");
-    private final TemporalFieldDecoderTester timeTester = new TemporalFieldDecoderTester("custom-date-time", "mm:HH:ss");
-    private final TemporalFieldDecoderTester dateTester = new TemporalFieldDecoderTester("custom-date-time", "MM/yyyy/dd");
-    private final TemporalFieldDecoderTester timeJustHourTester = new TemporalFieldDecoderTester("custom-date-time", "HH");
+    private final JsonFieldDecoderTester timestampTester = new JsonFieldDecoderTester("custom-date-time", "MM/yyyy/dd H:m:s");
+    private final JsonFieldDecoderTester timestampWithTimeZoneTester = new JsonFieldDecoderTester("custom-date-time", "MM/yyyy/dd H:m:s Z");
+    private final JsonFieldDecoderTester timeTester = new JsonFieldDecoderTester("custom-date-time", "mm:HH:ss");
+    private final JsonFieldDecoderTester dateTester = new JsonFieldDecoderTester("custom-date-time", "MM/yyyy/dd");
+    private final JsonFieldDecoderTester timeJustHourTester = new JsonFieldDecoderTester("custom-date-time", "HH");
 
     @Test
     public void testDecode()
