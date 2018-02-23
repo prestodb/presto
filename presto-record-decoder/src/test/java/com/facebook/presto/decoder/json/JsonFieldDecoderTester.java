@@ -39,20 +39,25 @@ public class JsonFieldDecoderTester
 {
     private static final JsonRowDecoderFactory DECODER_FACTORY = new JsonRowDecoderFactory(new ObjectMapperProvider().get());
 
-    private String dataFormat;
+    private Optional<String> dataFormat;
     private Optional<String> formatHint;
+
+    public JsonFieldDecoderTester()
+    {
+        this(Optional.empty(), Optional.empty());
+    }
 
     public JsonFieldDecoderTester(String dataFormat)
     {
-        this(dataFormat, Optional.empty());
+        this(Optional.of(dataFormat), Optional.empty());
     }
 
     public JsonFieldDecoderTester(String dataFormat, String formatHint)
     {
-        this(dataFormat, Optional.of(formatHint));
+        this(Optional.of(dataFormat), Optional.of(formatHint));
     }
 
-    private JsonFieldDecoderTester(String dataFormat, Optional<String> formatHint)
+    private JsonFieldDecoderTester(Optional<String> dataFormat, Optional<String> formatHint)
     {
         this.dataFormat = requireNonNull(dataFormat, "dataFormat is null");
         this.formatHint = requireNonNull(formatHint, "formatHint is null");
@@ -94,7 +99,7 @@ public class JsonFieldDecoderTester
                 "some_column",
                 type,
                 jsonField,
-                dataFormat,
+                dataFormat.orElse(null),
                 formatHint.orElse(null),
                 false,
                 false,
