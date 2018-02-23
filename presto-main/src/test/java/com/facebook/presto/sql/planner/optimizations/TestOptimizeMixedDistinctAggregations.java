@@ -41,10 +41,10 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableS
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
 
-public class TestMixedDistinctAggregationOptimizer
+public class TestOptimizeMixedDistinctAggregations
         extends BasePlanTest
 {
-    public TestMixedDistinctAggregationOptimizer()
+    public TestOptimizeMixedDistinctAggregations()
     {
         super(ImmutableMap.of(SystemSessionProperties.OPTIMIZE_DISTINCT_AGGREGATIONS, "true"));
     }
@@ -108,7 +108,7 @@ public class TestMixedDistinctAggregationOptimizer
                                                 anyTree(values(ImmutableMap.of())))))));
     }
 
-    public void assertUnitPlan(String sql, PlanMatchPattern pattern)
+    private void assertUnitPlan(String sql, PlanMatchPattern pattern)
     {
         List<PlanOptimizer> optimizers = ImmutableList.of(
                 new UnaliasSymbolReferences(),
