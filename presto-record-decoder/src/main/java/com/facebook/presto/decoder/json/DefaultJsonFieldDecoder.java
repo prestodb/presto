@@ -15,11 +15,13 @@ package com.facebook.presto.decoder.json;
 
 import com.facebook.presto.decoder.DecoderColumnHandle;
 import com.facebook.presto.decoder.FieldValueProvider;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
+import static com.facebook.presto.decoder.DecoderErrorCode.DECODER_CONVERSION_NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -29,6 +31,9 @@ import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.facebook.presto.spi.type.Varchars.truncateToLength;
 import static io.airlift.slice.Slices.utf8Slice;
+import static java.lang.Double.parseDouble;
+import static java.lang.Long.parseLong;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -38,12 +43,36 @@ public class DefaultJsonFieldDecoder
         implements JsonFieldDecoder
 {
     private final DecoderColumnHandle columnHandle;
+    private final long minValue;
+    private final long maxValue;
 
     public DefaultJsonFieldDecoder(DecoderColumnHandle columnHandle)
     {
         this.columnHandle = requireNonNull(columnHandle, "columnHandle is null");
         if (!isSupportedType(columnHandle.getType())) {
             JsonRowDecoderFactory.throwUnsupportedColumnType(columnHandle);
+        }
+
+        if (columnHandle.getType() == TINYINT) {
+            minValue = Byte.MIN_VALUE;
+            maxValue = Byte.MAX_VALUE;
+        }
+        else if (columnHandle.getType() == SMALLINT) {
+            minValue = Short.MIN_VALUE;
+            maxValue = Short.MAX_VALUE;
+        }
+        else if (columnHandle.getType() == INTEGER) {
+            minValue = Integer.MIN_VALUE;
+            maxValue = Integer.MAX_VALUE;
+        }
+        else if (columnHandle.getType() == BIGINT) {
+            minValue = Long.MIN_VALUE;
+            maxValue = Long.MAX_VALUE;
+        }
+        else {
+            // those values will not be used if column type is not one of mentioned above
+            minValue = Long.MAX_VALUE;
+            maxValue = Long.MIN_VALUE;
         }
     }
 
@@ -68,7 +97,7 @@ public class DefaultJsonFieldDecoder
     @Override
     public FieldValueProvider decode(JsonNode value)
     {
-        return new JsonValueProvider(value, columnHandle);
+        return new JsonValueProvider(value, columnHandle, minValue, maxValue);
     }
 
     public static class JsonValueProvider
@@ -76,11 +105,15 @@ public class DefaultJsonFieldDecoder
     {
         private final JsonNode value;
         private final DecoderColumnHandle columnHandle;
+        private final long minValue;
+        private final long maxValue;
 
-        public JsonValueProvider(JsonNode value, DecoderColumnHandle columnHandle)
+        public JsonValueProvider(JsonNode value, DecoderColumnHandle columnHandle, long minValue, long maxValue)
         {
             this.value = value;
             this.columnHandle = columnHandle;
+            this.minValue = minValue;
+            this.maxValue = maxValue;
         }
 
         @Override
@@ -92,19 +125,57 @@ public class DefaultJsonFieldDecoder
         @Override
         public boolean getBoolean()
         {
-            return value.asBoolean();
+            if (value.isValueNode()) {
+                return value.asBoolean();
+            }
+            throw new PrestoException(
+                    DECODER_CONVERSION_NOT_SUPPORTED,
+                    format("could not parse non-value node as '%s' for column '%s'", columnHandle.getType(), columnHandle.getName()));
         }
 
         @Override
         public long getLong()
         {
-            return value.asLong();
+            try {
+                long longValue;
+                if (value.isIntegralNumber() && !value.isBigInteger()) {
+                    longValue = value.longValue();
+                    if (longValue >= minValue && longValue <= maxValue) {
+                        return longValue;
+                    }
+                }
+                else if (value.isValueNode()) {
+                    longValue = parseLong(value.asText());
+                    if (longValue >= minValue && longValue <= maxValue) {
+                        return longValue;
+                    }
+                }
+            }
+            catch (NumberFormatException ignore) {
+                // ignore
+            }
+            throw new PrestoException(
+                    DECODER_CONVERSION_NOT_SUPPORTED,
+                    format("could not parse value '%s' as '%s' for column '%s'", value.asText(), columnHandle.getType(), columnHandle.getName()));
         }
 
         @Override
         public double getDouble()
         {
-            return value.asDouble();
+            try {
+                if (value.isNumber()) {
+                    return value.doubleValue();
+                }
+                if (value.isValueNode()) {
+                    return parseDouble(value.asText());
+                }
+            }
+            catch (NumberFormatException ignore) {
+                // ignore
+            }
+            throw new PrestoException(
+                    DECODER_CONVERSION_NOT_SUPPORTED,
+                    format("could not parse value '%s' as '%s' for column '%s'", value.asText(), columnHandle.getType(), columnHandle.getName()));
         }
 
         @Override
