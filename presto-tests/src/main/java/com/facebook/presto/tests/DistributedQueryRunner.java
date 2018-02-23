@@ -119,7 +119,6 @@ public class DistributedQueryRunner
             }
 
             Map<String, String> extraCoordinatorProperties = new HashMap<>();
-            extraCoordinatorProperties.put("optimizer.optimize-mixed-distinct-aggregations", "true");
             extraCoordinatorProperties.put("experimental.iterative-optimizer-enabled", "true");
             extraCoordinatorProperties.putAll(extraProperties);
             extraCoordinatorProperties.putAll(coordinatorProperties);
@@ -185,8 +184,7 @@ public class DistributedQueryRunner
                 .put("exchange.http-client.idle-timeout", "1h")
                 .put("task.max-index-memory", "16kB") // causes index joins to fault load
                 .put("datasources", "system")
-                .put("distributed-index-joins-enabled", "true")
-                .put("optimizer.optimize-mixed-distinct-aggregations", "true");
+                .put("distributed-index-joins-enabled", "true");
         if (coordinator) {
             propertiesBuilder.put("node-scheduler.include-coordinator", "true");
             propertiesBuilder.put("distributed-joins-enabled", "true");
