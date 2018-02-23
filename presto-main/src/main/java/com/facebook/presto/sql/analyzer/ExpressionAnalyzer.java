@@ -1129,7 +1129,7 @@ public class ExpressionAnalyzer
             int numCapturedValues = node.getValues().size();
             verify(argumentTypes.size() == functionInputTypes.size());
             for (int i = 0; i < numCapturedValues; i++) {
-                verify(functionInputTypes.get(i) == argumentTypes.get(i));
+                verify(functionInputTypes.get(i).equals(argumentTypes.get(i)));
             }
 
             FunctionType result = new FunctionType(argumentTypes.subList(numCapturedValues, argumentTypes.size()), functionType.getReturnType());
