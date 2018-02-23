@@ -53,10 +53,20 @@ public final class ParquetTypeUtils
         return (new ColumnIOFactory()).getColumnIO(requestedSchema, fileSchema, true).getLeaves();
     }
 
+    public static Optional<RichColumnDescriptor> getDescriptorExactPath(MessageType fileSchema, MessageType requestedSchema, List<String> path)
+    {
+        return findDescriptor(fileSchema, requestedSchema, path, true);
+    }
+
     public static Optional<RichColumnDescriptor> getDescriptor(MessageType fileSchema, MessageType requestedSchema, List<String> path)
     {
+        return findDescriptor(fileSchema, requestedSchema, path, false);
+    }
+
+    public static Optional<RichColumnDescriptor> findDescriptor(MessageType fileSchema, MessageType requestedSchema, List<String> path, boolean exactMatch)
+    {
         checkArgument(path.size() >= 1, "Parquet nested path should have at least one component");
-        int index = getPathIndex(fileSchema, requestedSchema, path);
+        int index = getPathIndex(fileSchema, requestedSchema, path, exactMatch);
         return getDescriptor(fileSchema, requestedSchema, index);
     }
 
@@ -70,14 +80,14 @@ public final class ParquetTypeUtils
         return Optional.of(new RichColumnDescriptor(descriptor.getPath(), columnIO.getType().asPrimitiveType(), descriptor.getMaxRepetitionLevel(), descriptor.getMaxDefinitionLevel()));
     }
 
-    private static int getPathIndex(MessageType fileSchema, MessageType requestedSchema, List<String> path)
+    private static int getPathIndex(MessageType fileSchema, MessageType requestedSchema, List<String> path, boolean exactMatch)
     {
         int maxLevel = path.size();
         List<PrimitiveColumnIO> columns = getColumns(fileSchema, requestedSchema);
         int index = -1;
         for (int columnIndex = 0; columnIndex < columns.size(); columnIndex++) {
             ColumnIO[] fields = columns.get(columnIndex).getPath();
-            if (fields.length <= maxLevel) {
+            if ((exactMatch && fields.length != maxLevel + 1) || (!exactMatch && fields.length <= maxLevel)) {
                 continue;
             }
             if (fields[maxLevel].getName().equalsIgnoreCase(path.get(maxLevel - 1))) {
