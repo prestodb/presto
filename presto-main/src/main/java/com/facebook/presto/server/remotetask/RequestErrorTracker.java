@@ -88,6 +88,7 @@ class RequestErrorTracker
         if (backoff.getFailureCount() == 0) {
             requestSucceeded();
         }
+        backoff.startRequest();
     }
 
     public void requestSucceeded()
