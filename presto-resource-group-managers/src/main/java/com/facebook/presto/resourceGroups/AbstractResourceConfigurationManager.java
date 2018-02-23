@@ -58,7 +58,8 @@ public abstract class AbstractResourceConfigurationManager
         Queue<ResourceGroupSpec> groups = new LinkedList<>(managerSpec.getRootGroups());
         while (!groups.isEmpty()) {
             ResourceGroupSpec group = groups.poll();
-            groups.addAll(group.getSubGroups());
+            List<ResourceGroupSpec> subGroups = group.getSubGroups();
+            groups.addAll(subGroups);
             if (group.getSoftCpuLimit().isPresent() || group.getHardCpuLimit().isPresent()) {
                 checkArgument(managerSpec.getCpuQuotaPeriod().isPresent(), "cpuQuotaPeriod must be specified to use cpu limits on group: %s", group.getName());
             }
@@ -69,16 +70,16 @@ public abstract class AbstractResourceConfigurationManager
             if (group.getSchedulingPolicy().isPresent()) {
                 switch (group.getSchedulingPolicy().get()) {
                     case WEIGHTED:
-                        for (ResourceGroupSpec subGroup : group.getSubGroups()) {
-                            checkArgument(subGroup.getSchedulingWeight().isPresent(), "Must specify scheduling weight for each sub group when using \"weighted\" scheduling policy");
-                        }
-                        break;
                     case WEIGHTED_FAIR:
+                        checkArgument(
+                                subGroups.stream().allMatch(t -> t.getSchedulingWeight().isPresent()) || subGroups.stream().noneMatch(t -> t.getSchedulingWeight().isPresent()),
+                                format("Must specify scheduling weight for all sub-groups of '%s' or none of them", group.getName()));
                         break;
                     case QUERY_PRIORITY:
                     case FAIR:
-                        for (ResourceGroupSpec subGroup : group.getSubGroups()) {
-                            checkArgument(!subGroup.getSchedulingWeight().isPresent(), "Must use \"weighted\" or \"weighted_fair\" scheduling policy when using scheduling weight");
+                        for (ResourceGroupSpec subGroup : subGroups) {
+                            checkArgument(!subGroup.getSchedulingWeight().isPresent(),
+                                    String.format("Must use 'weighted' or 'weighted_fair' scheduling policy if specifying scheduling weight for '%s'", group.getName()));
                         }
                         break;
                     default:
