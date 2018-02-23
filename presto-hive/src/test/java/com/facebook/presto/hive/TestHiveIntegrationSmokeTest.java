@@ -2788,6 +2788,63 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate(format("DROP TABLE %s", tableName));
     }
 
+    @Test
+    public void testCreateAvroTableWithSchemaUrl()
+            throws Exception
+    {
+        File tempDir = createTempDir();
+        File schemaFile = new File(tempDir, "avro_single_column.avsc");
+        Files.write("{\n" +
+                "  \"namespace\": \"com.facebook.test\",\n" +
+                "  \"name\": \"single_column\",\n" +
+                "  \"type\": \"record\",\n" +
+                "  \"fields\": [\n" +
+                "    { \"name\":\"string_col\", \"type\":\"string\" }\n" +
+                "]}", schemaFile, UTF_8);
+        @Language("SQL") String createTableSqlFormat = "" +
+                "CREATE TABLE %s.%s.test_create_avro (\n" +
+                "   dummy_col varchar,\n" +
+                "   another_dummy_col varchar\n" +
+                ")\n" +
+                "WITH (\n" +
+                "   avro_schema_url = '%s',\n" +
+                "   format = 'AVRO'\n" +
+                ")";
+        String createTableSql = format(createTableSqlFormat,
+                getSession().getCatalog().get(),
+                getSession().getSchema().get(),
+                schemaFile.getAbsolutePath());
+        String expectedSql = format(createTableSqlFormat,
+                getSession().getCatalog().get(),
+                getSession().getSchema().get(),
+                schemaFile.toURI().toString());
+
+        assertUpdate(createTableSql);
+        MaterializedResult actual = computeActual("SHOW CREATE TABLE test_create_avro");
+        assertEquals(actual.getOnlyValue(), expectedSql);
+
+        assertUpdate("DROP TABLE test_create_avro");
+        deleteRecursively(tempDir.toPath(), ALLOW_INSECURE);
+    }
+
+    @Test
+    public void testCreateOrcTableWithSchemaUrl()
+            throws Exception
+    {
+        @Language("SQL") String createTableSql = format("" +
+                        "CREATE TABLE %s.%s.test_orc (\n" +
+                        "   dummy_col varchar\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   avro_schema_url = 'dummy.avsc',\n" +
+                        "   format = 'ORC'\n" +
+                        ")",
+                getSession().getCatalog().get(),
+                getSession().getSchema().get());
+
+        assertQueryFails(createTableSql, "Cannot specify avro_schema_url table property for storage format: ORC");
+    }
+
     private Session getParallelWriteSession()
     {
         return Session.builder(getSession())
