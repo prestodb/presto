@@ -21,6 +21,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.FunctionReference;
 import com.facebook.presto.sql.tree.GroupingOperation;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.InPredicate;
@@ -103,6 +104,7 @@ public class Analysis
     private final Set<NodeRef<Expression>> typeOnlyCoercions = new LinkedHashSet<>();
     private final Map<NodeRef<Relation>, List<Type>> relationCoercions = new LinkedHashMap<>();
     private final Map<NodeRef<FunctionCall>, Signature> functionSignature = new LinkedHashMap<>();
+    private final Map<NodeRef<FunctionReference>, Signature> functionReferenceSignature = new LinkedHashMap<>();
     private final Map<NodeRef<Identifier>, LambdaArgumentDeclaration> lambdaArgumentReferences = new LinkedHashMap<>();
 
     private final Map<Field, ColumnHandle> columns = new LinkedHashMap<>();
@@ -429,6 +431,11 @@ public class Analysis
     public void addFunctionSignatures(Map<NodeRef<FunctionCall>, Signature> infos)
     {
         functionSignature.putAll(infos);
+    }
+
+    public void addFunctionReferenceSignatures(Map<NodeRef<FunctionReference>, Signature> infos)
+    {
+        functionReferenceSignature.putAll(infos);
     }
 
     public Set<NodeRef<Expression>> getColumnReferences()

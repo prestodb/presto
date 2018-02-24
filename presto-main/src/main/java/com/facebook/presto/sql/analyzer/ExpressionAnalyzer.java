@@ -54,6 +54,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Extract;
 import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.FunctionReference;
 import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.GroupingOperation;
 import com.facebook.presto.sql.tree.Identifier;
@@ -166,6 +167,7 @@ public class ExpressionAnalyzer
     private final boolean isDescribe;
 
     private final Map<NodeRef<FunctionCall>, Signature> resolvedFunctions = new LinkedHashMap<>();
+    private final Map<NodeRef<FunctionReference>, Signature> resolvedFunctionReferences = new LinkedHashMap<>();
     private final Set<NodeRef<SubqueryExpression>> scalarSubqueries = new LinkedHashSet<>();
     private final Set<NodeRef<ExistsPredicate>> existsSubqueries = new LinkedHashSet<>();
     private final Map<NodeRef<Expression>, Type> expressionCoercions = new LinkedHashMap<>();
@@ -202,6 +204,11 @@ public class ExpressionAnalyzer
     public Map<NodeRef<FunctionCall>, Signature> getResolvedFunctions()
     {
         return unmodifiableMap(resolvedFunctions);
+    }
+
+    public Map<NodeRef<FunctionReference>, Signature> getResolvedFunctionReferences()
+    {
+        return unmodifiableMap(resolvedFunctionReferences);
     }
 
     public Map<NodeRef<Expression>, Type> getExpressionTypes()
@@ -788,34 +795,8 @@ public class ExpressionAnalyzer
                 process(expression, context);
             }
 
-            ImmutableList.Builder<TypeSignatureProvider> argumentTypesBuilder = ImmutableList.builder();
-            for (Expression expression : node.getArguments()) {
-                if (expression instanceof LambdaExpression || expression instanceof BindExpression) {
-                    argumentTypesBuilder.add(new TypeSignatureProvider(
-                            types -> {
-                                ExpressionAnalyzer innerExpressionAnalyzer = new ExpressionAnalyzer(
-                                        functionRegistry,
-                                        typeManager,
-                                        statementAnalyzerFactory,
-                                        session,
-                                        symbolTypes,
-                                        parameters,
-                                        isDescribe);
-                                if (context.getContext().isInLambda()) {
-                                    for (LambdaArgumentDeclaration argument : context.getContext().getFieldToLambdaArgumentDeclaration().values()) {
-                                        innerExpressionAnalyzer.setExpressionType(argument, getExpressionType(argument));
-                                    }
-                                }
-                                return innerExpressionAnalyzer.analyze(expression, baseScope, context.getContext().expectingLambda(types)).getTypeSignature();
-                            }));
-                }
-                else {
-                    argumentTypesBuilder.add(new TypeSignatureProvider(process(expression, context).getTypeSignature()));
-                }
-            }
-
-            ImmutableList<TypeSignatureProvider> argumentTypes = argumentTypesBuilder.build();
-            Signature function = resolveFunction(node, argumentTypes, functionRegistry);
+            ImmutableList<TypeSignatureProvider> argumentTypes = getTypeSignatureProviders(node.getArguments(), context);
+            Signature function = resolveFunction(node, node.getName(), argumentTypes, functionRegistry);
 
             if (node.getOrderBy().isPresent()) {
                 for (SortItem sortItem : node.getOrderBy().get().getSortItems()) {
@@ -846,6 +827,62 @@ public class ExpressionAnalyzer
 
             Type type = typeManager.getType(function.getReturnType());
             return setExpressionType(node, type);
+        }
+
+        @Override
+        protected Type visitFunctionReference(FunctionReference node, StackableAstVisitorContext<Context> context)
+        {
+            ImmutableList<TypeSignatureProvider> argumentTypes = getTypeSignatureProviders(node.getArguments(), context);
+            Signature function = resolveFunction(node, node.getName(), argumentTypes, functionRegistry);
+
+            for (int i = 0; i < node.getArguments().size(); i++) {
+                Expression expression = node.getArguments().get(i);
+                Type expectedType = typeManager.getType(function.getArgumentTypes().get(i));
+                requireNonNull(expectedType, format("Type %s not found", function.getArgumentTypes().get(i)));
+                if (argumentTypes.get(i).hasDependency()) {
+                    FunctionType expectedFunctionType = (FunctionType) expectedType;
+                    process(expression, new StackableAstVisitorContext<>(context.getContext().expectingLambda(expectedFunctionType.getArgumentTypes())));
+                }
+                else {
+                    Type actualType = typeManager.getType(argumentTypes.get(i).getTypeSignature());
+                    coerceType(expression, actualType, expectedType, format("Function %s argument %d", function, i));
+                }
+            }
+            resolvedFunctionReferences.put(NodeRef.of(node), function);
+
+            Type type = typeManager.getType(function.getReturnType());
+            return setExpressionType(node, type);
+        }
+
+        private ImmutableList<TypeSignatureProvider> getTypeSignatureProviders(List<Expression> arguments, StackableAstVisitorContext<Context> context)
+        {
+            ImmutableList.Builder<TypeSignatureProvider> argumentTypesBuilder = ImmutableList.builder();
+            for (Expression expression : arguments) {
+                if (expression instanceof LambdaExpression || expression instanceof BindExpression) {
+                    argumentTypesBuilder.add(new TypeSignatureProvider(
+                            types -> {
+                                ExpressionAnalyzer innerExpressionAnalyzer = new ExpressionAnalyzer(
+                                        functionRegistry,
+                                        typeManager,
+                                        statementAnalyzerFactory,
+                                        session,
+                                        symbolTypes,
+                                        parameters,
+                                        isDescribe);
+                                if (context.getContext().isInLambda()) {
+                                    for (LambdaArgumentDeclaration argument : context.getContext().getFieldToLambdaArgumentDeclaration().values()) {
+                                        innerExpressionAnalyzer.setExpressionType(argument, getExpressionType(argument));
+                                    }
+                                }
+                                return innerExpressionAnalyzer.analyze(expression, baseScope, context.getContext().expectingLambda(types)).getTypeSignature();
+                            }));
+                }
+                else {
+                    argumentTypesBuilder.add(new TypeSignatureProvider(process(expression, context).getTypeSignature()));
+                }
+            }
+
+            return argumentTypesBuilder.build();
         }
 
         @Override
@@ -1353,10 +1390,10 @@ public class ExpressionAnalyzer
         }
     }
 
-    public static Signature resolveFunction(FunctionCall node, List<TypeSignatureProvider> argumentTypes, FunctionRegistry functionRegistry)
+    public static Signature resolveFunction(Node node, QualifiedName name, List<TypeSignatureProvider> argumentTypes, FunctionRegistry functionRegistry)
     {
         try {
-            return functionRegistry.resolveFunction(node.getName(), argumentTypes);
+            return functionRegistry.resolveFunction(name, argumentTypes);
         }
         catch (PrestoException e) {
             if (e.getErrorCode().getCode() == StandardErrorCode.FUNCTION_NOT_FOUND.toErrorCode().getCode()) {
@@ -1514,10 +1551,12 @@ public class ExpressionAnalyzer
         Map<NodeRef<Expression>, Type> expressionCoercions = analyzer.getExpressionCoercions();
         Set<NodeRef<Expression>> typeOnlyCoercions = analyzer.getTypeOnlyCoercions();
         Map<NodeRef<FunctionCall>, Signature> resolvedFunctions = analyzer.getResolvedFunctions();
+        Map<NodeRef<FunctionReference>, Signature> resolvedFunctionReferences = analyzer.getResolvedFunctionReferences();
 
         analysis.addTypes(expressionTypes);
         analysis.addCoercions(expressionCoercions, typeOnlyCoercions);
         analysis.addFunctionSignatures(resolvedFunctions);
+        analysis.addFunctionReferenceSignatures(resolvedFunctionReferences);
         analysis.addColumnReferences(analyzer.getColumnReferences());
         analysis.addLambdaArgumentReferences(analyzer.getLambdaArgumentReferences());
 

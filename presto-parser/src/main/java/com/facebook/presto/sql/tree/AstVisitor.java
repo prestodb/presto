@@ -701,4 +701,9 @@ public abstract class AstVisitor<R, C>
     {
         return visitExpression(node, context);
     }
+
+    protected R visitFunctionReference(FunctionReference node, C context)
+    {
+        return visitExpression(node, context);
+    }
 }

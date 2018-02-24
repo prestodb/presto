@@ -24,7 +24,7 @@ import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.FunctionReference;
 import com.facebook.presto.sql.tree.Literal;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
@@ -71,7 +71,10 @@ public class SimplifyCountOverConstant
             if (isCountOverConstant(aggregation, child.getAssignments())) {
                 changed = true;
                 aggregations.put(symbol, new AggregationNode.Aggregation(
-                        new FunctionCall(QualifiedName.of("count"), ImmutableList.of()),
+                        new FunctionReference(QualifiedName.of("count"), ImmutableList.of()),
+                        aggregation.getOrderingScheme(),
+                        aggregation.getPredicate(),
+                        aggregation.isDistinct(),
                         new Signature("count", AGGREGATE, parseTypeSignature(StandardTypes.BIGINT)),
                         aggregation.getMask()));
             }

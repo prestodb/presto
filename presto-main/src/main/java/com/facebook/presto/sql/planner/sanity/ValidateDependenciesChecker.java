@@ -120,6 +120,17 @@ public final class ValidateDependenciesChecker
             for (Aggregation aggregation : node.getAggregations().values()) {
                 Set<Symbol> dependencies = SymbolsExtractor.extractUnique(aggregation.getCall());
                 checkDependencies(inputs, dependencies, "Invalid node. Aggregation dependencies (%s) not in source plan output (%s)", dependencies, node.getSource().getOutputSymbols());
+                aggregation.getPredicate().ifPresent(predicate -> {
+                    Set<Symbol> predicateDependencies = SymbolsExtractor.extractUnique(predicate);
+                    checkDependencies(inputs, predicateDependencies, "Invalid node. Aggregation predicate dependencies (%s) not in source plan output (%s)", predicateDependencies, node.getSource().getOutputSymbols());
+                });
+                aggregation.getOrderingScheme().ifPresent(orderingScheme -> {
+                    Set<Symbol> orderingDependencies = ImmutableSet.copyOf(orderingScheme.getOrderBy());
+                    checkDependencies(inputs, orderingDependencies, "Invalid node. Aggregation ordering dependencies (%s) not in source plan output (%s)", orderingDependencies, node.getSource().getOutputSymbols());
+                });
+                aggregation.getMask().ifPresent(mask -> {
+                    checkDependencies(inputs, ImmutableSet.of(mask), "Invalid node. Aggregation mask symbol (%s) not in source plan output (%s)", mask, node.getSource().getOutputSymbols());
+                });
             }
 
             return null;

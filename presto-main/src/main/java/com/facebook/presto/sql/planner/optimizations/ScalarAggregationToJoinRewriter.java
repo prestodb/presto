@@ -32,7 +32,7 @@ import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.FunctionReference;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -172,22 +172,24 @@ public class ScalarAggregationToJoinRewriter
     {
         ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
         for (Map.Entry<Symbol, Aggregation> entry : scalarAggregation.getAggregations().entrySet()) {
-            FunctionCall call = entry.getValue().getCall();
+            Aggregation aggregation = entry.getValue();
+            FunctionReference call = aggregation.getCall();
             Symbol symbol = entry.getKey();
             if (call.getName().equals(COUNT)) {
                 List<TypeSignature> scalarAggregationSourceTypeSignatures = ImmutableList.of(
                         symbolAllocator.getTypes().get(nonNullableAggregationSourceSymbol).getTypeSignature());
                 aggregations.put(symbol, new Aggregation(
-                        new FunctionCall(
-                                COUNT,
-                                ImmutableList.of(nonNullableAggregationSourceSymbol.toSymbolReference())),
+                        new FunctionReference(COUNT, ImmutableList.of(nonNullableAggregationSourceSymbol.toSymbolReference())),
+                        aggregation.getOrderingScheme(),
+                        aggregation.getPredicate(),
+                        aggregation.isDistinct(),
                         functionRegistry.resolveFunction(
                                 COUNT,
                                 fromTypeSignatures(scalarAggregationSourceTypeSignatures)),
-                        entry.getValue().getMask()));
+                        aggregation.getMask()));
             }
             else {
-                aggregations.put(symbol, entry.getValue());
+                aggregations.put(symbol, aggregation);
             }
         }
 

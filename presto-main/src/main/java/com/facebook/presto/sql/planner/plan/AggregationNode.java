@@ -16,8 +16,10 @@ package com.facebook.presto.sql.planner.plan;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
+import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.FunctionReference;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -69,8 +71,7 @@ public class AggregationNode
         this.groupingSets = listOfListsCopy(groupingSets);
 
         boolean hasOrderBy = aggregations.values().stream()
-                .map(Aggregation::getCall)
-                .map(FunctionCall::getOrderBy)
+                .map(Aggregation::getOrderingScheme)
                 .noneMatch(Optional::isPresent);
         checkArgument(hasOrderBy || step == SINGLE, "ORDER BY does not support distributed aggregation");
 
@@ -171,8 +172,14 @@ public class AggregationNode
     public boolean hasOrderings()
     {
         return aggregations.values().stream()
-                .map(Aggregation::getCall)
-                .map(FunctionCall::getOrderBy)
+                .map(Aggregation::getOrderingScheme)
+                .anyMatch(Optional::isPresent);
+    }
+
+    public boolean hasPredicate()
+    {
+        return aggregations.values().stream()
+                .map(Aggregation::getPredicate)
                 .anyMatch(Optional::isPresent);
     }
 
@@ -193,8 +200,7 @@ public class AggregationNode
         return (getAggregations().entrySet().stream()
                 .map(entry -> functionRegistry.getAggregateFunctionImplementation(entry.getValue().getSignature()))
                 .allMatch(InternalAggregationFunction::isDecomposable)) &&
-                getAggregations().entrySet().stream()
-                        .allMatch(entry -> !entry.getValue().getCall().getOrderBy().isPresent());
+                !hasOrderings();
     }
 
     public enum Step
@@ -246,25 +252,52 @@ public class AggregationNode
 
     public static class Aggregation
     {
-        private final FunctionCall call;
+        private final FunctionReference call;
+        private final Optional<OrderingScheme> orderingScheme;
+        private final Optional<Expression> predicate;
+        private final boolean isDistinct;
         private final Signature signature;
         private final Optional<Symbol> mask;
 
         @JsonCreator
         public Aggregation(
-                @JsonProperty("call") FunctionCall call,
+                @JsonProperty("call") FunctionReference call,
+                @JsonProperty("orderingScheme") Optional<OrderingScheme> orderingScheme,
+                @JsonProperty("predicate") Optional<Expression> predicate,
+                @JsonProperty("isDistinct") boolean isDistinct,
                 @JsonProperty("signature") Signature signature,
                 @JsonProperty("mask") Optional<Symbol> mask)
         {
             this.call = call;
+            this.orderingScheme = orderingScheme;
+            this.predicate = predicate;
+            this.isDistinct = isDistinct;
             this.signature = signature;
             this.mask = mask;
         }
 
         @JsonProperty
-        public FunctionCall getCall()
+        public FunctionReference getCall()
         {
             return call;
+        }
+
+        @JsonProperty
+        public Optional<OrderingScheme> getOrderingScheme()
+        {
+            return orderingScheme;
+        }
+
+        @JsonProperty
+        public Optional<Expression> getPredicate()
+        {
+            return predicate;
+        }
+
+        @JsonProperty
+        public boolean isDistinct()
+        {
+            return isDistinct;
         }
 
         @JsonProperty

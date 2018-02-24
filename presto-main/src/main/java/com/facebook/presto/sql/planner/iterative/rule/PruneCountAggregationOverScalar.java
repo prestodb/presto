@@ -20,7 +20,7 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
-import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.FunctionReference;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.google.common.collect.ImmutableList;
 
@@ -56,7 +56,7 @@ public class PruneCountAggregationOverScalar
             AggregationNode.Aggregation aggregation = entry.getValue();
             requireNonNull(aggregation, "aggregation is null");
             Signature signature = aggregation.getSignature();
-            FunctionCall functionCall = aggregation.getCall();
+            FunctionReference functionCall = aggregation.getCall();
             if (!"count".equals(signature.getName()) || !functionCall.getArguments().isEmpty()) {
                 return Result.empty();
             }

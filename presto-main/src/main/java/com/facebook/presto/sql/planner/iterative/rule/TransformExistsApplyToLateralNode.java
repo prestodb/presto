@@ -29,7 +29,7 @@ import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.FunctionReference;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
@@ -59,7 +59,7 @@ public class TransformExistsApplyToLateralNode
     private static final Pattern<ApplyNode> PATTERN = applyNode();
 
     private static final QualifiedName COUNT = QualifiedName.of("count");
-    private static final FunctionCall COUNT_CALL = new FunctionCall(COUNT, ImmutableList.of());
+    private static final FunctionReference COUNT_CALL = new FunctionReference(COUNT, ImmutableList.of());
     private final Signature countSignature;
 
     public TransformExistsApplyToLateralNode(FunctionRegistry functionRegistry)
@@ -98,7 +98,7 @@ public class TransformExistsApplyToLateralNode
                                 new AggregationNode(
                                         context.getIdAllocator().getNextId(),
                                         parent.getSubquery(),
-                                        ImmutableMap.of(count, new Aggregation(COUNT_CALL, countSignature, Optional.empty())),
+                                        ImmutableMap.of(count, new Aggregation(COUNT_CALL, Optional.empty(), Optional.empty(), false, countSignature, Optional.empty())),
                                         ImmutableList.of(ImmutableList.of()),
                                         AggregationNode.Step.SINGLE,
                                         Optional.empty(),

@@ -27,7 +27,6 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FunctionCall;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -155,12 +154,19 @@ public class ExpressionRewriteRuleSet
         {
             boolean anyRewritten = false;
             ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
-            for (Map.Entry<Symbol, Aggregation> aggregation : aggregationNode.getAggregations().entrySet()) {
-                FunctionCall call = (FunctionCall) rewriter.rewrite(aggregation.getValue().getCall(), context);
+            for (Map.Entry<Symbol, Aggregation> entry : aggregationNode.getAggregations().entrySet()) {
+                Aggregation aggregation = entry.getValue();
+                Optional<Expression> rewrittenPredicate = aggregation.getPredicate().map(predicate -> rewriter.rewrite(predicate, context));
                 aggregations.put(
-                        aggregation.getKey(),
-                        new Aggregation(call, aggregation.getValue().getSignature(), aggregation.getValue().getMask()));
-                if (!aggregation.getValue().getCall().equals(call)) {
+                        entry.getKey(),
+                        new Aggregation(
+                                aggregation.getCall(),
+                                aggregation.getOrderingScheme(),
+                                rewrittenPredicate,
+                                aggregation.isDistinct(),
+                                aggregation.getSignature(),
+                                aggregation.getMask()));
+                if (!aggregation.getPredicate().equals(rewrittenPredicate)) {
                     anyRewritten = true;
                 }
             }

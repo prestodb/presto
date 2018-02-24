@@ -64,6 +64,7 @@ import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.FunctionReference;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.testing.TestingMetadata.TestingTableHandle;
 import com.google.common.base.Functions;
@@ -252,9 +253,11 @@ public class PlanBuilder
         private AggregationBuilder addAggregation(Symbol output, Expression expression, List<Type> inputTypes, Optional<Symbol> mask)
         {
             checkArgument(expression instanceof FunctionCall);
-            FunctionCall aggregation = (FunctionCall) expression;
-            Signature signature = metadata.getFunctionRegistry().resolveFunction(aggregation.getName(), TypeSignatureProvider.fromTypes(inputTypes));
-            return addAggregation(output, new Aggregation(aggregation, signature, mask));
+            FunctionCall functionCall = (FunctionCall) expression;
+            checkArgument(!functionCall.getOrderBy().isPresent(), "ORDER BY is not supported");
+            Signature signature = metadata.getFunctionRegistry().resolveFunction(functionCall.getName(), TypeSignatureProvider.fromTypes(inputTypes));
+            FunctionReference functionReference = new FunctionReference(functionCall.getName(), functionCall.getArguments());
+            return addAggregation(output, new Aggregation(functionReference, Optional.empty(), functionCall.getFilter(), functionCall.isDistinct(), signature, mask));
         }
 
         public AggregationBuilder addAggregation(Symbol output, Aggregation aggregation)

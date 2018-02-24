@@ -38,6 +38,7 @@ import com.facebook.presto.sql.tree.Extract;
 import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.FunctionReference;
 import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.GroupingElement;
 import com.facebook.presto.sql.tree.GroupingOperation;
@@ -372,6 +373,23 @@ public final class ExpressionFormatter
         }
 
         @Override
+        protected String visitFunctionReference(FunctionReference node, Void context)
+        {
+            StringBuilder builder = new StringBuilder();
+
+            String arguments = joinExpressions(node.getArguments());
+            if (node.getArguments().isEmpty() && "count".equalsIgnoreCase(node.getName().getSuffix())) {
+                arguments = "*";
+            }
+
+            return builder.append(formatQualifiedName(node.getName()))
+                    .append('(')
+                    .append(arguments)
+                    .append(')')
+                    .toString();
+        }
+
+        @Override
         protected String visitLambdaExpression(LambdaExpression node, Void context)
         {
             StringBuilder builder = new StringBuilder();
@@ -669,7 +687,7 @@ public final class ExpressionFormatter
             return '(' + process(left, null) + ' ' + operator + ' ' + process(right, null) + ')';
         }
 
-        private String joinExpressions(List<Expression> expressions)
+        private String joinExpressions(List<? extends Expression> expressions)
         {
             return Joiner.on(", ").join(expressions.stream()
                     .map((e) -> process(e, null))

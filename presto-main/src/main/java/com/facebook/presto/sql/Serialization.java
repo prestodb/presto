@@ -16,6 +16,7 @@ package com.facebook.presto.sql;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.FunctionReference;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.DeserializationContext;
@@ -29,6 +30,7 @@ import java.io.IOException;
 import java.util.Optional;
 
 import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
+import static com.google.common.base.Preconditions.checkArgument;
 
 public final class Serialization
 {
@@ -80,6 +82,30 @@ public final class Serialization
                 throws IOException
         {
             return (FunctionCall) rewriteIdentifiersToSymbolReferences(sqlParser.createExpression(jsonParser.readValueAs(String.class)));
+        }
+    }
+
+    public static class FunctionReferenceDeserializer
+            extends JsonDeserializer<FunctionReference>
+    {
+        private final SqlParser sqlParser;
+
+        @Inject
+        public FunctionReferenceDeserializer(SqlParser sqlParser)
+        {
+            this.sqlParser = sqlParser;
+        }
+
+        @Override
+        public FunctionReference deserialize(JsonParser jsonParser, DeserializationContext deserializationContext)
+                throws IOException
+        {
+            FunctionCall functionCall = (FunctionCall) rewriteIdentifiersToSymbolReferences(sqlParser.createExpression(jsonParser.readValueAs(String.class)));
+            checkArgument(!functionCall.getOrderBy().isPresent(), "Unexpected ORDER BY in function call");
+            checkArgument(!functionCall.getWindow().isPresent(), "Unexpected window information in function call");
+            checkArgument(!functionCall.getFilter().isPresent(), "Unexpected FILTER in function call");
+            checkArgument(!functionCall.isDistinct(), "Unexpected DISTINCT in function call");
+            return new FunctionReference(functionCall.getName(), functionCall.getArguments());
         }
     }
 }

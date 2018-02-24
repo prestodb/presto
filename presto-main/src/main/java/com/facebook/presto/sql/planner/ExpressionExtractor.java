@@ -90,7 +90,10 @@ public class ExpressionExtractor
         public Void visitAggregation(AggregationNode node, ImmutableList.Builder<Expression> context)
         {
             node.getAggregations().values()
-                    .forEach(aggregation -> context.add(aggregation.getCall()));
+                    .forEach(aggregation -> {
+                        context.add(aggregation.getCall());
+                        aggregation.getPredicate().ifPresent(context::add);
+                    });
             return super.visitAggregation(node, context);
         }
 

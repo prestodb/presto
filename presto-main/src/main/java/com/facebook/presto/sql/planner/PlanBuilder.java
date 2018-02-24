@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 class PlanBuilder
@@ -78,6 +79,13 @@ class PlanBuilder
     public Symbol translate(Expression expression)
     {
         return translations.get(expression);
+    }
+
+    public List<Expression> rewrite(List<Expression> expressions)
+    {
+        return expressions.stream()
+                .map(this::rewrite)
+                .collect(toImmutableList());
     }
 
     public Expression rewrite(Expression expression)

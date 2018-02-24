@@ -28,7 +28,7 @@ import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
-import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.FunctionReference;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 
@@ -193,13 +193,22 @@ public class PushPartialAggregationThroughExchange
             InternalAggregationFunction function = functionRegistry.getAggregateFunctionImplementation(signature);
             Symbol intermediateSymbol = context.getSymbolAllocator().newSymbol(signature.getName(), function.getIntermediateType());
 
-            checkState(!originalAggregation.getCall().getOrderBy().isPresent(), "Aggregate with ORDER BY does not support partial aggregation");
-            intermediateAggregation.put(intermediateSymbol, new AggregationNode.Aggregation(originalAggregation.getCall(), signature, originalAggregation.getMask()));
+            checkState(!originalAggregation.getOrderingScheme().isPresent(), "Aggregate with ORDER BY does not support partial aggregation");
+            intermediateAggregation.put(intermediateSymbol, new AggregationNode.Aggregation(
+                    originalAggregation.getCall(),
+                    originalAggregation.getOrderingScheme(),
+                    originalAggregation.getPredicate(),
+                    originalAggregation.isDistinct(),
+                    signature,
+                    originalAggregation.getMask()));
 
             // rewrite final aggregation in terms of intermediate function
             finalAggregation.put(entry.getKey(),
                     new AggregationNode.Aggregation(
-                            new FunctionCall(QualifiedName.of(signature.getName()), ImmutableList.of(intermediateSymbol.toSymbolReference())),
+                            new FunctionReference(QualifiedName.of(signature.getName()), ImmutableList.of(intermediateSymbol.toSymbolReference())),
+                            originalAggregation.getOrderingScheme(),
+                            originalAggregation.getPredicate(),
+                            originalAggregation.isDistinct(),
                             signature,
                             Optional.empty()));
         }

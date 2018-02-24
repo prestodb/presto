@@ -17,27 +17,32 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.ExpressionExtractor;
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
+import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.Identifier;
 
 import java.util.Map;
 
-import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
+import static java.lang.String.format;
 
-public final class VerifyNoFilteredAggregations
+public final class NoIdentifierLeftChecker
         implements PlanSanityChecker.Checker
 {
     @Override
     public void validate(PlanNode plan, Session session, Metadata metadata, SqlParser sqlParser, Map<Symbol, Type> types)
     {
-        searchFrom(plan)
-                .where(AggregationNode.class::isInstance)
-                .<AggregationNode>findAll()
-                .stream()
-                .filter(AggregationNode::hasPredicate)
-                .forEach(ignored -> {
-                    throw new IllegalStateException("Generated plan contains unimplemented filtered aggregations");
-                });
+        for (Expression expression : ExpressionExtractor.extractExpressions(plan)) {
+            new DefaultTraversalVisitor<Void, Void>()
+            {
+                @Override
+                protected Void visitIdentifier(Identifier node, Void context)
+                {
+                    throw new IllegalStateException(format("Unexpected identifier in logical plan: %s", node));
+                }
+            }.process(expression, null);
+        }
     }
 }

@@ -50,6 +50,7 @@ import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.FunctionReference;
 import com.facebook.presto.sql.tree.GroupingOperation;
 import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
 import com.facebook.presto.sql.tree.Node;
@@ -575,7 +576,25 @@ class QueryPlanner
                 }
             }
 
-            aggregationsBuilder.put(newSymbol, new Aggregation((FunctionCall) rewritten, analysis.getFunctionSignature(aggregate), marker));
+            FunctionCall rewrittenAggregate = (FunctionCall) rewritten;
+            Optional<OrderingScheme> orderingScheme = Optional.empty();
+            if (rewrittenAggregate.getOrderBy().isPresent()) {
+                OrderBy orderBy = rewrittenAggregate.getOrderBy().get();
+                List<Symbol> orderBySymbols = orderBy.getSortItems().stream()
+                        .map(SortItem::getSortKey)
+                        .map(Symbol::from)
+                        .collect(toImmutableList());
+                Map<Symbol, SortOrder> orderings = orderBy.getSortItems().stream()
+                        .collect(toImmutableMap(sortItem -> Symbol.from(sortItem.getSortKey()), QueryPlanner::toSortOrder));
+                orderingScheme = Optional.of(new OrderingScheme(orderBySymbols, orderings));
+            }
+
+            aggregationsBuilder.put(newSymbol, new Aggregation(
+                    new FunctionReference(rewrittenAggregate.getName(), rewrittenAggregate.getArguments()),
+                    orderingScheme,
+                    rewrittenAggregate.getFilter(),
+                    aggregate.isDistinct(),
+                    analysis.getFunctionSignature(aggregate), marker));
         }
         Map<Symbol, Aggregation> aggregations = aggregationsBuilder.build();
 
@@ -847,7 +866,21 @@ class QueryPlanner
             return subPlan;
         }
 
-        Iterator<SortItem> sortItems = orderBy.get().getSortItems().iterator();
+        OrderingScheme orderingScheme = toOrderingSchema(subPlan, orderBy.get(), orderByExpressions);
+        PlanNode planNode;
+        if (limit.isPresent() && !limit.get().equalsIgnoreCase("all")) {
+            planNode = new TopNNode(idAllocator.getNextId(), subPlan.getRoot(), Long.parseLong(limit.get()), orderingScheme, TopNNode.Step.SINGLE);
+        }
+        else {
+            planNode = new SortNode(idAllocator.getNextId(), subPlan.getRoot(), orderingScheme);
+        }
+
+        return subPlan.withNewRoot(planNode);
+    }
+
+    private OrderingScheme toOrderingSchema(PlanBuilder subPlan, OrderBy orderBy, List<Expression> orderByExpressions)
+    {
+        Iterator<SortItem> sortItems = orderBy.getSortItems().iterator();
 
         ImmutableList.Builder<Symbol> orderBySymbols = ImmutableList.builder();
         Map<Symbol, SortOrder> orderings = new HashMap<>();
@@ -861,16 +894,7 @@ class QueryPlanner
             }
         }
 
-        PlanNode planNode;
-        OrderingScheme orderingScheme = new OrderingScheme(orderBySymbols.build(), orderings);
-        if (limit.isPresent() && !limit.get().equalsIgnoreCase("all")) {
-            planNode = new TopNNode(idAllocator.getNextId(), subPlan.getRoot(), Long.parseLong(limit.get()), orderingScheme, TopNNode.Step.SINGLE);
-        }
-        else {
-            planNode = new SortNode(idAllocator.getNextId(), subPlan.getRoot(), orderingScheme);
-        }
-
-        return subPlan.withNewRoot(planNode);
+        return new OrderingScheme(orderBySymbols.build(), orderings);
     }
 
     private PlanBuilder limit(PlanBuilder subPlan, Query node)
