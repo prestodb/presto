@@ -11,15 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator.aggregation;
+package com.facebook.presto.operator.aggregation.arrayagg;
 
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.SqlAggregationFunction;
+import com.facebook.presto.operator.aggregation.AccumulatorCompiler;
+import com.facebook.presto.operator.aggregation.AggregationMetadata;
 import com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
-import com.facebook.presto.operator.aggregation.state.ArrayAggregationState;
-import com.facebook.presto.operator.aggregation.state.ArrayAggregationStateFactory;
-import com.facebook.presto.operator.aggregation.state.ArrayAggregationStateSerializer;
+import com.facebook.presto.operator.aggregation.GenericAccumulatorFactoryBinder;
+import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.AccumulatorState;
@@ -82,7 +83,7 @@ public class ArrayAggregationFunction
         DynamicClassLoader classLoader = new DynamicClassLoader(ArrayAggregationFunction.class.getClassLoader());
 
         AccumulatorStateSerializer<?> stateSerializer = new ArrayAggregationStateSerializer(type);
-        AccumulatorStateFactory<?> stateFactory = new ArrayAggregationStateFactory();
+        AccumulatorStateFactory<?> stateFactory = new ArrayAggregationStateFactory(type);
 
         List<Type> inputTypes = ImmutableList.of(type);
         Type outputType = new ArrayType(type);
@@ -91,7 +92,7 @@ public class ArrayAggregationFunction
 
         MethodHandle inputFunction = INPUT_FUNCTION.bindTo(type);
         MethodHandle combineFunction = COMBINE_FUNCTION.bindTo(type);
-        MethodHandle outputFunction = OUTPUT_FUNCTION.bindTo(outputType);
+        MethodHandle outputFunction = OUTPUT_FUNCTION.bindTo(type);
         Class<? extends AccumulatorState> stateInterface = ArrayAggregationState.class;
 
         AggregationMetadata metadata = new AggregationMetadata(
@@ -116,43 +117,23 @@ public class ArrayAggregationFunction
 
     public static void input(Type type, ArrayAggregationState state, Block value, int position)
     {
-        BlockBuilder blockBuilder = state.getBlockBuilder();
-        if (blockBuilder == null) {
-            blockBuilder = type.createBlockBuilder(null, 4);
-            state.setBlockBuilder(blockBuilder);
-        }
-        long startSize = blockBuilder.getRetainedSizeInBytes();
-        type.appendTo(value, position, blockBuilder);
-        state.addMemoryUsage(blockBuilder.getRetainedSizeInBytes() - startSize);
+        state.add(value, position);
     }
 
     public static void combine(Type type, ArrayAggregationState state, ArrayAggregationState otherState)
     {
-        BlockBuilder stateBlockBuilder = state.getBlockBuilder();
-        BlockBuilder otherStateBlockBuilder = otherState.getBlockBuilder();
-        if (otherStateBlockBuilder == null) {
-            return;
-        }
-        if (stateBlockBuilder == null) {
-            state.setBlockBuilder(otherStateBlockBuilder);
-            return;
-        }
-        int otherPositionCount = otherStateBlockBuilder.getPositionCount();
-        long startSize = stateBlockBuilder.getRetainedSizeInBytes();
-        for (int i = 0; i < otherPositionCount; i++) {
-            type.appendTo(otherStateBlockBuilder, i, stateBlockBuilder);
-        }
-        state.addMemoryUsage(stateBlockBuilder.getRetainedSizeInBytes() - startSize);
+        state.merge(otherState);
     }
 
-    public static void output(Type outputType, ArrayAggregationState state, BlockBuilder out)
+    public static void output(Type elementType, ArrayAggregationState state, BlockBuilder out)
     {
-        BlockBuilder stateBlockBuilder = state.getBlockBuilder();
-        if (stateBlockBuilder == null || stateBlockBuilder.getPositionCount() == 0) {
+        if (state.isEmpty()) {
             out.appendNull();
         }
         else {
-            outputType.writeObject(out, stateBlockBuilder.build());
+            BlockBuilder entryBuilder = out.beginBlockEntry();
+            state.forEach((block, position) -> elementType.appendTo(block, position, entryBuilder));
+            out.closeEntry();
         }
     }
 }
