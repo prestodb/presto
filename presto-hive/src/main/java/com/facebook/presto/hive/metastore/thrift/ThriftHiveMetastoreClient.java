@@ -17,6 +17,7 @@ import org.apache.hadoop.hive.metastore.api.ColumnStatistics;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsDesc;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
 import org.apache.hadoop.hive.metastore.api.Database;
+import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.HiveObjectPrivilege;
 import org.apache.hadoop.hive.metastore.api.HiveObjectRef;
 import org.apache.hadoop.hive.metastore.api.Partition;
@@ -138,6 +139,13 @@ public class ThriftHiveMetastoreClient
             throws TException
     {
         return client.get_table(databaseName, tableName);
+    }
+
+    @Override
+    public List<FieldSchema> getFields(String databaseName, String tableName)
+            throws TException
+    {
+        return client.get_fields(databaseName, tableName);
     }
 
     @Override

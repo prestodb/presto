@@ -15,6 +15,7 @@ package com.facebook.presto.hive.metastore.thrift;
 
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
 import org.apache.hadoop.hive.metastore.api.Database;
+import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.HiveObjectPrivilege;
 import org.apache.hadoop.hive.metastore.api.HiveObjectRef;
 import org.apache.hadoop.hive.metastore.api.Partition;
@@ -66,6 +67,9 @@ public interface HiveMetastoreClient
             throws TException;
 
     Table getTable(String databaseName, String tableName)
+            throws TException;
+
+    List<FieldSchema> getFields(String databaseName, String tableName)
             throws TException;
 
     List<ColumnStatisticsObj> getTableColumnStatistics(String databaseName, String tableName, List<String> columnNames)
