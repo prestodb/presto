@@ -52,6 +52,7 @@ import org.apache.hadoop.hive.metastore.api.PrivilegeGrantInfo;
 import org.apache.hadoop.hive.metastore.api.Role;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.hadoop.hive.metastore.api.UnknownDBException;
+import org.apache.hadoop.hive.metastore.api.UnknownTableException;
 import org.apache.thrift.TException;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
@@ -319,6 +320,30 @@ public class ThriftHiveMetastore
         }
 
         return result.build();
+    }
+
+    @Override
+    public Optional<List<FieldSchema>> getFields(String databaseName, String tableName)
+    {
+        try {
+            return retry()
+                    .stopOn(MetaException.class, UnknownTableException.class, UnknownDBException.class)
+                    .stopOnIllegalExceptions()
+                    .run("getFields", stats.getGetFields().wrap(() -> {
+                        try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
+                            return Optional.of(ImmutableList.copyOf(client.getFields(databaseName, tableName)));
+                        }
+                    }));
+        }
+        catch (NoSuchObjectException e) {
+            return Optional.empty();
+        }
+        catch (TException e) {
+            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+        }
+        catch (Exception e) {
+            throw propagate(e);
+        }
     }
 
     private Map<String, Map<String, HiveColumnStatistics>> getPartitionColumnStatistics(
