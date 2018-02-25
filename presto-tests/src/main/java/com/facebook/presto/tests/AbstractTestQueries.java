@@ -636,6 +636,12 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testArrayAgg()
+    {
+        assertQuery("SELECT clerk, cardinality(array_agg(orderkey)) FROM orders GROUP BY clerk", "SELECT clerk, count(*) FROM orders GROUP BY clerk");
+    }
+
+    @Test
     public void testRows()
     {
         // Using JSON_FORMAT(CAST(_ AS JSON)) because H2 does not support ROW type
