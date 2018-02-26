@@ -21,6 +21,6 @@ public class TestUnionWithReplicatedJoin
 {
     public TestUnionWithReplicatedJoin()
     {
-        super(ImmutableMap.of(SystemSessionProperties.DISTRIBUTED_JOIN, "false"));
+        super(ImmutableMap.of(SystemSessionProperties.JOIN_DISTRIBUTION_TYPE, "replicated"));
     }
 }

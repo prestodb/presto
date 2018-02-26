@@ -30,11 +30,16 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.sql.planner.SortExpressionExtractor.extractSortExpression;
+import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
+import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
+import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
@@ -100,6 +105,63 @@ public class JoinNode
 
         checkArgument(!(criteria.isEmpty() && leftHashSymbol.isPresent()), "Left hash symbol is only valid in an equijoin");
         checkArgument(!(criteria.isEmpty() && rightHashSymbol.isPresent()), "Right hash symbol is only valid in an equijoin");
+
+        // The implementation of full outer join only works if the data is hash partitioned. See LookupJoinOperators#buildSideOuterJoinUnvisitedPositions
+        if (distributionType.isPresent()) {
+            checkState(!((type == RIGHT || type == FULL) && distributionType.get() == DistributionType.REPLICATED), "Right or full outer join does not work with replicated distribution type");
+        }
+    }
+
+    public JoinNode flipChildren()
+    {
+        return new JoinNode(
+                getId(),
+                flipType(type),
+                right,
+                left,
+                flipJoinCriteria(criteria),
+                flipOutputSymbols(getOutputSymbols(), left, right),
+                filter,
+                rightHashSymbol,
+                leftHashSymbol,
+                distributionType);
+    }
+
+    private static Type flipType(Type type)
+    {
+        switch (type) {
+            case INNER:
+                return INNER;
+            case FULL:
+                return FULL;
+            case LEFT:
+                return RIGHT;
+            case RIGHT:
+                return LEFT;
+            default:
+                throw new IllegalStateException("No inverse defined for join type: " + type);
+        }
+    }
+
+    private static List<EquiJoinClause> flipJoinCriteria(List<EquiJoinClause> joinCriteria)
+    {
+        return joinCriteria.stream()
+                .map(EquiJoinClause::flip)
+                .collect(toImmutableList());
+    }
+
+    private static List<Symbol> flipOutputSymbols(List<Symbol> outputSymbols, PlanNode left, PlanNode right)
+    {
+        List<Symbol> leftSymbols = outputSymbols.stream()
+                .filter(symbol -> left.getOutputSymbols().contains(symbol))
+                .collect(Collectors.toList());
+        List<Symbol> rightSymbols = outputSymbols.stream()
+                .filter(symbol -> right.getOutputSymbols().contains(symbol))
+                .collect(Collectors.toList());
+        return ImmutableList.<Symbol>builder()
+                .addAll(rightSymbols)
+                .addAll(leftSymbols)
+                .build();
     }
 
     public enum DistributionType
@@ -270,6 +332,11 @@ public class JoinNode
         public ComparisonExpression toExpression()
         {
             return new ComparisonExpression(ComparisonExpressionType.EQUAL, left.toSymbolReference(), right.toSymbolReference());
+        }
+
+        public EquiJoinClause flip()
+        {
+            return new EquiJoinClause(right, left);
         }
 
         @Override

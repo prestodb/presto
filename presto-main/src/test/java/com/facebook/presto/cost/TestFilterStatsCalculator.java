@@ -90,7 +90,7 @@ public class TestFilterStatsCalculator
                 .setNullsFraction(0.1)
                 .build();
         SymbolStatsEstimate emptyRangeStats = SymbolStatsEstimate.builder()
-                .setAverageRowSize(4.0)
+                .setAverageRowSize(0.0)
                 .setDistinctValuesCount(0.0)
                 .setLowValue(NaN)
                 .setHighValue(NaN)
@@ -128,7 +128,7 @@ public class TestFilterStatsCalculator
 
         session = testSessionBuilder().build();
         MetadataManager metadata = MetadataManager.createTestMetadataManager();
-        statsCalculator = new FilterStatsCalculator(metadata, new ScalarStatsCalculator(metadata));
+        statsCalculator = new FilterStatsCalculator(metadata, new ScalarStatsCalculator(metadata), new StatsNormalizer());
     }
 
     @Test
@@ -219,6 +219,15 @@ public class TestFilterStatsCalculator
     }
 
     @Test
+    public void testUnsupportedExpression()
+    {
+        assertExpression("sin(x)")
+                .outputRowsCount(900);
+        assertExpression("x = sin(x)")
+                .outputRowsCount(900);
+    }
+
+    @Test
     public void testAndStats()
     {
         assertExpression("x < 0e0 AND x > DOUBLE '-7.5'")
@@ -233,8 +242,35 @@ public class TestFilterStatsCalculator
         // Impossible, with symbol-to-expression comparisons
         assertExpression("x = (0e0 + 1e0) AND x = (0e0 + 3e0)")
                 .outputRowsCount(0)
-                .symbolStats(new Symbol("x"), SymbolStatsAssertion::emptyRange);
-        // TODO .symbolStats(new Symbol("y"), SymbolStatsAssertion::emptyRange);
+                .symbolStats(new Symbol("x"), SymbolStatsAssertion::emptyRange)
+                .symbolStats(new Symbol("y"), SymbolStatsAssertion::emptyRange);
+
+        // first argument unknown
+        assertExpression("sin(x) AND x < 0e0")
+                .outputRowsCount(337.5)
+                .symbolStats(new Symbol("x"), symbolAssert ->
+                        symbolAssert.lowValue(-10)
+                                .highValue(0)
+                                .distinctValuesCount(20)
+                                .nullsFraction(0));
+
+        // second argument unknown
+        assertExpression("x < 0e0 AND sin(x)")
+                .outputRowsCount(337.5)
+                .symbolStats(new Symbol("x"), symbolAssert ->
+                        symbolAssert.lowValue(-10)
+                                .highValue(0)
+                                .distinctValuesCount(20)
+                                .nullsFraction(0));
+
+        // both arguments unknown
+        assertExpression("sin(x) AND cos(x)")
+                .outputRowsCount(900)
+                .symbolStats(new Symbol("x"), symbolAssert ->
+                        symbolAssert.lowValue(-10)
+                                .highValue(10)
+                                .distinctValuesCount(40)
+                                .nullsFraction(0.25));
     }
 
     @Test
@@ -248,6 +284,24 @@ public class TestFilterStatsCalculator
                                 .highValue(10.0)
                                 .distinctValuesCount(20.0)
                                 .nullsFraction(0.4)); // FIXME - nulls shouldn't be restored
+
+        assertExpression("NOT(sin(x))")
+                .outputRowsCount(900)
+                .symbolStats(new Symbol("x"), symbolAssert ->
+                        symbolAssert.averageRowSize(4.0)
+                                .lowValue(-10.0)
+                                .highValue(10.0)
+                                .distinctValuesCount(40.0)
+                                .nullsFraction(0.25));
+
+        assertExpression("NOT(x IS NULL)")
+                .outputRowsCount(750)
+                .symbolStats(new Symbol("x"), symbolAssert ->
+                        symbolAssert.averageRowSize(4.0)
+                                .lowValue(-10.0)
+                                .highValue(10.0)
+                                .distinctValuesCount(40.0)
+                                .nullsFraction(0));
     }
 
     @Test
@@ -377,6 +431,21 @@ public class TestFilterStatsCalculator
                             .lowValue(-100.0)
                             .highValue(100.0)
                             .nullsFraction(0.0);
+                });
+    }
+
+    @Test
+    public void testSymbolEqualsSameSymbolFilter()
+    {
+        assertExpression("x = x")
+                .outputRowsCount(750)
+                .symbolStats("x", symbolStats -> {
+                    SymbolStatsEstimate.builder()
+                            .setAverageRowSize(4.0)
+                            .setDistinctValuesCount(40.0)
+                            .setLowValue(-10.0)
+                            .setHighValue(10.0)
+                            .build();
                 });
     }
 

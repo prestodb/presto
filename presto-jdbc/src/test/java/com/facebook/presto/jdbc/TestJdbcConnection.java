@@ -146,15 +146,15 @@ public class TestJdbcConnection
     {
         try (Connection connection = createConnection()) {
             assertThat(listSession(connection))
-                    .contains("distributed_join|true|true")
+                    .contains("join_distribution_type|REPARTITIONED|REPARTITIONED")
                     .contains("exchange_compression|false|false");
 
             try (Statement statement = connection.createStatement()) {
-                statement.execute("SET SESSION distributed_join = false");
+                statement.execute("SET SESSION join_distribution_type = 'REPLICATED'");
             }
 
             assertThat(listSession(connection))
-                    .contains("distributed_join|false|true")
+                    .contains("join_distribution_type|REPLICATED|REPARTITIONED")
                     .contains("exchange_compression|false|false");
 
             try (Statement statement = connection.createStatement()) {
@@ -162,7 +162,7 @@ public class TestJdbcConnection
             }
 
             assertThat(listSession(connection))
-                    .contains("distributed_join|false|true")
+                    .contains("join_distribution_type|REPLICATED|REPARTITIONED")
                     .contains("exchange_compression|true|false");
         }
     }

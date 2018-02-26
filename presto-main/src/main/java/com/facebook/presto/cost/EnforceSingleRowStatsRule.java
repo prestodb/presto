@@ -25,9 +25,14 @@ import java.util.Map;
 import java.util.Optional;
 
 public class EnforceSingleRowStatsRule
-        implements ComposableStatsCalculator.Rule
+        extends SimpleStatsRule
 {
     private static final Pattern<EnforceSingleRowNode> PATTERN = Pattern.typeOf(EnforceSingleRowNode.class);
+
+    public EnforceSingleRowStatsRule(StatsNormalizer normalizer)
+    {
+        super(normalizer);
+    }
 
     @Override
     public Pattern<EnforceSingleRowNode> getPattern()
@@ -36,12 +41,11 @@ public class EnforceSingleRowStatsRule
     }
 
     @Override
-    public Optional<PlanNodeStatsEstimate> calculate(PlanNode node, StatsProvider sourceStats, Lookup lookup, Session session, Map<Symbol, Type> types)
+    protected Optional<PlanNodeStatsEstimate> doCalculate(PlanNode node, StatsProvider sourceStats, Lookup lookup, Session session, Map<Symbol, Type> types)
     {
-        // TODO retain useful information from source' stats
-        return Optional.of(
-                PlanNodeStatsEstimate.builder()
-                        .setOutputRowCount(1)
-                        .build());
+        EnforceSingleRowNode enforceSingleRow = (EnforceSingleRowNode) node;
+        return Optional.of(PlanNodeStatsEstimate.buildFrom(sourceStats.getStats(enforceSingleRow.getSource()))
+                .setOutputRowCount(1)
+                .build());
     }
 }

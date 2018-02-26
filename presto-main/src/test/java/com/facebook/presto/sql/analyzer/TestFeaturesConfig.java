@@ -24,6 +24,10 @@ import java.util.Map;
 
 import static com.facebook.presto.operator.aggregation.histogram.HistogramGroupImplementation.LEGACY;
 import static com.facebook.presto.operator.aggregation.histogram.HistogramGroupImplementation.NEW;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.REPARTITIONED;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.REPLICATED;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NONE;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.SPILLER_SPILL_PATH;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.SPILL_ENABLED;
 import static com.facebook.presto.sql.analyzer.RegexLibrary.JONI;
@@ -47,10 +51,10 @@ public class TestFeaturesConfig
                 .setNetworkCostWeight(15)
                 .setResourceGroupsEnabled(false)
                 .setDistributedIndexJoinsEnabled(false)
-                .setDistributedJoinsEnabled(true)
+                .setJoinDistributionType(REPARTITIONED)
                 .setFastInequalityJoins(true)
                 .setColocatedJoinsEnabled(false)
-                .setJoinReorderingEnabled(true)
+                .setJoinReorderingStrategy(ELIMINATE_CROSS_JOINS)
                 .setRedistributeWrites(true)
                 .setScaleWriters(false)
                 .setWriterMinSize(new DataSize(32, MEGABYTE))
@@ -75,7 +79,7 @@ public class TestFeaturesConfig
                 .setLegacyOrderBy(false)
                 .setIterativeOptimizerEnabled(true)
                 .setIterativeOptimizerTimeout(new Duration(3, MINUTES))
-                .setEnableNewStatsCalculator(false)
+                .setEnableNewStatsCalculator(true)
                 .setExchangeCompressionEnabled(false)
                 .setLegacyTimestamp(true)
                 .setLegacyJoinUsing(false)
@@ -99,16 +103,16 @@ public class TestFeaturesConfig
                 .put("experimental.resource-groups-enabled", "true")
                 .put("experimental.iterative-optimizer-enabled", "false")
                 .put("experimental.iterative-optimizer-timeout", "10s")
-                .put("experimental.enable-new-stats-calculator", "true")
+                .put("experimental.enable-new-stats-calculator", "false")
                 .put("deprecated.legacy-array-agg", "true")
                 .put("deprecated.legacy-order-by", "true")
                 .put("deprecated.legacy-map-subscript", "true")
                 .put("deprecated.legacy-join-using", "true")
                 .put("distributed-index-joins-enabled", "true")
-                .put("distributed-joins-enabled", "false")
+                .put("join-distribution-type", "REPLICATED")
                 .put("fast-inequality-joins", "false")
                 .put("colocated-joins-enabled", "true")
-                .put("reorder-joins", "false")
+                .put("optimizer.join-reordering-strategy", "NONE")
                 .put("redistribute-writes", "false")
                 .put("scale-writers", "true")
                 .put("writer-min-size", "42GB")
@@ -147,12 +151,12 @@ public class TestFeaturesConfig
                 .setResourceGroupsEnabled(true)
                 .setIterativeOptimizerEnabled(false)
                 .setIterativeOptimizerTimeout(new Duration(10, SECONDS))
-                .setEnableNewStatsCalculator(true)
+                .setEnableNewStatsCalculator(false)
                 .setDistributedIndexJoinsEnabled(true)
-                .setDistributedJoinsEnabled(false)
+                .setJoinDistributionType(REPLICATED)
                 .setFastInequalityJoins(false)
                 .setColocatedJoinsEnabled(true)
-                .setJoinReorderingEnabled(false)
+                .setJoinReorderingStrategy(NONE)
                 .setRedistributeWrites(false)
                 .setScaleWriters(true)
                 .setWriterMinSize(new DataSize(42, GIGABYTE))

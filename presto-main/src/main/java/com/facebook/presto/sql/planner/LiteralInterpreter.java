@@ -21,6 +21,7 @@ import com.facebook.presto.operator.scalar.VarbinaryFunctions;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.CharType;
+import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.StandardTypes;
@@ -61,6 +62,7 @@ import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.Decimals.isShortDecimal;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
@@ -170,6 +172,17 @@ public final class LiteralInterpreter
             else {
                 return new GenericLiteral("REAL", value.toString());
             }
+        }
+
+        if (type instanceof DecimalType) {
+            String string;
+            if (isShortDecimal(type)) {
+                string = Decimals.toString((long) object, ((DecimalType) type).getScale());
+            }
+            else {
+                string = Decimals.toString((Slice) object, ((DecimalType) type).getScale());
+            }
+            return new Cast(new DecimalLiteral(string), type.getDisplayName());
         }
 
         if (type instanceof VarcharType) {

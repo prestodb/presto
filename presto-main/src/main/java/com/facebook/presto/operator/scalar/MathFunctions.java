@@ -778,7 +778,7 @@ public final class MathFunctions
     {
         @LiteralParameters({"p", "s", "rp"})
         @SqlType("decimal(rp, s)")
-        @Constraint(variable = "rp", expression = "min(38, p + min(s, 1))")
+        @Constraint(variable = "rp", expression = "min(38, p + 1)")
         public static long roundNShort(
                 @LiteralParameter("p") Long numPrecision,
                 @LiteralParameter("s") Long numScale,
@@ -803,16 +803,13 @@ public final class MathFunctions
 
         @LiteralParameters({"p", "s", "rp"})
         @SqlType("decimal(rp, s)")
-        @Constraint(variable = "rp", expression = "min(38, p + min(s, 1))")
+        @Constraint(variable = "rp", expression = "min(38, p + 1)")
         public static Slice roundNLong(
                 @LiteralParameter("s") Long numScale,
                 @LiteralParameter("rp") Long resultPrecision,
                 @SqlType("decimal(p, s)") Slice num,
                 @SqlType(StandardTypes.BIGINT) long decimals)
         {
-            if (numScale == 0) {
-                return num;
-            }
             if (decimals >= numScale) {
                 return num;
             }
@@ -829,7 +826,7 @@ public final class MathFunctions
 
         @LiteralParameters({"p", "s", "rp"})
         @SqlType("decimal(rp, s)")
-        @Constraint(variable = "rp", expression = "min(38, p + min(s, 1))")
+        @Constraint(variable = "rp", expression = "min(38, p + 1)")
         public static Slice roundNShortLong(
                 @LiteralParameter("s") Long numScale,
                 @LiteralParameter("rp") Long resultPrecision,

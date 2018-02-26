@@ -18,6 +18,7 @@ import com.facebook.presto.cost.CachingCostProvider;
 import com.facebook.presto.cost.CachingStatsProvider;
 import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.cost.CostProvider;
+import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.matching.Match;
@@ -34,9 +35,11 @@ import com.facebook.presto.sql.planner.iterative.Memo;
 import com.facebook.presto.sql.planner.iterative.PlanNodeMatcher;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableSet;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
@@ -53,7 +56,7 @@ import static org.testng.Assert.fail;
 public class RuleAssert
 {
     private final Metadata metadata;
-    private final StatsCalculator statsCalculator;
+    private StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
     private Session session;
     private final Rule<?> rule;
@@ -68,7 +71,7 @@ public class RuleAssert
     public RuleAssert(Metadata metadata, StatsCalculator statsCalculator, CostCalculator costCalculator, Session session, Rule rule, TransactionManager transactionManager, AccessControl accessControl)
     {
         this.metadata = metadata;
-        this.statsCalculator = statsCalculator;
+        this.statsCalculator = new TestingStatsCalculator(statsCalculator);
         this.costCalculator = costCalculator;
         this.session = session;
         this.rule = rule;
@@ -86,6 +89,18 @@ public class RuleAssert
     public RuleAssert withSession(Session session)
     {
         this.session = session;
+        return this;
+    }
+
+    public RuleAssert withStats(String nodeId, PlanNodeStatsEstimate nodeStats)
+    {
+        ((TestingStatsCalculator) statsCalculator).stats.put(new PlanNodeId(nodeId), nodeStats);
+        return this;
+    }
+
+    public RuleAssert withStatsCalculator(StatsCalculator statsCalculator)
+    {
+        this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
         return this;
     }
 
@@ -259,6 +274,27 @@ public class RuleAssert
         public PlanNode getTransformedPlan()
         {
             return result.getTransformedPlan().orElseThrow(() -> new IllegalStateException("Rule did not produce transformed plan"));
+        }
+    }
+
+    private static class TestingStatsCalculator
+            implements StatsCalculator
+    {
+        private final StatsCalculator delegate;
+        private final Map<PlanNodeId, PlanNodeStatsEstimate> stats = new HashMap<>();
+
+        TestingStatsCalculator(StatsCalculator delegate)
+        {
+            this.delegate = requireNonNull(delegate, "delegate is null");
+        }
+
+        @Override
+        public PlanNodeStatsEstimate calculateStats(PlanNode node, StatsProvider sourceStats, Lookup lookup, Session session, Map<Symbol, Type> types)
+        {
+            if (stats.containsKey(node.getId())) {
+                return stats.get(node.getId());
+            }
+            return delegate.calculateStats(node, sourceStats, lookup, session, types);
         }
     }
 }

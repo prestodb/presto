@@ -21,11 +21,11 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.SystemSessionProperties.ENABLE_NEW_STATS_CALCULATOR;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tests.statistics.MetricComparisonStrategies.absoluteError;
 import static com.facebook.presto.tests.statistics.MetricComparisonStrategies.defaultTolerance;
 import static com.facebook.presto.tests.statistics.MetricComparisonStrategies.noError;
+import static com.facebook.presto.tests.statistics.MetricComparisonStrategies.relativeError;
 import static com.facebook.presto.tests.statistics.Metrics.OUTPUT_ROW_COUNT;
 import static com.facebook.presto.tests.statistics.Metrics.distinctValuesCount;
 import static java.util.Collections.emptyMap;
@@ -41,7 +41,6 @@ public class TestTpcdsLocalStats
         Session defaultSession = testSessionBuilder()
                 .setCatalog("tpcds")
                 .setSchema("sf1")
-                .setSystemProperty(ENABLE_NEW_STATS_CALCULATOR, "true")
                 .build();
 
         queryRunner = new LocalQueryRunner(defaultSession);
@@ -90,6 +89,44 @@ public class TestTpcdsLocalStats
         statisticsAssertion.check("SELECT * FROM item WHERE 'Women                                             ' = i_category",
                 checks -> checks.estimate(OUTPUT_ROW_COUNT, defaultTolerance()));
         statisticsAssertion.check("SELECT * FROM item WHERE i_category = cast('Women' as char(50))",
+                checks -> checks.estimate(OUTPUT_ROW_COUNT, defaultTolerance()));
+    }
+
+    @Test
+    public void testDecimalComparison()
+    {
+        // ca_gmt_offset is decimal(5,2)
+        statisticsAssertion.check("SELECT * FROM customer_address WHERE ca_gmt_offset = -7",
+                checks -> checks
+                        .estimate(OUTPUT_ROW_COUNT, relativeError(.6)) // distribution is non-uniform, so we need higher tolerance
+                        .estimate(distinctValuesCount("ca_gmt_offset"), noError()));
+        statisticsAssertion.check("SELECT * FROM customer_address WHERE -7 = ca_gmt_offset",
+                checks -> checks
+                        .estimate(OUTPUT_ROW_COUNT, relativeError(.6)) // distribution is non-uniform, so we need higher tolerance
+                        .estimate(distinctValuesCount("ca_gmt_offset"), noError()));
+        statisticsAssertion.check("SELECT * FROM customer_address WHERE ca_gmt_offset = (decimal '-7.0')",
+                checks -> checks
+                        .estimate(OUTPUT_ROW_COUNT, relativeError(.6)) // distribution is non-uniform, so we need higher tolerance
+                        .estimate(distinctValuesCount("ca_gmt_offset"), noError()));
+        statisticsAssertion.check("SELECT * FROM customer_address WHERE ca_gmt_offset = -7.0",
+                checks -> checks
+                        .estimate(OUTPUT_ROW_COUNT, relativeError(.6))); // distribution is non-uniform, so we need higher tolerance
+
+        // p_cost is decimal(15,2)
+        statisticsAssertion.check("SELECT * FROM promotion WHERE p_cost < 1", // p_cost is always 1000.00, so no rows should be left
+                checks -> checks.estimate(OUTPUT_ROW_COUNT, noError()));
+        statisticsAssertion.check("SELECT * FROM promotion WHERE 1 > p_cost", // p_cost is always 1000.00, so no rows should be left
+                checks -> checks.estimate(OUTPUT_ROW_COUNT, noError()));
+        statisticsAssertion.check("SELECT * FROM promotion WHERE p_cost < 2000.0", // p_cost is always 1000.00, so all rows should be left
+                checks -> checks.estimate(OUTPUT_ROW_COUNT, noError()));
+    }
+
+    @Test
+    public void testIn()
+    {
+        statisticsAssertion.check("SELECT * FROM item WHERE i_category IN ('Women                                             ')",
+                checks -> checks.estimate(OUTPUT_ROW_COUNT, defaultTolerance()));
+        statisticsAssertion.check("SELECT * FROM ship_mode WHERE sm_carrier IN ('DHL                 ', 'BARIAN              ')",
                 checks -> checks.estimate(OUTPUT_ROW_COUNT, defaultTolerance()));
     }
 }
