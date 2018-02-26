@@ -1,0 +1,40 @@
+{
+  "rowCount" : 6.0E8,
+  "columns" : {
+    "p_partkey" : {
+      "distinctValuesCount" : 5.35201957E8,
+      "min" : 1,
+      "max" : 600000000
+    },
+    "p_name" : {
+      "distinctValuesCount" : 199997,
+      "min" : "almond antique blue royal burnished",
+      "max" : "yellow white seashell lavender black"
+    },
+    "p_mfgr" : {
+      "distinctValuesCount" : 5
+    },
+    "p_brand" : {
+      "distinctValuesCount" : 13
+    },
+    "p_type" : {
+      "distinctValuesCount" : 165
+    },
+    "p_size" : {
+      "distinctValuesCount" : 36,
+      "min" : 1,
+      "max" : 50
+    },
+    "p_container" : {
+      "distinctValuesCount" : 29
+    },
+    "p_retailprice" : {
+      "distinctValuesCount" : 125124.0,
+      "min" : 900.0,
+      "max" : 2099.0
+    },
+    "p_comment" : {
+      "distinctValuesCount" : 1.6725061E7
+    }
+  }
+}
