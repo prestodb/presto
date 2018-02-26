@@ -26,17 +26,19 @@ import org.apache.hadoop.hive.metastore.api.SkewedInfo;
 import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
 import org.testng.annotations.Test;
 
+import java.util.List;
 import java.util.Properties;
 
 import static org.testng.Assert.assertEquals;
 
 public class TestMetastoreUtil
 {
+    private static final List<FieldSchema> TEST_SCHEMA = ImmutableList.of(
+            new FieldSchema("col1", "bigint", "comment1"),
+            new FieldSchema("col2", "binary", null),
+            new FieldSchema("col3", "string", null));
     private static final StorageDescriptor TEST_STORAGE_DESCRIPTOR = new StorageDescriptor(
-            ImmutableList.of(
-                    new FieldSchema("col1", "bigint", "comment1"),
-                    new FieldSchema("col2", "binary", null),
-                    new FieldSchema("col3", "string", null)),
+            TEST_SCHEMA,
             "hdfs://VOL1:9000/db_name/table_name",
             "com.facebook.hive.orc.OrcInputFormat",
             "com.facebook.hive.orc.OrcOutputFormat",
@@ -75,10 +77,7 @@ public class TestMetastoreUtil
             TEST_STORAGE_DESCRIPTOR,
             ImmutableMap.of("k1", "v1", "k2", "v2", "k3", "v3"));
     private static final StorageDescriptor TEST_STORAGE_DESCRIPTOR_WITH_UNSUPPORTED_FIELDS = new StorageDescriptor(
-            ImmutableList.of(
-                    new FieldSchema("col1", "bigint", "comment1"),
-                    new FieldSchema("col2", "binary", null),
-                    new FieldSchema("col3", "string", null)),
+            TEST_SCHEMA,
             "hdfs://VOL1:9000/db_name/table_name",
             "com.facebook.hive.orc.OrcInputFormat",
             "com.facebook.hive.orc.OrcOutputFormat",
@@ -122,7 +121,7 @@ public class TestMetastoreUtil
     @Test
     public void testTableRoundTrip()
     {
-        Table table = ThriftMetastoreUtil.fromMetastoreApiTable(TEST_TABLE);
+        Table table = ThriftMetastoreUtil.fromMetastoreApiTable(TEST_TABLE, TEST_SCHEMA);
         PrincipalPrivileges privileges = new PrincipalPrivileges(ImmutableMultimap.of(), ImmutableMultimap.of());
         org.apache.hadoop.hive.metastore.api.Table metastoreApiTable = ThriftMetastoreUtil.toMetastoreApiTable(table, privileges);
         assertEquals(metastoreApiTable, TEST_TABLE);
@@ -140,7 +139,7 @@ public class TestMetastoreUtil
     public void testHiveSchemaTable()
     {
         Properties expected = MetaStoreUtils.getTableMetadata(TEST_TABLE_WITH_UNSUPPORTED_FIELDS);
-        Properties actual = MetastoreUtil.getHiveSchema(ThriftMetastoreUtil.fromMetastoreApiTable(TEST_TABLE_WITH_UNSUPPORTED_FIELDS));
+        Properties actual = MetastoreUtil.getHiveSchema(ThriftMetastoreUtil.fromMetastoreApiTable(TEST_TABLE_WITH_UNSUPPORTED_FIELDS, TEST_SCHEMA));
         assertEquals(actual, expected);
     }
 
@@ -148,14 +147,14 @@ public class TestMetastoreUtil
     public void testHiveSchemaPartition()
     {
         Properties expected = MetaStoreUtils.getPartitionMetadata(TEST_PARTITION_WITH_UNSUPPORTED_FIELDS, TEST_TABLE_WITH_UNSUPPORTED_FIELDS);
-        Properties actual = MetastoreUtil.getHiveSchema(ThriftMetastoreUtil.fromMetastoreApiPartition(TEST_PARTITION_WITH_UNSUPPORTED_FIELDS), ThriftMetastoreUtil.fromMetastoreApiTable(TEST_TABLE_WITH_UNSUPPORTED_FIELDS));
+        Properties actual = MetastoreUtil.getHiveSchema(ThriftMetastoreUtil.fromMetastoreApiPartition(TEST_PARTITION_WITH_UNSUPPORTED_FIELDS), ThriftMetastoreUtil.fromMetastoreApiTable(TEST_TABLE_WITH_UNSUPPORTED_FIELDS, TEST_SCHEMA));
         assertEquals(actual, expected);
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Writing to skewed table/partition is not supported")
     public void testTableRoundTripUnsupported()
     {
-        Table table = ThriftMetastoreUtil.fromMetastoreApiTable(TEST_TABLE_WITH_UNSUPPORTED_FIELDS);
+        Table table = ThriftMetastoreUtil.fromMetastoreApiTable(TEST_TABLE_WITH_UNSUPPORTED_FIELDS, TEST_SCHEMA);
         ThriftMetastoreUtil.toMetastoreApiTable(table, null);
     }
 

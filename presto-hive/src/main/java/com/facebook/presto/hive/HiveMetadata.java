@@ -211,7 +211,7 @@ public class HiveMetadata
     private static final String ORC_BLOOM_FILTER_FPP_KEY = "orc.bloom.filter.fpp";
 
     private static final String PARTITIONS_TABLE_SUFFIX = "$partitions";
-    private static final String AVRO_SCHEMA_URL_KEY = "avro.schema.url";
+    public static final String AVRO_SCHEMA_URL_KEY = "avro.schema.url";
 
     private final boolean allowCorruptWritesForTesting;
     private final SemiTransactionalHiveMetastore metastore;

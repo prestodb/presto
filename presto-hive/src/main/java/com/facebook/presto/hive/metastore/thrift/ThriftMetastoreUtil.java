@@ -71,6 +71,8 @@ import java.util.OptionalLong;
 import java.util.Set;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
+import static com.facebook.presto.hive.HiveMetadata.AVRO_SCHEMA_URL_KEY;
+import static com.facebook.presto.hive.HiveStorageFormat.AVRO;
 import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createBinaryColumnStatistics;
 import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createBooleanColumnStatistics;
 import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createDateColumnStatistics;
@@ -245,13 +247,22 @@ public final class ThriftMetastoreUtil
         if (storageDescriptor == null) {
             throw new PrestoException(HIVE_INVALID_METADATA, "Table is missing storage descriptor");
         }
+        return fromMetastoreApiTable(table, storageDescriptor.getCols());
+    }
+
+    public static Table fromMetastoreApiTable(org.apache.hadoop.hive.metastore.api.Table table, List<FieldSchema> schema)
+    {
+        StorageDescriptor storageDescriptor = table.getSd();
+        if (storageDescriptor == null) {
+            throw new PrestoException(HIVE_INVALID_METADATA, "Table is missing storage descriptor");
+        }
 
         Table.Builder tableBuilder = Table.builder()
                 .setDatabaseName(table.getDbName())
                 .setTableName(table.getTableName())
                 .setOwner(nullToEmpty(table.getOwner()))
                 .setTableType(table.getTableType())
-                .setDataColumns(storageDescriptor.getCols().stream()
+                .setDataColumns(schema.stream()
                         .map(ThriftMetastoreUtil::fromMetastoreApiFieldSchema)
                         .collect(toList()))
                 .setPartitionColumns(table.getPartitionKeys().stream()
@@ -264,6 +275,25 @@ public final class ThriftMetastoreUtil
         fromMetastoreApiStorageDescriptor(storageDescriptor, tableBuilder.getStorageBuilder(), table.getTableName());
 
         return tableBuilder.build();
+    }
+
+    public static boolean isAvroTableWithSchemaSet(org.apache.hadoop.hive.metastore.api.Table table)
+    {
+        if (table.getParameters() == null) {
+            return false;
+        }
+        StorageDescriptor storageDescriptor = table.getSd();
+        if (storageDescriptor == null) {
+            throw new PrestoException(HIVE_INVALID_METADATA, "Partition does not contain a storage descriptor: " + table);
+        }
+        SerDeInfo serdeInfo = storageDescriptor.getSerdeInfo();
+        if (serdeInfo == null) {
+            throw new PrestoException(HIVE_INVALID_METADATA, "Table storage descriptor is missing SerDe info");
+        }
+
+        return serdeInfo.getSerializationLib() != null &&
+                table.getParameters().get(AVRO_SCHEMA_URL_KEY) != null &&
+                serdeInfo.getSerializationLib().equalsIgnoreCase(AVRO.getSerDe());
     }
 
     public static Partition fromMetastoreApiPartition(org.apache.hadoop.hive.metastore.api.Partition partition)
