@@ -211,14 +211,14 @@ public class PrestoCliTests
 
         presto.getProcessInput().println("show session;");
         assertThat(squeezeLines(presto.readLinesUntilPrompt()))
-                .contains("join_distribution_type|REPARTITIONED|REPARTITIONED|varchar|The join method to use. Options are AUTOMATIC,REPLICATED,REPARTITIONED");
+                .contains("join_distribution_type|REPARTITIONED|REPARTITIONED|varchar|The join method to use. Options are REPLICATED,REPARTITIONED,AUTOMATIC");
 
         presto.getProcessInput().println("set session join_distribution_type = 'REPLICATED';");
         assertThat(presto.readLinesUntilPrompt()).contains("SET SESSION");
 
         presto.getProcessInput().println("show session;");
         assertThat(squeezeLines(presto.readLinesUntilPrompt()))
-                .contains("join_distribution_type|REPLICATED|REPARTITIONED|varchar|The join method to use. Options are AUTOMATIC,REPLICATED,REPARTITIONED");
+                .contains("join_distribution_type|REPLICATED|REPARTITIONED|varchar|The join method to use. Options are REPLICATED,REPARTITIONED,AUTOMATIC");
     }
 
     @Test(groups = CLI, timeOut = TIMEOUT)
