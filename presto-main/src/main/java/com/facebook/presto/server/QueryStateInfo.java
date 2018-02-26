@@ -25,7 +25,7 @@ import org.joda.time.DateTime;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.execution.QueryState.RUNNING;
+import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.server.QueryProgressStats.createQueryProgressStats;
 import static java.util.Objects.requireNonNull;
 
@@ -83,7 +83,7 @@ public class QueryStateInfo
     public static QueryStateInfo createQueryStateInfo(QueryInfo queryInfo, Optional<ResourceGroupId> groupId, Optional<List<ResourceGroupInfo>> pathToRoot)
     {
         Optional<QueryProgressStats> progress = Optional.empty();
-        if (queryInfo.getState() == RUNNING) {
+        if (!queryInfo.getState().isDone() && queryInfo.getState() != QUEUED) {
             progress = Optional.of(createQueryProgressStats(queryInfo.getQueryStats()));
         }
 
