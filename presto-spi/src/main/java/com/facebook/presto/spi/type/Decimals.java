@@ -57,6 +57,7 @@ public final class Decimals
 
     static {
         for (int i = 0; i < LONG_POWERS_OF_TEN.length; ++i) {
+            // Although this computes using doubles, incidentally, this is exact for all powers of 10 that fit in a long.
             LONG_POWERS_OF_TEN[i] = round(pow(10, i));
         }
 
