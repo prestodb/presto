@@ -810,9 +810,6 @@ public final class MathFunctions
                 @SqlType("decimal(p, s)") Slice num,
                 @SqlType(StandardTypes.BIGINT) long decimals)
         {
-            if (numScale == 0) {
-                return num;
-            }
             if (decimals >= numScale) {
                 return num;
             }
