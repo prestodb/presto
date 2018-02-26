@@ -32,7 +32,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 
-import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -271,7 +270,7 @@ public class HashAggregationOperator
     private final HashCollisionsCounter hashCollisionsCounter;
 
     private HashAggregationBuilder aggregationBuilder;
-    private Iterator<Page> outputIterator;
+    private WorkProcessor<Page> outputPages;
     private boolean inputProcessed;
     private boolean finishing;
     private boolean finished;
@@ -349,7 +348,7 @@ public class HashAggregationOperator
     @Override
     public boolean needsInput()
     {
-        if (finishing || outputIterator != null) {
+        if (finishing || outputPages != null) {
             return false;
         }
         else if (aggregationBuilder != null && aggregationBuilder.isFull()) {
@@ -456,10 +455,7 @@ public class HashAggregationOperator
             unfinishedWork = null;
         }
 
-        if (outputIterator == null) {
-            // current output iterator is done
-            outputIterator = null;
-
+        if (outputPages == null) {
             if (finishing) {
                 if (!inputProcessed && produceDefaultOutput) {
                     // global aggregations always generate an output row with the default aggregation output (e.g. 0 for COUNT, NULL for SUM)
@@ -478,20 +474,19 @@ public class HashAggregationOperator
                 return null;
             }
 
-            outputIterator = aggregationBuilder.buildResult();
-
-            if (!outputIterator.hasNext()) {
-                // current output iterator is done
-                closeAggregationBuilder();
-                return null;
-            }
+            outputPages = aggregationBuilder.buildResult();
         }
 
-        Page output = outputIterator.next();
-        if (!outputIterator.hasNext()) {
+        if (!outputPages.process()) {
+            return null;
+        }
+
+        if (outputPages.isFinished()) {
             closeAggregationBuilder();
+            return null;
         }
-        return output;
+
+        return outputPages.getResult();
     }
 
     @Override
@@ -508,7 +503,7 @@ public class HashAggregationOperator
 
     private void closeAggregationBuilder()
     {
-        outputIterator = null;
+        outputPages = null;
         if (aggregationBuilder != null) {
             aggregationBuilder.recordHashCollisions(hashCollisionsCounter);
             aggregationBuilder.close();

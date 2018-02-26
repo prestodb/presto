@@ -18,6 +18,7 @@ import com.facebook.presto.operator.HashCollisionsCounter;
 import com.facebook.presto.operator.MergeHashSort;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.Work;
+import com.facebook.presto.operator.WorkProcessor;
 import com.facebook.presto.operator.aggregation.AccumulatorFactory;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
@@ -31,11 +32,11 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 
 import java.io.IOException;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static java.lang.Math.max;
@@ -170,7 +171,7 @@ public class SpillableHashAggregationBuilder
     }
 
     @Override
-    public Iterator<Page> buildResult()
+    public WorkProcessor<Page> buildResult()
     {
         checkState(hasPreviousSpillCompletedSuccessfully(), "Previous spill hasn't yet finished");
 
@@ -218,7 +219,7 @@ public class SpillableHashAggregationBuilder
         }
 
         // start spilling process with current content of the hashAggregationBuilder builder...
-        spillInProgress = spiller.get().spill(hashAggregationBuilder.buildHashSortedResult());
+        spillInProgress = spiller.get().spill(hashAggregationBuilder.buildHashSortedResult().iterator());
         // ... and immediately create new hashAggregationBuilder so effectively memory ownership
         // over hashAggregationBuilder is transferred from this thread to a spilling thread
         rebuildHashAggregationBuilder();
@@ -226,39 +227,45 @@ public class SpillableHashAggregationBuilder
         return spillInProgress;
     }
 
-    private Iterator<Page> mergeFromDiskAndMemory()
+    private WorkProcessor<Page> mergeFromDiskAndMemory()
     {
         checkState(spiller.isPresent());
 
         hashAggregationBuilder.setOutputPartial();
         mergeHashSort = Optional.of(new MergeHashSort(operatorContext.newAggregateSystemMemoryContext()));
 
-        Iterator<Page> mergedSpilledPages = mergeHashSort.get().merge(
+        WorkProcessor<Page> mergedSpilledPages = mergeHashSort.get().merge(
                 groupByTypes,
                 hashAggregationBuilder.buildIntermediateTypes(),
-                ImmutableList.<Iterator<Page>>builder()
-                        .addAll(spiller.get().getSpills())
+                ImmutableList.<WorkProcessor<Page>>builder()
+                        .addAll(spiller.get().getSpills().stream()
+                                .map(WorkProcessor::fromIterator)
+                                .collect(toImmutableList()))
                         .add(hashAggregationBuilder.buildHashSortedResult())
-                        .build());
+                        .build(),
+                operatorContext.getDriverContext().getYieldSignal());
 
         return mergeSortedPages(mergedSpilledPages, max(memoryLimitForMerge - memoryLimitForMergeWithMemory, 1L));
     }
 
-    private Iterator<Page> mergeFromDisk()
+    private WorkProcessor<Page> mergeFromDisk()
     {
         checkState(spiller.isPresent());
 
         mergeHashSort = Optional.of(new MergeHashSort(operatorContext.newAggregateSystemMemoryContext()));
 
-        Iterator<Page> mergedSpilledPages = mergeHashSort.get().merge(
+        WorkProcessor<Page> mergedSpilledPages = mergeHashSort.get().merge(
                 groupByTypes,
                 hashAggregationBuilder.buildIntermediateTypes(),
-                spiller.get().getSpills());
+                spiller.get().getSpills().stream()
+                        .map(WorkProcessor::fromIterator)
+                        .collect(toImmutableList()),
+                operatorContext.getDriverContext().getYieldSignal());
 
         return mergeSortedPages(mergedSpilledPages, memoryLimitForMerge);
     }
 
-    private Iterator<Page> mergeSortedPages(Iterator<Page> sortedPages, long memoryLimitForMerge)
+    private WorkProcessor<Page> mergeSortedPages(WorkProcessor<Page> sortedPages, long memoryLimitForMerge)
     {
         merger = Optional.of(new MergingHashAggregationBuilder(
                 accumulatorFactories,

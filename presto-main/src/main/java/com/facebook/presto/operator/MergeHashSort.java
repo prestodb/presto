@@ -20,7 +20,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.util.MergeSortedPages.PageWithPosition;
 
 import java.io.Closeable;
-import java.util.Iterator;
 import java.util.List;
 import java.util.function.BiPredicate;
 import java.util.stream.IntStream;
@@ -48,20 +47,18 @@ public class MergeHashSort
     /**
      * Rows with same hash value are guaranteed to be in the same result page.
      */
-    public Iterator<Page> merge(List<Type> keyTypes, List<Type> allTypes, List<Iterator<Page>> channels)
+    public WorkProcessor<Page> merge(List<Type> keyTypes, List<Type> allTypes, List<WorkProcessor<Page>> channels, DriverYieldSignal driverYieldSignal)
     {
         InterpretedHashGenerator hashGenerator = createHashGenerator(keyTypes);
         return mergeSortedPages(
-                channels.stream()
-                        .map(WorkProcessor::fromIterator)
-                        .collect(toImmutableList()),
+                channels,
                 createHashPageWithPositionComparator(hashGenerator),
                 IntStream.range(0, allTypes.size()).boxed().collect(toImmutableList()),
                 allTypes,
                 keepSameHashValuesWithinSinglePage(hashGenerator),
                 true,
                 memoryContext,
-                new DriverYieldSignal()).iterator();
+                driverYieldSignal);
     }
 
     @Override
