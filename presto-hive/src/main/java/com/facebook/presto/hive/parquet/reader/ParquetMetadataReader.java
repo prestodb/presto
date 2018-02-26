@@ -65,81 +65,89 @@ public final class ParquetMetadataReader
             throws IOException
     {
         try (FSDataInputStream inputStream = fileSystem.open(file)) {
-            // Parquet File Layout:
-            //
-            // MAGIC
-            // variable: Data
-            // variable: Metadata
-            // 4 bytes: MetadataLength
-            // MAGIC
-
-            validateParquet(fileSize >= MAGIC.length + PARQUET_METADATA_LENGTH + MAGIC.length, "%s is not a valid Parquet File", file);
-            long metadataLengthIndex = fileSize - PARQUET_METADATA_LENGTH - MAGIC.length;
-
-            inputStream.seek(metadataLengthIndex);
-            int metadataLength = readIntLittleEndian(inputStream);
-
-            byte[] magic = new byte[MAGIC.length];
-            inputStream.readFully(magic);
-            validateParquet(Arrays.equals(MAGIC, magic), "Not valid Parquet file: %s expected magic number: %s got: %s", file, Arrays.toString(MAGIC), Arrays.toString(magic));
-
-            long metadataIndex = metadataLengthIndex - metadataLength;
-            validateParquet(
-                    metadataIndex >= MAGIC.length && metadataIndex < metadataLengthIndex,
-                    "Corrupted Parquet file: %s metadata index: %s out of range",
-                    file,
-                    metadataIndex);
-            inputStream.seek(metadataIndex);
-            FileMetaData fileMetaData = readFileMetaData(inputStream);
-            List<SchemaElement> schema = fileMetaData.getSchema();
-            validateParquet(!schema.isEmpty(), "Empty Parquet schema in file: %s", file);
-
-            MessageType messageType = readParquetSchema(schema);
-            List<BlockMetaData> blocks = new ArrayList<>();
-            List<RowGroup> rowGroups = fileMetaData.getRow_groups();
-            if (rowGroups != null) {
-                for (RowGroup rowGroup : rowGroups) {
-                    BlockMetaData blockMetaData = new BlockMetaData();
-                    blockMetaData.setRowCount(rowGroup.getNum_rows());
-                    blockMetaData.setTotalByteSize(rowGroup.getTotal_byte_size());
-                    List<ColumnChunk> columns = rowGroup.getColumns();
-                    validateParquet(!columns.isEmpty(), "No columns in row group: %s", rowGroup);
-                    String filePath = columns.get(0).getFile_path();
-                    for (ColumnChunk columnChunk : columns) {
-                        validateParquet(
-                                (filePath == null && columnChunk.getFile_path() == null)
-                                        || (filePath != null && filePath.equals(columnChunk.getFile_path())),
-                                "all column chunks of the same row group must be in the same file");
-                        ColumnMetaData metaData = columnChunk.meta_data;
-                        String[] path = metaData.path_in_schema.toArray(new String[metaData.path_in_schema.size()]);
-                        ColumnPath columnPath = ColumnPath.get(path);
-                        ColumnChunkMetaData column = ColumnChunkMetaData.get(
-                                columnPath,
-                                messageType.getType(columnPath.toArray()).asPrimitiveType().getPrimitiveTypeName(),
-                                CompressionCodecName.fromParquet(metaData.codec),
-                                readEncodings(metaData.encodings),
-                                readStats(metaData.statistics, messageType.getType(columnPath.toArray()).asPrimitiveType().getPrimitiveTypeName()),
-                                metaData.data_page_offset,
-                                metaData.dictionary_page_offset,
-                                metaData.num_values,
-                                metaData.total_compressed_size,
-                                metaData.total_uncompressed_size);
-                        blockMetaData.addColumn(column);
-                    }
-                    blockMetaData.setPath(filePath);
-                    blocks.add(blockMetaData);
-                }
-            }
-
-            Map<String, String> keyValueMetaData = new HashMap<>();
-            List<KeyValue> keyValueList = fileMetaData.getKey_value_metadata();
-            if (keyValueList != null) {
-                for (KeyValue keyValue : keyValueList) {
-                    keyValueMetaData.put(keyValue.key, keyValue.value);
-                }
-            }
-            return new ParquetMetadata(new parquet.hadoop.metadata.FileMetaData(messageType, keyValueMetaData, fileMetaData.getCreated_by()), blocks);
+            return readFooter(inputStream, file, fileSize);
         }
+    }
+
+    public static ParquetMetadata readFooter(FSDataInputStream inputStream, Path file, long fileSize)
+            throws IOException
+
+    {
+        // Parquet File Layout:
+        //
+        // MAGIC
+        // variable: Data
+        // variable: Metadata
+        // 4 bytes: MetadataLength
+        // MAGIC
+
+        validateParquet(fileSize >= MAGIC.length + PARQUET_METADATA_LENGTH + MAGIC.length, "%s is not a valid Parquet File", file);
+        long metadataLengthIndex = fileSize - PARQUET_METADATA_LENGTH - MAGIC.length;
+
+        inputStream.seek(metadataLengthIndex);
+        int metadataLength = readIntLittleEndian(inputStream);
+
+        byte[] magic = new byte[MAGIC.length];
+        inputStream.readFully(magic);
+        validateParquet(Arrays.equals(MAGIC, magic), "Not valid Parquet file: %s expected magic number: %s got: %s", file, Arrays.toString(MAGIC), Arrays.toString(magic));
+
+        long metadataIndex = metadataLengthIndex - metadataLength;
+        validateParquet(
+                metadataIndex >= MAGIC.length && metadataIndex < metadataLengthIndex,
+                "Corrupted Parquet file: %s metadata index: %s out of range",
+                file,
+                metadataIndex);
+        inputStream.seek(metadataIndex);
+        FileMetaData fileMetaData = readFileMetaData(inputStream);
+        List<SchemaElement> schema = fileMetaData.getSchema();
+        validateParquet(!schema.isEmpty(), "Empty Parquet schema in file: %s", file);
+
+        MessageType messageType = readParquetSchema(schema);
+        List<BlockMetaData> blocks = new ArrayList<>();
+        List<RowGroup> rowGroups = fileMetaData.getRow_groups();
+        if (rowGroups != null) {
+            for (RowGroup rowGroup : rowGroups) {
+                BlockMetaData blockMetaData = new BlockMetaData();
+                blockMetaData.setRowCount(rowGroup.getNum_rows());
+                blockMetaData.setTotalByteSize(rowGroup.getTotal_byte_size());
+                List<ColumnChunk> columns = rowGroup.getColumns();
+                validateParquet(!columns.isEmpty(), "No columns in row group: %s", rowGroup);
+                String filePath = columns.get(0).getFile_path();
+                for (ColumnChunk columnChunk : columns) {
+                    validateParquet(
+                            (filePath == null && columnChunk.getFile_path() == null)
+                                    || (filePath != null && filePath.equals(columnChunk.getFile_path())),
+                            "all column chunks of the same row group must be in the same file");
+                    ColumnMetaData metaData = columnChunk.meta_data;
+                    String[] path = metaData.path_in_schema.toArray(new String[metaData.path_in_schema.size()]);
+                    ColumnPath columnPath = ColumnPath.get(path);
+                    PrimitiveTypeName primitiveTypeName = messageType.getType(columnPath.toArray()).asPrimitiveType().getPrimitiveTypeName();
+                    ColumnChunkMetaData column = ColumnChunkMetaData.get(
+                            columnPath,
+                            primitiveTypeName,
+                            CompressionCodecName.fromParquet(metaData.codec),
+                            readEncodings(metaData.encodings),
+                            readStats(metaData.statistics, primitiveTypeName),
+                            metaData.data_page_offset,
+                            metaData.dictionary_page_offset,
+                            metaData.num_values,
+                            metaData.total_compressed_size,
+                            metaData.total_uncompressed_size);
+                    blockMetaData.addColumn(column);
+                }
+                blockMetaData.setPath(filePath);
+                blocks.add(blockMetaData);
+            }
+        }
+
+        Map<String, String> keyValueMetaData = new HashMap<>();
+        List<KeyValue> keyValueList = fileMetaData.getKey_value_metadata();
+        if (keyValueList != null) {
+            for (KeyValue keyValue : keyValueList) {
+                keyValueMetaData.put(keyValue.key, keyValue.value);
+            }
+        }
+        return new ParquetMetadata(new parquet.hadoop.metadata.FileMetaData(messageType, keyValueMetaData, fileMetaData.getCreated_by()), blocks);
     }
 
     private static MessageType readParquetSchema(List<SchemaElement> schema)

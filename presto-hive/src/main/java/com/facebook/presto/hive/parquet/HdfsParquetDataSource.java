@@ -101,4 +101,9 @@ public class HdfsParquetDataSource
             throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, format("Error opening Hive split %s (offset=%s, length=%s): %s", path, start, length, e.getMessage()), e);
         }
     }
+
+    public static HdfsParquetDataSource buildHdfsParquetDataSource(FSDataInputStream inputStream, Path path, long fileSize)
+    {
+        return new HdfsParquetDataSource(path, fileSize, inputStream);
+    }
 }
