@@ -22,6 +22,8 @@ import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.TransformWork;
 import com.facebook.presto.operator.UpdateMemory;
 import com.facebook.presto.operator.Work;
+import com.facebook.presto.operator.WorkProcessor;
+import com.facebook.presto.operator.WorkProcessor.ProcessorState;
 import com.facebook.presto.operator.aggregation.AccumulatorFactory;
 import com.facebook.presto.operator.aggregation.GroupedAccumulator;
 import com.facebook.presto.spi.Page;
@@ -32,7 +34,6 @@ import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -42,7 +43,6 @@ import it.unimi.dsi.fastutil.ints.IntIterator;
 import it.unimi.dsi.fastutil.ints.IntIterators;
 
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 
@@ -250,7 +250,7 @@ public class InMemoryHashAggregationBuilder
     }
 
     @Override
-    public Iterator<Page> buildResult()
+    public WorkProcessor<Page> buildResult()
     {
         for (Aggregator aggregator : aggregators) {
             aggregator.prepareFinal();
@@ -258,7 +258,7 @@ public class InMemoryHashAggregationBuilder
         return buildResult(consecutiveGroupIds());
     }
 
-    public Iterator<Page> buildHashSortedResult()
+    public WorkProcessor<Page> buildHashSortedResult()
     {
         return buildResult(hashSortedGroupIds());
     }
@@ -278,37 +278,32 @@ public class InMemoryHashAggregationBuilder
         return groupByHash.getCapacity();
     }
 
-    private Iterator<Page> buildResult(IntIterator groupIds)
+    private WorkProcessor<Page> buildResult(IntIterator groupIds)
     {
         final PageBuilder pageBuilder = new PageBuilder(buildTypes());
-        return new AbstractIterator<Page>()
-        {
-            @Override
-            protected Page computeNext()
-            {
-                if (!groupIds.hasNext()) {
-                    return endOfData();
-                }
-
-                pageBuilder.reset();
-
-                List<Type> types = groupByHash.getTypes();
-                while (!pageBuilder.isFull() && groupIds.hasNext()) {
-                    int groupId = groupIds.nextInt();
-
-                    groupByHash.appendValuesTo(groupId, pageBuilder, 0);
-
-                    pageBuilder.declarePosition();
-                    for (int i = 0; i < aggregators.size(); i++) {
-                        Aggregator aggregator = aggregators.get(i);
-                        BlockBuilder output = pageBuilder.getBlockBuilder(types.size() + i);
-                        aggregator.evaluate(groupId, output);
-                    }
-                }
-
-                return pageBuilder.build();
+        return WorkProcessor.create(() -> {
+            if (!groupIds.hasNext()) {
+                return ProcessorState.finished();
             }
-        };
+
+            pageBuilder.reset();
+
+            List<Type> types = groupByHash.getTypes();
+            while (!pageBuilder.isFull() && groupIds.hasNext()) {
+                int groupId = groupIds.nextInt();
+
+                groupByHash.appendValuesTo(groupId, pageBuilder, 0);
+
+                pageBuilder.declarePosition();
+                for (int i = 0; i < aggregators.size(); i++) {
+                    Aggregator aggregator = aggregators.get(i);
+                    BlockBuilder output = pageBuilder.getBlockBuilder(types.size() + i);
+                    aggregator.evaluate(groupId, output);
+                }
+            }
+
+            return ProcessorState.ofResult(pageBuilder.build());
+        });
     }
 
     public List<Type> buildTypes()
