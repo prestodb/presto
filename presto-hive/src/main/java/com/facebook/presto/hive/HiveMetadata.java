@@ -837,6 +837,7 @@ public class HiveMetadata
     public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column)
     {
         HiveTableHandle handle = (HiveTableHandle) tableHandle;
+        failIfAvroSchemaIsSet(handle);
 
         metastore.addColumn(handle.getSchemaName(), handle.getTableName(), column.getName(), toHiveType(typeTranslator, column.getType()), column.getComment());
     }
@@ -845,6 +846,7 @@ public class HiveMetadata
     public void renameColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle source, String target)
     {
         HiveTableHandle hiveTableHandle = (HiveTableHandle) tableHandle;
+        failIfAvroSchemaIsSet(hiveTableHandle);
         HiveColumnHandle sourceHandle = (HiveColumnHandle) source;
 
         metastore.renameColumn(hiveTableHandle.getSchemaName(), hiveTableHandle.getTableName(), sourceHandle.getName(), target);
@@ -854,9 +856,25 @@ public class HiveMetadata
     public void dropColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column)
     {
         HiveTableHandle hiveTableHandle = (HiveTableHandle) tableHandle;
+        failIfAvroSchemaIsSet(hiveTableHandle);
         HiveColumnHandle columnHandle = (HiveColumnHandle) column;
 
         metastore.dropColumn(hiveTableHandle.getSchemaName(), hiveTableHandle.getTableName(), columnHandle.getName());
+    }
+
+    private void failIfAvroSchemaIsSet(HiveTableHandle handle)
+    {
+        String tableName = handle.getTableName();
+        String schemaName = handle.getSchemaName();
+        Optional<Table> table = metastore.getTable(schemaName, tableName);
+
+        if (!table.isPresent()) {
+            throw new TableNotFoundException(new SchemaTableName(schemaName, tableName));
+        }
+
+        if (table.get().getParameters().get(AVRO_SCHEMA_URL_KEY) != null) {
+            throw new PrestoException(NOT_SUPPORTED, "ALTER TABLE not supported when Avro schema url is set");
+        }
     }
 
     @Override

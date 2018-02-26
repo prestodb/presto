@@ -2793,7 +2793,37 @@ public class TestHiveIntegrationSmokeTest
             throws Exception
     {
         File tempDir = createTempDir();
-        File schemaFile = new File(tempDir, "avro_single_column.avsc");
+        File schemaFile = createSchemaFileIn(tempDir);
+        String createTableSql = getAvroCreateTableSql(schemaFile.getAbsolutePath());
+        String expectedSql = getAvroCreateTableSql(schemaFile.toURI().toString());
+
+        assertUpdate(createTableSql);
+        MaterializedResult actual = computeActual("SHOW CREATE TABLE test_create_avro");
+        assertEquals(actual.getOnlyValue(), expectedSql);
+
+        assertUpdate("DROP TABLE test_create_avro");
+        deleteRecursively(tempDir.toPath(), ALLOW_INSECURE);
+    }
+
+    private String getAvroCreateTableSql(String schemaFile)
+    {
+        return format("CREATE TABLE %s.%s.test_create_avro (\n" +
+                        "   dummy_col varchar,\n" +
+                        "   another_dummy_col varchar\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   avro_schema_url = '%s',\n" +
+                        "   format = 'AVRO'\n" +
+                        ")",
+                getSession().getCatalog().get(),
+                getSession().getSchema().get(),
+                schemaFile);
+    }
+
+    private static File createSchemaFileIn(File dir)
+            throws Exception
+    {
+        File schemaFile = new File(dir, "avro_single_column.avsc");
         Files.write("{\n" +
                 "  \"namespace\": \"com.facebook.test\",\n" +
                 "  \"name\": \"single_column\",\n" +
@@ -2801,27 +2831,21 @@ public class TestHiveIntegrationSmokeTest
                 "  \"fields\": [\n" +
                 "    { \"name\":\"string_col\", \"type\":\"string\" }\n" +
                 "]}", schemaFile, UTF_8);
-        @Language("SQL") String createTableSqlFormat = "" +
-                "CREATE TABLE %s.%s.test_create_avro (\n" +
-                "   dummy_col varchar,\n" +
-                "   another_dummy_col varchar\n" +
-                ")\n" +
-                "WITH (\n" +
-                "   avro_schema_url = '%s',\n" +
-                "   format = 'AVRO'\n" +
-                ")";
-        String createTableSql = format(createTableSqlFormat,
-                getSession().getCatalog().get(),
-                getSession().getSchema().get(),
-                schemaFile.getAbsolutePath());
-        String expectedSql = format(createTableSqlFormat,
-                getSession().getCatalog().get(),
-                getSession().getSchema().get(),
-                schemaFile.toURI().toString());
+        return schemaFile;
+    }
+
+    @Test
+    public void testAlterAvroTableWithSchemaUrl()
+            throws Exception
+    {
+        File tempDir = createTempDir();
+        File schemaFile = createSchemaFileIn(tempDir);
+        String createTableSql = getAvroCreateTableSql(schemaFile.getAbsolutePath());
 
         assertUpdate(createTableSql);
-        MaterializedResult actual = computeActual("SHOW CREATE TABLE test_create_avro");
-        assertEquals(actual.getOnlyValue(), expectedSql);
+        assertQueryFails("ALTER TABLE test_create_avro RENAME COLUMN dummy_col TO new_dummy_col", "ALTER TABLE not supported when Avro schema url is set");
+        assertQueryFails("ALTER TABLE test_create_avro ADD COLUMN new_dummy_col VARCHAR", "ALTER TABLE not supported when Avro schema url is set");
+        assertQueryFails("ALTER TABLE test_create_avro DROP COLUMN dummy_col", "ALTER TABLE not supported when Avro schema url is set");
 
         assertUpdate("DROP TABLE test_create_avro");
         deleteRecursively(tempDir.toPath(), ALLOW_INSECURE);
