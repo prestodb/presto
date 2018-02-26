@@ -85,10 +85,10 @@ function cleanup() {
   # In most cases after the docker containers are stopped, logs processes must be terminated.
   # However when the `LEAVE_CONTAINERS_ALIVE_ON_EXIT` is set, docker containers are not being terminated.
   # Redirection of system error is supposed to hide the `process does not exist` and `process terminated` messages
-  if [[ ! -z ${HADOOP_LOGS_PID} ]]; then
+  if test ! -z ${HADOOP_LOGS_PID:-}; then
     kill ${HADOOP_LOGS_PID} 2>/dev/null || true
   fi
-  if [[ ! -z ${PRESTO_LOGS_PID} ]]; then
+  if test ! -z ${PRESTO_LOGS_PID:-}; then
     kill ${PRESTO_LOGS_PID} 2>/dev/null || true
   fi
 
