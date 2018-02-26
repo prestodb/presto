@@ -174,14 +174,15 @@ public final class LiteralInterpreter
             }
         }
 
-        if (type instanceof DecimalType && isShortDecimal(type)) {
-            String string = Decimals.toString((long) object, ((DecimalType) type).getScale());
-            return new GenericLiteral(type.toString(), string);
-        }
-
-        if (type instanceof DecimalType && !isShortDecimal(type)) {
-            String string = Decimals.toString((Slice) object, ((DecimalType) type).getScale());
-            return new GenericLiteral(type.toString(), string);
+        if (type instanceof DecimalType) {
+            String string;
+            if (isShortDecimal(type)) {
+                string = Decimals.toString((long) object, ((DecimalType) type).getScale());
+            }
+            else {
+                string = Decimals.toString((Slice) object, ((DecimalType) type).getScale());
+            }
+            return new Cast(new DecimalLiteral(string), type.getDisplayName());
         }
 
         if (type instanceof VarcharType) {
