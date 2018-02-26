@@ -35,6 +35,7 @@ public class TpchConnectorFactory
     public static final String TPCH_COLUMN_NAMING_PROPERTY = "tpch.column-naming";
 
     private final int defaultSplitsPerNode;
+    private final boolean predicatePushdownEnabled;
 
     public TpchConnectorFactory()
     {
@@ -43,7 +44,13 @@ public class TpchConnectorFactory
 
     public TpchConnectorFactory(int defaultSplitsPerNode)
     {
+        this(defaultSplitsPerNode, true);
+    }
+
+    public TpchConnectorFactory(int defaultSplitsPerNode, boolean predicatePushdownEnabled)
+    {
         this.defaultSplitsPerNode = defaultSplitsPerNode;
+        this.predicatePushdownEnabled = predicatePushdownEnabled;
     }
 
     @Override
@@ -76,7 +83,7 @@ public class TpchConnectorFactory
             @Override
             public ConnectorMetadata getMetadata(ConnectorTransactionHandle transaction)
             {
-                return new TpchMetadata(connectorId, columnNaming);
+                return new TpchMetadata(connectorId, columnNaming, predicatePushdownEnabled);
             }
 
             @Override
