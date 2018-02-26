@@ -1,0 +1,21 @@
+{
+  "rowCount" : 25,
+  "columns" : {
+    "n_nationkey" : {
+     "distinctValuesCount" : 19,
+      "min" : 0,
+      "max" : 24
+    },
+    "n_name" : {
+      "distinctValuesCount" : 24
+    },
+    "n_regionkey" : {
+      "distinctValuesCount" : 5,
+      "min" : 0,
+      "max" : 4
+    },
+    "n_comment" : {
+      "distinctValuesCount" : 31
+    }
+  }
+}
