@@ -331,14 +331,12 @@ public final class TypeRegistry
             return Optional.empty();
         }
 
-        List<Type> types = new ArrayList<>();
-        List<Optional<String>> names = new ArrayList<>();
+        ImmutableList.Builder<RowType.Field> fields = ImmutableList.builder();
         for (int i = 0; i < firstFields.size(); i++) {
             Optional<Type> commonParameterType = getCommonSuperType(firstFields.get(i).getType(), secondFields.get(i).getType());
             if (!commonParameterType.isPresent()) {
                 return Optional.empty();
             }
-            types.add(commonParameterType.get());
 
             Optional<String> firstParameterName = firstFields.get(i).getName();
             Optional<String> secondParameterName = secondFields.get(i).getName();
@@ -347,16 +345,8 @@ public final class TypeRegistry
             if (firstParameterName.equals(secondParameterName)) {
                 name = firstParameterName;
             }
-            names.add(name);
-        }
 
-        boolean hasMissing = !names.stream().allMatch(Optional::isPresent);
-
-        ImmutableList.Builder<RowType.Field> fields = ImmutableList.builder();
-        for (int i = 0; i < types.size(); i++) {
-            Type type = types.get(i);
-            Optional<String> name = hasMissing ? Optional.empty() : names.get(i);
-            fields.add(new RowType.Field(name, type));
+            fields.add(new RowType.Field(name, commonParameterType.get()));
         }
 
         return Optional.of(RowType.from(fields.build()));
