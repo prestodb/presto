@@ -30,7 +30,6 @@ import java.util.stream.Collectors;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.Collections.unmodifiableList;
-import static java.util.Objects.requireNonNull;
 
 public class TypeSignature
 {
@@ -157,12 +156,12 @@ public class TypeSignature
     private static TypeSignature parseRowTypeSignature(String signature, Set<String> literalParameters)
     {
         String baseName = null;
-        List<TypeSignature> parameters = new ArrayList<>();
-        List<String> fieldNames = new ArrayList<>();
         int parameterStart = -1;
         int bracketCount = 0;
         boolean inFieldName = false;
 
+        List<TypeSignatureParameter> fields = new ArrayList<>();
+        String fieldName = null;
         for (int i = 0; i < signature.length(); i++) {
             char c = signature.charAt(i);
             if (c == '(') {
@@ -178,7 +177,7 @@ public class TypeSignature
             else if (c == ' ') {
                 if (bracketCount == 1 && inFieldName) {
                     checkArgument(parameterStart >= 0 && parameterStart < i, "Bad type signature: '%s'", signature);
-                    fieldNames.add(signature.substring(parameterStart, i));
+                    fieldName = signature.substring(parameterStart, i);
                     parameterStart = i + 1;
                     inFieldName = false;
                 }
@@ -186,9 +185,14 @@ public class TypeSignature
             else if (c == ',') {
                 if (bracketCount == 1) {
                     checkArgument(parameterStart >= 0, "Bad type signature: '%s'", signature);
-                    parameters.add(parseTypeSignature(signature.substring(parameterStart, i), literalParameters));
+
+                    TypeSignature type = parseTypeSignature(signature.substring(parameterStart, i), literalParameters);
+                    TypeSignatureParameter parameter = TypeSignatureParameter.of(new NamedTypeSignature(Optional.ofNullable(fieldName), type));
+                    fields.add(parameter);
+
                     parameterStart = i + 1;
                     inFieldName = true;
+                    fieldName = null;
                 }
             }
             else if (c == ')') {
@@ -196,25 +200,16 @@ public class TypeSignature
                 if (bracketCount == 0) {
                     checkArgument(i == signature.length() - 1, "Bad type signature: '%s'", signature);
                     checkArgument(parameterStart >= 0, "Bad type signature: '%s'", signature);
-                    parameters.add(parseTypeSignature(signature.substring(parameterStart, i), literalParameters));
-                    return new TypeSignature(baseName, createNamedTypeParameters(parameters, fieldNames));
+
+                    TypeSignature type = parseTypeSignature(signature.substring(parameterStart, i), literalParameters);
+                    TypeSignatureParameter parameter = TypeSignatureParameter.of(new NamedTypeSignature(Optional.ofNullable(fieldName), type));
+                    fields.add(parameter);
+
+                    return new TypeSignature(baseName, fields);
                 }
             }
         }
         throw new IllegalArgumentException(format("Bad type signature: '%s'", signature));
-    }
-
-    private static List<TypeSignatureParameter> createNamedTypeParameters(List<TypeSignature> parameters, List<String> fieldNames)
-    {
-        requireNonNull(parameters, "parameters is null");
-        requireNonNull(fieldNames, "fieldNames is null");
-        verify(parameters.size() == fieldNames.size() || fieldNames.isEmpty(), "Number of parameters and fieldNames for ROW type doesn't match");
-        List<TypeSignatureParameter> result = new ArrayList<>();
-        for (int i = 0; i < parameters.size(); i++) {
-            Optional<String> fieldName = fieldNames.isEmpty() ? Optional.empty() : Optional.of(fieldNames.get(i));
-            result.add(TypeSignatureParameter.of(new NamedTypeSignature(fieldName, parameters.get(i))));
-        }
-        return result;
     }
 
     private static TypeSignatureParameter parseTypeSignatureParameter(

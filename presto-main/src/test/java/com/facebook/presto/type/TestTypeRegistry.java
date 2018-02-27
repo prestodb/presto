@@ -248,8 +248,8 @@ public class TestTypeRegistry
 
         assertCommonSuperType("row(varchar(2))", "row(varchar(5))", "row(varchar(5))");
         assertCommonSuperType("row(a integer)", "row(b bigint)", "row(bigint)");
-        assertCommonSuperType("row(a integer,b varchar(2))", "row(a bigint,c varchar(5))", "row(bigint,varchar(5))");
-        assertCommonSuperType("row(a row(c integer),b varchar(2))", "row(a row(c integer),d varchar(5))", "row(row(c integer),varchar(5))");
+        assertCommonSuperType("row(a integer,b varchar(2))", "row(a bigint,c varchar(5))", "row(a bigint,varchar(5))");
+        assertCommonSuperType("row(a row(c integer),b varchar(2))", "row(a row(c integer),d varchar(5))", "row(a row(c integer),varchar(5))");
     }
 
     @Test
