@@ -37,6 +37,7 @@ import static com.facebook.presto.execution.buffer.BufferState.OPEN;
 import static com.facebook.presto.execution.buffer.BufferState.TERMINAL_BUFFER_STATES;
 import static com.facebook.presto.execution.buffer.BufferTestUtils.MAX_WAIT;
 import static com.facebook.presto.execution.buffer.BufferTestUtils.NO_WAIT;
+import static com.facebook.presto.execution.buffer.BufferTestUtils.acknowledgeBufferResult;
 import static com.facebook.presto.execution.buffer.BufferTestUtils.addPage;
 import static com.facebook.presto.execution.buffer.BufferTestUtils.assertBufferResultEquals;
 import static com.facebook.presto.execution.buffer.BufferTestUtils.assertFinished;
@@ -232,6 +233,53 @@ public class TestPartitionedOutputBuffer
         buffer.abort(FIRST);
         assertQueueClosed(buffer, FIRST, 16);
         assertFinished(buffer);
+    }
+
+    // TODO: remove this after PR #7987 is landed
+    @Test
+    public void testAcknowledge()
+    {
+        int partitionId = 0;
+        PartitionedOutputBuffer buffer = createPartitionedBuffer(
+                createInitialEmptyOutputBuffers(PARTITIONED)
+                        .withBuffer(FIRST, partitionId)
+                        .withNoMoreBufferIds(),
+                sizeOfPages(20));
+
+        // add three items to the buffer
+        for (int i = 0; i < 3; i++) {
+            addPage(buffer, createPage(i), partitionId);
+        }
+        assertQueueState(buffer, FIRST, 3, 0);
+
+        // get the three elements from the first buffer
+        assertBufferResultEquals(TYPES, getBufferResult(buffer, FIRST, 0, sizeOfPages(10), NO_WAIT), bufferResult(0, createPage(0), createPage(1), createPage(2)));
+
+        // acknowledge pages 0 and 1
+        acknowledgeBufferResult(buffer, FIRST, 2);
+        // only page 2 is not removed
+        assertQueueState(buffer, FIRST, 1, 2);
+        // acknowledge page 2
+        acknowledgeBufferResult(buffer, FIRST, 3);
+        // nothing left
+        assertQueueState(buffer, FIRST, 0, 3);
+        // acknowledge more pages will fail
+        try {
+            acknowledgeBufferResult(buffer, FIRST, 4);
+        }
+        catch (IllegalArgumentException e) {
+            assertEquals(e.getMessage(), "Invalid sequence id");
+        }
+
+        // fill the buffer
+        for (int i = 3; i < 6; i++) {
+            addPage(buffer, createPage(i), partitionId);
+        }
+        assertQueueState(buffer, FIRST, 3, 3);
+
+        // getting new pages will again acknowledge the previously acknowledged pages but this is ok
+        buffer.get(FIRST, 3, sizeOfPages(1)).cancel(true);
+        assertQueueState(buffer, FIRST, 3, 3);
     }
 
     @Test

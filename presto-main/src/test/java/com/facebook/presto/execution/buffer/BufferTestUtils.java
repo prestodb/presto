@@ -97,6 +97,12 @@ public final class BufferTestUtils
         return getFuture(future, maxWait);
     }
 
+    // TODO: remove this after PR #7987 is landed
+    static void acknowledgeBufferResult(OutputBuffer buffer, OutputBuffers.OutputBufferId bufferId, long sequenceId)
+    {
+        buffer.acknowledge(bufferId, sequenceId);
+    }
+
     static ListenableFuture<?> enqueuePage(OutputBuffer buffer, Page page)
     {
         ListenableFuture<?> future = buffer.enqueue(ImmutableList.of(PAGES_SERDE.serialize(page)));

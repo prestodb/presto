@@ -207,6 +207,17 @@ public class LazyOutputBuffer
     }
 
     @Override
+    public void acknowledge(OutputBufferId bufferId, long token)
+    {
+        OutputBuffer outputBuffer;
+        synchronized (this) {
+            checkState(delegate != null, "delegate is null");
+            outputBuffer = delegate;
+        }
+        outputBuffer.acknowledge(bufferId, token);
+    }
+
+    @Override
     public void abort(OutputBufferId bufferId)
     {
         OutputBuffer outputBuffer;
