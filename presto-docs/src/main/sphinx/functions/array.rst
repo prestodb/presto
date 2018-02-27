@@ -87,19 +87,37 @@ Array Functions
     If ``index`` > 0, this function provides the same functionality as the SQL-standard subscript operator (``[]``).
     If ``index`` < 0, ``element_at`` accesses elements from the last to the first.
 
-.. function:: filter(array, function) -> array
-    :noindex:
+.. function:: filter(array<T>, function<T,boolean>) -> array<T>
 
-    See :func:`filter`.
+    Constructs an array from those elements of ``array`` for which ``function`` returns true::
+
+        SELECT filter(ARRAY [], x -> true); -- []
+        SELECT filter(ARRAY [5, -6, NULL, 7], x -> x > 0); -- [5, 7]
+        SELECT filter(ARRAY [5, NULL, 7, NULL], x -> x IS NOT NULL); -- [5, 7]
 
 .. function:: flatten(x) -> array
 
     Flattens an ``array(array(T))`` to an ``array(T)`` by concatenating the contained arrays.
 
-.. function:: reduce(array, initialState, inputFunction, outputFunction) -> x
-    :noindex:
+.. function:: reduce(array<T>, initialState S, inputFunction<S,T,S>, outputFunction<S,R>) -> R
 
-    See :func:`reduce`.
+    Returns a single value reduced from ``array``. ``inputFunction`` will
+    be invoked for each element in ``array`` in order. In addition to taking
+    the element, ``inputFunction`` takes the current state, initially
+    ``initialState``, and returns the new state. ``outputFunction`` will be
+    invoked to turn the final state into the result value. It may be the
+    identity function (``i -> i``). ::
+
+        SELECT reduce(ARRAY [], 0, (s, x) -> s + x, s -> s); -- 0
+        SELECT reduce(ARRAY [5, 20, 50], 0, (s, x) -> s + x, s -> s); -- 75
+        SELECT reduce(ARRAY [5, 20, NULL, 50], 0, (s, x) -> s + x, s -> s); -- NULL
+        SELECT reduce(ARRAY [5, 20, NULL, 50], 0, (s, x) -> s + COALESCE(x, 0), s -> s); -- 75
+        SELECT reduce(ARRAY [5, 20, NULL, 50], 0, (s, x) -> IF(x IS NULL, s, s + x), s -> s); -- 75
+        SELECT reduce(ARRAY [2147483647, 1], CAST (0 AS BIGINT), (s, x) -> s + x, s -> s); -- 2147483648
+        SELECT reduce(ARRAY [5, 6, 10, 20], -- calculates arithmetic average: 10.25
+                      CAST(ROW(0.0, 0) AS ROW(sum DOUBLE, count INTEGER)),
+                      (s, x) -> CAST(ROW(x + s.sum, s.count + 1) AS ROW(sum DOUBLE, count INTEGER)),
+                      s -> IF(s.count = 0, NULL, s.sum / s.count));
 
 .. function:: repeat(element, count) -> array
 
@@ -133,10 +151,15 @@ Array Functions
     Subsets array ``x`` starting from index ``start`` (or starting from the end
     if ``start`` is negative) with a length of ``length``.
 
-.. function:: transform(array, function) -> array
-    :noindex:
+.. function:: transform(array<T>, function<T,U>) -> array<U>
 
-    See :func:`transform`.
+    Returns an array that is the result of applying ``function`` to each element of ``array``::
+
+        SELECT transform(ARRAY [], x -> x + 1); -- []
+        SELECT transform(ARRAY [5, 6], x -> x + 1); -- [6, 7]
+        SELECT transform(ARRAY [5, NULL, 6], x -> COALESCE(x, 0) + 1); -- [6, 1, 7]
+        SELECT transform(ARRAY ['x', 'abc', 'z'], x -> x || '0'); -- ['x0', 'abc0', 'z0']
+        SELECT transform(ARRAY [ARRAY [1, NULL, 2], ARRAY[3, NULL]], a -> filter(a, x -> x IS NOT NULL)); -- [[1, 2], [3]]
 
 .. function:: zip(array1, array2[, ...]) -> array<row>
 
@@ -146,7 +169,11 @@ Array Functions
 
         SELECT zip(ARRAY[1, 2], ARRAY['1b', null, '3b']); -- [ROW(1, '1b'), ROW(2, null), ROW(null, '3b')]
 
-.. function:: zip_with(array1, array2, function) -> array
-    :noindex:
+.. function:: zip_with(array<T>, array<U>, function<T,U,R>) -> array<R>
 
-    See :func:`zip_with`.
+    Merges the two given arrays, element-wise, into a single array using ``function``.
+    Both arrays must be the same length. ::
+
+        SELECT zip_with(ARRAY[1, 3, 5], ARRAY['a', 'b', 'c'], (x, y) -> (y, x)); -- [ROW('a', 1), ROW('b', 3), ROW('c', 5)]
+        SELECT zip_with(ARRAY[1, 2], ARRAY[3, 4], (x, y) -> x + y); -- [4, 6]
+        SELECT zip_with(ARRAY['a', 'b', 'c'], ARRAY['d', 'e', 'f'], (x, y) -> concat(x, y)); -- ['ad', 'be', 'cf']
