@@ -50,6 +50,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
@@ -59,6 +60,7 @@ import static com.facebook.presto.verifier.QueryType.READ;
 import static com.facebook.presto.verifier.VerifyCommand.statementToQueryType;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newSingleThreadExecutor;
 
 public class QueryRewriter
 {
@@ -210,7 +212,8 @@ public class QueryRewriter
 
         ImmutableList.Builder<Column> columns = ImmutableList.builder();
         try (java.sql.Statement jdbcStatement = connection.createStatement()) {
-            TimeLimiter limiter = new SimpleTimeLimiter();
+            ExecutorService executor = newSingleThreadExecutor();
+            TimeLimiter limiter = SimpleTimeLimiter.create(executor);
             java.sql.Statement limitedStatement = limiter.newProxy(jdbcStatement, java.sql.Statement.class, timeout.toMillis(), TimeUnit.MILLISECONDS);
             try (ResultSet resultSet = limitedStatement.executeQuery(formatSql(zeroRowsQuery, Optional.empty()))) {
                 ResultSetMetaData metaData = resultSet.getMetaData();
@@ -219,6 +222,9 @@ public class QueryRewriter
                     int type = metaData.getColumnType(i);
                     columns.add(new Column(name, APPROXIMATE_TYPES.contains(type)));
                 }
+            }
+            finally {
+                executor.shutdownNow();
             }
         }
 

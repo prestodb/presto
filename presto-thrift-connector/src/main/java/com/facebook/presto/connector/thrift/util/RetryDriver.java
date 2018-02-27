@@ -37,6 +37,8 @@ import java.util.function.Predicate;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
+import static com.google.common.util.concurrent.Futures.transformAsync;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.Duration.nanosSince;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -215,7 +217,8 @@ public class RetryDriver
                 throw propagate(e);
             }
             log.warn(e, "Failed on executing %s with attempt %d, will perform async retry.", callableName, retryStatus.getAttempts());
-            return Futures.dereference(retryExecutorService.schedule(() -> runAsyncInternal(callableName, stats, callable, retryStatus), retryStatus.getRetryDelayInMs(), MILLISECONDS));
+            Callable<ListenableFuture<V>> retryCallable = () -> runAsyncInternal(callableName, stats, callable, retryStatus);
+            return transformAsync(retryExecutorService.schedule(retryCallable, retryStatus.getRetryDelayInMs(), MILLISECONDS), x -> x, directExecutor());
         });
     }
 

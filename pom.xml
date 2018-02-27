@@ -55,6 +55,8 @@
         <dep.assertj-core.version>3.8.0</dep.assertj-core.version>
         <dep.nifty.version>0.15.1</dep.nifty.version>
         <dep.swift.version>0.15.6</dep.swift.version>
+        <dep.guice.version>4.1.0</dep.guice.version>
+        <dep.guava.version>24.0-jre</dep.guava.version>
 
         <!-- use a fractional hour timezone offset for tests -->
         <air.test.timezone>Asia/Katmandu</air.test.timezone>
