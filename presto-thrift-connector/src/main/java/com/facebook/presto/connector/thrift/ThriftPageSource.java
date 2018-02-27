@@ -17,6 +17,7 @@ import com.facebook.presto.connector.thrift.api.PrestoThriftId;
 import com.facebook.presto.connector.thrift.api.PrestoThriftNullableToken;
 import com.facebook.presto.connector.thrift.api.PrestoThriftPageResult;
 import com.facebook.presto.connector.thrift.api.PrestoThriftService;
+import com.facebook.presto.connector.thrift.api.PrestoThriftSession;
 import com.facebook.presto.connector.thrift.clientproviders.PrestoThriftServiceProvider;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -41,6 +42,7 @@ public class ThriftPageSource
 {
     private final PrestoThriftId splitId;
     private final PrestoThriftService client;
+    private final PrestoThriftSession session;
     private final List<String> columnNames;
     private final List<Type> columnTypes;
     private final long maxBytesPerResponse;
@@ -54,11 +56,13 @@ public class ThriftPageSource
 
     public ThriftPageSource(
             PrestoThriftServiceProvider clientProvider,
+            PrestoThriftSession session,
             ThriftConnectorSplit split,
             List<ColumnHandle> columns,
             ThriftConnectorStats stats,
             long maxBytesPerResponse)
     {
+        this.session = requireNonNull(session, "session is null");
         // init columns
         requireNonNull(columns, "columns is null");
         ImmutableList.Builder<String> columnNames = new ImmutableList.Builder<>();
@@ -158,7 +162,8 @@ public class ThriftPageSource
                 splitId,
                 columnNames,
                 maxBytesPerResponse,
-                new PrestoThriftNullableToken(nextToken));
+                new PrestoThriftNullableToken(nextToken),
+                session);
         rowsBatchFuture.addListener(() -> readTimeNanos.addAndGet(System.nanoTime() - start), directExecutor());
         return toCompletableFuture(nonCancellationPropagating(rowsBatchFuture));
     }

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.connector.thrift;
 
+import com.facebook.presto.connector.thrift.api.PrestoThriftSession;
 import com.facebook.presto.connector.thrift.clientproviders.PrestoThriftServiceProvider;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorIndex;
@@ -34,6 +35,7 @@ public class ThriftConnectorIndex
     private final long maxBytesPerResponse;
     private final int lookupRequestsConcurrency;
     private final ThriftConnectorStats stats;
+    private final PrestoThriftSession session;
 
     public ThriftConnectorIndex(
             PrestoThriftServiceProvider clientProvider,
@@ -42,7 +44,8 @@ public class ThriftConnectorIndex
             List<ColumnHandle> lookupColumns,
             List<ColumnHandle> outputColumns,
             long maxBytesPerResponse,
-            int lookupRequestsConcurrency)
+            int lookupRequestsConcurrency,
+            PrestoThriftSession session)
     {
         this.clientProvider = requireNonNull(clientProvider, "clientProvider is null");
         this.stats = requireNonNull(stats, "stats is null");
@@ -51,12 +54,13 @@ public class ThriftConnectorIndex
         this.outputColumns = requireNonNull(outputColumns, "outputColumns is null");
         this.maxBytesPerResponse = maxBytesPerResponse;
         this.lookupRequestsConcurrency = lookupRequestsConcurrency;
+        this.session = requireNonNull(session, "session is null");
     }
 
     @Override
     public ConnectorPageSource lookup(RecordSet recordSet)
     {
-        return new ThriftIndexPageSource(clientProvider, stats, indexHandle, lookupColumns, outputColumns, recordSet, maxBytesPerResponse, lookupRequestsConcurrency);
+        return new ThriftIndexPageSource(clientProvider, session, stats, indexHandle, lookupColumns, outputColumns, recordSet, maxBytesPerResponse, lookupRequestsConcurrency);
     }
 
     @Override

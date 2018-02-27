@@ -24,6 +24,8 @@ import com.facebook.presto.connector.thrift.api.PrestoThriftPageResult;
 import com.facebook.presto.connector.thrift.api.PrestoThriftSchemaTableName;
 import com.facebook.presto.connector.thrift.api.PrestoThriftService;
 import com.facebook.presto.connector.thrift.api.PrestoThriftServiceException;
+import com.facebook.presto.connector.thrift.api.PrestoThriftSession;
+import com.facebook.presto.connector.thrift.api.PrestoThriftSessionProperty;
 import com.facebook.presto.connector.thrift.api.PrestoThriftSplit;
 import com.facebook.presto.connector.thrift.api.PrestoThriftSplitBatch;
 import com.facebook.presto.connector.thrift.api.PrestoThriftTableMetadata;
@@ -73,6 +75,10 @@ public class ThriftTpchService
     private final ListeningExecutorService executor = listeningDecorator(
             newFixedThreadPool(Runtime.getRuntime().availableProcessors(), threadsNamed("thrift-tpch-%s")));
 
+    public ThriftTpchService()
+    {
+    }
+
     @Override
     public final List<String> listSchemaNames()
     {
@@ -89,6 +95,13 @@ public class ThriftTpchService
             }
         }
         return tables;
+    }
+
+    @Override
+    public List<PrestoThriftSessionProperty> listSessionProperties()
+            throws PrestoThriftServiceException
+    {
+        return ImmutableList.of();
     }
 
     @Override
@@ -119,16 +132,18 @@ public class ThriftTpchService
             PrestoThriftNullableColumnSet desiredColumns,
             PrestoThriftTupleDomain outputConstraint,
             int maxSplitCount,
-            PrestoThriftNullableToken nextToken)
+            PrestoThriftNullableToken nextToken,
+            PrestoThriftSession session)
             throws PrestoThriftServiceException
     {
-        return executor.submit(() -> getSplitsSync(schemaTableName, maxSplitCount, nextToken));
+        return executor.submit(() -> getSplitsSync(schemaTableName, maxSplitCount, nextToken, session));
     }
 
     private static PrestoThriftSplitBatch getSplitsSync(
             PrestoThriftSchemaTableName schemaTableName,
             int maxSplitCount,
-            PrestoThriftNullableToken nextToken)
+            PrestoThriftNullableToken nextToken,
+            PrestoThriftSession session)
             throws PrestoThriftServiceException
     {
         int totalParts = DEFAULT_NUMBER_OF_SPLITS;
@@ -158,10 +173,11 @@ public class ThriftTpchService
             PrestoThriftPageResult keys,
             PrestoThriftTupleDomain outputConstraint,
             int maxSplitCount,
-            PrestoThriftNullableToken nextToken)
+            PrestoThriftNullableToken nextToken,
+            PrestoThriftSession session)
             throws PrestoThriftServiceException
     {
-        return executor.submit(() -> getIndexSplitsSync(schemaTableName, indexColumnNames, keys, maxSplitCount, nextToken));
+        return executor.submit(() -> getIndexSplitsSync(schemaTableName, indexColumnNames, keys, maxSplitCount, nextToken, session));
     }
 
     protected PrestoThriftSplitBatch getIndexSplitsSync(
@@ -169,7 +185,8 @@ public class ThriftTpchService
             List<String> indexColumnNames,
             PrestoThriftPageResult keys,
             int maxSplitCount,
-            PrestoThriftNullableToken nextToken)
+            PrestoThriftNullableToken nextToken,
+            PrestoThriftSession session)
             throws PrestoThriftServiceException
     {
         throw new PrestoThriftServiceException("Index join is not supported", false);
@@ -180,16 +197,18 @@ public class ThriftTpchService
             PrestoThriftId splitId,
             List<String> outputColumns,
             long maxBytes,
-            PrestoThriftNullableToken nextToken)
+            PrestoThriftNullableToken nextToken,
+            PrestoThriftSession session)
     {
-        return executor.submit(() -> getRowsSync(splitId, outputColumns, maxBytes, nextToken));
+        return executor.submit(() -> getRowsSync(splitId, outputColumns, maxBytes, nextToken, session));
     }
 
     private PrestoThriftPageResult getRowsSync(
             PrestoThriftId splitId,
             List<String> outputColumns,
             long maxBytes,
-            PrestoThriftNullableToken nextToken)
+            PrestoThriftNullableToken nextToken,
+            PrestoThriftSession session)
     {
         SplitInfo splitInfo = SPLIT_INFO_CODEC.fromJson(splitId.getId());
         checkArgument(maxBytes >= DEFAULT_MAX_PAGE_SIZE_IN_BYTES, "requested maxBytes is too small");

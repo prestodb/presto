@@ -34,15 +34,17 @@ public class ThriftIndexProvider
     private final long maxBytesPerResponse;
     private final int lookupRequestsConcurrency;
     private final ThriftConnectorStats stats;
+    private final ThriftSessionProperties sessionProperties;
 
     @Inject
-    public ThriftIndexProvider(PrestoThriftServiceProvider clientProvider, ThriftConnectorStats stats, ThriftConnectorConfig config)
+    public ThriftIndexProvider(PrestoThriftServiceProvider clientProvider, ThriftConnectorStats stats, ThriftConnectorConfig config, ThriftSessionProperties sessionProperties)
     {
         this.clientProvider = requireNonNull(clientProvider, "clientProvider is null");
         this.stats = requireNonNull(stats, "stats is null");
         requireNonNull(config, "config is null");
         this.maxBytesPerResponse = config.getMaxResponseSize().toBytes();
         this.lookupRequestsConcurrency = config.getLookupRequestsConcurrency();
+        this.sessionProperties = requireNonNull(sessionProperties, "sessionProperties is null");
     }
 
     @Override
@@ -53,6 +55,6 @@ public class ThriftIndexProvider
             List<ColumnHandle> lookupSchema,
             List<ColumnHandle> outputSchema)
     {
-        return new ThriftConnectorIndex(clientProvider, stats, (ThriftIndexHandle) indexHandle, lookupSchema, outputSchema, maxBytesPerResponse, lookupRequestsConcurrency);
+        return new ThriftConnectorIndex(clientProvider, stats, (ThriftIndexHandle) indexHandle, lookupSchema, outputSchema, maxBytesPerResponse, lookupRequestsConcurrency, sessionProperties.convertConnectorSession(session));
     }
 }

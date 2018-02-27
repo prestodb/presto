@@ -121,6 +121,18 @@ public final class PrestoThriftBigint
                 .toString();
     }
 
+    public Long getSingleValue()
+    {
+        if (longs != null) {
+            checkArgument(longs.length == 1, "Must have only 1 values");
+            if (nulls == null || !nulls[0]) {
+                return longs[0];
+            }
+        }
+        checkArgument(nulls.length == 1, "Must have only 1 values");
+        return null;
+    }
+
     public static PrestoThriftBlock fromBlock(Block block)
     {
         return fromLongBasedBlock(block, BIGINT, (nulls, longs) -> bigintData(new PrestoThriftBigint(nulls, longs)));

@@ -116,6 +116,19 @@ public final class PrestoThriftBoolean
                 .toString();
     }
 
+    public Boolean getSingleValue()
+    {
+        if (booleans != null) {
+            checkArgument(booleans.length == 1, "Must have only 1 values");
+            if (nulls == null || !nulls[0]) {
+                return booleans[0];
+            }
+        }
+
+        checkArgument(nulls.length == 1, "Must have only 1 values");
+        return null;
+    }
+
     public static PrestoThriftBlock fromBlock(Block block)
     {
         int positions = block.getPositionCount();

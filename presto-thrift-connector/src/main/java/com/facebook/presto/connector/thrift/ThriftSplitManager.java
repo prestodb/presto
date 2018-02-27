@@ -19,6 +19,7 @@ import com.facebook.presto.connector.thrift.api.PrestoThriftNullableColumnSet;
 import com.facebook.presto.connector.thrift.api.PrestoThriftNullableToken;
 import com.facebook.presto.connector.thrift.api.PrestoThriftSchemaTableName;
 import com.facebook.presto.connector.thrift.api.PrestoThriftService;
+import com.facebook.presto.connector.thrift.api.PrestoThriftSession;
 import com.facebook.presto.connector.thrift.api.PrestoThriftSplit;
 import com.facebook.presto.connector.thrift.api.PrestoThriftSplitBatch;
 import com.facebook.presto.connector.thrift.api.PrestoThriftTupleDomain;
@@ -57,11 +58,13 @@ public class ThriftSplitManager
         implements ConnectorSplitManager
 {
     private final PrestoThriftServiceProvider clientProvider;
+    private final ThriftSessionProperties sessionProperties;
 
     @Inject
-    public ThriftSplitManager(PrestoThriftServiceProvider clientProvider)
+    public ThriftSplitManager(PrestoThriftServiceProvider clientProvider, ThriftSessionProperties sessionProperties)
     {
         this.clientProvider = requireNonNull(clientProvider, "clientProvider is null");
+        this.sessionProperties = requireNonNull(sessionProperties, "sessionProperties is null");
     }
 
     @Override
@@ -70,6 +73,7 @@ public class ThriftSplitManager
         ThriftTableLayoutHandle layoutHandle = (ThriftTableLayoutHandle) layout;
         return new ThriftSplitSource(
                 clientProvider.anyHostClient(),
+                sessionProperties.convertConnectorSession(session),
                 new PrestoThriftSchemaTableName(layoutHandle.getSchemaName(), layoutHandle.getTableName()),
                 layoutHandle.getColumns().map(ThriftSplitManager::columnNames),
                 tupleDomainToThriftTupleDomain(layoutHandle.getConstraint()));
@@ -88,6 +92,7 @@ public class ThriftSplitManager
             implements ConnectorSplitSource
     {
         private final PrestoThriftService client;
+        private final PrestoThriftSession session;
         private final PrestoThriftSchemaTableName schemaTableName;
         private final Optional<Set<String>> columnNames;
         private final PrestoThriftTupleDomain constraint;
@@ -100,6 +105,7 @@ public class ThriftSplitManager
 
         public ThriftSplitSource(
                 PrestoThriftService client,
+                PrestoThriftSession session,
                 PrestoThriftSchemaTableName schemaTableName,
                 Optional<Set<String>> columnNames,
                 PrestoThriftTupleDomain constraint)
@@ -111,6 +117,7 @@ public class ThriftSplitManager
             this.nextToken = new AtomicReference<>(null);
             this.hasMoreData = new AtomicBoolean(true);
             this.future = new AtomicReference<>(null);
+            this.session = requireNonNull(session, "session is null");
         }
 
         /**
@@ -129,7 +136,7 @@ public class ThriftSplitManager
                     new PrestoThriftNullableColumnSet(columnNames.orElse(null)),
                     constraint,
                     maxSize,
-                    new PrestoThriftNullableToken(currentToken));
+                    new PrestoThriftNullableToken(currentToken), session);
             ListenableFuture<ConnectorSplitBatch> resultFuture = Futures.transform(
                     splitsFuture,
                     batch -> {

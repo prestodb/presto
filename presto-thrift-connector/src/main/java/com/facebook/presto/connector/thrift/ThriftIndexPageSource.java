@@ -19,6 +19,7 @@ import com.facebook.presto.connector.thrift.api.PrestoThriftNullableToken;
 import com.facebook.presto.connector.thrift.api.PrestoThriftPageResult;
 import com.facebook.presto.connector.thrift.api.PrestoThriftSchemaTableName;
 import com.facebook.presto.connector.thrift.api.PrestoThriftService;
+import com.facebook.presto.connector.thrift.api.PrestoThriftSession;
 import com.facebook.presto.connector.thrift.api.PrestoThriftSplit;
 import com.facebook.presto.connector.thrift.api.PrestoThriftSplitBatch;
 import com.facebook.presto.connector.thrift.api.PrestoThriftTupleDomain;
@@ -67,6 +68,7 @@ public class ThriftIndexPageSource
     private static final int MAX_SPLIT_COUNT = 10_000_000;
 
     private final PrestoThriftServiceProvider clientProvider;
+    private final PrestoThriftSession session;
     private final PrestoThriftSchemaTableName schemaTableName;
     private final List<String> lookupColumnNames;
     private final List<String> outputColumnNames;
@@ -95,6 +97,7 @@ public class ThriftIndexPageSource
 
     public ThriftIndexPageSource(
             PrestoThriftServiceProvider clientProvider,
+            PrestoThriftSession session,
             ThriftConnectorStats stats,
             ThriftIndexHandle indexHandle,
             List<ColumnHandle> lookupColumns,
@@ -104,6 +107,7 @@ public class ThriftIndexPageSource
             int lookupRequestsConcurrency)
     {
         this.clientProvider = requireNonNull(clientProvider, "clientProvider is null");
+        this.session = requireNonNull(session, "session is null");
         this.stats = requireNonNull(stats, "stats is null");
 
         requireNonNull(indexHandle, "indexHandle is null");
@@ -301,7 +305,8 @@ public class ThriftIndexPageSource
                 keys,
                 outputConstraint,
                 MAX_SPLIT_COUNT,
-                new PrestoThriftNullableToken(nextToken));
+                new PrestoThriftNullableToken(nextToken),
+                session);
         future.addListener(() -> readTimeNanos.addAndGet(System.nanoTime() - start), directExecutor());
         return future;
     }
@@ -313,7 +318,8 @@ public class ThriftIndexPageSource
                 context.getSplit().getSplitId(),
                 outputColumnNames,
                 maxBytesPerResponse,
-                new PrestoThriftNullableToken(nextToken));
+                new PrestoThriftNullableToken(nextToken),
+                session);
         future.addListener(() -> readTimeNanos.addAndGet(System.nanoTime() - start), directExecutor());
         dataRequests.add(future);
         contexts.put(future, context);

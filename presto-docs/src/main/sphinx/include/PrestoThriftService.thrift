@@ -10,34 +10,6 @@ exception PrestoThriftServiceException {
   2:  bool retryable;
 }
 
-struct PrestoThriftNullableSchemaName {
-  1: optional string schemaName;
-}
-
-struct PrestoThriftSchemaTableName {
-  1:  string schemaName;
-  2:  string tableName;
-}
-
-struct PrestoThriftColumnMetadata {
-  1:  string name;
-  2:  string type;
-  3: optional string comment;
-  4:  bool hidden;
-}
-
-struct PrestoThriftNullableColumnSet {
-  1: optional set<string> columns;
-}
-
-
-/**
- * Set that either includes all values, or excludes all values.
- */
-struct PrestoThriftAllOrNoneValueSet {
-  1:  bool all;
-}
-
 
 /**
  * Elements of {@code nulls} array determine if a value for a corresponding row is null.
@@ -162,6 +134,34 @@ struct PrestoThriftBigintArray {
   3: optional PrestoThriftBigint values;
 }
 
+struct PrestoThriftNullableSchemaName {
+  1: optional string schemaName;
+}
+
+struct PrestoThriftSchemaTableName {
+  1:  string schemaName;
+  2:  string tableName;
+}
+
+struct PrestoThriftColumnMetadata {
+  1:  string name;
+  2:  string type;
+  3: optional string comment;
+  4:  bool hidden;
+}
+
+struct PrestoThriftNullableColumnSet {
+  1: optional set<string> columns;
+}
+
+
+/**
+ * Set that either includes all values, or excludes all values.
+ */
+struct PrestoThriftAllOrNoneValueSet {
+  1:  bool all;
+}
+
 struct PrestoThriftId {
   1:  binary id;
 }
@@ -169,19 +169,6 @@ struct PrestoThriftId {
 struct PrestoThriftHostAddress {
   1:  string host;
   2:  i32 port;
-}
-
-struct PrestoThriftTableMetadata {
-  1:  PrestoThriftSchemaTableName schemaTableName;
-  2:  list<PrestoThriftColumnMetadata> columns;
-  3: optional string comment;
-
-  /**
-   * Returns a list of key sets which can be used for index lookups.
-   * The list is expected to have only unique key sets.
-   * {@code set<set<string>>} is not used here because some languages (like php) don't support it.
-   */
-  4: optional list<set<string>> indexableKeys;
 }
 
 struct PrestoThriftBlock {
@@ -197,6 +184,31 @@ struct PrestoThriftBlock {
   10: optional PrestoThriftBigintArray bigintArrayData;
 }
 
+struct PrestoThriftTableMetadata {
+  1:  PrestoThriftSchemaTableName schemaTableName;
+  2:  list<PrestoThriftColumnMetadata> columns;
+  3: optional string comment;
+
+  /**
+   * Returns a list of key sets which can be used for index lookups.
+   * The list is expected to have only unique key sets.
+   * {@code set<set<string>>} is not used here because some languages (like php) don't support it.
+   */
+  4: optional list<set<string>> indexableKeys;
+}
+
+
+/**
+ * A set containing values that are uniquely identifiable.
+ * Assumes an infinite number of possible values. The values may be collectively included (aka whitelist)
+ * or collectively excluded (aka !whitelist).
+ * This structure is used with comparable, but not orderable types like "json", "map".
+ */
+struct PrestoThriftEquatableValueSet {
+  1:  bool whiteList;
+  2:  list<PrestoThriftBlock> values;
+}
+
 
 /**
  * LOWER UNBOUNDED is specified with an empty value and an ABOVE bound
@@ -209,6 +221,17 @@ struct PrestoThriftMarker {
 
 struct PrestoThriftNullableToken {
   1: optional PrestoThriftId token;
+}
+
+struct PrestoThriftSession {
+  1:  string queryId;
+  2: optional string source;
+  3:  string user;
+  4: optional string principalName;
+  5:  string zoneId;
+  6:  string localeCode;
+  7:  i64 startTime;
+  8: optional map<string, PrestoThriftBlock> propertyMap;
 }
 
 struct PrestoThriftSplit {
@@ -226,20 +249,15 @@ struct PrestoThriftPageResult {
   3: optional PrestoThriftId nextToken;
 }
 
-struct PrestoThriftNullableTableMetadata {
-  1: optional PrestoThriftTableMetadata tableMetadata;
+struct PrestoThriftSessionProperty {
+  1:  string name;
+  2: optional string description;
+  4:  PrestoThriftBlock defaultValue;
+  5:  bool hidden;
 }
 
-
-/**
- * A set containing values that are uniquely identifiable.
- * Assumes an infinite number of possible values. The values may be collectively included (aka whitelist)
- * or collectively excluded (aka !whitelist).
- * This structure is used with comparable, but not orderable types like "json", "map".
- */
-struct PrestoThriftEquatableValueSet {
-  1:  bool whiteList;
-  2:  list<PrestoThriftBlock> values;
+struct PrestoThriftNullableTableMetadata {
+  1: optional PrestoThriftTableMetadata tableMetadata;
 }
 
 struct PrestoThriftRange {
@@ -289,6 +307,7 @@ service PrestoThriftService {
    * Returns available schema names.
    */
   list<string> prestoListSchemaNames() throws (1: PrestoThriftServiceException ex1);
+  list<PrestoThriftSessionProperty> prestoListSessionProperties() throws (1: PrestoThriftServiceException ex1);
 
   /**
    * Returns tables for the given schema name.
@@ -315,9 +334,10 @@ service PrestoThriftService {
    * @param outputConstraint constraint on the returned data
    * @param maxSplitCount maximum number of splits to return
    * @param nextToken token from a previous split batch or {@literal null} if it is the first call
+   * @param session session to be passed to thrift server
    * @return a batch of splits
    */
-  PrestoThriftSplitBatch prestoGetSplits(1:  PrestoThriftSchemaTableName schemaTableName, 2:  PrestoThriftNullableColumnSet desiredColumns, 3:  PrestoThriftTupleDomain outputConstraint, 4:  i32 maxSplitCount, 5:  PrestoThriftNullableToken nextToken) throws (1: PrestoThriftServiceException ex1);
+  PrestoThriftSplitBatch prestoGetSplits(1:  PrestoThriftSchemaTableName schemaTableName, 2:  PrestoThriftNullableColumnSet desiredColumns, 3:  PrestoThriftTupleDomain outputConstraint, 4:  i32 maxSplitCount, 5:  PrestoThriftNullableToken nextToken, 6: optional PrestoThriftSession session) throws (1: PrestoThriftServiceException ex1);
 
   /**
    * Returns a batch of index splits for the given batch of keys.
@@ -330,9 +350,10 @@ service PrestoThriftService {
    * @param outputConstraint constraint on the returned data
    * @param maxSplitCount maximum number of splits to return
    * @param nextToken token from a previous split batch or {@literal null} if it is the first call
+   * @param session session to be passed to thrift server
    * @return a batch of splits
    */
-  PrestoThriftSplitBatch prestoGetIndexSplits(1:  PrestoThriftSchemaTableName schemaTableName, 2:  list<string> indexColumnNames, 3:  list<string> outputColumnNames, 4:  PrestoThriftPageResult keys, 5:  PrestoThriftTupleDomain outputConstraint, 6:  i32 maxSplitCount, 7:  PrestoThriftNullableToken nextToken) throws (1: PrestoThriftServiceException ex1);
+  PrestoThriftSplitBatch prestoGetIndexSplits(1:  PrestoThriftSchemaTableName schemaTableName, 2:  list<string> indexColumnNames, 3:  list<string> outputColumnNames, 4:  PrestoThriftPageResult keys, 5:  PrestoThriftTupleDomain outputConstraint, 6:  i32 maxSplitCount, 7:  PrestoThriftNullableToken nextToken, 8: optional PrestoThriftSession session) throws (1: PrestoThriftServiceException ex1);
 
   /**
    * Returns a batch of rows for the given split.
@@ -341,7 +362,8 @@ service PrestoThriftService {
    * @param columns a list of column names to return
    * @param maxBytes maximum size of returned data in bytes
    * @param nextToken token from a previous batch or {@literal null} if it is the first call
+   * @param session session to be passed to thrift server
    * @return a batch of table data
    */
-  PrestoThriftPageResult prestoGetRows(1:  PrestoThriftId splitId, 2:  list<string> columns, 3:  i64 maxBytes, 4:  PrestoThriftNullableToken nextToken) throws (1: PrestoThriftServiceException ex1);
+  PrestoThriftPageResult prestoGetRows(1:  PrestoThriftId splitId, 2:  list<string> columns, 3:  i64 maxBytes, 4:  PrestoThriftNullableToken nextToken, 5: optional PrestoThriftSession session) throws (1: PrestoThriftServiceException ex1);
 }

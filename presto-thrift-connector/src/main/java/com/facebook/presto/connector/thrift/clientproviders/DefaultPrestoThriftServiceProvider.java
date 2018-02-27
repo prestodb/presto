@@ -23,13 +23,17 @@ import com.facebook.presto.connector.thrift.api.PrestoThriftPageResult;
 import com.facebook.presto.connector.thrift.api.PrestoThriftSchemaTableName;
 import com.facebook.presto.connector.thrift.api.PrestoThriftService;
 import com.facebook.presto.connector.thrift.api.PrestoThriftServiceException;
+import com.facebook.presto.connector.thrift.api.PrestoThriftSession;
+import com.facebook.presto.connector.thrift.api.PrestoThriftSessionProperty;
 import com.facebook.presto.connector.thrift.api.PrestoThriftSplitBatch;
 import com.facebook.presto.connector.thrift.api.PrestoThriftTupleDomain;
 import com.facebook.presto.connector.thrift.location.HostLocationHandle;
 import com.facebook.presto.connector.thrift.location.HostLocationProvider;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.swift.service.RuntimeTApplicationException;
 import com.facebook.swift.service.ThriftClient;
+import com.google.common.collect.ImmutableList;
 import com.google.common.net.HostAndPort;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.Duration;
@@ -40,9 +44,12 @@ import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.Supplier;
 
 import static com.facebook.presto.connector.thrift.ThriftErrorCode.THRIFT_SERVICE_CONNECTION_ERROR;
+import static com.google.common.base.Suppliers.memoizeWithExpiration;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.DAYS;
 
 public class DefaultPrestoThriftServiceProvider
         implements ConnectedThriftServiceProvider
@@ -95,11 +102,13 @@ public class DefaultPrestoThriftServiceProvider
     {
         private final PrestoThriftService prestoThriftService;
         private final HostLocationHandle hostLocationHandle;
+        private final Supplier<List<PrestoThriftSessionProperty>> sessionPropertiesSupplier;
 
         public DefaultThriftService(PrestoThriftService prestoThriftService, HostLocationHandle hostLocationHandle)
         {
             this.prestoThriftService = requireNonNull(prestoThriftService, "prestoThriftService is null");
             this.hostLocationHandle = requireNonNull(hostLocationHandle, "hostLocationHandle is null");
+            this.sessionPropertiesSupplier = memoizeWithExpiration(() -> prestoThriftService.listSessionProperties(), 1, DAYS);
         }
 
         @Override
@@ -107,6 +116,21 @@ public class DefaultPrestoThriftServiceProvider
                 throws PrestoThriftServiceException
         {
             return prestoThriftService.listSchemaNames();
+        }
+
+        @Override
+        public List<PrestoThriftSessionProperty> listSessionProperties()
+                throws PrestoThriftServiceException
+        {
+            try {
+                return sessionPropertiesSupplier.get();
+            }
+            catch (RuntimeTApplicationException e) {
+                if (e.getMessage().contains("Invalid method name")) {
+                    return ImmutableList.of();
+                }
+                throw e;
+            }
         }
 
         @Override
@@ -124,24 +148,36 @@ public class DefaultPrestoThriftServiceProvider
         }
 
         @Override
-        public ListenableFuture<PrestoThriftSplitBatch> getSplits(PrestoThriftSchemaTableName schemaTableName, PrestoThriftNullableColumnSet desiredColumns, PrestoThriftTupleDomain outputConstraint, int maxSplitCount, PrestoThriftNullableToken nextToken)
+        public ListenableFuture<PrestoThriftSplitBatch> getSplits(PrestoThriftSchemaTableName schemaTableName,
+                PrestoThriftNullableColumnSet desiredColumns,
+                PrestoThriftTupleDomain outputConstraint,
+                int maxSplitCount,
+                PrestoThriftNullableToken nextToken,
+                PrestoThriftSession session)
                 throws PrestoThriftServiceException
         {
-            return prestoThriftService.getSplits(schemaTableName, desiredColumns, outputConstraint, maxSplitCount, nextToken);
+            return prestoThriftService.getSplits(schemaTableName, desiredColumns, outputConstraint, maxSplitCount, nextToken, session);
         }
 
         @Override
-        public ListenableFuture<PrestoThriftPageResult> getRows(PrestoThriftId splitId, List<String> columns, long maxBytes, PrestoThriftNullableToken nextToken)
+        public ListenableFuture<PrestoThriftPageResult> getRows(PrestoThriftId splitId, List<String> columns, long maxBytes, PrestoThriftNullableToken nextToken, PrestoThriftSession session)
                 throws PrestoThriftServiceException
         {
-            return prestoThriftService.getRows(splitId, columns, maxBytes, nextToken);
+            return prestoThriftService.getRows(splitId, columns, maxBytes, nextToken, session);
         }
 
         @Override
-        public ListenableFuture<PrestoThriftSplitBatch> getIndexSplits(PrestoThriftSchemaTableName schemaTableName, List<String> indexColumnNames, List<String> outputColumnNames, PrestoThriftPageResult keys, PrestoThriftTupleDomain outputConstraint, int maxSplitCount, PrestoThriftNullableToken nextToken)
+        public ListenableFuture<PrestoThriftSplitBatch> getIndexSplits(PrestoThriftSchemaTableName schemaTableName,
+                List<String> indexColumnNames,
+                List<String> outputColumnNames,
+                PrestoThriftPageResult keys,
+                PrestoThriftTupleDomain outputConstraint,
+                int maxSplitCount,
+                PrestoThriftNullableToken nextToken,
+                PrestoThriftSession session)
                 throws PrestoThriftServiceException
         {
-            return prestoThriftService.getIndexSplits(schemaTableName, indexColumnNames, outputColumnNames, keys, outputConstraint, maxSplitCount, nextToken);
+            return prestoThriftService.getIndexSplits(schemaTableName, indexColumnNames, outputColumnNames, keys, outputConstraint, maxSplitCount, nextToken, session);
         }
 
         @Override

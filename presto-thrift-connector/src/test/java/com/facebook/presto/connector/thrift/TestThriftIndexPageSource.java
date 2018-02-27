@@ -22,6 +22,8 @@ import com.facebook.presto.connector.thrift.api.PrestoThriftPageResult;
 import com.facebook.presto.connector.thrift.api.PrestoThriftSchemaTableName;
 import com.facebook.presto.connector.thrift.api.PrestoThriftService;
 import com.facebook.presto.connector.thrift.api.PrestoThriftServiceException;
+import com.facebook.presto.connector.thrift.api.PrestoThriftSession;
+import com.facebook.presto.connector.thrift.api.PrestoThriftSessionProperty;
 import com.facebook.presto.connector.thrift.api.PrestoThriftSplit;
 import com.facebook.presto.connector.thrift.api.PrestoThriftSplitBatch;
 import com.facebook.presto.connector.thrift.api.PrestoThriftTupleDomain;
@@ -81,7 +83,7 @@ public class TestThriftIndexPageSource
         TestingThriftService client = new TestingThriftService(rowsPerSplit, false, false)
         {
             @Override
-            public ListenableFuture<PrestoThriftPageResult> getRows(PrestoThriftId splitId, List<String> columns, long maxBytes, PrestoThriftNullableToken nextToken)
+            public ListenableFuture<PrestoThriftPageResult> getRows(PrestoThriftId splitId, List<String> columns, long maxBytes, PrestoThriftNullableToken nextToken, PrestoThriftSession session)
                     throws PrestoThriftServiceException
             {
                 int key = Ints.fromByteArray(splitId.getId());
@@ -92,8 +94,10 @@ public class TestThriftIndexPageSource
         TestingServiceProvider serviceProvider = new TestingServiceProvider(client);
         ThriftConnectorStats stats = new ThriftConnectorStats();
         long pageSizeReceived = 0;
+        PrestoThriftSession session = testSession();
         ThriftIndexPageSource pageSource = new ThriftIndexPageSource(
                 serviceProvider,
+                session,
                 stats,
                 new ThriftIndexHandle(new SchemaTableName("default", "table1"), TupleDomain.all()),
                 ImmutableList.of(column("a", INTEGER)),
@@ -198,8 +202,10 @@ public class TestThriftIndexPageSource
     {
         TestingThriftService client = new TestingThriftService(rowsPerSplit, true, twoSplitBatches);
         TestingServiceProvider serviceProvider = new TestingServiceProvider(client);
+        PrestoThriftSession session = testSession();
         ThriftIndexPageSource pageSource = new ThriftIndexPageSource(
                 serviceProvider,
+                session,
                 new ThriftConnectorStats(),
                 new ThriftIndexHandle(new SchemaTableName("default", "table1"), TupleDomain.all()),
                 ImmutableList.of(column("a", INTEGER)),
@@ -241,6 +247,11 @@ public class TestThriftIndexPageSource
         assertEquals(client.timesClosed(), splits + 1);
     }
 
+    private static PrestoThriftSession testSession()
+    {
+        return new PrestoThriftSession("test_query_id", null, "user", null, "utc", "en_US", 100L, null);
+    }
+
     private static class TestingThriftService
             implements PrestoThriftService
     {
@@ -257,7 +268,21 @@ public class TestThriftIndexPageSource
         }
 
         @Override
-        public ListenableFuture<PrestoThriftSplitBatch> getIndexSplits(PrestoThriftSchemaTableName schemaTableName, List<String> indexColumnNames, List<String> outputColumnNames, PrestoThriftPageResult keys, PrestoThriftTupleDomain outputConstraint, int maxSplitCount, PrestoThriftNullableToken nextToken)
+        public List<PrestoThriftSessionProperty> listSessionProperties()
+                throws PrestoThriftServiceException
+        {
+            return ImmutableList.of();
+        }
+
+        @Override
+        public ListenableFuture<PrestoThriftSplitBatch> getIndexSplits(PrestoThriftSchemaTableName schemaTableName,
+                List<String> indexColumnNames,
+                List<String> outputColumnNames,
+                PrestoThriftPageResult keys,
+                PrestoThriftTupleDomain outputConstraint,
+                int maxSplitCount,
+                PrestoThriftNullableToken nextToken,
+                PrestoThriftSession session)
                 throws PrestoThriftServiceException
         {
             if (keys.getRowCount() == 0) {
@@ -294,7 +319,11 @@ public class TestThriftIndexPageSource
         }
 
         @Override
-        public ListenableFuture<PrestoThriftPageResult> getRows(PrestoThriftId splitId, List<String> columns, long maxBytes, PrestoThriftNullableToken nextToken)
+        public ListenableFuture<PrestoThriftPageResult> getRows(PrestoThriftId splitId,
+                List<String> columns,
+                long maxBytes,
+                PrestoThriftNullableToken nextToken,
+                PrestoThriftSession session)
                 throws PrestoThriftServiceException
         {
             if (rowsPerSplit == 0) {
@@ -341,7 +370,12 @@ public class TestThriftIndexPageSource
         }
 
         @Override
-        public ListenableFuture<PrestoThriftSplitBatch> getSplits(PrestoThriftSchemaTableName schemaTableName, PrestoThriftNullableColumnSet desiredColumns, PrestoThriftTupleDomain outputConstraint, int maxSplitCount, PrestoThriftNullableToken nextToken)
+        public ListenableFuture<PrestoThriftSplitBatch> getSplits(PrestoThriftSchemaTableName schemaTableName,
+                PrestoThriftNullableColumnSet desiredColumns,
+                PrestoThriftTupleDomain outputConstraint,
+                int maxSplitCount,
+                PrestoThriftNullableToken nextToken,
+                PrestoThriftSession session)
                 throws PrestoThriftServiceException
         {
             throw new UnsupportedOperationException();

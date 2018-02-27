@@ -124,6 +124,19 @@ public final class PrestoThriftDouble
                 .toString();
     }
 
+    public Double getSingleValue()
+    {
+        if (doubles != null) {
+            checkArgument(doubles.length == 1, "Must have only 1 values");
+            if (nulls == null || !nulls[0]) {
+                return doubles[0];
+            }
+        }
+
+        checkArgument(nulls.length == 1, "Must have only 1 values");
+        return null;
+    }
+
     public static PrestoThriftBlock fromBlock(Block block)
     {
         int positions = block.getPositionCount();

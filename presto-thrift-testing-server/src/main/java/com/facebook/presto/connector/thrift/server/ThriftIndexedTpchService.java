@@ -19,6 +19,7 @@ import com.facebook.presto.connector.thrift.api.PrestoThriftNullableToken;
 import com.facebook.presto.connector.thrift.api.PrestoThriftPageResult;
 import com.facebook.presto.connector.thrift.api.PrestoThriftSchemaTableName;
 import com.facebook.presto.connector.thrift.api.PrestoThriftServiceException;
+import com.facebook.presto.connector.thrift.api.PrestoThriftSession;
 import com.facebook.presto.connector.thrift.api.PrestoThriftSplit;
 import com.facebook.presto.connector.thrift.api.PrestoThriftSplitBatch;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -46,6 +47,11 @@ public class ThriftIndexedTpchService
     private static final int NUMBER_OF_INDEX_SPLITS = 2;
     private final TpchIndexedData indexedData = new TpchIndexedData("tpchindexed", INDEX_SPEC);
 
+    public ThriftIndexedTpchService()
+    {
+        super();
+    }
+
     @Override
     protected List<Set<String>> getIndexableKeys(String schemaName, String tableName)
     {
@@ -59,7 +65,8 @@ public class ThriftIndexedTpchService
             List<String> indexColumnNames,
             PrestoThriftPageResult keys,
             int maxSplitCount,
-            PrestoThriftNullableToken nextToken)
+            PrestoThriftNullableToken nextToken,
+            PrestoThriftSession session)
             throws PrestoThriftServiceException
     {
         checkArgument(NUMBER_OF_INDEX_SPLITS <= maxSplitCount, "maxSplitCount for lookup splits is too low");

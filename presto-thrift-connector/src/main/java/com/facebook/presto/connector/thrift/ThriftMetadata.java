@@ -67,17 +67,20 @@ public class ThriftMetadata
     private static final Duration REFRESH_AFTER_WRITE = new Duration(2, MINUTES);
 
     private final PrestoThriftServiceProvider clientProvider;
+    private final ThriftSessionProperties sessionProperties;
     private final TypeManager typeManager;
     private final LoadingCache<SchemaTableName, Optional<ThriftTableMetadata>> tableCache;
 
     @Inject
     public ThriftMetadata(
             PrestoThriftServiceProvider clientProvider,
+            ThriftSessionProperties sessionProperties,
             TypeManager typeManager,
             @ForMetadataRefresh Executor metadataRefreshExecutor)
     {
         this.clientProvider = requireNonNull(clientProvider, "clientProvider is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.sessionProperties = requireNonNull(sessionProperties, "sessionProperties is null");
         this.tableCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(EXPIRE_AFTER_WRITE.toMillis(), MILLISECONDS)
                 .refreshAfterWrite(REFRESH_AFTER_WRITE.toMillis(), MILLISECONDS)

@@ -24,6 +24,8 @@ import com.facebook.presto.connector.thrift.api.PrestoThriftPageResult;
 import com.facebook.presto.connector.thrift.api.PrestoThriftSchemaTableName;
 import com.facebook.presto.connector.thrift.api.PrestoThriftService;
 import com.facebook.presto.connector.thrift.api.PrestoThriftServiceException;
+import com.facebook.presto.connector.thrift.api.PrestoThriftSession;
+import com.facebook.presto.connector.thrift.api.PrestoThriftSessionProperty;
 import com.facebook.presto.connector.thrift.api.PrestoThriftSplitBatch;
 import com.facebook.presto.connector.thrift.api.PrestoThriftTupleDomain;
 import com.facebook.presto.connector.thrift.util.RetryDriver;
@@ -128,6 +130,13 @@ public class RetryingPrestoThriftServiceProvider
         }
 
         @Override
+        public List<PrestoThriftSessionProperty> listSessionProperties()
+                throws PrestoThriftServiceException
+        {
+            return retry.run("listSessionProperties", stats.getGetSessionProperties(), () -> getClient().listSessionProperties());
+        }
+
+        @Override
         public List<PrestoThriftSchemaTableName> listTables(PrestoThriftNullableSchemaName schemaNameOrNull)
         {
             return retry.run("listTables", stats.getListTable(), () -> getClient().listTables(schemaNameOrNull));
@@ -145,10 +154,11 @@ public class RetryingPrestoThriftServiceProvider
                 PrestoThriftNullableColumnSet desiredColumns,
                 PrestoThriftTupleDomain outputConstraint,
                 int maxSplitCount,
-                PrestoThriftNullableToken nextToken)
+                PrestoThriftNullableToken nextToken,
+                PrestoThriftSession session)
                 throws PrestoThriftServiceException
         {
-            return retry.runAsync("getSplits", stats.getGetSplits(), () -> getClient().getSplits(schemaTableName, desiredColumns, outputConstraint, maxSplitCount, nextToken));
+            return retry.runAsync("getSplits", stats.getGetSplits(), () -> getClient().getSplits(schemaTableName, desiredColumns, outputConstraint, maxSplitCount, nextToken, session));
         }
 
         @Override
@@ -159,16 +169,17 @@ public class RetryingPrestoThriftServiceProvider
                 PrestoThriftPageResult keys,
                 PrestoThriftTupleDomain outputConstraint,
                 int maxSplitCount,
-                PrestoThriftNullableToken nextToken)
+                PrestoThriftNullableToken nextToken,
+                PrestoThriftSession session)
                 throws PrestoThriftServiceException
         {
-            return retry.runAsync("getLookupSplits", stats.getGetIndexSplits(), () -> getClient().getIndexSplits(schemaTableName, indexColumnNames, outputColumnNames, keys, outputConstraint, maxSplitCount, nextToken));
+            return retry.runAsync("getLookupSplits", stats.getGetIndexSplits(), () -> getClient().getIndexSplits(schemaTableName, indexColumnNames, outputColumnNames, keys, outputConstraint, maxSplitCount, nextToken, session));
         }
 
         @Override
-        public ListenableFuture<PrestoThriftPageResult> getRows(PrestoThriftId splitId, List<String> columns, long maxBytes, PrestoThriftNullableToken nextToken)
+        public ListenableFuture<PrestoThriftPageResult> getRows(PrestoThriftId splitId, List<String> columns, long maxBytes, PrestoThriftNullableToken nextToken, PrestoThriftSession session)
         {
-            return retry.runAsync("getRows", stats.getGetRows(), () -> getClient().getRows(splitId, columns, maxBytes, nextToken));
+            return retry.runAsync("getRows", stats.getGetRows(), () -> getClient().getRows(splitId, columns, maxBytes, nextToken, session));
         }
 
         @Override
@@ -211,6 +222,7 @@ public class RetryingPrestoThriftServiceProvider
         private final RetryStats getSplits = new RetryStats();
         private final RetryStats getIndexSplits = new RetryStats();
         private final RetryStats getRows = new RetryStats();
+        private final RetryStats getSessionProperties = new RetryStats();
 
         @Managed
         @Nested
@@ -252,6 +264,13 @@ public class RetryingPrestoThriftServiceProvider
         public RetryStats getGetRows()
         {
             return getRows;
+        }
+
+        @Managed
+        @Nested
+        public RetryStats getGetSessionProperties()
+        {
+            return getSessionProperties;
         }
     }
 }

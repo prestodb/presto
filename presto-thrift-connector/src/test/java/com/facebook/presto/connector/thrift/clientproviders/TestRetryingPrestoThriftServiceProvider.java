@@ -23,6 +23,8 @@ import com.facebook.presto.connector.thrift.api.PrestoThriftPageResult;
 import com.facebook.presto.connector.thrift.api.PrestoThriftSchemaTableName;
 import com.facebook.presto.connector.thrift.api.PrestoThriftService;
 import com.facebook.presto.connector.thrift.api.PrestoThriftServiceException;
+import com.facebook.presto.connector.thrift.api.PrestoThriftSession;
+import com.facebook.presto.connector.thrift.api.PrestoThriftSessionProperty;
 import com.facebook.presto.connector.thrift.api.PrestoThriftSplitBatch;
 import com.facebook.presto.connector.thrift.api.PrestoThriftTupleDomain;
 import com.facebook.presto.connector.thrift.location.HostLocationHandle;
@@ -160,6 +162,13 @@ public class TestRetryingPrestoThriftServiceProvider
             }
 
             @Override
+            public List<PrestoThriftSessionProperty> listSessionProperties()
+                    throws PrestoThriftServiceException
+            {
+                return null;
+            }
+
+            @Override
             public PrestoThriftNullableTableMetadata getTableMetadata(PrestoThriftSchemaTableName schemaTableName)
                     throws PrestoThriftServiceException
             {
@@ -167,21 +176,21 @@ public class TestRetryingPrestoThriftServiceProvider
             }
 
             @Override
-            public ListenableFuture<PrestoThriftSplitBatch> getSplits(PrestoThriftSchemaTableName schemaTableName, PrestoThriftNullableColumnSet desiredColumns, PrestoThriftTupleDomain outputConstraint, int maxSplitCount, PrestoThriftNullableToken nextToken)
+            public ListenableFuture<PrestoThriftSplitBatch> getSplits(PrestoThriftSchemaTableName schemaTableName, PrestoThriftNullableColumnSet desiredColumns, PrestoThriftTupleDomain outputConstraint, int maxSplitCount, PrestoThriftNullableToken nextToken, PrestoThriftSession session)
                     throws PrestoThriftServiceException
             {
                 throw new UnsupportedOperationException("not implemented");
             }
 
             @Override
-            public ListenableFuture<PrestoThriftSplitBatch> getIndexSplits(PrestoThriftSchemaTableName schemaTableName, List<String> indexColumnNames, List<String> outputColumnNames, PrestoThriftPageResult keys, PrestoThriftTupleDomain outputConstraint, int maxSplitCount, PrestoThriftNullableToken nextToken)
+            public ListenableFuture<PrestoThriftSplitBatch> getIndexSplits(PrestoThriftSchemaTableName schemaTableName, List<String> indexColumnNames, List<String> outputColumnNames, PrestoThriftPageResult keys, PrestoThriftTupleDomain outputConstraint, int maxSplitCount, PrestoThriftNullableToken nextToken, PrestoThriftSession session)
                     throws PrestoThriftServiceException
             {
                 throw new UnsupportedOperationException("not implemented");
             }
 
             @Override
-            public ListenableFuture<PrestoThriftPageResult> getRows(PrestoThriftId splitId, List<String> columns, long maxBytes, PrestoThriftNullableToken nextToken)
+            public ListenableFuture<PrestoThriftPageResult> getRows(PrestoThriftId splitId, List<String> columns, long maxBytes, PrestoThriftNullableToken nextToken, PrestoThriftSession session)
                     throws PrestoThriftServiceException
             {
                 throw new UnsupportedOperationException("not implemented");

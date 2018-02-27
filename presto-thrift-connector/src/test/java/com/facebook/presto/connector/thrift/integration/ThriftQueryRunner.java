@@ -15,6 +15,7 @@ package com.facebook.presto.connector.thrift.integration;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.connector.thrift.ThriftPlugin;
+import com.facebook.presto.connector.thrift.api.PrestoThriftService;
 import com.facebook.presto.connector.thrift.location.HostList;
 import com.facebook.presto.connector.thrift.server.ThriftIndexedTpchService;
 import com.facebook.presto.connector.thrift.server.ThriftTpchService;
@@ -41,6 +42,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.locks.Lock;
+import java.util.function.Supplier;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -51,13 +53,29 @@ public final class ThriftQueryRunner
 {
     private ThriftQueryRunner() {}
 
-    public static QueryRunner createThriftQueryRunner(int thriftServers, int workers, boolean enableIndexJoin)
+    public static QueryRunner createTpchThriftQueryRunner(int thriftServers, int workers, boolean enableIndexJoin)
+            throws Exception
+    {
+        return createThriftQueryRunner(new Supplier<PrestoThriftService>()
+        {
+            @Override
+            public PrestoThriftService get()
+            {
+                if (enableIndexJoin) {
+                    return new ThriftIndexedTpchService();
+                }
+                return new ThriftTpchService();
+            }
+        }, thriftServers, workers);
+    }
+
+    public static QueryRunner createThriftQueryRunner(Supplier<PrestoThriftService> serviceSupplier, int thriftServers, int workers)
             throws Exception
     {
         List<ThriftServer> servers = null;
         DistributedQueryRunner runner = null;
         try {
-            servers = startThriftServers(thriftServers, enableIndexJoin);
+            servers = startThriftServers(serviceSupplier, thriftServers);
             runner = createThriftQueryRunnerInternal(servers, workers);
             return new ThriftQueryRunnerWithServers(runner, servers);
         }
@@ -76,18 +94,18 @@ public final class ThriftQueryRunner
     public static void main(String[] args)
             throws Exception
     {
-        ThriftQueryRunnerWithServers queryRunner = (ThriftQueryRunnerWithServers) createThriftQueryRunner(3, 3, true);
+        ThriftQueryRunnerWithServers queryRunner = (ThriftQueryRunnerWithServers) createTpchThriftQueryRunner(3, 3, true);
         Thread.sleep(10);
         Logger log = Logger.get(ThriftQueryRunner.class);
         log.info("======== SERVER STARTED ========");
         log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
     }
 
-    private static List<ThriftServer> startThriftServers(int thriftServers, boolean enableIndexJoin)
+    private static List<ThriftServer> startThriftServers(Supplier<PrestoThriftService> serviceSupplier, int thriftServers)
     {
         List<ThriftServer> servers = new ArrayList<>(thriftServers);
         for (int i = 0; i < thriftServers; i++) {
-            ThriftTpchService service = enableIndexJoin ? new ThriftIndexedTpchService() : new ThriftTpchService();
+            PrestoThriftService service = serviceSupplier.get();
             ThriftServiceProcessor processor = new ThriftServiceProcessor(new ThriftCodecManager(), ImmutableList.of(), service);
             servers.add(new ThriftServer(processor).start());
         }

@@ -13,12 +13,27 @@
  */
 package com.facebook.presto.connector.thrift;
 
+import com.facebook.presto.connector.thrift.api.PrestoThriftBlock;
+import com.facebook.presto.connector.thrift.api.PrestoThriftSession;
+import com.facebook.presto.connector.thrift.api.PrestoThriftSessionProperty;
+import com.facebook.presto.connector.thrift.api.datatypes.PrestoThriftBigint;
+import com.facebook.presto.connector.thrift.api.datatypes.PrestoThriftBoolean;
+import com.facebook.presto.connector.thrift.api.datatypes.PrestoThriftDouble;
+import com.facebook.presto.connector.thrift.api.datatypes.PrestoThriftInteger;
+import com.facebook.presto.connector.thrift.api.datatypes.PrestoThriftVarchar;
+import com.facebook.presto.connector.thrift.clientproviders.PrestoThriftServiceProvider;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 import javax.inject.Inject;
 
+import java.security.Principal;
 import java.util.List;
+
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Internal session properties are those defined by the connector itself.
@@ -26,16 +41,83 @@ import java.util.List;
  */
 public final class ThriftSessionProperties
 {
-    private final List<PropertyMetadata<?>> sessionProperties;
+    private final PrestoThriftServiceProvider clientProvider;
 
     @Inject
-    public ThriftSessionProperties(ThriftConnectorConfig config)
+    public ThriftSessionProperties(PrestoThriftServiceProvider clientProvider)
     {
-        sessionProperties = ImmutableList.of();
+        this.clientProvider = requireNonNull(clientProvider, "clientProvider is null");
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
     {
-        return sessionProperties;
+        List<PrestoThriftSessionProperty> sessionProperties = clientProvider.anyHostClient().listSessionProperties();
+        if (sessionProperties == null) {
+            return ImmutableList.of();
+        }
+        return sessionProperties.stream().map(PrestoThriftSessionProperty::getSessionProperty)
+                .collect(toImmutableList());
+    }
+
+    public PrestoThriftSession convertConnectorSession(ConnectorSession session)
+    {
+        ImmutableMap.Builder<String, PrestoThriftBlock> properties = ImmutableMap.builder();
+        for (PropertyMetadata<?> property : getSessionProperties()) {
+            PrestoThriftBlock valueBlock = getValueBlock(property, session);
+            if (valueBlock != null) {
+                properties.put(property.getName(), valueBlock);
+            }
+        }
+
+        return new PrestoThriftSession(session.getQueryId(),
+                session.getSource().orElse(null),
+                session.getUser(),
+                session.getIdentity().getPrincipal().map(Principal::getName).orElse(null),
+                session.getTimeZoneKey().getId(),
+                session.getLocale().toString(),
+                session.getStartTime(),
+                properties.build());
+    }
+
+    private static <T> PrestoThriftBlock getValueBlock(PropertyMetadata<T> propertyMetadata, ConnectorSession session)
+    {
+        Class<?> javaType = propertyMetadata.getJavaType();
+        if (javaType == Boolean.class) {
+            Boolean value = session.getProperty(propertyMetadata.getName(), Boolean.class);
+            if (value == null || value.equals(propertyMetadata.getDefaultValue())) {
+                return null;
+            }
+            return PrestoThriftBlock.booleanData(new PrestoThriftBoolean(null, new boolean[] {value}));
+        }
+        else if (javaType == Integer.class) {
+            Integer value = session.getProperty(propertyMetadata.getName(), Integer.class);
+            if (value == null || value.equals(propertyMetadata.getDefaultValue())) {
+                return null;
+            }
+            return PrestoThriftBlock.integerData(new PrestoThriftInteger(null, new int[] {value}));
+        }
+        else if (javaType == Long.class) {
+            Long value = session.getProperty(propertyMetadata.getName(), Long.class);
+            if (value == null || value.equals(propertyMetadata.getDefaultValue())) {
+                return null;
+            }
+            return PrestoThriftBlock.bigintData(new PrestoThriftBigint(null, new long[] {value}));
+        }
+        else if (javaType == Double.class) {
+            Double value = session.getProperty(propertyMetadata.getName(), Double.class);
+            if (value == null || value.equals(propertyMetadata.getDefaultValue())) {
+                return null;
+            }
+            return PrestoThriftBlock.doubleData(new PrestoThriftDouble(null, new double[] {value}));
+        }
+        else if (javaType == String.class) {
+            String value = session.getProperty(propertyMetadata.getName(), String.class);
+            if (value == null || value.equals(propertyMetadata.getDefaultValue())) {
+                return null;
+            }
+            return PrestoThriftBlock.varcharData(new PrestoThriftVarchar(null, new int[] {value.length()}, value.getBytes()));
+        }
+
+        return null;
     }
 }

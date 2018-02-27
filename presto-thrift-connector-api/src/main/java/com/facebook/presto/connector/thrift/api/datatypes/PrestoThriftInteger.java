@@ -121,6 +121,19 @@ public final class PrestoThriftInteger
                 .toString();
     }
 
+    public Integer getSingleValue()
+    {
+        if (ints != null) {
+            checkArgument(ints.length == 1, "Must have only 1 values");
+            if (nulls == null || !nulls[0]) {
+                return ints[0];
+            }
+        }
+
+        checkArgument(nulls.length == 1, "Must have only 1 values");
+        return null;
+    }
+
     public static PrestoThriftBlock fromBlock(Block block)
     {
         return fromIntBasedBlock(block, INTEGER, (nulls, ints) -> integerData(new PrestoThriftInteger(nulls, ints)));

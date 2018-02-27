@@ -31,6 +31,7 @@ import static java.util.Collections.unmodifiableList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
 public class TestPrestoThriftBigint
@@ -149,6 +150,34 @@ public class TestPrestoThriftBigint
         assertEquals(column.getBigintData().getLongs(), new long[] {1});
     }
 
+    @Test
+    public void testReadSingleValue()
+    {
+        PrestoThriftBlock column = fromBlock(longBlock(1));
+        assertNotNull(column.getBigintData());
+        assertEquals((long) column.getBigintData().getSingleValue(), 1);
+    }
+
+    @Test
+    public void testReadSingleNullValue()
+    {
+        PrestoThriftBlock column = fromBlock(nullValueBlocks(1));
+        assertNotNull(column.getBigintData());
+        assertNull(column.getBigintData().getSingleValue());
+    }
+
+    @Test
+    public void testReadSingleValueFromMultiValueBlock()
+    {
+        PrestoThriftBlock column = fromBlock(longBlock(1, 2));
+        assertNotNull(column.getBigintData());
+        assertThrows(() -> column.getBigintData().getSingleValue());
+
+        PrestoThriftBlock column2 = fromBlock(nullValueBlocks(2));
+        assertNotNull(column2.getBigintData());
+        assertThrows(() -> column2.getBigintData().getSingleValue());
+    }
+
     private void assertBlockEquals(Block block, List<Long> expected)
     {
         assertEquals(block.getPositionCount(), expected.size());
@@ -160,6 +189,15 @@ public class TestPrestoThriftBigint
                 assertEquals(block.getLong(i, 0), expected.get(i).longValue());
             }
         }
+    }
+
+    private static Block nullValueBlocks(int length)
+    {
+        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), length);
+        for (int i = 0; i < length; i++) {
+            blockBuilder.appendNull();
+        }
+        return blockBuilder.build();
     }
 
     private static Block longBlock(Integer... values)

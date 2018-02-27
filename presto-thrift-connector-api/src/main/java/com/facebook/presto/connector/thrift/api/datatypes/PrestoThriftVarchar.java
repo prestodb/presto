@@ -30,6 +30,7 @@ import static com.facebook.presto.connector.thrift.api.datatypes.SliceData.fromS
 import static com.facebook.swift.codec.ThriftField.Requiredness.OPTIONAL;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 /**
  * Elements of {@code nulls} array determine if a value for a corresponding row is null.
@@ -113,6 +114,22 @@ public final class PrestoThriftVarchar
         return toStringHelper(this)
                 .add("numberOfRecords", numberOfRecords())
                 .toString();
+    }
+
+    public String getSingleValue()
+    {
+        if (sliceType.getSizes() != null) {
+            checkArgument(sliceType.getSizes().length == 1, "Must have only 1 values");
+            if (sliceType.getBytes() != null) {
+                if (sliceType.getNulls() == null || !sliceType.getNulls()[0]) {
+                    return new String(sliceType.getBytes(), 0, sliceType.getSizes()[0], UTF_8);
+                }
+                return "";
+            }
+        }
+
+        checkArgument(sliceType.getNulls().length == 1, "Must have only 1 values");
+        return null;
     }
 
     public static PrestoThriftBlock fromBlock(Block block, Type type)

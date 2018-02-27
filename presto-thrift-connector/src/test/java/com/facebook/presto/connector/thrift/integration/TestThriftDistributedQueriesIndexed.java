@@ -18,7 +18,7 @@ import io.airlift.log.Level;
 import io.airlift.log.Logging;
 import org.testng.annotations.AfterClass;
 
-import static com.facebook.presto.connector.thrift.integration.ThriftQueryRunner.createThriftQueryRunner;
+import static com.facebook.presto.connector.thrift.integration.ThriftQueryRunner.createTpchThriftQueryRunner;
 import static io.airlift.log.Level.OFF;
 
 public class TestThriftDistributedQueriesIndexed
@@ -29,7 +29,7 @@ public class TestThriftDistributedQueriesIndexed
 
     public TestThriftDistributedQueriesIndexed()
     {
-        super(() -> createThriftQueryRunner(2, 2, true));
+        super(() -> createTpchThriftQueryRunner(2, 2, true));
         // During index join thrift server will log a lot of messages like "ClosedChannelException" and "java.io.IOException: Connection reset by peer".
         // Both of them mean that client closed the connection without reading all the data and are expected in case of index join.
         // One of the cases it happens is when an index snapshot builder gets out of memory and gets closed. Then index loader will retry or choose another strategy.

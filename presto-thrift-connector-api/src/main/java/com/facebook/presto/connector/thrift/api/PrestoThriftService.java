@@ -21,6 +21,8 @@ import com.google.common.util.concurrent.ListenableFuture;
 import java.io.Closeable;
 import java.util.List;
 
+import static com.facebook.swift.codec.ThriftField.Requiredness.OPTIONAL;
+
 /**
  * Presto Thrift service definition.
  * This thrift service needs to be implemented in order to be used with Thrift Connector.
@@ -34,6 +36,13 @@ public interface PrestoThriftService
      */
     @ThriftMethod("prestoListSchemaNames")
     List<String> listSchemaNames()
+            throws PrestoThriftServiceException;
+
+    /**
+     *
+     */
+    @ThriftMethod("prestoListSessionProperties")
+    List<PrestoThriftSessionProperty> listSessionProperties()
             throws PrestoThriftServiceException;
 
     /**
@@ -67,6 +76,7 @@ public interface PrestoThriftService
      * @param outputConstraint constraint on the returned data
      * @param maxSplitCount maximum number of splits to return
      * @param nextToken token from a previous split batch or {@literal null} if it is the first call
+     * @param session session to be passed to thrift server
      * @return a batch of splits
      */
     @ThriftMethod("prestoGetSplits")
@@ -75,7 +85,8 @@ public interface PrestoThriftService
             @ThriftField(name = "desiredColumns") PrestoThriftNullableColumnSet desiredColumns,
             @ThriftField(name = "outputConstraint") PrestoThriftTupleDomain outputConstraint,
             @ThriftField(name = "maxSplitCount") int maxSplitCount,
-            @ThriftField(name = "nextToken") PrestoThriftNullableToken nextToken)
+            @ThriftField(name = "nextToken") PrestoThriftNullableToken nextToken,
+            @ThriftField(name = "session", requiredness = OPTIONAL) PrestoThriftSession session)
             throws PrestoThriftServiceException;
 
     /**
@@ -89,6 +100,7 @@ public interface PrestoThriftService
      * @param outputConstraint constraint on the returned data
      * @param maxSplitCount maximum number of splits to return
      * @param nextToken token from a previous split batch or {@literal null} if it is the first call
+     * @param session session to be passed to thrift server
      * @return a batch of splits
      */
     @ThriftMethod("prestoGetIndexSplits")
@@ -99,7 +111,8 @@ public interface PrestoThriftService
             @ThriftField(name = "keys") PrestoThriftPageResult keys,
             @ThriftField(name = "outputConstraint") PrestoThriftTupleDomain outputConstraint,
             @ThriftField(name = "maxSplitCount") int maxSplitCount,
-            @ThriftField(name = "nextToken") PrestoThriftNullableToken nextToken)
+            @ThriftField(name = "nextToken") PrestoThriftNullableToken nextToken,
+            @ThriftField(name = "session", requiredness = OPTIONAL) PrestoThriftSession session)
             throws PrestoThriftServiceException;
 
     /**
@@ -109,6 +122,7 @@ public interface PrestoThriftService
      * @param columns a list of column names to return
      * @param maxBytes maximum size of returned data in bytes
      * @param nextToken token from a previous batch or {@literal null} if it is the first call
+     * @param session session to be passed to thrift server
      * @return a batch of table data
      */
     @ThriftMethod("prestoGetRows")
@@ -116,7 +130,8 @@ public interface PrestoThriftService
             @ThriftField(name = "splitId") PrestoThriftId splitId,
             @ThriftField(name = "columns") List<String> columns,
             @ThriftField(name = "maxBytes") long maxBytes,
-            @ThriftField(name = "nextToken") PrestoThriftNullableToken nextToken)
+            @ThriftField(name = "nextToken") PrestoThriftNullableToken nextToken,
+            @ThriftField(name = "session", requiredness = OPTIONAL) PrestoThriftSession session)
             throws PrestoThriftServiceException;
 
     @Override
