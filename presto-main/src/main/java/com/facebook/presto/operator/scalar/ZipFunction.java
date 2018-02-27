@@ -30,7 +30,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
@@ -112,7 +111,7 @@ public final class ZipFunction
         for (Block array : arrays) {
             biggestCardinality = Math.max(biggestCardinality, array.getPositionCount());
         }
-        RowType rowType = new RowType(types, Optional.empty());
+        RowType rowType = RowType.anonymous(types);
         BlockBuilder outputBuilder = rowType.createBlockBuilder(null, biggestCardinality);
         for (int outputPosition = 0; outputPosition < biggestCardinality; outputPosition++) {
             BlockBuilder rowBuilder = outputBuilder.beginBlockEntry();

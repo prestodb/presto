@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
@@ -59,13 +60,6 @@ public class TypeSignature
         this.parameters = unmodifiableList(new ArrayList<>(parameters));
 
         this.calculated = parameters.stream().anyMatch(TypeSignatureParameter::isCalculated);
-    }
-
-    // TODO: merge literalParameters for Row with TypeSignatureParameter
-    @Deprecated
-    public TypeSignature(String base, List<TypeSignature> typeSignatureParameters, List<String> literalParameters)
-    {
-        this(base, createNamedTypeParameters(typeSignatureParameters, literalParameters));
     }
 
     public String getBase()
@@ -217,8 +211,7 @@ public class TypeSignature
         verify(parameters.size() == fieldNames.size() || fieldNames.isEmpty(), "Number of parameters and fieldNames for ROW type doesn't match");
         List<TypeSignatureParameter> result = new ArrayList<>();
         for (int i = 0; i < parameters.size(); i++) {
-            // Use "field" + i instead of String.format to avoid expensive string formatting
-            String fieldName = fieldNames.isEmpty() ? ("field" + i) : fieldNames.get(i);
+            Optional<String> fieldName = fieldNames.isEmpty() ? Optional.empty() : Optional.of(fieldNames.get(i));
             result.add(TypeSignatureParameter.of(new NamedTypeSignature(fieldName, parameters.get(i))));
         }
         return result;
@@ -282,7 +275,12 @@ public class TypeSignature
 
         String fields = parameters.stream()
                 .map(TypeSignatureParameter::getNamedTypeSignature)
-                .map(parameter -> format("%s %s", parameter.getName(), parameter.getTypeSignature().toString()))
+                .map(parameter -> {
+                    if (parameter.getName().isPresent()) {
+                        return format("%s %s", parameter.getName().get(), parameter.getTypeSignature().toString());
+                    }
+                    return parameter.getTypeSignature().toString();
+                })
                 .collect(Collectors.joining(","));
 
         return format("row(%s)", fields);

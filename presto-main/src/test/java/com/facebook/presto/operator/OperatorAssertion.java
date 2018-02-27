@@ -156,7 +156,7 @@ public final class OperatorAssertion
     {
         checkArgument(parameterTypes.size() == values.length, "parameterTypes.size(" + parameterTypes.size() + ") does not equal to values.length(" + values.length + ")");
 
-        RowType rowType = new RowType(parameterTypes, Optional.empty());
+        RowType rowType = RowType.anonymous(parameterTypes);
         BlockBuilder blockBuilder = new RowBlockBuilder(parameterTypes, null, 1);
         BlockBuilder singleRowBlockWriter = blockBuilder.beginBlockEntry();
         for (int i = 0; i < values.length; i++) {

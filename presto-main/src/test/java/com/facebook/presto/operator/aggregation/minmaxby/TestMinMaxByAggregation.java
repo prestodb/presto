@@ -27,7 +27,6 @@ import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.block.BlockAssertions.createArrayBigintBlock;
@@ -76,7 +75,7 @@ public class TestMinMaxByAggregation
                 .addAll(simpleTypes)
                 .add(VARCHAR)
                 .add(DecimalType.createDecimalType(1))
-                .add(new RowType(ImmutableList.of(BIGINT, VARCHAR, DOUBLE), Optional.empty()))
+                .add(RowType.anonymous(ImmutableList.of(BIGINT, VARCHAR, DOUBLE)))
                 .build();
     }
 

@@ -19,7 +19,6 @@ import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.NamedTypeSignature;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
@@ -30,12 +29,12 @@ import org.bson.types.Binary;
 import org.bson.types.ObjectId;
 import org.joda.time.chrono.ISOChronology;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 import static com.facebook.presto.mongodb.ObjectIdType.OBJECT_ID;
 import static com.facebook.presto.mongodb.TypeUtils.isArrayType;
@@ -256,13 +255,15 @@ public class MongoPageSource
             if (value instanceof Map) {
                 Map<?, ?> mapValue = (Map<?, ?>) value;
                 BlockBuilder builder = output.beginBlockEntry();
-                List<String> fieldNames = type.getTypeSignature().getParameters().stream()
-                        .map(TypeSignatureParameter::getNamedTypeSignature)
-                        .map(NamedTypeSignature::getName)
-                        .collect(Collectors.toList());
+
+                List<String> fieldNames = new ArrayList<>();
+                for (int i = 0; i < type.getTypeSignature().getParameters().size(); i++) {
+                    TypeSignatureParameter parameter = type.getTypeSignature().getParameters().get(i);
+                    fieldNames.add(parameter.getNamedTypeSignature().getName().orElse("field" + i));
+                }
                 checkState(fieldNames.size() == type.getTypeParameters().size(), "fieldName doesn't match with type size : %s", type);
                 for (int index = 0; index < type.getTypeParameters().size(); index++) {
-                    appendTo(type.getTypeParameters().get(index), mapValue.get(fieldNames.get(index).toString()), builder);
+                    appendTo(type.getTypeParameters().get(index), mapValue.get(fieldNames.get(index)), builder);
                 }
                 output.closeEntry();
                 return;

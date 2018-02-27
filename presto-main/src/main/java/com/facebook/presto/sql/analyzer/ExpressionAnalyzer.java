@@ -315,7 +315,7 @@ public class ExpressionAnalyzer
                     .map((child) -> process(child, context))
                     .collect(toImmutableList());
 
-            Type type = new RowType(types, Optional.empty());
+            Type type = RowType.anonymous(types);
             return setExpressionType(node, type);
         }
 

@@ -231,7 +231,9 @@ public class TestHistogram
     @Test
     public void testRowHistograms()
     {
-        RowType innerRowType = new RowType(ImmutableList.of(BIGINT, DOUBLE), Optional.of(ImmutableList.of("f1", "f2")));
+        RowType innerRowType = RowType.from(ImmutableList.of(
+                RowType.field("f1", BIGINT),
+                RowType.field("f2", DOUBLE)));
         MapType mapType = mapType(innerRowType, BIGINT);
         InternalAggregationFunction aggregationFunction = getAggregation(mapType.getTypeSignature(), innerRowType.getTypeSignature());
         BlockBuilder builder = innerRowType.createBlockBuilder(null, 3);

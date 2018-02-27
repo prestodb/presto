@@ -85,7 +85,6 @@ import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.type.setdigest.SetDigestType.SET_DIGEST;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -332,33 +331,35 @@ public final class TypeRegistry
             return Optional.empty();
         }
 
-        ImmutableList.Builder<Type> commonParameterTypes = ImmutableList.builder();
-        List<Optional<String>> commonParameterNames = new ArrayList<>();
+        List<Type> types = new ArrayList<>();
+        List<Optional<String>> names = new ArrayList<>();
         for (int i = 0; i < firstFields.size(); i++) {
             Optional<Type> commonParameterType = getCommonSuperType(firstFields.get(i).getType(), secondFields.get(i).getType());
             if (!commonParameterType.isPresent()) {
                 return Optional.empty();
             }
-            commonParameterTypes.add(commonParameterType.get());
+            types.add(commonParameterType.get());
 
             Optional<String> firstParameterName = firstFields.get(i).getName();
             Optional<String> secondParameterName = secondFields.get(i).getName();
+
+            Optional<String> name = Optional.empty();
             if (firstParameterName.equals(secondParameterName)) {
-                commonParameterNames.add(firstParameterName);
+                name = firstParameterName;
             }
-            else {
-                commonParameterNames.add(Optional.empty());
-            }
+            names.add(name);
         }
 
-        List<String> names = null;
-        if (commonParameterNames.stream().allMatch(Optional::isPresent)) {
-            names = commonParameterNames.stream()
-                    .map(Optional::get)
-                    .collect(toImmutableList());
+        boolean hasMissing = !names.stream().allMatch(Optional::isPresent);
+
+        ImmutableList.Builder<RowType.Field> fields = ImmutableList.builder();
+        for (int i = 0; i < types.size(); i++) {
+            Type type = types.get(i);
+            Optional<String> name = hasMissing ? Optional.empty() : names.get(i);
+            fields.add(new RowType.Field(name, type));
         }
 
-        return Optional.of(new RowType(commonParameterTypes.build(), Optional.ofNullable(names)));
+        return Optional.of(RowType.from(fields.build()));
     }
 
     private Optional<Type> getCommonSuperTypeForCovariantParametrizedType(Type firstType, Type secondType)

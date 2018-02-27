@@ -46,7 +46,6 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
@@ -315,7 +314,9 @@ public class TestArrayOperators
                         "{\"k2\": null, \"k1\": 3}, " +
                         "null]' " +
                         "AS ARRAY<ROW(k1 BIGINT, k2 VARCHAR)>)",
-                new ArrayType(new RowType(ImmutableList.of(BIGINT, VARCHAR), Optional.of(ImmutableList.of("k1", "k2")))),
+                new ArrayType(RowType.from(ImmutableList.of(
+                        RowType.field("k1", BIGINT),
+                        RowType.field("k2", VARCHAR)))),
                 asList(
                         asList(1L, "two"),
                         asList(3L, null),
