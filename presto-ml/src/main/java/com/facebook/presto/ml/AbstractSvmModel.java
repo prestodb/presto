@@ -82,9 +82,9 @@ public abstract class AbstractSvmModel
 
         ExecutorService service = newCachedThreadPool(threadsNamed("libsvm-trainer-" + System.identityHashCode(this) + "-%s"));
         try {
-            TimeLimiter limiter = new SimpleTimeLimiter(service);
+            TimeLimiter limiter = SimpleTimeLimiter.create(service);
             //TODO: this time limit should be configurable
-            model = limiter.callWithTimeout(getTrainingFunction(problem, params), 1, TimeUnit.HOURS, true);
+            model = limiter.callWithTimeout(getTrainingFunction(problem, params), 1, TimeUnit.HOURS);
         }
         catch (InterruptedException e) {
             Thread.currentThread().interrupt();

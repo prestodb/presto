@@ -97,7 +97,7 @@ public class AtopProcessFactory
         {
             this.process = requireNonNull(process, "process is null");
             underlyingReader = new BufferedReader(new InputStreamReader(process.getInputStream()));
-            TimeLimiter limiter = new SimpleTimeLimiter(executor);
+            TimeLimiter limiter = SimpleTimeLimiter.create(executor);
             this.reader = limiter.newProxy(underlyingReader::readLine, LineReader.class, readTimeout.toMillis(), MILLISECONDS);
             try {
                 // Ignore the first two lines, as they are an event since boot (RESET followed by event line)
