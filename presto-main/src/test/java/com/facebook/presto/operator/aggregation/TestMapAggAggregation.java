@@ -26,7 +26,6 @@ import org.testng.annotations.Test;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Optional;
 
 import static com.facebook.presto.block.BlockAssertions.createBooleansBlock;
 import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
@@ -202,7 +201,9 @@ public class TestMapAggAggregation
     @Test
     public void testDoubleRowMap()
     {
-        RowType innerRowType = new RowType(ImmutableList.of(INTEGER, DOUBLE), Optional.of(ImmutableList.of("f1", "f2")));
+        RowType innerRowType = RowType.from(ImmutableList.of(
+                RowType.field("f1", INTEGER),
+                RowType.field("f2", DOUBLE)));
         MapType mapType = mapType(DOUBLE, innerRowType);
         InternalAggregationFunction aggFunc = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature(NAME,
                 AGGREGATE,

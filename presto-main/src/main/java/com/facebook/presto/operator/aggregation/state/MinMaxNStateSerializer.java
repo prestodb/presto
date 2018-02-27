@@ -23,8 +23,6 @@ import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 
-import java.util.Optional;
-
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static java.lang.Math.toIntExact;
 
@@ -41,7 +39,7 @@ public class MinMaxNStateSerializer
         this.blockComparator = blockComparator;
         this.elementType = elementType;
         this.arrayType = new ArrayType(elementType);
-        this.serializedType = new RowType(ImmutableList.of(BIGINT, arrayType), Optional.empty());
+        this.serializedType = RowType.anonymous(ImmutableList.of(BIGINT, arrayType));
     }
 
     @Override

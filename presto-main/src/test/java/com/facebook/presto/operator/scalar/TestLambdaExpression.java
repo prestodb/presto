@@ -21,8 +21,6 @@ import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.util.Optional;
-
 import static com.facebook.presto.operator.scalar.ApplyFunction.APPLY_FUNCTION;
 import static com.facebook.presto.operator.scalar.InvokeFunction.INVOKE_FUNCTION;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -157,7 +155,7 @@ public class TestLambdaExpression
         assertFunction("apply('abc', x -> x || x)", createUnboundedVarcharType(), "abcabc");
         assertFunction(
                 "apply('123', x -> ROW(x, CAST(x AS INTEGER), x > '0'))",
-                new RowType(ImmutableList.of(createVarcharType(3), INTEGER, BOOLEAN), Optional.empty()),
+                RowType.anonymous(ImmutableList.of(createVarcharType(3), INTEGER, BOOLEAN)),
                 ImmutableList.of("123", 123, true));
 
         assertFunction("apply(ARRAY['abc', NULL, '123'], x -> from_base(x[3], 10))", BIGINT, 123L);

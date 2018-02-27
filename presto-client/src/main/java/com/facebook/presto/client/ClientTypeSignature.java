@@ -200,7 +200,12 @@ public class ClientTypeSignature
     {
         String fields = arguments.stream()
                 .map(ClientTypeSignatureParameter::getNamedTypeSignature)
-                .map(parameter -> format("%s %s", parameter.getName(), parameter.getTypeSignature().toString()))
+                .map(parameter -> {
+                    if (parameter.getName().isPresent()) {
+                        return format("%s %s", parameter.getName().get(), parameter.getTypeSignature().toString());
+                    }
+                    return parameter.getTypeSignature().toString();
+                })
                 .collect(Collectors.joining(","));
 
         return format("row(%s)", fields);

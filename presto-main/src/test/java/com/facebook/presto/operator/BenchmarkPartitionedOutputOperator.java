@@ -97,7 +97,7 @@ public class BenchmarkPartitionedOutputOperator
         private static final int PARTITION_COUNT = 512;
         private static final int ENTRIES_PER_PAGE = 256;
         private static final DataSize MAX_MEMORY = new DataSize(1, GIGABYTE);
-        private static final RowType rowType = new RowType(ImmutableList.of(VARCHAR, VARCHAR, VARCHAR, VARCHAR), Optional.empty());
+        private static final RowType rowType = RowType.anonymous(ImmutableList.of(VARCHAR, VARCHAR, VARCHAR, VARCHAR));
         private static final List<Type> TYPES = ImmutableList.of(BIGINT, rowType, rowType, rowType);
         private static final ExecutorService EXECUTOR = newCachedThreadPool(daemonThreadsNamed("test-EXECUTOR-%s"));
         private static final ScheduledExecutorService SCHEDULER = newScheduledThreadPool(1, daemonThreadsNamed("test-%s"));

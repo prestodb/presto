@@ -27,8 +27,6 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.util.Optional;
-
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -369,12 +367,14 @@ public class TestJsonOperators
         assertCastWithJsonParse(
                 "{\"a\"  \n  :1,  \"b\":  \t  [2, 3]}",
                 "ROW(a INTEGER, b ARRAY<INTEGER>)",
-                new RowType(ImmutableList.of(INTEGER, new ArrayType(INTEGER)), Optional.of(ImmutableList.of("a", "b"))),
+                RowType.from(ImmutableList.of(
+                        RowType.field("a", INTEGER),
+                        RowType.field("b", new ArrayType(INTEGER)))),
                 ImmutableList.of(1, ImmutableList.of(2, 3)));
         assertCastWithJsonParse(
                 "[  1,  [2, 3]  ]",
                 "ROW(INTEGER, ARRAY<INTEGER>)",
-                new RowType(ImmutableList.of(INTEGER, new ArrayType(INTEGER)), Optional.empty()),
+                RowType.anonymous(ImmutableList.of(INTEGER, new ArrayType(INTEGER))),
                 ImmutableList.of(1, ImmutableList.of(2, 3)));
         assertInvalidCastWithJsonParse(
                 "{\"a\" :1,  \"b\": {} }",
@@ -383,7 +383,7 @@ public class TestJsonOperators
         assertInvalidCastWithJsonParse(
                 "[  1,  {}  ]",
                 "ROW(INTEGER, ARRAY<INTEGER>)",
-                "Cannot cast to row(field0 integer,field1 array(integer)). Expected a json array, but got {\n[  1,  {}  ]");
+                "Cannot cast to row(integer,array(integer)). Expected a json array, but got {\n[  1,  {}  ]");
     }
 
     private static SqlTimestamp sqlTimestamp(long millisUtc)

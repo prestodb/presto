@@ -28,8 +28,6 @@ import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 
-import java.util.Optional;
-
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static java.lang.String.format;
 
@@ -56,7 +54,7 @@ public final class MapFromEntriesFunction
     {
         Type keyType = mapType.getKeyType();
         Type valueType = mapType.getValueType();
-        RowType rowType = new RowType(ImmutableList.of(keyType, valueType), Optional.empty());
+        RowType rowType = RowType.anonymous(ImmutableList.of(keyType, valueType));
 
         if (pageBuilder.isFull()) {
             pageBuilder.reset();

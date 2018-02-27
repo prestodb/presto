@@ -32,7 +32,6 @@ import io.airlift.slice.Slice;
 
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.Optional;
 
 import static com.facebook.presto.util.StructuralTestUtil.appendToBlockBuilder;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -121,7 +120,7 @@ public final class StructuralTestUtil
 
     public static Block rowBlockOf(List<Type> parameterTypes, Object... values)
     {
-        RowType rowType = new RowType(parameterTypes, Optional.empty());
+        RowType rowType = RowType.anonymous(parameterTypes);
         BlockBuilder blockBuilder = rowType.createBlockBuilder(null, 1);
         BlockBuilder singleRowBlockWriter = blockBuilder.beginBlockEntry();
         for (int i = 0; i < values.length; i++) {

@@ -118,7 +118,7 @@ final class FixJsonDataUtils
                         "Unexpected parameter [%s] for row type",
                         parameter);
                 NamedTypeSignature namedTypeSignature = parameter.getNamedTypeSignature();
-                String key = namedTypeSignature.getName();
+                String key = namedTypeSignature.getName().orElse("field" + i);
                 fixedValue.put(key, fixValue(namedTypeSignature.getTypeSignature(), listValue.get(i)));
             }
             return fixedValue;

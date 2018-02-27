@@ -22,8 +22,6 @@ import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 
-import java.util.Optional;
-
 public class MultiKeyValuePairStateSerializer
         implements AccumulatorStateSerializer<MultiKeyValuePairsState>
 {
@@ -31,7 +29,7 @@ public class MultiKeyValuePairStateSerializer
 
     public MultiKeyValuePairStateSerializer(Type keyType, Type valueType)
     {
-        this.serializedType = new ArrayType(new RowType(ImmutableList.of(keyType, valueType), Optional.empty()));
+        this.serializedType = new ArrayType(RowType.anonymous(ImmutableList.of(keyType, valueType)));
     }
 
     @Override

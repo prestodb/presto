@@ -32,8 +32,6 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.util.Optional;
-
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.block.BlockAssertions.toValues;
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
@@ -131,11 +129,11 @@ public class TestExpressionOptimizer
 
         // varchar to row
         jsonCastSignature = new Signature(CAST, SCALAR, parseTypeSignature("row(varchar,bigint)"), ImmutableList.of(JSON.getTypeSignature()));
-        jsonCastExpression = new CallExpression(jsonCastSignature, new RowType(ImmutableList.of(VARCHAR, BIGINT), Optional.empty()), ImmutableList.of(call(jsonParseSignature, JSON, field(1, VARCHAR))));
+        jsonCastExpression = new CallExpression(jsonCastSignature, RowType.anonymous(ImmutableList.of(VARCHAR, BIGINT)), ImmutableList.of(call(jsonParseSignature, JSON, field(1, VARCHAR))));
         resultExpression = optimizer.optimize(jsonCastExpression);
         assertEquals(
                 resultExpression,
-                call(internalScalarFunction(JSON_STRING_TO_ROW_NAME, parseTypeSignature("row(varchar,bigint)"), parseTypeSignature(StandardTypes.VARCHAR)), new RowType(ImmutableList.of(VARCHAR, BIGINT), Optional.empty()), field(1, VARCHAR)));
+                call(internalScalarFunction(JSON_STRING_TO_ROW_NAME, parseTypeSignature("row(varchar,bigint)"), parseTypeSignature(StandardTypes.VARCHAR)), RowType.anonymous(ImmutableList.of(VARCHAR, BIGINT)), field(1, VARCHAR)));
     }
 
     private static RowExpression ifExpression(RowExpression condition, long trueValue, long falseValue)

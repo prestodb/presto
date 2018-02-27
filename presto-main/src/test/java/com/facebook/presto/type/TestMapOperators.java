@@ -36,7 +36,6 @@ import org.testng.annotations.Test;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
@@ -416,7 +415,9 @@ public class TestMapOperators
                         "\"row4\": {\"k2\": null, \"k1\": 3}, " +
                         "\"row5\": null}' " +
                         "AS MAP<VARCHAR, ROW(k1 BIGINT, k2 VARCHAR)>)",
-                mapType(VARCHAR, new RowType(ImmutableList.of(BIGINT, VARCHAR), Optional.of(ImmutableList.of("k1", "k2")))),
+                mapType(VARCHAR, RowType.from(ImmutableList.of(
+                        RowType.field("k1", BIGINT),
+                        RowType.field("k2", VARCHAR)))),
                 asMap(
                         ImmutableList.of("row1", "row2", "row3", "row4", "row5"),
                         asList(
@@ -931,6 +932,6 @@ public class TestMapOperators
 
     private static Type entryType(Type keyType, Type valueType)
     {
-        return new ArrayType(new RowType(ImmutableList.of(keyType, valueType), Optional.empty()));
+        return new ArrayType(RowType.anonymous(ImmutableList.of(keyType, valueType)));
     }
 }

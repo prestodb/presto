@@ -36,7 +36,6 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.TreeMap;
 
 import static com.facebook.presto.hive.HiveTestUtils.mapType;
@@ -175,8 +174,8 @@ public class TestSerDeUtils
         ListHolder listHolder = new ListHolder();
         listHolder.array = array;
 
-        com.facebook.presto.spi.type.Type rowType = new RowType(ImmutableList.of(INTEGER, BIGINT), Optional.empty());
-        com.facebook.presto.spi.type.Type arrayOfRowType = new RowType(ImmutableList.of(new ArrayType(rowType)), Optional.empty());
+        com.facebook.presto.spi.type.Type rowType = RowType.anonymous(ImmutableList.of(INTEGER, BIGINT));
+        com.facebook.presto.spi.type.Type arrayOfRowType = RowType.anonymous(ImmutableList.of(new ArrayType(rowType)));
         Block actual = toBinaryBlock(arrayOfRowType, listHolder, getInspector(ListHolder.class));
         BlockBuilder blockBuilder = rowType.createBlockBuilder(null, 1024);
         rowType.writeObject(blockBuilder, rowBlockOf(ImmutableList.of(INTEGER, BIGINT), 8, 9L));
@@ -199,8 +198,8 @@ public class TestSerDeUtils
         holder.map.put("twelve", new InnerStruct(13, 14L));
         holder.map.put("fifteen", new InnerStruct(16, 17L));
 
-        RowType rowType = new RowType(ImmutableList.of(INTEGER, BIGINT), Optional.empty());
-        RowType rowOfMapOfVarcharRowType = new RowType(ImmutableList.of(mapType(VARCHAR, rowType)), Optional.empty());
+        RowType rowType = RowType.anonymous(ImmutableList.of(INTEGER, BIGINT));
+        RowType rowOfMapOfVarcharRowType = RowType.anonymous(ImmutableList.of(mapType(VARCHAR, rowType)));
         Block actual = toBinaryBlock(rowOfMapOfVarcharRowType, holder, getInspector(MapHolder.class));
 
         Block mapBlock = mapBlockOf(
@@ -219,7 +218,7 @@ public class TestSerDeUtils
         // test simple structs
         InnerStruct innerStruct = new InnerStruct(13, 14L);
 
-        com.facebook.presto.spi.type.Type rowType = new RowType(ImmutableList.of(INTEGER, BIGINT), Optional.empty());
+        com.facebook.presto.spi.type.Type rowType = RowType.anonymous(ImmutableList.of(INTEGER, BIGINT));
         Block actual = toBinaryBlock(rowType, innerStruct, getInspector(InnerStruct.class));
 
         Block expected = rowBlockOf(ImmutableList.of(INTEGER, BIGINT), 13, 14L);
@@ -245,11 +244,11 @@ public class TestSerDeUtils
         outerStruct.map.put("fifteen", new InnerStruct(-5, -10L));
         outerStruct.innerStruct = new InnerStruct(18, 19L);
 
-        com.facebook.presto.spi.type.Type innerRowType = new RowType(ImmutableList.of(INTEGER, BIGINT), Optional.empty());
+        com.facebook.presto.spi.type.Type innerRowType = RowType.anonymous(ImmutableList.of(INTEGER, BIGINT));
         com.facebook.presto.spi.type.Type arrayOfInnerRowType = new ArrayType(innerRowType);
         com.facebook.presto.spi.type.Type mapOfInnerRowType = mapType(createUnboundedVarcharType(), innerRowType);
         List<com.facebook.presto.spi.type.Type> outerRowParameterTypes = ImmutableList.of(TINYINT, SMALLINT, INTEGER, BIGINT, REAL, DOUBLE, createUnboundedVarcharType(), createUnboundedVarcharType(), arrayOfInnerRowType, mapOfInnerRowType, innerRowType);
-        com.facebook.presto.spi.type.Type outerRowType = new RowType(outerRowParameterTypes, Optional.empty());
+        com.facebook.presto.spi.type.Type outerRowType = RowType.anonymous(outerRowParameterTypes);
 
         actual = toBinaryBlock(outerRowType, outerStruct, getInspector(OuterStruct.class));
 

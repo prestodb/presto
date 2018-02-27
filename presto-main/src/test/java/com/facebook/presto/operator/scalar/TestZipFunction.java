@@ -19,7 +19,6 @@ import com.facebook.presto.spi.type.Type;
 import org.testng.annotations.Test;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.operator.scalar.ZipFunction.MAX_ARITY;
@@ -127,7 +126,7 @@ public class TestZipFunction
 
     private static Type zipReturnType(Type... types)
     {
-        return new ArrayType(new RowType(list(types), Optional.empty()));
+        return new ArrayType(RowType.anonymous(list(types)));
     }
 
     @SafeVarargs

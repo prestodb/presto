@@ -227,7 +227,7 @@ public class ParquetReader
         for (int i = 0; i < parameters.size(); i++) {
             NamedTypeSignature namedTypeSignature = parameters.get(i).getNamedTypeSignature();
             Type fieldType = typeManager.getType(namedTypeSignature.getTypeSignature());
-            String name = namedTypeSignature.getName();
+            String name = namedTypeSignature.getName().get();
             blocks[i] = readBlock(name, fieldType, path, new IntArrayList());
         }
 
