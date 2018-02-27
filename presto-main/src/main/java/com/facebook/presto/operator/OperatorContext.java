@@ -316,6 +316,11 @@ public class OperatorContext
 
     public void destroy()
     {
+        // reset memory revocation listener so that OperatorContext doesn't hold any references to Driver instance
+        synchronized (this) {
+            memoryRevocationRequestListener = null;
+        }
+
         operatorMemoryContext.close();
 
         if (operatorMemoryContext.getSystemMemory() != 0) {
