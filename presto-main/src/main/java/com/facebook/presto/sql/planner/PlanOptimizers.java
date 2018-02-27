@@ -348,6 +348,7 @@ public class PlanOptimizers
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(new EliminateCrossJoins())), // This can pull up Filter and Project nodes from between Joins, so we need to push them down again
                 new PredicatePushDown(metadata, sqlParser),
+                simplifyOptimizer, // Should be always run after PredicatePushDown
                 new IterativeOptimizer(
                         stats,
                         statsCalculator,
@@ -390,6 +391,7 @@ public class PlanOptimizers
                         ImmutableSet.of(new RemoveEmptyDelete()))); // Run RemoveEmptyDelete after table scan is removed by PickTableLayout/AddExchanges
 
         builder.add(new PredicatePushDown(metadata, sqlParser)); // Run predicate push down one more time in case we can leverage new information from layouts' effective predicate
+        builder.add(simplifyOptimizer); // Should be always run after PredicatePushDown
         builder.add(projectionPushDown);
         builder.add(inlineProjections);
         builder.add(new UnaliasSymbolReferences()); // Run unalias after merging projections to simplify projections more efficiently
