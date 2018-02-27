@@ -82,6 +82,8 @@ public class EffectivePredicateExtractor
                 return new ComparisonExpression(ComparisonExpressionType.EQUAL, reference, expression);
             };
 
+    private EffectivePredicateExtractor() {}
+
     @Override
     protected Expression visitPlan(PlanNode node, Void context)
     {
