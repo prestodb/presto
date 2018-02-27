@@ -310,6 +310,7 @@ public final class HttpPageBufferClient
 
                 List<SerializedPage> pages;
                 try {
+                    boolean shouldAcknowledge = false;
                     synchronized (HttpPageBufferClient.this) {
                         if (taskInstanceId == null) {
                             taskInstanceId = result.getTaskInstanceId();
@@ -321,12 +322,38 @@ public final class HttpPageBufferClient
                         }
 
                         if (result.getToken() == token) {
+                            shouldAcknowledge = true;
                             pages = result.getPages();
                             token = result.getNextToken();
                         }
                         else {
                             pages = ImmutableList.of();
                         }
+                    }
+
+                    if (shouldAcknowledge) {
+                        // Acknowledge token without handling the response.
+                        // The next request will also make sure the token is acknowledged.
+                        // This is to fast release the pages on the buffer side.
+                        URI uri = HttpUriBuilder.uriBuilderFrom(location).appendPath(String.valueOf(result.getToken())).appendPath("acknowledge").build();
+                        httpClient.executeAsync(prepareGet().setUri(uri).build(), new ResponseHandler<Void, RuntimeException>()
+                        {
+                            @Override
+                            public Void handleException(Request request, Exception exception)
+                            {
+                                log.debug(exception, "Acknowledge request failed: %s", uri);
+                                return null;
+                            }
+
+                            @Override
+                            public Void handle(Request request, Response response)
+                            {
+                                if (response.getStatusCode() != HttpStatus.OK.code()) {
+                                    log.debug(format("Expected acknowledge response code to be 200, but was %s", response.getStatusCode()));
+                                }
+                                return null;
+                            }
+                        });
                     }
                 }
                 catch (PrestoException e) {
