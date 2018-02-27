@@ -641,9 +641,6 @@ public class ExpressionInterpreter
         protected Object visitInPredicate(InPredicate node, Object context)
         {
             Object value = process(node.getValue(), context);
-            if (value == null) {
-                return null;
-            }
 
             Expression valueListExpression = node.getValueList();
             if (!(valueListExpression instanceof InListExpression)) {
@@ -653,6 +650,10 @@ public class ExpressionInterpreter
                 return node;
             }
             InListExpression valueList = (InListExpression) valueListExpression;
+            verify(!valueList.getValues().isEmpty()); // `NULL IN ()` would be false, but is not possible
+            if (value == null) {
+                return null;
+            }
 
             Set<?> set = inListCache.get(valueList);
 
