@@ -155,7 +155,7 @@ public class ClusterMemoryManager
         boolean queryKilled = false;
         long totalBytes = 0;
         for (QueryExecution query : queries) {
-            long bytes = query.getTotalMemoryReservation();
+            long bytes = query.getUserMemoryReservation();
             DataSize sessionMaxQueryMemory = getQueryMaxMemory(query.getSession());
             long queryMemoryLimit = Math.min(maxQueryMemory.toBytes(), sessionMaxQueryMemory.toBytes());
             totalBytes += bytes;
@@ -180,7 +180,7 @@ public class ClusterMemoryManager
                 nanosSince(lastTimeNotOutOfMemory).compareTo(killOnOutOfMemoryDelay) > 0 &&
                 isLastKilledQueryGone()) {
             List<QueryMemoryInfo> queryMemoryInfoList = Streams.stream(queries)
-                    .map(query -> new QueryMemoryInfo(query.getQueryId(), query.getMemoryPool().getId(), query.getTotalMemoryReservation()))
+                    .map(query -> new QueryMemoryInfo(query.getQueryId(), query.getMemoryPool().getId(), query.getUserMemoryReservation()))
                     .collect(toImmutableList());
             List<MemoryInfo> nodeMemoryInfos = nodes.values().stream()
                     .map(RemoteNodeMemory::getInfo)
@@ -280,7 +280,7 @@ public class ClusterMemoryManager
                         // since their memory usage is unbounded.
                         continue;
                     }
-                    long bytesUsed = queryExecution.getTotalMemoryReservation();
+                    long bytesUsed = queryExecution.getUserMemoryReservation();
                     if (bytesUsed > maxMemory) {
                         biggestQuery = queryExecution;
                         maxMemory = bytesUsed;

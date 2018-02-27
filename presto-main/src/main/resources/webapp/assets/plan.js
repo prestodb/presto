@@ -82,7 +82,7 @@ let StageStatistics = React.createClass({
                         <div style= {{ color: '#ff0000' }}>Blocked: { stats.totalBlockedTime } </div> :
                         <div>Blocked: { stats.totalBlockedTime } </div>
                     }
-                    Memory: { stats.totalMemoryReservation }
+                    Memory: { stats.userMemoryReservation }
                     <br />
                     Splits: {"Q:" + stats.queuedDrivers + ", R:" + stats.runningDrivers + ", F:" + stats.completedDrivers }
                     <hr />

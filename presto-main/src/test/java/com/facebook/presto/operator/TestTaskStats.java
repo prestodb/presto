@@ -99,8 +99,8 @@ public class TestTaskStats
         assertEquals(actual.getBlockedDrivers(), 24);
         assertEquals(actual.getCompletedDrivers(), 10);
 
-        assertEquals(actual.getCumulativeMemory(), 11.0);
-        assertEquals(actual.getMemoryReservation(), new DataSize(12, BYTE));
+        assertEquals(actual.getCumulativeUserMemory(), 11.0);
+        assertEquals(actual.getUserMemoryReservation(), new DataSize(12, BYTE));
         assertEquals(actual.getRevocableMemoryReservation(), new DataSize(13, BYTE));
         assertEquals(actual.getSystemMemoryReservation(), new DataSize(14, BYTE));
 

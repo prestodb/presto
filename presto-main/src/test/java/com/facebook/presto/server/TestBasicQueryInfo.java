@@ -122,9 +122,9 @@ public class TestBasicQueryInfo
         assertEquals(basicInfo.getQueryStats().getRunningDrivers(), 18);
         assertEquals(basicInfo.getQueryStats().getCompletedDrivers(), 19);
 
-        assertEquals(basicInfo.getQueryStats().getCumulativeMemory(), 20.0);
-        assertEquals(basicInfo.getQueryStats().getTotalMemoryReservation(), DataSize.valueOf("21GB"));
-        assertEquals(basicInfo.getQueryStats().getPeakMemoryReservation(), DataSize.valueOf("22GB"));
+        assertEquals(basicInfo.getQueryStats().getCumulativeUserMemory(), 20.0);
+        assertEquals(basicInfo.getQueryStats().getUserMemoryReservation(), DataSize.valueOf("21GB"));
+        assertEquals(basicInfo.getQueryStats().getPeakUserMemoryReservation(), DataSize.valueOf("22GB"));
         assertEquals(basicInfo.getQueryStats().getTotalCpuTime(), Duration.valueOf("24m"));
 
         assertEquals(basicInfo.getQueryStats().isFullyBlocked(), true);

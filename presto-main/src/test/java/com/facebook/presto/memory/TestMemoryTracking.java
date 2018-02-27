@@ -395,10 +395,10 @@ public class TestMemoryTracking
             long expectedRevocableMemory,
             long expectedSystemMemory)
     {
-        assertEquals(operatorStats.getMemoryReservation().toBytes(), expectedUserMemory);
-        assertEquals(driverStats.getMemoryReservation().toBytes(), expectedUserMemory);
-        assertEquals(pipelineStats.getMemoryReservation().toBytes(), expectedUserMemory);
-        assertEquals(taskStats.getMemoryReservation().toBytes(), expectedUserMemory);
+        assertEquals(operatorStats.getUserMemoryReservation().toBytes(), expectedUserMemory);
+        assertEquals(driverStats.getUserMemoryReservation().toBytes(), expectedUserMemory);
+        assertEquals(pipelineStats.getUserMemoryReservation().toBytes(), expectedUserMemory);
+        assertEquals(taskStats.getUserMemoryReservation().toBytes(), expectedUserMemory);
 
         assertEquals(operatorStats.getSystemMemoryReservation().toBytes(), expectedSystemMemory);
         assertEquals(driverStats.getSystemMemoryReservation().toBytes(), expectedSystemMemory);

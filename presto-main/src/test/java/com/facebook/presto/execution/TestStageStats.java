@@ -100,9 +100,9 @@ public class TestStageStats
         assertEquals(actual.getBlockedDrivers(), 26);
         assertEquals(actual.getCompletedDrivers(), 11);
 
-        assertEquals(actual.getCumulativeMemory(), 12.0);
-        assertEquals(actual.getTotalMemoryReservation(), new DataSize(13, BYTE));
-        assertEquals(actual.getPeakMemoryReservation(), new DataSize(14, BYTE));
+        assertEquals(actual.getCumulativeUserMemory(), 12.0);
+        assertEquals(actual.getUserMemoryReservation(), new DataSize(13, BYTE));
+        assertEquals(actual.getPeakUserMemoryReservation(), new DataSize(14, BYTE));
 
         assertEquals(actual.getTotalScheduledTime(), new Duration(15, NANOSECONDS));
         assertEquals(actual.getTotalCpuTime(), new Duration(16, NANOSECONDS));

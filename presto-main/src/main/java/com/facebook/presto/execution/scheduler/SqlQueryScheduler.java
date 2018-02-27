@@ -419,10 +419,10 @@ public class SqlQueryScheduler
                 parent.getFailureCause());
     }
 
-    public long getTotalMemoryReservation()
+    public long getUserMemoryReservation()
     {
         return stages.values().stream()
-                .mapToLong(SqlStageExecution::getMemoryReservation)
+                .mapToLong(SqlStageExecution::getUserMemoryReservation)
                 .sum();
     }
 

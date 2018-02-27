@@ -214,8 +214,8 @@ public class TestQueryStats
         assertEquals(actual.getBlockedDrivers(), 30);
         assertEquals(actual.getCompletedDrivers(), 16);
 
-        assertEquals(actual.getCumulativeMemory(), 17.0);
-        assertEquals(actual.getTotalMemoryReservation(), new DataSize(18, BYTE));
+        assertEquals(actual.getCumulativeUserMemory(), 17.0);
+        assertEquals(actual.getUserMemoryReservation(), new DataSize(18, BYTE));
         assertEquals(actual.getPeakUserMemoryReservation(), new DataSize(19, BYTE));
         assertEquals(actual.getPeakTotalMemoryReservation(), new DataSize(20, BYTE));
 

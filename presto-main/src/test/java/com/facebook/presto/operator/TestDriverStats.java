@@ -81,7 +81,7 @@ public class TestDriverStats
         assertEquals(actual.getQueuedTime(), new Duration(4, NANOSECONDS));
         assertEquals(actual.getElapsedTime(), new Duration(5, NANOSECONDS));
 
-        assertEquals(actual.getMemoryReservation(), new DataSize(6, BYTE));
+        assertEquals(actual.getUserMemoryReservation(), new DataSize(6, BYTE));
         assertEquals(actual.getRevocableMemoryReservation(), new DataSize(7, BYTE));
         assertEquals(actual.getSystemMemoryReservation(), new DataSize(8, BYTE));
 
