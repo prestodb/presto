@@ -203,7 +203,7 @@ public class SqlTask
         int queuedPartitionedDrivers = 0;
         int runningPartitionedDrivers = 0;
         DataSize physicalWrittenDataSize = new DataSize(0, BYTE);
-        DataSize memoryReservation = new DataSize(0, BYTE);
+        DataSize userMemoryReservation = new DataSize(0, BYTE);
         DataSize systemMemoryReservation = new DataSize(0, BYTE);
         // TODO: add a mechanism to avoid sending the whole completedDriverGroups set over the wire for every task status reply
         Set<Lifespan> completedDriverGroups = ImmutableSet.of();
@@ -212,7 +212,7 @@ public class SqlTask
             queuedPartitionedDrivers = taskStats.getQueuedPartitionedDrivers();
             runningPartitionedDrivers = taskStats.getRunningPartitionedDrivers();
             physicalWrittenDataSize = taskStats.getPhysicalWrittenDataSize();
-            memoryReservation = taskStats.getMemoryReservation();
+            userMemoryReservation = taskStats.getUserMemoryReservation();
             systemMemoryReservation = taskStats.getSystemMemoryReservation();
         }
         else if (taskHolder.getTaskExecution() != null) {
@@ -225,7 +225,7 @@ public class SqlTask
                 physicalWrittenBytes += pipelineContext.getPhysicalWrittenDataSize();
             }
             physicalWrittenDataSize = succinctBytes(physicalWrittenBytes);
-            memoryReservation = taskContext.getMemoryReservation();
+            userMemoryReservation = taskContext.getMemoryReservation();
             systemMemoryReservation = taskContext.getSystemMemoryReservation();
             completedDriverGroups = taskContext.getCompletedDriverGroups();
         }
@@ -242,7 +242,7 @@ public class SqlTask
                 runningPartitionedDrivers,
                 isOutputBufferOverutilized(),
                 physicalWrittenDataSize,
-                memoryReservation,
+                userMemoryReservation,
                 systemMemoryReservation);
     }
 

@@ -76,7 +76,7 @@ public class QueryProgressStats
                 queryStats.getTotalCpuTime().toMillis(),
                 queryStats.getTotalScheduledTime().toMillis(),
                 queryStats.getTotalBlockedTime().toMillis(),
-                queryStats.getTotalMemoryReservation().toBytes(),
+                queryStats.getUserMemoryReservation().toBytes(),
                 queryStats.getPeakUserMemoryReservation().toBytes(),
                 queryStats.getRawInputPositions(),
                 queryStats.getRawInputDataSize().toBytes(),

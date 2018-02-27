@@ -705,7 +705,7 @@ public class InternalResourceGroup
             if (subGroups.isEmpty()) {
                 cachedMemoryUsageBytes = 0;
                 for (QueryExecution query : runningQueries) {
-                    cachedMemoryUsageBytes += query.getTotalMemoryReservation();
+                    cachedMemoryUsageBytes += query.getUserMemoryReservation();
                 }
             }
             else {

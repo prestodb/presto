@@ -42,7 +42,7 @@ public class DriverStats
     private final Duration queuedTime;
     private final Duration elapsedTime;
 
-    private final DataSize memoryReservation;
+    private final DataSize userMemoryReservation;
     private final DataSize revocableMemoryReservation;
     private final DataSize systemMemoryReservation;
 
@@ -75,7 +75,7 @@ public class DriverStats
         this.queuedTime = new Duration(0, MILLISECONDS);
         this.elapsedTime = new Duration(0, MILLISECONDS);
 
-        this.memoryReservation = new DataSize(0, BYTE);
+        this.userMemoryReservation = new DataSize(0, BYTE);
         this.revocableMemoryReservation = new DataSize(0, BYTE);
         this.systemMemoryReservation = new DataSize(0, BYTE);
 
@@ -109,7 +109,7 @@ public class DriverStats
             @JsonProperty("queuedTime") Duration queuedTime,
             @JsonProperty("elapsedTime") Duration elapsedTime,
 
-            @JsonProperty("memoryReservation") DataSize memoryReservation,
+            @JsonProperty("userMemoryReservation") DataSize userMemoryReservation,
             @JsonProperty("revocableMemoryReservation") DataSize revocableMemoryReservation,
             @JsonProperty("systemMemoryReservation") DataSize systemMemoryReservation,
 
@@ -140,7 +140,7 @@ public class DriverStats
         this.queuedTime = requireNonNull(queuedTime, "queuedTime is null");
         this.elapsedTime = requireNonNull(elapsedTime, "elapsedTime is null");
 
-        this.memoryReservation = requireNonNull(memoryReservation, "memoryReservation is null");
+        this.userMemoryReservation = requireNonNull(userMemoryReservation, "userMemoryReservation is null");
         this.revocableMemoryReservation = requireNonNull(revocableMemoryReservation, "revocableMemoryReservation is null");
         this.systemMemoryReservation = requireNonNull(systemMemoryReservation, "systemMemoryReservation is null");
 
@@ -202,9 +202,9 @@ public class DriverStats
     }
 
     @JsonProperty
-    public DataSize getMemoryReservation()
+    public DataSize getUserMemoryReservation()
     {
-        return memoryReservation;
+        return userMemoryReservation;
     }
 
     @JsonProperty

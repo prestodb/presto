@@ -105,7 +105,7 @@ public class TestPipelineStats
         assertEquals(actual.getBlockedDrivers(), 19);
         assertEquals(actual.getCompletedDrivers(), 4);
 
-        assertEquals(actual.getMemoryReservation(), new DataSize(5, BYTE));
+        assertEquals(actual.getUserMemoryReservation(), new DataSize(5, BYTE));
         assertEquals(actual.getRevocableMemoryReservation(), new DataSize(6, BYTE));
         assertEquals(actual.getSystemMemoryReservation(), new DataSize(7, BYTE));
 

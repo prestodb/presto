@@ -299,7 +299,7 @@ public class TestHashAggregationOperator
 
         Operator operator = operatorFactory.createOperator(driverContext);
         toPages(operator, input.iterator());
-        assertEquals(operator.getOperatorContext().getOperatorStats().getMemoryReservation().toBytes(), 0);
+        assertEquals(operator.getOperatorContext().getOperatorStats().getUserMemoryReservation().toBytes(), 0);
     }
 
     @Test(dataProvider = "hashEnabled", expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded local memory limit of 10B")
