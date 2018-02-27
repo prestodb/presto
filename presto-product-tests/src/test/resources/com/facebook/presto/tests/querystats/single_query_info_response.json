@@ -39,6 +39,7 @@
     "queuedDrivers": 0,
     "runningDrivers": 0,
     "completedDrivers": 1,
+    "userMemoryReservation": "0B",
     "totalMemoryReservation": "0B",
     "peakUserMemoryReservation": "0B",
     "peakTotalMemoryReservation": "0B",

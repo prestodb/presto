@@ -220,7 +220,7 @@ public class QueryMonitor
                                     queryStats.getOutputPositions(),
                                     queryStats.getLogicalWrittenDataSize().toBytes(),
                                     queryStats.getWrittenPositions(),
-                                    queryStats.getCumulativeMemory(),
+                                    queryStats.getCumulativeUserMemory(),
                                     queryStats.getCompletedDrivers(),
                                     queryInfo.isCompleteInfo(),
                                     getCpuDistributions(queryInfo),

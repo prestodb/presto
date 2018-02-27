@@ -213,7 +213,7 @@ public class MockQueryExecution
     }
 
     @Override
-    public long getTotalMemoryReservation()
+    public long getUserMemoryReservation()
     {
         return memoryUsage;
     }

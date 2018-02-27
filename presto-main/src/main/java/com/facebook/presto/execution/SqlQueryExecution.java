@@ -224,7 +224,7 @@ public final class SqlQueryExecution
     }
 
     @Override
-    public long getTotalMemoryReservation()
+    public long getUserMemoryReservation()
     {
         // acquire reference to outputStage before checking finalQueryInfo, because
         // state change listener sets finalQueryInfo and then clears outputStage when
@@ -232,12 +232,12 @@ public final class SqlQueryExecution
         SqlQueryScheduler scheduler = queryScheduler.get();
         Optional<QueryInfo> finalQueryInfo = stateMachine.getFinalQueryInfo();
         if (finalQueryInfo.isPresent()) {
-            return finalQueryInfo.get().getQueryStats().getTotalMemoryReservation().toBytes();
+            return finalQueryInfo.get().getQueryStats().getUserMemoryReservation().toBytes();
         }
         if (scheduler == null) {
             return 0;
         }
-        return scheduler.getTotalMemoryReservation();
+        return scheduler.getUserMemoryReservation();
     }
 
     @Override

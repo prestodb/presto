@@ -80,10 +80,10 @@ public class TaskContext
     private final boolean cpuTimerEnabled;
 
     private final Object cumulativeMemoryLock = new Object();
-    private final AtomicDouble cumulativeMemory = new AtomicDouble(0.0);
+    private final AtomicDouble cumulativeUserMemory = new AtomicDouble(0.0);
 
     @GuardedBy("cumulativeMemoryLock")
-    private long lastMemoryReservation;
+    private long lastUserMemoryReservation;
 
     @GuardedBy("cumulativeMemoryLock")
     private long lastTaskStatCallNanos;
@@ -397,11 +397,11 @@ public class TaskContext
 
         synchronized (cumulativeMemoryLock) {
             double sinceLastPeriodMillis = (System.nanoTime() - lastTaskStatCallNanos) / 1_000_000.0;
-            long averageMemoryForLastPeriod = (userMemory + lastMemoryReservation) / 2;
-            cumulativeMemory.addAndGet(averageMemoryForLastPeriod * sinceLastPeriodMillis);
+            long averageMemoryForLastPeriod = (userMemory + lastUserMemoryReservation) / 2;
+            cumulativeUserMemory.addAndGet(averageMemoryForLastPeriod * sinceLastPeriodMillis);
 
             lastTaskStatCallNanos = System.nanoTime();
-            lastMemoryReservation = userMemory;
+            lastUserMemoryReservation = userMemory;
         }
 
         Set<PipelineStats> runningPipelineStats = pipelineStats.stream()
@@ -428,7 +428,7 @@ public class TaskContext
                 runningPartitionedDrivers,
                 blockedDrivers,
                 completedDrivers,
-                cumulativeMemory.get(),
+                cumulativeUserMemory.get(),
                 succinctBytes(userMemory),
                 succinctBytes(taskMemoryContext.getRevocableMemory()),
                 succinctBytes(taskMemoryContext.getSystemMemory()),

@@ -148,7 +148,7 @@ public class TestOperatorStats
         assertEquals(actual.getFinishCpu(), new Duration(18, NANOSECONDS));
         assertEquals(actual.getFinishUser(), new Duration(19, NANOSECONDS));
 
-        assertEquals(actual.getMemoryReservation(), new DataSize(20, BYTE));
+        assertEquals(actual.getUserMemoryReservation(), new DataSize(20, BYTE));
         assertEquals(actual.getRevocableMemoryReservation(), new DataSize(21, BYTE));
         assertEquals(actual.getSystemMemoryReservation(), new DataSize(22, BYTE));
         assertEquals(actual.getInfo().getClass(), SplitOperatorInfo.class);
@@ -187,7 +187,7 @@ public class TestOperatorStats
         assertEquals(actual.getFinishWall(), new Duration(3 * 17, NANOSECONDS));
         assertEquals(actual.getFinishCpu(), new Duration(3 * 18, NANOSECONDS));
         assertEquals(actual.getFinishUser(), new Duration(3 * 19, NANOSECONDS));
-        assertEquals(actual.getMemoryReservation(), new DataSize(3 * 20, BYTE));
+        assertEquals(actual.getUserMemoryReservation(), new DataSize(3 * 20, BYTE));
         assertEquals(actual.getRevocableMemoryReservation(), new DataSize(3 * 21, BYTE));
         assertEquals(actual.getSystemMemoryReservation(), new DataSize(3 * 22, BYTE));
         assertEquals(actual.getInfo(), null);
@@ -225,7 +225,7 @@ public class TestOperatorStats
         assertEquals(actual.getFinishWall(), new Duration(3 * 17, NANOSECONDS));
         assertEquals(actual.getFinishCpu(), new Duration(3 * 18, NANOSECONDS));
         assertEquals(actual.getFinishUser(), new Duration(3 * 19, NANOSECONDS));
-        assertEquals(actual.getMemoryReservation(), new DataSize(3 * 20, BYTE));
+        assertEquals(actual.getUserMemoryReservation(), new DataSize(3 * 20, BYTE));
         assertEquals(actual.getRevocableMemoryReservation(), new DataSize(3 * 21, BYTE));
         assertEquals(actual.getSystemMemoryReservation(), new DataSize(3 * 22, BYTE));
         assertEquals(actual.getInfo().getClass(), PartitionedOutputInfo.class);

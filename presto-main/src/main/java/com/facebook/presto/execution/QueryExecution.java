@@ -58,7 +58,7 @@ public interface QueryExecution
 
     void setMemoryPool(VersionedMemoryPoolId poolId);
 
-    long getTotalMemoryReservation();
+    long getUserMemoryReservation();
 
     Duration getTotalCpuTime();
 

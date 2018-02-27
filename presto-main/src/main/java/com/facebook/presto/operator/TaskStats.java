@@ -51,8 +51,8 @@ public class TaskStats
     private final int blockedDrivers;
     private final int completedDrivers;
 
-    private final double cumulativeMemory;
-    private final DataSize memoryReservation;
+    private final double cumulativeUserMemory;
+    private final DataSize userMemoryReservation;
     private final DataSize revocableMemoryReservation;
     private final DataSize systemMemoryReservation;
 
@@ -130,8 +130,8 @@ public class TaskStats
             @JsonProperty("blockedDrivers") int blockedDrivers,
             @JsonProperty("completedDrivers") int completedDrivers,
 
-            @JsonProperty("cumulativeMemory") double cumulativeMemory,
-            @JsonProperty("memoryReservation") DataSize memoryReservation,
+            @JsonProperty("cumulativeUserMemory") double cumulativeUserMemory,
+            @JsonProperty("userMemoryReservation") DataSize userMemoryReservation,
             @JsonProperty("revocableMemoryReservation") DataSize revocableMemoryReservation,
             @JsonProperty("systemMemoryReservation") DataSize systemMemoryReservation,
 
@@ -181,8 +181,8 @@ public class TaskStats
         checkArgument(completedDrivers >= 0, "completedDrivers is negative");
         this.completedDrivers = completedDrivers;
 
-        this.cumulativeMemory = requireNonNull(cumulativeMemory, "cumulativeMemory is null");
-        this.memoryReservation = requireNonNull(memoryReservation, "memoryReservation is null");
+        this.cumulativeUserMemory = requireNonNull(cumulativeUserMemory, "cumulativeUserMemory is null");
+        this.userMemoryReservation = requireNonNull(userMemoryReservation, "userMemoryReservation is null");
         this.revocableMemoryReservation = requireNonNull(revocableMemoryReservation, "revocableMemoryReservation is null");
         this.systemMemoryReservation = requireNonNull(systemMemoryReservation, "systemMemoryReservation is null");
 
@@ -287,15 +287,15 @@ public class TaskStats
     }
 
     @JsonProperty
-    public double getCumulativeMemory()
+    public double getCumulativeUserMemory()
     {
-        return cumulativeMemory;
+        return cumulativeUserMemory;
     }
 
     @JsonProperty
-    public DataSize getMemoryReservation()
+    public DataSize getUserMemoryReservation()
     {
-        return memoryReservation;
+        return userMemoryReservation;
     }
 
     @JsonProperty
@@ -423,8 +423,8 @@ public class TaskStats
                 runningPartitionedDrivers,
                 blockedDrivers,
                 completedDrivers,
-                cumulativeMemory,
-                memoryReservation,
+                cumulativeUserMemory,
+                userMemoryReservation,
                 revocableMemoryReservation,
                 systemMemoryReservation,
                 totalScheduledTime,
@@ -460,8 +460,8 @@ public class TaskStats
                 runningPartitionedDrivers,
                 blockedDrivers,
                 completedDrivers,
-                cumulativeMemory,
-                memoryReservation,
+                cumulativeUserMemory,
+                userMemoryReservation,
                 revocableMemoryReservation,
                 systemMemoryReservation,
                 totalScheduledTime,
