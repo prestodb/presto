@@ -79,4 +79,12 @@ public class TestJmxQueries
         MaterializedResult expected = computeActual(format("SELECT DISTINCT node FROM \"%s\"", name));
         assertEqualsIgnoreOrder(actual, expected);
     }
+
+    @Test
+    public void testOrderOfParametersIsIgnored()
+    {
+        assertEqualsIgnoreOrder(
+                computeActual("SELECT node FROM \"java.nio:type=bufferpool,name=direct\""),
+                computeActual("SELECT node FROM \"java.nio:name=direct,type=bufferpool\""));
+    }
 }
