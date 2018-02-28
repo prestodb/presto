@@ -2869,6 +2869,23 @@ public class TestHiveIntegrationSmokeTest
         assertQueryFails(createTableSql, "Cannot specify avro_schema_url table property for storage format: ORC");
     }
 
+    @Test
+    public void testCtasFailsWithAvroSchemaUrl()
+            throws Exception
+    {
+        @Language("SQL") String ctasSqlWithoutData = "CREATE TABLE create_avro\n" +
+                "WITH (avro_schema_url = 'dummy_schema')\n" +
+                "AS SELECT 'dummy_value' as dummy_col WITH NO DATA";
+
+        assertQueryFails(ctasSqlWithoutData, "CREATE TABLE AS not supported when Avro schema url is set");
+
+        @Language("SQL") String ctasSql = "CREATE TABLE create_avro\n" +
+                "WITH (avro_schema_url = 'dummy_schema')\n" +
+                "AS SELECT * FROM (VALUES('a')) t (a)";
+
+        assertQueryFails(ctasSql, "CREATE TABLE AS not supported when Avro schema url is set");
+    }
+
     private Session getParallelWriteSession()
     {
         return Session.builder(getSession())
