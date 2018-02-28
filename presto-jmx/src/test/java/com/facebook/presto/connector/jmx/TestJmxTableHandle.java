@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.connector.jmx;
 
+import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableList;
 import io.airlift.testing.EquivalenceTester;
 import org.testng.annotations.Test;
@@ -30,7 +31,8 @@ public class TestJmxTableHandle
             .add(new JmxColumnHandle("id", BIGINT))
             .add(new JmxColumnHandle("name", createUnboundedVarcharType()))
             .build();
-    public static final JmxTableHandle TABLE = new JmxTableHandle("objectName", COLUMNS, true);
+    public static final SchemaTableName SCHEMA_TABLE_NAME = new SchemaTableName("schema", "tableName");
+    public static final JmxTableHandle TABLE = new JmxTableHandle(SCHEMA_TABLE_NAME, ImmutableList.of("objectName"), COLUMNS, true);
 
     @Test
     public void testJsonRoundTrip()
@@ -46,23 +48,23 @@ public class TestJmxTableHandle
         List<JmxColumnHandle> singleColumn = ImmutableList.of(COLUMNS.get(0));
         EquivalenceTester.equivalenceTester()
                 .addEquivalentGroup(
-                        new JmxTableHandle("name", COLUMNS, true),
-                        new JmxTableHandle("name", COLUMNS, true))
+                        new JmxTableHandle(SCHEMA_TABLE_NAME, ImmutableList.of("name"), COLUMNS, true),
+                        new JmxTableHandle(SCHEMA_TABLE_NAME, ImmutableList.of("name"), COLUMNS, true))
                 .addEquivalentGroup(
-                        new JmxTableHandle("name", COLUMNS, false),
-                        new JmxTableHandle("name", COLUMNS, false))
+                        new JmxTableHandle(SCHEMA_TABLE_NAME, ImmutableList.of("name"), COLUMNS, false),
+                        new JmxTableHandle(SCHEMA_TABLE_NAME, ImmutableList.of("name"), COLUMNS, false))
                 .addEquivalentGroup(
-                        new JmxTableHandle("nameX", COLUMNS, true),
-                        new JmxTableHandle("nameX", COLUMNS, true))
+                        new JmxTableHandle(SCHEMA_TABLE_NAME, ImmutableList.of("nameX"), COLUMNS, true),
+                        new JmxTableHandle(SCHEMA_TABLE_NAME, ImmutableList.of("nameX"), COLUMNS, true))
                 .addEquivalentGroup(
-                        new JmxTableHandle("nameX", COLUMNS, false),
-                        new JmxTableHandle("nameX", COLUMNS, false))
+                        new JmxTableHandle(SCHEMA_TABLE_NAME, ImmutableList.of("nameX"), COLUMNS, false),
+                        new JmxTableHandle(SCHEMA_TABLE_NAME, ImmutableList.of("nameX"), COLUMNS, false))
                 .addEquivalentGroup(
-                        new JmxTableHandle("name", singleColumn, true),
-                        new JmxTableHandle("name", singleColumn, true))
+                        new JmxTableHandle(SCHEMA_TABLE_NAME, ImmutableList.of("name"), singleColumn, true),
+                        new JmxTableHandle(SCHEMA_TABLE_NAME, ImmutableList.of("name"), singleColumn, true))
                 .addEquivalentGroup(
-                        new JmxTableHandle("name", singleColumn, false),
-                        new JmxTableHandle("name", singleColumn, false))
+                        new JmxTableHandle(SCHEMA_TABLE_NAME, ImmutableList.of("name"), singleColumn, false),
+                        new JmxTableHandle(SCHEMA_TABLE_NAME, ImmutableList.of("name"), singleColumn, false))
                 .check();
     }
 }
