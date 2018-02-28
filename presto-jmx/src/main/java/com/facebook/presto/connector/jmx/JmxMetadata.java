@@ -108,7 +108,7 @@ public class JmxMetadata
         ImmutableList.Builder<JmxColumnHandle> builder = ImmutableList.builder();
         builder.add(new JmxColumnHandle(TIMESTAMP_COLUMN_NAME, TIMESTAMP));
         builder.addAll(handle.getColumnHandles());
-        return new JmxTableHandle(handle.getObjectName(), builder.build(), false);
+        return new JmxTableHandle(handle.getTableName(), handle.getObjectNames(), builder.build(), false);
     }
 
     private JmxTableHandle getJmxTableHandle(SchemaTableName tableName)
@@ -134,7 +134,7 @@ public class JmxMetadata
                     .sorted(comparing(JmxColumnHandle::getColumnName))
                     .forEach(columns::add);
 
-            return new JmxTableHandle(objectName.get().toString(), columns.build(), true);
+            return new JmxTableHandle(tableName, ImmutableList.of(objectName.get().toString()), columns.build(), true);
         }
         catch (JMException e) {
             return null;

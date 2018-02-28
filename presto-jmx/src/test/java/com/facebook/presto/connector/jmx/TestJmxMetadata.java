@@ -56,7 +56,7 @@ public class TestJmxMetadata
     public void testGetTableHandle()
     {
         JmxTableHandle handle = metadata.getTableHandle(SESSION, RUNTIME_TABLE);
-        assertEquals(handle.getObjectName(), RUNTIME_OBJECT);
+        assertEquals(handle.getObjectNames(), ImmutableList.of(RUNTIME_OBJECT));
 
         List<JmxColumnHandle> columns = handle.getColumnHandles();
         assertTrue(columns.contains(new JmxColumnHandle("node", createUnboundedVarcharType())));
@@ -68,7 +68,7 @@ public class TestJmxMetadata
     public void testGetTimeTableHandle()
     {
         JmxTableHandle handle = metadata.getTableHandle(SESSION, RUNTIME_HISTORY_TABLE);
-        assertEquals(handle.getObjectName(), RUNTIME_OBJECT);
+        assertEquals(handle.getObjectNames(), ImmutableList.of(RUNTIME_OBJECT));
 
         List<JmxColumnHandle> columns = handle.getColumnHandles();
         assertTrue(columns.contains(new JmxColumnHandle("timestamp", TIMESTAMP)));
