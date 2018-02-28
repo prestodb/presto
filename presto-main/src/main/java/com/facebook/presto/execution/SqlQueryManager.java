@@ -296,89 +296,50 @@ public class SqlQueryManager
     @Override
     public void addOutputInfoListener(QueryId queryId, Consumer<QueryOutputInfo> listener)
     {
-        requireNonNull(queryId, "queryId is null");
         requireNonNull(listener, "listener is null");
 
-        QueryExecution query = queries.get(queryId);
-        if (query == null) {
-            throw new NoSuchElementException();
-        }
-
-        query.addOutputInfoListener(listener);
+        getQuery(queryId).addOutputInfoListener(listener);
     }
 
     @Override
     public ListenableFuture<QueryState> getStateChange(QueryId queryId, QueryState currentState)
     {
-        requireNonNull(queryId, "queryId is null");
-
-        QueryExecution query = queries.get(queryId);
-        if (query == null) {
-            return immediateFailedFuture(new NoSuchElementException());
-        }
-
-        return query.getStateChange(currentState);
+        return tryGetQuery(queryId)
+                .map(query -> query.getStateChange(currentState))
+                .orElseGet(() -> immediateFailedFuture(new NoSuchElementException()));
     }
 
     @Override
     public QueryInfo getQueryInfo(QueryId queryId)
     {
-        requireNonNull(queryId, "queryId is null");
-
-        QueryExecution query = queries.get(queryId);
-        if (query == null) {
-            throw new NoSuchElementException();
-        }
-
-        return query.getQueryInfo();
+        return getQuery(queryId).getQueryInfo();
     }
 
     @Override
     public Optional<ResourceGroupId> getQueryResourceGroup(QueryId queryId)
     {
-        requireNonNull(queryId, "queryId is null");
-
-        QueryExecution query = queries.get(queryId);
-        if (query != null) {
-            return query.getResourceGroup();
-        }
-
-        return Optional.empty();
+        return tryGetQuery(queryId)
+                .flatMap(QueryExecution::getResourceGroup);
     }
 
     @Override
     public Plan getQueryPlan(QueryId queryId)
     {
-        requireNonNull(queryId, "queryId is null");
-
-        QueryExecution query = queries.get(queryId);
-        if (query == null) {
-            throw new NoSuchElementException();
-        }
-
-        return query.getQueryPlan();
+        return getQuery(queryId).getQueryPlan();
     }
 
     @Override
     public Optional<QueryState> getQueryState(QueryId queryId)
     {
-        requireNonNull(queryId, "queryId is null");
-
-        return Optional.ofNullable(queries.get(queryId))
+        return tryGetQuery(queryId)
                 .map(QueryExecution::getState);
     }
 
     @Override
     public void recordHeartbeat(QueryId queryId)
     {
-        requireNonNull(queryId, "queryId is null");
-
-        QueryExecution query = queries.get(queryId);
-        if (query == null) {
-            return;
-        }
-
-        query.recordHeartbeat();
+        tryGetQuery(queryId)
+                .ifPresent(QueryExecution::recordHeartbeat);
     }
 
     @Override
@@ -515,26 +476,19 @@ public class SqlQueryManager
     @Override
     public void failQuery(QueryId queryId, Throwable cause)
     {
-        requireNonNull(queryId, "queryId is null");
         requireNonNull(cause, "cause is null");
 
-        QueryExecution query = queries.get(queryId);
-        if (query != null) {
-            query.fail(cause);
-        }
+        tryGetQuery(queryId)
+                .ifPresent(query -> query.fail(cause));
     }
 
     @Override
     public void cancelQuery(QueryId queryId)
     {
-        requireNonNull(queryId, "queryId is null");
-
         log.debug("Cancel query %s", queryId);
 
-        QueryExecution query = queries.get(queryId);
-        if (query != null) {
-            query.cancelQuery();
-        }
+        tryGetQuery(queryId)
+                .ifPresent(QueryExecution::cancelQuery);
     }
 
     @Override
@@ -544,10 +498,8 @@ public class SqlQueryManager
 
         log.debug("Cancel stage %s", stageId);
 
-        QueryExecution query = queries.get(stageId.getQueryId());
-        if (query != null) {
-            query.cancelStage(stageId);
-        }
+        tryGetQuery(stageId.getQueryId())
+                .ifPresent(query -> query.cancelStage(stageId));
     }
 
     @Override
@@ -747,5 +699,17 @@ public class SqlQueryManager
         if (queryExecution.getState().isDone() && taskExecuted.compareAndSet(false, true)) {
             callback.run();
         }
+    }
+
+    private QueryExecution getQuery(QueryId queryId)
+    {
+        return tryGetQuery(queryId)
+                .orElseThrow(NoSuchElementException::new);
+    }
+
+    private Optional<QueryExecution> tryGetQuery(QueryId queryId)
+    {
+        requireNonNull(queryId, "queryId is null");
+        return Optional.ofNullable(queries.get(queryId));
     }
 }
