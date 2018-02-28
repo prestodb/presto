@@ -45,8 +45,10 @@ public class TestJsonFunctions
         assertFunction("IS_JSON_SCALAR('[1, 2, 3]')", BOOLEAN, false);
         assertFunction("IS_JSON_SCALAR('{\"a\": 1, \"b\": 2}')", BOOLEAN, false);
 
-        assertFunction("IS_JSON_SCALAR('')", BOOLEAN, null);
-        assertFunction("IS_JSON_SCALAR('[1')", BOOLEAN, null);
+        assertInvalidFunction("IS_JSON_SCALAR('')", INVALID_FUNCTION_ARGUMENT, "Invalid JSON value: ");
+        assertInvalidFunction("IS_JSON_SCALAR('[1')", INVALID_FUNCTION_ARGUMENT, "Invalid JSON value: [1");
+        assertInvalidFunction("IS_JSON_SCALAR('1 trailing')", INVALID_FUNCTION_ARGUMENT, "Invalid JSON value: 1 trailing");
+        assertInvalidFunction("IS_JSON_SCALAR('[1, 2] trailing')", INVALID_FUNCTION_ARGUMENT, "Invalid JSON value: [1, 2] trailing");
     }
 
     @Test
