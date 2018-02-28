@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.connector.informationSchema;
 
+import com.facebook.presto.FullConnectorSession;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.InternalTable;
 import com.facebook.presto.metadata.Metadata;
@@ -27,7 +28,6 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
@@ -77,7 +77,7 @@ public class InformationSchemaPageSourceProvider
     @Override
     public ConnectorPageSource createPageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorSplit split, List<ColumnHandle> columns)
     {
-        InternalTable table = getInternalTable(transactionHandle, session, split, columns);
+        InternalTable table = getInternalTable(session, split, columns);
 
         List<Integer> channels = new ArrayList<>();
         for (ColumnHandle column : columns) {
@@ -97,27 +97,15 @@ public class InformationSchemaPageSourceProvider
         return new FixedPageSource(pages.build());
     }
 
-    private InternalTable getInternalTable(ConnectorTransactionHandle transactionHandle, ConnectorSession connectorSession, ConnectorSplit connectorSplit, List<ColumnHandle> columns)
+    private InternalTable getInternalTable(ConnectorSession connectorSession, ConnectorSplit connectorSplit, List<ColumnHandle> columns)
     {
-        InformationSchemaTransactionHandle transaction = (InformationSchemaTransactionHandle) transactionHandle;
+        Session session = ((FullConnectorSession) connectorSession).getSession();
         InformationSchemaSplit split = (InformationSchemaSplit) connectorSplit;
 
         requireNonNull(columns, "columns is null");
 
         InformationSchemaTableHandle handle = split.getTableHandle();
         Map<String, NullableValue> filters = split.getFilters();
-
-        Session session = Session.builder(metadata.getSessionPropertyManager())
-                .setTransactionId(transaction.getTransactionId())
-                .setQueryId(new QueryId(connectorSession.getQueryId()))
-                .setIdentity(connectorSession.getIdentity())
-                .setSource("information_schema")
-                .setCatalog("") // default catalog is not be used
-                .setSchema("") // default schema is not be used
-                .setTimeZoneKey(connectorSession.getTimeZoneKey())
-                .setLocale(connectorSession.getLocale())
-                .setStartTime(connectorSession.getStartTime())
-                .build();
 
         return getInformationSchemaTable(session, handle.getCatalogName(), handle.getSchemaTableName(), filters);
     }

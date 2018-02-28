@@ -33,6 +33,7 @@ import static java.util.Objects.requireNonNull;
 public class FullConnectorSession
         implements ConnectorSession
 {
+    private final Session session;
     private final String queryId;
     private final Identity identity;
     private final Optional<String> source;
@@ -46,6 +47,7 @@ public class FullConnectorSession
     private final boolean isLegacyTimestamp;
 
     public FullConnectorSession(
+            Session session,
             String queryId,
             Identity identity,
             Optional<String> source,
@@ -54,6 +56,7 @@ public class FullConnectorSession
             long startTime,
             boolean isLegacyTimestamp)
     {
+        this.session = requireNonNull(session, "session is null");
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.identity = requireNonNull(identity, "identity is null");
         this.source = requireNonNull(source, "source is null");
@@ -69,6 +72,7 @@ public class FullConnectorSession
     }
 
     public FullConnectorSession(
+            Session session,
             String queryId,
             Identity identity,
             Optional<String> source,
@@ -81,6 +85,7 @@ public class FullConnectorSession
             SessionPropertyManager sessionPropertyManager,
             boolean isLegacyTimestamp)
     {
+        this.session = requireNonNull(session, "session is null");
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.identity = requireNonNull(identity, "identity is null");
         this.source = requireNonNull(source, "source is null");
@@ -93,6 +98,11 @@ public class FullConnectorSession
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.isLegacyTimestamp = isLegacyTimestamp;
+    }
+
+    public Session getSession()
+    {
+        return session;
     }
 
     @Override
