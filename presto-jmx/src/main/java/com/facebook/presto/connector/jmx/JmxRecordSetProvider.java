@@ -69,6 +69,9 @@ public class JmxRecordSetProvider
             if (jmxColumn.getColumnName().equals(JmxMetadata.NODE_COLUMN_NAME)) {
                 row.add(nodeId);
             }
+            else if (jmxColumn.getColumnName().equals(JmxMetadata.OBJECT_NAME_NAME)) {
+                row.add(objectName);
+            }
             else if (jmxColumn.getColumnName().equals(JmxMetadata.TIMESTAMP_COLUMN_NAME)) {
                 row.add(entryTimestamp);
             }

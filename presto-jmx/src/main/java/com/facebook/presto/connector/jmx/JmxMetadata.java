@@ -26,30 +26,38 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Streams;
 
 import javax.inject.Inject;
 import javax.management.JMException;
 import javax.management.MBeanAttributeInfo;
 import javax.management.MBeanInfo;
 import javax.management.MBeanServer;
+import javax.management.MalformedObjectNameException;
 import javax.management.ObjectName;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Comparator.comparing;
 import static java.util.Locale.ENGLISH;
@@ -63,6 +71,7 @@ public class JmxMetadata
     public static final String JMX_SCHEMA_NAME = "current";
     public static final String HISTORY_SCHEMA_NAME = "history";
     public static final String NODE_COLUMN_NAME = "node";
+    public static final String OBJECT_NAME_NAME = "object_name";
     public static final String TIMESTAMP_COLUMN_NAME = "timestamp";
 
     private final MBeanServer mbeanServer;
@@ -114,31 +123,52 @@ public class JmxMetadata
     private JmxTableHandle getJmxTableHandle(SchemaTableName tableName)
     {
         try {
-            String canonicalName = new ObjectName(tableName.getTableName()).getCanonicalName();
-            Optional<ObjectName> objectName = mbeanServer.queryNames(WILDCARD, null).stream()
-                    .filter(name -> canonicalName.equalsIgnoreCase(name.getCanonicalName()))
-                    .findFirst();
-            if (!objectName.isPresent()) {
+            String objectNamePattern = toPattern(tableName.getTableName().toLowerCase(ENGLISH));
+            List<ObjectName> objectNames = mbeanServer.queryNames(WILDCARD, null).stream()
+                    .filter(name -> name.getCanonicalName().toLowerCase(ENGLISH).matches(objectNamePattern))
+                    .collect(toImmutableList());
+            if (objectNames.isEmpty()) {
                 return null;
             }
-            MBeanInfo mbeanInfo = mbeanServer.getMBeanInfo(objectName.get());
-
-            ImmutableList.Builder<JmxColumnHandle> columns = ImmutableList.builder();
+            List<JmxColumnHandle> columns = new ArrayList<>();
             columns.add(new JmxColumnHandle(NODE_COLUMN_NAME, createUnboundedVarcharType()));
+            columns.add(new JmxColumnHandle(OBJECT_NAME_NAME, createUnboundedVarcharType()));
+            for (ObjectName objectName : objectNames) {
+                MBeanInfo mbeanInfo = mbeanServer.getMBeanInfo(objectName);
+
+                getColumnHandles(mbeanInfo).forEach(columns::add);
+            }
 
             // Since this method is being called on all nodes in the cluster, we must ensure (by sorting)
             // that attributes are in the same order on all of them.
-            Arrays.stream(mbeanInfo.getAttributes())
-                    .filter(MBeanAttributeInfo::isReadable)
-                    .map(attribute -> new JmxColumnHandle(attribute.getName(), getColumnType(attribute)))
+            columns = columns.stream()
+                    .distinct()
                     .sorted(comparing(JmxColumnHandle::getColumnName))
-                    .forEach(columns::add);
+                    .collect(toImmutableList());
 
-            return new JmxTableHandle(tableName, ImmutableList.of(objectName.get().toString()), columns.build(), true);
+            return new JmxTableHandle(tableName, objectNames.stream().map(ObjectName::toString).collect(toImmutableList()), columns, true);
         }
         catch (JMException e) {
             return null;
         }
+    }
+
+    private String toPattern(String tableName)
+            throws MalformedObjectNameException
+    {
+        if (!tableName.contains("*")) {
+            return Pattern.quote(new ObjectName(tableName).getCanonicalName());
+        }
+        return Streams.stream(Splitter.on('*').split(tableName))
+                .map(Pattern::quote)
+                .collect(Collectors.joining(".*"));
+    }
+
+    private Stream<JmxColumnHandle> getColumnHandles(MBeanInfo mbeanInfo)
+    {
+        return Arrays.stream(mbeanInfo.getAttributes())
+                .filter(MBeanAttributeInfo::isReadable)
+                .map(attribute -> new JmxColumnHandle(attribute.getName(), getColumnType(attribute)));
     }
 
     @Override
