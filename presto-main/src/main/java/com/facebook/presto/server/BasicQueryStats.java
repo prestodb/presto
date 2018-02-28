@@ -15,6 +15,7 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.execution.QueryStats;
 import com.facebook.presto.operator.BlockedReason;
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
@@ -57,22 +58,23 @@ public class BasicQueryStats
 
     private final OptionalDouble progressPercentage;
 
+    @JsonCreator
     public BasicQueryStats(
-            DateTime createTime,
-            DateTime endTime,
-            Duration elapsedTime,
-            Duration executionTime,
-            int totalDrivers,
-            int queuedDrivers,
-            int runningDrivers,
-            int completedDrivers,
-            double cumulativeUserMemory,
-            DataSize userMemoryReservation,
-            DataSize peakUserMemoryReservation,
-            Duration totalCpuTime,
-            boolean fullyBlocked,
-            Set<BlockedReason> blockedReasons,
-            OptionalDouble progressPercentage)
+            @JsonProperty("createTime") DateTime createTime,
+            @JsonProperty("endTime") DateTime endTime,
+            @JsonProperty("elapsedTime") Duration elapsedTime,
+            @JsonProperty("executionTime") Duration executionTime,
+            @JsonProperty("totalDrivers") int totalDrivers,
+            @JsonProperty("queuedDrivers") int queuedDrivers,
+            @JsonProperty("runningDrivers") int runningDrivers,
+            @JsonProperty("completedDrivers") int completedDrivers,
+            @JsonProperty("cumulativeUserMemory") double cumulativeUserMemory,
+            @JsonProperty("userMemoryReservation") DataSize userMemoryReservation,
+            @JsonProperty("peakUserMemoryReservation") DataSize peakUserMemoryReservation,
+            @JsonProperty("totalCpuTime") Duration totalCpuTime,
+            @JsonProperty("fullyBlocked") boolean fullyBlocked,
+            @JsonProperty("blockedReasons") Set<BlockedReason> blockedReasons,
+            @JsonProperty("progressPercentage") OptionalDouble progressPercentage)
     {
         this.createTime = createTime;
         this.endTime = endTime;
