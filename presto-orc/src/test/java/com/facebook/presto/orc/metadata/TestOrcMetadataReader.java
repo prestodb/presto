@@ -26,7 +26,7 @@ import org.testng.annotations.Test;
 import java.util.Arrays;
 import java.util.List;
 
-import static com.facebook.presto.orc.metadata.OrcMetadataReader.findStringStatisticTruncationPosition;
+import static com.facebook.presto.orc.metadata.OrcMetadataReader.findStringStatisticTruncationPositionForOriginalOrcWriter;
 import static com.facebook.presto.orc.metadata.OrcMetadataReader.maxStringTruncateToValidRange;
 import static com.facebook.presto.orc.metadata.OrcMetadataReader.minStringTruncateToValidRange;
 import static com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion.ORC_HIVE_8732;
@@ -57,7 +57,7 @@ public class TestOrcMetadataReader
                 continue;
             }
             Slice value = codePointToUtf8(codePoint);
-            if (findStringStatisticTruncationPosition(value, ORIGINAL) == value.length()) {
+            if (findStringStatisticTruncationPositionForOriginalOrcWriter(value) == value.length()) {
                 assertEquals(minStringTruncateToValidRange(value, ORIGINAL), value);
             }
             else {
@@ -72,7 +72,7 @@ public class TestOrcMetadataReader
                 continue;
             }
             Slice value = concatSlice(prefix, codePointToUtf8(codePoint));
-            if (findStringStatisticTruncationPosition(value, ORIGINAL) == value.length()) {
+            if (findStringStatisticTruncationPositionForOriginalOrcWriter(value) == value.length()) {
                 assertEquals(minStringTruncateToValidRange(value, ORIGINAL), value);
             }
             else {
@@ -93,7 +93,7 @@ public class TestOrcMetadataReader
                 continue;
             }
             Slice value = codePointToUtf8(codePoint);
-            if (findStringStatisticTruncationPosition(value, ORIGINAL) == value.length()) {
+            if (findStringStatisticTruncationPositionForOriginalOrcWriter(value) == value.length()) {
                 assertEquals(maxStringTruncateToValidRange(value, ORIGINAL), value);
             }
             else {
@@ -109,7 +109,7 @@ public class TestOrcMetadataReader
                 continue;
             }
             Slice value = concatSlice(prefix, codePointToUtf8(codePoint));
-            if (findStringStatisticTruncationPosition(value, ORIGINAL) == value.length()) {
+            if (findStringStatisticTruncationPositionForOriginalOrcWriter(value) == value.length()) {
                 assertEquals(maxStringTruncateToValidRange(value, ORIGINAL), value);
             }
             else {

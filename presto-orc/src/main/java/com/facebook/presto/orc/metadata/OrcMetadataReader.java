@@ -384,7 +384,11 @@ public class OrcMetadataReader
             return null;
         }
 
-        int index = findStringStatisticTruncationPosition(value, version);
+        if (version != ORIGINAL) {
+            return value;
+        }
+
+        int index = findStringStatisticTruncationPositionForOriginalOrcWriter(value);
         if (index == value.length()) {
             return value;
         }
@@ -401,7 +405,11 @@ public class OrcMetadataReader
             return null;
         }
 
-        int index = findStringStatisticTruncationPosition(value, version);
+        if (version != ORIGINAL) {
+            return value;
+        }
+
+        int index = findStringStatisticTruncationPositionForOriginalOrcWriter(value);
         if (index == value.length()) {
             return value;
         }
@@ -409,7 +417,7 @@ public class OrcMetadataReader
     }
 
     @VisibleForTesting
-    static int findStringStatisticTruncationPosition(Slice utf8, HiveWriterVersion version)
+    static int findStringStatisticTruncationPositionForOriginalOrcWriter(Slice utf8)
     {
         int length = utf8.length();
 
@@ -426,7 +434,7 @@ public class OrcMetadataReader
             // replaces invalid UTF-8 sequences with the unicode replacement character.  This can cause the min value to be
             // greater than expected which can result in data sections being skipped instead of being processed. As a work around,
             // the string stats are truncated at the first replacement character.
-            if (version == ORIGINAL && codePoint == REPLACEMENT_CHARACTER_CODE_POINT) {
+            if (codePoint == REPLACEMENT_CHARACTER_CODE_POINT) {
                 break;
             }
 
@@ -449,7 +457,7 @@ public class OrcMetadataReader
             //   at the first occurrence of the surrogate character (to exclude the surrogate character)
             // * if a max string has a surrogate character, the max string is truncated
             //   at the first occurrence the surrogate character and 0xFF byte is appended to it.
-            if (version == ORIGINAL && codePoint >= MIN_SUPPLEMENTARY_CODE_POINT) {
+            if (codePoint >= MIN_SUPPLEMENTARY_CODE_POINT) {
                 break;
             }
 
