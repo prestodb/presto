@@ -46,6 +46,7 @@ import java.util.List;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.Chars.padSpaces;
 import static com.facebook.presto.util.JsonUtil.createJsonParser;
+import static com.facebook.presto.util.JsonUtil.truncateIfNecessaryForErrorMessage;
 import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
 import static com.fasterxml.jackson.core.JsonParser.NumberType;
 import static com.fasterxml.jackson.core.JsonToken.END_ARRAY;
@@ -88,38 +89,41 @@ public final class JsonFunctions
         return new JsonPath(padSpaces(pattern, charLength.intValue()).toStringUtf8());
     }
 
-    @SqlNullable
     @ScalarFunction("is_json_scalar")
     @LiteralParameters("x")
     @SqlType(StandardTypes.BOOLEAN)
-    public static Boolean varcharIsJsonScalar(@SqlType("varchar(x)") Slice json)
+    public static boolean varcharIsJsonScalar(@SqlType("varchar(x)") Slice json)
     {
         return isJsonScalar(json);
     }
 
-    @SqlNullable
     @ScalarFunction
     @SqlType(StandardTypes.BOOLEAN)
-    public static Boolean isJsonScalar(@SqlType(StandardTypes.JSON) Slice json)
+    public static boolean isJsonScalar(@SqlType(StandardTypes.JSON) Slice json)
     {
         try (JsonParser parser = createJsonParser(JSON_FACTORY, json)) {
             JsonToken nextToken = parser.nextToken();
             if (nextToken == null) {
-                return null;
+                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid JSON value: " + truncateIfNecessaryForErrorMessage(json));
             }
 
             if (nextToken == START_ARRAY || nextToken == START_OBJECT) {
                 parser.skipChildren();
                 if (parser.nextToken() != null) {
-                    // Invalid JSON: trailing tokens
-                    return null;
+                    // extra trailing token after json array/object
+                    throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid JSON value: " + truncateIfNecessaryForErrorMessage(json));
                 }
                 return false;
             }
-            return parser.nextToken() == null ? true : null;
+
+            if (parser.nextToken() != null) {
+                // extra trailing token after json scalar
+                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid JSON value: " + truncateIfNecessaryForErrorMessage(json));
+            }
+            return true;
         }
         catch (IOException e) {
-            return null;
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid JSON value: " + truncateIfNecessaryForErrorMessage(json));
         }
     }
 
