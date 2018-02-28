@@ -28,6 +28,7 @@ import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tests.statistics.MetricComparisonStrategies.defaultTolerance;
 import static com.facebook.presto.tests.statistics.MetricComparisonStrategies.noError;
 import static com.facebook.presto.tests.statistics.Metrics.OUTPUT_ROW_COUNT;
+import static com.facebook.presto.tpch.TpchConnectorFactory.TPCH_COLUMN_NAMING_PROPERTY;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 
 public class TestTpchLocalStats
@@ -48,7 +49,7 @@ public class TestTpchLocalStats
         queryRunner.createCatalog(
                 "tpch",
                 new TpchConnectorFactory(1),
-                ImmutableMap.of("tpch.column-naming", ColumnNaming.STANDARD.name()));
+                ImmutableMap.of(TPCH_COLUMN_NAMING_PROPERTY, ColumnNaming.STANDARD.name()));
         statisticsAssertion = new StatisticsAssertion(queryRunner);
     }
 
