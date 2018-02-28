@@ -23,7 +23,7 @@ import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.RowType;
-import com.facebook.presto.spi.type.RowType.RowField;
+import com.facebook.presto.spi.type.RowType.Field;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.BigintOperators;
@@ -903,7 +903,7 @@ public final class JsonUtil
                             mapType.getKeyType());
                 case StandardTypes.ROW:
                     RowType rowType = (RowType) type;
-                    List<RowField> rowFields = rowType.getFields();
+                    List<Field> rowFields = rowType.getFields();
                     BlockBuilderAppender[] fieldAppenders = new BlockBuilderAppender[rowFields.size()];
                     for (int i = 0; i < fieldAppenders.length; i++) {
                         fieldAppenders[i] = createBlockBuilderAppender(rowFields.get(i).getType());
@@ -1214,7 +1214,7 @@ public final class JsonUtil
         }
     }
 
-    public static Optional<Map<String, Integer>> getFieldNameToIndex(List<RowField> rowFields)
+    public static Optional<Map<String, Integer>> getFieldNameToIndex(List<Field> rowFields)
     {
         if (!rowFields.get(0).getName().isPresent()) {
             return Optional.empty();

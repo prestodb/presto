@@ -20,7 +20,7 @@ import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.DecimalParseResult;
 import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.RowType;
-import com.facebook.presto.spi.type.RowType.RowField;
+import com.facebook.presto.spi.type.RowType.Field;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -552,10 +552,10 @@ public final class SqlToRowExpressionTranslator
         protected RowExpression visitDereferenceExpression(DereferenceExpression node, Void context)
         {
             RowType rowType = (RowType) getType(node.getBase());
-            List<RowField> fields = rowType.getFields();
+            List<Field> fields = rowType.getFields();
             int index = -1;
             for (int i = 0; i < fields.size(); i++) {
-                RowField field = fields.get(i);
+                Field field = fields.get(i);
                 if (field.getName().isPresent() && field.getName().get().equalsIgnoreCase(node.getField().getValue())) {
                     checkArgument(index < 0, "Ambiguous field %s in type %s", field, rowType.getDisplayName());
                     index = i;

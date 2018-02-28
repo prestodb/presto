@@ -57,7 +57,7 @@ import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.P4HyperLogLogType.P4_HYPER_LOG_LOG;
 import static com.facebook.presto.spi.type.RealType.REAL;
-import static com.facebook.presto.spi.type.RowType.RowField;
+import static com.facebook.presto.spi.type.RowType.Field;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
@@ -326,8 +326,8 @@ public final class TypeRegistry
 
     private Optional<Type> getCommonSuperTypeForRow(RowType firstType, RowType secondType)
     {
-        List<RowField> firstFields = firstType.getFields();
-        List<RowField> secondFields = secondType.getFields();
+        List<Field> firstFields = firstType.getFields();
+        List<Field> secondFields = secondType.getFields();
         if (firstFields.size() != secondFields.size()) {
             return Optional.empty();
         }
