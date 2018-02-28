@@ -238,43 +238,55 @@ public final class GeoFunctions
         return geometry.getEsriGeometry().calculateLength2D();
     }
 
+    @SqlNullable
     @Description("Returns X maxima of a bounding box of a Geometry")
     @ScalarFunction("ST_XMax")
     @SqlType(DOUBLE)
-    public static double stXMax(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
+    public static Double stXMax(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
     {
-        OGCGeometry geometry = deserialize(input);
-        Envelope envelope = getEnvelope(geometry);
+        Envelope envelope = deserializeEnvelope(input);
+        if (envelope == null) {
+            return null;
+        }
         return envelope.getXMax();
     }
 
+    @SqlNullable
     @Description("Returns Y maxima of a bounding box of a Geometry")
     @ScalarFunction("ST_YMax")
     @SqlType(DOUBLE)
-    public static double stYMax(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
+    public static Double stYMax(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
     {
-        OGCGeometry geometry = deserialize(input);
-        Envelope envelope = getEnvelope(geometry);
+        Envelope envelope = deserializeEnvelope(input);
+        if (envelope == null) {
+            return null;
+        }
         return envelope.getYMax();
     }
 
+    @SqlNullable
     @Description("Returns X minima of a bounding box of a Geometry")
     @ScalarFunction("ST_XMin")
     @SqlType(DOUBLE)
-    public static double stXMin(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
+    public static Double stXMin(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
     {
-        OGCGeometry geometry = deserialize(input);
-        Envelope envelope = getEnvelope(geometry);
+        Envelope envelope = deserializeEnvelope(input);
+        if (envelope == null) {
+            return null;
+        }
         return envelope.getXMin();
     }
 
+    @SqlNullable
     @Description("Returns Y minima of a bounding box of a Geometry")
     @ScalarFunction("ST_YMin")
     @SqlType(DOUBLE)
-    public static double stYMin(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
+    public static Double stYMin(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
     {
-        OGCGeometry geometry = deserialize(input);
-        Envelope envelope = getEnvelope(geometry);
+        Envelope envelope = deserializeEnvelope(input);
+        if (envelope == null) {
+            return null;
+        }
         return envelope.getYMin();
     }
 
@@ -591,13 +603,6 @@ public final class GeoFunctions
         if (!validTypes.contains(type)) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("%s only applies to %s. Input type is: %s", function, OR_JOINER.join(validTypes), type));
         }
-    }
-
-    private static Envelope getEnvelope(OGCGeometry geometry)
-    {
-        Envelope envelope = new Envelope();
-        geometry.getEsriGeometry().queryEnvelope(envelope);
-        return envelope;
     }
 
     private static void verifySameSpatialReference(OGCGeometry leftGeometry, OGCGeometry rightGeometry)
