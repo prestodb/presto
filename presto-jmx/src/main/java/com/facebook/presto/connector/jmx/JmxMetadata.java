@@ -43,12 +43,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -193,8 +195,6 @@ public class JmxMetadata
             return ImmutableMap.of();
         }
 
-        ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
-
         List<SchemaTableName> tableNames;
         if (prefix.getTableName() == null) {
             tableNames = listTables(session, prefix.getSchemaName());
@@ -203,11 +203,8 @@ public class JmxMetadata
             tableNames = ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
         }
 
-        for (SchemaTableName tableName : tableNames) {
-            JmxTableHandle tableHandle = getTableHandle(session, tableName);
-            columns.put(tableName, tableHandle.getTableMetadata().getColumns());
-        }
-        return columns.build();
+        return tableNames.stream()
+                .collect(toImmutableMap(Function.identity(), tableName -> getTableHandle(session, tableName).getTableMetadata().getColumns()));
     }
 
     @Override
