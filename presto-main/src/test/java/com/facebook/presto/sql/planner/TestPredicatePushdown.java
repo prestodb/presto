@@ -60,4 +60,20 @@ public class TestPredicatePushdown
                                                         "LINE_QUANTITY", "quantity")))),
                                 anyTree(tableScan("orders", ImmutableMap.of("ORDERS_ORDER_KEY", "orderkey"))))));
     }
+
+    @Test
+    public void testPredicateFromFilterSidePropagatesToSourceSide()
+    {
+        assertPlan("SELECT quantity FROM (SELECT * FROM lineitem WHERE orderkey IN (SELECT orderkey FROM orders where orderkey = 2))",
+                anyTree(
+                        semiJoin("LINE_ORDER_KEY", "ORDERS_ORDER_KEY", "SEMI_JOIN_RESULT",
+                                anyTree(
+                                        filter("LINE_ORDER_KEY = BIGINT '2' AND BIGINT '2' = LINE_ORDER_KEY", // TODO this should be simplified
+                                                tableScan("lineitem", ImmutableMap.of(
+                                                        "LINE_ORDER_KEY", "orderkey",
+                                                        "LINE_QUANTITY", "quantity")))),
+                                anyTree(
+                                        filter("ORDERS_ORDER_KEY = BIGINT '2'",
+                                                tableScan("orders", ImmutableMap.of("ORDERS_ORDER_KEY", "orderkey")))))));
+    }
 }

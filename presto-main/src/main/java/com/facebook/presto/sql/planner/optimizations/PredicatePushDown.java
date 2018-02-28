@@ -825,6 +825,15 @@ public class PredicatePushDown
             postJoinConjuncts.addAll(equalityPartition.getScopeComplementEqualities());
             postJoinConjuncts.addAll(equalityPartition.getScopeStraddlingEqualities());
 
+            // Add source predicates inferred from equality on join symbols and filter side predicate
+            Expression filteringSourceEffectivePredicate = EffectivePredicateExtractor.extract(rewrittenFilteringSource);
+            EqualityInference joinSymbolFilteringSourceInference = createEqualityInference(
+                    filteringSourceEffectivePredicate,
+                    new ComparisonExpression(ComparisonExpressionType.EQUAL, node.getSourceJoinSymbol().toSymbolReference(), node.getFilteringSourceJoinSymbol().toSymbolReference()));
+            sourceConjuncts.addAll(joinSymbolFilteringSourceInference.generateEqualitiesPartitionedBy(
+                    in(node.getSource().getOutputSymbols())::apply)
+                    .getScopeEqualities());
+
             PlanNode rewrittenSource = context.rewrite(node.getSource(), combineConjuncts(sourceConjuncts));
 
             PlanNode output = node;
