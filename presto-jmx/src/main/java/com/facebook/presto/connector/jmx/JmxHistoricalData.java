@@ -59,13 +59,13 @@ public class JmxHistoricalData
         tableData.get(lowerCaseTableName).add(row);
     }
 
-    public synchronized List<List<Object>> getRows(String tableName, List<Integer> selectedColumns)
+    public synchronized List<List<Object>> getRows(String objectName, List<Integer> selectedColumns)
     {
-        String lowerCaseTableName = tableName.toLowerCase();
-        if (!tableData.containsKey(lowerCaseTableName)) {
+        String lowerCaseObjectName = objectName.toLowerCase();
+        if (!tableData.containsKey(lowerCaseObjectName)) {
             return ImmutableList.of();
         }
-        return projectRows(tableData.get(lowerCaseTableName), selectedColumns);
+        return projectRows(tableData.get(lowerCaseObjectName), selectedColumns);
     }
 
     private List<List<Object>> projectRows(Collection<List<Object>> rows, List<Integer> selectedColumns)
