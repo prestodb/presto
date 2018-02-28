@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.jdbc;
 
-import com.facebook.presto.client.ClientTypeSignature;
 import com.facebook.presto.client.Column;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementStats;
+import com.facebook.presto.spi.type.BigintType;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import okhttp3.mockwebserver.MockResponse;
@@ -68,7 +68,7 @@ public class TestProgressMonitor
 
     private List<String> createResults()
     {
-        List<Column> columns = ImmutableList.of(new Column("_col0", "bigint", new ClientTypeSignature("bigint", ImmutableList.of())));
+        List<Column> columns = ImmutableList.of(new Column("_col0", BigintType.BIGINT));
         return ImmutableList.<String>builder()
                 .add(newQueryResults(null, 1, null, null, "QUEUED"))
                 .add(newQueryResults(1, 2, columns, null, "RUNNING"))

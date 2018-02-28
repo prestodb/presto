@@ -60,7 +60,7 @@ public class TestFixJsonDataUtils
     private void assertQueryResult(String type, Object data, Object expected)
     {
         List<List<Object>> rows = newArrayList(fixData(
-                ImmutableList.of(new Column("test", type, new ClientTypeSignature(parseTypeSignature(type)))),
+                ImmutableList.of(new Column("test", parseTypeSignature(type))),
                 ImmutableList.of(ImmutableList.of(data))));
         assertEquals(rows.size(), 1);
         assertEquals(rows.get(0).size(), 1);

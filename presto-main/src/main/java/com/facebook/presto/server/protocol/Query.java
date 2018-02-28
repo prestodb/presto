@@ -14,7 +14,6 @@
 package com.facebook.presto.server.protocol;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.client.ClientTypeSignature;
 import com.facebook.presto.client.Column;
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.client.QueryError;
@@ -38,9 +37,9 @@ import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.transaction.TransactionId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -367,7 +366,7 @@ class Query
                 exchangeClient.close();
 
                 // Return a single value for clients that require a result.
-                columns = ImmutableList.of(new Column("result", "boolean", new ClientTypeSignature(StandardTypes.BOOLEAN, ImmutableList.of())));
+                columns = ImmutableList.of(new Column("result", BooleanType.BOOLEAN));
                 data = ImmutableSet.of(ImmutableList.of(true));
             }
         }
@@ -428,10 +427,7 @@ class Query
 
             ImmutableList.Builder<Column> list = ImmutableList.builder();
             for (int i = 0; i < columnNames.size(); i++) {
-                String name = columnNames.get(i);
-                TypeSignature typeSignature = columnTypes.get(i).getTypeSignature();
-                String type = typeSignature.toString();
-                list.add(new Column(name, type, new ClientTypeSignature(typeSignature)));
+                list.add(new Column(columnNames.get(i), columnTypes.get(i)));
             }
             columns = list.build();
             types = outputInfo.getColumnTypes();
