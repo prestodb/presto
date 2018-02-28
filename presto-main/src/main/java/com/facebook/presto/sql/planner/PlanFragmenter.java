@@ -20,6 +20,7 @@ import com.facebook.presto.metadata.TableLayout.TablePartitioning;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -415,6 +416,23 @@ public class PlanFragmenter
             GroupedExecutionProperties properties = processChildren(node);
             if (properties.isCurrentNodeCapable()) {
                 return new GroupedExecutionProperties(true, true);
+            }
+            return properties;
+        }
+
+        @Override
+        public GroupedExecutionProperties visitAggregation(AggregationNode node, Void context)
+        {
+            GroupedExecutionProperties properties = processChildren(node);
+            if (properties.isCurrentNodeCapable()) {
+                switch (node.getStep()) {
+                    case SINGLE:
+                    case FINAL:
+                        return new GroupedExecutionProperties(true, true);
+                    case PARTIAL:
+                    case INTERMEDIATE:
+                        return new GroupedExecutionProperties(true, properties.isSubTreeUseful());
+                }
             }
             return properties;
         }
