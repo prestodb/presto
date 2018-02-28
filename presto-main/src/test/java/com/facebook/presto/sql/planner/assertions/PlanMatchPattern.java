@@ -304,6 +304,11 @@ public final class PlanMatchPattern
         return output(outputs, source).withExactOutputs(outputs);
     }
 
+    public static PlanMatchPattern unnest(List<String> replicateSymbols, Map<String, List<String>> unnestSymbols, Optional<String> ordinalitySymbol, PlanMatchPattern source)
+    {
+        return unnest(source).with(new UnnestMatcher(replicateSymbols, unnestSymbols, ordinalitySymbol));
+    }
+
     public static PlanMatchPattern project(PlanMatchPattern source)
     {
         return node(ProjectNode.class, source);

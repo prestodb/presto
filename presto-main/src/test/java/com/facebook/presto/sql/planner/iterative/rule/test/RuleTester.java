@@ -42,6 +42,12 @@ public class RuleTester
 
     private final Metadata metadata;
     private final Session session;
+
+    public LocalQueryRunner getQueryRunner()
+    {
+        return queryRunner;
+    }
+
     private final LocalQueryRunner queryRunner;
     private final TransactionManager transactionManager;
     private final SplitManager splitManager;

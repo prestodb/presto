@@ -19,6 +19,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.NestedColumn;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
@@ -314,8 +315,13 @@ public class HivePageSourceProvider
             for (HiveColumnHandle column : columns) {
                 Optional<HiveType> coercionFrom = Optional.ofNullable(columnCoercions.get(column.getHiveColumnIndex()));
                 if (column.getColumnType() == REGULAR) {
-                    checkArgument(regularColumnIndices.add(column.getHiveColumnIndex()), "duplicate hiveColumnIndex in columns list");
-                    columnMappings.add(regular(column, regularIndex, coercionFrom));
+                    if (column.getNestedColumn().isPresent()) {
+                        columnMappings.add(regular(column, regularIndex, getHiveType(coercionFrom, column.getNestedColumn().get())));
+                    }
+                    else {
+                        checkArgument(regularColumnIndices.add(column.getHiveColumnIndex()), "duplicate hiveColumnIndex in columns list");
+                        columnMappings.add(regular(column, regularIndex, coercionFrom));
+                    }
                     regularIndex++;
                 }
                 else {
@@ -339,6 +345,11 @@ public class HivePageSourceProvider
             return columnMappings.build();
         }
 
+        private static Optional<HiveType> getHiveType(Optional<HiveType> baseType, NestedColumn nestedColumn)
+        {
+            return baseType.flatMap(type -> type.findChildType(nestedColumn));
+        }
+
         public static List<ColumnMapping> extractRegularAndInterimColumnMappings(List<ColumnMapping> columnMappings)
         {
             return columnMappings.stream()
@@ -360,7 +371,8 @@ public class HivePageSourceProvider
                                 columnMapping.getCoercionFrom().get().getTypeSignature(),
                                 columnHandle.getHiveColumnIndex(),
                                 columnHandle.getColumnType(),
-                                Optional.empty());
+                                Optional.empty(),
+                                columnHandle.getNestedColumn());
                     })
                     .collect(toList());
         }

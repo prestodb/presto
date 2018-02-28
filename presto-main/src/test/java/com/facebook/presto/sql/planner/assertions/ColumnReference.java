@@ -22,7 +22,10 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Streams;
 
+import java.util.AbstractMap;
 import java.util.Map;
 import java.util.Optional;
 
@@ -91,8 +94,8 @@ public class ColumnReference
 
     private Optional<ColumnHandle> getColumnHandle(TableHandle tableHandle, Session session, Metadata metadata)
     {
-        return metadata.getColumnHandles(session, tableHandle).entrySet()
-                .stream()
+        return Streams.concat(metadata.getColumnHandles(session, tableHandle).entrySet().stream(),
+                metadata.getNestedColumnHandles(session, tableHandle, ImmutableList.of()).entrySet().stream().map(entry -> new AbstractMap.SimpleEntry<>(entry.getKey().getName(), entry.getValue())))
                 .filter(entry -> columnName.equals(entry.getKey()))
                 .map(Map.Entry::getValue)
                 .findFirst();

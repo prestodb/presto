@@ -17,11 +17,11 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Locale.ENGLISH;
 
 public class DereferenceExpression
         extends Expression
@@ -76,7 +76,7 @@ public class DereferenceExpression
      */
     public static QualifiedName getQualifiedName(DereferenceExpression expression)
     {
-        List<String> parts = tryParseParts(expression.base, expression.field.getValue().toLowerCase(Locale.ENGLISH));
+        List<String> parts = tryParseParts(expression.base, expression.field.getValue().toLowerCase(ENGLISH));
         return parts == null ? null : QualifiedName.of(parts);
     }
 
@@ -123,12 +123,12 @@ public class DereferenceExpression
         }
         DereferenceExpression that = (DereferenceExpression) o;
         return Objects.equals(base, that.base) &&
-                Objects.equals(field, that.field);
+                Objects.equals(field.getValue().toLowerCase(ENGLISH), that.field.getValue().toLowerCase(ENGLISH));
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(base, field);
+        return Objects.hash(base, field.getValue().toLowerCase(ENGLISH));
     }
 }

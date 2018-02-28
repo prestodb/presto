@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.parquet;
 
+import com.facebook.presto.spi.NestedColumn;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.TupleDomain;
@@ -25,6 +26,8 @@ import com.facebook.presto.spi.type.RealType;
 import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import parquet.column.ColumnDescriptor;
 import parquet.column.Encoding;
 import parquet.io.ColumnIO;
@@ -35,6 +38,7 @@ import parquet.io.MessageColumnIO;
 import parquet.io.ParquetDecodingException;
 import parquet.io.PrimitiveColumnIO;
 import parquet.schema.DecimalMetadata;
+import parquet.schema.GroupType;
 import parquet.schema.MessageType;
 
 import java.util.Arrays;
@@ -46,6 +50,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static parquet.schema.OriginalType.DECIMAL;
 import static parquet.schema.Type.Repetition.REPEATED;
 
@@ -236,7 +241,7 @@ public final class ParquetTypeUtils
         }
     }
 
-    public static parquet.schema.Type getParquetTypeByName(String columnName, MessageType messageType)
+    public static parquet.schema.Type getParquetTypeByName(String columnName, GroupType messageType)
     {
         if (messageType.containsField(columnName)) {
             return messageType.getType(columnName);
@@ -308,5 +313,38 @@ public final class ParquetTypeUtils
         }
 
         return value;
+    }
+
+    public static parquet.schema.Type getNestedColumnType(GroupType baseType, NestedColumn nestedColumn)
+    {
+        Preconditions.checkArgument(nestedColumn.getNames().size() >= 1, "fields size is less than 1");
+
+        ImmutableList.Builder<parquet.schema.Type> typeBuilder = ImmutableList.builder();
+        parquet.schema.Type parentType = baseType;
+
+        for (String field : nestedColumn.getNames()) {
+            parquet.schema.Type childType = getParquetTypeByName(field, parentType.asGroupType());
+            if (childType == null) {
+                return null;
+            }
+            typeBuilder.add(childType);
+            parentType = childType;
+        }
+        List<parquet.schema.Type> typeChain = typeBuilder.build();
+
+        if (typeChain.isEmpty()) {
+            return null;
+        }
+        else if (typeChain.size() == 1) {
+            return getOnlyElement(typeChain);
+        }
+        else {
+            parquet.schema.Type messageType = typeChain.get(typeChain.size() - 1);
+            for (int i = typeChain.size() - 2; i >= 0; --i) {
+                GroupType groupType = typeChain.get(i).asGroupType();
+                messageType = new MessageType(groupType.getName(), ImmutableList.of(messageType));
+            }
+            return messageType;
+        }
     }
 }

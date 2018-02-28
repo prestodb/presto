@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.spi.NestedColumn;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.NamedTypeSignature;
 import com.facebook.presto.spi.type.RowFieldName;
@@ -23,6 +24,7 @@ import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import org.apache.hadoop.hive.serde2.typeinfo.CharTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.DecimalTypeInfo;
@@ -173,6 +175,22 @@ public final class HiveType
                         .allMatch(HiveType::isSupportedType);
         }
         return false;
+    }
+
+    public Optional<HiveType> findChildType(NestedColumn nestedColumn)
+    {
+        TypeInfo typeInfo = getTypeInfo();
+        for (String part : nestedColumn.getRest()) {
+            Preconditions.checkArgument(typeInfo instanceof StructTypeInfo, "typeinfo is not struct type", typeInfo);
+            StructTypeInfo structTypeInfo = (StructTypeInfo) typeInfo;
+            try {
+                typeInfo = structTypeInfo.getStructFieldTypeInfo(part);
+            }
+            catch (RuntimeException e) {
+                return Optional.empty();
+            }
+        }
+        return Optional.of(toHiveType(typeInfo));
     }
 
     @JsonCreator
