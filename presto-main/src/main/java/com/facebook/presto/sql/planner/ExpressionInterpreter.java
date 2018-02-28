@@ -29,7 +29,7 @@ import com.facebook.presto.spi.block.RowBlockBuilder;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.RowType;
-import com.facebook.presto.spi.type.RowType.RowField;
+import com.facebook.presto.spi.type.RowType.Field;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -359,10 +359,10 @@ public class ExpressionInterpreter
             RowType rowType = (RowType) type;
             Block row = (Block) base;
             Type returnType = type(node);
-            List<RowField> fields = rowType.getFields();
+            List<Field> fields = rowType.getFields();
             int index = -1;
             for (int i = 0; i < fields.size(); i++) {
-                RowField field = fields.get(i);
+                Field field = fields.get(i);
                 if (field.getName().isPresent() && field.getName().get().equalsIgnoreCase(node.getField().getValue())) {
                     checkArgument(index < 0, "Ambiguous field %s in type %s", field, rowType.getDisplayName());
                     index = i;

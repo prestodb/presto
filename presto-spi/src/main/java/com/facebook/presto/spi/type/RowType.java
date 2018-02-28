@@ -35,17 +35,17 @@ import static java.util.Objects.requireNonNull;
 public class RowType
         extends AbstractType
 {
-    private final List<RowField> fields;
+    private final List<Field> fields;
     private final List<Type> fieldTypes;
 
     public RowType(List<Type> fieldTypes, Optional<List<String>> fieldNames)
     {
         super(toTypeSignature(fieldTypes, fieldNames), Block.class);
 
-        List<RowField> fields = new ArrayList<>();
+        List<Field> fields = new ArrayList<>();
         for (int i = 0; i < fieldTypes.size(); i++) {
             int index = i;
-            fields.add(new RowField(fieldTypes.get(i), fieldNames.map((names) -> names.get(index))));
+            fields.add(new Field(fieldTypes.get(i), fieldNames.map((names) -> names.get(index))));
         }
         this.fields = fields;
         this.fieldTypes = fieldTypes;
@@ -87,7 +87,7 @@ public class RowType
         // Convert to standard sql name
         StringBuilder result = new StringBuilder();
         result.append(ROW).append('(');
-        for (RowField field : fields) {
+        for (Field field : fields) {
             String typeDisplayName = field.getType().getDisplayName();
             if (field.getName().isPresent()) {
                 result.append(field.getName().get()).append(' ').append(typeDisplayName);
@@ -149,17 +149,17 @@ public class RowType
         return fieldTypes;
     }
 
-    public List<RowField> getFields()
+    public List<Field> getFields()
     {
         return fields;
     }
 
-    public static class RowField
+    public static class Field
     {
         private final Type type;
         private final Optional<String> name;
 
-        public RowField(Type type, Optional<String> name)
+        public Field(Type type, Optional<String> name)
         {
             this.type = requireNonNull(type, "type is null");
             this.name = requireNonNull(name, "name is null");
