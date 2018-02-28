@@ -188,6 +188,12 @@ public class TestGeoQueries
         assertFunction("ST_YMax(ST_GeometryFromText('POLYGON ((2 0, 2 1, 3 1))'))", DOUBLE, 1.0);
         assertFunction("ST_XMax(ST_GeometryFromText('MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1)), ((2 4, 2 6, 6 6, 6 4)))'))", DOUBLE, 6.0);
         assertFunction("ST_YMax(ST_GeometryFromText('MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1)), ((2 4, 2 6, 6 10, 6 4)))'))", DOUBLE, 10.0);
+        assertFunction("ST_XMax(ST_GeometryFromText('POLYGON EMPTY'))", DOUBLE, null);
+        assertFunction("ST_YMax(ST_GeometryFromText('POLYGON EMPTY'))", DOUBLE, null);
+        assertFunction("ST_XMax(ST_GeometryFromText('GEOMETRYCOLLECTION (POINT (5 1), LINESTRING (3 4, 4 4))'))", DOUBLE, 5.0);
+        assertFunction("ST_YMax(ST_GeometryFromText('GEOMETRYCOLLECTION (POINT (5 1), LINESTRING (3 4, 4 4))'))", DOUBLE, 4.0);
+        assertFunction("ST_XMax(null)", DOUBLE, null);
+        assertFunction("ST_YMax(null)", DOUBLE, null);
     }
 
     @Test
@@ -205,6 +211,12 @@ public class TestGeoQueries
         assertFunction("ST_YMin(ST_GeometryFromText('POLYGON ((2 0, 2 1, 3 1))'))", DOUBLE, 0.0);
         assertFunction("ST_XMin(ST_GeometryFromText('MULTIPOLYGON (((1 10, 1 3, 3 3, 3 10)), ((2 4, 2 6, 6 6, 6 4)))'))", DOUBLE, 1.0);
         assertFunction("ST_YMin(ST_GeometryFromText('MULTIPOLYGON (((1 10, 1 3, 3 3, 3 10)), ((2 4, 2 6, 6 10, 6 4)))'))", DOUBLE, 3.0);
+        assertFunction("ST_XMin(ST_GeometryFromText('POLYGON EMPTY'))", DOUBLE, null);
+        assertFunction("ST_YMin(ST_GeometryFromText('POLYGON EMPTY'))", DOUBLE, null);
+        assertFunction("ST_XMin(ST_GeometryFromText('GEOMETRYCOLLECTION (POINT (5 1), LINESTRING (3 4, 4 4))'))", DOUBLE, 3.0);
+        assertFunction("ST_YMin(ST_GeometryFromText('GEOMETRYCOLLECTION (POINT (5 1), LINESTRING (3 4, 4 4))'))", DOUBLE, 1.0);
+        assertFunction("ST_XMin(null)", DOUBLE, null);
+        assertFunction("ST_YMin(null)", DOUBLE, null);
     }
 
     @Test
