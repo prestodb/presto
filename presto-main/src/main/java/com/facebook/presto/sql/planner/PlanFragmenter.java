@@ -20,6 +20,7 @@ import com.facebook.presto.metadata.TableLayout.TablePartitioning;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -420,6 +421,23 @@ public class PlanFragmenter
         }
 
         @Override
+        public GroupedExecutionProperties visitAggregation(AggregationNode node, Void context)
+        {
+            GroupedExecutionProperties properties = processChildren(node);
+            if (properties.isCurrentNodeCapable()) {
+                switch (node.getStep()) {
+                    case SINGLE:
+                    case FINAL:
+                        return new GroupedExecutionProperties(true, true);
+                    case PARTIAL:
+                    case INTERMEDIATE:
+                        return new GroupedExecutionProperties(true, properties.isSubTreeUseful());
+                }
+            }
+            return properties;
+        }
+
+        @Override
         public GroupedExecutionProperties visitTableScan(TableScanNode node, Void context)
         {
             Optional<TablePartitioning> tablePartitioning = metadata.getLayout(session, node.getLayout().get()).getTablePartitioning();
@@ -452,7 +470,11 @@ public class PlanFragmenter
 
     private static class GroupedExecutionProperties
     {
+        // Whether grouped execution is possible with the current node.
+        // For example, a table scan is capable iff it supports addressable split discovery.
         private final boolean currentNodeCapable;
+        // Whether grouped execution is beneficial in the current node, or any node below it.
+        // For example, a JOIN can benefit from grouped execution because build can be flushed early, reducing peak memory requirement.
         private final boolean subTreeUseful;
 
         public GroupedExecutionProperties(boolean currentNodeCapable, boolean subTreeUseful)
