@@ -168,7 +168,7 @@ public class JmxMetadata
         Builder<SchemaTableName> tableNames = ImmutableList.builder();
         for (ObjectName objectName : mbeanServer.queryNames(WILDCARD, null)) {
             // todo remove lower case when presto supports mixed case names
-            tableNames.add(new SchemaTableName(JMX_SCHEMA_NAME, objectName.toString().toLowerCase(ENGLISH)));
+            tableNames.add(new SchemaTableName(JMX_SCHEMA_NAME, objectName.getCanonicalName().toLowerCase(ENGLISH)));
         }
         return tableNames.build();
     }
