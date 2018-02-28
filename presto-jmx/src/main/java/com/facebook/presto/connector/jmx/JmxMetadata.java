@@ -51,6 +51,7 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static java.util.Comparator.comparing;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -130,7 +131,7 @@ public class JmxMetadata
             Arrays.stream(mbeanInfo.getAttributes())
                     .filter(MBeanAttributeInfo::isReadable)
                     .map(attribute -> new JmxColumnHandle(attribute.getName(), getColumnType(attribute)))
-                    .sorted((column1, column2) -> column1.getColumnName().compareTo(column2.getColumnName()))
+                    .sorted(comparing(JmxColumnHandle::getColumnName))
                     .forEach(columns::add);
 
             return new JmxTableHandle(objectName.get().toString(), columns.build(), true);
