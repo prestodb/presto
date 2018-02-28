@@ -306,13 +306,21 @@ public final class Session
 
     public ConnectorSession toConnectorSession()
     {
-        return new FullConnectorSession(queryId.toString(), identity, source, timeZoneKey, locale, startTime, SystemSessionProperties.isLegacyTimestamp(this));
+        return new FullConnectorSession(
+                this,
+                queryId.toString(),
+                identity, source,
+                timeZoneKey,
+                locale,
+                startTime,
+                SystemSessionProperties.isLegacyTimestamp(this));
     }
 
     public ConnectorSession toConnectorSession(ConnectorId connectorId)
     {
         requireNonNull(connectorId, "connectorId is null");
         return new FullConnectorSession(
+                this,
                 queryId.toString(),
                 identity,
                 source,
@@ -399,6 +407,7 @@ public final class Session
         private Set<String> clientTags = ImmutableSet.of();
         private long startTime = System.currentTimeMillis();
         private final Map<String, String> systemProperties = new HashMap<>();
+        private final Map<ConnectorId, Map<String, String>> connectorProperties = new HashMap<>();
         private final Map<String, Map<String, String>> catalogSessionProperties = new HashMap<>();
         private final SessionPropertyManager sessionPropertyManager;
         private final Map<String, String> preparedStatements = new HashMap<>();
@@ -428,6 +437,11 @@ public final class Session
             this.clientTags = ImmutableSet.copyOf(session.clientTags);
             this.startTime = session.startTime;
             this.systemProperties.putAll(session.systemProperties);
+
+            for (Map.Entry<ConnectorId, Map<String, String>> entry : session.connectorProperties.entrySet()) {
+                this.connectorProperties.computeIfAbsent(entry.getKey(), id -> new HashMap<>()).putAll(entry.getValue());
+            }
+
             this.catalogSessionProperties.putAll(session.unprocessedCatalogProperties);
             this.preparedStatements.putAll(session.preparedStatements);
         }
@@ -528,6 +542,17 @@ public final class Session
         }
 
         /**
+         * Sets a connector property for the session. The property name and value must
+         * only contain characters from US-ASCII and must not be the '=' character.
+         */
+        public SessionBuilder setConnectorProperty(ConnectorId connectorId, String propertyName, String propertyValue)
+        {
+            requireNonNull(connectorId, "connectorId is null");
+            connectorProperties.computeIfAbsent(connectorId, id -> new HashMap<>()).put(propertyName, propertyValue);
+            return this;
+        }
+
+        /**
          * Sets a catalog property for the session.  The property name and value must
          * only contain characters from US-ASCII and must not be for '='.
          */
@@ -562,7 +587,7 @@ public final class Session
                     clientTags,
                     startTime,
                     systemProperties,
-                    ImmutableMap.of(),
+                    connectorProperties,
                     catalogSessionProperties,
                     sessionPropertyManager,
                     preparedStatements);
