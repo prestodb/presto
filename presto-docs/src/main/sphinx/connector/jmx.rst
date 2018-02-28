@@ -81,6 +81,22 @@ for each node::
                          329 |                  10240
     (1 row)
 
+The wildcard character ``*`` may be used with table names in the ``current`` schema.
+This allows matching several MBean objects within a single query. The following query
+returns information from the different Presto memory pools on each node::
+
+    SELECT freebytes, node, object_name
+    FROM jmx.current."com.facebook.presto.memory:*type=memorypool*";
+
+.. code-block:: none
+
+     freebytes  |  node   |                       object_name
+    ------------+---------+----------------------------------------------------------
+      214748364 | example | com.facebook.presto.memory:type=MemoryPool,name=reserved
+     1073741825 | example | com.facebook.presto.memory:type=MemoryPool,name=general
+      858993459 | example | com.facebook.presto.memory:type=MemoryPool,name=system
+    (3 rows)
+
 The ``history`` schema contains the list of tables configured in the connector properties file.
 The tables have the same columns as those in the current schema, but with an additional
 timestamp column that stores the time at which the snapshot was taken::
