@@ -15,6 +15,7 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
+import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.StageId;
 import com.facebook.presto.spi.QueryId;
 import com.google.common.collect.ImmutableList;
@@ -24,10 +25,12 @@ import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
+import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.NoSuchElementException;
 
 import static java.util.Objects.requireNonNull;
@@ -47,18 +50,15 @@ public class QueryResource
     }
 
     @GET
-    public List<BasicQueryInfo> getAllQueryInfo()
+    public List<BasicQueryInfo> getAllQueryInfo(@QueryParam("state") String queryState)
     {
-        return extractBasicQueryInfo(queryManager.getAllQueryInfo());
-    }
-
-    private static List<BasicQueryInfo> extractBasicQueryInfo(List<QueryInfo> allQueryInfo)
-    {
-        ImmutableList.Builder<BasicQueryInfo> basicQueryInfo = ImmutableList.builder();
-        for (QueryInfo queryInfo : allQueryInfo) {
-            basicQueryInfo.add(new BasicQueryInfo(queryInfo));
+        ImmutableList.Builder<BasicQueryInfo> builder = new ImmutableList.Builder<>();
+        for (QueryInfo queryInfo : queryManager.getAllQueryInfo()) {
+            if (queryState == null || queryInfo.getState().equals(QueryState.valueOf(queryState.toUpperCase(Locale.ENGLISH)))) {
+                builder.add(new BasicQueryInfo(queryInfo));
+            }
         }
-        return basicQueryInfo.build();
+        return builder.build();
     }
 
     @GET
