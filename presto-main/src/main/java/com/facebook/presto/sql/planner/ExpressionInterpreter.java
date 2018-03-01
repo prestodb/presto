@@ -23,7 +23,6 @@ import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.RowBlockBuilder;
@@ -351,33 +350,7 @@ public class ExpressionInterpreter
                     throw new UnsupportedOperationException("not yet implemented");
                 }
             }
-            else if (context instanceof RecordCursor) {
-                RecordCursor cursor = (RecordCursor) context;
-                if (cursor.isNull(channel)) {
-                    return null;
-                }
-
-                Class<?> javaType = type.getJavaType();
-                if (javaType == boolean.class) {
-                    return cursor.getBoolean(channel);
-                }
-                else if (javaType == long.class) {
-                    return cursor.getLong(channel);
-                }
-                else if (javaType == double.class) {
-                    return cursor.getDouble(channel);
-                }
-                else if (javaType == Slice.class) {
-                    return cursor.getSlice(channel);
-                }
-                else if (javaType == Block.class) {
-                    return cursor.getObject(channel);
-                }
-                else {
-                    throw new UnsupportedOperationException("not yet implemented");
-                }
-            }
-            throw new UnsupportedOperationException("Inputs or cursor must be set");
+            throw new UnsupportedOperationException("Inputs must be set");
         }
 
         @Override
