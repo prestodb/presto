@@ -145,7 +145,9 @@ public class LookupJoinPageBuilder
         verify(previousPosition <= position);
         isSequentialProbeIndices &= position == previousPosition + 1 || previousPosition == -1;
 
+        // Update probe indices and size
         probeIndexBuilder.add(position);
+        estimatedProbeBlockBytes += Integer.BYTES;
 
         // Update memory usage for probe side.
         //
