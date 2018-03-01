@@ -183,7 +183,7 @@ public class ExpressionInterpreter
         return evaluateConstantExpression(expression, coercions, metadata, session, ImmutableSet.of(), parameters);
     }
 
-    public static Object evaluateConstantExpression(
+    private static Object evaluateConstantExpression(
             Expression expression,
             Map<NodeRef<Expression>, Type> coercions,
             Metadata metadata, Session session,
