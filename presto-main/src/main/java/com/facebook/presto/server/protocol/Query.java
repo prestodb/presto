@@ -150,7 +150,16 @@ class Query
             BlockEncodingSerde blockEncodingSerde)
     {
         Query result = new Query(sessionContext, query, queryManager, sessionPropertyManager, exchangeClient, dataProcessorExecutor, timeoutExecutor, blockEncodingSerde);
-        result.queryManager.addOutputInfoListener(result.queryId, result::setQueryOutputInfo);
+
+        result.queryManager.addOutputInfoListener(result.getQueryId(), result::setQueryOutputInfo);
+
+        result.queryManager.addStateChangeListener(result.getQueryId(), state -> {
+            if (state.isDone()) {
+                QueryInfo queryInfo = queryManager.getQueryInfo(result.getQueryId());
+                result.closeExchangeClientIfNecessary(queryInfo);
+            }
+        });
+
         return result;
     }
 
@@ -355,20 +364,12 @@ class Query
             }
         }
 
-        // close exchange client if the query has failed
-        if (queryInfo.getState().isDone()) {
-            if (queryInfo.getState() == QueryState.FAILED) {
-                exchangeClient.close();
-            }
-            else if (!queryInfo.getOutputStage().isPresent()) {
-                // For simple executions (e.g. drop table), there will never be an output stage,
-                // so close the exchange as soon as the query is done.
-                exchangeClient.close();
+        closeExchangeClientIfNecessary(queryInfo);
 
-                // Return a single value for clients that require a result.
-                columns = ImmutableList.of(new Column("result", BooleanType.BOOLEAN));
-                data = ImmutableSet.of(ImmutableList.of(true));
-            }
+        // for queries with no output, return a fake result for clients that require it
+        if ((queryInfo.getState() == QueryState.FINISHED) && !queryInfo.getOutputStage().isPresent()) {
+            columns = ImmutableList.of(new Column("result", BooleanType.BOOLEAN));
+            data = ImmutableSet.of(ImmutableList.of(true));
         }
 
         // only return a next if the query is not done or there is more data to send (due to buffering)
@@ -415,6 +416,17 @@ class Query
         }
         lastResult = queryResults;
         return queryResults;
+    }
+
+    private synchronized void closeExchangeClientIfNecessary(QueryInfo queryInfo)
+    {
+        // Close the exchange client if the query has failed, or if the query
+        // is done and it does not have an output stage. The latter happens
+        // for data definition executions, as those do not have output.
+        if ((queryInfo.getState() == QueryState.FAILED) ||
+                (queryInfo.getState().isDone() && !queryInfo.getOutputStage().isPresent())) {
+            exchangeClient.close();
+        }
     }
 
     private synchronized void setQueryOutputInfo(QueryExecution.QueryOutputInfo outputInfo)
