@@ -230,6 +230,11 @@ public class Analysis
         return unmodifiableMap(coercions);
     }
 
+    public Set<NodeRef<Expression>> getTypeOnlyCoercions()
+    {
+        return unmodifiableSet(typeOnlyCoercions);
+    }
+
     public Type getCoercion(Expression expression)
     {
         return coercions.get(NodeRef.of(expression));

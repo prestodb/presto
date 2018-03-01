@@ -87,7 +87,6 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.sql.analyzer.SemanticExceptions.notSupportedException;
-import static com.facebook.presto.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
 import static com.facebook.presto.sql.tree.Join.Type.INNER;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -609,22 +608,14 @@ class RelationPlanner
         for (Expression row : node.getRows()) {
             ImmutableList.Builder<Expression> values = ImmutableList.builder();
             if (row instanceof Row) {
-                List<Expression> items = ((Row) row).getItems();
-                for (int i = 0; i < items.size(); i++) {
-                    Expression expression = items.get(i);
-                    expression = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis.getParameters(), analysis), expression);
-                    // TODO: RelationPlanner should not invoke evaluateConstantExpression, which in turn invokes ExpressionInterpreter.
-                    // This should happen in an optimizer.
-                    Object constantValue = evaluateConstantExpression(expression, analysis.getCoercions(), metadata, session, analysis.getColumnReferences(), analysis.getParameters());
-                    values.add(LiteralInterpreter.toExpression(constantValue, scope.getRelationType().getFieldByIndex(i).getType()));
+                for (Expression item : ((Row) row).getItems()) {
+                    Expression expression = Coercer.addCoercions(item, analysis);
+                    values.add(ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis.getParameters(), analysis), expression));
                 }
             }
             else {
-                row = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis.getParameters(), analysis), row);
-                // TODO: RelationPlanner should not invoke evaluateConstantExpression, which in turn invokes ExpressionInterpreter.
-                // This should happen in an optimizer.
-                Object constantValue = evaluateConstantExpression(row, analysis.getCoercions(), metadata, session, analysis.getColumnReferences(), analysis.getParameters());
-                values.add(LiteralInterpreter.toExpression(constantValue, scope.getRelationType().getFieldByIndex(0).getType()));
+                Expression expression = Coercer.addCoercions(row, analysis);
+                values.add(ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis.getParameters(), analysis), expression));
             }
 
             rows.add(values.build());
@@ -651,13 +642,11 @@ class RelationPlanner
         ImmutableMap.Builder<Symbol, List<Symbol>> unnestSymbols = ImmutableMap.builder();
         Iterator<Symbol> unnestedSymbolsIterator = unnestedSymbols.iterator();
         for (Expression expression : node.getExpressions()) {
-            expression = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis.getParameters(), analysis), expression);
-            // TODO: RelationPlanner should not invoke evaluateConstantExpression, which in turn invokes ExpressionInterpreter.
-            // This should happen in an optimizer.
-            Object constantValue = evaluateConstantExpression(expression, analysis.getCoercions(), metadata, session, analysis.getColumnReferences(), analysis.getParameters());
             Type type = analysis.getType(expression);
-            values.add(LiteralInterpreter.toExpression(constantValue, type));
-            Symbol inputSymbol = symbolAllocator.newSymbol(expression, type);
+            Expression rewritten = Coercer.addCoercions(expression, analysis);
+            rewritten = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis.getParameters(), analysis), rewritten);
+            values.add(rewritten);
+            Symbol inputSymbol = symbolAllocator.newSymbol(rewritten, type);
             argumentSymbols.add(inputSymbol);
             if (type instanceof ArrayType) {
                 unnestSymbols.put(inputSymbol, ImmutableList.of(unnestedSymbolsIterator.next()));
