@@ -21,6 +21,7 @@ import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
 import org.openjdk.jol.info.ClassLayout;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
@@ -117,12 +118,16 @@ public class DictionaryBuilder
             return NULL_POSITION;
         }
 
+        int blockPosition;
         long hashPosition = getHashPositionOfElement(block, position);
         if (blockPositionByHash.get(hashPosition) != EMPTY_SLOT) {
-            return blockPositionByHash.get(hashPosition);
+            blockPosition = blockPositionByHash.get(hashPosition);
         }
-
-        return addNewElement(hashPosition, block, position);
+        else {
+            blockPosition = addNewElement(hashPosition, block, position);
+        }
+        verify(blockPosition != NULL_POSITION);
+        return blockPosition;
     }
 
     public int getEntryCount()
@@ -135,14 +140,10 @@ public class DictionaryBuilder
      */
     private long getHashPositionOfElement(Block block, int position)
     {
+        checkArgument(!block.isNull(position), "position is null");
         int length = block.getSliceLength(position);
         long hashPosition = getMaskedHash(block.hash(position, 0, length));
         while (true) {
-            if (hashPosition == NULL_POSITION) {
-                // Need to skip the reserved null slot
-                hashPosition = getMaskedHash(hashPosition + 1);
-            }
-
             int blockPosition = blockPositionByHash.get(hashPosition);
             if (blockPosition == EMPTY_SLOT) {
                 // Doesn't have this element
@@ -159,9 +160,7 @@ public class DictionaryBuilder
 
     private int addNewElement(long hashPosition, Block block, int position)
     {
-        if (block.isNull(position)) {
-            throw new IllegalArgumentException("position is null");
-        }
+        checkArgument(!block.isNull(position), "position is null");
         block.writeBytesTo(position, 0, block.getSliceLength(position), elementBlock);
         elementBlock.closeEntry();
 
@@ -184,13 +183,9 @@ public class DictionaryBuilder
         blockPositionByHash.ensureCapacity(newHashSize);
         blockPositionByHash.fill(EMPTY_SLOT);
 
-        rehashBlock(elementBlock);
-    }
-
-    private void rehashBlock(Block block)
-    {
-        for (int blockPosition = 0; blockPosition < block.getPositionCount(); blockPosition++) {
-            blockPositionByHash.set(getHashPositionOfElement(block, blockPosition), blockPosition);
+        // the first element of elementBlock is always null
+        for (int blockPosition = 1; blockPosition < elementBlock.getPositionCount(); blockPosition++) {
+            blockPositionByHash.set(getHashPositionOfElement(elementBlock, blockPosition), blockPosition);
         }
     }
 
