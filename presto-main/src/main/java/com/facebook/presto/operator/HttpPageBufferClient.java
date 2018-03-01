@@ -72,6 +72,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
+import static io.airlift.http.client.HttpStatus.familyForStatusCode;
 import static io.airlift.http.client.Request.Builder.prepareDelete;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.http.client.ResponseHandlerUtils.propagate;
@@ -352,8 +353,8 @@ public final class HttpPageBufferClient
                             @Override
                             public Void handle(Request request, Response response)
                             {
-                                if (response.getStatusCode() != HttpStatus.OK.code()) {
-                                    log.debug(format("Expected acknowledge response code to be 200, but was %s", response.getStatusCode()));
+                                if (familyForStatusCode(response.getStatusCode()) != HttpStatus.Family.SUCCESSFUL) {
+                                    log.debug(format("Unexpected acknowledge response code %s", response.getStatusCode()));
                                 }
                                 return null;
                             }
