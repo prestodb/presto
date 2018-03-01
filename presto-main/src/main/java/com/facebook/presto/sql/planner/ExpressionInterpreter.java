@@ -53,8 +53,6 @@ import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.ExpressionRewriter;
-import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Identifier;
@@ -179,13 +177,15 @@ public class ExpressionInterpreter
                 .putAll(analyzer.getExpressionCoercions())
                 .put(NodeRef.of(expression), expectedType)
                 .build();
-        return evaluateConstantExpression(expression, coercions, metadata, session, ImmutableSet.of(), parameters);
+        return evaluateConstantExpression(expression, coercions, analyzer.getTypeOnlyCoercions(), metadata, session, ImmutableSet.of(), parameters);
     }
 
     private static Object evaluateConstantExpression(
             Expression expression,
             Map<NodeRef<Expression>, Type> coercions,
-            Metadata metadata, Session session,
+            Set<NodeRef<Expression>> typeOnlyCoercions,
+            Metadata metadata,
+            Session session,
             Set<NodeRef<Expression>> columnReferences,
             List<Expression> parameters)
     {
@@ -194,23 +194,7 @@ public class ExpressionInterpreter
         verifyExpressionIsConstant(columnReferences, expression);
 
         // add coercions
-        Expression rewrite = ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
-        {
-            @Override
-            public Expression rewriteExpression(Expression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
-            {
-                Expression rewrittenExpression = treeRewriter.defaultRewrite(node, context);
-
-                // cast expression if coercion is registered
-                Type coerceToType = coercions.get(NodeRef.of(node));
-
-                if (coerceToType != null) {
-                    rewrittenExpression = new Cast(rewrittenExpression, coerceToType.getTypeSignature().toString());
-                }
-
-                return rewrittenExpression;
-            }
-        }, expression);
+        Expression rewrite = Coercer.addCoercions(expression, coercions, typeOnlyCoercions);
 
         // redo the analysis since above expression rewriter might create new expressions which do not have entries in the type map
         ExpressionAnalyzer analyzer = createConstantAnalyzer(metadata, session, parameters);
