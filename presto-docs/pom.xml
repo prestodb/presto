@@ -20,7 +20,7 @@
     Generate HTML docs quickly while developing:
 
     brew install python
-    pip install sphinx
+    pip2 install sphinx
 
     make -C presto-docs clean html
 
