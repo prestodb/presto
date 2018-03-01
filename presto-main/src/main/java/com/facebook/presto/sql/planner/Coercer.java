@@ -35,6 +35,11 @@ public class Coercer
         return ExpressionTreeRewriter.rewriteWith(new Rewriter(analysis.getCoercions(), analysis.getTypeOnlyCoercions()), expression);
     }
 
+    public static Expression addCoercions(Expression expression, Map<NodeRef<Expression>, Type> coercions, Set<NodeRef<Expression>> typeOnlyCoercions)
+    {
+        return ExpressionTreeRewriter.rewriteWith(new Rewriter(coercions, typeOnlyCoercions), expression);
+    }
+
     private static class Rewriter
             extends ExpressionRewriter<Void>
     {
