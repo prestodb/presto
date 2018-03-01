@@ -35,6 +35,7 @@ public class ExchangeClientConfig
     private DataSize maxResponseSize = new HttpClientConfig().getMaxContentLength();
     private int clientThreads = 25;
     private int pageBufferClientMaxCallbackThreads = 25;
+    private boolean acknowledgePages = true;
 
     @NotNull
     public DataSize getMaxBufferSize()
@@ -126,6 +127,18 @@ public class ExchangeClientConfig
     public ExchangeClientConfig setPageBufferClientMaxCallbackThreads(int pageBufferClientMaxCallbackThreads)
     {
         this.pageBufferClientMaxCallbackThreads = pageBufferClientMaxCallbackThreads;
+        return this;
+    }
+
+    public boolean isAcknowledgePages()
+    {
+        return acknowledgePages;
+    }
+
+    @Config("exchange.acknowledge-pages")
+    public ExchangeClientConfig setAcknowledgePages(boolean acknowledgePages)
+    {
+        this.acknowledgePages = acknowledgePages;
         return this;
     }
 }
