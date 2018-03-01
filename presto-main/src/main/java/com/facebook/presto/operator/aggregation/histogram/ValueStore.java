@@ -37,7 +37,7 @@ import static com.google.common.base.Preconditions.checkState;
  * <p>
  * Note it assumes you're storing # -> Value (Type, Block, position, or the result of the ) somewhere else
  */
-public class ValueStore
+class ValueStore
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(GroupedTypedHistogram.class).instanceSize();
     private static final float MAX_FILL_RATIO = 0.5f;
@@ -52,8 +52,9 @@ public class ValueStore
     private int maxFill;
 
     @VisibleForTesting
-    public ValueStore(int expectedSize, BlockBuilder values)
+    ValueStore(int expectedSize, BlockBuilder values)
     {
+        // which will be a power of 2
         bucketCount = computeBucketCount(expectedSize, MAX_FILL_RATIO);
         mask = bucketCount - 1;
         maxFill = calculateMaxFill(bucketCount, MAX_FILL_RATIO);

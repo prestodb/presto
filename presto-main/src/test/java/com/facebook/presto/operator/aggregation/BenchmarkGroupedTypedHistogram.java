@@ -66,9 +66,15 @@ public class BenchmarkGroupedTypedHistogram
     @State(Scope.Thread)
     public static class Data
     {
+<<<<<<< HEAD
         @Param({"10000"}) // larger groups => worse perf for NEW as it's more costly to track a group than with LEGACY. Tweak based on what you want to measure
         private int numGroups;
         @Param({"5000"}) // makes sure legacy impl isn't doing trivial work
+=======
+        @Param({"20000"}) // we target case with larger # of groups
+        private int numGroups;
+        @Param({"1500"}) // makes sure legacy impl isn't doing trivial work
+>>>>>>> Improve perf
         private int rowCount;
         //        @Param({"0.0", "0.1", ".25", "0.50", ".75", "1.0"})
         @Param({"0.1"}) // somewhat arbitrary guess, we don't know this

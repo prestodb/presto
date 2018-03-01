@@ -146,13 +146,6 @@ public class GroupedTypedHistogram
     @Override
     public long getEstimatedSize()
     {
-//        private final LongBigArray counts;
-//        private final LongBigArray groupIds;
-//        private final IntBigArray nextPointers;
-//        private final IntBigArray valuePositions;
-//        private final LongBigArray valueAndGroupHashes;
-//        private final LongBigArray headPointers;
-//        private IntBigArray buckets;
         return INSTANCE_SIZE
                 + counts.sizeOf()
                 + groupIds.sizeOf()
@@ -161,7 +154,6 @@ public class GroupedTypedHistogram
                 + valueAndGroupHashes.sizeOf()
                 + headPointers.sizeOf()
                 + valueStore.getEstimatedSize();
-
     }
 
     @Override
@@ -505,7 +497,7 @@ public class GroupedTypedHistogram
         {
             long existingGroupId = groupIds.get(nodePointer);
 
-            return existingGroupId == groupId && type.equalTo(block, position, values, valuePosition);
+            return existingGroupId == groupId && type.equalTo(block, position, valueStore.getValues(), valuePosition);
         }
 
         private ValueNode createValueNode(int nodePointer)
