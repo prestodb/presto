@@ -20,6 +20,7 @@ import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.execution.QueryExecution.QueryExecutionFactory;
 import com.facebook.presto.execution.QueryExecution.QueryOutputInfo;
 import com.facebook.presto.execution.SqlQueryExecution.SqlQueryExecutionFactory;
+import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.resourceGroups.QueryQueueFullException;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.memory.ClusterMemoryManager;
@@ -299,6 +300,14 @@ public class SqlQueryManager
         requireNonNull(listener, "listener is null");
 
         getQuery(queryId).addOutputInfoListener(listener);
+    }
+
+    @Override
+    public void addStateChangeListener(QueryId queryId, StateChangeListener<QueryState> listener)
+    {
+        requireNonNull(listener, "listener is null");
+
+        getQuery(queryId).addStateChangeListener(listener);
     }
 
     @Override
