@@ -354,7 +354,7 @@ public final class HttpPageBufferClient
                             public Void handle(Request request, Response response)
                             {
                                 if (familyForStatusCode(response.getStatusCode()) != HttpStatus.Family.SUCCESSFUL) {
-                                    log.debug(format("Unexpected acknowledge response code %s", response.getStatusCode()));
+                                    log.debug("Unexpected acknowledge response code: %s", response.getStatusCode());
                                 }
                                 return null;
                             }
