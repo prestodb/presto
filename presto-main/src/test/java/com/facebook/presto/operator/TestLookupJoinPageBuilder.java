@@ -156,6 +156,26 @@ public class TestLookupJoinPageBuilder
         }
     }
 
+    @Test
+    public void testCrossJoinWithEmptyBuild()
+    {
+        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), 1);
+        BIGINT.writeLong(blockBuilder, 0);
+        Page page = new Page(blockBuilder.build());
+
+        // nothing on the build side so we don't append anything
+        LookupSource lookupSource = new TestLookupSource(ImmutableList.of(), page);
+        JoinProbe probe = (new JoinProbeFactory(new int[]{0}, ImmutableList.of(0), OptionalInt.empty())).createJoinProbe(page);
+        LookupJoinPageBuilder lookupJoinPageBuilder = new LookupJoinPageBuilder(ImmutableList.of(BIGINT));
+
+        // append the same row many times should also flush in the end
+        probe.advanceNextPosition();
+        for (int i = 0; i < 300_000; i++) {
+            lookupJoinPageBuilder.appendRow(probe, lookupSource, 0);
+        }
+        assertTrue(lookupJoinPageBuilder.isFull());
+    }
+
     private final class TestLookupSource
             implements LookupSource
     {
