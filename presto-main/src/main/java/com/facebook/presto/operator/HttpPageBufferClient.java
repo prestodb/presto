@@ -110,6 +110,7 @@ public final class HttpPageBufferClient
 
     private final HttpClient httpClient;
     private final DataSize maxResponseSize;
+    private final boolean acknowledgePages;
     private final URI location;
     private final ClientCallback clientCallback;
     private final ScheduledExecutorService scheduler;
@@ -146,18 +147,20 @@ public final class HttpPageBufferClient
             HttpClient httpClient,
             DataSize maxResponseSize,
             Duration maxErrorDuration,
+            boolean acknowledgePages,
             URI location,
             ClientCallback clientCallback,
             ScheduledExecutorService scheduler,
             Executor pageBufferClientCallbackExecutor)
     {
-        this(httpClient, maxResponseSize, maxErrorDuration, location, clientCallback, scheduler, Ticker.systemTicker(), pageBufferClientCallbackExecutor);
+        this(httpClient, maxResponseSize, maxErrorDuration, acknowledgePages, location, clientCallback, scheduler, Ticker.systemTicker(), pageBufferClientCallbackExecutor);
     }
 
     public HttpPageBufferClient(
             HttpClient httpClient,
             DataSize maxResponseSize,
             Duration maxErrorDuration,
+            boolean acknowledgePages,
             URI location,
             ClientCallback clientCallback,
             ScheduledExecutorService scheduler,
@@ -166,6 +169,7 @@ public final class HttpPageBufferClient
     {
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.maxResponseSize = requireNonNull(maxResponseSize, "maxResponseSize is null");
+        this.acknowledgePages = acknowledgePages;
         this.location = requireNonNull(location, "location is null");
         this.clientCallback = requireNonNull(clientCallback, "clientCallback is null");
         this.scheduler = requireNonNull(scheduler, "scheduler is null");
@@ -331,7 +335,7 @@ public final class HttpPageBufferClient
                         }
                     }
 
-                    if (shouldAcknowledge) {
+                    if (shouldAcknowledge && acknowledgePages) {
                         // Acknowledge token without handling the response.
                         // The next request will also make sure the token is acknowledged.
                         // This is to fast release the pages on the buffer side.

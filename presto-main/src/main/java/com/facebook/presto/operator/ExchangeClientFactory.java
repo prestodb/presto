@@ -42,6 +42,7 @@ public class ExchangeClientFactory
     private final Duration maxErrorDuration;
     private final HttpClient httpClient;
     private final DataSize maxResponseSize;
+    private final boolean acknowledgePages;
     private final ScheduledExecutorService scheduler;
     private final ThreadPoolExecutorMBean executorMBean;
     private final ExecutorService pageBufferClientCallbackExecutor;
@@ -57,6 +58,7 @@ public class ExchangeClientFactory
                 config.getMaxResponseSize(),
                 config.getConcurrentRequestMultiplier(),
                 config.getMaxErrorDuration(),
+                config.isAcknowledgePages(),
                 config.getPageBufferClientMaxCallbackThreads(),
                 httpClient,
                 scheduler);
@@ -67,6 +69,7 @@ public class ExchangeClientFactory
             DataSize maxResponseSize,
             int concurrentRequestMultiplier,
             Duration maxErrorDuration,
+            boolean acknowledgePages,
             int pageBufferClientMaxCallbackThreads,
             HttpClient httpClient,
             ScheduledExecutorService scheduler)
@@ -74,6 +77,7 @@ public class ExchangeClientFactory
         this.maxBufferedBytes = requireNonNull(maxBufferedBytes, "maxBufferedBytes is null");
         this.concurrentRequestMultiplier = concurrentRequestMultiplier;
         this.maxErrorDuration = requireNonNull(maxErrorDuration, "maxErrorDuration is null");
+        this.acknowledgePages = acknowledgePages;
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
 
         // Use only 0.75 of the maxResponseSize to leave room for additional bytes from the encoding
@@ -113,6 +117,7 @@ public class ExchangeClientFactory
                 maxResponseSize,
                 concurrentRequestMultiplier,
                 maxErrorDuration,
+                acknowledgePages,
                 httpClient,
                 scheduler,
                 systemMemoryContext,
