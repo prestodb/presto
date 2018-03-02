@@ -171,7 +171,7 @@ public class HashGenerationOptimizer
 
             return new PlanWithProperties(
                     new AggregationNode(
-                            idAllocator.getNextId(),
+                            node.getId(),
                             child.getNode(),
                             node.getAggregations(),
                             node.getGroupingSets(),
@@ -211,7 +211,7 @@ public class HashGenerationOptimizer
             Symbol hashSymbol = child.getRequiredHashSymbol(hashComputation.get());
 
             return new PlanWithProperties(
-                    new DistinctLimitNode(idAllocator.getNextId(), child.getNode(), node.getLimit(), node.isPartial(), node.getDistinctSymbols(), Optional.of(hashSymbol)),
+                    new DistinctLimitNode(node.getId(), child.getNode(), node.getLimit(), node.isPartial(), node.getDistinctSymbols(), Optional.of(hashSymbol)),
                     child.getHashSymbols());
         }
 
@@ -232,7 +232,7 @@ public class HashGenerationOptimizer
             Symbol hashSymbol = child.getRequiredHashSymbol(hashComputation.get());
 
             return new PlanWithProperties(
-                    new MarkDistinctNode(idAllocator.getNextId(), child.getNode(), node.getMarkerSymbol(), node.getDistinctSymbols(), Optional.of(hashSymbol)),
+                    new MarkDistinctNode(node.getId(), child.getNode(), node.getMarkerSymbol(), node.getDistinctSymbols(), Optional.of(hashSymbol)),
                     child.getHashSymbols());
         }
 
@@ -253,7 +253,7 @@ public class HashGenerationOptimizer
 
             return new PlanWithProperties(
                     new RowNumberNode(
-                            idAllocator.getNextId(),
+                            node.getId(),
                             child.getNode(),
                             node.getPartitionBy(),
                             node.getRowNumberSymbol(),
@@ -279,7 +279,7 @@ public class HashGenerationOptimizer
 
             return new PlanWithProperties(
                     new TopNRowNumberNode(
-                            idAllocator.getNextId(),
+                            node.getId(),
                             child.getNode(),
                             node.getSpecification(),
                             node.getRowNumberSymbol(),
@@ -350,7 +350,7 @@ public class HashGenerationOptimizer
 
             return new PlanWithProperties(
                     new JoinNode(
-                            idAllocator.getNextId(),
+                            node.getId(),
                             node.getType(),
                             left.getNode(),
                             right.getNode(),
@@ -381,7 +381,7 @@ public class HashGenerationOptimizer
 
             return new PlanWithProperties(
                     new SemiJoinNode(
-                            idAllocator.getNextId(),
+                            node.getId(),
                             source.getNode(),
                             filteringSource.getNode(),
                             node.getSourceJoinSymbol(),
@@ -422,7 +422,7 @@ public class HashGenerationOptimizer
 
             return new PlanWithProperties(
                     new IndexJoinNode(
-                            idAllocator.getNextId(),
+                            node.getId(),
                             node.getType(),
                             probe.getNode(),
                             index.getNode(),
@@ -450,7 +450,7 @@ public class HashGenerationOptimizer
 
             return new PlanWithProperties(
                     new WindowNode(
-                            idAllocator.getNextId(),
+                            node.getId(),
                             child.getNode(),
                             node.getSpecification(),
                             node.getWindowFunctions(),
@@ -528,7 +528,7 @@ public class HashGenerationOptimizer
 
             return new PlanWithProperties(
                     new ExchangeNode(
-                            idAllocator.getNextId(),
+                            node.getId(),
                             node.getType(),
                             node.getScope(),
                             partitioningScheme,
@@ -574,7 +574,7 @@ public class HashGenerationOptimizer
 
             return new PlanWithProperties(
                     new UnionNode(
-                            idAllocator.getNextId(),
+                            node.getId(),
                             newSources.build(),
                             newSymbolMapping.build(),
                             ImmutableList.copyOf(newSymbolMapping.build().keySet())),
@@ -608,7 +608,7 @@ public class HashGenerationOptimizer
                 allHashSymbols.put(hashComputation, hashSymbol);
             }
 
-            return new PlanWithProperties(new ProjectNode(idAllocator.getNextId(), child.getNode(), newAssignments.build()), allHashSymbols);
+            return new PlanWithProperties(new ProjectNode(node.getId(), child.getNode(), newAssignments.build()), allHashSymbols);
         }
 
         @Override
@@ -622,7 +622,7 @@ public class HashGenerationOptimizer
 
             return new PlanWithProperties(
                     new UnnestNode(
-                            idAllocator.getNextId(),
+                            node.getId(),
                             child.getNode(),
                             ImmutableList.<Symbol>builder()
                                     .addAll(node.getReplicateSymbols())
