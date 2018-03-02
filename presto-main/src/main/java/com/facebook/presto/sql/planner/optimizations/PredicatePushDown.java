@@ -407,7 +407,7 @@ public class PredicatePushDown
                 rightSource = new ProjectNode(idAllocator.getNextId(), rightSource, rightProjections.build());
 
                 output = new JoinNode(
-                        idAllocator.getNextId(),
+                        node.getId(),
                         node.getType(),
                         leftSource,
                         rightSource,
