@@ -327,9 +327,9 @@ public final class HttpPageBufferClient
                         }
 
                         if (result.getToken() == token) {
-                            shouldAcknowledge = true;
                             pages = result.getPages();
                             token = result.getNextToken();
+                            shouldAcknowledge = pages.size() > 0;
                         }
                         else {
                             pages = ImmutableList.of();
@@ -340,7 +340,7 @@ public final class HttpPageBufferClient
                         // Acknowledge token without handling the response.
                         // The next request will also make sure the token is acknowledged.
                         // This is to fast release the pages on the buffer side.
-                        URI uri = HttpUriBuilder.uriBuilderFrom(location).appendPath(String.valueOf(result.getToken())).appendPath("acknowledge").build();
+                        URI uri = HttpUriBuilder.uriBuilderFrom(location).appendPath(String.valueOf(result.getNextToken())).appendPath("acknowledge").build();
                         httpClient.executeAsync(prepareGet().setUri(uri).build(), new ResponseHandler<Void, RuntimeException>()
                         {
                             @Override
