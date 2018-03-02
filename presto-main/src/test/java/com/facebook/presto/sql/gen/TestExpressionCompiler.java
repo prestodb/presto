@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.gen;
 
+import com.facebook.presto.operator.scalar.BitwiseFunctions;
 import com.facebook.presto.operator.scalar.DateTimeFunctions;
 import com.facebook.presto.operator.scalar.FunctionAssertions;
 import com.facebook.presto.operator.scalar.JoniRegexpFunctions;
@@ -1271,37 +1272,37 @@ public class TestExpressionCompiler
     {
         for (Integer left : intLefts) {
             for (Integer right : intRights) {
-                assertExecute(generateExpression("log(%s, %s)", left, right), DOUBLE, left == null || right == null ? null : MathFunctions.log(left, right));
+                assertExecute(generateExpression("bitwise_and(%s, %s)", left, right), BIGINT, left == null || right == null ? null : BitwiseFunctions.bitwiseAnd(left, right));
             }
         }
 
         for (Integer left : intLefts) {
             for (Double right : doubleRights) {
-                assertExecute(generateExpression("log(%s, %s)", left, right), DOUBLE, left == null || right == null ? null : MathFunctions.log(left, right));
+                assertExecute(generateExpression("mod(%s, %s)", left, right), DOUBLE, left == null || right == null ? null : MathFunctions.mod(left, right));
             }
         }
 
         for (Double left : doubleLefts) {
             for (Integer right : intRights) {
-                assertExecute(generateExpression("log(%s, %s)", left, right), DOUBLE, left == null || right == null ? null : MathFunctions.log(left, right));
+                assertExecute(generateExpression("mod(%s, %s)", left, right), DOUBLE, left == null || right == null ? null : MathFunctions.mod(left, right));
             }
         }
 
         for (Double left : doubleLefts) {
             for (Double right : doubleRights) {
-                assertExecute(generateExpression("log(%s, %s)", left, right), DOUBLE, left == null || right == null ? null : MathFunctions.log(left, right));
+                assertExecute(generateExpression("mod(%s, %s)", left, right), DOUBLE, left == null || right == null ? null : MathFunctions.mod(left, right));
             }
         }
 
         for (Double left : doubleLefts) {
             for (BigDecimal right : decimalRights) {
-                assertExecute(generateExpression("log(%s, %s)", left, right), DOUBLE, left == null || right == null ? null : MathFunctions.log(left, right.doubleValue()));
+                assertExecute(generateExpression("mod(%s, %s)", left, right), DOUBLE, left == null || right == null ? null : MathFunctions.mod(left, right.doubleValue()));
             }
         }
 
         for (BigDecimal left : decimalLefts) {
             for (Long right : longRights) {
-                assertExecute(generateExpression("log(%s, %s)", left, right), DOUBLE, left == null || right == null ? null : MathFunctions.log(left.doubleValue(), right));
+                assertExecute(generateExpression("power(%s, %s)", left, right), DOUBLE, left == null || right == null ? null : MathFunctions.power(left.doubleValue(), right));
             }
         }
 

@@ -162,6 +162,19 @@ public final class MathFunctions
         }
     }
 
+    @ScalarFunction("log")
+    @Description("logarithm to given base")
+    public static final class LegacyLogFunction
+    {
+        private LegacyLogFunction() {}
+
+        @SqlType(StandardTypes.DOUBLE)
+        public static double log(@SqlType(StandardTypes.DOUBLE) double number, @SqlType(StandardTypes.DOUBLE) double base)
+        {
+            return Math.log(number) / Math.log(base);
+        }
+    }
+
     @Description("absolute value")
     @ScalarFunction("abs")
     @SqlType(StandardTypes.REAL)
@@ -468,14 +481,6 @@ public final class MathFunctions
     public static double log10(@SqlType(StandardTypes.DOUBLE) double num)
     {
         return Math.log10(num);
-    }
-
-    @Description("logarithm to given base")
-    @ScalarFunction
-    @SqlType(StandardTypes.DOUBLE)
-    public static double log(@SqlType(StandardTypes.DOUBLE) double num, @SqlType(StandardTypes.DOUBLE) double base)
-    {
-        return Math.log(num) / Math.log(base);
     }
 
     @Description("remainder of given quotient")

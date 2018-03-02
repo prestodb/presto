@@ -72,6 +72,7 @@ public class FeaturesConfig
     private boolean pushTableWriteThroughUnion = true;
     private boolean exchangeCompressionEnabled;
     private boolean legacyArrayAgg;
+    private boolean legacyLogFunction;
     private boolean legacyOrderBy;
     private boolean legacyTimestamp = true;
     private boolean legacyMapSubscript;
@@ -206,6 +207,18 @@ public class FeaturesConfig
     public boolean isLegacyArrayAgg()
     {
         return legacyArrayAgg;
+    }
+
+    @Config("deprecated.legacy-log-function")
+    public FeaturesConfig setLegacyLogFunction(boolean value)
+    {
+        this.legacyLogFunction = value;
+        return this;
+    }
+
+    public boolean isLegacyLogFunction()
+    {
+        return legacyLogFunction;
     }
 
     @Config("deprecated.legacy-order-by")
