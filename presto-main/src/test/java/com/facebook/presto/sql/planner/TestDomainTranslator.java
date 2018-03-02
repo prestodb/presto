@@ -797,10 +797,13 @@ public class TestDomainTranslator
     @Test
     public void testFromUnprocessableInPredicate()
     {
-        assertUnsupportedPredicate(new InPredicate(unprocessableExpression1(C_BIGINT), new InListExpression(ImmutableList.of(TRUE_LITERAL))));
-
-        Expression originalExpression = new InPredicate(C_BOOLEAN.toSymbolReference(), new InListExpression(ImmutableList.of(unprocessableExpression1(C_BOOLEAN))));
+        Expression originalExpression = new InPredicate(unprocessableExpression1(C_BIGINT), new InListExpression(ImmutableList.of(TRUE_LITERAL)));
         ExtractionResult result = fromPredicate(originalExpression);
+        assertEquals(result.getRemainingExpression(), equal(unprocessableExpression1(C_BIGINT), TRUE_LITERAL));
+        assertTrue(result.getTupleDomain().isAll());
+
+        originalExpression = new InPredicate(C_BOOLEAN.toSymbolReference(), new InListExpression(ImmutableList.of(unprocessableExpression1(C_BOOLEAN))));
+        result = fromPredicate(originalExpression);
         assertEquals(result.getRemainingExpression(), equal(C_BOOLEAN, unprocessableExpression1(C_BOOLEAN)));
         assertTrue(result.getTupleDomain().isAll());
 
@@ -859,6 +862,22 @@ public class TestDomainTranslator
         assertUnsupportedPredicate(isNotNull(in(C_BIGINT, Arrays.asList(1L, 2L, null))));
         assertUnsupportedPredicate(isNull(in(C_BIGINT, Arrays.asList(new Long[]{null}))));
         assertUnsupportedPredicate(isNotNull(in(C_BIGINT, Arrays.asList(new Long[]{null}))));
+    }
+
+    @Test
+    public void testInPredicateWithCasts()
+    {
+        assertPredicateTranslates(
+                new InPredicate(
+                        C_BIGINT.toSymbolReference(),
+                        new InListExpression(ImmutableList.of(cast(LiteralInterpreter.toExpression(1L, SMALLINT), BIGINT)))),
+                withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.singleValue(BIGINT, 1L))));
+
+        assertPredicateTranslates(
+                new InPredicate(
+                        cast(C_SMALLINT, BIGINT),
+                        new InListExpression(ImmutableList.of(LiteralInterpreter.toExpression(1L, BIGINT)))),
+                withColumnDomains(ImmutableMap.of(C_SMALLINT, Domain.singleValue(SMALLINT, 1L))));
     }
 
     @Test
