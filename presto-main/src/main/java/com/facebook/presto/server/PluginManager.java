@@ -34,7 +34,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
-import io.airlift.http.server.HttpServerInfo;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
 import io.airlift.resolver.ArtifactResolver;
@@ -92,7 +91,6 @@ public class PluginManager
     @Inject
     public PluginManager(
             NodeInfo nodeInfo,
-            HttpServerInfo httpServerInfo,
             PluginManagerConfig config,
             ConnectorManager connectorManager,
             Metadata metadata,
@@ -105,7 +103,6 @@ public class PluginManager
             TypeRegistry typeRegistry)
     {
         requireNonNull(nodeInfo, "nodeInfo is null");
-        requireNonNull(httpServerInfo, "httpServerInfo is null");
         requireNonNull(config, "config is null");
 
         installedPluginsDir = config.getInstalledPluginsDir();
