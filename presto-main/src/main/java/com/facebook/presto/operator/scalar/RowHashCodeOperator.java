@@ -63,7 +63,7 @@ public class RowHashCodeOperator
     public static long hash(Type rowType, Block block)
     {
         BlockBuilder blockBuilder = rowType.createBlockBuilder(null, 1);
-        blockBuilder.writeObject(block).closeEntry();
+        blockBuilder.appendStructure(block);
         return rowType.hash(blockBuilder.build(), 0);
     }
 }

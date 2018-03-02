@@ -212,7 +212,7 @@ public class RowBlockBuilder
     }
 
     @Override
-    public BlockBuilder writeObject(Object value)
+    public BlockBuilder appendStructure(Object value)
     {
         if (currentEntryOpened) {
             throw new IllegalStateException("Expected current entry to be closed but was opened");
@@ -233,6 +233,8 @@ public class RowBlockBuilder
                 fieldBlockBuilders[i].closeEntry();
             }
         }
+
+        closeEntry();
         return this;
     }
 

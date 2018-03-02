@@ -69,6 +69,6 @@ public class TestArrayBlockBuilder
         BlockBuilder blockBuilder = new ArrayBlockBuilder(BIGINT, null, EXPECTED_ENTRY_COUNT);
         BlockBuilder elementBlockWriter = blockBuilder.beginBlockEntry();
         elementBlockWriter.writeLong(45).closeEntry();
-        blockBuilder.writeObject(new FixedWidthBlockBuilder(8, 4).writeLong(123).closeEntry().build()).closeEntry();
+        blockBuilder.appendStructure(new FixedWidthBlockBuilder(8, 4).writeLong(123).closeEntry().build());
     }
 }

@@ -68,8 +68,7 @@ public class RealHistogramAggregation
                 REAL.writeLong(blockBuilder, floatToRawIntBits(entry.getValue().floatValue()));
             }
             Block block = blockBuilder.build();
-            out.writeObject(block);
-            out.closeEntry();
+            out.appendStructure(block);
         }
     }
 }

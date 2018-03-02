@@ -144,10 +144,10 @@ public class TestArrayBlock
                         for (long v : expectedValue[j]) {
                             BIGINT.writeLong(innerMostBlockBuilder, v);
                         }
-                        intermediateBlockBuilder.writeObject(innerMostBlockBuilder.build()).closeEntry();
+                        intermediateBlockBuilder.appendStructure(innerMostBlockBuilder.build());
                     }
                 }
-                blockBuilder.writeObject(intermediateBlockBuilder.build()).closeEntry();
+                blockBuilder.appendStructure(intermediateBlockBuilder.build());
             }
         }
         return blockBuilder;
@@ -170,7 +170,7 @@ public class TestArrayBlock
                 for (long v : expectedValue) {
                     BIGINT.writeLong(elementBlockBuilder, v);
                 }
-                blockBuilder.writeObject(elementBlockBuilder).closeEntry();
+                blockBuilder.appendStructure(elementBlockBuilder);
             }
         }
         return blockBuilder;
@@ -188,7 +188,7 @@ public class TestArrayBlock
                 for (Slice v : expectedValue) {
                     VARCHAR.writeSlice(elementBlockBuilder, v);
                 }
-                blockBuilder.writeObject(elementBlockBuilder.build()).closeEntry();
+                blockBuilder.appendStructure(elementBlockBuilder.build());
             }
         }
         return blockBuilder;
