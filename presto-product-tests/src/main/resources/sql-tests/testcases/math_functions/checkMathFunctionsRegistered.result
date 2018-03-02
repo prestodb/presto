@@ -46,7 +46,6 @@
  greatest | E | E | scalar | true | get the largest of the given values |
  infinity | double | | scalar | true | Infinity |
  ln | double | double | scalar | true | natural logarithm |
- log | double | double, double | scalar | true | logarithm to given base |
  log10 | double | double | scalar | true | logarithm to base 10 |
  log2 | double | double | scalar | true | logarithm to base 2 |
  max | E | E | aggregate | true | Returns the maximum value of the argument |

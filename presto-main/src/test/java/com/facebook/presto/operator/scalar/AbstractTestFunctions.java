@@ -73,7 +73,7 @@ public abstract class AbstractTestFunctions
     protected AbstractTestFunctions(Session session, FeaturesConfig config)
     {
         this.session = requireNonNull(session, "session is null");
-        this.config = requireNonNull(config, "config is null");
+        this.config = requireNonNull(config, "config is null").setLegacyLogFunction(true);
     }
 
     @BeforeClass
