@@ -13,16 +13,10 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.Node;
-import com.google.common.collect.ImmutableCollection;
-import com.google.common.collect.ImmutableList;
+import com.facebook.presto.sql.util.AstUtils;
 import com.google.common.collect.ImmutableSet;
 
-import javax.annotation.Nullable;
-
-import java.util.List;
 import java.util.Set;
 
 /**
@@ -34,23 +28,8 @@ public final class SubExpressionExtractor
 
     public static Set<Expression> extract(Expression expression)
     {
-        final ImmutableSet.Builder<Expression> builder = ImmutableSet.builder();
-        extract(builder, expression);
-        return builder.build();
-    }
-
-    private static void extract(final ImmutableCollection.Builder<Expression> builder, Expression expression)
-    {
-        new DefaultTraversalVisitor<Void, Void>()
-        {
-            @Override
-            public Void process(Node node, @Nullable Void context)
-            {
-                Expression expression = (Expression) node;
-                builder.add(expression);
-
-                return super.process(node, context);
-            }
-        }.process(expression, null);
+        return AstUtils.preOrder(expression)
+                .map(Expression.class::cast)
+                .collect(ImmutableSet.toImmutableSet());
     }
 }
