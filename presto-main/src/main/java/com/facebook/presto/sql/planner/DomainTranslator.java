@@ -685,7 +685,7 @@ public final class DomainTranslator
         @Override
         protected ExtractionResult visitInPredicate(InPredicate node, Boolean complement)
         {
-            if (!(node.getValue() instanceof SymbolReference) || !(node.getValueList() instanceof InListExpression)) {
+            if (!(node.getValueList() instanceof InListExpression)) {
                 return super.visitInPredicate(node, complement);
             }
 
