@@ -1208,7 +1208,6 @@ public class TestDomainTranslator
 
     @Test
     public void testConjunctExpression()
-            throws Exception
     {
         Expression originalExpression = and(
                 comparison(GREATER_THAN, C_DOUBLE.toSymbolReference(), doubleLiteral(0)),
