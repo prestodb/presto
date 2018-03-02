@@ -92,16 +92,7 @@ public class TestExchangeClient
         processor.setComplete(location);
 
         @SuppressWarnings("resource")
-        ExchangeClient exchangeClient = new ExchangeClient(
-                new DataSize(32, Unit.MEGABYTE),
-                maxResponseSize,
-                1,
-                new Duration(1, TimeUnit.MINUTES),
-                true,
-                new TestingHttpClient(processor, scheduler),
-                scheduler,
-                new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext()),
-                pageBufferClientCallbackExecutor);
+        ExchangeClient exchangeClient = new ExchangeClient(new DataSize(32, Unit.MEGABYTE), maxResponseSize, 1, new Duration(1, TimeUnit.MINUTES), new TestingHttpClient(processor, scheduler), scheduler, new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext()), pageBufferClientCallbackExecutor);
 
         exchangeClient.addLocation(location);
         exchangeClient.noMoreLocations();
@@ -136,7 +127,6 @@ public class TestExchangeClient
                 maxResponseSize,
                 1,
                 new Duration(1, TimeUnit.MINUTES),
-                true,
                 new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))),
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext()),
@@ -208,7 +198,6 @@ public class TestExchangeClient
                 maxResponseSize,
                 1,
                 new Duration(1, TimeUnit.MINUTES),
-                true,
                 new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))),
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext()),
@@ -290,7 +279,6 @@ public class TestExchangeClient
                 maxResponseSize,
                 1,
                 new Duration(1, TimeUnit.MINUTES),
-                true,
                 new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))),
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext()),

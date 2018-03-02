@@ -366,13 +366,6 @@ public class SqlTask
         return outputBuffer.get(bufferId, startingSequenceId, maxSize);
     }
 
-    public void acknowledgeTaskResults(OutputBufferId bufferId, long sequenceId)
-    {
-        requireNonNull(bufferId, "bufferId is null");
-
-        outputBuffer.acknowledge(bufferId, sequenceId);
-    }
-
     public TaskInfo abortTaskResults(OutputBufferId bufferId)
     {
         requireNonNull(bufferId, "bufferId is null");

@@ -72,7 +72,6 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
-import static io.airlift.http.client.HttpStatus.familyForStatusCode;
 import static io.airlift.http.client.Request.Builder.prepareDelete;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.http.client.ResponseHandlerUtils.propagate;
@@ -111,7 +110,6 @@ public final class HttpPageBufferClient
 
     private final HttpClient httpClient;
     private final DataSize maxResponseSize;
-    private final boolean acknowledgePages;
     private final URI location;
     private final ClientCallback clientCallback;
     private final ScheduledExecutorService scheduler;
@@ -148,20 +146,18 @@ public final class HttpPageBufferClient
             HttpClient httpClient,
             DataSize maxResponseSize,
             Duration maxErrorDuration,
-            boolean acknowledgePages,
             URI location,
             ClientCallback clientCallback,
             ScheduledExecutorService scheduler,
             Executor pageBufferClientCallbackExecutor)
     {
-        this(httpClient, maxResponseSize, maxErrorDuration, acknowledgePages, location, clientCallback, scheduler, Ticker.systemTicker(), pageBufferClientCallbackExecutor);
+        this(httpClient, maxResponseSize, maxErrorDuration, location, clientCallback, scheduler, Ticker.systemTicker(), pageBufferClientCallbackExecutor);
     }
 
     public HttpPageBufferClient(
             HttpClient httpClient,
             DataSize maxResponseSize,
             Duration maxErrorDuration,
-            boolean acknowledgePages,
             URI location,
             ClientCallback clientCallback,
             ScheduledExecutorService scheduler,
@@ -170,7 +166,6 @@ public final class HttpPageBufferClient
     {
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.maxResponseSize = requireNonNull(maxResponseSize, "maxResponseSize is null");
-        this.acknowledgePages = acknowledgePages;
         this.location = requireNonNull(location, "location is null");
         this.clientCallback = requireNonNull(clientCallback, "clientCallback is null");
         this.scheduler = requireNonNull(scheduler, "scheduler is null");
@@ -315,7 +310,6 @@ public final class HttpPageBufferClient
 
                 List<SerializedPage> pages;
                 try {
-                    boolean shouldAcknowledge = false;
                     synchronized (HttpPageBufferClient.this) {
                         if (taskInstanceId == null) {
                             taskInstanceId = result.getTaskInstanceId();
@@ -327,38 +321,12 @@ public final class HttpPageBufferClient
                         }
 
                         if (result.getToken() == token) {
-                            shouldAcknowledge = true;
                             pages = result.getPages();
                             token = result.getNextToken();
                         }
                         else {
                             pages = ImmutableList.of();
                         }
-                    }
-
-                    if (shouldAcknowledge && acknowledgePages) {
-                        // Acknowledge token without handling the response.
-                        // The next request will also make sure the token is acknowledged.
-                        // This is to fast release the pages on the buffer side.
-                        URI uri = HttpUriBuilder.uriBuilderFrom(location).appendPath(String.valueOf(result.getToken())).appendPath("acknowledge").build();
-                        httpClient.executeAsync(prepareGet().setUri(uri).build(), new ResponseHandler<Void, RuntimeException>()
-                        {
-                            @Override
-                            public Void handleException(Request request, Exception exception)
-                            {
-                                log.debug(exception, "Acknowledge request failed: %s", uri);
-                                return null;
-                            }
-
-                            @Override
-                            public Void handle(Request request, Response response)
-                            {
-                                if (familyForStatusCode(response.getStatusCode()) != HttpStatus.Family.SUCCESSFUL) {
-                                    log.debug("Unexpected acknowledge response code: %s", response.getStatusCode());
-                                }
-                                return null;
-                            }
-                        });
                     }
                 }
                 catch (PrestoException e) {

@@ -289,18 +289,6 @@ public class TaskResource
         asyncResponse.register((CompletionCallback) throwable -> resultsRequestTime.add(Duration.nanosSince(start)));
     }
 
-    @GET
-    @Path("{taskId}/results/{bufferId}/{token}/acknowledge")
-    public void acknowledgeResults(@PathParam("taskId") TaskId taskId,
-            @PathParam("bufferId") OutputBufferId bufferId,
-            @PathParam("token") final long token)
-    {
-        requireNonNull(taskId, "taskId is null");
-        requireNonNull(bufferId, "bufferId is null");
-
-        taskManager.acknowledgeTaskResults(taskId, bufferId, token);
-    }
-
     @DELETE
     @Path("{taskId}/results/{bufferId}")
     @Produces(MediaType.APPLICATION_JSON)

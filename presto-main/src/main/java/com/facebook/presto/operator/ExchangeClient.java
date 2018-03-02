@@ -60,7 +60,6 @@ public class ExchangeClient
     private final DataSize maxResponseSize;
     private final int concurrentRequestMultiplier;
     private final Duration maxErrorDuration;
-    private final boolean acknowledgePages;
     private final HttpClient httpClient;
     private final ScheduledExecutorService scheduler;
 
@@ -100,7 +99,6 @@ public class ExchangeClient
             DataSize maxResponseSize,
             int concurrentRequestMultiplier,
             Duration maxErrorDuration,
-            boolean acknowledgePages,
             HttpClient httpClient,
             ScheduledExecutorService scheduler,
             LocalMemoryContext systemMemoryContext,
@@ -110,7 +108,6 @@ public class ExchangeClient
         this.maxResponseSize = maxResponseSize;
         this.concurrentRequestMultiplier = concurrentRequestMultiplier;
         this.maxErrorDuration = maxErrorDuration;
-        this.acknowledgePages = acknowledgePages;
         this.httpClient = httpClient;
         this.scheduler = scheduler;
         this.systemMemoryContext = systemMemoryContext;
@@ -158,7 +155,6 @@ public class ExchangeClient
                 httpClient,
                 maxResponseSize,
                 maxErrorDuration,
-                acknowledgePages,
                 location,
                 new ExchangeClientCallback(),
                 scheduler,
