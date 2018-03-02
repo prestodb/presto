@@ -1310,6 +1310,7 @@ public class TestArrayOperators
         assertInvalidFunction("SEQUENCE(date '2016-04-12', date '2016-04-14', interval '-1' day)", INVALID_FUNCTION_ARGUMENT);
         assertInvalidFunction("SEQUENCE(date '2016-04-14', date '2016-04-12', interval '1' day)", INVALID_FUNCTION_ARGUMENT);
         assertInvalidFunction("SEQUENCE(date '2000-04-14', date '2030-04-12', interval '1' day)", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("SEQUENCE(date '2018-01-01', date '2018-01-04', interval '18' hour)", INVALID_FUNCTION_ARGUMENT);
     }
 
     @Test

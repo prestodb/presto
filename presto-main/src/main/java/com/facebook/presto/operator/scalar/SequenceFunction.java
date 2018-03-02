@@ -26,6 +26,8 @@ import com.facebook.presto.type.DateTimeOperators;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
+import java.util.concurrent.TimeUnit;
+
 import static com.facebook.presto.operator.scalar.DateTimeFunctions.diffTimestamp;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -67,6 +69,8 @@ public final class SequenceFunction
             @SqlType(StandardTypes.TIMESTAMP) long stop,
             @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long step)
     {
+        checkCondition(step % TimeUnit.DAYS.toMillis(1) == 0, INVALID_FUNCTION_ARGUMENT,
+                "sequence step for INTERVAL_DAY_TO_SECOND must be a day interval");
         return fixedWidthSequence(start, stop, step, TIMESTAMP);
     }
 
