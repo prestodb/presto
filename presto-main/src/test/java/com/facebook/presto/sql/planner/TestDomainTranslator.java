@@ -881,6 +881,32 @@ public class TestDomainTranslator
     }
 
     @Test
+    public void testFromInPredicateWithCastsAndNulls()
+    {
+        assertPredicateIsAlwaysFalse(new InPredicate(
+                C_BIGINT.toSymbolReference(),
+                new InListExpression(ImmutableList.of(cast(toExpression(null, SMALLINT), BIGINT)))));
+
+        Expression originalExpression = not(new InPredicate(
+                cast(C_SMALLINT, BIGINT),
+                new InListExpression(ImmutableList.of(toExpression(null, BIGINT)))));
+        ExtractionResult result = fromPredicate(originalExpression);
+        assertEquals(result.getRemainingExpression(), not(equal(cast(C_SMALLINT, BIGINT), toExpression(null, BIGINT))));
+        assertEquals(result.getTupleDomain(), TupleDomain.all());
+
+        originalExpression = new InPredicate(
+                C_BIGINT.toSymbolReference(),
+                new InListExpression(ImmutableList.of(cast(toExpression(null, SMALLINT), BIGINT), toExpression(1L, BIGINT))));
+        result = fromPredicate(originalExpression);
+        assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
+        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 1L)), false))));
+
+        assertPredicateIsAlwaysFalse(not(new InPredicate(
+                C_BIGINT.toSymbolReference(),
+                new InListExpression(ImmutableList.of(cast(toExpression(null, SMALLINT), BIGINT), toExpression(1L, SMALLINT))))));
+    }
+
+    @Test
     public void testFromBetweenPredicate()
     {
         assertPredicateTranslates(
