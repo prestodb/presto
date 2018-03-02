@@ -13,9 +13,11 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.execution.buffer.BufferSummary;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.http.client.HttpClient;
+import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.weakref.jmx.Managed;
@@ -38,46 +40,42 @@ public class ExchangeClientFactory
         implements ExchangeClientSupplier
 {
     private final DataSize maxBufferedBytes;
-    private final int concurrentRequestMultiplier;
     private final Duration maxErrorDuration;
     private final HttpClient httpClient;
     private final DataSize maxResponseSize;
-    private final boolean acknowledgePages;
     private final ScheduledExecutorService scheduler;
     private final ThreadPoolExecutorMBean executorMBean;
     private final ExecutorService pageBufferClientCallbackExecutor;
+    private final JsonCodec<BufferSummary> bufferSummaryCodec;
 
     @Inject
     public ExchangeClientFactory(
             ExchangeClientConfig config,
             @ForExchange HttpClient httpClient,
-            @ForExchange ScheduledExecutorService scheduler)
+            @ForExchange ScheduledExecutorService scheduler,
+            JsonCodec<BufferSummary> bufferSummaryCodec)
     {
         this(
                 config.getMaxBufferSize(),
                 config.getMaxResponseSize(),
-                config.getConcurrentRequestMultiplier(),
                 config.getMaxErrorDuration(),
-                config.isAcknowledgePages(),
                 config.getPageBufferClientMaxCallbackThreads(),
                 httpClient,
-                scheduler);
+                scheduler,
+                bufferSummaryCodec);
     }
 
     public ExchangeClientFactory(
             DataSize maxBufferedBytes,
             DataSize maxResponseSize,
-            int concurrentRequestMultiplier,
             Duration maxErrorDuration,
-            boolean acknowledgePages,
             int pageBufferClientMaxCallbackThreads,
             HttpClient httpClient,
-            ScheduledExecutorService scheduler)
+            ScheduledExecutorService scheduler,
+            JsonCodec<BufferSummary> bufferSummaryCodec)
     {
         this.maxBufferedBytes = requireNonNull(maxBufferedBytes, "maxBufferedBytes is null");
-        this.concurrentRequestMultiplier = concurrentRequestMultiplier;
         this.maxErrorDuration = requireNonNull(maxErrorDuration, "maxErrorDuration is null");
-        this.acknowledgePages = acknowledgePages;
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
 
         // Use only 0.75 of the maxResponseSize to leave room for additional bytes from the encoding
@@ -90,10 +88,10 @@ public class ExchangeClientFactory
 
         this.pageBufferClientCallbackExecutor = newFixedThreadPool(pageBufferClientMaxCallbackThreads, daemonThreadsNamed("page-buffer-client-callback-%s"));
         this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) pageBufferClientCallbackExecutor);
+        this.bufferSummaryCodec = requireNonNull(bufferSummaryCodec, "bufferSummaryCodec is null");
 
         checkArgument(maxBufferedBytes.toBytes() > 0, "maxBufferSize must be at least 1 byte: %s", maxBufferedBytes);
         checkArgument(maxResponseSize.toBytes() > 0, "maxResponseSize must be at least 1 byte: %s", maxResponseSize);
-        checkArgument(concurrentRequestMultiplier > 0, "concurrentRequestMultiplier must be at least 1: %s", concurrentRequestMultiplier);
     }
 
     @PreDestroy
@@ -115,12 +113,11 @@ public class ExchangeClientFactory
         return new ExchangeClient(
                 maxBufferedBytes,
                 maxResponseSize,
-                concurrentRequestMultiplier,
                 maxErrorDuration,
-                acknowledgePages,
                 httpClient,
                 scheduler,
                 systemMemoryContext,
-                pageBufferClientCallbackExecutor);
+                pageBufferClientCallbackExecutor,
+                bufferSummaryCodec);
     }
 }

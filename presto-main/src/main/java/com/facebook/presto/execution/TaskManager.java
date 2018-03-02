@@ -19,10 +19,10 @@ import com.facebook.presto.Session;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.buffer.BufferResult;
+import com.facebook.presto.execution.buffer.BufferSummary;
 import com.facebook.presto.memory.MemoryPoolAssignmentsRequest;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.units.DataSize;
 
 import java.util.List;
 import java.util.Optional;
@@ -98,19 +98,20 @@ public interface TaskManager
     TaskInfo abortTask(TaskId taskId);
 
     /**
-     * Gets results from a task either immediately or in the future.  If the
+     * Gets page sizes from a task either immediately or in the future.  If the
      * task or buffer has not been created yet, an uninitialized task is
      * created and a future is returned.
      * <p>
      * NOTE: this design assumes that only tasks and buffers that will
      * eventually exist are queried.
      */
-    ListenableFuture<BufferResult> getTaskResults(TaskId taskId, OutputBufferId bufferId, long startingSequenceId, DataSize maxSize);
+    ListenableFuture<BufferSummary> getTaskSummary(TaskId taskId, OutputBufferId bufferId, long startingSequenceId, long maxBytes);
 
     /**
-     * Acknowledges previously received results.
+     * Gets results from a task either immediately.
+     * Always assume results are available. Error will be thrown if result is empty when fetching.
      */
-    void acknowledgeTaskResults(TaskId taskId, OutputBufferId bufferId, long sequenceId);
+    BufferResult getTaskData(TaskId taskId, OutputBufferId bufferId, long startingSequenceId, long maxBytes);
 
     /**
      * Aborts a result buffer for a task.  If the task or buffer has not been

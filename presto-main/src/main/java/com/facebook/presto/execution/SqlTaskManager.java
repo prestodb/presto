@@ -20,6 +20,7 @@ import com.facebook.presto.TaskSource;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.buffer.BufferResult;
+import com.facebook.presto.execution.buffer.BufferSummary;
 import com.facebook.presto.execution.executor.TaskExecutor;
 import com.facebook.presto.memory.LocalMemoryManager;
 import com.facebook.presto.memory.MemoryPoolAssignment;
@@ -322,24 +323,25 @@ public class SqlTaskManager
     }
 
     @Override
-    public ListenableFuture<BufferResult> getTaskResults(TaskId taskId, OutputBufferId bufferId, long startingSequenceId, DataSize maxSize)
+    public ListenableFuture<BufferSummary> getTaskSummary(TaskId taskId, OutputBufferId bufferId, long startingSequenceId, long maxBytes)
     {
         requireNonNull(taskId, "taskId is null");
         requireNonNull(bufferId, "bufferId is null");
         checkArgument(startingSequenceId >= 0, "startingSequenceId is negative");
-        requireNonNull(maxSize, "maxSize is null");
+        checkArgument(maxBytes > 0, "maxBytes should be at least 1");
 
-        return tasks.getUnchecked(taskId).getTaskResults(bufferId, startingSequenceId, maxSize);
+        return tasks.getUnchecked(taskId).getTaskSummary(bufferId, startingSequenceId, maxBytes);
     }
 
     @Override
-    public void acknowledgeTaskResults(TaskId taskId, OutputBufferId bufferId, long sequenceId)
+    public BufferResult getTaskData(TaskId taskId, OutputBufferId bufferId, long startingSequenceId, long maxBytes)
     {
         requireNonNull(taskId, "taskId is null");
         requireNonNull(bufferId, "bufferId is null");
-        checkArgument(sequenceId >= 0, "sequenceId is negative");
+        checkArgument(startingSequenceId >= 0, "startingSequenceId is negative");
+        checkArgument(maxBytes > 0, "maxBytes should be at least 1");
 
-        tasks.getUnchecked(taskId).acknowledgeTaskResults(bufferId, sequenceId);
+        return tasks.getUnchecked(taskId).getTaskData(bufferId, startingSequenceId, maxBytes);
     }
 
     @Override

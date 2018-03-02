@@ -241,22 +241,23 @@ public class ArbitraryOutputBuffer
     }
 
     @Override
-    public ListenableFuture<BufferResult> get(OutputBufferId bufferId, long startingSequenceId, DataSize maxSize)
+    public ListenableFuture<BufferSummary> getSummary(OutputBufferId bufferId, long startingSequenceId, long maxBytes)
     {
-        checkState(!Thread.holdsLock(this), "Can not get pages while holding a lock on this");
+        checkState(!Thread.holdsLock(this), "Can not peek pages while holding a lock on this");
         requireNonNull(bufferId, "bufferId is null");
-        checkArgument(maxSize.toBytes() > 0, "maxSize must be at least 1 byte");
+        checkArgument(maxBytes > 0, "maxSize must be at least 1 byte");
 
-        return getBuffer(bufferId).getPages(startingSequenceId, maxSize, Optional.of(masterBuffer));
+        return getBuffer(bufferId).getSummary(startingSequenceId, maxBytes, Optional.of(masterBuffer));
     }
 
     @Override
-    public void acknowledge(OutputBufferId bufferId, long sequenceId)
+    public BufferResult getData(OutputBufferId bufferId, long startingSequenceId, long maxBytes)
     {
-        checkState(!Thread.holdsLock(this), "Can not acknowledge pages while holding a lock on this");
+        checkState(!Thread.holdsLock(this), "Can not get pages while holding a lock on this");
         requireNonNull(bufferId, "bufferId is null");
+        checkArgument(maxBytes > 0, "maxBytes must be at least 1 byte");
 
-        getBuffer(bufferId).acknowledgePages(sequenceId);
+        return getBuffer(bufferId).getData(startingSequenceId, maxBytes);
     }
 
     @Override
@@ -403,9 +404,8 @@ public class ArbitraryOutputBuffer
         }
 
         @Override
-        public synchronized List<SerializedPageReference> getPages(DataSize maxSize)
+        public synchronized List<SerializedPageReference> getPages(long maxBytes)
         {
-            long maxBytes = maxSize.toBytes();
             List<SerializedPageReference> pages = new ArrayList<>();
             long bytesRemoved = 0;
 

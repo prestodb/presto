@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.client.PrestoHeaders;
 import com.facebook.presto.execution.buffer.BufferResult;
+import com.facebook.presto.execution.buffer.BufferSummary;
 import com.facebook.presto.execution.buffer.PagesSerde;
 import com.facebook.presto.execution.buffer.PagesSerdeUtil;
 import com.facebook.presto.execution.buffer.SerializedPage;
@@ -23,13 +24,17 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.ListMultimap;
 import io.airlift.http.client.HttpStatus;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.Response;
 import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.http.client.testing.TestingResponse;
+import io.airlift.json.JsonCodec;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.units.DataSize;
+
+import javax.ws.rs.core.MediaType;
 
 import java.net.URI;
 import java.util.ArrayList;
@@ -45,10 +50,16 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_BUFFER_COMPLETE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TASK_INSTANCE_ID;
+import static com.facebook.presto.execution.buffer.BufferSummary.emptySummary;
 import static com.facebook.presto.execution.buffer.TestingPagesSerdeFactory.testingPagesSerde;
+import static com.facebook.presto.server.TaskResource.PATH_BUFFER_SUMMARY;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
+import static io.airlift.json.JsonCodec.jsonCodec;
+import static io.airlift.testing.Assertions.assertLessThanOrEqual;
+import static io.airlift.units.DataSize.Unit.BYTE;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 public class MockExchangeRequestProcessor
@@ -56,19 +67,21 @@ public class MockExchangeRequestProcessor
 {
     private static final String TASK_INSTANCE_ID = "task-instance-id";
     private static final PagesSerde PAGES_SERDE = testingPagesSerde();
+    private static final JsonCodec<BufferSummary> BUFFER_SUMMARY_CODEC = jsonCodec(BufferSummary.class);
 
     private final LoadingCache<URI, MockBuffer> buffers = CacheBuilder.newBuilder().build(CacheLoader.from(MockBuffer::new));
 
-    private final DataSize expectedMaxSize;
+    private final DataSize initialExpectedMaxSize;
 
     public MockExchangeRequestProcessor(DataSize expectedMaxSize)
     {
-        this.expectedMaxSize = expectedMaxSize;
+        this.initialExpectedMaxSize = expectedMaxSize;
     }
 
     public void addPage(URI location, Page page)
     {
         buffers.getUnchecked(location).addPage(page);
+        buffers.getUnchecked(location).setMaxSize(initialExpectedMaxSize);
     }
 
     public void setComplete(URI location)
@@ -86,12 +99,34 @@ public class MockExchangeRequestProcessor
         // verify we got a data size and it parses correctly
         assertTrue(!request.getHeaders().get(PrestoHeaders.PRESTO_MAX_SIZE).isEmpty());
         DataSize maxSize = DataSize.valueOf(request.getHeader(PrestoHeaders.PRESTO_MAX_SIZE));
-        assertEquals(maxSize, expectedMaxSize);
 
         RequestLocation requestLocation = new RequestLocation(request.getUri());
-        URI location = requestLocation.getLocation();
+        if (requestLocation.isSummaryOnly()) {
+            assertEquals(maxSize, initialExpectedMaxSize);
+            return summaryResponse(requestLocation, maxSize);
+        }
+        // The size of the pages to fetch should be less than the size of all pending pages
+        assertLessThanOrEqual(maxSize, buffers.getUnchecked(requestLocation.getLocation()).getMaxSize());
+        return dataResponse(requestLocation, maxSize);
+    }
 
-        BufferResult result = buffers.getUnchecked(location).getPages(requestLocation.getSequenceId(), maxSize);
+    private TestingResponse summaryResponse(RequestLocation requestLocation, DataSize maxSize)
+    {
+        BufferSummary summary = buffers.getUnchecked(requestLocation.getLocation()).getSummary(requestLocation.getSequenceId(), maxSize);
+
+        ListMultimap header = ImmutableListMultimap.of(CONTENT_TYPE, MediaType.APPLICATION_JSON);
+        if (summary.getPageSizesInBytes().isEmpty() && !summary.isBufferComplete()) {
+            buffers.getUnchecked(requestLocation.getLocation()).setMaxSize(new DataSize(0, BYTE));
+            return new TestingResponse(HttpStatus.OK, header, BUFFER_SUMMARY_CODEC.toJsonBytes(emptySummary(TASK_INSTANCE_ID, requestLocation.getSequenceId(), false)));
+        }
+        long bytes = summary.getPageSizesInBytes().stream().mapToLong(Long::longValue).sum();
+        buffers.getUnchecked(requestLocation.getLocation()).setMaxSize(new DataSize(bytes, BYTE));
+        return new TestingResponse(HttpStatus.OK, header, BUFFER_SUMMARY_CODEC.toJsonBytes(summary));
+    }
+
+    private TestingResponse dataResponse(RequestLocation requestLocation, DataSize maxSize)
+    {
+        BufferResult result = buffers.getUnchecked(requestLocation.getLocation()).getPages(requestLocation.getSequenceId(), maxSize);
 
         byte[] bytes = new byte[0];
         HttpStatus status;
@@ -120,13 +155,21 @@ public class MockExchangeRequestProcessor
     {
         private final URI location;
         private final long sequenceId;
+        private final boolean summaryOnly;
 
         public RequestLocation(URI uri)
         {
             String string = uri.toString();
             int index = string.lastIndexOf('/');
+            String lastPart = string.substring(index + 1);
+            sequenceId = Long.parseLong(lastPart);
+
+            string = string.substring(0, index);
+            index = string.lastIndexOf('/');
+            lastPart = string.substring(index + 1);
+            summaryOnly = lastPart.equals(PATH_BUFFER_SUMMARY);
+
             location = URI.create(string.substring(0, index));
-            sequenceId = Long.parseLong(string.substring(index + 1));
         }
 
         public URI getLocation()
@@ -138,6 +181,11 @@ public class MockExchangeRequestProcessor
         {
             return sequenceId;
         }
+
+        public boolean isSummaryOnly()
+        {
+            return summaryOnly;
+        }
     }
 
     private static class MockBuffer
@@ -146,6 +194,8 @@ public class MockExchangeRequestProcessor
         private final AtomicBoolean completed = new AtomicBoolean();
         private final AtomicLong token = new AtomicLong();
         private final BlockingQueue<SerializedPage> serializedPages = new LinkedBlockingQueue<>();
+
+        private DataSize maxSize;
 
         private MockBuffer(URI location)
         {
@@ -161,6 +211,17 @@ public class MockExchangeRequestProcessor
         {
             checkState(completed.get() != Boolean.TRUE, "Location %s is complete", location);
             serializedPages.add(PAGES_SERDE.serialize(page));
+        }
+
+        public synchronized void setMaxSize(DataSize maxSize)
+        {
+            this.maxSize = maxSize;
+        }
+
+        public synchronized DataSize getMaxSize()
+        {
+            assertNotNull(maxSize);
+            return maxSize;
         }
 
         public BufferResult getPages(long sequenceId, DataSize maxSize)
@@ -189,14 +250,14 @@ public class MockExchangeRequestProcessor
             // add serializedPages up to the size limit
             List<SerializedPage> responsePages = new ArrayList<>();
             responsePages.add(serializedPage);
-            long responseSize = serializedPage.getSizeInBytes();
-            while (responseSize < maxSize.toBytes()) {
+            long responseBytes = serializedPage.getRetainedSizeInBytes();
+            while (responseBytes < maxSize.toBytes()) {
                 serializedPage = serializedPages.poll();
                 if (serializedPage == null) {
                     break;
                 }
                 responsePages.add(serializedPage);
-                responseSize += serializedPage.getSizeInBytes();
+                responseBytes += serializedPage.getRetainedSizeInBytes();
             }
 
             // update sequence id
@@ -206,6 +267,37 @@ public class MockExchangeRequestProcessor
             token.set(nextToken);
 
             return bufferResult;
+        }
+
+        public BufferSummary getSummary(long sequenceId, DataSize maxSize)
+        {
+            // if location is complete return COMPLETE
+            if (completed.get() && serializedPages.isEmpty()) {
+                return emptySummary(TASK_INSTANCE_ID, token.get(), true);
+            }
+
+            assertEquals(sequenceId, token.get(), "token");
+
+            // wait for a single page to arrive
+            SerializedPage serializedPage = serializedPages.peek();
+
+            // if no page, return an empty size
+            if (serializedPage == null) {
+                return emptySummary(TASK_INSTANCE_ID, token.get(), false);
+            }
+
+            // add page size up to the limit
+            List<Long> responseSizesInBytes = new ArrayList<>();
+            long responseBytes = 0;
+            for (SerializedPage page : serializedPages) {
+                if (responseBytes > maxSize.toBytes()) {
+                    break;
+                }
+                responseSizesInBytes.add((long) page.getRetainedSizeInBytes());
+                responseBytes += page.getRetainedSizeInBytes();
+            }
+
+            return new BufferSummary(TASK_INSTANCE_ID, token.get(), false, responseSizesInBytes);
         }
     }
 }

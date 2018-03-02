@@ -21,6 +21,7 @@ import com.facebook.presto.event.query.QueryMonitorConfig;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.execution.buffer.BufferState;
+import com.facebook.presto.execution.buffer.BufferSummary;
 import com.facebook.presto.execution.executor.TaskExecutor;
 import com.facebook.presto.memory.LocalMemoryManager;
 import com.facebook.presto.memory.NodeMemoryConfig;
@@ -37,7 +38,6 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.node.NodeInfo;
 import io.airlift.units.DataSize;
-import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
@@ -53,7 +53,9 @@ import static com.facebook.presto.execution.TaskTestUtils.PLAN_FRAGMENT;
 import static com.facebook.presto.execution.TaskTestUtils.SPLIT;
 import static com.facebook.presto.execution.TaskTestUtils.TABLE_SCAN_NODE_ID;
 import static com.facebook.presto.execution.TaskTestUtils.createTestingPlanner;
+import static com.facebook.presto.execution.buffer.BufferResult.emptyResults;
 import static io.airlift.json.JsonCodec.jsonCodec;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
@@ -133,15 +135,25 @@ public class TestSqlTaskManager
             taskInfo = sqlTaskManager.getTaskInfo(taskId);
             assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
 
-            BufferResult results = sqlTaskManager.getTaskResults(taskId, OUT, 0, new DataSize(1, Unit.MEGABYTE)).get();
+            BufferSummary summary = sqlTaskManager.getTaskSummary(taskId, OUT, 0, (new DataSize(1, MEGABYTE)).toBytes()).get();
+            assertEquals(summary.isBufferComplete(), false);
+            BufferResult results = sqlTaskManager.getTaskData(taskId, OUT, 0, (new DataSize(1, MEGABYTE)).toBytes());
             assertEquals(results.isBufferComplete(), false);
             assertEquals(results.getSerializedPages().size(), 1);
             assertEquals(results.getSerializedPages().get(0).getPositionCount(), 1);
 
-            for (boolean moreResults = true; moreResults; moreResults = !results.isBufferComplete()) {
-                results = sqlTaskManager.getTaskResults(taskId, OUT, results.getToken() + results.getSerializedPages().size(), new DataSize(1, Unit.MEGABYTE)).get();
+            for (boolean moreResults = true; moreResults; moreResults = !summary.isBufferComplete()) {
+                summary = sqlTaskManager.getTaskSummary(taskId, OUT, results.getToken() + results.getSerializedPages().size(), (new DataSize(1, MEGABYTE)).toBytes()).get();
+                long bytes = summary.getPageSizesInBytes().stream().mapToLong(Long::longValue).sum();
+                if (bytes == 0) {
+                    results = emptyResults(summary.getTaskInstanceId(), summary.getToken(), false);
+                }
+                else {
+                    results = sqlTaskManager.getTaskData(taskId, OUT, results.getToken() + results.size(), bytes);
+                }
             }
-            assertEquals(results.isBufferComplete(), true);
+            assertEquals(summary.isBufferComplete(), true);
+            assertEquals(summary.size(), 0);
             assertEquals(results.getSerializedPages().size(), 0);
 
             // complete the task by calling abort on it

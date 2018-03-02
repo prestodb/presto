@@ -19,6 +19,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.buffer.BufferResult;
+import com.facebook.presto.execution.buffer.BufferSummary;
 import com.facebook.presto.execution.buffer.LazyOutputBuffer;
 import com.facebook.presto.execution.buffer.OutputBuffer;
 import com.facebook.presto.memory.QueryContext;
@@ -358,19 +359,20 @@ public class SqlTask
         return getTaskInfo();
     }
 
-    public ListenableFuture<BufferResult> getTaskResults(OutputBufferId bufferId, long startingSequenceId, DataSize maxSize)
+    public ListenableFuture<BufferSummary> getTaskSummary(OutputBufferId bufferId, long startingSequenceId, long maxBytes)
     {
         requireNonNull(bufferId, "bufferId is null");
-        checkArgument(maxSize.toBytes() > 0, "maxSize must be at least 1 byte");
+        checkArgument(maxBytes > 0, "maxSize must be at least 1 byte");
 
-        return outputBuffer.get(bufferId, startingSequenceId, maxSize);
+        return outputBuffer.getSummary(bufferId, startingSequenceId, maxBytes);
     }
 
-    public void acknowledgeTaskResults(OutputBufferId bufferId, long sequenceId)
+    public BufferResult getTaskData(OutputBufferId bufferId, long startingSequenceId, long maxBytes)
     {
         requireNonNull(bufferId, "bufferId is null");
+        checkArgument(maxBytes > 0, "maxSize must be at least 1 byte");
 
-        outputBuffer.acknowledge(bufferId, sequenceId);
+        return outputBuffer.getData(bufferId, startingSequenceId, maxBytes);
     }
 
     public TaskInfo abortTaskResults(OutputBufferId bufferId)

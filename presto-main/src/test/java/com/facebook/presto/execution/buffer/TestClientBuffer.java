@@ -19,7 +19,6 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.BigintType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
@@ -34,13 +33,16 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.execution.buffer.BufferResult.emptyResults;
+import static com.facebook.presto.execution.buffer.BufferSummary.emptySummary;
 import static com.facebook.presto.execution.buffer.BufferTestUtils.NO_WAIT;
 import static com.facebook.presto.execution.buffer.BufferTestUtils.PAGES_SERDE;
 import static com.facebook.presto.execution.buffer.BufferTestUtils.assertBufferResultEquals;
+import static com.facebook.presto.execution.buffer.BufferTestUtils.assertBufferSummaryEquals;
 import static com.facebook.presto.execution.buffer.BufferTestUtils.createBufferResult;
+import static com.facebook.presto.execution.buffer.BufferTestUtils.createBufferSummary;
 import static com.facebook.presto.execution.buffer.BufferTestUtils.createPage;
 import static com.facebook.presto.execution.buffer.BufferTestUtils.getFuture;
-import static com.facebook.presto.execution.buffer.BufferTestUtils.sizeOfPages;
+import static com.facebook.presto.execution.buffer.BufferTestUtils.sizeOfPagesInBytes;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -55,6 +57,7 @@ public class TestClientBuffer
     private static final ImmutableList<BigintType> TYPES = ImmutableList.of(BIGINT);
     private static final OutputBufferId BUFFER_ID = new OutputBufferId(33);
     private static final String INVALID_SEQUENCE_ID = "Invalid sequence id";
+    private static final String MORE_FETCH_THAN_PEEK = "Read more pages than peeked";
 
     @Test
     public void testSimplePushBuffer()
@@ -67,13 +70,15 @@ public class TestClientBuffer
         }
         assertBufferInfo(buffer, 3, 0);
 
+        // peek the pages elements from the buffer
+        assertBufferSummaryEquals(getBufferSummary(buffer, 0, sizeOfPagesInBytes(10), NO_WAIT), bufferSummary(0, createPage(0), createPage(1), createPage(2)));
         // get the pages elements from the buffer
-        assertBufferResultEquals(TYPES, getBufferResult(buffer, 0, sizeOfPages(10), NO_WAIT), bufferResult(0, createPage(0), createPage(1), createPage(2)));
+        assertBufferResultEquals(TYPES, getBufferResult(buffer, 0, sizeOfPagesInBytes(10)), bufferResult(0, createPage(0), createPage(1), createPage(2)));
         // pages not acknowledged yet so state is the same
         assertBufferInfo(buffer, 3, 0);
 
         // acknowledge first three pages in the buffer
-        buffer.getPages(3, sizeOfPages(10)).cancel(true);
+        buffer.getSummary(3, sizeOfPagesInBytes(10)).cancel(true);
         // pages now acknowledged
         assertBufferInfo(buffer, 0, 3);
 
@@ -83,8 +88,10 @@ public class TestClientBuffer
         }
         assertBufferInfo(buffer, 3, 3);
 
+        // peek the pages elements from the buffer
+        assertBufferSummaryEquals(getBufferSummary(buffer, 3, sizeOfPagesInBytes(1), NO_WAIT), bufferSummary(3, createPage(3)));
         // remove a page
-        assertBufferResultEquals(TYPES, getBufferResult(buffer, 3, sizeOfPages(1), NO_WAIT), bufferResult(3, createPage(3)));
+        assertBufferResultEquals(TYPES, getBufferResult(buffer, 3, sizeOfPagesInBytes(1)), bufferResult(3, createPage(3)));
         // page not acknowledged yet so sent count is the same
         assertBufferInfo(buffer, 3, 3);
 
@@ -93,16 +100,20 @@ public class TestClientBuffer
         // state should not change
         assertBufferInfo(buffer, 3, 3);
 
+        // peek the pages elements from the buffer
+        assertBufferSummaryEquals(getBufferSummary(buffer, 4, sizeOfPagesInBytes(1), NO_WAIT), bufferSummary(4, createPage(4)));
         // remove a page
-        assertBufferResultEquals(TYPES, getBufferResult(buffer, 4, sizeOfPages(1), NO_WAIT), bufferResult(4, createPage(4)));
+        assertBufferResultEquals(TYPES, getBufferResult(buffer, 4, sizeOfPagesInBytes(1)), bufferResult(4, createPage(4)));
         assertBufferInfo(buffer, 2, 4);
 
+        // peek the pages elements from the buffer
+        assertBufferSummaryEquals(getBufferSummary(buffer, 5, sizeOfPagesInBytes(30), NO_WAIT), bufferSummary(5, createPage(5)));
         // remove last pages from, should not be finished
-        assertBufferResultEquals(TYPES, getBufferResult(buffer, 5, sizeOfPages(30), NO_WAIT), bufferResult(5, createPage(5)));
+        assertBufferResultEquals(TYPES, getBufferResult(buffer, 5, sizeOfPagesInBytes(30)), bufferResult(5, createPage(5)));
         assertBufferInfo(buffer, 1, 5);
 
         // acknowledge all pages from the buffer, should return a finished buffer result
-        assertBufferResultEquals(TYPES, getBufferResult(buffer, 6, sizeOfPages(10), NO_WAIT), emptyResults(TASK_INSTANCE_ID, 6, true));
+        assertBufferSummaryEquals(getBufferSummary(buffer, 6, sizeOfPagesInBytes(10), NO_WAIT), emptySummary(TASK_INSTANCE_ID, 6, true));
         assertBufferInfo(buffer, 0, 6);
 
         // buffer is not destroyed until explicitly destroyed
@@ -123,13 +134,17 @@ public class TestClientBuffer
         assertEquals(supplier.getBufferedPages(), 3);
 
         // get the pages elements from the buffer
-        assertBufferResultEquals(TYPES, getBufferResult(buffer, supplier, 0, sizeOfPages(10), NO_WAIT), bufferResult(0, createPage(0), createPage(1), createPage(2)));
-        // 3 pages are moved to the client buffer, but not acknowledged yet
+        assertBufferSummaryEquals(getBufferSummary(buffer, supplier, 0, sizeOfPagesInBytes(10), NO_WAIT), bufferSummary(0, createPage(0), createPage(1), createPage(2)));
+        // 3 pages are removed from the supplier
         assertEquals(supplier.getBufferedPages(), 0);
+
+        // get the pages elements from the buffer
+        assertBufferResultEquals(TYPES, getBufferResult(buffer, 0, sizeOfPagesInBytes(10)), bufferResult(0, createPage(0), createPage(1), createPage(2)));
+        // 3 pages are moved to the client buffer, but not acknowledged yet
         assertBufferInfo(buffer, 3, 0);
 
         // acknowledge first three pages in the buffer
-        ListenableFuture<BufferResult> pendingRead = buffer.getPages(3, sizeOfPages(1));
+        ListenableFuture<BufferSummary> pendingRead = buffer.getSummary(3, sizeOfPagesInBytes(1));
         // pages now acknowledged
         assertEquals(supplier.getBufferedPages(), 0);
         assertBufferInfo(buffer, 0, 3);
@@ -143,7 +158,8 @@ public class TestClientBuffer
 
         // notify the buffer that there is more data, and verify previous read completed
         buffer.loadPagesIfNecessary(supplier);
-        assertBufferResultEquals(TYPES, getFuture(pendingRead, NO_WAIT), bufferResult(3, createPage(3)));
+        assertBufferSummaryEquals(getFuture(pendingRead, NO_WAIT), bufferSummary(3, createPage(3)));
+        assertBufferResultEquals(TYPES, getBufferResult(buffer, 3, sizeOfPagesInBytes(1)), bufferResult(3, createPage(3)));
         // 1 page wad moved to the client buffer, but not acknowledged yet
         assertEquals(supplier.getBufferedPages(), 2);
         assertBufferInfo(buffer, 1, 3);
@@ -155,17 +171,19 @@ public class TestClientBuffer
         assertBufferInfo(buffer, 1, 3);
 
         // remove a page
-        assertBufferResultEquals(TYPES, getBufferResult(buffer, supplier, 4, sizeOfPages(1), NO_WAIT), bufferResult(4, createPage(4)));
+        assertBufferSummaryEquals(getBufferSummary(buffer, supplier, 4, sizeOfPagesInBytes(1), NO_WAIT), bufferSummary(4, createPage(4)));
+        assertBufferResultEquals(TYPES, getBufferResult(buffer, 4, sizeOfPagesInBytes(1)), bufferResult(4, createPage(4)));
         assertBufferInfo(buffer, 1, 4);
         assertEquals(supplier.getBufferedPages(), 1);
 
         // remove last pages from, should not be finished
-        assertBufferResultEquals(TYPES, getBufferResult(buffer, supplier, 5, sizeOfPages(30), NO_WAIT), bufferResult(5, createPage(5)));
+        assertBufferSummaryEquals(getBufferSummary(buffer, supplier, 5, sizeOfPagesInBytes(30), NO_WAIT), bufferSummary(5, createPage(5)));
+        assertBufferResultEquals(TYPES, getBufferResult(buffer, 5, sizeOfPagesInBytes(30)), bufferResult(5, createPage(5)));
         assertBufferInfo(buffer, 1, 5);
         assertEquals(supplier.getBufferedPages(), 0);
 
         // acknowledge all pages from the buffer, should return a finished buffer result
-        assertBufferResultEquals(TYPES, getBufferResult(buffer, supplier, 6, sizeOfPages(10), NO_WAIT), emptyResults(TASK_INSTANCE_ID, 6, true));
+        assertBufferSummaryEquals(getBufferSummary(buffer, supplier, 6, sizeOfPagesInBytes(10), NO_WAIT), emptySummary(TASK_INSTANCE_ID, 6, true));
         assertBufferInfo(buffer, 0, 6);
         assertEquals(supplier.getBufferedPages(), 0);
 
@@ -186,20 +204,23 @@ public class TestClientBuffer
         assertBufferInfo(buffer, 3, 0);
 
         // get the three pages
-        assertBufferResultEquals(TYPES, getBufferResult(buffer, 0, sizeOfPages(10), NO_WAIT), bufferResult(0, createPage(0), createPage(1), createPage(2)));
+        assertBufferSummaryEquals(getBufferSummary(buffer, 0, sizeOfPagesInBytes(10), NO_WAIT), bufferSummary(0, createPage(0), createPage(1), createPage(2)));
+        assertBufferResultEquals(TYPES, getBufferResult(buffer, 0, sizeOfPagesInBytes(10)), bufferResult(0, createPage(0), createPage(1), createPage(2)));
         // pages not acknowledged yet so state is the same
         assertBufferInfo(buffer, 3, 0);
 
         // get the three pages again
-        assertBufferResultEquals(TYPES, getBufferResult(buffer, 0, sizeOfPages(10), NO_WAIT), bufferResult(0, createPage(0), createPage(1), createPage(2)));
+        assertBufferSummaryEquals(getBufferSummary(buffer, 0, sizeOfPagesInBytes(10), NO_WAIT), bufferSummary(0, createPage(0), createPage(1), createPage(2)));
+        assertBufferResultEquals(TYPES, getBufferResult(buffer, 0, sizeOfPagesInBytes(10)), bufferResult(0, createPage(0), createPage(1), createPage(2)));
         // pages not acknowledged yet so state is the same
         assertBufferInfo(buffer, 3, 0);
 
         // acknowledge the pages
-        buffer.getPages(3, sizeOfPages(10)).cancel(true);
+        buffer.getSummary(3, sizeOfPagesInBytes(10)).cancel(true);
 
-        // attempt to get the three elements again, which will return an empty resilt
-        assertBufferResultEquals(TYPES, getBufferResult(buffer, 0, sizeOfPages(10), NO_WAIT), emptyResults(TASK_INSTANCE_ID, 0, false));
+        // attempt to get the three elements again, which will return an empty result
+        assertBufferSummaryEquals(getBufferSummary(buffer, 0, sizeOfPagesInBytes(10), NO_WAIT), emptySummary(TASK_INSTANCE_ID, 0, false));
+        assertBufferResultEquals(TYPES, getBufferResult(buffer, 0, sizeOfPagesInBytes(10)), emptyResults(TASK_INSTANCE_ID, 0, false));
         // pages not acknowledged yet so state is the same
         assertBufferInfo(buffer, 0, 3);
     }
@@ -236,14 +257,15 @@ public class TestClientBuffer
         buffer.setNoMorePages();
 
         // read a page
-        assertBufferResultEquals(TYPES, getBufferResult(buffer, 0, sizeOfPages(1), NO_WAIT), bufferResult(0, createPage(0)));
+        assertBufferSummaryEquals(getBufferSummary(buffer, 0, sizeOfPagesInBytes(1), NO_WAIT), bufferSummary(0, createPage(0)));
+        assertBufferResultEquals(TYPES, getBufferResult(buffer, 0, sizeOfPagesInBytes(1)), bufferResult(0, createPage(0)));
 
         // destroy without acknowledgement
         buffer.destroy();
         assertBufferDestroyed(buffer, 0);
 
         // follow token from previous read, which should return a finished result
-        assertBufferResultEquals(TYPES, getBufferResult(buffer, 1, sizeOfPages(1), NO_WAIT), emptyResults(TASK_INSTANCE_ID, 0, true));
+        assertBufferSummaryEquals(getBufferSummary(buffer, 1, sizeOfPagesInBytes(1), NO_WAIT), emptySummary(TASK_INSTANCE_ID, 0, true));
     }
 
     @Test
@@ -251,8 +273,8 @@ public class TestClientBuffer
     {
         ClientBuffer buffer = new ClientBuffer(TASK_INSTANCE_ID, BUFFER_ID);
 
-        // attempt to get a page
-        ListenableFuture<BufferResult> future = buffer.getPages(0, sizeOfPages(10));
+        // attempt to peek a page
+        ListenableFuture<BufferSummary> future = buffer.getSummary(0, sizeOfPagesInBytes(10));
 
         // verify we are waiting for a page
         assertFalse(future.isDone());
@@ -261,10 +283,13 @@ public class TestClientBuffer
         addPage(buffer, createPage(0));
 
         // verify we got one page
-        assertBufferResultEquals(TYPES, getFuture(future, NO_WAIT), bufferResult(0, createPage(0)));
+        assertBufferSummaryEquals(getFuture(future, NO_WAIT), bufferSummary(0, createPage(0)));
+
+        // verify we can get the page
+        assertBufferResultEquals(TYPES, buffer.getData(0, sizeOfPagesInBytes(10)), bufferResult(0, createPage(0)));
 
         // attempt to get another page, and verify we are blocked
-        future = buffer.getPages(1, sizeOfPages(10));
+        future = buffer.getSummary(1, sizeOfPagesInBytes(10));
         assertFalse(future.isDone());
 
         // finish the buffer
@@ -272,7 +297,7 @@ public class TestClientBuffer
         assertBufferInfo(buffer, 0, 1);
 
         // verify the future completed
-        assertBufferResultEquals(TYPES, getFuture(future, NO_WAIT), emptyResults(TASK_INSTANCE_ID, 1, true));
+        assertBufferSummaryEquals(getFuture(future, NO_WAIT), emptySummary(TASK_INSTANCE_ID, 1, true));
     }
 
     @Test
@@ -280,21 +305,23 @@ public class TestClientBuffer
     {
         ClientBuffer buffer = new ClientBuffer(TASK_INSTANCE_ID, BUFFER_ID);
 
-        // attempt to get a page
-        ListenableFuture<BufferResult> future = buffer.getPages(0, sizeOfPages(10));
+        // attempt to peek a page
+        ListenableFuture<BufferSummary> future = buffer.getSummary(0, sizeOfPagesInBytes(10));
 
         // verify we are waiting for a page
         assertFalse(future.isDone());
 
         // add one item
         addPage(buffer, createPage(0));
-        assertTrue(future.isDone());
 
         // verify we got one page
-        assertBufferResultEquals(TYPES, getFuture(future, NO_WAIT), bufferResult(0, createPage(0)));
+        assertBufferSummaryEquals(getFuture(future, NO_WAIT), bufferSummary(0, createPage(0)));
+
+        // verify we can get the page
+        assertBufferResultEquals(TYPES, buffer.getData(0, sizeOfPagesInBytes(10)), bufferResult(0, createPage(0)));
 
         // attempt to get another page, and verify we are blocked
-        future = buffer.getPages(1, sizeOfPages(10));
+        future = buffer.getSummary(1, sizeOfPagesInBytes(10));
         assertFalse(future.isDone());
 
         // destroy the buffer
@@ -302,7 +329,7 @@ public class TestClientBuffer
 
         // verify the future completed
         // buffer does not return a "complete" result in this case, but it doesn't matter
-        assertBufferResultEquals(TYPES, getFuture(future, NO_WAIT), emptyResults(TASK_INSTANCE_ID, 1, false));
+        assertBufferSummaryEquals(getFuture(future, NO_WAIT), emptySummary(TASK_INSTANCE_ID, 1, false));
 
         // further requests will see a completed result
         assertBufferDestroyed(buffer, 1);
@@ -311,10 +338,10 @@ public class TestClientBuffer
     @Test
     public void testInvalidTokenFails()
     {
-        ClientBuffer buffer = new ClientBuffer(TASK_INSTANCE_ID, BUFFER_ID);
-        addPage(buffer, createPage(0));
-        addPage(buffer, createPage(1));
-        buffer.getPages(1, sizeOfPages(10)).cancel(true);
+        ClientBuffer buffer = clientBuffer(2);
+        buffer.getSummary(0, sizeOfPagesInBytes(10)).cancel(true);
+        buffer.getData(0, sizeOfPagesInBytes(10));
+        buffer.getSummary(1, sizeOfPagesInBytes(1)).cancel(true);
         assertBufferInfo(buffer, 1, 1);
 
         // request negative token
@@ -339,13 +366,15 @@ public class TestClientBuffer
         assertBufferInfo(buffer, 2, 0);
 
         // read one page
-        assertBufferResultEquals(TYPES, getBufferResult(buffer, 0, sizeOfPages(0), NO_WAIT), bufferResult(0, createPage(0)));
+        assertBufferSummaryEquals(getBufferSummary(buffer, 0, sizeOfPagesInBytes(0), NO_WAIT), bufferSummary(0, createPage(0)));
+        assertBufferResultEquals(TYPES, getBufferResult(buffer, 0, sizeOfPagesInBytes(0)), bufferResult(0, createPage(0)));
         assertTrue(page0HasReference.get());
         assertTrue(page1HasReference.get());
         assertBufferInfo(buffer, 2, 0);
 
         // acknowledge first page
-        assertBufferResultEquals(TYPES, getBufferResult(buffer, 1, sizeOfPages(1), NO_WAIT), bufferResult(1, createPage(1)));
+        assertBufferSummaryEquals(getBufferSummary(buffer, 1, sizeOfPagesInBytes(1), NO_WAIT), bufferSummary(1, createPage(1)));
+        assertBufferResultEquals(TYPES, getBufferResult(buffer, 1, sizeOfPagesInBytes(1)), bufferResult(1, createPage(1)));
         assertFalse(page0HasReference.get());
         assertTrue(page1HasReference.get());
         assertBufferInfo(buffer, 1, 1);
@@ -357,10 +386,63 @@ public class TestClientBuffer
         assertBufferDestroyed(buffer, 1);
     }
 
+    @Test
+    public void testOutOfRangeGet()
+            throws Exception
+    {
+        // fetching page directly without peeking
+        ClientBuffer buffer = clientBuffer(5);
+        assertInvalidFetch(buffer, 0, 1, MORE_FETCH_THAN_PEEK);
+
+        // peeking ranges [0, 1), but fetching starts at 2
+        buffer = clientBuffer(5);
+        buffer.getSummary(0, sizeOfPagesInBytes(1)).cancel(true);
+        assertInvalidFetch(buffer, 2, 1, MORE_FETCH_THAN_PEEK);
+
+        // peeking ranges [0, 1), but fetching ranges [0, 10)
+        buffer = clientBuffer(5);
+        buffer.getSummary(0, sizeOfPagesInBytes(1)).cancel(true);
+        assertInvalidFetch(buffer, 0, 10, MORE_FETCH_THAN_PEEK);
+    }
+
+    @Test
+    public void testMultipleGets()
+            throws Exception
+    {
+        // get page summary only once
+        ClientBuffer buffer = clientBuffer(15);
+        buffer.getSummary(0, sizeOfPagesInBytes(10)).cancel(true);
+
+        // multiple fetches are allowed as long as they are within range
+        assertBufferResultEquals(TYPES, buffer.getData(0, sizeOfPagesInBytes(3)), bufferResult(0, createPage(0), createPage(1), createPage(2)));
+        assertBufferResultEquals(TYPES, buffer.getData(3, sizeOfPagesInBytes(4)), bufferResult(3, createPage(3), createPage(4), createPage(5), createPage(6)));
+        assertBufferResultEquals(TYPES, buffer.getData(7, sizeOfPagesInBytes(2)), bufferResult(7, createPage(7), createPage(8)));
+
+        // fail to fetch if it goes out of range
+        assertInvalidFetch(buffer, 9, 2, MORE_FETCH_THAN_PEEK);
+
+        // within range ok
+        assertBufferResultEquals(TYPES, buffer.getData(9, sizeOfPagesInBytes(1)), bufferResult(9, createPage(9)));
+
+        // get page summary again; then we are able to fetch more
+        buffer.getSummary(10, sizeOfPagesInBytes(5)).cancel(true);
+        assertBufferResultEquals(TYPES, buffer.getData(10, sizeOfPagesInBytes(1)), bufferResult(10, createPage(10)));
+        assertBufferResultEquals(TYPES, buffer.getData(11, sizeOfPagesInBytes(4)), bufferResult(11, createPage(11), createPage(12), createPage(13), createPage(14)));
+    }
+
+    private static ClientBuffer clientBuffer(int pageCount)
+    {
+        ClientBuffer buffer = new ClientBuffer(TASK_INSTANCE_ID, BUFFER_ID);
+        for (int i = 0; i < pageCount; i++) {
+            addPage(buffer, createPage(i));
+        }
+        return buffer;
+    }
+
     private static void assertInvalidSequenceId(ClientBuffer buffer, int sequenceId)
     {
         try {
-            buffer.getPages(sequenceId, sizeOfPages(10));
+            buffer.getSummary(sequenceId, sizeOfPagesInBytes(10));
             fail("Expected " + INVALID_SEQUENCE_ID);
         }
         catch (IllegalArgumentException e) {
@@ -368,16 +450,32 @@ public class TestClientBuffer
         }
     }
 
-    private static BufferResult getBufferResult(ClientBuffer buffer, long sequenceId, DataSize maxSize, Duration maxWait)
+    private static void assertInvalidFetch(ClientBuffer buffer, int sequenceId, int pageCount, String message)
     {
-        ListenableFuture<BufferResult> future = buffer.getPages(sequenceId, maxSize);
+        try {
+            buffer.getData(sequenceId, sizeOfPagesInBytes(pageCount));
+            fail("Expected " + message);
+        }
+        catch (IllegalArgumentException e) {
+            assertEquals(e.getMessage(), message);
+        }
+    }
+
+    private static BufferSummary getBufferSummary(ClientBuffer buffer, long sequenceId, long maxBytes, Duration maxWait)
+    {
+        ListenableFuture<BufferSummary> future = buffer.getSummary(sequenceId, maxBytes);
         return getFuture(future, maxWait);
     }
 
-    private static BufferResult getBufferResult(ClientBuffer buffer, PagesSupplier supplier, long sequenceId, DataSize maxSize, Duration maxWait)
+    private static BufferSummary getBufferSummary(ClientBuffer buffer, PagesSupplier supplier, long sequenceId, long maxBytes, Duration maxWait)
     {
-        ListenableFuture<BufferResult> future = buffer.getPages(sequenceId, maxSize, Optional.of(supplier));
+        ListenableFuture<BufferSummary> future = buffer.getSummary(sequenceId, maxBytes, Optional.of(supplier));
         return getFuture(future, maxWait);
+    }
+
+    private static BufferResult getBufferResult(ClientBuffer buffer, long sequenceId, long maxBytes)
+    {
+        return buffer.getData(sequenceId, maxBytes);
     }
 
     private static AtomicBoolean addPage(ClientBuffer buffer, Page page)
@@ -404,7 +502,7 @@ public class TestClientBuffer
                         new PageBufferInfo(
                                 BUFFER_ID.getId(),
                                 bufferedPages,
-                                sizeOfPages(bufferedPages).toBytes(),
+                                sizeOfPagesInBytes(bufferedPages),
                                 bufferedPages + pagesSent, // every page has one row
                                 bufferedPages + pagesSent)));
         assertFalse(buffer.isDestroyed());
@@ -424,6 +522,12 @@ public class TestClientBuffer
         assertEquals(bufferInfo.getPagesSent(), pagesSent);
         assertTrue(bufferInfo.isFinished());
         assertTrue(buffer.isDestroyed());
+    }
+
+    private static BufferSummary bufferSummary(long token, Page firstPage, Page... otherPages)
+    {
+        List<Page> pages = ImmutableList.<Page>builder().add(firstPage).add(otherPages).build();
+        return createBufferSummary(TASK_INSTANCE_ID, token, pages);
     }
 
     @ThreadSafe
@@ -460,9 +564,8 @@ public class TestClientBuffer
         }
 
         @Override
-        public synchronized List<SerializedPageReference> getPages(DataSize maxSize)
+        public synchronized List<SerializedPageReference> getPages(long maxBytes)
         {
-            long maxBytes = maxSize.toBytes();
             List<SerializedPageReference> pages = new ArrayList<>();
             long bytesRemoved = 0;
 

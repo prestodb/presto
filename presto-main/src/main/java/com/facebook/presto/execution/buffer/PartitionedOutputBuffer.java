@@ -197,20 +197,21 @@ public class PartitionedOutputBuffer
     }
 
     @Override
-    public ListenableFuture<BufferResult> get(OutputBufferId outputBufferId, long startingSequenceId, DataSize maxSize)
+    public ListenableFuture<BufferSummary> getSummary(OutputBufferId outputBufferId, long startingSequenceId, long maxBytes)
     {
         requireNonNull(outputBufferId, "outputBufferId is null");
-        checkArgument(maxSize.toBytes() > 0, "maxSize must be at least 1 byte");
+        checkArgument(maxBytes > 0, "maxSize must be at least 1 byte");
 
-        return partitions.get(outputBufferId.getId()).getPages(startingSequenceId, maxSize);
+        return partitions.get(outputBufferId.getId()).getSummary(startingSequenceId, maxBytes);
     }
 
     @Override
-    public void acknowledge(OutputBufferId outputBufferId, long sequenceId)
+    public BufferResult getData(OutputBufferId outputBufferId, long startingSequenceId, long maxBytes)
     {
-        requireNonNull(outputBufferId, "bufferId is null");
+        requireNonNull(outputBufferId, "outputBufferId is null");
+        checkArgument(maxBytes > 0, "maxBytes must be at least 1 byte");
 
-        partitions.get(outputBufferId.getId()).acknowledgePages(sequenceId);
+        return partitions.get(outputBufferId.getId()).getData(startingSequenceId, maxBytes);
     }
 
     @Override

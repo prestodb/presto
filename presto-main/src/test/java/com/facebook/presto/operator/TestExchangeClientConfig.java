@@ -34,13 +34,11 @@ public class TestExchangeClientConfig
     {
         assertRecordedDefaults(recordDefaults(ExchangeClientConfig.class)
                 .setMaxBufferSize(new DataSize(32, Unit.MEGABYTE))
-                .setConcurrentRequestMultiplier(3)
                 .setMinErrorDuration(new Duration(5, TimeUnit.MINUTES))
                 .setMaxErrorDuration(new Duration(5, TimeUnit.MINUTES))
                 .setMaxResponseSize(new HttpClientConfig().getMaxContentLength())
                 .setPageBufferClientMaxCallbackThreads(25)
-                .setClientThreads(25)
-                .setAcknowledgePages(true));
+                .setClientThreads(25));
     }
 
     @Test
@@ -48,24 +46,20 @@ public class TestExchangeClientConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("exchange.max-buffer-size", "1GB")
-                .put("exchange.concurrent-request-multiplier", "13")
                 .put("exchange.min-error-duration", "13s")
                 .put("exchange.max-error-duration", "33s")
                 .put("exchange.max-response-size", "1MB")
                 .put("exchange.client-threads", "2")
                 .put("exchange.page-buffer-client.max-callback-threads", "16")
-                .put("exchange.acknowledge-pages", "false")
                 .build();
 
         ExchangeClientConfig expected = new ExchangeClientConfig()
                 .setMaxBufferSize(new DataSize(1, Unit.GIGABYTE))
-                .setConcurrentRequestMultiplier(13)
                 .setMinErrorDuration(new Duration(33, TimeUnit.SECONDS))
                 .setMaxErrorDuration(new Duration(33, TimeUnit.SECONDS))
                 .setMaxResponseSize(new DataSize(1, Unit.MEGABYTE))
                 .setClientThreads(2)
-                .setPageBufferClientMaxCallbackThreads(16)
-                .setAcknowledgePages(false);
+                .setPageBufferClientMaxCallbackThreads(16);
 
         assertFullMapping(properties, expected);
     }

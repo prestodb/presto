@@ -48,11 +48,21 @@ public final class BufferTestUtils
     static final Duration MAX_WAIT = new Duration(1, SECONDS);
     private static final DataSize BUFFERED_PAGE_SIZE = new DataSize(PAGES_SERDE.serialize(createPage(42)).getRetainedSizeInBytes(), BYTE);
 
-    static BufferResult getFuture(ListenableFuture<BufferResult> future, Duration maxWait)
+    static <E> E getFuture(ListenableFuture<E> future, Duration maxWait)
     {
-        Optional<BufferResult> bufferResult = tryGetFutureValue(future, (int) maxWait.toMillis(), MILLISECONDS);
-        checkArgument(bufferResult.isPresent(), "bufferResult is empty");
-        return bufferResult.get();
+        Optional<E> result = tryGetFutureValue(future, (int) maxWait.toMillis(), MILLISECONDS);
+        checkArgument(result.isPresent(), "future result is empty");
+        return result.get();
+    }
+
+    static void assertBufferSummaryEquals(BufferSummary actual, BufferSummary expected)
+    {
+        assertEquals(actual.size(), expected.size());
+        assertEquals(actual.getToken(), expected.getToken());
+        for (int i = 0; i < actual.size(); i++) {
+            assertEquals(actual.getPageSizesInBytes().get(i), expected.getPageSizesInBytes().get(i));
+        }
+        assertEquals(actual.isBufferComplete(), expected.isBufferComplete());
     }
 
     static void assertBufferResultEquals(List<? extends Type> types, BufferResult actual, BufferResult expected)
@@ -66,6 +76,19 @@ public final class BufferTestUtils
             PageAssertions.assertPageEquals(types, actualPage, expectedPage);
         }
         assertEquals(actual.isBufferComplete(), expected.isBufferComplete(), "buffer complete");
+    }
+
+    static BufferSummary createBufferSummary(String bufferId, long token, List<Page> pages)
+    {
+        checkArgument(!pages.isEmpty(), "pages is empty");
+        return new BufferSummary(
+                bufferId,
+                token,
+                false,
+                pages.stream()
+                        .map(PAGES_SERDE::serialize)
+                        .map(SerializedPage::getRetainedSizeInBytes)
+                        .collect(Collectors.toList()));
     }
 
     static BufferResult createBufferResult(String bufferId, long token, List<Page> pages)
@@ -86,21 +109,20 @@ public final class BufferTestUtils
         return new Page(BlockAssertions.createLongsBlock(i));
     }
 
-    static DataSize sizeOfPages(int count)
+    static long sizeOfPagesInBytes(int count)
     {
-        return new DataSize(BUFFERED_PAGE_SIZE.toBytes() * count, BYTE);
+        return BUFFERED_PAGE_SIZE.toBytes() * count;
     }
 
-    static BufferResult getBufferResult(OutputBuffer buffer, OutputBufferId bufferId, long sequenceId, DataSize maxSize, Duration maxWait)
+    static BufferSummary getBufferSummary(OutputBuffer buffer, OutputBufferId bufferId, long sequenceId, long maxBytes, Duration maxWait)
     {
-        ListenableFuture<BufferResult> future = buffer.get(bufferId, sequenceId, maxSize);
+        ListenableFuture<BufferSummary> future = buffer.getSummary(bufferId, sequenceId, maxBytes);
         return getFuture(future, maxWait);
     }
 
-    // TODO: remove this after PR #7987 is landed
-    static void acknowledgeBufferResult(OutputBuffer buffer, OutputBuffers.OutputBufferId bufferId, long sequenceId)
+    static BufferResult getBufferResult(OutputBuffer buffer, OutputBuffers.OutputBufferId bufferId, long sequenceId, long maxBytes)
     {
-        buffer.acknowledge(bufferId, sequenceId);
+        return buffer.getData(bufferId, sequenceId, maxBytes);
     }
 
     static ListenableFuture<?> enqueuePage(OutputBuffer buffer, Page page)
@@ -143,7 +165,7 @@ public final class BufferTestUtils
                         new PageBufferInfo(
                                 bufferId.getId(),
                                 bufferedPages,
-                                sizeOfPages(bufferedPages).toBytes(),
+                                sizeOfPagesInBytes(bufferedPages),
                                 bufferedPages + pagesSent, // every page has one row
                                 bufferedPages + pagesSent)));
     }
@@ -179,7 +201,7 @@ public final class BufferTestUtils
                         new PageBufferInfo(
                                 bufferId.getId(),
                                 bufferedPages,
-                                sizeOfPages(bufferedPages).toBytes(),
+                                sizeOfPagesInBytes(bufferedPages),
                                 bufferedPages + pagesSent, // every page has one row
                                 bufferedPages + pagesSent)));
     }
