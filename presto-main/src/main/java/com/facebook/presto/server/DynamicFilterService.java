@@ -54,7 +54,13 @@ public class DynamicFilterService
         }
 
         if (mergedSummary != null) {
-            futures.get(SourceDescriptor.of(queryId, source)).set(mergedSummary);
+            DynamicFilterSummaryWithSenders dynamicFilterSummaryWithSenders = dynamicFilterSummaries.get(SourceDescriptor.of(queryId, source));
+            if (dynamicFilterSummaryWithSenders != null) {
+                final Optional<DynamicFilterSummary> summaryIfReady = dynamicFilterSummaryWithSenders.getSummaryIfReady();
+                if (summaryIfReady.isPresent()) {
+                    futures.get(SourceDescriptor.of(queryId, source)).set(summaryIfReady.get());
+                }
+            }
         }
     }
 
@@ -79,8 +85,12 @@ public class DynamicFilterService
             futures.put(SourceDescriptor.of(queryId, source), future);
         }
         DynamicFilterSummaryWithSenders dynamicFilterSummaryWithSenders = dynamicFilterSummaries.get(SourceDescriptor.of(queryId, source));
-        if (dynamicFilterSummaryWithSenders.getSummaryIfReady().isPresent()) {
-            future.set(dynamicFilterSummaryWithSenders.getSummaryIfReady().get());
+        if (dynamicFilterSummaryWithSenders != null) {
+            final Optional<DynamicFilterSummary> summaryIfReady
+                = dynamicFilterSummaryWithSenders.getSummaryIfReady();
+            if (summaryIfReady.isPresent()) {
+                future.set(summaryIfReady.get());
+            }
         }
         return future;
     }
@@ -157,9 +167,12 @@ public class DynamicFilterService
         private final Set<StageTaskKey> registeredTasks;
         private DynamicFilterSummary dynamicFilterSummary;
 
-        DynamicFilterSummaryWithSenders(Set<StageTaskKey> senderStats)
+        DynamicFilterSummaryWithSenders(Set<StageTaskKey> tasks)
         {
-            this.registeredTasks = ImmutableSet.copyOf(senderStats);
+            this.registeredTasks = ImmutableSet.copyOf(tasks);
+            for (StageTaskKey key : tasks) {
+                senderStats.put(key, new SenderStats());
+            }
         }
 
         public Optional<DynamicFilterSummary> getSummaryIfReady()
@@ -181,8 +194,7 @@ public class DynamicFilterService
         {
             SenderStats stats = senderStats.get(stageTaskId);
             checkArgument(stats != null, "Cannot add summary to not pre-registered task");
-            checkState(stats.getExpectedSummariesCount() == expectedSummariesCount, "expected summaries count should not change between summaries");
-            stats.addSummary(driverId);
+            stats.addSummary(driverId, expectedSummariesCount);
 
             if (dynamicFilterSummary == null) {
                 dynamicFilterSummary = summary;
@@ -203,12 +215,7 @@ public class DynamicFilterService
         {
             // collection of driverIDs reported
             private final Set<Integer> driverIDs = new HashSet<>();
-            private final int expectedSummariesCount;
-
-            SenderStats(int expectedSummariesCount)
-            {
-                this.expectedSummariesCount = expectedSummariesCount;
-            }
+            private int expectedSummariesCount = -1;
 
             public int getExpectedSummariesCount()
             {
@@ -217,16 +224,26 @@ public class DynamicFilterService
 
             public boolean isCompleted()
             {
+                return (expectedSummariesCount == -1) ? false : driverIDs.size() == expectedSummariesCount;
+            }
+
+            public boolean isCompleted(int expectedSummariesCount)
+            {
                 return driverIDs.size() == expectedSummariesCount;
             }
 
-            public void addSummary(Integer driverId)
+            public void addSummary(Integer driverId, int expectedSummariesCount)
             {
                 if (driverIDs.contains(driverId)) {
                     // skip existing driver IDs in case of HTTP retries
                     return;
                 }
 
+                checkState(this.getExpectedSummariesCount() == -1 || this.getExpectedSummariesCount() == expectedSummariesCount, "expected summaries count should not change between summaries");
+
+                if (this.expectedSummariesCount == -1) {
+                    this.expectedSummariesCount = expectedSummariesCount;
+                }
                 checkState(driverIDs.size() < expectedSummariesCount, "cannot increase number of received summaries beyond the expected count");
 
                 driverIDs.add(driverId);
