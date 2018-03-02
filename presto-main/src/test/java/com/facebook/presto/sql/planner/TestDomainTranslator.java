@@ -436,13 +436,10 @@ public class TestDomainTranslator
         assertUnsupportedPredicate(not(and(equal(C_BIGINT, bigintLiteral(1L)), unprocessableExpression1(C_BIGINT))));
         assertUnsupportedPredicate(not(unprocessableExpression1(C_BIGINT)));
 
-        Expression originalPredicate = not(TRUE_LITERAL);
-        ExtractionResult result = fromPredicate(originalPredicate);
-        assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        assertTrue(result.getTupleDomain().isNone());
+        assertPredicateIsAlwaysFalse(not(TRUE_LITERAL));
 
-        originalPredicate = not(equal(C_BIGINT, bigintLiteral(1L)));
-        result = fromPredicate(originalPredicate);
+        Expression originalPredicate = not(equal(C_BIGINT, bigintLiteral(1L)));
+        ExtractionResult result = fromPredicate(originalPredicate);
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.lessThan(BIGINT, 1L), Range.greaterThan(BIGINT, 1L)), false))));
     }
@@ -624,50 +621,20 @@ public class TestDomainTranslator
     public void testFromBasicComparisonsWithNulls()
     {
         // Test out the extraction of all basic comparisons with null literals
-        Expression originalExpression = greaterThan(C_BIGINT, nullLiteral(BIGINT));
-        ExtractionResult result = fromPredicate(originalExpression);
-        assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        assertTrue(result.getTupleDomain().isNone());
+        assertPredicateIsAlwaysFalse(greaterThan(C_BIGINT, nullLiteral(BIGINT)));
 
-        originalExpression = greaterThan(C_VARCHAR, nullLiteral(VARCHAR));
-        result = fromPredicate(originalExpression);
+        Expression originalExpression = greaterThan(C_VARCHAR, nullLiteral(VARCHAR));
+        ExtractionResult result = fromPredicate(originalExpression);
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_VARCHAR, Domain.create(ValueSet.none(VARCHAR), false))));
 
-        originalExpression = greaterThanOrEqual(C_BIGINT, nullLiteral(BIGINT));
-        result = fromPredicate(originalExpression);
-        assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        assertTrue(result.getTupleDomain().isNone());
-
-        originalExpression = lessThan(C_BIGINT, nullLiteral(BIGINT));
-        result = fromPredicate(originalExpression);
-        assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        assertTrue(result.getTupleDomain().isNone());
-
-        originalExpression = lessThanOrEqual(C_BIGINT, nullLiteral(BIGINT));
-        result = fromPredicate(originalExpression);
-        assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        assertTrue(result.getTupleDomain().isNone());
-
-        originalExpression = equal(C_BIGINT, nullLiteral(BIGINT));
-        result = fromPredicate(originalExpression);
-        assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        assertTrue(result.getTupleDomain().isNone());
-
-        originalExpression = equal(C_COLOR, nullLiteral(COLOR));
-        result = fromPredicate(originalExpression);
-        assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        assertTrue(result.getTupleDomain().isNone());
-
-        originalExpression = notEqual(C_BIGINT, nullLiteral(BIGINT));
-        result = fromPredicate(originalExpression);
-        assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        assertTrue(result.getTupleDomain().isNone());
-
-        originalExpression = notEqual(C_COLOR, nullLiteral(COLOR));
-        result = fromPredicate(originalExpression);
-        assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        assertTrue(result.getTupleDomain().isNone());
+        assertPredicateIsAlwaysFalse(greaterThanOrEqual(C_BIGINT, nullLiteral(BIGINT)));
+        assertPredicateIsAlwaysFalse(lessThan(C_BIGINT, nullLiteral(BIGINT)));
+        assertPredicateIsAlwaysFalse(lessThanOrEqual(C_BIGINT, nullLiteral(BIGINT)));
+        assertPredicateIsAlwaysFalse(equal(C_BIGINT, nullLiteral(BIGINT)));
+        assertPredicateIsAlwaysFalse(equal(C_COLOR, nullLiteral(COLOR)));
+        assertPredicateIsAlwaysFalse(notEqual(C_BIGINT, nullLiteral(BIGINT)));
+        assertPredicateIsAlwaysFalse(notEqual(C_COLOR, nullLiteral(COLOR)));
 
         originalExpression = isDistinctFrom(C_BIGINT, nullLiteral(BIGINT));
         result = fromPredicate(originalExpression);
@@ -680,45 +647,14 @@ public class TestDomainTranslator
         assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_COLOR, Domain.notNull(COLOR))));
 
         // Test complements
-        originalExpression = not(greaterThan(C_BIGINT, nullLiteral(BIGINT)));
-        result = fromPredicate(originalExpression);
-        assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        assertTrue(result.getTupleDomain().isNone());
-
-        originalExpression = not(greaterThanOrEqual(C_BIGINT, nullLiteral(BIGINT)));
-        result = fromPredicate(originalExpression);
-        assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        assertTrue(result.getTupleDomain().isNone());
-
-        originalExpression = not(lessThan(C_BIGINT, nullLiteral(BIGINT)));
-        result = fromPredicate(originalExpression);
-        assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        assertTrue(result.getTupleDomain().isNone());
-
-        originalExpression = not(lessThanOrEqual(C_BIGINT, nullLiteral(BIGINT)));
-        result = fromPredicate(originalExpression);
-        assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        assertTrue(result.getTupleDomain().isNone());
-
-        originalExpression = not(equal(C_BIGINT, nullLiteral(BIGINT)));
-        result = fromPredicate(originalExpression);
-        assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        assertTrue(result.getTupleDomain().isNone());
-
-        originalExpression = not(equal(C_COLOR, nullLiteral(COLOR)));
-        result = fromPredicate(originalExpression);
-        assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        assertTrue(result.getTupleDomain().isNone());
-
-        originalExpression = not(notEqual(C_BIGINT, nullLiteral(BIGINT)));
-        result = fromPredicate(originalExpression);
-        assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        assertTrue(result.getTupleDomain().isNone());
-
-        originalExpression = not(notEqual(C_COLOR, nullLiteral(COLOR)));
-        result = fromPredicate(originalExpression);
-        assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        assertTrue(result.getTupleDomain().isNone());
+        assertPredicateIsAlwaysFalse(not(greaterThan(C_BIGINT, nullLiteral(BIGINT))));
+        assertPredicateIsAlwaysFalse(not(greaterThanOrEqual(C_BIGINT, nullLiteral(BIGINT))));
+        assertPredicateIsAlwaysFalse(not(lessThan(C_BIGINT, nullLiteral(BIGINT))));
+        assertPredicateIsAlwaysFalse(not(lessThanOrEqual(C_BIGINT, nullLiteral(BIGINT))));
+        assertPredicateIsAlwaysFalse(not(equal(C_BIGINT, nullLiteral(BIGINT))));
+        assertPredicateIsAlwaysFalse(not(equal(C_COLOR, nullLiteral(COLOR))));
+        assertPredicateIsAlwaysFalse(not(notEqual(C_BIGINT, nullLiteral(BIGINT))));
+        assertPredicateIsAlwaysFalse(not(notEqual(C_COLOR, nullLiteral(COLOR))));
 
         originalExpression = not(isDistinctFrom(C_BIGINT, nullLiteral(BIGINT)));
         result = fromPredicate(originalExpression);
@@ -930,10 +866,7 @@ public class TestDomainTranslator
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_INTEGER, Domain.create(ValueSet.ofRanges(Range.equal(INTEGER, 2L)), false))));
 
-        originalExpression = not(isDistinctFrom(cast(C_INTEGER, DOUBLE), doubleLiteral(2.1)));
-        result = fromPredicate(originalExpression);
-        assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        assertTrue(result.getTupleDomain().isNone());
+        assertPredicateIsAlwaysFalse(not(isDistinctFrom(cast(C_INTEGER, DOUBLE), doubleLiteral(2.1))));
     }
 
     @Test
@@ -1026,10 +959,7 @@ public class TestDomainTranslator
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_INTEGER, Domain.create(ValueSet.ofRanges(Range.range(INTEGER, 1L, true, 2L, true)), false))));
 
-        originalExpression = between(C_BIGINT, bigintLiteral(1L), nullLiteral(BIGINT));
-        result = fromPredicate(originalExpression);
-        assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        assertTrue(result.getTupleDomain().isNone());
+        assertPredicateIsAlwaysFalse(between(C_BIGINT, bigintLiteral(1L), nullLiteral(BIGINT)));
 
         // Test complements
         originalExpression = not(between(C_BIGINT, bigintLiteral(1L), bigintLiteral(2L)));
@@ -1104,15 +1034,8 @@ public class TestDomainTranslator
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         assertTrue(result.getTupleDomain().isAll());
 
-        originalExpression = not(TRUE_LITERAL);
-        result = fromPredicate(originalExpression);
-        assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        assertTrue(result.getTupleDomain().isNone());
-
-        originalExpression = FALSE_LITERAL;
-        result = fromPredicate(originalExpression);
-        assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        assertTrue(result.getTupleDomain().isNone());
+        assertPredicateIsAlwaysFalse(not(TRUE_LITERAL));
+        assertPredicateIsAlwaysFalse(FALSE_LITERAL);
 
         originalExpression = not(FALSE_LITERAL);
         result = fromPredicate(originalExpression);
@@ -1123,15 +1046,8 @@ public class TestDomainTranslator
     @Test
     public void testFromNullLiteralPredicate()
     {
-        Expression originalExpression = nullLiteral();
-        ExtractionResult result = fromPredicate(originalExpression);
-        assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        assertTrue(result.getTupleDomain().isNone());
-
-        originalExpression = not(nullLiteral());
-        result = fromPredicate(originalExpression);
-        assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        assertTrue(result.getTupleDomain().isNone());
+        assertPredicateIsAlwaysFalse(nullLiteral());
+        assertPredicateIsAlwaysFalse(not(nullLiteral()));
     }
 
     @Test
@@ -1350,6 +1266,13 @@ public class TestDomainTranslator
         testSimpleComparison(isDistinctFrom(cast(C_CHAR, VARCHAR), stringLiteral("1234567890", VARCHAR)), C_CHAR, Domain.create(ValueSet.ofRanges(
                 Range.lessThan(createCharType(10), Slices.utf8Slice("1234567890")), Range.greaterThan(createCharType(10), Slices.utf8Slice("1234567890"))), true));
         testSimpleComparison(isDistinctFrom(cast(C_CHAR, VARCHAR), stringLiteral("12345678901", VARCHAR)), C_CHAR, Domain.all(createCharType(10)));
+    }
+
+    private void assertPredicateIsAlwaysFalse(Expression expression)
+    {
+        ExtractionResult result = fromPredicate(expression);
+        assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
+        assertTrue(result.getTupleDomain().isNone());
     }
 
     private void assertUnsupportedPredicate(Expression expression)
