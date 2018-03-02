@@ -138,11 +138,12 @@ public class ArrayBlockBuilder
     }
 
     @Override
-    public BlockBuilder writeObject(Object value)
+    public BlockBuilder appendSingleStructure(Object value)
     {
         if (currentEntryOpened) {
             throw new IllegalStateException("Expected current entry to be closed but was opened");
         }
+        currentEntryOpened = true;
 
         Block block = (Block) value;
         for (int i = 0; i < block.getPositionCount(); i++) {
@@ -155,7 +156,7 @@ public class ArrayBlockBuilder
             }
         }
 
-        currentEntryOpened = true;
+        closeEntry();
         return this;
     }
 

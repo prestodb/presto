@@ -102,8 +102,7 @@ public final class DoubleHistogramAggregation
                 DoubleType.DOUBLE.writeDouble(blockBuilder, entry.getValue());
             }
             Block block = blockBuilder.build();
-            out.writeObject(block);
-            out.closeEntry();
+            out.appendSingleStructure(block);
         }
     }
 }

@@ -144,7 +144,7 @@ public class TestColumnarMap
                         VARCHAR.writeSlice(elementBlockBuilder, value);
                     }
                 }
-                blockBuilder.writeObject(elementBlockBuilder.build()).closeEntry();
+                blockBuilder.appendSingleStructure(elementBlockBuilder.build());
             }
         }
         return blockBuilder;

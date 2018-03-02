@@ -141,14 +141,15 @@ public class SingleMapBlockWriter
     }
 
     @Override
-    public BlockBuilder writeObject(Object value)
+    public BlockBuilder appendSingleStructure(Object value)
     {
         if (writeToValueNext) {
-            valueBlockBuilder.writeObject(value);
+            valueBlockBuilder.appendSingleStructure(value);
         }
         else {
-            keyBlockBuilder.writeObject(value);
+            keyBlockBuilder.appendSingleStructure(value);
         }
+        entryAdded();
         return this;
     }
 

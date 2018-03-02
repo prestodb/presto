@@ -219,7 +219,7 @@ public class MapType
         if (!(value instanceof SingleMapBlock)) {
             throw new IllegalArgumentException("Maps must be represented with SingleMapBlock");
         }
-        blockBuilder.writeObject(value).closeEntry();
+        blockBuilder.appendSingleStructure(value);
     }
 
     @Override

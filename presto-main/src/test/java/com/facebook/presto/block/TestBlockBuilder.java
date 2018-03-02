@@ -68,9 +68,8 @@ public class TestBlockBuilder
             VARCHAR.writeSlice(varcharBlockBuilder, Slices.utf8Slice("test" + i));
             Block longArrayBlock = new ArrayType(BIGINT)
                     .createBlockBuilder(new BlockBuilderStatus(), 1)
-                    .writeObject(BIGINT.createBlockBuilder(new BlockBuilderStatus(), 2).writeLong(i).closeEntry().writeLong(i * 2).closeEntry().build())
-                    .closeEntry();
-            arrayBlockBuilder.writeObject(longArrayBlock).closeEntry();
+                    .appendSingleStructure(BIGINT.createBlockBuilder(new BlockBuilderStatus(), 2).writeLong(i).closeEntry().writeLong(i * 2).closeEntry().build());
+            arrayBlockBuilder.appendSingleStructure(longArrayBlock);
             pageBuilder.declarePosition();
         }
 
