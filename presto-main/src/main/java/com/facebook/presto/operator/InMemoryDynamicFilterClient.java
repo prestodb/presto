@@ -45,6 +45,12 @@ public class InMemoryDynamicFilterClient
     }
 
     @Override
+    public ListenableFuture<DynamicFilterSummary> getSummary(String queryId, String source)
+    {
+        return service.getSummary(queryId, source);
+    }
+
+    @Override
     public ListenableFuture<?> storeSummary(DynamicFilterSummary summary)
     {
         service.storeOrMergeSummary(taskId.getQueryId().getId(), source, taskId.getStageId().getId(), taskId.getId(), driverId, summary, expectedDrviersCount);

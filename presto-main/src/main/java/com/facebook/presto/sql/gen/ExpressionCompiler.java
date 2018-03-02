@@ -14,6 +14,8 @@
 package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.operator.DynamicFilterCollector;
+import com.facebook.presto.operator.DynamicPageFilter;
 import com.facebook.presto.operator.project.CursorProcessor;
 import com.facebook.presto.operator.project.PageFilter;
 import com.facebook.presto.operator.project.PageProcessor;
@@ -90,13 +92,31 @@ public class ExpressionCompiler
 
     public Supplier<PageProcessor> compilePageProcessor(Optional<RowExpression> filter, List<? extends RowExpression> projections, Optional<String> classNameSuffix)
     {
-        Optional<Supplier<PageFilter>> filterFunctionSupplier = filter.map(expression -> pageFunctionCompiler.compileFilter(expression, classNameSuffix));
+        return compilePageProcessor(filter, projections, classNameSuffix, Optional.empty());
+    }
+
+    public Supplier<PageProcessor> compilePageProcessor(Optional<RowExpression> filter, List<? extends RowExpression> projections, Optional<String> classNameSuffix, Optional<DynamicFilterCollector> dynamicFilterCollector)
+    {
+        Optional<Supplier<PageFilter>> filterFunctionSupplier = filter.map(expression -> {
+            Supplier<PageFilter> pFilter = pageFunctionCompiler.compileFilter(expression, classNameSuffix);
+            if (dynamicFilterCollector.isPresent()) {
+                return () -> new DynamicPageFilter(Optional.of(pFilter.get()), dynamicFilterCollector.get(), pageFunctionCompiler, classNameSuffix);
+            }
+            else {
+                return pFilter;
+            }
+        });
+
         List<Supplier<PageProjection>> pageProjectionSuppliers = projections.stream()
                 .map(projection -> pageFunctionCompiler.compileProjection(projection, classNameSuffix))
                 .collect(toImmutableList());
 
         return () -> {
             Optional<PageFilter> filterFunction = filterFunctionSupplier.map(Supplier::get);
+            if (dynamicFilterCollector.isPresent()) {
+                filterFunction = Optional.of(new DynamicPageFilter(Optional.of(filterFunction.get()), dynamicFilterCollector.get(), pageFunctionCompiler, classNameSuffix));
+            }
+
             List<PageProjection> pageProjections = pageProjectionSuppliers.stream()
                     .map(Supplier::get)
                     .collect(toImmutableList());

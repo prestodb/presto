@@ -30,7 +30,9 @@ import com.facebook.presto.operator.AggregationOperator.AggregationOperatorFacto
 import com.facebook.presto.operator.AssignUniqueIdOperator;
 import com.facebook.presto.operator.DeleteOperator.DeleteOperatorFactory;
 import com.facebook.presto.operator.DriverFactory;
+import com.facebook.presto.operator.DynamicFilterClient;
 import com.facebook.presto.operator.DynamicFilterClientSupplier;
+import com.facebook.presto.operator.DynamicFilterCollector;
 import com.facebook.presto.operator.DynamicFilterSourceOperator.DynamicFilterSourceOperatorFactory;
 import com.facebook.presto.operator.EnforceSingleRowOperator;
 import com.facebook.presto.operator.ExchangeClientSupplier;
@@ -60,6 +62,7 @@ import com.facebook.presto.operator.PartitionedLookupSourceFactory;
 import com.facebook.presto.operator.PartitionedOutputOperator.PartitionedOutputFactory;
 import com.facebook.presto.operator.PipelineExecutionStrategy;
 import com.facebook.presto.operator.RowNumberOperator;
+import com.facebook.presto.operator.ScanFilterAndProjectOperator;
 import com.facebook.presto.operator.ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory;
 import com.facebook.presto.operator.SetBuilderOperator.SetBuilderOperatorFactory;
 import com.facebook.presto.operator.SetBuilderOperator.SetSupplier;
@@ -163,6 +166,7 @@ import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.OrderBy;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.SymbolReference;
+import com.facebook.presto.util.RowExpressionConverter;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
@@ -1162,9 +1166,17 @@ public class LocalExecutionPlanner
             try {
                 if (columns != null) {
                     Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(translatedFilter, translatedProjections, sourceNode.getId());
-                    Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(translatedFilter, translatedProjections, Optional.of(context.getStageId() + "_" + planNodeId));
-
-                    SourceOperatorFactory operatorFactory = new ScanFilterAndProjectOperatorFactory(
+                    Supplier<PageProcessor> pageProcessor;
+                    if (SystemSessionProperties.isDynamicFilteringEnabled(context.getSession()) && dynamicFilters.isPresent() && !dynamicFilters.get().isEmpty()) {
+                        RowExpressionConverter converter = new RowExpressionConverter(sourceLayout, expressionTypes, metadata.getFunctionRegistry(), metadata.getTypeManager(), session);
+                        DynamicFilterClient client = dynamicFilterClientSupplier.createClient(converter.getTypeManager());
+                        DynamicFilterCollector dfCollector = new DynamicFilterCollector(dynamicFilters.get(), translatedFilter, client, converter, session.getQueryId());
+                        pageProcessor = expressionCompiler.compilePageProcessor(translatedFilter, translatedProjections, Optional.of(context.getStageId() + "_" + planNodeId), Optional.of(dfCollector));
+                    }
+                    else {
+                        pageProcessor = expressionCompiler.compilePageProcessor(translatedFilter, translatedProjections, Optional.of(context.getStageId() + "_" + planNodeId));
+                    }
+                    SourceOperatorFactory operatorFactory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
                             context.getNextOperatorId(),
                             planNodeId,
                             sourceNode.getId(),
@@ -1175,12 +1187,19 @@ public class LocalExecutionPlanner
                             getTypes(rewrittenProjections, expressionTypes),
                             getFilterAndProjectMinOutputPageSize(session),
                             getFilterAndProjectMinOutputPageRowCount(session));
-
                     return new PhysicalOperation(operatorFactory, outputMappings, groupEnumerable ? GROUPED_EXECUTION : UNGROUPED_EXECUTION);
                 }
                 else {
-                    Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(translatedFilter, translatedProjections, Optional.of(context.getStageId() + "_" + planNodeId));
-
+                    Supplier<PageProcessor> pageProcessor;
+                    if (SystemSessionProperties.isDynamicFilteringEnabled(context.getSession()) && dynamicFilters.isPresent() && !dynamicFilters.get().isEmpty()) {
+                        RowExpressionConverter converter = new RowExpressionConverter(sourceLayout, expressionTypes, metadata.getFunctionRegistry(), metadata.getTypeManager(), session);
+                        DynamicFilterClient client = dynamicFilterClientSupplier.createClient(converter.getTypeManager());
+                        DynamicFilterCollector dfCollector = new DynamicFilterCollector(dynamicFilters.get(), translatedFilter, client, converter, session.getQueryId());
+                        pageProcessor = expressionCompiler.compilePageProcessor(translatedFilter, translatedProjections, Optional.of(context.getStageId() + "_" + planNodeId), Optional.of(dfCollector));
+                    }
+                    else {
+                        pageProcessor = expressionCompiler.compilePageProcessor(translatedFilter, translatedProjections, Optional.of(context.getStageId() + "_" + planNodeId));
+                    }
                     OperatorFactory operatorFactory = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
                             context.getNextOperatorId(),
                             planNodeId,
@@ -1813,7 +1832,7 @@ public class LocalExecutionPlanner
             }
 
             // Dynamic filtering
-            if (SystemSessionProperties.isDynamicPartitionPruningEnabled(context.getSession()) && node.getType() == INNER && node.getCriteria().size() > 0) {
+            if (SystemSessionProperties.isDynamicFilteringEnabled(context.getSession()) && node.getType() == INNER && node.getCriteria().size() > 0) {
                 OperatorFactory dynamicFilterSource = new DynamicFilterSourceOperatorFactory(
                         buildContext.getNextOperatorId(),
                         node.getId(),

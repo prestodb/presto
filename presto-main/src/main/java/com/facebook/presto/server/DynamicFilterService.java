@@ -87,7 +87,7 @@ public class DynamicFilterService
         DynamicFilterSummaryWithSenders dynamicFilterSummaryWithSenders = dynamicFilterSummaries.get(SourceDescriptor.of(queryId, source));
         if (dynamicFilterSummaryWithSenders != null) {
             final Optional<DynamicFilterSummary> summaryIfReady
-                = dynamicFilterSummaryWithSenders.getSummaryIfReady();
+                    = dynamicFilterSummaryWithSenders.getSummaryIfReady();
             if (summaryIfReady.isPresent()) {
                 future.set(summaryIfReady.get());
             }

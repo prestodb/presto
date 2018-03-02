@@ -125,7 +125,7 @@ public class DynamicFilterCollector
         });
     }
 
-    public void cleanUp()
+    private void cleanUp()
     {
         es.shutdown();
     }
@@ -182,6 +182,7 @@ public class DynamicFilterCollector
             }
             catch (Exception e) {
                 globalState = DynamicProcessorState.FAILED;
+                log.warn(e, "Could not convert Tuple Domain from DynamicFilter to Expression");
                 throw e;
             }
         }

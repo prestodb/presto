@@ -238,7 +238,7 @@ public class ScanFilterAndProjectOperator
         }
     }
 
-    private Page processColumnSource()
+    protected Page processColumnSource()
     {
         DriverYieldSignal yieldSignal = operatorContext.getDriverContext().getYieldSignal();
         if (!finishing && !yieldSignal.isSet()) {
@@ -266,7 +266,7 @@ public class ScanFilterAndProjectOperator
         return page;
     }
 
-    private Page processPageSource()
+    protected Page processPageSource()
     {
         DriverYieldSignal yieldSignal = operatorContext.getDriverContext().getYieldSignal();
         if (!finishing && mergingOutput.needsInput() && !yieldSignal.isSet()) {

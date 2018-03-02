@@ -96,7 +96,7 @@ public class TestLogicalPlanner
                                         join(INNER,
                                                 ImmutableList.of(equiJoinClause("O_SHIPPRIORITY", "L_LINENUMBER")),
                                                 Optional.of("O_ORDERKEY < L_ORDERKEY"),
-                                                any(tableScan("orders", ImmutableMap.of(
+                                                anyTree(tableScan("orders", ImmutableMap.of(
                                                         "O_SHIPPRIORITY", "shippriority",
                                                         "O_ORDERKEY", "orderkey"))),
                                                 anyTree(tableScan("lineitem", ImmutableMap.of(
@@ -125,7 +125,7 @@ public class TestLogicalPlanner
                                 join(INNER,
                                         ImmutableList.of(equiJoinClause("O_SHIPPRIORITY", "L_LINENUMBER")),
                                         Optional.of("O_ORDERKEY < L_ORDERKEY"),
-                                        any(tableScan("orders", ImmutableMap.of(
+                                        anyTree(tableScan("orders", ImmutableMap.of(
                                                 "O_SHIPPRIORITY", "shippriority",
                                                 "O_ORDERKEY", "orderkey"))),
                                         anyTree(tableScan("lineitem", ImmutableMap.of(

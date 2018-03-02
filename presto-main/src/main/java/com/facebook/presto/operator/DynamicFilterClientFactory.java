@@ -14,6 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.spi.type.TypeManager;
 import io.airlift.discovery.client.ForDiscoveryClient;
 import io.airlift.http.client.HttpClient;
 import io.airlift.json.JsonCodec;
@@ -22,6 +23,7 @@ import javax.inject.Inject;
 import javax.inject.Provider;
 
 import java.net.URI;
+import java.util.Optional;
 
 public class DynamicFilterClientFactory
         implements DynamicFilterClientSupplier
@@ -42,8 +44,14 @@ public class DynamicFilterClientFactory
     }
 
     @Override
-    public DynamicFilterClient createClient(TaskId taskId, String source, int driverId, int expectedDriversCount)
+    public DynamicFilterClient createClient(TaskId taskId, String source, int driverId, int expectedDriversCount, TypeManager typeManager)
     {
-        return new HttpDynamicFilterClient(summaryJsonCodec, coordinatorURIProvider.get(), httpClient, taskId, source, driverId, expectedDriversCount);
+        return new HttpDynamicFilterClient(summaryJsonCodec, coordinatorURIProvider.get(), httpClient, Optional.of(taskId), Optional.of(source), driverId, expectedDriversCount, typeManager);
+    }
+
+    @Override
+    public DynamicFilterClient createClient(TypeManager typeManager)
+    {
+        return new HttpDynamicFilterClient(summaryJsonCodec, coordinatorURIProvider.get(), httpClient, Optional.empty(), Optional.empty(), -1, -1, typeManager);
     }
 }

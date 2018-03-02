@@ -97,8 +97,8 @@ public class JoinNode
         this.rightHashSymbol = rightHashSymbol;
         this.distributionType = distributionType;
         this.spatialJoin = type == INNER && criteria.isEmpty() && filter.isPresent() && isSpatialJoinFilter(left, right, filter.get());
-        this.dynamicFilterAssignments = requireNonNull(dynamicFilterAssignments, "dynamicFilterAssignments is null");
 
+        this.dynamicFilterAssignments = (dynamicFilterAssignments == null) ? Assignments.of() : dynamicFilterAssignments;
         List<Symbol> inputSymbols = ImmutableList.<Symbol>builder()
                 .addAll(left.getOutputSymbols())
                 .addAll(right.getOutputSymbols())
@@ -114,6 +114,9 @@ public class JoinNode
 
     private static boolean isValidDynamicFilter(List<EquiJoinClause> criteria, Assignments dynamicFilterAssignments)
     {
+        if (dynamicFilterAssignments.getMap().isEmpty()) {
+            return true;
+        }
         ImmutableSet<Symbol> dynamicFilterSymbols = dynamicFilterAssignments.getExpressions().stream().map(Symbol::from).collect(toImmutableSet());
         ImmutableSet<Symbol> clauseSymbols = criteria.stream().map(EquiJoinClause::getRight).collect(toImmutableSet());
 

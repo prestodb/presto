@@ -15,6 +15,7 @@ package com.facebook.presto.operator.project;
 
 import com.facebook.presto.array.ReferenceCountMap;
 import com.facebook.presto.operator.DriverYieldSignal;
+import com.facebook.presto.operator.DynamicPageFilter;
 import com.facebook.presto.operator.Work;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
@@ -58,7 +59,7 @@ public class PageProcessor
     {
         this.filter = requireNonNull(filter, "filter is null")
                 .map(pageFilter -> {
-                    if (pageFilter.getInputChannels().size() == 1 && pageFilter.isDeterministic()) {
+                    if (pageFilter.getInputChannels().size() == 1 && pageFilter.isDeterministic() && !(pageFilter instanceof DynamicPageFilter)) {
                         return new DictionaryAwarePageFilter(pageFilter);
                     }
                     return pageFilter;

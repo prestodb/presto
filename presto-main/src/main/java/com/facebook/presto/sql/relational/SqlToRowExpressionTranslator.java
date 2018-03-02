@@ -77,6 +77,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -154,15 +155,62 @@ public final class SqlToRowExpressionTranslator
         return result;
     }
 
+    public static RowExpression translateExpression(
+            Expression expression,
+            FunctionKind functionKind,
+            Map<NodeRef<Expression>, Type> types,
+            FunctionRegistry functionRegistry,
+            TypeManager typeManager,
+            Session session,
+            boolean optimize)
+    {
+        RowExpression result = new ExpressionVisitor(functionKind, types, typeManager, session.getTimeZoneKey()).process(expression, null);
+
+        requireNonNull(result, "translated expression is null");
+
+        if (optimize) {
+            ExpressionOptimizer optimizer = new ExpressionOptimizer(functionRegistry, typeManager, session);
+            return optimizer.optimize(result);
+        }
+
+        return result;
+    }
+
+    private static class ExpressionVisitor
+            extends Visitor
+    {
+        private Map<Expression, Type> exprTypes = new HashMap();
+
+        private ExpressionVisitor(FunctionKind functionKind, Map<NodeRef<Expression>, Type> types, TypeManager typeManager, TimeZoneKey timeZoneKey)
+        {
+            super(functionKind, types, typeManager, timeZoneKey);
+            types.entrySet().stream().forEach(e -> exprTypes.put(e.getKey().getNode(), e.getValue()));
+        }
+
+        @Override
+        protected Type getType(Expression node)
+        {
+            if (node instanceof Cast) {
+                return typeManager.getType(parseTypeSignature(((Cast) node).getType()));
+            }
+            else if (node instanceof GenericLiteral) {
+                return typeManager.getType(parseTypeSignature(((GenericLiteral) node).getType()));
+            }
+            else {
+                return exprTypes.get(node);
+            }
+        }
+    }
+
     private static class Visitor
             extends AstVisitor<RowExpression, Void>
     {
         private final FunctionKind functionKind;
         private final Map<NodeRef<Expression>, Type> types;
-        private final TypeManager typeManager;
+        protected final TypeManager typeManager;
         private final TimeZoneKey timeZoneKey;
 
-        private Visitor(FunctionKind functionKind, Map<NodeRef<Expression>, Type> types, TypeManager typeManager, TimeZoneKey timeZoneKey)
+        protected Visitor(FunctionKind functionKind, Map<NodeRef<Expression>, Type> types, TypeManager typeManager, TimeZoneKey timeZoneKey)
         {
             this.functionKind = functionKind;
             this.types = ImmutableMap.copyOf(requireNonNull(types, "types is null"));
@@ -170,7 +218,7 @@ public final class SqlToRowExpressionTranslator
             this.timeZoneKey = timeZoneKey;
         }
 
-        private Type getType(Expression node)
+        protected Type getType(Expression node)
         {
             return types.get(NodeRef.of(node));
         }

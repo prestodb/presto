@@ -58,7 +58,8 @@ public class DynamicFilterResource
             @PathParam("expectedCount") int expectedCount,
             DynamicFilterSummary dynamicFilterSummary)
     {
-        log.info("DynamicSummary:  Query id: " + queryId + "task id: " + taskId);
+        log.debug("Storing dynamic summary for queryId: " + queryId + " taskId: " + taskId
+                + " source: " + source + " driverId: " + driverId);
         service.storeOrMergeSummary(queryId, source, stageId, taskId, driverId, dynamicFilterSummary, expectedCount);
         return Response.ok().build();
     }
@@ -69,12 +70,12 @@ public class DynamicFilterResource
             @PathParam("queryId") String queryId,
             @PathParam("source") String source)
     {
+        log.debug("Getting Dynamic Summary for queryId: " + queryId + " source: " + source);
         Future<DynamicFilterSummary> summaryFuture = service.getSummary(queryId, source);
         Optional<DynamicFilterSummary> summary = tryGetFutureValue(summaryFuture);
         if (!summary.isPresent()) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
-
         return Response.ok(summary.get()).build();
     }
 }

@@ -19,4 +19,5 @@ public interface DynamicFilterClient
 {
     ListenableFuture<?> getSummary();
     ListenableFuture<?> storeSummary(DynamicFilterSummary summary);
+    ListenableFuture<?> getSummary(String queryId, String source);
 }

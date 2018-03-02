@@ -65,7 +65,7 @@ public class FilterAndProjectOperator
     }
 
     @Override
-    public final void finish()
+    public void finish()
     {
         mergingOutput.finish();
         finishing = true;
@@ -88,13 +88,18 @@ public class FilterAndProjectOperator
     }
 
     @Override
-    public final void addInput(Page page)
+    public void addInput(Page page)
+    {
+        processPage(page, processor);
+    }
+
+    protected void processPage(Page page, PageProcessor currentProcessor)
     {
         checkState(!finishing, "Operator is already finishing");
         requireNonNull(page, "page is null");
         checkState(mergingOutput.needsInput(), "Page buffer is full");
 
-        mergingOutput.addInput(processor.process(operatorContext.getSession().toConnectorSession(), operatorContext.getDriverContext().getYieldSignal(), page));
+        mergingOutput.addInput(currentProcessor.process(operatorContext.getSession().toConnectorSession(), operatorContext.getDriverContext().getYieldSignal(), page));
         outputMemoryContext.setBytes(mergingOutput.getRetainedSizeInBytes());
     }
 

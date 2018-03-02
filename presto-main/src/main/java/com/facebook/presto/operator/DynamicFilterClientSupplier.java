@@ -14,8 +14,10 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.spi.type.TypeManager;
 
 public interface DynamicFilterClientSupplier
 {
-    DynamicFilterClient createClient(TaskId taskId, String source, int driverId, int expectedDriversCount);
+    DynamicFilterClient createClient(TaskId taskId, String source, int driverId, int expectedDriversCount, TypeManager typeManager);
+    DynamicFilterClient createClient(TypeManager typeManager);
 }

@@ -42,4 +42,30 @@ public class DynamicFilterSummary
     {
         return new DynamicFilterSummary(columnWiseUnion(tupleDomain, other.tupleDomain));
     }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        DynamicFilterSummary summary = (DynamicFilterSummary) o;
+
+        if (tupleDomain != null) {
+            return tupleDomain.equals(summary.tupleDomain);
+        }
+        else {
+            return summary.tupleDomain == null;
+        }
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return tupleDomain != null ? tupleDomain.hashCode() : 0;
+    }
 }

@@ -13,15 +13,28 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.block.BlockJsonSerde;
 import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.type.TypeDeserializer;
+import com.facebook.presto.type.TypeRegistry;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.http.client.FullJsonResponseHandler.JsonResponse;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpUriBuilder;
 import io.airlift.http.client.StatusResponseHandler.StatusResponse;
 import io.airlift.json.JsonCodec;
+import io.airlift.json.JsonCodecFactory;
+import io.airlift.json.ObjectMapperProvider;
+import io.airlift.log.Logger;
 
 import java.net.URI;
+import java.util.NoSuchElementException;
+import java.util.Optional;
 
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static com.google.common.net.MediaType.JSON_UTF_8;
@@ -36,50 +49,73 @@ import static java.util.Objects.requireNonNull;
 public class HttpDynamicFilterClient
         implements DynamicFilterClient
 {
+    private static final Logger log = Logger.get(HttpDynamicFilterClient.class);
     private final JsonCodec<DynamicFilterSummary> summaryJsonCodec;
     private final URI coordinatorURI;
     private final HttpClient httpClient;
-    private final TaskId taskId;
-    private final String source;
+    private final Optional<TaskId> taskId;
+    private final Optional<String> source;
     private final int driverId;
     private final int expectedDriversCount;
+    private final TypeManager typeManager;
 
-    public HttpDynamicFilterClient(JsonCodec<DynamicFilterSummary> summaryJsonCodec, URI coordinatorURI, HttpClient httpClient, TaskId taskId, String source, int driverId, int expectedDriversCount)
+    public HttpDynamicFilterClient(JsonCodec<DynamicFilterSummary> summaryJsonCodec, URI coordinatorURI, HttpClient httpClient, Optional<TaskId> taskId, Optional<String> source, int driverId, int expectedDriversCount, TypeManager typeManager)
     {
         this.summaryJsonCodec = requireNonNull(summaryJsonCodec, "summaryJsonCodec is null");
-        this.coordinatorURI = requireNonNull(coordinatorURI, "coordinatorURI is null");
+        //TODO: URI being passed is of discovery server. Need way to pass coordinator URI
+        this.coordinatorURI = requireNonNull(coordinatorURI, "coordinatorURI obtained is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
-        this.taskId = requireNonNull(taskId, "taskId is null");
-        this.source = requireNonNull(source, "source is null");
+        this.taskId = taskId;
+        this.source = source;
         this.driverId = driverId;
         this.expectedDriversCount = expectedDriversCount;
+        this.typeManager = typeManager;
     }
 
     @Override
     public ListenableFuture<JsonResponse<DynamicFilterSummary>> getSummary()
     {
+        TaskId task = taskId.orElseThrow(() -> new NoSuchElementException("taskId is empty"));
+        String src = source.orElseThrow(() -> new NoSuchElementException("source is empty"));
         return httpClient.executeAsync(
                 prepareGet()
                         .setUri(HttpUriBuilder.uriBuilderFrom(coordinatorURI)
                                 .appendPath("/v1/dynamic-filter")
-                                .appendPath("/" + taskId.getQueryId())
-                                .appendPath("/" + source)
+                                .appendPath("/" + task.getQueryId())
+                                .appendPath("/" + src)
                                 .build())
                         .build(),
                 createFullJsonResponseHandler(jsonCodec(DynamicFilterSummary.class)));
     }
 
     @Override
+    public ListenableFuture<JsonResponse<DynamicFilterSummary>> getSummary(String queryId, String source)
+    {
+        return httpClient.executeAsync(
+                prepareGet()
+                        .setUri(HttpUriBuilder.uriBuilderFrom(coordinatorURI)
+                            .appendPath("/v1/dynamic-filter")
+                            .appendPath("/" + queryId)
+                            .appendPath("/" + source)
+                            .build())
+                        .build(),
+                createFullJsonResponseHandler(new JsonCodecFactory(getObjectMapperProvider(typeManager))
+                    .jsonCodec(DynamicFilterSummary.class)));
+    }
+
+    @Override
     public ListenableFuture<StatusResponse> storeSummary(DynamicFilterSummary summary)
     {
+        TaskId task = taskId.orElseThrow(() -> new NoSuchElementException("taskId is empty"));
+        String src = source.orElseThrow(() -> new NoSuchElementException("source is empty"));
         return httpClient.executeAsync(
                 preparePut()
                         .setUri(HttpUriBuilder.uriBuilderFrom(coordinatorURI)
                                 .appendPath("/v1/dynamic-filter")
-                                .appendPath("/" + taskId.getQueryId())
-                                .appendPath("/" + source)
-                                .appendPath("/" + taskId.getStageId().getId())
-                                .appendPath("/" + taskId.getId())
+                                .appendPath("/" + task.getQueryId())
+                                .appendPath("/" + src)
+                                .appendPath("/" + task.getStageId().getId())
+                                .appendPath("/" + task.getId())
                                 .appendPath("/" + driverId)
                                 .appendPath("/" + expectedDriversCount)
                                 .build())
@@ -87,5 +123,19 @@ public class HttpDynamicFilterClient
                         .setBodyGenerator(jsonBodyGenerator(summaryJsonCodec, summary))
                         .build(),
                 createStatusResponseHandler());
+    }
+
+    private ObjectMapperProvider getObjectMapperProvider(TypeManager typeManager)
+    {
+        ObjectMapperProvider provider = new ObjectMapperProvider();
+        if (typeManager != null) {
+            ImmutableMap.Builder deserializers = ImmutableMap.builder();
+            BlockEncodingManager blockEncodingSerde = new BlockEncodingManager(new TypeRegistry());
+            deserializers.put(Block.class, new BlockJsonSerde.Deserializer(blockEncodingSerde));
+            deserializers.put(Type.class, new TypeDeserializer(new TypeRegistry()));
+            provider.setJsonDeserializers(deserializers.build());
+            provider.setJsonSerializers(ImmutableMap.of(Block.class, new BlockJsonSerde.Serializer(blockEncodingSerde)));
+        }
+        return provider;
     }
 }
