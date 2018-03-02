@@ -781,10 +781,7 @@ public class TestDomainTranslator
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_INTEGER, Domain.create(ValueSet.ofRanges(Range.lessThan(INTEGER, 2L), Range.greaterThan(INTEGER, 2L)), true))));
 
-        originalExpression = isDistinctFrom(cast(C_INTEGER, DOUBLE), doubleLiteral(2.1));
-        result = fromPredicate(originalExpression);
-        assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        assertTrue(result.getTupleDomain().isAll());
+        assertPredicateIsAlwaysTrue(isDistinctFrom(cast(C_INTEGER, DOUBLE), doubleLiteral(2.1)));
 
         // Test complements
 
@@ -1029,18 +1026,10 @@ public class TestDomainTranslator
     @Test
     public void testFromBooleanLiteralPredicate()
     {
-        Expression originalExpression = TRUE_LITERAL;
-        ExtractionResult result = fromPredicate(originalExpression);
-        assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        assertTrue(result.getTupleDomain().isAll());
-
+        assertPredicateIsAlwaysTrue(TRUE_LITERAL);
         assertPredicateIsAlwaysFalse(not(TRUE_LITERAL));
         assertPredicateIsAlwaysFalse(FALSE_LITERAL);
-
-        originalExpression = not(FALSE_LITERAL);
-        result = fromPredicate(originalExpression);
-        assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        assertTrue(result.getTupleDomain().isAll());
+        assertPredicateIsAlwaysTrue(not(FALSE_LITERAL));
     }
 
     @Test
@@ -1266,6 +1255,13 @@ public class TestDomainTranslator
         testSimpleComparison(isDistinctFrom(cast(C_CHAR, VARCHAR), stringLiteral("1234567890", VARCHAR)), C_CHAR, Domain.create(ValueSet.ofRanges(
                 Range.lessThan(createCharType(10), Slices.utf8Slice("1234567890")), Range.greaterThan(createCharType(10), Slices.utf8Slice("1234567890"))), true));
         testSimpleComparison(isDistinctFrom(cast(C_CHAR, VARCHAR), stringLiteral("12345678901", VARCHAR)), C_CHAR, Domain.all(createCharType(10)));
+    }
+
+    private void assertPredicateIsAlwaysTrue(Expression expression)
+    {
+        ExtractionResult result = fromPredicate(expression);
+        assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
+        assertTrue(result.getTupleDomain().isAll());
     }
 
     private void assertPredicateIsAlwaysFalse(Expression expression)
