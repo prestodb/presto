@@ -632,7 +632,7 @@ public class TestDomainTranslator
         // see comment in DomainTranslator.Visitor.visitComparisonExpression()
         assertUnsupportedPredicate(equal(
                 new Cast(C_TIMESTAMP.toSymbolReference(), DATE.toString()),
-                LiteralInterpreter.toExpression(DATE_VALUE, DATE)));
+                toExpression(DATE_VALUE, DATE)));
         assertUnsupportedPredicate(equal(
                 new Cast(C_DECIMAL_12_2.toSymbolReference(), BIGINT.toString()),
                 bigintLiteral(135L)));
@@ -643,19 +643,19 @@ public class TestDomainTranslator
     {
         assertUnsupportedPredicate(equal(
                 new Cast(C_DECIMAL_12_2.toSymbolReference(), DOUBLE.toString()),
-                LiteralInterpreter.toExpression(12345.56, DOUBLE)));
+                toExpression(12345.56, DOUBLE)));
 
         assertUnsupportedPredicate(equal(
                 new Cast(C_BIGINT.toSymbolReference(), DOUBLE.toString()),
-                LiteralInterpreter.toExpression(12345.56, DOUBLE)));
+                toExpression(12345.56, DOUBLE)));
 
         assertUnsupportedPredicate(equal(
                 new Cast(C_BIGINT.toSymbolReference(), REAL.toString()),
-                LiteralInterpreter.toExpression(realValue(12345.56f), REAL)));
+                toExpression(realValue(12345.56f), REAL)));
 
         assertUnsupportedPredicate(equal(
                 new Cast(C_INTEGER.toSymbolReference(), REAL.toString()),
-                LiteralInterpreter.toExpression(realValue(12345.56f), REAL)));
+                toExpression(realValue(12345.56f), REAL)));
     }
 
     @Test
@@ -870,13 +870,13 @@ public class TestDomainTranslator
         assertPredicateTranslates(
                 new InPredicate(
                         C_BIGINT.toSymbolReference(),
-                        new InListExpression(ImmutableList.of(cast(LiteralInterpreter.toExpression(1L, SMALLINT), BIGINT)))),
+                        new InListExpression(ImmutableList.of(cast(toExpression(1L, SMALLINT), BIGINT)))),
                 withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.singleValue(BIGINT, 1L))));
 
         assertPredicateTranslates(
                 new InPredicate(
                         cast(C_SMALLINT, BIGINT),
-                        new InListExpression(ImmutableList.of(LiteralInterpreter.toExpression(1L, BIGINT)))),
+                        new InListExpression(ImmutableList.of(toExpression(1L, BIGINT)))),
                 withColumnDomains(ImmutableMap.of(C_SMALLINT, Domain.singleValue(SMALLINT, 1L))));
     }
 
