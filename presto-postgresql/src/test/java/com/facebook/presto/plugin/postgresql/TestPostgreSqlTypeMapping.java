@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.plugin.postgresql;
 
+import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tests.datatype.CreateAndInsertDataSetup;
 import com.facebook.presto.tests.datatype.CreateAsSelectDataSetup;
@@ -27,6 +28,11 @@ import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.sql.Date;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.TimeZone;
 import java.util.function.Function;
 
 import static com.facebook.presto.plugin.postgresql.PostgreSqlQueryRunner.createPostgreSqlQueryRunner;
@@ -215,6 +221,30 @@ public class TestPostgreSqlTypeMapping
     public void testDecimalExceedingPrecisionMax()
     {
         testUnsupportedDataType("decimal(50,0)");
+    }
+
+    @Test
+    public void testDate()
+    {
+        LocalDate northernHemisphereWinter = LocalDate.of(2017, 1, 1);
+        LocalDate northernHemisphereSummer = LocalDate.of(2017, 7, 1);
+        // America/Sao_Paulo is interesting because it has DST changes at midnight. However, for this values to be useful, tests need to be run with JVM in that time zone.
+        LocalDate dstChangeBackwardInSaoPaulo = LocalDate.of(2017, 2, 19);
+        LocalDate dstChangeForwardInSaoPaulo = LocalDate.of(2017, 10, 15);
+
+        DataTypeTest.create()
+                .addRoundTrip(DataType.dateDataType(), northernHemisphereWinter)
+                .addRoundTrip(DataType.dateDataType(), northernHemisphereSummer)
+                .addRoundTrip(DataType.dateDataType(), dstChangeBackwardInSaoPaulo)
+                .addRoundTrip(DataType.dateDataType(), dstChangeForwardInSaoPaulo)
+                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.test_date"));
+
+        DataTypeTest.create()
+                .addRoundTrip(DataType.dateDataType(), northernHemisphereWinter)
+                .addRoundTrip(DataType.dateDataType(), northernHemisphereSummer)
+                .addRoundTrip(DataType.dateDataType(), dstChangeBackwardInSaoPaulo)
+                .addRoundTrip(DataType.dateDataType(), dstChangeForwardInSaoPaulo)
+                .execute(getQueryRunner(), prestoCreateAsSelect("test_date"));
     }
 
     private void testUnsupportedDataType(String databaseDataType)
