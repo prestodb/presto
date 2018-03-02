@@ -49,6 +49,7 @@ import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -841,27 +842,23 @@ public class TestDomainTranslator
         assertPredicateTranslates(
                 not(in(C_COLOR, ImmutableList.of(colorLiteral(COLOR_VALUE_1), colorLiteral(COLOR_VALUE_2)))),
                 withColumnDomains(ImmutableMap.of(C_COLOR, Domain.create(ValueSet.of(COLOR, COLOR_VALUE_1, COLOR_VALUE_2).complement(), false))));
+    }
 
-        // TODO update domain translator to properly handle cast
-//        originalExpression = in(A, Arrays.asList(1L, 2L, (Expression) null));
-//        result = fromPredicate(originalExpression, TYPES, COLUMN_HANDLES);
-//        assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-//        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(ACH, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 1L), Range.equal(BIGINT, 2L)), false))));
-//
-//        originalExpression = not(in(A, Arrays.asList(1L, 2L, (Expression) null)));
-//        result = fromPredicate(originalExpression, TYPES, COLUMN_HANDLES);
-//        assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-//        assertTrue(result.getTupleDomain().isNone());
-//
-//        originalExpression = in(A, Arrays.asList((Expression) null));
-//        result = fromPredicate(originalExpression, TYPES, COLUMN_HANDLES);
-//        assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-//        assertTrue(result.getTupleDomain().isNone());
-//
-//        originalExpression = not(in(A, Arrays.asList((Expression) null)));
-//        result = fromPredicate(originalExpression, TYPES, COLUMN_HANDLES);
-//        assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-//        assertTrue(result.getTupleDomain().isNone());
+    @Test
+    public void testInPredicateWithNull()
+    {
+        assertPredicateTranslates(
+                in(C_BIGINT, Arrays.asList(1L, 2L, null)),
+                withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 1L), Range.equal(BIGINT, 2L)), false))));
+
+        assertPredicateIsAlwaysFalse(not(in(C_BIGINT, Arrays.asList(1L, 2L, null))));
+        assertPredicateIsAlwaysFalse(in(C_BIGINT, Arrays.asList(new Long[]{null})));
+        assertPredicateIsAlwaysFalse(not(in(C_BIGINT, Arrays.asList(new Long[]{null}))));
+
+        assertUnsupportedPredicate(isNull(in(C_BIGINT, Arrays.asList(1L, 2L, null))));
+        assertUnsupportedPredicate(isNotNull(in(C_BIGINT, Arrays.asList(1L, 2L, null))));
+        assertUnsupportedPredicate(isNull(in(C_BIGINT, Arrays.asList(new Long[]{null}))));
+        assertUnsupportedPredicate(isNotNull(in(C_BIGINT, Arrays.asList(new Long[]{null}))));
     }
 
     @Test
