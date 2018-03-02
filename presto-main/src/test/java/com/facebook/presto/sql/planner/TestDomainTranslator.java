@@ -336,14 +336,8 @@ public class TestDomainTranslator
     @Test
     public void testFromUnknownPredicate()
     {
-        ExtractionResult result = fromPredicate(unprocessableExpression1(C_BIGINT));
-        assertTrue(result.getTupleDomain().isAll());
-        assertEquals(result.getRemainingExpression(), unprocessableExpression1(C_BIGINT));
-
-        // Test the complement
-        result = fromPredicate(not(unprocessableExpression1(C_BIGINT)));
-        assertTrue(result.getTupleDomain().isAll());
-        assertEquals(result.getRemainingExpression(), not(unprocessableExpression1(C_BIGINT)));
+        assertUnsupportedPredicate(unprocessableExpression1(C_BIGINT));
+        assertUnsupportedPredicate(not(unprocessableExpression1(C_BIGINT)));
     }
 
     @Test
@@ -357,12 +351,9 @@ public class TestDomainTranslator
         assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.range(BIGINT, 1L, false, 5L, false)), false))));
 
         // Test complements
-        originalPredicate = not(and(
+        assertUnsupportedPredicate(not(and(
                 and(greaterThan(C_BIGINT, bigintLiteral(1L)), unprocessableExpression1(C_BIGINT)),
-                and(lessThan(C_BIGINT, bigintLiteral(5L)), unprocessableExpression2(C_BIGINT))));
-        result = fromPredicate(originalPredicate);
-        assertEquals(result.getRemainingExpression(), originalPredicate);
-        assertTrue(result.getTupleDomain().isAll());
+                and(lessThan(C_BIGINT, bigintLiteral(5L)), unprocessableExpression2(C_BIGINT)))));
 
         originalPredicate = not(and(
                 not(and(greaterThan(C_BIGINT, bigintLiteral(1L)), unprocessableExpression1(C_BIGINT))),
@@ -399,12 +390,9 @@ public class TestDomainTranslator
         assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 1L), Range.equal(BIGINT, 2L)), false))));
 
         // And not if they have different symbols
-        originalPredicate = or(
+        assertUnsupportedPredicate(or(
                 and(equal(C_BIGINT, bigintLiteral(1L)), unprocessableExpression1(C_BIGINT)),
-                and(equal(C_DOUBLE, doubleLiteral(2.0)), unprocessableExpression1(C_BIGINT)));
-        result = fromPredicate(originalPredicate);
-        assertEquals(result.getRemainingExpression(), originalPredicate);
-        assertTrue(result.getTupleDomain().isAll());
+                and(equal(C_DOUBLE, doubleLiteral(2.0)), unprocessableExpression1(C_BIGINT))));
 
         // We can make another optimization if one side is the super set of the other side
         originalPredicate = or(
@@ -445,18 +433,11 @@ public class TestDomainTranslator
     @Test
     public void testFromNotPredicate()
     {
-        Expression originalPredicate = not(and(equal(C_BIGINT, bigintLiteral(1L)), unprocessableExpression1(C_BIGINT)));
+        assertUnsupportedPredicate(not(and(equal(C_BIGINT, bigintLiteral(1L)), unprocessableExpression1(C_BIGINT))));
+        assertUnsupportedPredicate(not(unprocessableExpression1(C_BIGINT)));
+
+        Expression originalPredicate = not(TRUE_LITERAL);
         ExtractionResult result = fromPredicate(originalPredicate);
-        assertEquals(result.getRemainingExpression(), originalPredicate);
-        assertTrue(result.getTupleDomain().isAll());
-
-        originalPredicate = not(unprocessableExpression1(C_BIGINT));
-        result = fromPredicate(originalPredicate);
-        assertEquals(result.getRemainingExpression(), originalPredicate);
-        assertTrue(result.getTupleDomain().isAll());
-
-        originalPredicate = not(TRUE_LITERAL);
-        result = fromPredicate(originalPredicate);
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         assertTrue(result.getTupleDomain().isNone());
 
@@ -469,17 +450,8 @@ public class TestDomainTranslator
     @Test
     public void testFromUnprocessableComparison()
     {
-        // If it is not a simple comparison, we should not try to process it
-        Expression predicate = comparison(GREATER_THAN, unprocessableExpression1(C_BIGINT), unprocessableExpression2(C_BIGINT));
-        ExtractionResult result = fromPredicate(predicate);
-        assertEquals(result.getRemainingExpression(), predicate);
-        assertTrue(result.getTupleDomain().isAll());
-
-        // Complement
-        predicate = not(comparison(GREATER_THAN, unprocessableExpression1(C_BIGINT), unprocessableExpression2(C_BIGINT)));
-        result = fromPredicate(predicate);
-        assertEquals(result.getRemainingExpression(), predicate);
-        assertTrue(result.getTupleDomain().isAll());
+        assertUnsupportedPredicate(comparison(GREATER_THAN, unprocessableExpression1(C_BIGINT), unprocessableExpression2(C_BIGINT)));
+        assertUnsupportedPredicate(not(comparison(GREATER_THAN, unprocessableExpression1(C_BIGINT), unprocessableExpression2(C_BIGINT))));
     }
 
     @Test
@@ -764,60 +736,32 @@ public class TestDomainTranslator
     {
         // we expect TupleDomain.all here().
         // see comment in DomainTranslator.Visitor.visitComparisonExpression()
-
-        // CAST(timestamp as DATE) = date_literal
-        Expression originalExpression = equal(
+        assertUnsupportedPredicate(equal(
                 new Cast(C_TIMESTAMP.toSymbolReference(), DATE.toString()),
-                LiteralInterpreter.toExpression(DATE_VALUE, DATE));
-
-        ExtractionResult result = fromPredicate(originalExpression);
-        assertEquals(result.getRemainingExpression(), originalExpression);
-        assertEquals(result.getTupleDomain(), TupleDomain.all());
-
-        // CAST(DECIMAL as BIGINT) = bigint_literal
-        originalExpression = equal(
+                LiteralInterpreter.toExpression(DATE_VALUE, DATE)));
+        assertUnsupportedPredicate(equal(
                 new Cast(C_DECIMAL_12_2.toSymbolReference(), BIGINT.toString()),
-                bigintLiteral(135L));
-
-        result = fromPredicate(originalExpression);
-        assertEquals(result.getRemainingExpression(), originalExpression);
-        assertEquals(result.getTupleDomain(), TupleDomain.all());
+                bigintLiteral(135L)));
     }
 
     @Test
     void testNoSaturatedFloorCastFromUnsupportedApproximateDomain()
     {
-        Expression originalExpression = equal(
+        assertUnsupportedPredicate(equal(
                 new Cast(C_DECIMAL_12_2.toSymbolReference(), DOUBLE.toString()),
-                LiteralInterpreter.toExpression(12345.56, DOUBLE));
+                LiteralInterpreter.toExpression(12345.56, DOUBLE)));
 
-        ExtractionResult result = fromPredicate(originalExpression);
-        assertEquals(result.getRemainingExpression(), originalExpression);
-        assertEquals(result.getTupleDomain(), TupleDomain.all());
-
-        originalExpression = equal(
+        assertUnsupportedPredicate(equal(
                 new Cast(C_BIGINT.toSymbolReference(), DOUBLE.toString()),
-                LiteralInterpreter.toExpression(12345.56, DOUBLE));
+                LiteralInterpreter.toExpression(12345.56, DOUBLE)));
 
-        result = fromPredicate(originalExpression);
-        assertEquals(result.getRemainingExpression(), originalExpression);
-        assertEquals(result.getTupleDomain(), TupleDomain.all());
-
-        originalExpression = equal(
+        assertUnsupportedPredicate(equal(
                 new Cast(C_BIGINT.toSymbolReference(), REAL.toString()),
-                LiteralInterpreter.toExpression(realValue(12345.56f), REAL));
+                LiteralInterpreter.toExpression(realValue(12345.56f), REAL)));
 
-        result = fromPredicate(originalExpression);
-        assertEquals(result.getRemainingExpression(), originalExpression);
-        assertEquals(result.getTupleDomain(), TupleDomain.all());
-
-        originalExpression = equal(
+        assertUnsupportedPredicate(equal(
                 new Cast(C_INTEGER.toSymbolReference(), REAL.toString()),
-                LiteralInterpreter.toExpression(realValue(12345.56f), REAL));
-
-        result = fromPredicate(originalExpression);
-        assertEquals(result.getRemainingExpression(), originalExpression);
-        assertEquals(result.getTupleDomain(), TupleDomain.all());
+                LiteralInterpreter.toExpression(realValue(12345.56f), REAL)));
     }
 
     @Test
@@ -995,13 +939,10 @@ public class TestDomainTranslator
     @Test
     public void testFromUnprocessableInPredicate()
     {
-        Expression originalExpression = new InPredicate(unprocessableExpression1(C_BIGINT), new InListExpression(ImmutableList.of(TRUE_LITERAL)));
-        ExtractionResult result = fromPredicate(originalExpression);
-        assertEquals(result.getRemainingExpression(), originalExpression);
-        assertTrue(result.getTupleDomain().isAll());
+        assertUnsupportedPredicate(new InPredicate(unprocessableExpression1(C_BIGINT), new InListExpression(ImmutableList.of(TRUE_LITERAL))));
 
-        originalExpression = new InPredicate(C_BOOLEAN.toSymbolReference(), new InListExpression(ImmutableList.of(unprocessableExpression1(C_BOOLEAN))));
-        result = fromPredicate(originalExpression);
+        Expression originalExpression = new InPredicate(C_BOOLEAN.toSymbolReference(), new InListExpression(ImmutableList.of(unprocessableExpression1(C_BOOLEAN))));
+        ExtractionResult result = fromPredicate(originalExpression);
         assertEquals(result.getRemainingExpression(), equal(C_BOOLEAN, unprocessableExpression1(C_BOOLEAN)));
         assertTrue(result.getTupleDomain().isAll());
 
@@ -1409,6 +1350,13 @@ public class TestDomainTranslator
         testSimpleComparison(isDistinctFrom(cast(C_CHAR, VARCHAR), stringLiteral("1234567890", VARCHAR)), C_CHAR, Domain.create(ValueSet.ofRanges(
                 Range.lessThan(createCharType(10), Slices.utf8Slice("1234567890")), Range.greaterThan(createCharType(10), Slices.utf8Slice("1234567890"))), true));
         testSimpleComparison(isDistinctFrom(cast(C_CHAR, VARCHAR), stringLiteral("12345678901", VARCHAR)), C_CHAR, Domain.all(createCharType(10)));
+    }
+
+    private void assertUnsupportedPredicate(Expression expression)
+    {
+        ExtractionResult result = fromPredicate(expression);
+        assertEquals(result.getRemainingExpression(), expression);
+        assertEquals(result.getTupleDomain(), TupleDomain.all());
     }
 
     private static ExtractionResult fromPredicate(Expression originalPredicate)
