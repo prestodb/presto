@@ -36,6 +36,7 @@ import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
@@ -406,9 +407,15 @@ public class PredicatePushDown
 
                 leftSource = new ProjectNode(idAllocator.getNextId(), leftSource, leftProjections.build());
                 rightSource = new ProjectNode(idAllocator.getNextId(), rightSource, rightProjections.build());
-
+                PlanNodeId id;
+                if (node.getDynamicFilterAssignments().size() > 0) {
+                    id = node.getId(); // Need to preserve id for DF mapping
+                }
+                else {
+                    id = idAllocator.getNextId();
+                }
                 output = new JoinNode(
-                        node.getId(),
+                        id,
                         node.getType(),
                         leftSource,
                         rightSource,
