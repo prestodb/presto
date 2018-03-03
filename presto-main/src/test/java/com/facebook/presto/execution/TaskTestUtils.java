@@ -121,7 +121,8 @@ public final class TaskTestUtils
                 new LegacyNetworkTopology(),
                 new InMemoryNodeManager(),
                 new NodeSchedulerConfig().setIncludeCoordinator(true),
-                new NodeTaskMap(finalizerService));
+                new NodeTaskMap(finalizerService),
+                new QueryManagerConfig());
         NodePartitioningManager nodePartitioningManager = new NodePartitioningManager(nodeScheduler);
 
         PageFunctionCompiler pageFunctionCompiler = new PageFunctionCompiler(metadata, 0);

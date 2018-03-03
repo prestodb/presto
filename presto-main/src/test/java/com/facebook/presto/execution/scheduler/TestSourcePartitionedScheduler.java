@@ -20,6 +20,7 @@ import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.MockRemoteTaskFactory;
 import com.facebook.presto.execution.MockRemoteTaskFactory.MockRemoteTask;
 import com.facebook.presto.execution.NodeTaskMap;
+import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.SqlStageExecution;
 import com.facebook.presto.execution.StageId;
@@ -294,7 +295,12 @@ public class TestSourcePartitionedScheduler
         try {
             NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
             InMemoryNodeManager nodeManager = new InMemoryNodeManager();
-            NodeScheduler nodeScheduler = new NodeScheduler(new LegacyNetworkTopology(), nodeManager, new NodeSchedulerConfig().setIncludeCoordinator(false), nodeTaskMap);
+            NodeScheduler nodeScheduler = new NodeScheduler(
+                    new LegacyNetworkTopology(),
+                    nodeManager,
+                    new NodeSchedulerConfig().setIncludeCoordinator(false),
+                    nodeTaskMap,
+                    new QueryManagerConfig());
 
             StageExecutionPlan plan = createPlan(createFixedSplitSource(20, TestingSplit::createRemoteSplit));
             SqlStageExecution stage = createSqlStageExecution(plan, nodeTaskMap);
@@ -413,7 +419,12 @@ public class TestSourcePartitionedScheduler
                 .setIncludeCoordinator(false)
                 .setMaxSplitsPerNode(20)
                 .setMaxPendingSplitsPerTask(0);
-        NodeScheduler nodeScheduler = new NodeScheduler(new LegacyNetworkTopology(), nodeManager, nodeSchedulerConfig, nodeTaskMap);
+        NodeScheduler nodeScheduler = new NodeScheduler(
+                new LegacyNetworkTopology(),
+                nodeManager,
+                nodeSchedulerConfig,
+                nodeTaskMap,
+                new QueryManagerConfig());
 
         PlanNodeId sourceNode = Iterables.getOnlyElement(plan.getSplitSources().keySet());
         SplitSource splitSource = Iterables.getOnlyElement(plan.getSplitSources().values());
