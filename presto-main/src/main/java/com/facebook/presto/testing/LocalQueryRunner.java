@@ -299,6 +299,7 @@ public class LocalQueryRunner
         this.finalizerService = new FinalizerService();
         finalizerService.start();
 
+        QueryManagerConfig queryManagerConfig = new QueryManagerConfig();
         this.sqlParser = new SqlParser();
         this.nodeManager = new InMemoryNodeManager();
         this.typeRegistry = new TypeRegistry();
@@ -309,7 +310,8 @@ public class LocalQueryRunner
                 new LegacyNetworkTopology(),
                 nodeManager,
                 new NodeSchedulerConfig().setIncludeCoordinator(true),
-                new NodeTaskMap(finalizerService));
+                new NodeTaskMap(finalizerService),
+                queryManagerConfig);
         this.pageSinkManager = new PageSinkManager();
         CatalogManager catalogManager = new CatalogManager();
         this.transactionManager = TransactionManager.create(
@@ -319,13 +321,13 @@ public class LocalQueryRunner
                 notificationExecutor);
         this.nodePartitioningManager = new NodePartitioningManager(nodeScheduler);
 
-        this.splitManager = new SplitManager(new QueryManagerConfig());
+        this.splitManager = new SplitManager(queryManagerConfig);
         this.blockEncodingManager = new BlockEncodingManager(typeRegistry);
         this.metadata = new MetadataManager(
                 featuresConfig,
                 typeRegistry,
                 blockEncodingManager,
-                new SessionPropertyManager(new SystemSessionProperties(new QueryManagerConfig(), new TaskManagerConfig(), new MemoryManagerConfig(), featuresConfig)),
+                new SessionPropertyManager(new SystemSessionProperties(queryManagerConfig, new TaskManagerConfig(), new MemoryManagerConfig(), featuresConfig)),
                 new SchemaPropertyManager(),
                 new TablePropertyManager(),
                 transactionManager);
