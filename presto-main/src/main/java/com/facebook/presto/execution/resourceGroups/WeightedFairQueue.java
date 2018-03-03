@@ -15,7 +15,6 @@ package com.facebook.presto.execution.resourceGroups;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -135,12 +134,6 @@ final class WeightedFairQueue<E>
     public boolean isEmpty()
     {
         return index.isEmpty();
-    }
-
-    @Override
-    public Iterator<E> iterator()
-    {
-        return index.keySet().iterator();
     }
 
     public static class Usage

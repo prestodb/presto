@@ -14,7 +14,6 @@
 package com.facebook.presto.execution.resourceGroups;
 
 interface Queue<E>
-        extends Iterable<E>
 {
     boolean contains(E element);
 
