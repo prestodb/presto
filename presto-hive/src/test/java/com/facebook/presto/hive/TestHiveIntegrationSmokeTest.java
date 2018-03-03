@@ -2886,6 +2886,28 @@ public class TestHiveIntegrationSmokeTest
         assertQueryFails(ctasSql, "CREATE TABLE AS not supported when Avro schema url is set");
     }
 
+    @Test
+    public void testBucketedTablesFailWithAvroSchemaUrl()
+            throws Exception
+    {
+        @Language("SQL") String createSql = "CREATE TABLE create_avro (dummy VARCHAR)\n" +
+                "WITH (avro_schema_url = 'dummy_schema',\n" +
+                "      bucket_count = 2, bucketed_by=ARRAY['dummy'])";
+
+        assertQueryFails(createSql, "Bucketing/Partitioning columns not supported when Avro schema url is set");
+    }
+
+    @Test
+    public void testPartitionedTablesFailWithAvroSchemaUrl()
+            throws Exception
+    {
+        @Language("SQL") String createSql = "CREATE TABLE create_avro (dummy VARCHAR)\n" +
+                "WITH (avro_schema_url = 'dummy_schema',\n" +
+                "      partitioned_by=ARRAY['dummy'])";
+
+        assertQueryFails(createSql, "Bucketing/Partitioning columns not supported when Avro schema url is set");
+    }
+
     private Session getParallelWriteSession()
     {
         return Session.builder(getSession())
