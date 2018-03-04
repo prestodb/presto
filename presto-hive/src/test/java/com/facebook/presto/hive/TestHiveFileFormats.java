@@ -657,7 +657,7 @@ public class TestHiveFileFormats
 
         List<HivePartitionKey> partitionKeys = testColumns.stream()
                 .filter(TestColumn::isPartitionKey)
-                .map(input -> new HivePartitionKey(input.getName(), (String) input.getWriteValue()))
+                .map(input -> new HivePartitionKey(input.getName(), HiveType.valueOf(input.getObjectInspector().getTypeName()), (String) input.getWriteValue()))
                 .collect(toList());
 
         Configuration configuration = new Configuration();
@@ -701,7 +701,7 @@ public class TestHiveFileFormats
 
         List<HivePartitionKey> partitionKeys = testColumns.stream()
                 .filter(TestColumn::isPartitionKey)
-                .map(input -> new HivePartitionKey(input.getName(), (String) input.getWriteValue()))
+                .map(input -> new HivePartitionKey(input.getName(), HiveType.valueOf(input.getObjectInspector().getTypeName()), (String) input.getWriteValue()))
                 .collect(toList());
 
         List<HiveColumnHandle> columnHandles = getColumnHandles(testColumns);

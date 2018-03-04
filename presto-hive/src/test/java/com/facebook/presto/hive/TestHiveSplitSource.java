@@ -231,7 +231,7 @@ public class TestHiveSplitSource
                 100,
                 100,
                 new Properties(),
-                ImmutableList.of(new HivePartitionKey("pk_col", "pk_value")),
+                ImmutableList.of(new HivePartitionKey("pk_col", HiveType.HIVE_STRING, "pk_value")),
                 ImmutableList.of(new InternalHiveBlock(0, 100, ImmutableList.of(HostAddress.fromString("localhost")))),
                 OptionalInt.empty(),
                 true,
