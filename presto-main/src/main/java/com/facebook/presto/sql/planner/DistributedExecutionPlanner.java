@@ -24,7 +24,6 @@ import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.split.SampledSplitSource;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.split.SplitSource;
-import com.facebook.presto.sql.DynamicFilter;
 import com.facebook.presto.sql.DynamicFilterUtils;
 import com.facebook.presto.sql.DynamicFilterUtils.ExtractDynamicFiltersResult;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -60,6 +59,7 @@ import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
+import com.facebook.presto.sql.tree.DynamicFilterExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
@@ -168,7 +168,7 @@ public class DistributedExecutionPlanner
 
         private Map<PlanNodeId, SplitSource> visitScanAndFilter(TableScanNode scan, Optional<FilterNode> filter)
         {
-            Set<DynamicFilter> dynamicFilters = filter
+            Set<DynamicFilterExpression> dynamicFilters = filter
                     .map(FilterNode::getPredicate)
                     .map(DynamicFilterUtils::extractDynamicFilters)
                     .map(ExtractDynamicFiltersResult::getDynamicFilters)
@@ -419,9 +419,9 @@ public class DistributedExecutionPlanner
             this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
         }
 
-        public List<Future<DynamicFilterDescription>> get(String queryId, Set<DynamicFilter> dynamicFilters, Map<Symbol, ColumnHandle> columnHandles)
+        public List<Future<DynamicFilterDescription>> get(String queryId, Set<DynamicFilterExpression> dynamicFilters, Map<Symbol, ColumnHandle> columnHandles)
         {
-            Set<String> sources = dynamicFilters.stream().map(DynamicFilter::getTupleDomainSourceId).collect(toImmutableSet());
+            Set<String> sources = dynamicFilters.stream().map(DynamicFilterExpression::getSourceId).collect(toImmutableSet());
             ImmutableList.Builder<Future<DynamicFilterDescription>> futuresBuilder = ImmutableList.builder();
             for (String source : sources) {
                 futuresBuilder.add(Futures.transform(dynamicFilterService.getSummary(queryId, source), summary -> translateSummaryIntoDescription(summary, dynamicFilters, columnHandles)));
@@ -429,7 +429,7 @@ public class DistributedExecutionPlanner
             return futuresBuilder.build();
         }
 
-        private static DynamicFilterDescription translateSummaryIntoDescription(DynamicFilterSummary summary, Set<DynamicFilter> dynamicFilters, Map<Symbol, ColumnHandle> columnHandles)
+        private static DynamicFilterDescription translateSummaryIntoDescription(DynamicFilterSummary summary, Set<DynamicFilterExpression> dynamicFilters, Map<Symbol, ColumnHandle> columnHandles)
         {
             if (!summary.getTupleDomain().getDomains().isPresent()) {
                 return new DynamicFilterDescription(TupleDomain.none());
@@ -451,15 +451,15 @@ public class DistributedExecutionPlanner
             return new DynamicFilterDescription(TupleDomain.withColumnDomains(domainBuilder.build()));
         }
 
-        private static Map<String, Symbol> extractSourceExpressionSymbols(Set<DynamicFilter> dynamicFilters)
+        private static Map<String, Symbol> extractSourceExpressionSymbols(Set<DynamicFilterExpression> dynamicFilters)
         {
             ImmutableMap.Builder<String, Symbol> resultBuilder = ImmutableMap.builder();
-            for (DynamicFilter dynamicFilter : dynamicFilters) {
-                Expression expression = dynamicFilter.getSourceExpression();
+            for (DynamicFilterExpression dynamicFilter : dynamicFilters) {
+                Expression expression = dynamicFilter.getProbeExpression();
                 if (!(expression instanceof SymbolReference)) {
                     continue;
                 }
-                resultBuilder.put(dynamicFilter.getTupleDomainName(), Symbol.from(expression));
+                resultBuilder.put(dynamicFilter.getDfSymbol(), Symbol.from(expression));
             }
             return resultBuilder.build();
         }

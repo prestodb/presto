@@ -23,8 +23,7 @@ import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause;
-import com.facebook.presto.sql.tree.ComparisonExpression;
-import com.facebook.presto.sql.tree.DeferredSymbolReference;
+import com.facebook.presto.sql.tree.DynamicFilterExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableList;
 
@@ -79,8 +78,9 @@ public class ApplyDynamicFilters
             Symbol buildSymbol = clause.getRight();
             Type buildSymbolType = requireNonNull(context.getSymbolAllocator().getTypes().get(buildSymbol));
             Symbol assignedSymbol = context.getSymbolAllocator().newSymbol("df", buildSymbolType);
-            DeferredSymbolReference dynamicFilterReference = new DeferredSymbolReference(node.getId().toString(), assignedSymbol.getName());
-            predicates.add(new ComparisonExpression(EQUAL, probeSymbol.toSymbolReference(), dynamicFilterReference));
+            DynamicFilterExpression dynamicFilterExpression = new DynamicFilterExpression(node.getId().toString(), EQUAL, probeSymbol.toSymbolReference(), assignedSymbol.getName());
+            //predicates.add(new ComparisonExpression(EQUAL, probeSymbol.toSymbolReference(), dynamicFilterExpression));
+            predicates.add(dynamicFilterExpression);
             assignments.put(assignedSymbol, buildSymbol.toSymbolReference());
         }
 

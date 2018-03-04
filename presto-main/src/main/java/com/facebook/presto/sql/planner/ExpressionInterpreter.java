@@ -51,8 +51,8 @@ import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
-import com.facebook.presto.sql.tree.DeferredSymbolReference;
 import com.facebook.presto.sql.tree.DereferenceExpression;
+import com.facebook.presto.sql.tree.DynamicFilterExpression;
 import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
@@ -465,7 +465,7 @@ public class ExpressionInterpreter
         }
 
         @Override
-        protected Object visitDeferredSymbolReference(DeferredSymbolReference node, Object context)
+        protected Object visitDynamicFilterExpression(DynamicFilterExpression node, Object context)
         {
             return node;
         }

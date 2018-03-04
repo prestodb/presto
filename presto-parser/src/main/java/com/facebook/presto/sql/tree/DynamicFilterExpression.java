@@ -21,17 +21,21 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class DeferredSymbolReference
+public class DynamicFilterExpression
         extends Expression
 {
     private final String sourceId;
-    private final String symbol;
+    private final ComparisonExpressionType type;
+    private final Expression probeExpression;
+    private final String dfSymbol;
 
-    public DeferredSymbolReference(String sourceId, String symbol)
+    public DynamicFilterExpression(String sourceId, ComparisonExpressionType type, Expression probeExpression, String dfSymbol)
     {
         super(Optional.empty());
         this.sourceId = requireNonNull(sourceId, "sourceId is null");
-        this.symbol = requireNonNull(symbol, "symbol is null");
+        this.type = requireNonNull(type, "type is null");
+        this.probeExpression = requireNonNull(probeExpression, "probeExpression is null");
+        this.dfSymbol = requireNonNull(dfSymbol, "dfSymbol is null");
     }
 
     public String getSourceId()
@@ -39,21 +43,31 @@ public class DeferredSymbolReference
         return sourceId;
     }
 
-    public String getSymbol()
+    public String getDfSymbol()
     {
-        return symbol;
+        return dfSymbol;
+    }
+
+    public Expression getProbeExpression()
+    {
+        return probeExpression;
+    }
+
+    public ComparisonExpressionType getType()
+    {
+        return type;
     }
 
     @Override
     protected <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
-        return visitor.visitDeferredSymbolReference(this, context);
+        return visitor.visitDynamicFilterExpression(this, context);
     }
 
     @Override
     public List<? extends Node> getChildren()
     {
-        return ImmutableList.of();
+        return ImmutableList.of(probeExpression);
     }
 
     @Override
@@ -65,14 +79,16 @@ public class DeferredSymbolReference
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        DeferredSymbolReference reference = (DeferredSymbolReference) o;
-        return Objects.equals(sourceId, reference.sourceId) &&
-                Objects.equals(symbol, reference.symbol);
+        DynamicFilterExpression dfExpression = (DynamicFilterExpression) o;
+        return Objects.equals(sourceId, dfExpression.sourceId) &&
+                Objects.equals(type, dfExpression.type) &&
+                Objects.equals(probeExpression, dfExpression.probeExpression) &&
+                Objects.equals(dfSymbol, dfExpression.dfSymbol);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(sourceId, symbol);
+        return Objects.hash(sourceId, type, probeExpression, dfSymbol);
     }
 }

@@ -39,9 +39,9 @@ import com.facebook.presto.sql.tree.CharLiteral;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DecimalLiteral;
-import com.facebook.presto.sql.tree.DeferredSymbolReference;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
+import com.facebook.presto.sql.tree.DynamicFilterExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -338,13 +338,20 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
-        protected RowExpression visitDeferredSymbolReference(DeferredSymbolReference node, Void context)
+        protected RowExpression visitDynamicFilterExpression(DynamicFilterExpression node, Void context)
         {
             // Hack!
-            // In order to make PushDown work for DynamicFilters, we have to make DeferredSymbolReferences comparable in context of ExpressionEquivalence
-            // To avoid implementing DeferredSymbolReference RowExpression we model DeferredSymbolReference as ConstantExpression,
+            // In order to make PushDown work for DynamicFilters, we have to make DynamicFilterExpression comparable in context of ExpressionEquivalence
+            // To avoid implementing DynamicFilterExpression RowExpression we model DynamicFilterExpression as ComparisionExpression,
             // which for ExpressionEquivalence will work well enough.
-            return constant(node, getType(node));
+            RowExpression left = process(node.getProbeExpression(), context);
+            RowExpression right = constant(node.getDfSymbol(), getType(node.getProbeExpression()));
+
+            return call(
+                    comparisonExpressionSignature(node.getType(), left.getType(), right.getType()),
+                    BOOLEAN,
+                    left,
+                    right);
         }
 
         @Override

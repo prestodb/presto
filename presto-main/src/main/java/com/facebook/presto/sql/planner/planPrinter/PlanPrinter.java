@@ -38,7 +38,6 @@ import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.DynamicFilter;
 import com.facebook.presto.sql.DynamicFilterUtils.ExtractDynamicFiltersResult;
 import com.facebook.presto.sql.FunctionInvoker;
 import com.facebook.presto.sql.planner.OrderingScheme;
@@ -92,6 +91,7 @@ import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.ComparisonExpressionType;
+import com.facebook.presto.sql.tree.DynamicFilterExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -627,7 +627,7 @@ public class PlanPrinter
             }
 
             Optional<Expression> filter = node.getFilter();
-            Set<DynamicFilter> dynamicFilters = ImmutableSet.of();
+            Set<DynamicFilterExpression> dynamicFilters = ImmutableSet.of();
             if (filter.isPresent()) {
                 ExtractDynamicFiltersResult extractResult = extractDynamicFilters(filter.get());
                 joinExpressions.add(extractResult.getStaticFilters());
@@ -1003,7 +1003,7 @@ public class PlanPrinter
                 Expression predicate = filterNode.get().getPredicate();
                 ExtractDynamicFiltersResult extractResult = extractDynamicFilters(predicate);
                 arguments.add(extractResult.getStaticFilters());
-                Set<DynamicFilter> dynamicFilters = extractResult.getDynamicFilters();
+                Set<DynamicFilterExpression> dynamicFilters = extractResult.getDynamicFilters();
                 if (!dynamicFilters.isEmpty()) {
                     format += ", dynamicFilter = %s";
                     arguments.add(printDynamicFilter(dynamicFilters));
@@ -1041,16 +1041,16 @@ public class PlanPrinter
             return null;
         }
 
-        private String printDynamicFilter(Set<DynamicFilter> filters)
+        private String printDynamicFilter(Set<DynamicFilterExpression> filters)
         {
             StringBuilder result = new StringBuilder();
             result.append("{");
-            Iterator<DynamicFilter> iterator = filters.iterator();
+            Iterator<DynamicFilterExpression> iterator = filters.iterator();
             while (iterator.hasNext()) {
-                DynamicFilter filter = iterator.next();
-                result.append(filter.getTupleDomainName());
+                DynamicFilterExpression filter = iterator.next();
+                result.append(filter.getDfSymbol());
                 result.append(" -> ");
-                result.append(filter.getSourceExpression());
+                result.append(filter.getProbeExpression());
                 if (iterator.hasNext()) {
                     result.append(", ");
                 }

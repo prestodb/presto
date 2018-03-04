@@ -836,10 +836,10 @@ public final class ExpressionTreeRewriter<C>
         }
 
         @Override
-        protected Expression visitDeferredSymbolReference(DeferredSymbolReference node, Context<C> context)
+        protected Expression visitDynamicFilterExpression(DynamicFilterExpression node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {
-                Expression result = rewriter.rewriteDeferredSymbolReference(node, context.get(), ExpressionTreeRewriter.this);
+                Expression result = rewriter.rewriteDynamicFilterExpression(node, context.get(), ExpressionTreeRewriter.this);
                 if (result != null) {
                     return result;
                 }

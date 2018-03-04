@@ -20,8 +20,8 @@ import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
-import com.facebook.presto.sql.tree.DeferredSymbolReference;
 import com.facebook.presto.sql.tree.DoubleLiteral;
+import com.facebook.presto.sql.tree.DynamicFilterExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
@@ -304,9 +304,9 @@ final class ExpressionVerifier
     }
 
     @Override
-    protected Boolean visitDeferredSymbolReference(DeferredSymbolReference node, Node expected)
+    protected Boolean visitDynamicFilterExpression(DynamicFilterExpression node, Node expected)
     {
-        return expected instanceof DeferredSymbolReference;
+        return expected instanceof DynamicFilterExpression;
     }
 
     @Override

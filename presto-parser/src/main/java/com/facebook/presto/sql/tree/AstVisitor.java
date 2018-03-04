@@ -682,7 +682,7 @@ public abstract class AstVisitor<R, C>
         return visitExpression(node, context);
     }
 
-    protected R visitDeferredSymbolReference(DeferredSymbolReference node, C context)
+    protected R visitDynamicFilterExpression(DynamicFilterExpression node, C context)
     {
         return visitExpression(node, context);
     }

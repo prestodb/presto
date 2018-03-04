@@ -41,7 +41,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static com.facebook.presto.sql.DynamicFilterUtils.isDynamicFilter;
 import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
 import static com.facebook.presto.sql.planner.DeterminismEvaluator.isDeterministic;
 import static com.facebook.presto.sql.planner.NullabilityAnalyzer.mayReturnNullOnNonNullInput;
@@ -270,8 +269,7 @@ public class EqualityInference
             expression = normalizeInPredicateToEquality(expression);
             if (expression instanceof ComparisonExpression &&
                     isDeterministic(expression) &&
-                    !mayReturnNullOnNonNullInput(expression) &&
-                    !isDynamicFilter(expression)) {
+                    !mayReturnNullOnNonNullInput(expression)) {
                 ComparisonExpression comparison = (ComparisonExpression) expression;
                 if (comparison.getType() == ComparisonExpressionType.EQUAL) {
                     // We should only consider equalities that have distinct left and right components

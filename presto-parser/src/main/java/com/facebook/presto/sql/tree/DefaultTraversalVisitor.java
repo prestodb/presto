@@ -97,6 +97,14 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
+    protected R visitDynamicFilterExpression(DynamicFilterExpression node, C context)
+    {
+        process(node.getProbeExpression(), context);
+
+        return null;
+    }
+
+    @Override
     protected R visitQuery(Query node, C context)
     {
         if (node.getWith().isPresent()) {

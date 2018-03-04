@@ -14,7 +14,8 @@
 package com.facebook.presto.sql;
 
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.tree.DeferredSymbolReference;
+import com.facebook.presto.sql.tree.ComparisonExpressionType;
+import com.facebook.presto.sql.tree.DynamicFilterExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -57,10 +58,10 @@ public class TestExpressionSerialization
     }
 
     @Test
-    public void testDeferredSymbolReference()
+    public void testDynamicFilterExpression()
             throws Exception
     {
-        assertJsonSerialization(new DeferredSymbolReference("source", "name"));
+        assertJsonSerialization(new DynamicFilterExpression("source", ComparisonExpressionType.EQUAL, new SymbolReference("name"), "df"));
     }
 
     @Test

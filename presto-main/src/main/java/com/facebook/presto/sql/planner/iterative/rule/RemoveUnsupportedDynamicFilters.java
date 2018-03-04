@@ -15,7 +15,6 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.DynamicFilter;
 import com.facebook.presto.sql.DynamicFilterUtils.ExtractDynamicFiltersResult;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
@@ -28,6 +27,7 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.sql.tree.DynamicFilterExpression;
 import com.facebook.presto.sql.tree.Expression;
 
 import java.util.HashMap;
@@ -54,10 +54,10 @@ public class RemoveUnsupportedDynamicFilters
     }
 
     private class Rewriter
-            extends SimplePlanRewriter<Set<DynamicFilter>>
+            extends SimplePlanRewriter<Set<DynamicFilterExpression>>
     {
         @Override
-        public PlanNode visitJoin(JoinNode node, RewriteContext<Set<DynamicFilter>> context)
+        public PlanNode visitJoin(JoinNode node, RewriteContext<Set<DynamicFilterExpression>> context)
         {
             JoinNode join = (JoinNode) context.defaultRewrite(node, context.get());
 
@@ -73,7 +73,7 @@ public class RemoveUnsupportedDynamicFilters
             });
 
             Assignments assignments = join.getDynamicFilterAssignments();
-            Set<DynamicFilter> removedFilters = context.get();
+            Set<DynamicFilterExpression> removedFilters = context.get();
             if (!removedFilters.isEmpty()) {
                 Assignments originalAssignments = join.getDynamicFilterAssignments();
                 Assignments modifiedAssignments = cleanupAssignments(join.getId(), originalAssignments, removedFilters);
@@ -99,14 +99,14 @@ public class RemoveUnsupportedDynamicFilters
             return join;
         }
 
-        private Assignments cleanupAssignments(PlanNodeId joinId, Assignments assignments, Set<DynamicFilter> removedFilters)
+        private Assignments cleanupAssignments(PlanNodeId joinId, Assignments assignments, Set<DynamicFilterExpression> removedFilters)
         {
             Map<Symbol, Expression> assignmentsMap = new HashMap<>(assignments.getMap());
-            Iterator<DynamicFilter> filtersIterator = removedFilters.iterator();
+            Iterator<DynamicFilterExpression> filtersIterator = removedFilters.iterator();
             while (filtersIterator.hasNext()) {
-                DynamicFilter removedFilter = filtersIterator.next();
-                if (removedFilter.getTupleDomainSourceId().equals(joinId.toString())) {
-                    Symbol filterSymbol = new Symbol(removedFilter.getTupleDomainName());
+                DynamicFilterExpression removedFilter = filtersIterator.next();
+                if (removedFilter.getSourceId().equals(joinId.toString())) {
+                    Symbol filterSymbol = new Symbol(removedFilter.getDfSymbol());
                     checkState(assignmentsMap.containsKey(filterSymbol), "Assignments map doesn't contain key '%s': %s", filterSymbol, assignmentsMap);
                     assignmentsMap.remove(filterSymbol);
                     filtersIterator.remove();
@@ -116,7 +116,7 @@ public class RemoveUnsupportedDynamicFilters
         }
 
         @Override
-        public PlanNode visitFilter(FilterNode node, RewriteContext<Set<DynamicFilter>> context)
+        public PlanNode visitFilter(FilterNode node, RewriteContext<Set<DynamicFilterExpression>> context)
         {
             FilterNode filter = (FilterNode) context.defaultRewrite(node, context.get());
             PlanNode source = filter.getSource();
@@ -138,7 +138,7 @@ public class RemoveUnsupportedDynamicFilters
             return new FilterNode(node.getId(), node.getSource(), modified);
         }
 
-        private Expression removeDynamicFilters(Expression expression, Set<DynamicFilter> removedFilters)
+        private Expression removeDynamicFilters(Expression expression, Set<DynamicFilterExpression> removedFilters)
         {
             ExtractDynamicFiltersResult extractResult = extractDynamicFilters(expression);
             if (extractResult.getDynamicFilters().isEmpty()) {

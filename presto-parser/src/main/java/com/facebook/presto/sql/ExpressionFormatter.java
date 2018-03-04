@@ -30,9 +30,9 @@ import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Cube;
 import com.facebook.presto.sql.tree.CurrentTime;
 import com.facebook.presto.sql.tree.DecimalLiteral;
-import com.facebook.presto.sql.tree.DeferredSymbolReference;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
+import com.facebook.presto.sql.tree.DynamicFilterExpression;
 import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Extract;
@@ -317,11 +317,13 @@ public final class ExpressionFormatter
         }
 
         @Override
-        protected String visitDeferredSymbolReference(DeferredSymbolReference node, Void context)
+        protected String visitDynamicFilterExpression(DynamicFilterExpression node, Void context)
         {
-            return "\"$INTERNAL$DEFERRED_SYMBOL_REFERENCE\"(" +
-                    formatIdentifier(node.getSourceId()) + ", " +
-                    formatIdentifier(node.getSymbol()) + ")";
+            return "\"$INTERNAL$DYNAMIC_FILTER\"(" +
+                    formatIdentifier(node.getType().name()) + ", " +
+                    node.getProbeExpression().toString() + ", " +
+                    formatIdentifier(node.getDfSymbol()) + ", " +
+                    formatIdentifier(node.getSourceId()) + ")";
         }
 
         @Override

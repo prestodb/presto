@@ -195,7 +195,7 @@ public class ExpressionRewriter<C>
         return rewriteExpression(node, context, treeRewriter);
     }
 
-    public Expression rewriteDeferredSymbolReference(DeferredSymbolReference node, C context, ExpressionTreeRewriter<C> treeRewriter)
+    public Expression rewriteDynamicFilterExpression(DynamicFilterExpression node, C context, ExpressionTreeRewriter<C> treeRewriter)
     {
         return rewriteExpression(node, context, treeRewriter);
     }

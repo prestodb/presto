@@ -105,7 +105,6 @@ import com.facebook.presto.spiller.SpillerFactory;
 import com.facebook.presto.split.MappedRecordSet;
 import com.facebook.presto.split.PageSinkManager;
 import com.facebook.presto.split.PageSourceProvider;
-import com.facebook.presto.sql.DynamicFilter;
 import com.facebook.presto.sql.DynamicFilterUtils;
 import com.facebook.presto.sql.DynamicFilterUtils.ExtractDynamicFiltersResult;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
@@ -156,6 +155,7 @@ import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.planner.plan.WindowNode.Frame;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
+import com.facebook.presto.sql.tree.DynamicFilterExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -1131,7 +1131,7 @@ public class LocalExecutionPlanner
             Optional<Expression> staticFilters = extractDynamicFilterResult.map(ExtractDynamicFiltersResult::getStaticFilters);
 
             // TODO: Process dynamic filters
-            Optional<Set<DynamicFilter>> dynamicFilters = extractDynamicFilterResult.map(ExtractDynamicFiltersResult::getDynamicFilters);
+            Optional<Set<DynamicFilterExpression>> dynamicFilters = extractDynamicFilterResult.map(ExtractDynamicFiltersResult::getDynamicFilters);
 
             if (dynamicFilters.isPresent() && !dynamicFilters.get().isEmpty()) {
                 log.debug("[TableScan] Dynamic filters: %s", dynamicFilters);

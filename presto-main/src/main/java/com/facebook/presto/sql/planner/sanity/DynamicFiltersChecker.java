@@ -88,7 +88,7 @@ public class DynamicFiltersChecker
                 extractDynamicFilters(node.getPredicate())
                         .getDynamicFilters()
                         .stream()
-                        .map(dynamicFilter -> new Filter(dynamicFilter.getTupleDomainSourceId(), dynamicFilter.getTupleDomainName()))
+                        .map(dynamicFilter -> new Filter(dynamicFilter.getSourceId(), dynamicFilter.getDfSymbol()))
                         .forEach(expected::remove);
                 return node.getSource().accept(this, expected);
             }

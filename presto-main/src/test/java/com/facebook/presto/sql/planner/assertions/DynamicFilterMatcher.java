@@ -20,10 +20,8 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.tree.ComparisonExpression;
-import com.facebook.presto.sql.tree.DeferredSymbolReference;
+import com.facebook.presto.sql.tree.DynamicFilterExpression;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 
@@ -123,26 +121,21 @@ public class DynamicFilterMatcher
     {
         List<Expression> conjuncts = extractConjuncts(filterNode.getPredicate());
 
-        List<ComparisonExpression> equalityComparisons = conjuncts.stream()
-                .filter(expression -> expression instanceof ComparisonExpression)
-                .map(ComparisonExpression.class::cast)
+        List<DynamicFilterExpression> equalityDfs = conjuncts.stream()
+                .filter(expression -> expression instanceof DynamicFilterExpression)
+                .map(DynamicFilterExpression.class::cast)
                 .filter(comparisonExpression -> comparisonExpression.getType() == EQUAL)
                 .collect(toImmutableList());
 
         ImmutableMap.Builder<Symbol, Symbol> mappings = ImmutableMap.builder();
-        for (ComparisonExpression comparison : equalityComparisons) {
-            if (!(comparison.getLeft() instanceof SymbolReference) || !(comparison.getRight() instanceof DeferredSymbolReference)) {
-                continue;
-            }
+        for (DynamicFilterExpression df : equalityDfs) {
+            Symbol left = Symbol.from(df.getProbeExpression());
 
-            Symbol left = Symbol.from(comparison.getLeft());
-            DeferredSymbolReference right = (DeferredSymbolReference) comparison.getRight();
-
-            if (!right.getSourceId().equals(expectedSourceId)) {
+            if (!df.getSourceId().equals(expectedSourceId)) {
                 return null;
             }
 
-            mappings.put(left, new Symbol(right.getSymbol()));
+            mappings.put(left, new Symbol(df.getDfSymbol()));
         }
 
         return mappings.build();

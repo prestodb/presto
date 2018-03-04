@@ -31,7 +31,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.facebook.presto.spi.type.VarcharType;
-import com.facebook.presto.sql.DynamicFilter;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
@@ -50,6 +49,7 @@ import com.facebook.presto.sql.tree.CurrentTime;
 import com.facebook.presto.sql.tree.DecimalLiteral;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
+import com.facebook.presto.sql.tree.DynamicFilterExpression;
 import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Extract;
@@ -125,7 +125,6 @@ import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.sql.DynamicFilter.getDynamicFilterOptional;
 import static com.facebook.presto.sql.NodeUtils.getSortItemsFromOrderBy;
 import static com.facebook.presto.sql.analyzer.Analyzer.verifyNoAggregateWindowOrGroupingFunctions;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.EXPRESSION_NOT_CONSTANT;
@@ -452,13 +451,16 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitComparisonExpression(ComparisonExpression node, StackableAstVisitorContext<Context> context)
         {
-            Optional<DynamicFilter> dynamicFilter = getDynamicFilterOptional(node);
-            dynamicFilter.ifPresent(filter -> {
-                expressionTypes.put(NodeRef.of(node.getLeft()), process(filter.getSourceExpression(), context));
-                expressionTypes.put(NodeRef.of(node.getRight()), process(filter.getSourceExpression(), context));
-            });
             OperatorType operatorType = OperatorType.valueOf(node.getType().name());
             return getOperator(context, node, operatorType, node.getLeft(), node.getRight());
+        }
+
+        @Override
+        protected Type visitDynamicFilterExpression(DynamicFilterExpression node, StackableAstVisitorContext<Context> context)
+        {
+            expressionTypes.put(NodeRef.of(node.getProbeExpression()), process(node.getProbeExpression(), context));
+            OperatorType operatorType = OperatorType.valueOf(node.getType().name());
+            return getOperator(context, node, operatorType, node.getProbeExpression(), node.getProbeExpression());
         }
 
         @Override

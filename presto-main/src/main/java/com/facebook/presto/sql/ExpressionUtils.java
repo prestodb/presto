@@ -17,7 +17,8 @@ import com.facebook.presto.sql.planner.DeterminismEvaluator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.tree.ComparisonExpression;
-import com.facebook.presto.sql.tree.DeferredSymbolReference;
+import com.facebook.presto.sql.tree.ComparisonExpressionType;
+import com.facebook.presto.sql.tree.DynamicFilterExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
@@ -340,13 +341,16 @@ public final class ExpressionUtils
             @Override
             public Expression rewriteFunctionCall(FunctionCall node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
-                if (node.getName().equals(QualifiedName.of("$INTERNAL$DEFERRED_SYMBOL_REFERENCE"))) {
+                if (node.getName().equals(QualifiedName.of("$INTERNAL$DYNAMIC_FILTER"))) {
                     List<Expression> arguments = node.getArguments();
-                    checkArgument(arguments.size() == 2, "2 arguments are expected");
-                    checkArgument(arguments.stream().allMatch(Identifier.class::isInstance), "arguments are expected to be identifiers");
-                    String sourceId = ((Identifier) arguments.get(0)).getValue();
-                    String symbol = ((Identifier) arguments.get(1)).getValue();
-                    return new DeferredSymbolReference(sourceId, symbol);
+                    checkArgument(arguments.size() == 4, "4 arguments are expected");
+                    checkArgument(arguments.stream().allMatch(Identifier.class::isInstance), "all arguments are expected to be identifiers");
+                    ComparisonExpressionType type = ComparisonExpressionType.valueOf(((Identifier) arguments.get(0)).getValue());
+                    SymbolReference probeSymbol = new SymbolReference(((Identifier) arguments.get(1)).getValue());
+                    String dfSymbol = ((Identifier) arguments.get(2)).getValue();
+                    String sourceId = ((Identifier) arguments.get(3)).getValue();
+
+                    return new DynamicFilterExpression(sourceId, type, probeSymbol, dfSymbol);
                 }
                 return super.rewriteFunctionCall(node, context, treeRewriter);
             }
