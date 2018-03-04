@@ -363,15 +363,23 @@ public class Console
     {
         MemoryHistory history;
         File historyFile = new File(getUserHome(), ".presto_history");
-        try {
-            history = new FileHistory(historyFile);
-            history.setMaxSize(10000);
-        }
-        catch (IOException e) {
-            System.err.printf("WARNING: Failed to load history file (%s): %s. " +
+        if (!historyFile.canWrite() || !historyFile.canRead()) {
+            System.err.printf("WARNING: Failed to load history file (%s): Not readable/writable path (%s). " +
                             "History will not be available during this session.%n",
-                    historyFile, e.getMessage());
+                    historyFile, historyFile.getAbsolutePath());
             history = new MemoryHistory();
+        }
+        else {
+            try {
+                history = new FileHistory(historyFile);
+                history.setMaxSize(10000);
+            }
+            catch (IOException e) {
+                System.err.printf("WARNING: Failed to load history file (%s): %s. " +
+                                "History will not be available during this session.%n",
+                        historyFile, e.getMessage());
+                history = new MemoryHistory();
+            }
         }
         history.setAutoTrim(true);
         return history;
