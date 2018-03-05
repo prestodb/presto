@@ -21,14 +21,12 @@ import io.prestodb.tempto.configuration.Configuration;
 import io.prestodb.tempto.fulfillment.table.MutableTableRequirement;
 import io.prestodb.tempto.fulfillment.table.TableDefinitionsRepository;
 import io.prestodb.tempto.fulfillment.table.hive.HiveTableDefinition;
-import io.prestodb.tempto.query.QueryExecutor;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.tests.TestGroups.HIVE_CONNECTOR;
 import static com.facebook.presto.tests.utils.QueryExecutors.onHive;
 import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
 import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
-import static io.prestodb.tempto.context.ThreadLocalTestContextHolder.testContext;
 import static io.prestodb.tempto.fulfillment.table.MutableTableRequirement.State.CREATED;
 import static io.prestodb.tempto.fulfillment.table.MutableTablesState.mutableTablesState;
 import static io.prestodb.tempto.fulfillment.table.TableRequirements.immutableTable;
@@ -69,7 +67,7 @@ public class TestHiveBucketedTables
         populateHivePartitionedTable(tableName, NATION.getName(), "part_key = 'insert_1'");
         populateHivePartitionedTable(tableName, NATION.getName(), "part_key = 'insert_2'");
 
-        testContext().getDependency(QueryExecutor.class, "hive").executeQuery(format("ALTER TABLE %s NOT CLUSTERED", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s NOT CLUSTERED", tableName));
 
         assertThat(query(format("SELECT count(*) FROM %s WHERE n_nationkey = 1", tableName)))
                 .containsExactly(row(2));
