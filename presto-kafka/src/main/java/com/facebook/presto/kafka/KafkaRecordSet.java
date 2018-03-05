@@ -43,6 +43,7 @@ import static com.facebook.presto.decoder.FieldValueProviders.bytesValueProvider
 import static com.facebook.presto.decoder.FieldValueProviders.longValueProvider;
 import static com.facebook.presto.kafka.KafkaErrorCode.KAFKA_SPLIT_ERROR;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -307,25 +308,42 @@ public class KafkaRecordSet
 
         private void openFetchRequest()
         {
-            if (messageAndOffsetIterator == null) {
-                log.debug("Fetching %d bytes from offset %d (%d - %d). %d messages read so far", KAFKA_READ_BUFFER_SIZE, cursorOffset, split.getStart(), split.getEnd(), totalMessages);
-                FetchRequest req = new FetchRequestBuilder()
-                        .clientId("presto-worker-" + Thread.currentThread().getName())
-                        .addFetch(split.getTopicName(), split.getPartitionId(), cursorOffset, KAFKA_READ_BUFFER_SIZE)
-                        .build();
+            try {
+                if (messageAndOffsetIterator == null) {
+                    log.debug("Fetching %d bytes from offset %d (%d - %d). %d messages read so far", KAFKA_READ_BUFFER_SIZE, cursorOffset, split.getStart(), split.getEnd(), totalMessages);
+                    FetchRequest req = new FetchRequestBuilder()
+                            .clientId("presto-worker-" + Thread.currentThread().getName())
+                            .addFetch(split.getTopicName(), split.getPartitionId(), cursorOffset, KAFKA_READ_BUFFER_SIZE)
+                            .build();
 
-                // TODO - this should look at the actual node this is running on and prefer
-                // that copy if running locally. - look into NodeInfo
-                SimpleConsumer consumer = consumerManager.getConsumer(split.getLeader());
+                    // TODO - this should look at the actual node this is running on and prefer
+                    // that copy if running locally. - look into NodeInfo
+                    SimpleConsumer consumer = consumerManager.getConsumer(split.getLeader());
 
-                FetchResponse fetchResponse = consumer.fetch(req);
-                if (fetchResponse.hasError()) {
-                    short errorCode = fetchResponse.errorCode(split.getTopicName(), split.getPartitionId());
-                    log.warn("Fetch response has error: %d", errorCode);
-                    throw new PrestoException(KAFKA_SPLIT_ERROR, "could not fetch data from Kafka, error code is '" + errorCode + "'");
+                    FetchResponse fetchResponse = consumer.fetch(req);
+                    if (fetchResponse.hasError()) {
+                        short errorCode = fetchResponse.errorCode(split.getTopicName(), split.getPartitionId());
+                        log.warn("Fetch response has error: %d", errorCode);
+                        throw new RuntimeException("could not fetch data from Kafka, error code is '" + errorCode + "'");
+                    }
+
+                    messageAndOffsetIterator = fetchResponse.messageSet(split.getTopicName(), split.getPartitionId()).iterator();
                 }
-
-                messageAndOffsetIterator = fetchResponse.messageSet(split.getTopicName(), split.getPartitionId()).iterator();
+            }
+            catch (Exception e) { // Catch all exceptions because Kafka library is written in scala and checked exceptions are not declared in method signature.
+                if (e instanceof PrestoException) {
+                    throw e;
+                }
+                throw new PrestoException(
+                        KAFKA_SPLIT_ERROR,
+                        format(
+                                "Cannot read data from topic '%s', partition '%s', startOffset %s, endOffset %s, leader %s ",
+                                split.getTopicName(),
+                                split.getPartitionId(),
+                                split.getStart(),
+                                split.getEnd(),
+                                split.getLeader()),
+                        e);
             }
         }
     }
