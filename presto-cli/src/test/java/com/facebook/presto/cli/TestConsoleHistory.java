@@ -17,28 +17,23 @@ import jline.console.history.MemoryHistory;
 import jline.console.history.PersistentHistory;
 import org.testng.annotations.Test;
 
-import java.lang.reflect.Method;
+import java.io.File;
 
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 
 public class TestConsoleHistory
 {
-    private static Object invokeGetHistory() throws Exception
-    {
-        final Method declaredMethod = Console.class.getDeclaredMethod("getHistory");
-        declaredMethod.setAccessible(true);
-        return declaredMethod.invoke(null);
-    }
 
     @Test
     public void testNonExistingHomeFolder() throws Exception
     {
-        System.setProperty("user.home", "/?");
-        final Object result = invokeGetHistory();
+        final File historyFile = new File("/?", ".history");
+        assertFalse(historyFile.canRead(), "shouldn't read invalid location");
+        assertFalse(historyFile.canWrite(), "shouldn't write invalid location");
+        MemoryHistory result = Console.getHistory(historyFile);
         assertNotNull(result, "result is null");
-        final MemoryHistory history = (MemoryHistory) result;
-        history.add("foo foo");
-        assertFalse(history instanceof PersistentHistory, "must not be PersistentHistory");
+        result.add("foo foo");
+        assertFalse(result instanceof PersistentHistory, "must not be PersistentHistory");
     }
 }
