@@ -878,6 +878,12 @@ public class TestDomainTranslator
                         cast(C_SMALLINT, BIGINT),
                         new InListExpression(ImmutableList.of(toExpression(1L, BIGINT)))),
                 withColumnDomains(ImmutableMap.of(C_SMALLINT, Domain.singleValue(SMALLINT, 1L))));
+
+        ExtractionResult result = fromPredicate(new InPredicate(
+                cast(C_BIGINT, INTEGER),
+                new InListExpression(ImmutableList.of(toExpression(1L, INTEGER)))));
+        assertEquals(result.getRemainingExpression(), equal(cast(C_BIGINT, INTEGER), toExpression(1L, INTEGER)));
+        assertEquals(result.getTupleDomain(), TupleDomain.all());
     }
 
     @Test
