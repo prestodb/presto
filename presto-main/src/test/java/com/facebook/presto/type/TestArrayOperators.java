@@ -1348,11 +1348,11 @@ public class TestArrayOperators
         assertInvalidFunction(
                 "SEQUENCE(date '2016-04-12', date '2016-04-14', interval '-1' day)",
                 INVALID_FUNCTION_ARGUMENT,
-                "sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than start");
+                "sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than or equal to start");
         assertInvalidFunction(
                 "SEQUENCE(date '2016-04-14', date '2016-04-12', interval '1' day)",
                 INVALID_FUNCTION_ARGUMENT,
-                "sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than start");
+                "sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than or equal to start");
         assertInvalidFunction(
                 "SEQUENCE(date '2000-04-14', date '2030-04-12', interval '1' day)",
                 INVALID_FUNCTION_ARGUMENT,
@@ -1364,11 +1364,11 @@ public class TestArrayOperators
         assertInvalidFunction(
                 "SEQUENCE(timestamp '2016-04-16 01:00:10', timestamp '2016-04-16 01:01:00', interval '-20' second)",
                 INVALID_FUNCTION_ARGUMENT,
-                "sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than start");
+                "sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than or equal to start");
         assertInvalidFunction(
                 "SEQUENCE(timestamp '2016-04-16 01:10:10', timestamp '2016-04-16 01:01:00', interval '20' second)",
                 INVALID_FUNCTION_ARGUMENT,
-                "sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than start");
+                "sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than or equal to start");
         assertInvalidFunction(
                 "SEQUENCE(timestamp '2016-04-16 01:00:10', timestamp '2016-04-16 09:01:00', interval '1' second)",
                 INVALID_FUNCTION_ARGUMENT,
@@ -1428,11 +1428,11 @@ public class TestArrayOperators
         assertInvalidFunction(
                 "SEQUENCE(date '2016-06-12', date '2016-04-12', interval '1' month)",
                 INVALID_FUNCTION_ARGUMENT,
-                "sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than start");
+                "sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than or equal to start");
         assertInvalidFunction(
                 "SEQUENCE(date '2016-04-12', date '2016-06-12', interval '-1' month)",
                 INVALID_FUNCTION_ARGUMENT,
-                "sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than start");
+                "sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than or equal to start");
         assertInvalidFunction(
                 "SEQUENCE(date '2000-04-12', date '3000-06-12', interval '1' month)",
                 INVALID_FUNCTION_ARGUMENT,
@@ -1440,11 +1440,11 @@ public class TestArrayOperators
         assertInvalidFunction(
                 "SEQUENCE(timestamp '2016-05-16 01:00:10', timestamp '2016-04-16 01:01:00', interval '1' month)",
                 INVALID_FUNCTION_ARGUMENT,
-                "sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than start");
+                "sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than or equal to start");
         assertInvalidFunction(
                 "SEQUENCE(timestamp '2016-04-16 01:10:10', timestamp '2016-05-16 01:01:00', interval '-1' month)",
                 INVALID_FUNCTION_ARGUMENT,
-                "sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than start");
+                "sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than or equal to start");
         assertInvalidFunction(
                 "SEQUENCE(timestamp '2016-04-16 01:00:10', timestamp '3000-04-16 09:01:00', interval '1' month)",
                 INVALID_FUNCTION_ARGUMENT,
