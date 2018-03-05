@@ -18,6 +18,7 @@ import com.facebook.presto.raptor.metadata.MetadataDao;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.connector.Connector;
+import com.facebook.presto.spi.connector.ConnectorAccessControl;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
@@ -68,6 +69,7 @@ public class RaptorConnector
     private final List<PropertyMetadata<?>> tableProperties;
     private final Set<SystemTable> systemTables;
     private final MetadataDao dao;
+    private final ConnectorAccessControl accessControl;
     private final boolean coordinator;
 
     private final ConcurrentMap<ConnectorTransactionHandle, RaptorMetadata> transactions = new ConcurrentHashMap<>();
@@ -89,6 +91,7 @@ public class RaptorConnector
             RaptorSessionProperties sessionProperties,
             RaptorTableProperties tableProperties,
             Set<SystemTable> systemTables,
+            ConnectorAccessControl accessControl,
             @ForMetadata IDBI dbi)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
@@ -100,6 +103,7 @@ public class RaptorConnector
         this.sessionProperties = requireNonNull(sessionProperties, "sessionProperties is null").getSessionProperties();
         this.tableProperties = requireNonNull(tableProperties, "tableProperties is null").getTableProperties();
         this.systemTables = requireNonNull(systemTables, "systemTables is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.dao = onDemandDao(dbi, MetadataDao.class);
         this.coordinator = nodeManager.getCurrentNode().isCoordinator();
     }
@@ -191,6 +195,12 @@ public class RaptorConnector
     public Set<SystemTable> getSystemTables()
     {
         return systemTables;
+    }
+
+    @Override
+    public ConnectorAccessControl getAccessControl()
+    {
+        return accessControl;
     }
 
     @Override

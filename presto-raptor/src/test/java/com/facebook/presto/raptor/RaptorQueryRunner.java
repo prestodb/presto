@@ -46,6 +46,16 @@ public final class RaptorQueryRunner
     public static DistributedQueryRunner createRaptorQueryRunner(Map<String, String> extraProperties, boolean loadTpch, boolean bucketed)
             throws Exception
     {
+        return createRaptorQueryRunner(extraProperties, loadTpch, bucketed, ImmutableMap.of());
+    }
+
+    public static DistributedQueryRunner createRaptorQueryRunner(
+            Map<String, String> extraProperties,
+            boolean loadTpch,
+            boolean bucketed,
+            Map<String, String> extraRaptorProperties)
+            throws Exception
+    {
         DistributedQueryRunner queryRunner = new DistributedQueryRunner(createSession("tpch"), 2, extraProperties);
 
         queryRunner.installPlugin(new TpchPlugin());
@@ -54,6 +64,7 @@ public final class RaptorQueryRunner
         queryRunner.installPlugin(new RaptorPlugin());
         File baseDir = queryRunner.getCoordinator().getBaseDataDir().toFile();
         Map<String, String> raptorProperties = ImmutableMap.<String, String>builder()
+                .putAll(extraRaptorProperties)
                 .put("metadata.db.type", "h2")
                 .put("metadata.db.connections.max", "100")
                 .put("metadata.db.filename", new File(baseDir, "db").getAbsolutePath())
