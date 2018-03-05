@@ -47,7 +47,7 @@ public class TestHiveBucketedTables
                     "n_comment       STRING) " +
                     "PARTITIONED BY (part_key STRING) " +
                     "CLUSTERED BY (n_regionkey) " +
-                    "INTO 4 BUCKETS " +
+                    "INTO 2 BUCKETS " +
                     "ROW FORMAT DELIMITED FIELDS TERMINATED BY '|'")
             .setNoData()
             .build();
