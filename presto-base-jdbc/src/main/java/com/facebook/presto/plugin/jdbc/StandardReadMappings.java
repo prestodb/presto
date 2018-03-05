@@ -24,7 +24,9 @@ import java.sql.ResultSet;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.sql.Types;
+import java.time.LocalDate;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.plugin.jdbc.ReadMapping.longReadMapping;
 import static com.facebook.presto.plugin.jdbc.ReadMapping.sliceReadMapping;
@@ -126,9 +128,9 @@ public final class StandardReadMappings
         return longReadMapping(DATE, (resultSet, columnIndex) -> {
             // JDBC returns a date using a timestamp at midnight in the JVM timezone
             long localMillis = resultSet.getDate(columnIndex).getTime();
-            // Convert it to a midnight in UTC
+            // Convert it to a ~midnight in UTC. This won't be precisely midnight if JVM zone had a 'forward' DST change on that particular date, exactly at midnight.
             long utcMillis = ISOChronology.getInstance().getZone().getMillisKeepLocal(UTC, localMillis);
-            // convert to days
+            // convert to days (this also truncates excess millis if utcMillis isn't exactly midnight)
             return MILLISECONDS.toDays(utcMillis);
         });
     }
