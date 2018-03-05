@@ -24,7 +24,6 @@ import static org.testng.Assert.assertNotNull;
 
 public class TestConsoleHistory
 {
-
     @Test
     public void testNonExistingHomeFolder() throws Exception
     {
