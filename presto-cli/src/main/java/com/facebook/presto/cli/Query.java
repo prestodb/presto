@@ -275,9 +275,13 @@ public class Query
             case VERTICAL:
                 return new VerticalRecordPrinter(fieldNames, writer);
             case CSV:
-                return new CsvPrinter(fieldNames, writer, false);
+                return new CsvPrinter(fieldNames, writer, '"', false);
             case CSV_HEADER:
-                return new CsvPrinter(fieldNames, writer, true);
+                return new CsvPrinter(fieldNames, writer, '"', true);
+            case CSV_WITHOUT_QUOTES:
+                return new CsvPrinter(fieldNames, writer, '\u0000', false);
+            case CSV_HEADER_WITHOUT_QUOTES:
+                return new CsvPrinter(fieldNames, writer, '\u0000', true);
             case TSV:
                 return new TsvPrinter(fieldNames, writer, false);
             case TSV_HEADER:

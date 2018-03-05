@@ -32,7 +32,7 @@ public class TestCsvPrinter
     {
         StringWriter writer = new StringWriter();
         List<String> fieldNames = ImmutableList.of("first", "last", "quantity");
-        OutputPrinter printer = new CsvPrinter(fieldNames, writer, true);
+        OutputPrinter printer = new CsvPrinter(fieldNames, writer, '"', true);
 
         printer.printRows(rows(
                 row("hello", "world", 123),
@@ -63,7 +63,7 @@ public class TestCsvPrinter
     {
         StringWriter writer = new StringWriter();
         List<String> fieldNames = ImmutableList.of("first", "last");
-        OutputPrinter printer = new CsvPrinter(fieldNames, writer, true);
+        OutputPrinter printer = new CsvPrinter(fieldNames, writer, '"', true);
 
         printer.finish();
 
@@ -76,7 +76,7 @@ public class TestCsvPrinter
     {
         StringWriter writer = new StringWriter();
         List<String> fieldNames = ImmutableList.of("first", "last", "quantity");
-        OutputPrinter printer = new CsvPrinter(fieldNames, writer, false);
+        OutputPrinter printer = new CsvPrinter(fieldNames, writer, '"', false);
 
         printer.printRows(rows(
                 row("hello", "world", 123),
@@ -92,12 +92,46 @@ public class TestCsvPrinter
     }
 
     @Test
+    public void testCsvPrintingNoRowsWithoutQuotes()
+            throws Exception
+    {
+        StringWriter writer = new StringWriter();
+        List<String> fieldNames = ImmutableList.of("first", "last");
+        OutputPrinter printer = new CsvPrinter(fieldNames, writer, '\u0000', true);
+
+        printer.finish();
+
+        assertEquals(writer.getBuffer().toString(), "first,last\n");
+    }
+
+    @Test
+    public void testCsvPrintingNoHeaderWithoutQuotes()
+            throws Exception
+    {
+        StringWriter writer = new StringWriter();
+        List<String> fieldNames = ImmutableList.of("first", "last", "quantity");
+        OutputPrinter printer = new CsvPrinter(fieldNames, writer, '\u0000', false);
+
+        printer.printRows(rows(
+                row("hello", "world", 123),
+                row("a", null, 4.5)),
+                true);
+        printer.finish();
+
+        String expected = "" +
+                "hello,world,123\n" +
+                "a,,4.5\n";
+
+        assertEquals(writer.getBuffer().toString(), expected);
+    }
+
+    @Test
     public void testCsvVarbinaryPrinting()
             throws IOException
     {
         StringWriter writer = new StringWriter();
         List<String> fieldNames = ImmutableList.of("first", "last", "quantity");
-        OutputPrinter printer = new CsvPrinter(fieldNames, writer, false);
+        OutputPrinter printer = new CsvPrinter(fieldNames, writer, '"', false);
 
         printer.printRows(rows(row("hello".getBytes(), null, 123)), true);
         printer.finish();

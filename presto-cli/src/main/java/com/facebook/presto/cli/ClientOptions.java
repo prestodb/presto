@@ -113,7 +113,7 @@ public class ClientOptions
     @Option(name = "--execute", title = "execute", description = "Execute specified statements and exit")
     public String execute;
 
-    @Option(name = "--output-format", title = "output-format", description = "Output format for batch mode [ALIGNED, VERTICAL, CSV, TSV, CSV_HEADER, TSV_HEADER, NULL] (default: CSV)")
+    @Option(name = "--output-format", title = "output-format", description = "Output format for batch mode [ALIGNED, VERTICAL, CSV, TSV, CSV_HEADER, TSV_HEADER, CSV_WITHOUT_QUOTES, CSV_HEADER_WITHOUT_QUOTES, NULL] (default: CSV)")
     public OutputFormat outputFormat = OutputFormat.CSV;
 
     @Option(name = "--session", title = "session", description = "Session property (property can be used multiple times; format is key=value; use 'SHOW SESSION' to see available properties)")
@@ -138,7 +138,9 @@ public class ClientOptions
         CSV,
         TSV,
         CSV_HEADER,
+        CSV_WITHOUT_QUOTES,
         TSV_HEADER,
+        CSV_HEADER_WITHOUT_QUOTES,
         NULL
     }
 
