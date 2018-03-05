@@ -14,11 +14,20 @@
 package com.facebook.presto.operator.aggregation.arrayagg;
 
 import com.facebook.presto.array.IntBigArray;
+import com.facebook.presto.array.LongBigArray;
+import com.facebook.presto.array.ShortBigArray;
 import com.facebook.presto.operator.aggregation.state.AbstractGroupedAccumulatorState;
+import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.collect.ImmutableList;
+import it.unimi.dsi.fastutil.longs.LongArrayList;
+import it.unimi.dsi.fastutil.longs.LongList;
 import org.openjdk.jol.info.ClassLayout;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * state object that uses a single BlockBuilder for all groups.
@@ -28,95 +37,136 @@ public class GroupArrayAggregationState
         implements ArrayAggregationState
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(GroupArrayAggregationState.class).instanceSize();
-    private static final int NULL = -1;
-    private static final int EXPECTED_VALUE_SIZE = 100;
+    private static final short NULL = -1;
 
     private final Type type;
 
-    private IntBigArray headPointers;
-    private IntBigArray tailPointers;
-    private IntBigArray nextPointers;
-    private BlockBuilder values;
+    private final ShortBigArray headBlockIndex;
+    private final IntBigArray headPosition;
+
+    private final ShortBigArray nextBlockIndex;
+    private final IntBigArray nextPosition;
+
+    private final LongBigArray tailAbsoluteAddress;
+
+    private final List<BlockBuilder> values;
+    private final LongList sumPositions;
+    private final PageBuilder pageBuilder;
+
+    private long valueBlocksRetainedSizeInBytes;
+    private long totalPositions;
     private long capacity;
 
     public GroupArrayAggregationState(Type type)
     {
         this.type = type;
-        this.headPointers = new IntBigArray(NULL);
-        this.tailPointers = new IntBigArray(NULL);
-        this.nextPointers = new IntBigArray(NULL);
-        this.values = type.createBlockBuilder(null, EXPECTED_VALUE_SIZE);
+        this.headBlockIndex = new ShortBigArray(NULL);
+        this.headPosition = new IntBigArray(NULL);
+        this.nextBlockIndex = new ShortBigArray(NULL);
+        this.nextPosition = new IntBigArray(NULL);
+        this.tailAbsoluteAddress = new LongBigArray(NULL);
 
+        this.pageBuilder = new PageBuilder(ImmutableList.of(type));
+        this.values = new ArrayList<>();
+        this.sumPositions = new LongArrayList();
+        values.add(getCurrentBlockBuilder());
+        sumPositions.add(0L);
+        valueBlocksRetainedSizeInBytes = 0;
+
+        totalPositions = 0;
         capacity = 1024;
-        nextPointers.ensureCapacity(capacity);
+        nextBlockIndex.ensureCapacity(capacity);
+        nextPosition.ensureCapacity(capacity);
     }
 
     @Override
     public void ensureCapacity(long size)
     {
-        headPointers.ensureCapacity(size);
-        tailPointers.ensureCapacity(size);
+        headBlockIndex.ensureCapacity(size);
+        headPosition.ensureCapacity(size);
+        tailAbsoluteAddress.ensureCapacity(size);
     }
 
     @Override
     public long getEstimatedSize()
     {
         return INSTANCE_SIZE +
-                headPointers.sizeOf() +
-                tailPointers.sizeOf() +
-                nextPointers.sizeOf() +
-                values.getRetainedSizeInBytes();
+                headBlockIndex.sizeOf() +
+                headPosition.sizeOf() +
+                tailAbsoluteAddress.sizeOf() +
+                nextBlockIndex.sizeOf() +
+                nextPosition.sizeOf() +
+                valueBlocksRetainedSizeInBytes +
+                // valueBlocksRetainedSizeInBytes doesn't contain the current block builder
+                getCurrentBlockBuilder().getRetainedSizeInBytes();
     }
 
     @Override
     public void add(Block block, int position)
     {
         long currentGroupId = getGroupId();
-        int newPosition = values.getPositionCount();
+        short insertedBlockIndex = (short) (values.size() - 1);
+        int insertedPosition = getCurrentBlockBuilder().getPositionCount();
 
-        if (newPosition == capacity) {
+        if (totalPositions == capacity) {
             capacity *= 1.5;
-            nextPointers.ensureCapacity(capacity);
+            nextBlockIndex.ensureCapacity(capacity);
+            nextPosition.ensureCapacity(capacity);
         }
 
-        if (headPointers.get(currentGroupId) == NULL) {
+        if (isEmpty()) {
             // new linked list, set up the header pointer
-            headPointers.set(currentGroupId, newPosition);
+            headBlockIndex.set(currentGroupId, insertedBlockIndex);
+            headPosition.set(currentGroupId, insertedPosition);
         }
         else {
             // existing linked list, link the new entry to the tail
-            nextPointers.set(tailPointers.get(currentGroupId), newPosition);
+            long absoluteTailAddress = tailAbsoluteAddress.get(currentGroupId);
+            nextBlockIndex.set(absoluteTailAddress, insertedBlockIndex);
+            nextPosition.set(absoluteTailAddress, insertedPosition);
         }
-        tailPointers.set(currentGroupId, newPosition);
+        tailAbsoluteAddress.set(currentGroupId, totalPositions);
 
-        type.appendTo(block, position, values);
+        type.appendTo(block, position, getCurrentBlockBuilder());
+        pageBuilder.declarePosition();
+        totalPositions++;
+
+        if (pageBuilder.isFull()) {
+            valueBlocksRetainedSizeInBytes += getCurrentBlockBuilder().getRetainedSizeInBytes();
+            sumPositions.add(sumPositions.get(sumPositions.size() - 1) + getCurrentBlockBuilder().getPositionCount());
+
+            pageBuilder.reset();
+            values.add(getCurrentBlockBuilder());
+        }
     }
 
     @Override
     public void forEach(ArrayAggregationStateConsumer consumer)
     {
-        int currentPosition = headPointers.get(getGroupId());
-        while (currentPosition != NULL) {
-            consumer.accept(values, currentPosition);
-            currentPosition = nextPointers.get(currentPosition);
+        short currentBlockId = headBlockIndex.get(getGroupId());
+        int currentPosition = headPosition.get(getGroupId());
+        while (currentBlockId != NULL) {
+            consumer.accept(values.get(currentBlockId), currentPosition);
+
+            long absoluteCurrentAddress = toAbsolutePosition(currentBlockId, currentPosition);
+            currentBlockId = nextBlockIndex.get(absoluteCurrentAddress);
+            currentPosition = nextPosition.get(absoluteCurrentAddress);
         }
     }
 
     @Override
     public boolean isEmpty()
     {
-        return headPointers.get(getGroupId()) == NULL;
+        return headBlockIndex.get(getGroupId()) == NULL;
     }
 
-    @Override
-    public void reset()
+    private BlockBuilder getCurrentBlockBuilder()
     {
-        this.headPointers = new IntBigArray(NULL);
-        this.tailPointers = new IntBigArray(NULL);
-        this.nextPointers = new IntBigArray(NULL);
-        this.values = type.createBlockBuilder(null, EXPECTED_VALUE_SIZE);
+        return pageBuilder.getBlockBuilder(0);
+    }
 
-        capacity = 1024;
-        nextPointers.ensureCapacity(capacity);
+    private long toAbsolutePosition(short blockId, int position)
+    {
+        return sumPositions.get(blockId) + position;
     }
 }

@@ -30,5 +30,8 @@ public interface ArrayAggregationState
         otherState.forEach((block, position) -> add(block, position));
     }
 
-    void reset();
+    default void reset()
+    {
+        throw new UnsupportedOperationException();
+    }
 }
