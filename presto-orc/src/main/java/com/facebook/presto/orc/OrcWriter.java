@@ -35,14 +35,15 @@ import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.slice.OutputStreamSliceOutput;
 import io.airlift.slice.Slice;
-import io.airlift.slice.SliceOutput;
 import org.joda.time.DateTimeZone;
 
 import javax.annotation.Nullable;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -83,7 +84,7 @@ public class OrcWriter
         PRESTO_ORC_WRITER_VERSION = version == null ? "UNKNOWN" : version;
     }
 
-    private final SliceOutput output;
+    private final OutputStreamSliceOutput output;
     private final List<Type> types;
     private final OrcEncoding orcEncoding;
     private final CompressionKind compression;
@@ -110,7 +111,7 @@ public class OrcWriter
     private OrcWriteValidation.OrcWriteValidationBuilder validationBuilder;
 
     public OrcWriter(
-            SliceOutput output,
+            OutputStream outputStream,
             List<String> columnNames,
             List<Type> types,
             OrcEncoding orcEncoding,
@@ -123,7 +124,7 @@ public class OrcWriter
     {
         this.validationBuilder = validate ? new OrcWriteValidation.OrcWriteValidationBuilder(types) : null;
 
-        this.output = requireNonNull(output, "output is null");
+        this.output = new OutputStreamSliceOutput(requireNonNull(outputStream, "outputStream is null"));
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.orcEncoding = requireNonNull(orcEncoding, "orcEncoding is null");
         this.compression = requireNonNull(compression, "compression is null");
@@ -180,7 +181,7 @@ public class OrcWriter
 
         // this is not required but nice to have
         output.writeBytes(MAGIC);
-        stripeStartOffset = output.size();
+        stripeStartOffset = output.longSize();
 
         for (Entry<String, String> entry : this.userMetadata.entrySet()) {
             recordValidation(validation -> validation.addMetadataProperty(entry.getKey(), utf8Slice(entry.getValue())));
@@ -352,7 +353,7 @@ public class OrcWriter
         dictionaryCompressionOptimizer.reset();
         rowGroupRowCount = 0;
         stripeRowCount = 0;
-        stripeStartOffset = output.size();
+        stripeStartOffset = output.longSize();
         bufferedBytes = toIntExact(columnWriters.stream().mapToLong(ColumnWriter::getBufferedBytes).sum());
     }
 

@@ -46,7 +46,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import io.airlift.slice.OutputStreamSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
@@ -615,17 +614,16 @@ public class OrcTester
         return orcReader.createRecordReader(ImmutableMap.of(0, type), predicate, HIVE_STORAGE_TIME_ZONE, newSimpleAggregatedMemoryContext());
     }
 
-    private static DataSize writeOrcColumnPresto(File outputFile, Format format, CompressionKind compression, Type type, Iterator<?> values)
+    private static void writeOrcColumnPresto(File outputFile, Format format, CompressionKind compression, Type type, Iterator<?> values)
             throws Exception
     {
         ImmutableMap.Builder<String, String> metadata = ImmutableMap.builder();
         metadata.put("columns", "test");
         metadata.put("columns.types", createSettableStructObjectInspector("test", type).getTypeName());
 
-        OutputStreamSliceOutput output = new OutputStreamSliceOutput(new FileOutputStream(outputFile));
         OrcWriter writer;
         writer = new OrcWriter(
-                output,
+                new FileOutputStream(outputFile),
                 ImmutableList.of("test"),
                 ImmutableList.of(type),
                 format.getOrcEncoding(),
@@ -645,7 +643,6 @@ public class OrcTester
         writer.write(new Page(blockBuilder.build()));
         writer.close();
         writer.validate(new FileOrcDataSource(outputFile, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true));
-        return new DataSize(output.size(), Unit.BYTE);
     }
 
     private static void writeValue(Type type, BlockBuilder blockBuilder, Object value)
