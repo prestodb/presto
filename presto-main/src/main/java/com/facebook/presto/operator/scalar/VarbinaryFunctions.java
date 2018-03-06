@@ -26,7 +26,6 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
 
-import java.nio.ByteBuffer;
 import java.util.Base64;
 import java.util.zip.CRC32;
 
@@ -178,8 +177,7 @@ public final class VarbinaryFunctions
     public static long fromIEEE754Binary32(@SqlType(StandardTypes.VARBINARY) Slice slice)
     {
         checkCondition(slice.length() == Integer.BYTES, INVALID_FUNCTION_ARGUMENT, "Input floating-point value must be exactly 4 bytes long");
-        ByteBuffer buffer = ByteBuffer.wrap(slice.getBytes());
-        return (long) buffer.getInt();
+        return Integer.reverseBytes(slice.getInt(0));
     }
 
     @Description("encode value as a big endian varbinary according to IEEE 754 double-precision floating-point format")
@@ -198,8 +196,7 @@ public final class VarbinaryFunctions
     public static double fromIEEE754Binary64(@SqlType(StandardTypes.VARBINARY) Slice slice)
     {
         checkCondition(slice.length() == Double.BYTES, INVALID_FUNCTION_ARGUMENT, "Input floating-point value must be exactly 8 bytes long");
-        ByteBuffer buffer = ByteBuffer.wrap(slice.getBytes());
-        return buffer.getDouble();
+        return Double.longBitsToDouble(Long.reverseBytes(slice.getLong(0)));
     }
 
     @Description("compute md5 hash")
