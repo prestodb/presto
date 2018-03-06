@@ -309,8 +309,18 @@ class StatementClientV1
         long attempts = 0;
 
         while (true) {
-            // back-off on retry
+            if (isClientAborted()) {
+                return false;
+            }
+
+            Duration sinceStart = Duration.nanosSince(start);
+            if (attempts > 0 && sinceStart.compareTo(requestTimeoutNanos) > 0) {
+                state.compareAndSet(State.RUNNING, State.CLIENT_ERROR);
+                throw new RuntimeException(format("Error fetching next (attempts: %s, duration: %s)", attempts, sinceStart), cause);
+            }
+
             if (attempts > 0) {
+                // back-off on retry
                 try {
                     MILLISECONDS.sleep(attempts * 100);
                 }
@@ -344,15 +354,6 @@ class StatementClientV1
             if (response.getStatusCode() != HTTP_UNAVAILABLE) {
                 state.compareAndSet(State.RUNNING, State.CLIENT_ERROR);
                 throw requestFailedException("fetching next", request, response);
-            }
-
-            if (Duration.nanosSince(start).compareTo(requestTimeoutNanos) > 0) {
-                state.compareAndSet(State.RUNNING, State.CLIENT_ERROR);
-                throw new RuntimeException("Error fetching next", cause);
-            }
-
-            if (isClientAborted()) {
-                return false;
             }
         }
     }
