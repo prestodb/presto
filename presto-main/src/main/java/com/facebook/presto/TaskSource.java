@@ -109,6 +109,7 @@ public class TaskSource
         // the specified source is newer if it changes the no more
         // splits flag or if it contains new splits
         return (!noMoreSplits && source.isNoMoreSplits()) ||
+                (!noMoreSplitsForLifespan.containsAll(source.getNoMoreSplitsForLifespan())) ||
                 (!splits.containsAll(source.getSplits()));
     }
 
