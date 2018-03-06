@@ -507,7 +507,7 @@ public enum FileFormat
                 throws IOException
         {
             writer = new OrcWriter(
-                    new OutputStreamSliceOutput(new FileOutputStream(targetFile)),
+                    new FileOutputStream(targetFile),
                     columnNames,
                     types,
                     ORC,
@@ -543,7 +543,7 @@ public enum FileFormat
                 throws IOException
         {
             writer = new OrcWriter(
-                    new OutputStreamSliceOutput(new FileOutputStream(targetFile)),
+                    new FileOutputStream(targetFile),
                     columnNames,
                     types,
                     DWRF,

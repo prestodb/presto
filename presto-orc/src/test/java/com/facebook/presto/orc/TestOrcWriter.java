@@ -24,7 +24,6 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.slice.OutputStreamSliceOutput;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
@@ -55,7 +54,7 @@ public class TestOrcWriter
     {
         TempFile tempFile = new TempFile();
         OrcWriter writer = new OrcWriter(
-                new OutputStreamSliceOutput(new FileOutputStream(tempFile.getFile())),
+                new FileOutputStream(tempFile.getFile()),
                 ImmutableList.of("test1", "test2", "test3", "test4", "test5"),
                 ImmutableList.of(VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR),
                 ORC,
