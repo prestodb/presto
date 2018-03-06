@@ -50,6 +50,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
 import com.google.inject.Injector;
+import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 import io.airlift.bootstrap.Bootstrap;
@@ -98,6 +99,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 public class TestingPrestoServer
         implements Closeable
 {
+    private final Injector injector;
     private final Path baseDataDir;
     private final LifeCycleManager lifeCycleManager;
     private final PluginManager pluginManager;
@@ -236,7 +238,7 @@ public class TestingPrestoServer
             optionalProperties.put("node.environment", environment);
         }
 
-        Injector injector = app
+        injector = app
                 .strictConfig()
                 .doNotInitializeLogging()
                 .setRequiredConfigurationProperties(serverProperties.build())
@@ -432,6 +434,11 @@ public class TestingPrestoServer
     public Set<Node> getActiveNodesWithConnector(ConnectorId connectorId)
     {
         return nodeManager.getActiveConnectorNodes(connectorId);
+    }
+
+    public <T> T getInstance(Key<T> key)
+    {
+        return injector.getInstance(key);
     }
 
     private static void updateConnectorIdAnnouncement(Announcer announcer, ConnectorId connectorId)
