@@ -68,11 +68,9 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.UriInfo;
 
 import java.net.URI;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.BiConsumer;
 
 import static com.facebook.presto.OutputBuffers.createInitialEmptyOutputBuffers;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
@@ -108,58 +106,42 @@ public class TestHttpRemoteTask
     public void testRemoteTaskMismatch()
             throws Exception
     {
-        runTest(TestCase.TASK_MISMATCH);
+        runTest(FailureScenario.TASK_MISMATCH);
     }
 
     @Test(timeOut = 30000)
     public void testRejectedExecutionWhenVersionIsHigh()
             throws Exception
     {
-        runTest(TestCase.TASK_MISMATCH_WHEN_VERSION_IS_HIGH);
+        runTest(FailureScenario.TASK_MISMATCH_WHEN_VERSION_IS_HIGH);
     }
 
     @Test(timeOut = 30000)
     public void testRejectedExecution()
             throws Exception
     {
-        runTest(TestCase.REJECTED_EXECUTION);
+        runTest(FailureScenario.REJECTED_EXECUTION);
     }
 
-    private void runTest(TestCase testCase)
+    private void runTest(FailureScenario failureScenario)
             throws Exception
     {
         AtomicLong lastActivityNanos = new AtomicLong(System.nanoTime());
-        TestingTaskResource testingTaskResource = new TestingTaskResource(lastActivityNanos, testCase);
+        TestingTaskResource testingTaskResource = new TestingTaskResource(lastActivityNanos, failureScenario);
 
         HttpRemoteTaskFactory httpRemoteTaskFactory = createHttpRemoteTaskFactory(testingTaskResource);
-
-        RemoteTask remoteTask = httpRemoteTaskFactory.createRemoteTask(
-                TEST_SESSION,
-                new TaskId("test", 1, 2),
-                new PrestoNode("node-id", URI.create("http://fake.invalid/"), new NodeVersion("version"), false),
-                TaskTestUtils.PLAN_FRAGMENT,
-                ImmutableMultimap.of(),
-                createInitialEmptyOutputBuffers(OutputBuffers.BufferType.BROADCAST),
-                new NodeTaskMap.PartitionedSplitCountTracker(i -> {}),
-                true);
+        RemoteTask remoteTask = createRemoteTask(httpRemoteTaskFactory);
 
         testingTaskResource.setInitialTaskInfo(remoteTask.getTaskInfo());
         remoteTask.start();
 
-        CompletableFuture<Void> testComplete = new CompletableFuture<>();
-        asyncRun(
-                IDLE_TIMEOUT.roundTo(MILLISECONDS),
-                FAIL_TIMEOUT.roundTo(MILLISECONDS),
-                lastActivityNanos,
-                () -> testComplete.complete(null),
-                (message, cause) -> testComplete.completeExceptionally(new AssertionError(message, cause)));
-        testComplete.get();
+        waitUntilIdle(lastActivityNanos);
 
         httpRemoteTaskFactory.stop();
         assertTrue(remoteTask.getTaskStatus().getState().isDone(), format("TaskStatus is not in a done state: %s", remoteTask.getTaskStatus()));
 
         ErrorCode actualErrorCode = getOnlyElement(remoteTask.getTaskStatus().getFailures()).getErrorCode();
-        switch (testCase) {
+        switch (failureScenario) {
             case TASK_MISMATCH:
             case TASK_MISMATCH_WHEN_VERSION_IS_HIGH:
                 assertTrue(remoteTask.getTaskInfo().getTaskStatus().getState().isDone(), format("TaskInfo is not in a done state: %s", remoteTask.getTaskInfo()));
@@ -172,6 +154,19 @@ public class TestHttpRemoteTask
             default:
                 throw new UnsupportedOperationException();
         }
+    }
+
+    private RemoteTask createRemoteTask(HttpRemoteTaskFactory httpRemoteTaskFactory)
+    {
+        return httpRemoteTaskFactory.createRemoteTask(
+                TEST_SESSION,
+                new TaskId("test", 1, 2),
+                new PrestoNode("node-id", URI.create("http://fake.invalid/"), new NodeVersion("version"), false),
+                TaskTestUtils.PLAN_FRAGMENT,
+                ImmutableMultimap.of(),
+                createInitialEmptyOutputBuffers(OutputBuffers.BufferType.BROADCAST),
+                new NodeTaskMap.PartitionedSplitCountTracker(i -> {}),
+                true);
     }
 
     private static HttpRemoteTaskFactory createHttpRemoteTaskFactory(TestingTaskResource testingTaskResource)
@@ -227,35 +222,27 @@ public class TestHttpRemoteTask
         return injector.getInstance(HttpRemoteTaskFactory.class);
     }
 
-    private static void asyncRun(long idleTimeoutMillis, long failTimeoutMillis, AtomicLong lastActivityNanos, Runnable runAfterIdle, BiConsumer<String, Throwable> runAfterFail)
+    private static void waitUntilIdle(AtomicLong lastActivityNanos)
+            throws InterruptedException
     {
-        new Thread(() -> {
-            long startTimeNanos = System.nanoTime();
+        long startTimeNanos = System.nanoTime();
 
-            try {
-                while (true) {
-                    long millisSinceLastActivity = (System.nanoTime() - lastActivityNanos.get()) / 1_000_000L;
-                    long millisSinceStart = (System.nanoTime() - startTimeNanos) / 1_000_000L;
-                    long millisToIdleTarget = idleTimeoutMillis - millisSinceLastActivity;
-                    long millisToFailTarget = failTimeoutMillis - millisSinceStart;
-                    if (millisToFailTarget < millisToIdleTarget) {
-                        runAfterFail.accept(format("Activity doesn't stop after %sms", failTimeoutMillis), null);
-                        return;
-                    }
-                    if (millisToIdleTarget < 0) {
-                        runAfterIdle.run();
-                        return;
-                    }
-                    Thread.sleep(millisToIdleTarget);
-                }
+        while (true) {
+            long millisSinceLastActivity = (System.nanoTime() - lastActivityNanos.get()) / 1_000_000L;
+            long millisSinceStart = (System.nanoTime() - startTimeNanos) / 1_000_000L;
+            long millisToIdleTarget = IDLE_TIMEOUT.toMillis() - millisSinceLastActivity;
+            long millisToFailTarget = FAIL_TIMEOUT.toMillis() - millisSinceStart;
+            if (millisToFailTarget < millisToIdleTarget) {
+                throw new AssertionError(format("Activity doesn't stop after %s", FAIL_TIMEOUT));
             }
-            catch (InterruptedException e) {
-                runAfterFail.accept("Idle/fail timeout monitor thread interrupted", e);
+            if (millisToIdleTarget < 0) {
+                return;
             }
-        }).start();
+            Thread.sleep(millisToIdleTarget);
+        }
     }
 
-    private enum TestCase
+    private enum FailureScenario
     {
         TASK_MISMATCH,
         TASK_MISMATCH_WHEN_VERSION_IS_HIGH,
@@ -269,7 +256,7 @@ public class TestHttpRemoteTask
         private static final String NEW_TASK_INSTANCE_ID = "task-instance-id-x";
 
         private final AtomicLong lastActivityNanos;
-        private final TestCase testCase;
+        private final FailureScenario failureScenario;
 
         private AtomicReference<TestingHttpClient> httpClient = new AtomicReference<>();
 
@@ -281,10 +268,10 @@ public class TestHttpRemoteTask
 
         private long statusFetchCounter;
 
-        public TestingTaskResource(AtomicLong lastActivityNanos, TestCase testCase)
+        public TestingTaskResource(AtomicLong lastActivityNanos, FailureScenario failureScenario)
         {
             this.lastActivityNanos = requireNonNull(lastActivityNanos, "lastActivityNanos is null");
-            this.testCase = requireNonNull(testCase, "testCase is null");
+            this.failureScenario = requireNonNull(failureScenario, "failureScenario is null");
         }
 
         public void setHttpClient(TestingHttpClient newValue)
@@ -354,7 +341,7 @@ public class TestHttpRemoteTask
             this.initialTaskStatus = initialTaskInfo.getTaskStatus();
             this.taskState = initialTaskStatus.getState();
             this.version = initialTaskStatus.getVersion();
-            switch (testCase) {
+            switch (failureScenario) {
                 case TASK_MISMATCH_WHEN_VERSION_IS_HIGH:
                     // Make the initial version large enough.
                     // This way, the version number can't be reached if it is reset to 0.
@@ -384,7 +371,7 @@ public class TestHttpRemoteTask
         {
             statusFetchCounter++;
             // Change the task instance id after 10th fetch to simulate worker restart
-            switch (testCase) {
+            switch (failureScenario) {
                 case TASK_MISMATCH:
                 case TASK_MISMATCH_WHEN_VERSION_IS_HIGH:
                     if (statusFetchCounter == 10) {
