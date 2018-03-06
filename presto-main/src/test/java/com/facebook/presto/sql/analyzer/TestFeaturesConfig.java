@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.analyzer;
 
+import com.facebook.presto.operator.aggregation.arrayagg.ArrayAggGroupImplementation;
+import com.facebook.presto.operator.aggregation.histogram.HistogramGroupImplementation;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.configuration.ConfigurationFactory;
 import io.airlift.configuration.testing.ConfigAssertions;
@@ -22,8 +24,6 @@ import org.testng.annotations.Test;
 
 import java.util.Map;
 
-import static com.facebook.presto.operator.aggregation.histogram.HistogramGroupImplementation.LEGACY;
-import static com.facebook.presto.operator.aggregation.histogram.HistogramGroupImplementation.NEW;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.SPILLER_SPILL_PATH;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.SPILL_ENABLED;
 import static com.facebook.presto.sql.analyzer.RegexLibrary.JONI;
@@ -87,7 +87,8 @@ public class TestFeaturesConfig
                 .setPagesIndexEagerCompactionEnabled(false)
                 .setFilterAndProjectMinOutputPageSize(new DataSize(25, KILOBYTE))
                 .setFilterAndProjectMinOutputPageRowCount(256)
-                .setHistogramGroupImplementation(NEW));
+                .setHistogramGroupImplementation(HistogramGroupImplementation.NEW)
+                .setArrayAggGroupImplementation(ArrayAggGroupImplementation.NEW));
     }
 
     @Test
@@ -139,7 +140,8 @@ public class TestFeaturesConfig
                 .put("pages-index.eager-compaction-enabled", "true")
                 .put("experimental.filter-and-project-min-output-page-size", "1MB")
                 .put("experimental.filter-and-project-min-output-page-row-count", "2048")
-                .put("histogram.implemenation", "LEGACY")
+                .put("histogram.implementation", "LEGACY")
+                .put("arrayagg.implementation", "LEGACY")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -188,7 +190,8 @@ public class TestFeaturesConfig
                 .setPagesIndexEagerCompactionEnabled(true)
                 .setFilterAndProjectMinOutputPageSize(new DataSize(1, MEGABYTE))
                 .setFilterAndProjectMinOutputPageRowCount(2048)
-                .setHistogramGroupImplementation(LEGACY);
+                .setHistogramGroupImplementation(HistogramGroupImplementation.LEGACY)
+                .setArrayAggGroupImplementation(ArrayAggGroupImplementation.LEGACY);
         assertFullMapping(properties, expected);
     }
 

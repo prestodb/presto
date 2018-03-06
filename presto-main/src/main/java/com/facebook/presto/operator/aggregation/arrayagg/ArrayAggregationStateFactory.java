@@ -13,17 +13,25 @@
  */
 package com.facebook.presto.operator.aggregation.arrayagg;
 
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.AccumulatorStateFactory;
 import com.facebook.presto.spi.type.Type;
+
+import static com.facebook.presto.operator.aggregation.arrayagg.ArrayAggGroupImplementation.LEGACY;
+import static com.facebook.presto.operator.aggregation.arrayagg.ArrayAggGroupImplementation.NEW;
+import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
+import static java.lang.String.format;
 
 public class ArrayAggregationStateFactory
         implements AccumulatorStateFactory<ArrayAggregationState>
 {
     private final Type type;
+    private final ArrayAggGroupImplementation mode;
 
-    public ArrayAggregationStateFactory(Type type)
+    public ArrayAggregationStateFactory(Type type, ArrayAggGroupImplementation mode)
     {
         this.type = type;
+        this.mode = mode;
     }
 
     @Override
@@ -41,7 +49,15 @@ public class ArrayAggregationStateFactory
     @Override
     public ArrayAggregationState createGroupedState()
     {
-        return new GroupArrayAggregationState(type);
+        if (mode == NEW) {
+            return new GroupArrayAggregationState(type);
+        }
+
+        if (mode == LEGACY) {
+            return new LegacyArrayAggregationGroupState(type);
+        }
+
+        throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, format("Unexpected group enum type %s", mode));
     }
 
     @Override

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.analyzer;
 
+import com.facebook.presto.operator.aggregation.arrayagg.ArrayAggGroupImplementation;
 import com.facebook.presto.operator.aggregation.histogram.HistogramGroupImplementation;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
@@ -85,6 +86,7 @@ public class FeaturesConfig
     private int re2JDfaRetries = 5;
     private RegexLibrary regexLibrary = JONI;
     private HistogramGroupImplementation histogramGroupImplementation = HistogramGroupImplementation.NEW;
+    private ArrayAggGroupImplementation arrayAggGroupImplementation = ArrayAggGroupImplementation.NEW;
     private boolean spillEnabled;
     private DataSize aggregationOperatorUnspillMemoryLimit = new DataSize(4, DataSize.Unit.MEGABYTE);
     private List<Path> spillerSpillPaths = ImmutableList.of();
@@ -666,7 +668,7 @@ public class FeaturesConfig
         return this;
     }
 
-    @Config("histogram.implemenation")
+    @Config("histogram.implementation")
     public FeaturesConfig setHistogramGroupImplementation(HistogramGroupImplementation groupByMode)
     {
         this.histogramGroupImplementation = groupByMode;
@@ -676,5 +678,17 @@ public class FeaturesConfig
     public HistogramGroupImplementation getHistogramGroupImplementation()
     {
         return histogramGroupImplementation;
+    }
+
+    public ArrayAggGroupImplementation getArrayAggGroupImplementation()
+    {
+        return arrayAggGroupImplementation;
+    }
+
+    @Config("arrayagg.implementation")
+    public FeaturesConfig setArrayAggGroupImplementation(ArrayAggGroupImplementation groupByMode)
+    {
+        this.arrayAggGroupImplementation = groupByMode;
+        return this;
     }
 }

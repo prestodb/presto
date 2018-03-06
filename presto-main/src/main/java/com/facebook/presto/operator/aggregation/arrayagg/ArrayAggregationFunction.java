@@ -44,6 +44,7 @@ import static com.facebook.presto.operator.aggregation.AggregationUtils.generate
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.Objects.requireNonNull;
 
 public class ArrayAggregationFunction
         extends SqlAggregationFunction
@@ -54,8 +55,9 @@ public class ArrayAggregationFunction
     private static final MethodHandle OUTPUT_FUNCTION = methodHandle(ArrayAggregationFunction.class, "output", Type.class, ArrayAggregationState.class, BlockBuilder.class);
 
     private final boolean legacyArrayAgg;
+    private final ArrayAggGroupImplementation groupMode;
 
-    public ArrayAggregationFunction(boolean legacyArrayAgg)
+    public ArrayAggregationFunction(boolean legacyArrayAgg, ArrayAggGroupImplementation groupMode)
     {
         super(NAME,
                 ImmutableList.of(typeVariable("T")),
@@ -63,6 +65,7 @@ public class ArrayAggregationFunction
                 parseTypeSignature("array(T)"),
                 ImmutableList.of(parseTypeSignature("T")));
         this.legacyArrayAgg = legacyArrayAgg;
+        this.groupMode = requireNonNull(groupMode, "groupMode is null");
     }
 
     @Override
@@ -75,15 +78,15 @@ public class ArrayAggregationFunction
     public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
         Type type = boundVariables.getTypeVariable("T");
-        return generateAggregation(type, legacyArrayAgg);
+        return generateAggregation(type, legacyArrayAgg, groupMode);
     }
 
-    private static InternalAggregationFunction generateAggregation(Type type, boolean legacyArrayAgg)
+    private static InternalAggregationFunction generateAggregation(Type type, boolean legacyArrayAgg, ArrayAggGroupImplementation groupMode)
     {
         DynamicClassLoader classLoader = new DynamicClassLoader(ArrayAggregationFunction.class.getClassLoader());
 
         AccumulatorStateSerializer<?> stateSerializer = new ArrayAggregationStateSerializer(type);
-        AccumulatorStateFactory<?> stateFactory = new ArrayAggregationStateFactory(type);
+        AccumulatorStateFactory<?> stateFactory = new ArrayAggregationStateFactory(type, groupMode);
 
         List<Type> inputTypes = ImmutableList.of(type);
         Type outputType = new ArrayType(type);

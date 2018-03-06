@@ -20,6 +20,8 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
+// one BlockBuilder per group, which causes GC pressure and excessive cross region references.
+@Deprecated
 public class LegacyArrayAggregationGroupState
         extends AbstractGroupedAccumulatorState
         implements ArrayAggregationState
@@ -27,11 +29,13 @@ public class LegacyArrayAggregationGroupState
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(GroupArrayAggregationState.class).instanceSize();
     private ObjectBigArray<BlockBuilder> blockBuilders;
     private final Type type;
+    private long size;
 
     public LegacyArrayAggregationGroupState(Type type)
     {
         this.type = type;
         this.blockBuilders = new ObjectBigArray<>();
+        this.size = 0;
     }
 
     @Override
@@ -43,18 +47,23 @@ public class LegacyArrayAggregationGroupState
     @Override
     public long getEstimatedSize()
     {
-        return 0;
+        return INSTANCE_SIZE + size + blockBuilders.sizeOf();
     }
 
     @Override
     public void add(Block block, int position)
     {
         BlockBuilder blockBuilder = blockBuilders.get(getGroupId());
+        long startSize = 0;
         if (blockBuilder == null) {
-            blockBuilder = type.createBlockBuilder(null, 16);
+            blockBuilder = type.createBlockBuilder(null, 4);
             blockBuilders.set(getGroupId(), blockBuilder);
         }
+        else {
+            startSize = blockBuilder.getRetainedSizeInBytes();
+        }
         type.appendTo(block, position, blockBuilder);
+        size += blockBuilder.getRetainedSizeInBytes() - startSize;
     }
 
     @Override
@@ -75,11 +84,5 @@ public class LegacyArrayAggregationGroupState
     {
         BlockBuilder blockBuilder = blockBuilders.get(getGroupId());
         return blockBuilder == null || blockBuilder.getPositionCount() == 0;
-    }
-
-    @Override
-    public void reset()
-    {
-        this.blockBuilders = new ObjectBigArray<>();
     }
 }
