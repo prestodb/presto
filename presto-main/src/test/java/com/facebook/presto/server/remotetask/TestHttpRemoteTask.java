@@ -14,7 +14,10 @@
 package com.facebook.presto.server.remotetask;
 
 import com.facebook.presto.OutputBuffers;
+import com.facebook.presto.TaskSource;
 import com.facebook.presto.client.NodeVersion;
+import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.RemoteTask;
@@ -28,13 +31,17 @@ import com.facebook.presto.execution.TestSqlTaskManager;
 import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.PrestoNode;
+import com.facebook.presto.metadata.Split;
 import com.facebook.presto.server.HttpRemoteTaskFactory;
 import com.facebook.presto.server.TaskUpdateRequest;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.TestingHandleResolver;
+import com.facebook.presto.testing.TestingSplit;
+import com.facebook.presto.testing.TestingTransactionHandle;
 import com.facebook.presto.type.TypeDeserializer;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableMultimap;
@@ -68,14 +75,18 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.UriInfo;
 
 import java.net.URI;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BooleanSupplier;
 
 import static com.facebook.presto.OutputBuffers.createInitialEmptyOutputBuffers;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CURRENT_STATE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_WAIT;
+import static com.facebook.presto.execution.TaskTestUtils.TABLE_SCAN_NODE_ID;
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
@@ -84,15 +95,18 @@ import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
+import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertTrue;
 
 public class TestHttpRemoteTask
 {
     // This 30 sec per-test timeout should never be reached because the test should fail and do proper cleanup after 20 sec.
+    private static final Duration POLL_TIMEOUT = new Duration(100, MILLISECONDS);
     private static final Duration IDLE_TIMEOUT = new Duration(3, SECONDS);
     private static final Duration FAIL_TIMEOUT = new Duration(20, SECONDS);
     private static final TaskManagerConfig TASK_MANAGER_CONFIG = new TaskManagerConfig()
@@ -121,6 +135,38 @@ public class TestHttpRemoteTask
             throws Exception
     {
         runTest(FailureScenario.REJECTED_EXECUTION);
+    }
+
+    @Test(timeOut = 30000)
+    public void testRegular()
+            throws Exception
+    {
+        AtomicLong lastActivityNanos = new AtomicLong(System.nanoTime());
+        TestingTaskResource testingTaskResource = new TestingTaskResource(lastActivityNanos, FailureScenario.NO_FAILURE);
+
+        HttpRemoteTaskFactory httpRemoteTaskFactory = createHttpRemoteTaskFactory(testingTaskResource);
+
+        RemoteTask remoteTask = createRemoteTask(httpRemoteTaskFactory);
+
+        testingTaskResource.setInitialTaskInfo(remoteTask.getTaskInfo());
+        remoteTask.start();
+
+        Lifespan lifespan = Lifespan.driverGroup(3);
+        remoteTask.addSplits(ImmutableMultimap.of(TABLE_SCAN_NODE_ID, new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit(), lifespan)));
+        poll(() -> testingTaskResource.getTaskSource(TABLE_SCAN_NODE_ID) != null);
+        poll(() -> testingTaskResource.getTaskSource(TABLE_SCAN_NODE_ID).getSplits().size() == 1);
+
+        remoteTask.noMoreSplits(TABLE_SCAN_NODE_ID, lifespan);
+        poll(() -> testingTaskResource.getTaskSource(TABLE_SCAN_NODE_ID).getNoMoreSplitsForLifespan().size() == 1);
+
+        remoteTask.noMoreSplits(TABLE_SCAN_NODE_ID);
+        poll(() -> testingTaskResource.getTaskSource(TABLE_SCAN_NODE_ID).isNoMoreSplits());
+
+        remoteTask.cancel();
+        poll(() -> remoteTask.getTaskStatus().getState().isDone());
+        poll(() -> remoteTask.getTaskInfo().getTaskStatus().getState().isDone());
+
+        httpRemoteTaskFactory.stop();
     }
 
     private void runTest(FailureScenario failureScenario)
@@ -222,6 +268,20 @@ public class TestHttpRemoteTask
         return injector.getInstance(HttpRemoteTaskFactory.class);
     }
 
+    private static void poll(BooleanSupplier success)
+            throws InterruptedException
+    {
+        long failAt = System.nanoTime() + FAIL_TIMEOUT.roundTo(NANOSECONDS);
+
+        while (!success.getAsBoolean()) {
+            long millisUntilFail = (failAt - System.nanoTime()) / 1_000_000;
+            if (millisUntilFail <= 0) {
+                throw new AssertionError(format("Timeout of %s reached", FAIL_TIMEOUT));
+            }
+            Thread.sleep(min(POLL_TIMEOUT.toMillis(), millisUntilFail));
+        }
+    }
+
     private static void waitUntilIdle(AtomicLong lastActivityNanos)
             throws InterruptedException
     {
@@ -244,9 +304,10 @@ public class TestHttpRemoteTask
 
     private enum FailureScenario
     {
+        NO_FAILURE,
         TASK_MISMATCH,
         TASK_MISMATCH_WHEN_VERSION_IS_HIGH,
-        REJECTED_EXECUTION
+        REJECTED_EXECUTION,
     }
 
     @Path("/task/{nodeId}")
@@ -292,6 +353,8 @@ public class TestHttpRemoteTask
             return buildTaskInfo();
         }
 
+        Map<PlanNodeId, TaskSource> taskSourceMap = new HashMap<>();
+
         @POST
         @Path("{taskId}")
         @Consumes(MediaType.APPLICATION_JSON)
@@ -301,8 +364,20 @@ public class TestHttpRemoteTask
                 TaskUpdateRequest taskUpdateRequest,
                 @Context UriInfo uriInfo)
         {
+            for (TaskSource source : taskUpdateRequest.getSources()) {
+                taskSourceMap.compute(source.getPlanNodeId(), (planNodeId, taskSource) -> taskSource == null ? source : taskSource.update(source));
+            }
             lastActivityNanos.set(System.nanoTime());
             return buildTaskInfo();
+        }
+
+        public synchronized TaskSource getTaskSource(PlanNodeId planNodeId)
+        {
+            TaskSource source = taskSourceMap.get(planNodeId);
+            if (source == null) {
+                return null;
+            }
+            return new TaskSource(source.getPlanNodeId(), source.getSplits(), source.getNoMoreSplitsForLifespan(), source.isNoMoreSplits());
         }
 
         @GET
@@ -349,6 +424,7 @@ public class TestHttpRemoteTask
                     break;
                 case TASK_MISMATCH:
                 case REJECTED_EXECUTION:
+                case NO_FAILURE:
                     break; // do nothing
                 default:
                     throw new UnsupportedOperationException();
@@ -384,6 +460,8 @@ public class TestHttpRemoteTask
                         httpClient.get().close();
                         throw new RejectedExecutionException();
                     }
+                    break;
+                case NO_FAILURE:
                     break;
                 default:
                     throw new UnsupportedOperationException();

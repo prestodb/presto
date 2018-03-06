@@ -528,7 +528,7 @@ public final class HttpRemoteTask
         boolean noMoreSplits = this.noMoreSplits.contains(planNodeId);
         Set<Lifespan> noMoreSplitsForLifespan = pendingNoMoreSplitsForLifespan.get(planNodeId);
         TaskSource element = null;
-        if (!splits.isEmpty() || noMoreSplits) {
+        if (!splits.isEmpty() || !noMoreSplitsForLifespan.isEmpty() || noMoreSplits) {
             element = new TaskSource(planNodeId, splits, noMoreSplitsForLifespan, noMoreSplits);
         }
         return element;
