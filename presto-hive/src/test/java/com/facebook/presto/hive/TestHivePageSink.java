@@ -243,14 +243,14 @@ public class TestHivePageSink
                 partitionUpdateCodec,
                 new TestingNodeManager("fake-environment"),
                 new HiveEventClient(),
-                new HiveSessionProperties(config),
+                new HiveSessionProperties(config, new OrcFileWriterConfig()),
                 stats);
         return provider.createPageSink(transaction, getSession(config), handle);
     }
 
     private static TestingConnectorSession getSession(HiveClientConfig config)
     {
-        return new TestingConnectorSession(new HiveSessionProperties(config).getSessionProperties());
+        return new TestingConnectorSession(new HiveSessionProperties(config, new OrcFileWriterConfig()).getSessionProperties());
     }
 
     private static List<HiveColumnHandle> getColumnHandles()

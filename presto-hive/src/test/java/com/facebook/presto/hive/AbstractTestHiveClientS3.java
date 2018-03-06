@@ -219,14 +219,14 @@ public abstract class AbstractTestHiveClientS3
                 partitionUpdateCodec,
                 new TestingNodeManager("fake-environment"),
                 new HiveEventClient(),
-                new HiveSessionProperties(config),
+                new HiveSessionProperties(config, new OrcFileWriterConfig()),
                 new HiveWriterStats());
         pageSourceProvider = new HivePageSourceProvider(config, hdfsEnvironment, getDefaultHiveRecordCursorProvider(config), getDefaultHiveDataStreamFactories(config), TYPE_MANAGER);
     }
 
     protected ConnectorSession newSession()
     {
-        return new TestingConnectorSession(new HiveSessionProperties(new HiveClientConfig()).getSessionProperties());
+        return new TestingConnectorSession(new HiveSessionProperties(new HiveClientConfig(), new OrcFileWriterConfig()).getSessionProperties());
     }
 
     protected Transaction newTransaction()

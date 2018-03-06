@@ -18,6 +18,7 @@ import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveCompressionCodec;
 import com.facebook.presto.hive.HiveSessionProperties;
+import com.facebook.presto.hive.OrcFileWriterConfig;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
@@ -95,7 +96,7 @@ public class HiveFileFormatBenchmark
     private static final HiveClientConfig CONFIG = new HiveClientConfig()
             .setParquetOptimizedReaderEnabled(true);
 
-    private static final ConnectorSession SESSION = new TestingConnectorSession(new HiveSessionProperties(CONFIG)
+    private static final ConnectorSession SESSION = new TestingConnectorSession(new HiveSessionProperties(CONFIG, new OrcFileWriterConfig())
             .getSessionProperties());
 
     private static final HdfsEnvironment HDFS_ENVIRONMENT = createTestHdfsEnvironment(CONFIG);

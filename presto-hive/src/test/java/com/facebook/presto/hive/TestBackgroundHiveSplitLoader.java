@@ -244,7 +244,7 @@ public class TestBackgroundHiveSplitLoader
                                 ImmutableMap.of()));
 
         ConnectorSession connectorSession = new TestingConnectorSession(
-                new HiveSessionProperties(new HiveClientConfig().setMaxSplitSize(new DataSize(1.0, GIGABYTE))).getSessionProperties());
+                new HiveSessionProperties(new HiveClientConfig().setMaxSplitSize(new DataSize(1.0, GIGABYTE)), new OrcFileWriterConfig()).getSessionProperties());
 
         return new BackgroundHiveSplitLoader(
                 table,
@@ -263,7 +263,7 @@ public class TestBackgroundHiveSplitLoader
     private static BackgroundHiveSplitLoader backgroundHiveSplitLoaderOfflinePartitions()
     {
         ConnectorSession connectorSession = new TestingConnectorSession(
-                new HiveSessionProperties(new HiveClientConfig().setMaxSplitSize(new DataSize(1.0, GIGABYTE))).getSessionProperties());
+                new HiveSessionProperties(new HiveClientConfig().setMaxSplitSize(new DataSize(1.0, GIGABYTE)), new OrcFileWriterConfig()).getSessionProperties());
 
         return new BackgroundHiveSplitLoader(
                 SIMPLE_TABLE,
