@@ -29,8 +29,8 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.swift</groupId>
-            <artifactId>swift-annotations</artifactId>
+            <groupId>io.airlift.drift</groupId>
+            <artifactId>drift-api</artifactId>
         </dependency>
 
         <dependency>
@@ -46,21 +46,6 @@
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-annotations</artifactId>
-        </dependency>
-
-        <!-- swift dependencies below are needed only for compilation -->
-        <!-- swift-javadoc registers a custom javadoc processing class which stores javadoc and ordering in metadata for swift classes -->
-        <!-- so that this information is included in Thrift IDL when it's generated using swift2thrift generator -->
-        <dependency>
-            <groupId>com.facebook.swift</groupId>
-            <artifactId>swift-javadoc</artifactId>
-            <scope>provided</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.facebook.swift</groupId>
-            <artifactId>swift-codec</artifactId>
-            <scope>provided</scope>
         </dependency>
 
         <!-- for testing -->
@@ -82,4 +67,23 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <!-- record Javadoc in annotations for the IDL generator -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>io.airlift.drift</groupId>
+                            <artifactId>drift-javadoc</artifactId>
+                            <version>${dep.drift.version}</version>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>

@@ -37,7 +37,7 @@ public class TestThriftPlugin
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
         assertInstanceOf(factory, ThriftConnectorFactory.class);
 
-        Map<String, String> config = ImmutableMap.of("static-location.hosts", "localhost:7777");
+        Map<String, String> config = ImmutableMap.of("presto.thrift.client.addresses", "localhost:7779");
 
         Connector connector = factory.create("test", config, new TestingConnectorContext());
         assertNotNull(connector);

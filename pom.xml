@@ -50,11 +50,10 @@
         <dep.aws-sdk.version>1.11.293</dep.aws-sdk.version>
         <dep.okhttp.version>3.9.0</dep.okhttp.version>
         <dep.jdbi3.version>3.0.0</dep.jdbi3.version>
+        <dep.drift.version>1.8</dep.drift.version>
         <dep.tempto.version>1.45</dep.tempto.version>
         <dep.testng.version>6.10</dep.testng.version>
         <dep.assertj-core.version>3.8.0</dep.assertj-core.version>
-        <dep.nifty.version>0.15.1</dep.nifty.version>
-        <dep.swift.version>0.15.6</dep.swift.version>
 
         <!-- use a fractional hour timezone offset for tests -->
         <air.test.timezone>Asia/Katmandu</air.test.timezone>
@@ -558,6 +557,48 @@
             </dependency>
 
             <dependency>
+                <groupId>io.airlift.drift</groupId>
+                <artifactId>drift-api</artifactId>
+                <version>${dep.drift.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.airlift.drift</groupId>
+                <artifactId>drift-client</artifactId>
+                <version>${dep.drift.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.airlift.drift</groupId>
+                <artifactId>drift-codec</artifactId>
+                <version>${dep.drift.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.airlift.drift</groupId>
+                <artifactId>drift-protocol</artifactId>
+                <version>${dep.drift.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.airlift.drift</groupId>
+                <artifactId>drift-server</artifactId>
+                <version>${dep.drift.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.airlift.drift</groupId>
+                <artifactId>drift-transport-spi</artifactId>
+                <version>${dep.drift.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.airlift.drift</groupId>
+                <artifactId>drift-transport-netty</artifactId>
+                <version>${dep.drift.version}</version>
+            </dependency>
+
+            <dependency>
                 <groupId>io.airlift.tpch</groupId>
                 <artifactId>tpch</artifactId>
                 <version>0.9</version>
@@ -728,66 +769,6 @@
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.swift</groupId>
-                <artifactId>swift-annotations</artifactId>
-                <version>${dep.swift.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.facebook.swift</groupId>
-                <artifactId>swift-codec</artifactId>
-                <version>${dep.swift.version}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>com.google.code.findbugs</groupId>
-                        <artifactId>annotations</artifactId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
-
-            <dependency>
-                <groupId>com.facebook.swift</groupId>
-                <artifactId>swift-service</artifactId>
-                <version>${dep.swift.version}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>com.google.code.findbugs</groupId>
-                        <artifactId>annotations</artifactId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
-
-            <dependency>
-                <groupId>com.facebook.swift</groupId>
-                <artifactId>swift-javadoc</artifactId>
-                <version>${dep.swift.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.facebook.nifty</groupId>
-                <artifactId>nifty-core</artifactId>
-                <version>${dep.nifty.version}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>com.google.code.findbugs</groupId>
-                        <artifactId>annotations</artifactId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
-
-            <dependency>
-                <groupId>com.facebook.nifty</groupId>
-                <artifactId>nifty-client</artifactId>
-                <version>${dep.nifty.version}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>com.google.code.findbugs</groupId>
-                        <artifactId>annotations</artifactId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
-
-            <dependency>
                 <groupId>org.apache.thrift</groupId>
                 <artifactId>libthrift</artifactId>
                 <version>0.9.1</version>
@@ -823,12 +804,6 @@
                 <groupId>commons-codec</groupId>
                 <artifactId>commons-codec</artifactId>
                 <version>1.10</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.netty</groupId>
-                <artifactId>netty</artifactId>
-                <version>3.10.6.Final</version>
             </dependency>
 
             <dependency>
@@ -1149,6 +1124,12 @@
                     <groupId>io.airlift.maven.plugins</groupId>
                     <artifactId>sphinx-maven-plugin</artifactId>
                     <version>2.0</version>
+                </plugin>
+
+                <plugin>
+                    <groupId>io.airlift.drift</groupId>
+                    <artifactId>drift-maven-plugin</artifactId>
+                    <version>${dep.drift.version}</version>
                 </plugin>
 
                 <plugin>

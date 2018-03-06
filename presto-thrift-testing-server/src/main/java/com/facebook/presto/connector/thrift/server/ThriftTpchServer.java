@@ -13,13 +13,10 @@
  */
 package com.facebook.presto.connector.thrift.server;
 
-import com.facebook.swift.codec.guice.ThriftCodecModule;
-import com.facebook.swift.service.guice.ThriftClientModule;
-import com.facebook.swift.service.guice.ThriftServerModule;
-import com.facebook.swift.service.guice.ThriftServerStatsModule;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
+import io.airlift.drift.transport.netty.server.DriftNettyServerModule;
 import io.airlift.log.Logger;
 
 import java.util.List;
@@ -37,10 +34,7 @@ public final class ThriftTpchServer
     {
         Bootstrap app = new Bootstrap(
                 ImmutableList.<Module>builder()
-                        .add(new ThriftCodecModule())
-                        .add(new ThriftClientModule())
-                        .add(new ThriftServerModule())
-                        .add(new ThriftServerStatsModule())
+                        .add(new DriftNettyServerModule())
                         .add(new ThriftTpchServerModule())
                         .addAll(requireNonNull(extraModules, "extraModules is null"))
                         .build());
@@ -49,11 +43,13 @@ public final class ThriftTpchServer
 
     public static void main(String[] args)
     {
+        Logger log = Logger.get(ThriftTpchServer.class);
         try {
-            ThriftTpchServer.start(ImmutableList.of());
+            start(ImmutableList.of());
+            log.info("======== SERVER STARTED ========");
         }
         catch (Throwable t) {
-            Logger.get(ThriftTpchServer.class).error(t);
+            log.error(t);
             System.exit(1);
         }
     }

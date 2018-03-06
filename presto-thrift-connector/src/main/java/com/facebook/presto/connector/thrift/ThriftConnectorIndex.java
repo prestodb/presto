@@ -13,11 +13,12 @@
  */
 package com.facebook.presto.connector.thrift;
 
-import com.facebook.presto.connector.thrift.clientproviders.PrestoThriftServiceProvider;
+import com.facebook.presto.connector.thrift.api.PrestoThriftService;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorIndex;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.RecordSet;
+import io.airlift.drift.client.DriftClient;
 
 import java.util.List;
 
@@ -27,7 +28,7 @@ import static java.util.Objects.requireNonNull;
 public class ThriftConnectorIndex
         implements ConnectorIndex
 {
-    private final PrestoThriftServiceProvider clientProvider;
+    private final DriftClient<PrestoThriftService> client;
     private final ThriftIndexHandle indexHandle;
     private final List<ColumnHandle> lookupColumns;
     private final List<ColumnHandle> outputColumns;
@@ -36,7 +37,7 @@ public class ThriftConnectorIndex
     private final ThriftConnectorStats stats;
 
     public ThriftConnectorIndex(
-            PrestoThriftServiceProvider clientProvider,
+            DriftClient<PrestoThriftService> client,
             ThriftConnectorStats stats,
             ThriftIndexHandle indexHandle,
             List<ColumnHandle> lookupColumns,
@@ -44,7 +45,7 @@ public class ThriftConnectorIndex
             long maxBytesPerResponse,
             int lookupRequestsConcurrency)
     {
-        this.clientProvider = requireNonNull(clientProvider, "clientProvider is null");
+        this.client = requireNonNull(client, "client is null");
         this.stats = requireNonNull(stats, "stats is null");
         this.indexHandle = requireNonNull(indexHandle, "indexHandle is null");
         this.lookupColumns = requireNonNull(lookupColumns, "lookupColumns is null");
@@ -56,7 +57,7 @@ public class ThriftConnectorIndex
     @Override
     public ConnectorPageSource lookup(RecordSet recordSet)
     {
-        return new ThriftIndexPageSource(clientProvider, stats, indexHandle, lookupColumns, outputColumns, recordSet, maxBytesPerResponse, lookupRequestsConcurrency);
+        return new ThriftIndexPageSource(client, stats, indexHandle, lookupColumns, outputColumns, recordSet, maxBytesPerResponse, lookupRequestsConcurrency);
     }
 
     @Override

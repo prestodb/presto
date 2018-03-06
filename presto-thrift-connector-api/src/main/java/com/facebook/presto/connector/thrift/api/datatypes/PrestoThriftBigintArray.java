@@ -19,9 +19,9 @@ import com.facebook.presto.spi.block.ArrayBlock;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.LongArrayBlock;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.swift.codec.ThriftConstructor;
-import com.facebook.swift.codec.ThriftField;
-import com.facebook.swift.codec.ThriftStruct;
+import io.airlift.drift.annotations.ThriftConstructor;
+import io.airlift.drift.annotations.ThriftField;
+import io.airlift.drift.annotations.ThriftStruct;
 
 import javax.annotation.Nullable;
 
@@ -33,10 +33,10 @@ import static com.facebook.presto.connector.thrift.api.datatypes.PrestoThriftTyp
 import static com.facebook.presto.connector.thrift.api.datatypes.PrestoThriftTypeUtils.sameSizeIfPresent;
 import static com.facebook.presto.connector.thrift.api.datatypes.PrestoThriftTypeUtils.totalSize;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.swift.codec.ThriftField.Requiredness.OPTIONAL;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.drift.annotations.ThriftField.Requiredness.OPTIONAL;
 
 /**
  * Elements of {@code nulls} array determine if a value for a corresponding row is null.
