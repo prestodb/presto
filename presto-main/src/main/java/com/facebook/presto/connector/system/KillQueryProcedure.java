@@ -14,7 +14,10 @@
 package com.facebook.presto.connector.system;
 
 import com.facebook.presto.annotation.UsedByGeneratedCode;
+import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
+import com.facebook.presto.execution.QueryState;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.procedure.Procedure.Argument;
@@ -23,14 +26,20 @@ import com.google.common.collect.ImmutableList;
 import javax.inject.Inject;
 
 import java.lang.invoke.MethodHandle;
+import java.util.NoSuchElementException;
 
+import static com.facebook.presto.spi.StandardErrorCode.ADMINISTRATIVELY_KILLED;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.util.Reflection.methodHandle;
+import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.util.Objects.requireNonNull;
 
 public class KillQueryProcedure
 {
-    private static final MethodHandle KILL_QUERY = methodHandle(KillQueryProcedure.class, "killQuery", String.class);
+    private static final MethodHandle KILL_QUERY = methodHandle(KillQueryProcedure.class, "killQuery", String.class, String.class);
 
     private final QueryManager queryManager;
 
@@ -41,9 +50,30 @@ public class KillQueryProcedure
     }
 
     @UsedByGeneratedCode
-    public void killQuery(String queryId)
+    public void killQuery(String queryId, String message)
     {
-        queryManager.cancelQuery(new QueryId(queryId));
+        QueryId query = parseQueryId(queryId);
+
+        try {
+            QueryInfo queryInfo = queryManager.getQueryInfo(query);
+
+            // check before killing to provide the proper error message (this is racy)
+            if (queryInfo.getState().isDone()) {
+                throw new PrestoException(NOT_SUPPORTED, "Target query is not running: " + queryId);
+            }
+
+            queryManager.failQuery(query, createKillQueryException(message));
+
+            // verify if the query was killed (if not, we lost the race)
+            queryInfo = queryManager.getQueryInfo(query);
+            if ((queryInfo.getState() != QueryState.FAILED) ||
+                    !ADMINISTRATIVELY_KILLED.toErrorCode().equals(queryInfo.getErrorCode())) {
+                throw new PrestoException(NOT_SUPPORTED, "Target query is not running: " + queryId);
+            }
+        }
+        catch (NoSuchElementException e) {
+            throw new PrestoException(NOT_FOUND, "Target query not found: " + queryId);
+        }
     }
 
     public Procedure getProcedure()
@@ -51,7 +81,26 @@ public class KillQueryProcedure
         return new Procedure(
                 "runtime",
                 "kill_query",
-                ImmutableList.of(new Argument("query_id", VARCHAR)),
+                ImmutableList.<Argument>builder()
+                        .add(new Argument("query_id", VARCHAR))
+                        .add(new Argument("message", VARCHAR))
+                        .build(),
                 KILL_QUERY.bindTo(this));
+    }
+
+    public static PrestoException createKillQueryException(String message)
+    {
+        return new PrestoException(ADMINISTRATIVELY_KILLED, "Query killed. " +
+                (isNullOrEmpty(message) ? "No message provided." : "Message: " + message));
+    }
+
+    private static QueryId parseQueryId(String queryId)
+    {
+        try {
+            return QueryId.valueOf(queryId);
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(INVALID_PROCEDURE_ARGUMENT, e);
+        }
     }
 }
