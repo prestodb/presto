@@ -73,7 +73,9 @@ public class AddColumnTask
             throw new SemanticException(COLUMN_ALREADY_EXISTS, statement, "Column '%s' already exists", element.getName());
         }
 
-        metadata.addColumn(session, tableHandle.get(), new ColumnMetadata(element.getName().getValue(), type));
+        ColumnMetadata column = new ColumnMetadata(element.getName().getValue(), type, element.getComment().orElse(null), false);
+
+        metadata.addColumn(session, tableHandle.get(), column);
 
         return immediateFuture(null);
     }
