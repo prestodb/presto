@@ -1269,17 +1269,26 @@ public class TestArrayOperators
 
     @Test
     public void testSequence()
+            throws ParseException
     {
         // defaults to a step of 1
         assertFunction("SEQUENCE(1, 5)", new ArrayType(BIGINT), ImmutableList.of(1L, 2L, 3L, 4L, 5L));
         assertFunction("SEQUENCE(-10, -5)", new ArrayType(BIGINT), ImmutableList.of(-10L, -9L, -8L, -7L, -6L, -5L));
         assertFunction("SEQUENCE(-5, 2)", new ArrayType(BIGINT), ImmutableList.of(-5L, -4L, -3L, -2L, -1L, 0L, 1L, 2L));
         assertFunction("SEQUENCE(2, 2)", new ArrayType(BIGINT), ImmutableList.of(2L));
+        assertFunction(
+                "SEQUENCE(date '2016-04-12', date '2016-04-14')",
+                new ArrayType(DATE),
+                ImmutableList.of(sqlDate("2016-04-12"), sqlDate("2016-04-13"), sqlDate("2016-04-14")));
 
         // defaults to a step of -1
         assertFunction("SEQUENCE(5, 1)", new ArrayType(BIGINT), ImmutableList.of(5L, 4L, 3L, 2L, 1L));
         assertFunction("SEQUENCE(-5, -10)", new ArrayType(BIGINT), ImmutableList.of(-5L, -6L, -7L, -8L, -9L, -10L));
         assertFunction("SEQUENCE(2, -5)", new ArrayType(BIGINT), ImmutableList.of(2L, 1L, 0L, -1L, -2L, -3L, -4L, -5L));
+        assertFunction(
+                "SEQUENCE(date '2016-04-14', date '2016-04-12')",
+                new ArrayType(DATE),
+                ImmutableList.of(sqlDate("2016-04-14"), sqlDate("2016-04-13"), sqlDate("2016-04-12")));
 
         // with increment
         assertFunction("SEQUENCE(1, 9, 4)", new ArrayType(BIGINT), ImmutableList.of(1L, 5L, 9L));
@@ -1290,9 +1299,22 @@ public class TestArrayOperators
         assertFunction("SEQUENCE(10, 2, -2)", new ArrayType(BIGINT), ImmutableList.of(10L, 8L, 6L, 4L, 2L));
 
         // failure modes
-        assertInvalidFunction("SEQUENCE(2, -1, 1)", INVALID_FUNCTION_ARGUMENT);
-        assertInvalidFunction("SEQUENCE(-1, -10, 1)", INVALID_FUNCTION_ARGUMENT);
-        assertInvalidFunction("SEQUENCE(1, 1000000)", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction(
+                "SEQUENCE(2, -1, 1)",
+                INVALID_FUNCTION_ARGUMENT,
+                "sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than or equal to start");
+        assertInvalidFunction(
+                "SEQUENCE(-1, -10, 1)",
+                INVALID_FUNCTION_ARGUMENT,
+                "sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than or equal to start");
+        assertInvalidFunction(
+                "SEQUENCE(1, 1000000)",
+                INVALID_FUNCTION_ARGUMENT,
+                "result of sequence function must not have more than 10000 entries");
+        assertInvalidFunction(
+                "SEQUENCE(date '2000-04-14', date '2030-04-12')",
+                INVALID_FUNCTION_ARGUMENT,
+                "result of sequence function must not have more than 10000 entries");
     }
 
     @Test
