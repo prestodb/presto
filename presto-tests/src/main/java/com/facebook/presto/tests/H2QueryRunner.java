@@ -51,6 +51,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -287,7 +288,20 @@ public class H2QueryRunner
                     }
                     else if (TIMESTAMP.equals(type)) {
                         // resultSet.getTimestamp(i) doesn't work if JVM's zone had forward offset at the date/time being retrieved
-                        LocalDateTime timestampValue = resultSet.getObject(i, LocalDateTime.class);
+                        LocalDateTime timestampValue;
+                        try {
+                            timestampValue = resultSet.getObject(i, LocalDateTime.class);
+                        }
+                        catch (SQLException first) {
+                            // H2 cannot convert DATE to LocalDateTime in their JDBC driver (even though it can convert to java.sql.Timestamp), we need to do this manually
+                            try {
+                                timestampValue = Optional.ofNullable(resultSet.getObject(i, LocalDate.class)).map(LocalDate::atStartOfDay).orElse(null);
+                            }
+                            catch (RuntimeException e) {
+                                first.addSuppressed(e);
+                                throw first;
+                            }
+                        }
                         if (resultSet.wasNull()) {
                             row.add(null);
                         }
