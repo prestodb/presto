@@ -13,24 +13,22 @@
  */
 package com.facebook.presto.testing;
 
-import java.util.List;
-import java.util.stream.Stream;
-
-import static java.util.Arrays.asList;
+import java.util.ArrayList;
+import java.util.stream.Collector;
 
 public final class TestngUtils
 {
-    private TestngUtils()
-    {
-    }
+    private TestngUtils() {}
 
-    public static List<?> of(Object... arguments)
+    public static <T> Collector<T, ?, Object[][]> toDataProvider()
     {
-        return asList(arguments);
-    }
-
-    public static Object[][] toArgumentsArrays(Stream<List<?>> argumentsLists)
-    {
-        return argumentsLists.map(List::toArray).toArray(Object[][]::new);
+        return Collector.of(
+                ArrayList::new,
+                (builder, entry) -> builder.add(new Object[]{entry}),
+                (left, right) -> {
+                    left.addAll(right);
+                    return left;
+                },
+                builder -> builder.toArray(new Object[][]{}));
     }
 }
