@@ -250,7 +250,6 @@ public class AddLocalExchanges
         public PlanWithProperties visitAggregation(AggregationNode node, StreamPreferredProperties parentPreferences)
         {
             StreamPreferredProperties requiredProperties;
-            StreamPreferredProperties preferredChildProperties;
 
             checkState(node.getStep() == AggregationNode.Step.SINGLE, "step of aggregation is expected to be SINGLE, but it is %s", node.getStep());
 
@@ -266,10 +265,7 @@ public class AddLocalExchanges
             }
 
             requiredProperties = parentPreferences.withDefaultParallelism(session).withPartitioning(partitioningRequirement);
-            preferredChildProperties = parentPreferences.withDefaultParallelism(session)
-                    .withPartitioning(partitioningRequirement);
-
-            return planAndEnforceChildren(node, requiredProperties, preferredChildProperties);
+            return planAndEnforceChildren(node, requiredProperties, requiredProperties);
         }
 
         @Override
