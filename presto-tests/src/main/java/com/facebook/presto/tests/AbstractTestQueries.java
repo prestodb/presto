@@ -4778,33 +4778,28 @@ public abstract class AbstractTestQueries
     public void testAtTimeZone()
     {
         // TODO the expected values here are non-sensical due to https://github.com/prestodb/presto/issues/7122
-        assertEquals(evaluateScalar("SELECT TIMESTAMP '2012-10-31 01:00' AT TIME ZONE INTERVAL '07:09' hour to minute"), zonedDateTime("2012-10-31 08:09:00.000 +07:09"));
-        assertEquals(evaluateScalar("SELECT TIMESTAMP '2012-10-31 01:00' AT TIME ZONE 'Asia/Oral'"), zonedDateTime("2012-10-31 06:00:00.000 Asia/Oral"));
-        assertEquals(evaluateScalar("SELECT MIN(x) AT TIME ZONE 'America/Chicago' FROM (VALUES TIMESTAMP '1970-01-01 00:01:00+00:00') t(x)"), zonedDateTime("1969-12-31 18:01:00.000 America/Chicago"));
-        assertEquals(evaluateScalar("SELECT TIMESTAMP '2012-10-31 01:00' AT TIME ZONE '+07:09'"), zonedDateTime("2012-10-31 08:09:00.000 +07:09"));
-        assertEquals(evaluateScalar("SELECT TIMESTAMP '2012-10-31 01:00 UTC' AT TIME ZONE 'America/Los_Angeles'"), zonedDateTime("2012-10-30 18:00:00.000 America/Los_Angeles"));
-        assertEquals(evaluateScalar("SELECT TIMESTAMP '2012-10-31 01:00' AT TIME ZONE 'America/Los_Angeles'"), zonedDateTime("2012-10-30 18:00:00.000 America/Los_Angeles"));
+        assertEquals(computeScalar("SELECT TIMESTAMP '2012-10-31 01:00' AT TIME ZONE INTERVAL '07:09' hour to minute"), zonedDateTime("2012-10-31 08:09:00.000 +07:09"));
+        assertEquals(computeScalar("SELECT TIMESTAMP '2012-10-31 01:00' AT TIME ZONE 'Asia/Oral'"), zonedDateTime("2012-10-31 06:00:00.000 Asia/Oral"));
+        assertEquals(computeScalar("SELECT MIN(x) AT TIME ZONE 'America/Chicago' FROM (VALUES TIMESTAMP '1970-01-01 00:01:00+00:00') t(x)"), zonedDateTime("1969-12-31 18:01:00.000 America/Chicago"));
+        assertEquals(computeScalar("SELECT TIMESTAMP '2012-10-31 01:00' AT TIME ZONE '+07:09'"), zonedDateTime("2012-10-31 08:09:00.000 +07:09"));
+        assertEquals(computeScalar("SELECT TIMESTAMP '2012-10-31 01:00 UTC' AT TIME ZONE 'America/Los_Angeles'"), zonedDateTime("2012-10-30 18:00:00.000 America/Los_Angeles"));
+        assertEquals(computeScalar("SELECT TIMESTAMP '2012-10-31 01:00' AT TIME ZONE 'America/Los_Angeles'"), zonedDateTime("2012-10-30 18:00:00.000 America/Los_Angeles"));
         assertEquals(computeActual("SELECT x AT TIME ZONE 'America/Los_Angeles' FROM (values TIMESTAMP '1970-01-01 00:01:00+00:00', TIMESTAMP '1970-01-01 08:01:00+08:00', TIMESTAMP '1969-12-31 16:01:00-08:00') t(x)").getOnlyColumnAsSet(),
                 ImmutableSet.of(zonedDateTime("1969-12-31 16:01:00.000 America/Los_Angeles")));
         assertEquals(computeActual("SELECT x AT TIME ZONE 'America/Los_Angeles' FROM (values TIMESTAMP '1970-01-01 00:01:00', TIMESTAMP '1970-01-01 08:01:00', TIMESTAMP '1969-12-31 16:01:00') t(x)").getOnlyColumn().collect(toList()),
                 ImmutableList.of(zonedDateTime("1969-12-31 16:01:00.000 America/Los_Angeles"), zonedDateTime("1970-01-01 00:01:00.000 America/Los_Angeles"), zonedDateTime("1969-12-31 08:01:00.000 America/Los_Angeles")));
-        assertEquals(evaluateScalar("SELECT min(x) AT TIME ZONE 'America/Los_Angeles' FROM (values TIMESTAMP '1970-01-01 00:01:00+00:00', TIMESTAMP '1970-01-01 08:01:00+08:00', TIMESTAMP '1969-12-31 16:01:00-08:00') t(x)"),
+        assertEquals(computeScalar("SELECT min(x) AT TIME ZONE 'America/Los_Angeles' FROM (values TIMESTAMP '1970-01-01 00:01:00+00:00', TIMESTAMP '1970-01-01 08:01:00+08:00', TIMESTAMP '1969-12-31 16:01:00-08:00') t(x)"),
                 zonedDateTime("1969-12-31 16:01:00.000 America/Los_Angeles"));
 
         // with chained AT TIME ZONE
-        assertEquals(evaluateScalar("SELECT TIMESTAMP '2012-10-31 01:00' AT TIME ZONE 'America/Los_Angeles' AT TIME ZONE 'UTC'"), zonedDateTime("2012-10-31 01:00:00.000 UTC"));
-        assertEquals(evaluateScalar("SELECT TIMESTAMP '2012-10-31 01:00' AT TIME ZONE 'Asia/Tokyo' AT TIME ZONE 'America/Los_Angeles'"), zonedDateTime("2012-10-30 18:00:00.000 America/Los_Angeles"));
-        assertEquals(evaluateScalar("SELECT TIMESTAMP '2012-10-31 01:00' AT TIME ZONE 'America/Los_Angeles' AT TIME ZONE 'Asia/Shanghai'"), zonedDateTime("2012-10-31 09:00:00.000 Asia/Shanghai"));
-        assertEquals(evaluateScalar("SELECT min(x) AT TIME ZONE 'America/Los_Angeles' AT TIME ZONE 'UTC' FROM (values TIMESTAMP '1970-01-01 00:01:00+00:00', TIMESTAMP '1970-01-01 08:01:00+08:00', TIMESTAMP '1969-12-31 16:01:00-08:00') t(x)"),
+        assertEquals(computeScalar("SELECT TIMESTAMP '2012-10-31 01:00' AT TIME ZONE 'America/Los_Angeles' AT TIME ZONE 'UTC'"), zonedDateTime("2012-10-31 01:00:00.000 UTC"));
+        assertEquals(computeScalar("SELECT TIMESTAMP '2012-10-31 01:00' AT TIME ZONE 'Asia/Tokyo' AT TIME ZONE 'America/Los_Angeles'"), zonedDateTime("2012-10-30 18:00:00.000 America/Los_Angeles"));
+        assertEquals(computeScalar("SELECT TIMESTAMP '2012-10-31 01:00' AT TIME ZONE 'America/Los_Angeles' AT TIME ZONE 'Asia/Shanghai'"), zonedDateTime("2012-10-31 09:00:00.000 Asia/Shanghai"));
+        assertEquals(computeScalar("SELECT min(x) AT TIME ZONE 'America/Los_Angeles' AT TIME ZONE 'UTC' FROM (values TIMESTAMP '1970-01-01 00:01:00+00:00', TIMESTAMP '1970-01-01 08:01:00+08:00', TIMESTAMP '1969-12-31 16:01:00-08:00') t(x)"),
                 zonedDateTime("1970-01-01 00:01:00.000 UTC"));
 
         // with AT TIME ZONE in VALUES
-        assertEquals(evaluateScalar("SELECT * FROM (VALUES TIMESTAMP '2012-10-31 01:00' AT TIME ZONE 'Asia/Oral')"), zonedDateTime("2012-10-31 06:00:00.000 Asia/Oral"));
-    }
-
-    private Object evaluateScalar(@Language("SQL") String sql)
-    {
-        return computeActual(sql).getOnlyValue();
+        assertEquals(computeScalar("SELECT * FROM (VALUES TIMESTAMP '2012-10-31 01:00' AT TIME ZONE 'Asia/Oral')"), zonedDateTime("2012-10-31 06:00:00.000 Asia/Oral"));
     }
 
     private ZonedDateTime zonedDateTime(String value)
@@ -6854,31 +6849,31 @@ public abstract class AbstractTestQueries
         Session chicago = Session.builder(getSession()).setTimeZoneKey(TimeZoneKey.getTimeZoneKey("America/Chicago")).build();
         Session kathmandu = Session.builder(getSession()).setTimeZoneKey(TimeZoneKey.getTimeZoneKey("Asia/Kathmandu")).build();
 
-        assertEquals(evaluateScalar("SELECT DATE '2013-03-22'"), LocalDate.of(2013, 3, 22));
+        assertEquals(computeScalar("SELECT DATE '2013-03-22'"), LocalDate.of(2013, 3, 22));
         assertQuery("SELECT DATE '2013-03-22'");
         assertQuery(chicago, "SELECT DATE '2013-03-22'");
         assertQuery(kathmandu, "SELECT DATE '2013-03-22'");
 
-        assertEquals(evaluateScalar("SELECT TIME '3:04:05'"), LocalTime.of(3, 4, 5, 0));
-        assertEquals(evaluateScalar("SELECT TIME '3:04:05.123'"), LocalTime.of(3, 4, 5, 123_000_000));
+        assertEquals(computeScalar("SELECT TIME '3:04:05'"), LocalTime.of(3, 4, 5, 0));
+        assertEquals(computeScalar("SELECT TIME '3:04:05.123'"), LocalTime.of(3, 4, 5, 123_000_000));
         assertQuery("SELECT TIME '3:04:05'");
         // TODO #7122 assertQuery(chicago, "SELECT TIME '3:04:05'");
         // TODO #7122 assertQuery(kathmandu, "SELECT TIME '3:04:05'");
 
-        assertEquals(evaluateScalar("SELECT TIME '01:02:03.400 Z'"), OffsetTime.of(1, 2, 3, 400_000_000, ZoneOffset.UTC));
-        assertEquals(evaluateScalar("SELECT TIME '01:02:03.400 UTC'"), OffsetTime.of(1, 2, 3, 400_000_000, ZoneOffset.UTC));
-        assertEquals(evaluateScalar("SELECT TIME '3:04:05 +06:00'"), OffsetTime.of(3, 4, 5, 0, ZoneOffset.ofHoursMinutes(6, 0)));
-        assertEquals(evaluateScalar("SELECT TIME '3:04:05 +0507'"), OffsetTime.of(3, 4, 5, 0, ZoneOffset.ofHoursMinutes(5, 7)));
-        assertEquals(evaluateScalar("SELECT TIME '3:04:05 +03'"), OffsetTime.of(3, 4, 5, 0, ZoneOffset.ofHoursMinutes(3, 0)));
+        assertEquals(computeScalar("SELECT TIME '01:02:03.400 Z'"), OffsetTime.of(1, 2, 3, 400_000_000, ZoneOffset.UTC));
+        assertEquals(computeScalar("SELECT TIME '01:02:03.400 UTC'"), OffsetTime.of(1, 2, 3, 400_000_000, ZoneOffset.UTC));
+        assertEquals(computeScalar("SELECT TIME '3:04:05 +06:00'"), OffsetTime.of(3, 4, 5, 0, ZoneOffset.ofHoursMinutes(6, 0)));
+        assertEquals(computeScalar("SELECT TIME '3:04:05 +0507'"), OffsetTime.of(3, 4, 5, 0, ZoneOffset.ofHoursMinutes(5, 7)));
+        assertEquals(computeScalar("SELECT TIME '3:04:05 +03'"), OffsetTime.of(3, 4, 5, 0, ZoneOffset.ofHoursMinutes(3, 0)));
 
-        assertEquals(evaluateScalar("SELECT TIMESTAMP '1960-01-22 3:04:05'"), LocalDateTime.of(1960, 1, 22, 3, 4, 5));
-        assertEquals(evaluateScalar("SELECT TIMESTAMP '1960-01-22 3:04:05.123'"), LocalDateTime.of(1960, 1, 22, 3, 4, 5, 123_000_000));
+        assertEquals(computeScalar("SELECT TIMESTAMP '1960-01-22 3:04:05'"), LocalDateTime.of(1960, 1, 22, 3, 4, 5));
+        assertEquals(computeScalar("SELECT TIMESTAMP '1960-01-22 3:04:05.123'"), LocalDateTime.of(1960, 1, 22, 3, 4, 5, 123_000_000));
         assertQuery("SELECT TIMESTAMP '1960-01-22 3:04:05'");
         assertQuery("SELECT TIMESTAMP '1960-01-22 3:04:05.123'");
         // TODO #7122 assertQuery(chicago, "SELECT TIMESTAMP '1960-01-22 3:04:05.123'");
         // TODO #7122 assertQuery(kathmandu, "SELECT TIMESTAMP '1960-01-22 3:04:05.123'");
 
-        assertEquals(evaluateScalar("SELECT TIMESTAMP '1960-01-22 3:04:05 +06:00'"), ZonedDateTime.of(1960, 1, 22, 3, 4, 5, 0, ZoneOffset.ofHoursMinutes(6, 0)));
+        assertEquals(computeScalar("SELECT TIMESTAMP '1960-01-22 3:04:05 +06:00'"), ZonedDateTime.of(1960, 1, 22, 3, 4, 5, 0, ZoneOffset.ofHoursMinutes(6, 0)));
     }
 
     @Test
