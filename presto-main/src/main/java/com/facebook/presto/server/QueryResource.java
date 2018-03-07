@@ -17,12 +17,15 @@ import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.StageId;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.StandardErrorCode;
 import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
+import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.QueryParam;
@@ -33,6 +36,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.NoSuchElementException;
 
+import static com.facebook.presto.spi.StandardErrorCode.ADMINISTRATIVELY_KILLED;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -82,6 +86,37 @@ public class QueryResource
     {
         requireNonNull(queryId, "queryId is null");
         queryManager.cancelQuery(queryId);
+    }
+
+    @PUT
+    @Path("{queryId}/killed")
+    public Response killQuery(@PathParam("queryId") QueryId queryId, String reason)
+    {
+        requireNonNull(queryId, "queryId is null");
+
+        try {
+            QueryInfo queryInfo = queryManager.getQueryInfo(queryId);
+
+            // If the query was already done, we don't need to do kill it.
+            if (queryInfo.getState().isDone()) {
+                return Response.status(Status.CONFLICT).build();
+            }
+
+            // Kill the query
+            queryManager.failQuery(queryId, new PrestoException(ADMINISTRATIVELY_KILLED, reason));
+
+            // Verify if the query was killed successfully.
+            if (queryInfo.getState() == QueryState.FAILED && queryInfo.getErrorCode() == StandardErrorCode.ADMINISTRATIVELY_KILLED.toErrorCode()) {
+                return Response.status(Status.OK).build();
+            }
+            else {
+                return Response.status(Status.CONFLICT).build();
+            }
+        }
+        catch (NoSuchElementException e) {
+            // The query was not killed because it does not exist.
+            return Response.status(Status.CONFLICT).build();
+        }
     }
 
     @DELETE
