@@ -52,6 +52,7 @@ public abstract class AbstractTestEngineOnlyQueries
         assertEquals(computeScalar("SELECT TIME '3:04:05'"), LocalTime.of(3, 4, 5, 0));
         assertEquals(computeScalar("SELECT TIME '3:04:05.123'"), LocalTime.of(3, 4, 5, 123_000_000));
         assertQuery("SELECT TIME '3:04:05'");
+        assertQuery("SELECT TIME '0:04:05'");
         // TODO #7122 assertQuery(chicago, "SELECT TIME '3:04:05'");
         // TODO #7122 assertQuery(kathmandu, "SELECT TIME '3:04:05'");
 
@@ -76,8 +77,16 @@ public abstract class AbstractTestEngineOnlyQueries
     {
         LocalDateTime localTimeThatDidNotExist = LocalDateTime.of(1986, 1, 1, 0, 10);
         checkState(ZoneId.systemDefault().getRules().getValidOffsets(localTimeThatDidNotExist).isEmpty(), "This test assumes certain JVM time zone");
-        // This tests that Presto runner can return TIMESTAMP value that never happened in JVM's zone
+        // This tests that both Presto runner and H2 can return TIMESTAMP value that never happened in JVM's zone (e.g. is not representable using java.sql.Timestamp)
         @Language("SQL") String sql = DateTimeFormatter.ofPattern("'SELECT TIMESTAMP '''uuuu-MM-dd HH:mm:ss''").format(localTimeThatDidNotExist);
-        assertEquals(computeScalar(sql), localTimeThatDidNotExist);
+        assertEquals(computeScalar(sql), localTimeThatDidNotExist); // this tests Presto and the QueryRunner
+        assertQuery(sql); // this tests H2QueryRunner
+
+        LocalDate localDateThatDidNotHaveMidnight = LocalDate.of(1986, 1, 1);
+        checkState(ZoneId.systemDefault().getRules().getValidOffsets(localDateThatDidNotHaveMidnight.atStartOfDay()).isEmpty(), "This test assumes certain JVM time zone");
+        // This tests that both Presto runner and H2 can return DATE value for a day which midnight never happened in JVM's zone (e.g. is not exactly representable using java.sql.Date)
+        sql = DateTimeFormatter.ofPattern("'SELECT DATE '''uuuu-MM-dd''").format(localDateThatDidNotHaveMidnight);
+        assertEquals(computeScalar(sql), localDateThatDidNotHaveMidnight); // this tests Presto and the QueryRunner
+        assertQuery(sql); // this tests H2QueryRunner
     }
 }
