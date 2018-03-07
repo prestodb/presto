@@ -797,7 +797,15 @@ public class PredicatePushDown
         public PlanNode visitSemiJoin(SemiJoinNode node, RewriteContext<Expression> context)
         {
             Expression inheritedPredicate = context.get();
+            if (!extractConjuncts(inheritedPredicate).contains(node.getSemiJoinOutput().toSymbolReference())) {
+                return visitNonFilteringSemiJoin(node, context);
+            }
+            return visitFilteringSemiJoin(node, context);
+        }
 
+        private PlanNode visitNonFilteringSemiJoin(SemiJoinNode node, RewriteContext<Expression> context)
+        {
+            Expression inheritedPredicate = context.get();
             List<Expression> sourceConjuncts = new ArrayList<>();
             List<Expression> postJoinConjuncts = new ArrayList<>();
 
@@ -830,6 +838,94 @@ public class PredicatePushDown
             PlanNode output = node;
             if (rewrittenSource != node.getSource() || rewrittenFilteringSource != node.getFilteringSource()) {
                 output = new SemiJoinNode(node.getId(), rewrittenSource, rewrittenFilteringSource, node.getSourceJoinSymbol(), node.getFilteringSourceJoinSymbol(), node.getSemiJoinOutput(), node.getSourceHashSymbol(), node.getFilteringSourceHashSymbol(), node.getDistributionType());
+            }
+            if (!postJoinConjuncts.isEmpty()) {
+                output = new FilterNode(idAllocator.getNextId(), output, combineConjuncts(postJoinConjuncts));
+            }
+            return output;
+        }
+
+        private PlanNode visitFilteringSemiJoin(SemiJoinNode node, RewriteContext<Expression> context)
+        {
+            Expression inheritedPredicate = context.get();
+            Expression deterministicInheritedPredicate = filterDeterministicConjuncts(inheritedPredicate);
+            Expression sourceEffectivePredicate = filterDeterministicConjuncts(EffectivePredicateExtractor.extract(node.getSource()));
+            Expression filteringSourceEffectivePredicate = filterDeterministicConjuncts(EffectivePredicateExtractor.extract(node.getFilteringSource()));
+            Expression joinExpression = new ComparisonExpression(
+                    ComparisonExpressionType.EQUAL,
+                    node.getSourceJoinSymbol().toSymbolReference(),
+                    node.getFilteringSourceJoinSymbol().toSymbolReference());
+
+            List<Symbol> sourceSymbols = node.getSource().getOutputSymbols();
+            List<Symbol> filteringSourceSymbols = node.getFilteringSource().getOutputSymbols();
+
+            List<Expression> sourceConjuncts = new ArrayList<>();
+            List<Expression> filteringSourceConjuncts = new ArrayList<>();
+            List<Expression> postJoinConjuncts = new ArrayList<>();
+
+            // Generate equality inferences
+            EqualityInference allInference = createEqualityInference(deterministicInheritedPredicate, sourceEffectivePredicate, filteringSourceEffectivePredicate, joinExpression);
+            EqualityInference allInferenceWithoutSourceInferred = createEqualityInference(deterministicInheritedPredicate, filteringSourceEffectivePredicate, joinExpression);
+            EqualityInference allInferenceWithoutFilteringSourceInferred = createEqualityInference(deterministicInheritedPredicate, sourceEffectivePredicate, joinExpression);
+
+            // Push inheritedPredicates down to the source if they don't involve the semi join output
+            for (Expression conjunct : EqualityInference.nonInferrableConjuncts(inheritedPredicate)) {
+                Expression rewrittenConjunct = allInference.rewriteExpressionAllowNonDeterministic(conjunct, in(sourceSymbols));
+                // Since each source row is reflected exactly once in the output, ok to push non-deterministic predicates down
+                if (rewrittenConjunct != null) {
+                    sourceConjuncts.add(rewrittenConjunct);
+                }
+                else {
+                    postJoinConjuncts.add(conjunct);
+                }
+            }
+
+            // Push inheritedPredicates down to the filtering source if possible
+            for (Expression conjunct : EqualityInference.nonInferrableConjuncts(deterministicInheritedPredicate)) {
+                Expression rewrittenConjunct = allInference.rewriteExpression(conjunct, in(filteringSourceSymbols));
+                // We cannot push non-deterministic predicates to filtering side. Each filtering side row have to be
+                // logically reevaluated for each source row.
+                if (rewrittenConjunct != null) {
+                    filteringSourceConjuncts.add(rewrittenConjunct);
+                }
+            }
+
+            // move effective predicate conjuncts source <-> filter
+            // See if we can push the filtering source effective predicate to the source side
+            for (Expression conjunct : EqualityInference.nonInferrableConjuncts(filteringSourceEffectivePredicate)) {
+                Expression rewritten = allInference.rewriteExpression(conjunct, in(sourceSymbols));
+                if (rewritten != null) {
+                    sourceConjuncts.add(rewritten);
+                }
+            }
+
+            // See if we can push the source effective predicate to the filtering soruce side
+            for (Expression conjunct : EqualityInference.nonInferrableConjuncts(sourceEffectivePredicate)) {
+                Expression rewritten = allInference.rewriteExpression(conjunct, in(filteringSourceSymbols));
+                if (rewritten != null) {
+                    filteringSourceConjuncts.add(rewritten);
+                }
+            }
+
+            // Add equalities from the inference back in
+            sourceConjuncts.addAll(allInferenceWithoutSourceInferred.generateEqualitiesPartitionedBy(in(sourceSymbols)).getScopeEqualities());
+            filteringSourceConjuncts.addAll(allInferenceWithoutFilteringSourceInferred.generateEqualitiesPartitionedBy(in(filteringSourceSymbols)).getScopeEqualities());
+
+            PlanNode rewrittenSource = context.rewrite(node.getSource(), combineConjuncts(sourceConjuncts));
+            PlanNode rewrittenFilteringSource = context.rewrite(node.getFilteringSource(), combineConjuncts(filteringSourceConjuncts));
+
+            PlanNode output = node;
+            if (rewrittenSource != node.getSource() || rewrittenFilteringSource != node.getFilteringSource()) {
+                output = new SemiJoinNode(
+                        node.getId(),
+                        rewrittenSource,
+                        rewrittenFilteringSource,
+                        node.getSourceJoinSymbol(),
+                        node.getFilteringSourceJoinSymbol(),
+                        node.getSemiJoinOutput(),
+                        node.getSourceHashSymbol(),
+                        node.getFilteringSourceHashSymbol(),
+                        node.getDistributionType());
             }
             if (!postJoinConjuncts.isEmpty()) {
                 output = new FilterNode(idAllocator.getNextId(), output, combineConjuncts(postJoinConjuncts));
