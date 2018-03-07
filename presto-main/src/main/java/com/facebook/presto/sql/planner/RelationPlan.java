@@ -29,7 +29,7 @@ import static java.util.Objects.requireNonNull;
  * for a relation (query, table, values, etc.), and the mapping to
  * indicate how the fields (by position) in the relation map to
  * the outputs of the plan.
- *
+ * <p>
  * Fields are resolved by {@link TranslationMap} within local scopes hierarchy.
  * Indexes of resolved parent scope fields start from "total number of child scope fields".
  * For instance if a child scope has n fields, then first parent scope field
@@ -60,7 +60,7 @@ class RelationPlan
 
     public Symbol getSymbol(int fieldIndex)
     {
-        checkArgument(fieldIndex >= 0 && fieldIndex < fieldMappings.size() && fieldMappings.get(fieldIndex) != null, "No field->symbol mapping for field %s", fieldIndex);
+        checkArgument(fieldIndex >= 0 && fieldIndex < fieldMappings.size(), "No field->symbol mapping for field %s", fieldIndex);
         return fieldMappings.get(fieldIndex);
     }
 

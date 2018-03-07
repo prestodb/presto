@@ -13,18 +13,28 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
+import com.facebook.presto.sql.planner.assertions.ExpectedValueProvider;
+import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
+import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
+import com.facebook.presto.sql.planner.optimizations.UnaliasSymbolReferences;
+import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.specification;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.window;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 
 public class TestCanonicalize
@@ -32,9 +42,9 @@ public class TestCanonicalize
 {
     @Test
     public void testJoin()
-            throws Exception
     {
-        assertPlan("SELECT *\n" +
+        assertPlan(
+                "SELECT *\n" +
                         "FROM (\n" +
                         "    SELECT EXTRACT(DAY FROM DATE '2017-01-01')\n" +
                         ") t\n" +
@@ -45,5 +55,31 @@ public class TestCanonicalize
                                         ImmutableMap.of("X", expression("BIGINT '1'")),
                                         values(ImmutableMap.of())),
                                 values(ImmutableMap.of()))));
+    }
+
+    @Test
+    public void testDuplicatesInWindowOrderBy()
+    {
+        ExpectedValueProvider<WindowNode.Specification> specification = specification(
+                ImmutableList.of(),
+                ImmutableList.of("A"),
+                ImmutableMap.of("A", SortOrder.ASC_NULLS_LAST));
+
+        assertPlan(
+                "WITH x as (SELECT a, a as b FROM (VALUES 1) t(a))" +
+                        "SELECT *, row_number() OVER(ORDER BY a ASC, b DESC)" +
+                        "FROM x",
+                anyTree(
+                        window(windowMatcherBuilder -> windowMatcherBuilder
+                                        .specification(specification)
+                                        .addFunction(functionCall("row_number", Optional.empty(), ImmutableList.of())),
+                                values("A"))),
+                ImmutableList.of(
+                        new UnaliasSymbolReferences(),
+                        new IterativeOptimizer(
+                                new StatsRecorder(),
+                                getQueryRunner().getStatsCalculator(),
+                                getQueryRunner().getCostCalculator(),
+                                ImmutableSet.of(new RemoveRedundantIdentityProjections()))));
     }
 }

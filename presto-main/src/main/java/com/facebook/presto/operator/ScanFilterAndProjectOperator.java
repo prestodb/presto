@@ -13,8 +13,11 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.memory.LocalMemoryContext;
+import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.metadata.Split;
+import com.facebook.presto.operator.project.CursorProcessor;
+import com.facebook.presto.operator.project.CursorProcessorOutput;
+import com.facebook.presto.operator.project.MergingPageOutput;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.operator.project.PageProcessorOutput;
 import com.facebook.presto.spi.ColumnHandle;
@@ -29,19 +32,19 @@ import com.facebook.presto.split.EmptySplit;
 import com.facebook.presto.split.EmptySplitPageSource;
 import com.facebook.presto.split.PageSourceProvider;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import io.airlift.units.DataSize;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
-import static com.facebook.presto.operator.project.PageProcessorOutput.EMPTY_PAGE_PROCESSOR_OUTPUT;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static java.util.Objects.requireNonNull;
@@ -49,8 +52,6 @@ import static java.util.Objects.requireNonNull;
 public class ScanFilterAndProjectOperator
         implements SourceOperator, Closeable
 {
-    private static final int ROWS_PER_PAGE = 16384;
-
     private final OperatorContext operatorContext;
     private final PlanNodeId planNodeId;
     private final PageSourceProvider pageSourceProvider;
@@ -62,12 +63,12 @@ public class ScanFilterAndProjectOperator
     private final LocalMemoryContext pageSourceMemoryContext;
     private final LocalMemoryContext pageBuilderMemoryContext;
     private final SettableFuture<?> blocked = SettableFuture.create();
+    private final MergingPageOutput mergingOutput;
 
     private RecordCursor cursor;
     private ConnectorPageSource pageSource;
 
     private Split split;
-    private PageProcessorOutput currentOutput = EMPTY_PAGE_PROCESSOR_OUTPUT;
 
     private boolean finishing;
 
@@ -81,7 +82,8 @@ public class ScanFilterAndProjectOperator
             CursorProcessor cursorProcessor,
             PageProcessor pageProcessor,
             Iterable<ColumnHandle> columns,
-            Iterable<Type> types)
+            Iterable<Type> types,
+            MergingPageOutput mergingOutput)
     {
         this.cursorProcessor = requireNonNull(cursorProcessor, "cursorProcessor is null");
         this.pageProcessor = requireNonNull(pageProcessor, "pageProcessor is null");
@@ -90,8 +92,9 @@ public class ScanFilterAndProjectOperator
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
-        this.pageSourceMemoryContext = operatorContext.getSystemMemoryContext().newLocalMemoryContext();
-        this.pageBuilderMemoryContext = operatorContext.getSystemMemoryContext().newLocalMemoryContext();
+        this.pageSourceMemoryContext = operatorContext.newLocalSystemMemoryContext();
+        this.pageBuilderMemoryContext = operatorContext.newLocalSystemMemoryContext();
+        this.mergingOutput = requireNonNull(mergingOutput, "mergingOutput is null");
 
         this.pageBuilder = new PageBuilder(getTypes());
     }
@@ -143,6 +146,7 @@ public class ScanFilterAndProjectOperator
     {
         if (split == null) {
             finishing = true;
+            mergingOutput.finish();
         }
         blocked.set(null);
     }
@@ -168,19 +172,20 @@ public class ScanFilterAndProjectOperator
                 pageSource.close();
             }
             catch (IOException e) {
-                throw Throwables.propagate(e);
+                throw new UncheckedIOException(e);
             }
         }
         else if (cursor != null) {
             cursor.close();
         }
         finishing = true;
+        mergingOutput.finish();
     }
 
     @Override
     public final boolean isFinished()
     {
-        return finishing && pageBuilder.isEmpty() && !currentOutput.hasNext();
+        return finishing && pageBuilder.isEmpty() && mergingOutput.isFinished();
     }
 
     @Override
@@ -235,19 +240,19 @@ public class ScanFilterAndProjectOperator
 
     private Page processColumnSource()
     {
-        if (!finishing) {
-            int rowsProcessed = cursorProcessor.process(operatorContext.getSession().toConnectorSession(), cursor, ROWS_PER_PAGE, pageBuilder);
-
+        DriverYieldSignal yieldSignal = operatorContext.getDriverContext().getYieldSignal();
+        if (!finishing && !yieldSignal.isSet()) {
+            CursorProcessorOutput output = cursorProcessor.process(operatorContext.getSession().toConnectorSession(), yieldSignal, cursor, pageBuilder);
             pageSourceMemoryContext.setBytes(cursor.getSystemMemoryUsage());
 
             long bytesProcessed = cursor.getCompletedBytes() - completedBytes;
             long elapsedNanos = cursor.getReadTimeNanos() - readTimeNanos;
-            operatorContext.recordGeneratedInput(bytesProcessed, rowsProcessed, elapsedNanos);
+            operatorContext.recordGeneratedInput(bytesProcessed, output.getProcessedRows(), elapsedNanos);
             completedBytes = cursor.getCompletedBytes();
             readTimeNanos = cursor.getReadTimeNanos();
-
-            if (rowsProcessed == 0) {
+            if (output.isNoMoreRows()) {
                 finishing = true;
+                mergingOutput.finish();
             }
         }
 
@@ -263,16 +268,14 @@ public class ScanFilterAndProjectOperator
 
     private Page processPageSource()
     {
-        if (!finishing && !currentOutput.hasNext()) {
+        DriverYieldSignal yieldSignal = operatorContext.getDriverContext().getYieldSignal();
+        if (!finishing && mergingOutput.needsInput() && !yieldSignal.isSet()) {
             Page page = pageSource.getNextPage();
 
             finishing = pageSource.isFinished();
             pageSourceMemoryContext.setBytes(pageSource.getSystemMemoryUsage());
 
-            if (page == null) {
-                currentOutput = EMPTY_PAGE_PROCESSOR_OUTPUT;
-            }
-            else {
+            if (page != null) {
                 // update operator stats
                 long endCompletedBytes = pageSource.getCompletedBytes();
                 long endReadTimeNanos = pageSource.getReadTimeNanos();
@@ -280,12 +283,18 @@ public class ScanFilterAndProjectOperator
                 completedBytes = endCompletedBytes;
                 readTimeNanos = endReadTimeNanos;
 
-                currentOutput = pageProcessor.process(operatorContext.getSession().toConnectorSession(), page);
+                PageProcessorOutput output = pageProcessor.process(operatorContext.getSession().toConnectorSession(), yieldSignal, page);
+                mergingOutput.addInput(output);
             }
-            pageBuilderMemoryContext.setBytes(currentOutput.getRetainedSizeInBytes());
+
+            if (finishing) {
+                mergingOutput.finish();
+            }
         }
 
-        return currentOutput.hasNext() ? currentOutput.next() : null;
+        Page result = mergingOutput.getOutput();
+        pageBuilderMemoryContext.setBytes(mergingOutput.getRetainedSizeInBytes());
+        return result;
     }
 
     public static class ScanFilterAndProjectOperatorFactory
@@ -299,6 +308,8 @@ public class ScanFilterAndProjectOperator
         private final PageSourceProvider pageSourceProvider;
         private final List<ColumnHandle> columns;
         private final List<Type> types;
+        private final DataSize minOutputPageSize;
+        private final int minOutputPageRowCount;
         private boolean closed;
 
         public ScanFilterAndProjectOperatorFactory(
@@ -309,7 +320,9 @@ public class ScanFilterAndProjectOperator
                 Supplier<CursorProcessor> cursorProcessor,
                 Supplier<PageProcessor> pageProcessor,
                 Iterable<ColumnHandle> columns,
-                List<Type> types)
+                List<Type> types,
+                DataSize minOutputPageSize,
+                int minOutputPageRowCount)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -319,6 +332,8 @@ public class ScanFilterAndProjectOperator
             this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
             this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
             this.types = requireNonNull(types, "types is null");
+            this.minOutputPageSize = requireNonNull(minOutputPageSize, "minOutputPageSize is null");
+            this.minOutputPageRowCount = minOutputPageRowCount;
         }
 
         @Override
@@ -345,11 +360,12 @@ public class ScanFilterAndProjectOperator
                     cursorProcessor.get(),
                     pageProcessor.get(),
                     columns,
-                    types);
+                    types,
+                    new MergingPageOutput(types, minOutputPageSize.toBytes(), minOutputPageRowCount));
         }
 
         @Override
-        public void close()
+        public void noMoreOperators()
         {
             closed = true;
         }

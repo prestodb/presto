@@ -36,7 +36,7 @@ public class DeallocateTask
     @Override
     public ListenableFuture<?> execute(Deallocate statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
     {
-        String statementName = statement.getName();
+        String statementName = statement.getName().getValue();
         stateMachine.removePreparedStatement(statementName);
         return immediateFuture(null);
     }

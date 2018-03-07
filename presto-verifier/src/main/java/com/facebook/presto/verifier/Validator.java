@@ -458,7 +458,7 @@ public class Validator
                 }
                 catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
-                    throw Throwables.propagate(e);
+                    throw new RuntimeException(e);
                 }
                 catch (Exception e) {
                     throw Throwables.propagate(e);
@@ -789,7 +789,7 @@ public class Validator
             implements Consumer<QueryStats>
     {
         private QueryStats queryStats;
-        private boolean finished = false;
+        private boolean finished;
 
         @Override
         public synchronized void accept(QueryStats queryStats)

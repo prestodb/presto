@@ -48,14 +48,14 @@ public interface RcFileCompressor
          */
         public CompressedSliceOutput(OutputStream compressionStream, ChunkedSliceOutput bufferedOutput, Supplier<CompressedSliceOutput> resetFactory, Runnable onDestroy)
         {
-            super(compressionStream, 4096);
+            super(compressionStream);
             this.bufferedOutput = requireNonNull(bufferedOutput, "bufferedOutput is null");
             this.resetFactory = requireNonNull(resetFactory, "resetFactory is null");
             this.onDestroy = requireNonNull(onDestroy, "onDestroy is null");
         }
 
         @Override
-        public int getRetainedSize()
+        public long getRetainedSize()
         {
             return super.getRetainedSize() + bufferedOutput.getRetainedSize();
         }
@@ -86,15 +86,23 @@ public interface RcFileCompressor
         public void close()
                 throws IOException
         {
-            closed = true;
-            super.close();
+            if (!closed) {
+                closed = true;
+                super.close();
+            }
         }
 
         public void destroy()
+                throws IOException
         {
             if (!destroyed) {
                 destroyed = true;
-                onDestroy.run();
+                try {
+                    close();
+                }
+                finally {
+                    onDestroy.run();
+                }
             }
         }
     }

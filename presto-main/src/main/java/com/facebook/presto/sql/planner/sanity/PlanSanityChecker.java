@@ -36,6 +36,7 @@ public final class PlanSanityChecker
                     new NoDuplicatePlanNodeIdsChecker(),
                     new TypeValidator(),
                     new NoSubqueryExpressionLeftChecker(),
+                    new NoIdentifierLeftChecker(),
                     new VerifyOnlyOneOutputNode())
             .putAll(
                     Stage.FINAL,
@@ -43,8 +44,8 @@ public final class PlanSanityChecker
                     new NoDuplicatePlanNodeIdsChecker(),
                     new TypeValidator(),
                     new NoSubqueryExpressionLeftChecker(),
+                    new NoIdentifierLeftChecker(),
                     new VerifyOnlyOneOutputNode(),
-                    new NoSubqueryRelatedNodeLeftChecker(),
                     new VerifyNoFilteredAggregations())
             .build();
 
@@ -68,5 +69,5 @@ public final class PlanSanityChecker
     private enum Stage
     {
         INTERMEDIATE, FINAL
-    };
+    }
 }

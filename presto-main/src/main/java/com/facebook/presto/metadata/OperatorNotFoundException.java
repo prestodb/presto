@@ -26,7 +26,8 @@ import static com.facebook.presto.spi.StandardErrorCode.OPERATOR_NOT_FOUND;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public class OperatorNotFoundException extends PrestoException
+public class OperatorNotFoundException
+        extends PrestoException
 {
     private final OperatorType operatorType;
     private final TypeSignature returnType;
@@ -60,7 +61,7 @@ public class OperatorNotFoundException extends PrestoException
             default:
                 operatorString = format("'%s'%s", operatorType.getOperator(), returnType.map(value -> ":" + value).orElse(""));
         }
-        return format("%s cannot be applied to %s", operatorString,  Joiner.on(", ").join(argumentTypes));
+        return format("%s cannot be applied to %s", operatorString, Joiner.on(", ").join(argumentTypes));
     }
 
     public OperatorType getOperatorType()

@@ -14,6 +14,7 @@
 package com.facebook.presto.hive.parquet;
 
 import com.facebook.presto.spi.type.SqlDate;
+import com.facebook.presto.spi.type.SqlDecimal;
 import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.SqlVarbinary;
 import com.google.common.collect.AbstractIterator;
@@ -23,19 +24,27 @@ import com.google.common.collect.DiscreteDomain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Range;
 import com.google.common.primitives.Shorts;
+import org.apache.hadoop.hive.common.type.HiveDecimal;
+import org.apache.hadoop.hive.serde2.objectinspector.primitive.JavaHiveDecimalObjectInspector;
+import org.apache.hadoop.hive.serde2.typeinfo.DecimalTypeInfo;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 import parquet.hadoop.ParquetOutputFormat;
 import parquet.hadoop.codec.CodecConfig;
+import parquet.schema.MessageType;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.sql.Date;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -44,6 +53,8 @@ import static com.facebook.presto.hive.parquet.ParquetTester.HIVE_STORAGE_TIME_Z
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
+import static com.facebook.presto.spi.type.Decimals.MAX_PRECISION;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
@@ -56,6 +67,7 @@ import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.cycle;
 import static com.google.common.collect.Iterables.limit;
 import static com.google.common.collect.Iterables.transform;
+import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaBooleanObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaByteArrayObjectInspector;
@@ -69,9 +81,13 @@ import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveO
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaStringObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaTimestampObjectInspector;
 import static org.testng.Assert.assertEquals;
+import static parquet.schema.MessageTypeParser.parseMessageType;
 
 public abstract class AbstractTestParquetReader
 {
+    private static final int MAX_PRECISION_INT32 = (int) maxPrecision(4);
+    private static final int MAX_PRECISION_INT64 = (int) maxPrecision(8);
+
     private final ParquetTester tester;
 
     public AbstractTestParquetReader(ParquetTester tester)
@@ -138,6 +154,66 @@ public abstract class AbstractTestParquetReader
             throws Exception
     {
         testRoundTripNumeric(limit(cycle(concat(intsBetween(0, 18), ImmutableList.of(30_000, 20_000))), 30_000));
+    }
+
+    // copied from Parquet code to determine the max decimal precision supported by INT32/INT64
+    private static long maxPrecision(int numBytes)
+    {
+        return Math.round(Math.floor(Math.log10(Math.pow(2, 8 * numBytes - 1) - 1)));
+    }
+
+    @Test
+    public void testDecimalBackedByINT32()
+            throws Exception
+    {
+        for (int precision = 1; precision <= MAX_PRECISION_INT32; precision++) {
+            int scale = ThreadLocalRandom.current().nextInt(precision);
+            MessageType parquetSchema = parseMessageType(format("message hive_decimal { optional INT32 test (DECIMAL(%d, %d)); }", precision, scale));
+            ContiguousSet<Integer> intValues = intsBetween(1, 1_000);
+            ImmutableList.Builder<SqlDecimal> expectedValues = new ImmutableList.Builder<>();
+            for (Integer value : intValues) {
+                expectedValues.add(SqlDecimal.of(value, precision, scale));
+            }
+            tester.testRoundTrip(javaIntObjectInspector, intValues, expectedValues.build(), createDecimalType(precision, scale), Optional.of(parquetSchema));
+        }
+    }
+
+    @Test
+    public void testDecimalBackedByINT64()
+            throws Exception
+    {
+        for (int precision = MAX_PRECISION_INT32 + 1; precision <= MAX_PRECISION_INT64; precision++) {
+            int scale = ThreadLocalRandom.current().nextInt(precision);
+            MessageType parquetSchema = parseMessageType(format("message hive_decimal { optional INT64 test (DECIMAL(%d, %d)); }", precision, scale));
+            ContiguousSet<Long> longValues = longsBetween(1, 1_000);
+            ImmutableList.Builder<SqlDecimal> expectedValues = new ImmutableList.Builder<>();
+            for (Long value : longValues) {
+                expectedValues.add(SqlDecimal.of(value, precision, scale));
+            }
+            tester.testRoundTrip(javaLongObjectInspector, longValues, expectedValues.build(), createDecimalType(precision, scale), Optional.of(parquetSchema));
+        }
+    }
+
+    @Test
+    public void testDecimalBackedByFixedLenByteArray()
+            throws Exception
+    {
+        for (int precision = MAX_PRECISION_INT64 + 1; precision < MAX_PRECISION; precision++) {
+            int scale = ThreadLocalRandom.current().nextInt(precision);
+            MessageType parquetSchema = parseMessageType(format("message hive_decimal { optional FIXED_LEN_BYTE_ARRAY(16) test (DECIMAL(%d, %d)); }", precision, scale));
+            ContiguousSet<BigInteger> values = bigIntegersBetween(BigDecimal.valueOf(Math.pow(10, precision - 1)).toBigInteger(), BigDecimal.valueOf(Math.pow(10, precision)).toBigInteger());
+            ImmutableList.Builder<SqlDecimal> expectedValues = new ImmutableList.Builder<>();
+            ImmutableList.Builder<HiveDecimal> writeValues = new ImmutableList.Builder<>();
+            for (BigInteger value : limit(values, 1_000)) {
+                writeValues.add(HiveDecimal.create(value, scale));
+                expectedValues.add(new SqlDecimal(value, precision, scale));
+            }
+            tester.testRoundTrip(new JavaHiveDecimalObjectInspector(new DecimalTypeInfo(precision, scale)),
+                    writeValues.build(),
+                    expectedValues.build(),
+                    createDecimalType(precision, scale),
+                    Optional.of(parquetSchema));
+        }
     }
 
     @Test
@@ -373,6 +449,16 @@ public abstract class AbstractTestParquetReader
     private static ContiguousSet<Integer> intsBetween(int lowerInclusive, int upperExclusive)
     {
         return ContiguousSet.create(Range.openClosed(lowerInclusive, upperExclusive), DiscreteDomain.integers());
+    }
+
+    private static ContiguousSet<Long> longsBetween(long lowerInclusive, long upperExclusive)
+    {
+        return ContiguousSet.create(Range.openClosed(lowerInclusive, upperExclusive), DiscreteDomain.longs());
+    }
+
+    private static ContiguousSet<BigInteger> bigIntegersBetween(BigInteger lowerInclusive, BigInteger upperExclusive)
+    {
+        return ContiguousSet.create(Range.openClosed(lowerInclusive, upperExclusive), DiscreteDomain.bigIntegers());
     }
 
     private static Byte intToByte(Integer input)

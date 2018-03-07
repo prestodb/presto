@@ -15,7 +15,6 @@ package com.facebook.presto.tests.datatype;
 
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.MaterializedResult;
-import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.sql.TestTable;
 
@@ -25,7 +24,7 @@ import java.util.List;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Collections.unmodifiableList;
 import static java.util.stream.Collectors.toList;
-import static org.testng.AssertJUnit.assertEquals;
+import static org.testng.Assert.assertEquals;
 
 public class DataTypeTest
 {
@@ -50,9 +49,12 @@ public class DataTypeTest
         List<Object> expectedResults = inputs.stream().map(Input::toPrestoQueryResult).collect(toList());
         try (TestTable testTable = dataSetup.setupTestTable(unmodifiableList(inputs))) {
             MaterializedResult materializedRows = prestoExecutor.execute("SELECT * from " + testTable.getName());
-            assertEquals(expectedTypes, materializedRows.getTypes());
-            MaterializedRow row = getOnlyElement(materializedRows);
-            assertEquals(expectedResults, row.getFields());
+            assertEquals(materializedRows.getTypes(), expectedTypes);
+            List<Object> actualResults = getOnlyElement(materializedRows).getFields();
+            assertEquals(actualResults.size(), expectedResults.size(), "lists don't have the same size");
+            for (int i = 0; i < expectedResults.size(); i++) {
+                assertEquals(actualResults.get(i), expectedResults.get(i), "Element " + i);
+            }
         }
     }
 

@@ -39,7 +39,6 @@ public class InformationSchemaSplit
             @JsonProperty("tableHandle") InformationSchemaTableHandle tableHandle,
             @JsonProperty("filters") Map<String, NullableValue> filters,
             @JsonProperty("addresses") List<HostAddress> addresses)
-
     {
         this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
         this.filters = requireNonNull(filters, "filters is null");

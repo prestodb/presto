@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.memory.LocalMemoryContext;
+import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -24,13 +24,13 @@ import com.facebook.presto.split.EmptySplit;
 import com.facebook.presto.split.EmptySplitPageSource;
 import com.facebook.presto.split.PageSourceProvider;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -93,7 +93,7 @@ public class TableScanOperator
         }
 
         @Override
-        public void close()
+        public void noMoreOperators()
         {
             closed = true;
         }
@@ -127,7 +127,7 @@ public class TableScanOperator
         this.types = requireNonNull(types, "types is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
-        this.systemMemoryContext = operatorContext.getSystemMemoryContext().newLocalMemoryContext();
+        this.systemMemoryContext = operatorContext.newLocalSystemMemoryContext();
     }
 
     @Override
@@ -205,7 +205,7 @@ public class TableScanOperator
                 source.close();
             }
             catch (IOException e) {
-                throw Throwables.propagate(e);
+                throw new UncheckedIOException(e);
             }
             systemMemoryContext.setBytes(source.getSystemMemoryUsage());
         }

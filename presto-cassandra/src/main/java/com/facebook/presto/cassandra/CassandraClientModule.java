@@ -61,7 +61,7 @@ public class CassandraClientModule
         binder.bind(CassandraSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(CassandraTokenSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(CassandraRecordSetProvider.class).in(Scopes.SINGLETON);
-        binder.bind(CassandraConnectorRecordSinkProvider.class).in(Scopes.SINGLETON);
+        binder.bind(CassandraPageSinkProvider.class).in(Scopes.SINGLETON);
         binder.bind(CassandraPartitionManager.class).in(Scopes.SINGLETON);
 
         configBinder(binder).bindConfig(CassandraClientConfig.class);
@@ -84,7 +84,6 @@ public class CassandraClientModule
 
         List<String> contactPoints = requireNonNull(config.getContactPoints(), "contactPoints is null");
         checkArgument(!contactPoints.isEmpty(), "empty contactPoints");
-        contactPoints.forEach(clusterBuilder::addContactPoint);
         clusterBuilder.withPort(config.getNativeProtocolPort());
         clusterBuilder.withReconnectionPolicy(new ExponentialReconnectionPolicy(500, 10000));
         clusterBuilder.withRetryPolicy(config.getRetryPolicy().getPolicy());
@@ -139,14 +138,16 @@ public class CassandraClientModule
         if (config.getSpeculativeExecutionLimit() > 1) {
             clusterBuilder.withSpeculativeExecutionPolicy(new ConstantSpeculativeExecutionPolicy(
                     config.getSpeculativeExecutionDelay().toMillis(), // delay before a new execution is launched
-                    config.getSpeculativeExecutionLimit()    // maximum number of executions
-            ));
+                    config.getSpeculativeExecutionLimit())); // maximum number of executions
         }
 
         return new NativeCassandraSession(
                 connectorId.toString(),
                 extraColumnMetadataCodec,
-                new ReopeningCluster(clusterBuilder::build),
+                new ReopeningCluster(() -> {
+                    contactPoints.forEach(clusterBuilder::addContactPoint);
+                    return clusterBuilder.build();
+                }),
                 config.getNoHostAvailableRetryTimeout());
     }
 }

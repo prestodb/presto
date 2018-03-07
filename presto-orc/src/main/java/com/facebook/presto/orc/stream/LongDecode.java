@@ -15,6 +15,7 @@ package com.facebook.presto.orc.stream;
 
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
+import io.airlift.slice.SliceOutput;
 
 import java.io.IOException;
 
@@ -43,7 +44,7 @@ public final class LongDecode
         ONE, TWO, THREE, FOUR, FIVE, SIX, SEVEN, EIGHT, NINE, TEN, ELEVEN, TWELVE,
         THIRTEEN, FOURTEEN, FIFTEEN, SIXTEEN, SEVENTEEN, EIGHTEEN, NINETEEN,
         TWENTY, TWENTY_ONE, TWENTY_TWO, TWENTY_THREE, TWENTY_FOUR, TWENTY_SIX,
-        TWENTY_EIGHT, THIRTY, THIRTY_TWO, FORTY, FORTY_EIGHT, FIFTY_SIX, SIXTY_FOUR;
+        TWENTY_EIGHT, THIRTY, THIRTY_TWO, FORTY, FORTY_EIGHT, FIFTY_SIX, SIXTY_FOUR
     }
 
     /**
@@ -122,10 +123,10 @@ public final class LongDecode
             throws IOException
     {
         long result = readUnsignedVInt(inputStream);
-        return (result >>> 1) ^ -(result & 1);
+        return zigzagDecode(result);
     }
 
-    public static long readUnsignedVInt(OrcInputStream inputStream)
+    private static long readUnsignedVInt(OrcInputStream inputStream)
             throws IOException
     {
         long result = 0;
@@ -138,7 +139,8 @@ public final class LongDecode
             }
             result |= (b & 0b0111_1111) << offset;
             offset += 7;
-        } while ((b & 0b1000_0000) != 0);
+        }
+        while ((b & 0b1000_0000) != 0);
         return result;
     }
 
@@ -183,5 +185,33 @@ public final class LongDecode
         else {
             throw new IllegalArgumentException(type + " type is not supported");
         }
+    }
+
+    public static void writeVLong(SliceOutput buffer, long value, boolean signed)
+    {
+        if (signed) {
+            value = zigzagEncode(value);
+        }
+        writeVLongUnsigned(buffer, value);
+    }
+
+    private static void writeVLongUnsigned(SliceOutput output, long value)
+    {
+        while (true) {
+            // if there are less than 7 bits left, we are done
+            if ((value & ~0b111_1111) == 0) {
+                output.write((byte) value);
+                return;
+            }
+            else {
+                output.write((byte) (0x80 | (value & 0x7f)));
+                value >>>= 7;
+            }
+        }
+    }
+
+    private static long zigzagEncode(long value)
+    {
+        return (value << 1) ^ (value >> 63);
     }
 }

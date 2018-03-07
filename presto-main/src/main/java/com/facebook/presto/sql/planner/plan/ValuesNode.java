@@ -44,7 +44,7 @@ public class ValuesNode
 
         for (List<Expression> row : rows) {
             checkArgument(row.size() == outputSymbols.size() || row.size() == 0,
-                            "Expected row to have %s values, but row has %s values", outputSymbols.size(), row.size());
+                    "Expected row to have %s values, but row has %s values", outputSymbols.size(), row.size());
         }
     }
 

@@ -73,6 +73,7 @@ public class TestSqlTask
     public static final OutputBufferId OUT = new OutputBufferId(0);
     private final TaskExecutor taskExecutor;
     private final ScheduledExecutorService taskNotificationExecutor;
+    private final ScheduledExecutorService driverYieldExecutor;
     private final SqlTaskExecutionFactory sqlTaskExecutionFactory;
 
     private final AtomicInteger nextTaskId = new AtomicInteger();
@@ -83,6 +84,7 @@ public class TestSqlTask
         taskExecutor.start();
 
         taskNotificationExecutor = newScheduledThreadPool(10, threadsNamed("task-notification-%s"));
+        driverYieldExecutor = newScheduledThreadPool(2, threadsNamed("driver-yield-%s"));
 
         LocalExecutionPlanner planner = createTestingPlanner();
 
@@ -94,17 +96,16 @@ public class TestSqlTask
                 new TaskManagerConfig());
     }
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void destroy()
-            throws Exception
     {
         taskExecutor.stop();
         taskNotificationExecutor.shutdownNow();
+        driverYieldExecutor.shutdown();
     }
 
     @Test
     public void testEmptyQuery()
-            throws Exception
     {
         SqlTask sqlTask = createInitialTask();
 
@@ -112,7 +113,7 @@ public class TestSqlTask
                 Optional.of(PLAN_FRAGMENT),
                 ImmutableList.of(),
                 createInitialEmptyOutputBuffers(PARTITIONED)
-                    .withNoMoreBufferIds());
+                        .withNoMoreBufferIds());
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
 
         taskInfo = sqlTask.getTaskInfo();
@@ -122,7 +123,7 @@ public class TestSqlTask
                 Optional.of(PLAN_FRAGMENT),
                 ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.of(), true)),
                 createInitialEmptyOutputBuffers(PARTITIONED)
-                    .withNoMoreBufferIds());
+                        .withNoMoreBufferIds());
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FINISHED);
 
         taskInfo = sqlTask.getTaskInfo();
@@ -167,7 +168,6 @@ public class TestSqlTask
 
     @Test
     public void testCancel()
-            throws Exception
     {
         SqlTask sqlTask = createInitialTask();
 
@@ -175,8 +175,8 @@ public class TestSqlTask
                 Optional.of(PLAN_FRAGMENT),
                 ImmutableList.of(),
                 createInitialEmptyOutputBuffers(PARTITIONED)
-                    .withBuffer(OUT, 0)
-                    .withNoMoreBufferIds());
+                        .withBuffer(OUT, 0)
+                        .withNoMoreBufferIds());
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
         assertNull(taskInfo.getStats().getEndTime());
 
@@ -300,7 +300,8 @@ public class TestSqlTask
         return new SqlTask(
                 taskId,
                 location,
-                new QueryContext(new QueryId("query"), new DataSize(1, MEGABYTE), new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE)), new MemoryPool(new MemoryPoolId("testSystem"), new DataSize(1, GIGABYTE)), taskNotificationExecutor, new DataSize(1, MEGABYTE), new SpillSpaceTracker(new DataSize(1, GIGABYTE))),
+                "fake",
+                new QueryContext(new QueryId("query"), new DataSize(1, MEGABYTE), new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE)), new MemoryPool(new MemoryPoolId("testSystem"), new DataSize(1, GIGABYTE)), taskNotificationExecutor, driverYieldExecutor, new DataSize(1, MEGABYTE), new SpillSpaceTracker(new DataSize(1, GIGABYTE))),
                 sqlTaskExecutionFactory,
                 taskNotificationExecutor,
                 Functions.identity(),

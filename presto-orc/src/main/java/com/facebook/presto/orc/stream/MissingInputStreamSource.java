@@ -15,9 +15,8 @@ package com.facebook.presto.orc.stream;
 
 import javax.annotation.Nullable;
 
-import java.io.IOException;
-
-public class MissingInputStreamSource<S extends ValueInputStream<?>> implements InputStreamSource<S>
+public class MissingInputStreamSource<S extends ValueInputStream<?>>
+        implements InputStreamSource<S>
 {
     private final Class<S> streamType;
 
@@ -40,7 +39,6 @@ public class MissingInputStreamSource<S extends ValueInputStream<?>> implements 
     @Nullable
     @Override
     public S openStream()
-            throws IOException
     {
         return null;
     }

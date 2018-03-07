@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.analyzer;
 
+import com.facebook.presto.operator.aggregation.histogram.HistogramGroupImplementation;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
@@ -20,8 +22,13 @@ import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.airlift.units.MaxDataSize;
 
+import javax.validation.constraints.AssertTrue;
+import javax.validation.constraints.DecimalMax;
+import javax.validation.constraints.DecimalMin;
 import javax.validation.constraints.Min;
+import javax.validation.constraints.NotNull;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -29,33 +36,46 @@ import java.util.List;
 
 import static com.facebook.presto.sql.analyzer.RegexLibrary.JONI;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 @DefunctConfig({
         "resource-group-manager",
         "experimental-syntax-enabled",
         "analyzer.experimental-syntax-enabled",
-        "optimizer.processing-optimization"
-})
+        "optimizer.processing-optimization"})
 public class FeaturesConfig
 {
+    @VisibleForTesting
+    static final String SPILL_ENABLED = "experimental.spill-enabled";
+    @VisibleForTesting
+    static final String SPILLER_SPILL_PATH = "experimental.spiller-spill-path";
+
+    private double cpuCostWeight = 75;
+    private double memoryCostWeight = 10;
+    private double networkCostWeight = 15;
     private boolean distributedIndexJoinsEnabled;
     private boolean distributedJoinsEnabled = true;
     private boolean colocatedJoinsEnabled;
     private boolean fastInequalityJoins = true;
     private boolean reorderJoins = true;
     private boolean redistributeWrites = true;
+    private boolean scaleWriters;
+    private DataSize writerMinSize = new DataSize(32, DataSize.Unit.MEGABYTE);
     private boolean optimizeMetadataQueries;
     private boolean optimizeHashGeneration = true;
     private boolean optimizeSingleDistinct = true;
-    private boolean enableIntermediateAggregations = false;
+    private boolean enableIntermediateAggregations;
     private boolean pushTableWriteThroughUnion = true;
-    private boolean exchangeCompressionEnabled = false;
+    private boolean exchangeCompressionEnabled;
     private boolean legacyArrayAgg;
     private boolean legacyOrderBy;
+    private boolean legacyTimestamp = true;
     private boolean legacyMapSubscript;
-    private boolean newMapBlock = true;
+    private boolean legacyJoinUsing;
     private boolean optimizeMixedDistinctAggregations;
+    private boolean forceSingleNodeOutput = true;
+    private boolean pagesIndexEagerCompactionEnabled;
 
     private boolean dictionaryAggregation;
     private boolean resourceGroups;
@@ -63,15 +83,59 @@ public class FeaturesConfig
     private int re2JDfaStatesLimit = Integer.MAX_VALUE;
     private int re2JDfaRetries = 5;
     private RegexLibrary regexLibrary = JONI;
+    private HistogramGroupImplementation histogramGroupImplementation = HistogramGroupImplementation.NEW;
     private boolean spillEnabled;
-    private DataSize operatorMemoryLimitBeforeSpill = new DataSize(4, DataSize.Unit.MEGABYTE);
+    private DataSize aggregationOperatorUnspillMemoryLimit = new DataSize(4, DataSize.Unit.MEGABYTE);
     private List<Path> spillerSpillPaths = ImmutableList.of();
     private int spillerThreads = 4;
     private double spillMaxUsedSpaceThreshold = 0.9;
     private boolean iterativeOptimizerEnabled = true;
+    private boolean enableNewStatsCalculator;
     private boolean pushAggregationThroughJoin = true;
+    private double memoryRevokingTarget = 0.5;
+    private double memoryRevokingThreshold = 0.9;
+    private boolean parseDecimalLiteralsAsDouble = true;
 
     private Duration iterativeOptimizerTimeout = new Duration(3, MINUTES); // by default let optimizer wait a long time in case it retrieves some data from ConnectorMetadata
+
+    private DataSize filterAndProjectMinOutputPageSize = new DataSize(25, KILOBYTE);
+    private int filterAndProjectMinOutputPageRowCount = 256;
+
+    public double getCpuCostWeight()
+    {
+        return cpuCostWeight;
+    }
+
+    @Config("cpu-cost-weight")
+    public FeaturesConfig setCpuCostWeight(double cpuCostWeight)
+    {
+        this.cpuCostWeight = cpuCostWeight;
+        return this;
+    }
+
+    public double getMemoryCostWeight()
+    {
+        return memoryCostWeight;
+    }
+
+    @Config("memory-cost-weight")
+    public FeaturesConfig setMemoryCostWeight(double memoryCostWeight)
+    {
+        this.memoryCostWeight = memoryCostWeight;
+        return this;
+    }
+
+    public double getNetworkCostWeight()
+    {
+        return networkCostWeight;
+    }
+
+    @Config("network-cost-weight")
+    public FeaturesConfig setNetworkCostWeight(double networkCostWeight)
+    {
+        this.networkCostWeight = networkCostWeight;
+        return this;
+    }
 
     public boolean isResourceGroupsEnabled()
     {
@@ -102,6 +166,18 @@ public class FeaturesConfig
         return distributedJoinsEnabled;
     }
 
+    @Config("deprecated.legacy-join-using")
+    public FeaturesConfig setLegacyJoinUsing(boolean value)
+    {
+        this.legacyJoinUsing = value;
+        return this;
+    }
+
+    public boolean isLegacyJoinUsing()
+    {
+        return legacyJoinUsing;
+    }
+
     @Config("deprecated.legacy-array-agg")
     public FeaturesConfig setLegacyArrayAgg(boolean legacyArrayAgg)
     {
@@ -126,6 +202,18 @@ public class FeaturesConfig
         return legacyOrderBy;
     }
 
+    @Config("deprecated.legacy-timestamp")
+    public FeaturesConfig setLegacyTimestamp(boolean value)
+    {
+        this.legacyTimestamp = value;
+        return this;
+    }
+
+    public boolean isLegacyTimestamp()
+    {
+        return legacyTimestamp;
+    }
+
     @Config("deprecated.legacy-map-subscript")
     public FeaturesConfig setLegacyMapSubscript(boolean value)
     {
@@ -136,18 +224,6 @@ public class FeaturesConfig
     public boolean isLegacyMapSubscript()
     {
         return legacyMapSubscript;
-    }
-
-    @Config("deprecated.new-map-block")
-    public FeaturesConfig setNewMapBlock(boolean value)
-    {
-        this.newMapBlock = value;
-        return this;
-    }
-
-    public boolean isNewMapBlock()
-    {
-        return newMapBlock;
     }
 
     @Config("distributed-joins-enabled")
@@ -205,6 +281,32 @@ public class FeaturesConfig
     public FeaturesConfig setRedistributeWrites(boolean redistributeWrites)
     {
         this.redistributeWrites = redistributeWrites;
+        return this;
+    }
+
+    public boolean isScaleWriters()
+    {
+        return scaleWriters;
+    }
+
+    @Config("scale-writers")
+    public FeaturesConfig setScaleWriters(boolean scaleWriters)
+    {
+        this.scaleWriters = scaleWriters;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getWriterMinSize()
+    {
+        return writerMinSize;
+    }
+
+    @Config("writer-min-size")
+    @ConfigDescription("Target minimum size of writer output when scaling writers")
+    public FeaturesConfig setWriterMinSize(DataSize writerMinSize)
+    {
+        this.writerMinSize = writerMinSize;
         return this;
     }
 
@@ -311,7 +413,7 @@ public class FeaturesConfig
         return spillEnabled;
     }
 
-    @Config("experimental.spill-enabled")
+    @Config(SPILL_ENABLED)
     public FeaturesConfig setSpillEnabled(boolean spillEnabled)
     {
         this.spillEnabled = spillEnabled;
@@ -342,15 +444,27 @@ public class FeaturesConfig
         return this;
     }
 
-    public DataSize getOperatorMemoryLimitBeforeSpill()
+    public boolean isEnableNewStatsCalculator()
     {
-        return operatorMemoryLimitBeforeSpill;
+        return enableNewStatsCalculator;
     }
 
-    @Config("experimental.operator-memory-limit-before-spill")
-    public FeaturesConfig setOperatorMemoryLimitBeforeSpill(DataSize operatorMemoryLimitBeforeSpill)
+    @Config("experimental.enable-new-stats-calculator")
+    public FeaturesConfig setEnableNewStatsCalculator(boolean enableNewStatsCalculator)
     {
-        this.operatorMemoryLimitBeforeSpill = operatorMemoryLimitBeforeSpill;
+        this.enableNewStatsCalculator = enableNewStatsCalculator;
+        return this;
+    }
+
+    public DataSize getAggregationOperatorUnspillMemoryLimit()
+    {
+        return aggregationOperatorUnspillMemoryLimit;
+    }
+
+    @Config("experimental.aggregation-operator-unspill-memory-limit")
+    public FeaturesConfig setAggregationOperatorUnspillMemoryLimit(DataSize aggregationOperatorUnspillMemoryLimit)
+    {
+        this.aggregationOperatorUnspillMemoryLimit = aggregationOperatorUnspillMemoryLimit;
         return this;
     }
 
@@ -359,7 +473,7 @@ public class FeaturesConfig
         return spillerSpillPaths;
     }
 
-    @Config("experimental.spiller-spill-path")
+    @Config(SPILLER_SPILL_PATH)
     public FeaturesConfig setSpillerSpillPaths(String spillPaths)
     {
         List<String> spillPathsSplit = ImmutableList.copyOf(Splitter.on(",").trimResults().omitEmptyStrings().split(spillPaths));
@@ -367,6 +481,13 @@ public class FeaturesConfig
         return this;
     }
 
+    @AssertTrue(message = SPILLER_SPILL_PATH + " must be configured when " + SPILL_ENABLED + " is set to true")
+    public boolean isSpillerSpillPathsConfiguredIfSpillEnabled()
+    {
+        return !isSpillEnabled() || !spillerSpillPaths.isEmpty();
+    }
+
+    @Min(1)
     public int getSpillerThreads()
     {
         return spillerThreads;
@@ -376,6 +497,36 @@ public class FeaturesConfig
     public FeaturesConfig setSpillerThreads(int spillerThreads)
     {
         this.spillerThreads = spillerThreads;
+        return this;
+    }
+
+    @DecimalMin("0.0")
+    @DecimalMax("1.0")
+    public double getMemoryRevokingThreshold()
+    {
+        return memoryRevokingThreshold;
+    }
+
+    @Config("experimental.memory-revoking-threshold")
+    @ConfigDescription("Revoke memory when memory pool is filled over threshold")
+    public FeaturesConfig setMemoryRevokingThreshold(double memoryRevokingThreshold)
+    {
+        this.memoryRevokingThreshold = memoryRevokingThreshold;
+        return this;
+    }
+
+    @DecimalMin("0.0")
+    @DecimalMax("1.0")
+    public double getMemoryRevokingTarget()
+    {
+        return memoryRevokingTarget;
+    }
+
+    @Config("experimental.memory-revoking-target")
+    @ConfigDescription("When revoking memory, try to revoke so much that pool is filled below target at the end")
+    public FeaturesConfig setMemoryRevokingTarget(double memoryRevokingTarget)
+    {
+        this.memoryRevokingTarget = memoryRevokingTarget;
         return this;
     }
 
@@ -437,5 +588,79 @@ public class FeaturesConfig
     {
         this.pushAggregationThroughJoin = value;
         return this;
+    }
+
+    public boolean isParseDecimalLiteralsAsDouble()
+    {
+        return parseDecimalLiteralsAsDouble;
+    }
+
+    @Config("parse-decimal-literals-as-double")
+    public FeaturesConfig setParseDecimalLiteralsAsDouble(boolean parseDecimalLiteralsAsDouble)
+    {
+        this.parseDecimalLiteralsAsDouble = parseDecimalLiteralsAsDouble;
+        return this;
+    }
+
+    public boolean isForceSingleNodeOutput()
+    {
+        return forceSingleNodeOutput;
+    }
+
+    @Config("optimizer.force-single-node-output")
+    public FeaturesConfig setForceSingleNodeOutput(boolean value)
+    {
+        this.forceSingleNodeOutput = value;
+        return this;
+    }
+
+    public boolean isPagesIndexEagerCompactionEnabled()
+    {
+        return pagesIndexEagerCompactionEnabled;
+    }
+
+    @Config("pages-index.eager-compaction-enabled")
+    public FeaturesConfig setPagesIndexEagerCompactionEnabled(boolean pagesIndexEagerCompactionEnabled)
+    {
+        this.pagesIndexEagerCompactionEnabled = pagesIndexEagerCompactionEnabled;
+        return this;
+    }
+
+    @MaxDataSize("1MB")
+    public DataSize getFilterAndProjectMinOutputPageSize()
+    {
+        return filterAndProjectMinOutputPageSize;
+    }
+
+    @Config("experimental.filter-and-project-min-output-page-size")
+    public FeaturesConfig setFilterAndProjectMinOutputPageSize(DataSize filterAndProjectMinOutputPageSize)
+    {
+        this.filterAndProjectMinOutputPageSize = filterAndProjectMinOutputPageSize;
+        return this;
+    }
+
+    @Min(0)
+    public int getFilterAndProjectMinOutputPageRowCount()
+    {
+        return filterAndProjectMinOutputPageRowCount;
+    }
+
+    @Config("experimental.filter-and-project-min-output-page-row-count")
+    public FeaturesConfig setFilterAndProjectMinOutputPageRowCount(int filterAndProjectMinOutputPageRowCount)
+    {
+        this.filterAndProjectMinOutputPageRowCount = filterAndProjectMinOutputPageRowCount;
+        return this;
+    }
+
+    @Config("histogram.implemenation")
+    public FeaturesConfig setHistogramGroupImplementation(HistogramGroupImplementation groupByMode)
+    {
+        this.histogramGroupImplementation = groupByMode;
+        return this;
+    }
+
+    public HistogramGroupImplementation getHistogramGroupImplementation()
+    {
+        return histogramGroupImplementation;
     }
 }

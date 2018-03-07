@@ -88,7 +88,6 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
 
     private static class Rewriter
             extends SimplePlanRewriter<PlanNode>
-
     {
         private static final QualifiedName MIN = QualifiedName.of("min");
         private static final QualifiedName MAX = QualifiedName.of("max");
@@ -160,8 +159,7 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
                             countNonNullValue, new Aggregation(
                                     new FunctionCall(COUNT, outputColumnReferences),
                                     functionRegistry.resolveFunction(COUNT, fromTypeSignatures(outputColumnTypeSignature)),
-                                    Optional.empty())
-                    ),
+                                    Optional.empty())),
                     ImmutableList.of(ImmutableList.of()),
                     AggregationNode.Step.SINGLE,
                     Optional.empty(),
@@ -172,7 +170,8 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
                     context.rewrite(node.getInput()),
                     subqueryPlan,
                     node.getCorrelation(),
-                    LateralJoinNode.Type.INNER);
+                    LateralJoinNode.Type.INNER,
+                    node.getOriginSubquery());
 
             Expression valueComparedToSubquery = rewriteUsingBounds(quantifiedComparison, minValue, maxValue, countAllValue, countNonNullValue);
 
@@ -192,21 +191,15 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
                     countAllValue.toSymbolReference(),
                     ImmutableList.of(new WhenClause(
                             new GenericLiteral("bigint", "0"),
-                            emptySetResult
-                    )),
+                            emptySetResult)),
                     Optional.of(quantifier.apply(ImmutableList.of(
                             comparisonWithExtremeValue,
                             new SearchedCaseExpression(
                                     ImmutableList.of(
                                             new WhenClause(
                                                     new ComparisonExpression(NOT_EQUAL, countAllValue.toSymbolReference(), countNonNullValue.toSymbolReference()),
-                                                    new Cast(new NullLiteral(), BooleanType.BOOLEAN.toString())
-                                            )
-                                    ),
-                                    Optional.of(emptySetResult)
-                            )
-                    )))
-            );
+                                                    new Cast(new NullLiteral(), BooleanType.BOOLEAN.toString()))),
+                                    Optional.of(emptySetResult))))));
         }
 
         private Expression getBoundComparisons(QuantifiedComparisonExpression quantifiedComparison, Symbol minValue, Symbol maxValue)
@@ -215,8 +208,7 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
                 // A = ALL B <=> min B = max B && A = min B
                 return combineConjuncts(
                         new ComparisonExpression(EQUAL, minValue.toSymbolReference(), maxValue.toSymbolReference()),
-                        new ComparisonExpression(EQUAL, quantifiedComparison.getValue(), maxValue.toSymbolReference())
-                );
+                        new ComparisonExpression(EQUAL, quantifiedComparison.getValue(), maxValue.toSymbolReference()));
             }
 
             if (EnumSet.of(LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL).contains(quantifiedComparison.getComparisonType())) {

@@ -24,11 +24,10 @@ import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.ex
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expressions;
 
 public class TestEvaluateZeroSample
-            extends BaseRuleTest
+        extends BaseRuleTest
 {
     @Test
     public void testDoesNotFire()
-            throws Exception
     {
         tester().assertThat(new EvaluateZeroSample())
                 .on(p ->
@@ -41,7 +40,6 @@ public class TestEvaluateZeroSample
 
     @Test
     public void test()
-            throws Exception
     {
         tester().assertThat(new EvaluateZeroSample())
                 .on(p ->

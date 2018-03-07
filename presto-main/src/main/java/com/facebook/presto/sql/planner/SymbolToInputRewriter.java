@@ -38,7 +38,8 @@ public class SymbolToInputRewriter
 
     public Expression rewrite(Expression expression)
     {
-        return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Context>() {
+        return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Context>()
+        {
             @Override
             public Expression rewriteSymbolReference(SymbolReference node, Context context, ExpressionTreeRewriter<Context> treeRewriter)
             {

@@ -28,7 +28,9 @@ public interface LookupSource
 
     long getInMemorySizeInBytes();
 
-    int getJoinPositionCount();
+    long getJoinPositionCount();
+
+    long joinPositionWithinPartition(long joinPosition);
 
     long getJoinPosition(int position, Page hashChannelsPage, Page allChannelsPage, long rawHash);
 
@@ -38,18 +40,8 @@ public interface LookupSource
 
     void appendTo(long position, PageBuilder pageBuilder, int outputChannelOffset);
 
-    default OuterPositionIterator getOuterPositionIterator()
-    {
-        return (pageBuilder, outputChannelOffset) -> false;
-    }
-
     boolean isJoinPositionEligible(long currentJoinPosition, int probePosition, Page allProbeChannelsPage);
 
     @Override
     void close();
-
-    interface OuterPositionIterator
-    {
-        boolean appendToNext(PageBuilder pageBuilder, int outputChannelOffset);
-    }
 }

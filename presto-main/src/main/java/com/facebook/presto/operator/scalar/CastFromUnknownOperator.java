@@ -25,6 +25,8 @@ import io.airlift.slice.Slice;
 import java.lang.invoke.MethodHandle;
 
 import static com.facebook.presto.metadata.Signature.typeVariable;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_BOXED_TYPE;
 import static com.facebook.presto.spi.function.OperatorType.CAST;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.Reflection.methodHandle;
@@ -70,7 +72,11 @@ public final class CastFromUnknownOperator
         else {
             methodHandle = METHOD_HANDLE_OBJECT.asType(METHOD_HANDLE_OBJECT.type().changeReturnType(toType.getJavaType()));
         }
-        return new ScalarFunctionImplementation(true, ImmutableList.of(true), methodHandle, isDeterministic());
+        return new ScalarFunctionImplementation(
+                true,
+                ImmutableList.of(valueTypeArgumentProperty(USE_BOXED_TYPE)),
+                methodHandle,
+                isDeterministic());
     }
 
     @UsedByGeneratedCode

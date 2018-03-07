@@ -18,6 +18,7 @@ import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.DeterminismEvaluator;
+import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
@@ -170,7 +171,7 @@ public class UnaliasSymbolReferences
         public PlanNode visitExplainAnalyze(ExplainAnalyzeNode node, RewriteContext<Void> context)
         {
             PlanNode source = context.rewrite(node.getSource());
-            return new ExplainAnalyzeNode(node.getId(), source, canonicalize(node.getOutputSymbol()));
+            return new ExplainAnalyzeNode(node.getId(), source, canonicalize(node.getOutputSymbol()), node.isVerbose());
         }
 
         @Override
@@ -206,11 +207,6 @@ public class UnaliasSymbolReferences
                 WindowNode.Frame canonicalFrame = canonicalize(entry.getValue().getFrame());
 
                 functions.put(canonicalize(symbol), new WindowNode.Function(canonicalFunctionCall, signature, canonicalFrame));
-            }
-
-            ImmutableMap.Builder<Symbol, SortOrder> orderings = ImmutableMap.builder();
-            for (Map.Entry<Symbol, SortOrder> entry : node.getOrderings().entrySet()) {
-                orderings.put(canonicalize(entry.getKey()), entry.getValue());
             }
 
             return new WindowNode(
@@ -437,7 +433,7 @@ public class UnaliasSymbolReferences
             PlanNode subquery = context.rewrite(node.getSubquery());
             List<Symbol> canonicalCorrelation = Lists.transform(node.getCorrelation(), this::canonicalize);
 
-            return new ApplyNode(node.getId(), source, subquery, canonicalize(node.getSubqueryAssignments()), canonicalCorrelation);
+            return new ApplyNode(node.getId(), source, subquery, canonicalize(node.getSubqueryAssignments()), canonicalCorrelation, node.getOriginSubquery());
         }
 
         @Override
@@ -447,7 +443,7 @@ public class UnaliasSymbolReferences
             PlanNode subquery = context.rewrite(node.getSubquery());
             List<Symbol> canonicalCorrelation = canonicalizeAndDistinct(node.getCorrelation());
 
-            return new LateralJoinNode(node.getId(), source, subquery, canonicalCorrelation, node.getType());
+            return new LateralJoinNode(node.getId(), source, subquery, canonicalCorrelation, node.getType(), node.getOriginSubquery());
         }
 
         @Override
@@ -464,18 +460,7 @@ public class UnaliasSymbolReferences
         {
             PlanNode source = context.rewrite(node.getSource());
 
-            Set<Symbol> added = new HashSet<>();
-            ImmutableList.Builder<Symbol> symbols = ImmutableList.builder();
-            ImmutableMap.Builder<Symbol, SortOrder> orderings = ImmutableMap.builder();
-            for (Symbol symbol : node.getOrderBy()) {
-                Symbol canonical = canonicalize(symbol);
-                if (added.add(canonical)) {
-                    symbols.add(canonical);
-                    orderings.put(canonical, node.getOrderings().get(symbol));
-                }
-            }
-
-            return new SortNode(node.getId(), source, symbols.build(), orderings.build());
+            return new SortNode(node.getId(), source, canonicalizeAndDistinct(node.getOrderingScheme()));
         }
 
         @Override
@@ -520,7 +505,7 @@ public class UnaliasSymbolReferences
         @Override
         public PlanNode visitIndexSource(IndexSourceNode node, RewriteContext<Void> context)
         {
-            return new IndexSourceNode(node.getId(), node.getIndexHandle(), node.getTableHandle(), node.getLayout(), canonicalize(node.getLookupSymbols()), node.getOutputSymbols(), node.getAssignments(), node.getEffectiveTupleDomain());
+            return new IndexSourceNode(node.getId(), node.getIndexHandle(), node.getTableHandle(), node.getLayout(), canonicalize(node.getLookupSymbols()), node.getOutputSymbols(), node.getAssignments(), node.getCurrentConstraint());
         }
 
         @Override
@@ -671,15 +656,25 @@ public class UnaliasSymbolReferences
 
         private WindowNode.Specification canonicalizeAndDistinct(WindowNode.Specification specification)
         {
-            ImmutableMap.Builder<Symbol, SortOrder> orderings = ImmutableMap.builder();
-            for (Map.Entry<Symbol, SortOrder> entry : specification.getOrderings().entrySet()) {
-                orderings.put(canonicalize(entry.getKey()), entry.getValue());
-            }
-
             return new WindowNode.Specification(
                     canonicalizeAndDistinct(specification.getPartitionBy()),
-                    canonicalizeAndDistinct(specification.getOrderBy()),
-                    orderings.build());
+                    specification.getOrderingScheme().map(this::canonicalizeAndDistinct));
+        }
+
+        private OrderingScheme canonicalizeAndDistinct(OrderingScheme orderingScheme)
+        {
+            Set<Symbol> added = new HashSet<>();
+            ImmutableList.Builder<Symbol> symbols = ImmutableList.builder();
+            ImmutableMap.Builder<Symbol, SortOrder> orderings = ImmutableMap.builder();
+            for (Symbol symbol : orderingScheme.getOrderBy()) {
+                Symbol canonical = canonicalize(symbol);
+                if (added.add(canonical)) {
+                    symbols.add(canonical);
+                    orderings.put(canonical, orderingScheme.getOrdering(symbol));
+                }
+            }
+
+            return new OrderingScheme(symbols.build(), orderings.build());
         }
 
         private Set<Symbol> canonicalize(Set<Symbol> symbols)

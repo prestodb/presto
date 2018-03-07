@@ -47,6 +47,8 @@ import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.connector.jmx.JmxMetadata.HISTORY_SCHEMA_NAME;
 import static com.facebook.presto.connector.jmx.JmxMetadata.JMX_SCHEMA_NAME;
+import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
+import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -89,7 +91,7 @@ public class TestJmxSplitManager
     private final JmxMetadata metadata = jmxConnector.getMetadata(new ConnectorTransactionHandle() {});
     private final JmxRecordSetProvider recordSetProvider = jmxConnector.getRecordSetProvider();
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void tearDown()
     {
         jmxConnector.shutdown();
@@ -104,7 +106,7 @@ public class TestJmxSplitManager
             TupleDomain<ColumnHandle> nodeTupleDomain = TupleDomain.fromFixedValues(ImmutableMap.of(columnHandle, NullableValue.of(createUnboundedVarcharType(), utf8Slice(nodeIdentifier))));
             ConnectorTableLayoutHandle layout = new JmxTableLayoutHandle(tableHandle, nodeTupleDomain);
 
-            ConnectorSplitSource splitSource = splitManager.getSplits(JmxTransactionHandle.INSTANCE, SESSION, layout);
+            ConnectorSplitSource splitSource = splitManager.getSplits(JmxTransactionHandle.INSTANCE, SESSION, layout, UNGROUPED_SCHEDULING);
             List<ConnectorSplit> allSplits = getAllSplits(splitSource);
 
             assertEquals(allSplits.size(), 1);
@@ -118,7 +120,7 @@ public class TestJmxSplitManager
             throws Exception
     {
         ConnectorTableLayoutHandle layout = new JmxTableLayoutHandle(tableHandle, TupleDomain.all());
-        ConnectorSplitSource splitSource = splitManager.getSplits(JmxTransactionHandle.INSTANCE, SESSION, layout);
+        ConnectorSplitSource splitSource = splitManager.getSplits(JmxTransactionHandle.INSTANCE, SESSION, layout, UNGROUPED_SCHEDULING);
         List<ConnectorSplit> allSplits = getAllSplits(splitSource);
         assertEquals(allSplits.size(), nodes.size());
 
@@ -195,7 +197,7 @@ public class TestJmxSplitManager
         List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(SESSION, tableHandle).values());
 
         ConnectorTableLayoutHandle layout = new JmxTableLayoutHandle(tableHandle, TupleDomain.all());
-        ConnectorSplitSource splitSource = splitManager.getSplits(JmxTransactionHandle.INSTANCE, SESSION, layout);
+        ConnectorSplitSource splitSource = splitManager.getSplits(JmxTransactionHandle.INSTANCE, SESSION, layout, UNGROUPED_SCHEDULING);
         List<ConnectorSplit> allSplits = getAllSplits(splitSource);
         assertEquals(allSplits.size(), nodes.size());
         ConnectorSplit split = allSplits.get(0);
@@ -208,8 +210,7 @@ public class TestJmxSplitManager
     {
         ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
         while (!splitSource.isFinished()) {
-            List<ConnectorSplit> batch = splitSource.getNextBatch(1000).get();
-            splits.addAll(batch);
+            splits.addAll(splitSource.getNextBatch(NOT_PARTITIONED, 1000).get().getSplits());
         }
         return splits.build();
     }

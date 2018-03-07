@@ -14,6 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.array.LongBigArray;
+import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
@@ -21,6 +22,7 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 
@@ -28,10 +30,12 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.SystemSessionProperties.isDictionaryAggregationEnabled;
 import static com.facebook.presto.operator.GroupByHash.createGroupByHash;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
 public class RowNumberOperator
@@ -105,7 +109,7 @@ public class RowNumberOperator
         }
 
         @Override
-        public void close()
+        public void noMoreOperators()
         {
             closed = true;
         }
@@ -118,6 +122,7 @@ public class RowNumberOperator
     }
 
     private final OperatorContext operatorContext;
+    private final LocalMemoryContext localUserMemoryContext;
     private boolean finishing;
 
     private final int[] outputChannels;
@@ -129,6 +134,9 @@ public class RowNumberOperator
     private Page inputPage;
     private final LongBigArray partitionRowCount;
     private final Optional<Integer> maxRowsPerPartition;
+
+    // for yield when memory is not available
+    private Work<GroupByIdBlock> unfinishedWork;
 
     public RowNumberOperator(
             OperatorContext operatorContext,
@@ -142,6 +150,7 @@ public class RowNumberOperator
             JoinCompiler joinCompiler)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        this.localUserMemoryContext = operatorContext.localUserMemoryContext();
         this.outputChannels = Ints.toArray(outputChannels);
         this.maxRowsPerPartition = maxRowsPerPartition;
 
@@ -151,7 +160,7 @@ public class RowNumberOperator
         }
         else {
             int[] channels = Ints.toArray(partitionChannels);
-            this.groupByHash = Optional.of(createGroupByHash(operatorContext.getSession(), partitionTypes, channels, hashChannel, expectedPositions, joinCompiler));
+            this.groupByHash = Optional.of(createGroupByHash(partitionTypes, channels, hashChannel, expectedPositions, isDictionaryAggregationEnabled(operatorContext.getSession()), joinCompiler, this::updateMemoryReservation));
         }
         this.types = toTypes(sourceTypes, outputChannels);
     }
@@ -178,13 +187,13 @@ public class RowNumberOperator
     public boolean isFinished()
     {
         if (isSinglePartition() && maxRowsPerPartition.isPresent()) {
-            if (finishing && inputPage == null) {
+            if (finishing && !hasUnfinishedInput()) {
                 return true;
             }
             return partitionRowCount.get(0) == maxRowsPerPartition.get();
         }
 
-        return finishing && inputPage == null;
+        return finishing && !hasUnfinishedInput();
     }
 
     @Override
@@ -192,14 +201,9 @@ public class RowNumberOperator
     {
         if (isSinglePartition() && maxRowsPerPartition.isPresent()) {
             // Check if single partition is done
-            return partitionRowCount.get(0) < maxRowsPerPartition.get() && !finishing && inputPage == null;
+            return partitionRowCount.get(0) < maxRowsPerPartition.get() && !finishing && !hasUnfinishedInput();
         }
-        return !finishing && inputPage == null;
-    }
-
-    private long getEstimatedByteSize()
-    {
-        return groupByHash.map(GroupByHash::getEstimatedSize).orElse(0L) + partitionRowCount.sizeOf();
+        return !finishing && !hasUnfinishedInput();
     }
 
     @Override
@@ -207,18 +211,22 @@ public class RowNumberOperator
     {
         checkState(!finishing, "Operator is already finishing");
         requireNonNull(page, "page is null");
-        checkState(inputPage == null);
+        checkState(!hasUnfinishedInput());
         inputPage = page;
         if (groupByHash.isPresent()) {
-            partitionIds = groupByHash.get().getGroupIds(inputPage);
-            partitionRowCount.ensureCapacity(partitionIds.getGroupCount());
+            unfinishedWork = groupByHash.get().getGroupIds(inputPage);
+            processUnfinishedWork();
         }
-        operatorContext.setMemoryReservation(getEstimatedByteSize());
+        updateMemoryReservation();
     }
 
     @Override
     public Page getOutput()
     {
+        if (unfinishedWork != null && !processUnfinishedWork()) {
+            return null;
+        }
+
         if (inputPage == null) {
             return null;
         }
@@ -232,8 +240,43 @@ public class RowNumberOperator
         }
 
         inputPage = null;
-        operatorContext.setMemoryReservation(getEstimatedByteSize());
+        updateMemoryReservation();
         return outputPage;
+    }
+
+    private boolean hasUnfinishedInput()
+    {
+        return inputPage != null || unfinishedWork != null;
+    }
+
+    /**
+     * Update memory usage.
+     *
+     * @return true if the reservation is within the limit
+     */
+    // TODO: update in the interface after the new memory tracking framework is landed (#9049)
+    // Essentially we would love to have clean interfaces to support both pushing and pulling memory usage
+    // The following implementation is a hybrid model, where the push model is going to call the pull model causing reentrancy
+    private boolean updateMemoryReservation()
+    {
+        // Operator/driver will be blocked on memory after we call localUserMemoryContext.setBytes().
+        // If memory is not available, once we return, this operator will be blocked until memory is available.
+        long memorySizeInBytes = groupByHash.map(GroupByHash::getEstimatedSize).orElse(0L) + partitionRowCount.sizeOf();
+        localUserMemoryContext.setBytes(memorySizeInBytes);
+        // If memory is not available, inform the caller that we cannot proceed for allocation.
+        return operatorContext.isWaitingForMemory().isDone();
+    }
+
+    private boolean processUnfinishedWork()
+    {
+        verify(unfinishedWork != null);
+        if (!unfinishedWork.process()) {
+            return false;
+        }
+        partitionIds = unfinishedWork.getResult();
+        partitionRowCount.ensureCapacity(partitionIds.getGroupCount());
+        unfinishedWork = null;
+        return true;
     }
 
     private boolean isSinglePartition()
@@ -306,5 +349,11 @@ public class RowNumberOperator
         }
         types.add(BIGINT);
         return types.build();
+    }
+
+    @VisibleForTesting
+    public int getCapacity()
+    {
+        return groupByHash.map(GroupByHash::getCapacity).orElse(0);
     }
 }

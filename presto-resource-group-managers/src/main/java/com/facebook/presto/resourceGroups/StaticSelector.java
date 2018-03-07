@@ -16,8 +16,13 @@ package com.facebook.presto.resourceGroups;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupSelector;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
+import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 import static java.util.Objects.requireNonNull;
@@ -27,12 +32,17 @@ public class StaticSelector
 {
     private final Optional<Pattern> userRegex;
     private final Optional<Pattern> sourceRegex;
+    private final Set<String> clientTags;
+    private final Optional<String> queryType;
     private final ResourceGroupIdTemplate group;
 
-    public StaticSelector(Optional<Pattern> userRegex, Optional<Pattern> sourceRegex, ResourceGroupIdTemplate group)
+    public StaticSelector(Optional<Pattern> userRegex, Optional<Pattern> sourceRegex, Optional<List<String>> clientTags, Optional<String> queryType, ResourceGroupIdTemplate group)
     {
         this.userRegex = requireNonNull(userRegex, "userRegex is null");
         this.sourceRegex = requireNonNull(sourceRegex, "sourceRegex is null");
+        requireNonNull(clientTags, "clientTags is null");
+        this.clientTags = ImmutableSet.copyOf(clientTags.orElse(ImmutableList.of()));
+        this.queryType = requireNonNull(queryType, "queryType is null");
         this.group = requireNonNull(group, "group is null");
     }
 
@@ -48,7 +58,23 @@ public class StaticSelector
                 return Optional.empty();
             }
         }
+        if (!clientTags.isEmpty() && !context.getTags().containsAll(clientTags)) {
+            return Optional.empty();
+        }
+
+        if (queryType.isPresent()) {
+            String contextQueryType = context.getQueryType().orElse("");
+            if (!queryType.get().equalsIgnoreCase(contextQueryType)) {
+                return Optional.empty();
+            }
+        }
 
         return Optional.of(group.expandTemplate(context));
+    }
+
+    @VisibleForTesting
+    public Optional<Pattern> getUserRegex()
+    {
+        return userRegex;
     }
 }

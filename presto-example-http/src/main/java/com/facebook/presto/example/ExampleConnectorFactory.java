@@ -51,7 +51,7 @@ public class ExampleConnectorFactory
                     new JsonModule(),
                     new ExampleModule(connectorId, context.getTypeManager()));
 
-        Injector injector = app
+            Injector injector = app
                     .strictConfig()
                     .doNotInitializeLogging()
                     .setRequiredConfigurationProperties(requiredConfig)

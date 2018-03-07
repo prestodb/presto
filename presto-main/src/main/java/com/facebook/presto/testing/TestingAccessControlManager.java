@@ -36,6 +36,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateS
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateView;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDeleteTable;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyDropColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropView;
@@ -55,6 +56,7 @@ import static com.facebook.presto.testing.TestingAccessControlManager.TestingPri
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_VIEW_WITH_SELECT_TABLE;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_VIEW_WITH_SELECT_VIEW;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.DELETE_TABLE;
+import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_COLUMN;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_SCHEMA;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_TABLE;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_VIEW;
@@ -185,6 +187,15 @@ public class TestingAccessControlManager
             denyAddColumn(tableName.toString());
         }
         super.checkCanAddColumns(transactionId, identity, tableName);
+    }
+
+    @Override
+    public void checkCanDropColumn(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
+    {
+        if (shouldDenyPrivilege(identity.getUser(), tableName.getObjectName(), DROP_COLUMN)) {
+            denyDropColumn(tableName.toString());
+        }
+        super.checkCanDropColumn(transactionId, identity, tableName);
     }
 
     @Override
@@ -322,7 +333,7 @@ public class TestingAccessControlManager
         SET_USER,
         CREATE_SCHEMA, DROP_SCHEMA, RENAME_SCHEMA,
         CREATE_TABLE, DROP_TABLE, RENAME_TABLE, SELECT_TABLE, INSERT_TABLE, DELETE_TABLE,
-        ADD_COLUMN, RENAME_COLUMN,
+        ADD_COLUMN, DROP_COLUMN, RENAME_COLUMN,
         CREATE_VIEW, DROP_VIEW, SELECT_VIEW,
         CREATE_VIEW_WITH_SELECT_TABLE, CREATE_VIEW_WITH_SELECT_VIEW,
         SET_SESSION

@@ -3,25 +3,25 @@
     {
       "name": "global",
       "softMemoryLimit": "1MB",
-      "maxRunning": 100,
+      "hardConcurrencyLimit": 100,
       "maxQueued": 1000,
       "subGroups": [
         {
           "name": "user-${USER}",
           "softMemoryLimit": "1MB",
-          "maxRunning": 3,
+          "hardConcurrencyLimit": 3,
           "maxQueued": 3,
           "subGroups": [
             {
               "name": "adhoc-${USER}",
               "softMemoryLimit": "1MB",
-              "maxRunning": 3,
+              "hardConcurrencyLimit": 3,
               "maxQueued": 3
             },
             {
               "name": "dashboard-${USER}",
               "softMemoryLimit": "1MB",
-              "maxRunning": 1,
+              "hardConcurrencyLimit": 1,
               "maxQueued": 1
             }
           ]

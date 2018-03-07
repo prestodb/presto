@@ -30,7 +30,6 @@ public class TestArrayFilterFunction
 {
     @Test
     public void testBasic()
-            throws Exception
     {
         assertFunction("filter(ARRAY [5, 6], x -> x = 5)", new ArrayType(INTEGER), ImmutableList.of(5));
         assertFunction("filter(ARRAY [5 + RANDOM(1), 6 + RANDOM(1)], x -> x = 5)", new ArrayType(INTEGER), ImmutableList.of(5));
@@ -40,7 +39,6 @@ public class TestArrayFilterFunction
 
     @Test
     public void testEmpty()
-            throws Exception
     {
         assertFunction("filter(ARRAY [], x -> true)", new ArrayType(UNKNOWN), ImmutableList.of());
         assertFunction("filter(ARRAY [], x -> false)", new ArrayType(UNKNOWN), ImmutableList.of());
@@ -50,7 +48,6 @@ public class TestArrayFilterFunction
 
     @Test
     public void testNull()
-            throws Exception
     {
         assertFunction("filter(ARRAY [NULL], x -> x IS NULL)", new ArrayType(UNKNOWN), singletonList(null));
         assertFunction("filter(ARRAY [NULL], x -> x IS NOT NULL)", new ArrayType(UNKNOWN), ImmutableList.of());
@@ -59,7 +56,7 @@ public class TestArrayFilterFunction
         assertFunction("filter(ARRAY [NULL, NULL, NULL], x -> x IS NOT NULL)", new ArrayType(UNKNOWN), ImmutableList.of());
 
         assertFunction("filter(ARRAY [25, 26, NULL], x -> x % 2 = 1 OR x IS NULL)", new ArrayType(INTEGER), asList(25, null));
-        assertFunction("filter(ARRAY [25.6, 37.3, NULL], x -> x < 30.0 OR x IS NULL)", new ArrayType(DOUBLE), asList(25.6, null));
+        assertFunction("filter(ARRAY [25.6E0, 37.3E0, NULL], x -> x < 30.0E0 OR x IS NULL)", new ArrayType(DOUBLE), asList(25.6, null));
         assertFunction("filter(ARRAY [true, false, NULL], x -> not x OR x IS NULL)", new ArrayType(BOOLEAN), asList(false, null));
         assertFunction("filter(ARRAY ['abc', 'def', NULL], x -> substr(x, 1, 1) = 'a' OR x IS NULL)", new ArrayType(createVarcharType(3)), asList("abc", null));
         assertFunction(
@@ -70,10 +67,9 @@ public class TestArrayFilterFunction
 
     @Test
     public void testTypeCombinations()
-            throws Exception
     {
         assertFunction("filter(ARRAY [25, 26, 27], x -> x % 2 = 1)", new ArrayType(INTEGER), ImmutableList.of(25, 27));
-        assertFunction("filter(ARRAY [25.6, 37.3, 28.6], x -> x < 30.0)", new ArrayType(DOUBLE), ImmutableList.of(25.6, 28.6));
+        assertFunction("filter(ARRAY [25.6E0, 37.3E0, 28.6E0], x -> x < 30.0E0)", new ArrayType(DOUBLE), ImmutableList.of(25.6, 28.6));
         assertFunction("filter(ARRAY [true, false, true], x -> not x)", new ArrayType(BOOLEAN), ImmutableList.of(false));
         assertFunction("filter(ARRAY ['abc', 'def', 'ayz'], x -> substr(x, 1, 1) = 'a')", new ArrayType(createVarcharType(3)), ImmutableList.of("abc", "ayz"));
         assertFunction(

@@ -21,8 +21,6 @@ import java.io.Closeable;
 public interface RecordCursor
         extends Closeable
 {
-    long getTotalBytes();
-
     long getCompletedBytes();
 
     long getReadTimeNanos();

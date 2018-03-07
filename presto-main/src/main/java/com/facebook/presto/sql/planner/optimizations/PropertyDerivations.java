@@ -14,9 +14,10 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableLayout;
-import com.facebook.presto.metadata.TableLayout.NodePartitioning;
+import com.facebook.presto.metadata.TableLayout.TablePartitioning;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConstantProperty;
 import com.facebook.presto.spi.GroupingProperty;
@@ -28,6 +29,7 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DomainTranslator;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.NoOpSymbolResolver;
+import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.optimizations.ActualProperties.Global;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -208,7 +210,9 @@ class PropertyDerivations
             ActualProperties properties = Iterables.getOnlyElement(inputProperties);
 
             // If the input is completely pre-partitioned and sorted, then the original input properties will be respected
-            if (ImmutableSet.copyOf(node.getPartitionBy()).equals(node.getPrePartitionedInputs()) && node.getPreSortedOrderPrefix() == node.getOrderBy().size()) {
+            Optional<OrderingScheme> orderingScheme = node.getOrderingScheme();
+            if (ImmutableSet.copyOf(node.getPartitionBy()).equals(node.getPrePartitionedInputs())
+                    && (!orderingScheme.isPresent() || node.getPreSortedOrderPrefix() == orderingScheme.get().getOrderBy().size())) {
                 return properties;
             }
 
@@ -230,9 +234,11 @@ class PropertyDerivations
             if (!node.getPartitionBy().isEmpty()) {
                 localProperties.add(new GroupingProperty<>(node.getPartitionBy()));
             }
-            for (Symbol column : node.getOrderBy()) {
-                localProperties.add(new SortingProperty<>(column, node.getOrderings().get(column)));
-            }
+
+            orderingScheme.ifPresent(scheme ->
+                    scheme.getOrderBy().stream()
+                            .map(column -> new SortingProperty<>(column, scheme.getOrdering(column)))
+                            .forEach(localProperties::add));
 
             return ActualProperties.builderFrom(properties)
                     .local(LocalProperties.normalizeAndPrune(localProperties.build()))
@@ -285,8 +291,8 @@ class PropertyDerivations
 
             ImmutableList.Builder<LocalProperty<Symbol>> localProperties = ImmutableList.builder();
             localProperties.add(new GroupingProperty<>(node.getPartitionBy()));
-            for (Symbol column : node.getOrderBy()) {
-                localProperties.add(new SortingProperty<>(column, node.getOrderings().get(column)));
+            for (Symbol column : node.getOrderingScheme().getOrderBy()) {
+                localProperties.add(new SortingProperty<>(column, node.getOrderingScheme().getOrdering(column)));
             }
 
             return ActualProperties.builderFrom(properties)
@@ -299,8 +305,8 @@ class PropertyDerivations
         {
             ActualProperties properties = Iterables.getOnlyElement(inputProperties);
 
-            List<SortingProperty<Symbol>> localProperties = node.getOrderBy().stream()
-                    .map(column -> new SortingProperty<>(column, node.getOrderings().get(column)))
+            List<SortingProperty<Symbol>> localProperties = node.getOrderingScheme().getOrderBy().stream()
+                    .map(column -> new SortingProperty<>(column, node.getOrderingScheme().getOrdering(column)))
                     .collect(toImmutableList());
 
             return ActualProperties.builderFrom(properties)
@@ -313,8 +319,8 @@ class PropertyDerivations
         {
             ActualProperties properties = Iterables.getOnlyElement(inputProperties);
 
-            List<SortingProperty<Symbol>> localProperties = node.getOrderBy().stream()
-                    .map(column -> new SortingProperty<>(column, node.getOrderings().get(column)))
+            List<SortingProperty<Symbol>> localProperties = node.getOrderingScheme().getOrderBy().stream()
+                    .map(column -> new SortingProperty<>(column, node.getOrderingScheme().getOrdering(column)))
                     .collect(toImmutableList());
 
             return ActualProperties.builderFrom(properties)
@@ -359,6 +365,8 @@ class PropertyDerivations
             ActualProperties probeProperties = inputProperties.get(0);
             ActualProperties buildProperties = inputProperties.get(1);
 
+            boolean unordered = spillPossible(session, node.getType());
+
             switch (node.getType()) {
                 case INNER:
                     probeProperties = probeProperties.translate(column -> filterOrRewrite(node.getOutputSymbols(), node.getCriteria(), column));
@@ -370,21 +378,25 @@ class PropertyDerivations
 
                     return ActualProperties.builderFrom(probeProperties)
                             .constants(constants)
+                            .unordered(unordered)
                             .build();
                 case LEFT:
                     return ActualProperties.builderFrom(probeProperties.translate(column -> filterIfMissing(node.getOutputSymbols(), column)))
+                            .unordered(unordered)
                             .build();
                 case RIGHT:
                     buildProperties = buildProperties.translate(column -> filterIfMissing(node.getOutputSymbols(), column));
 
                     return ActualProperties.builderFrom(buildProperties.translate(column -> filterIfMissing(node.getOutputSymbols(), column)))
                             .local(ImmutableList.of())
+                            .unordered(unordered)
                             .build();
                 case FULL:
                     // We can't say anything about the partitioning scheme because any partition of
                     // a hash-partitioned join can produce nulls in case of a lack of matches
                     return ActualProperties.builder()
                             .global(probeProperties.isSingleNode() ? singleStreamPartition() : arbitraryPartition())
+                            .unordered(unordered)
                             .build();
                 default:
                     throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
@@ -633,22 +645,22 @@ class PropertyDerivations
 
         private Global deriveGlobalProperties(TableLayout layout, Map<ColumnHandle, Symbol> assignments, Map<ColumnHandle, NullableValue> constants)
         {
-            Optional<List<Symbol>> partitioning = layout.getPartitioningColumns()
+            Optional<List<Symbol>> streamPartitioning = layout.getStreamPartitioningColumns()
                     .flatMap(columns -> translateToNonConstantSymbols(columns, assignments, constants));
 
-            if (planWithTableNodePartitioning(session) && layout.getNodePartitioning().isPresent()) {
-                NodePartitioning nodePartitioning = layout.getNodePartitioning().get();
-                if (assignments.keySet().containsAll(nodePartitioning.getPartitioningColumns())) {
-                    List<Symbol> arguments = nodePartitioning.getPartitioningColumns().stream()
+            if (planWithTableNodePartitioning(session) && layout.getTablePartitioning().isPresent()) {
+                TablePartitioning tablePartitioning = layout.getTablePartitioning().get();
+                if (assignments.keySet().containsAll(tablePartitioning.getPartitioningColumns())) {
+                    List<Symbol> arguments = tablePartitioning.getPartitioningColumns().stream()
                             .map(assignments::get)
                             .collect(toImmutableList());
 
-                    return partitionedOn(nodePartitioning.getPartitioningHandle(), arguments, partitioning);
+                    return partitionedOn(tablePartitioning.getPartitioningHandle(), arguments, streamPartitioning);
                 }
             }
 
-            if (partitioning.isPresent()) {
-                return streamPartitionedOn(partitioning.get());
+            if (streamPartitioning.isPresent()) {
+                return streamPartitionedOn(streamPartitioning.get());
             }
             return arbitraryPartition();
         }
@@ -684,6 +696,24 @@ class PropertyDerivations
                 }
             }
             return inputToOutput;
+        }
+    }
+
+    static boolean spillPossible(Session session, JoinNode.Type joinType)
+    {
+        if (!SystemSessionProperties.isSpillEnabled(session)) {
+            return false;
+        }
+        switch (joinType) {
+            case INNER:
+            case LEFT:
+                return true;
+            case RIGHT:
+            case FULL:
+                // Currently there is no spill support for outer on the build side.
+                return false;
+            default:
+                throw new IllegalStateException("Unknown join type: " + joinType);
         }
     }
 

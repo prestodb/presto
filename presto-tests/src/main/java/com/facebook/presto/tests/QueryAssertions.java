@@ -21,6 +21,8 @@ import com.facebook.presto.testing.QueryRunner;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Multiset;
+import com.google.common.collect.Multisets;
 import io.airlift.log.Logger;
 import io.airlift.tpch.TpchTable;
 import io.airlift.units.Duration;
@@ -81,7 +83,7 @@ public final class QueryAssertions
         long start = System.nanoTime();
         MaterializedResult actualResults = null;
         try {
-            actualResults = actualQueryRunner.execute(session, actual).toJdbcTypes();
+            actualResults = actualQueryRunner.execute(session, actual).toTestTypes();
         }
         catch (RuntimeException ex) {
             fail("Execution of 'actual' query failed: " + actual, ex);
@@ -147,12 +149,22 @@ public final class QueryAssertions
         ImmutableMultiset<?> actualSet = ImmutableMultiset.copyOf(actual);
         ImmutableMultiset<?> expectedSet = ImmutableMultiset.copyOf(expected);
         if (!actualSet.equals(expectedSet)) {
-            fail(format("%snot equal\nActual %s rows:\n    %s\nExpected %s rows:\n    %s\n",
+            Multiset<?> unexpectedRows = Multisets.difference(actualSet, expectedSet);
+            Multiset<?> missingRows = Multisets.difference(expectedSet, actualSet);
+            int limit = 100;
+            fail(format(
+                    "%snot equal\n" +
+                            "Actual rows (up to %s of %s extra rows shown, %s matching and extra rows in total):\n    %s\n" +
+                            "Expected rows (up to %s of %s missing rows shown, %s matching and missing rows in total):\n    %s\n",
                     message == null ? "" : (message + "\n"),
+                    limit,
+                    unexpectedRows.size(),
                     actualSet.size(),
-                    Joiner.on("\n    ").join(Iterables.limit(actualSet, 100)),
+                    Joiner.on("\n    ").join(Iterables.limit(unexpectedRows, limit)),
+                    limit,
+                    missingRows.size(),
                     expectedSet.size(),
-                    Joiner.on("\n    ").join(Iterables.limit(expectedSet, 100))));
+                    Joiner.on("\n    ").join(Iterables.limit(missingRows, limit))));
         }
     }
 
@@ -212,6 +224,18 @@ public final class QueryAssertions
         }
         catch (RuntimeException ex) {
             assertExceptionMessage(sql, ex, expectedMessageRegExp);
+        }
+    }
+
+    protected static void assertQueryReturnsEmptyResult(QueryRunner queryRunner, Session session, @Language("SQL") String sql)
+    {
+        try {
+            MaterializedResult results = queryRunner.execute(session, sql).toTestTypes();
+            assertNotNull(results);
+            assertEquals(results.getRowCount(), 0);
+        }
+        catch (RuntimeException ex) {
+            fail("Execution of query failed: " + sql, ex);
         }
     }
 

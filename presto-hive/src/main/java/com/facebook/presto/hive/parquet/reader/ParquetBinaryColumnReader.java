@@ -20,7 +20,7 @@ import parquet.column.ColumnDescriptor;
 import parquet.io.api.Binary;
 
 import static com.facebook.presto.spi.type.Chars.isCharType;
-import static com.facebook.presto.spi.type.Chars.trimSpacesAndTruncateToLength;
+import static com.facebook.presto.spi.type.Chars.truncateToLengthAndTrimSpaces;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.facebook.presto.spi.type.Varchars.truncateToLength;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
@@ -50,7 +50,7 @@ public class ParquetBinaryColumnReader
                 value = truncateToLength(value, type);
             }
             if (isCharType(type)) {
-                value = trimSpacesAndTruncateToLength(value, type);
+                value = truncateToLengthAndTrimSpaces(value, type);
             }
             type.writeSlice(blockBuilder, value);
         }

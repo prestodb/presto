@@ -16,7 +16,6 @@ package com.facebook.presto.spi.block;
 import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
-import java.util.List;
 import java.util.function.BiConsumer;
 
 import static java.util.Objects.requireNonNull;
@@ -188,11 +187,9 @@ public class LazyBlock
     @Override
     public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
     {
-        // do not support LazyBlock (for now) for the following two reasons:
-        // (1) the method is mainly used for inspecting the identity and size of each element to prevent over counting
-        // (2) the method should be non-recursive and only inspects blocks at the top level;
-        //     given LazyBlock is a wrapper for other blocks, it is not meaningful to only inspect the top-level elements
-        throw new UnsupportedOperationException(getClass().getName());
+        assureLoaded();
+        block.retainedBytesForEachPart(consumer);
+        consumer.accept(this, (long) INSTANCE_SIZE);
     }
 
     @Override
@@ -203,10 +200,10 @@ public class LazyBlock
     }
 
     @Override
-    public Block copyPositions(List<Integer> positions)
+    public Block copyPositions(int[] positions, int offset, int length)
     {
         assureLoaded();
-        return block.copyPositions(positions);
+        return block.copyPositions(positions, offset, length);
     }
 
     @Override
@@ -242,6 +239,11 @@ public class LazyBlock
             throw new IllegalStateException("block already set");
         }
         this.block = requireNonNull(block, "block is null");
+    }
+
+    public boolean isLoaded()
+    {
+        return block != null;
     }
 
     @Override

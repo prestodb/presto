@@ -17,7 +17,7 @@ import com.facebook.presto.client.Column;
 import com.facebook.presto.client.IntervalDayTime;
 import com.facebook.presto.client.IntervalYearMonth;
 import com.facebook.presto.client.QueryError;
-import com.facebook.presto.client.QueryResults;
+import com.facebook.presto.client.QueryStatusInfo;
 import com.facebook.presto.client.StatementClient;
 import com.facebook.presto.jdbc.ColumnInfo.Nullable;
 import com.google.common.collect.AbstractIterator;
@@ -62,7 +62,7 @@ import java.util.function.Consumer;
 
 import static com.facebook.presto.jdbc.ColumnInfo.setTypeInfo;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.google.common.base.Throwables.propagate;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterators.concat;
 import static com.google.common.collect.Iterators.transform;
@@ -95,14 +95,6 @@ public class PrestoResultSet
             .toFormatter()
             .withOffsetParsed();
 
-    private static final int YEAR_FIELD = 0;
-    private static final int MONTH_FIELD = 1;
-    private static final int DAY_FIELD = 3;
-    private static final int HOUR_FIELD = 4;
-    private static final int MINUTE_FIELD = 5;
-    private static final int SECOND_FIELD = 6;
-    private static final int MILLIS_FIELD = 7;
-
     private final StatementClient client;
     private final DateTimeZone sessionTimeZone;
     private final String queryId;
@@ -112,6 +104,7 @@ public class PrestoResultSet
     private final ResultSetMetaData resultSetMetaData;
     private final AtomicReference<List<Object>> row = new AtomicReference<>();
     private final AtomicBoolean wasNull = new AtomicBoolean();
+    private final AtomicBoolean closed = new AtomicBoolean();
 
     PrestoResultSet(StatementClient client, long maxRows, Consumer<QueryStats> progressCallback)
             throws SQLException
@@ -120,7 +113,7 @@ public class PrestoResultSet
         requireNonNull(progressCallback, "progressCallback is null");
 
         this.sessionTimeZone = DateTimeZone.forID(client.getTimeZone().getId());
-        this.queryId = client.current().getId();
+        this.queryId = client.currentStatusInfo().getId();
 
         List<Column> columns = getColumns(client, progressCallback);
         this.fieldMap = getFieldMap(columns);
@@ -165,6 +158,7 @@ public class PrestoResultSet
     public void close()
             throws SQLException
     {
+        closed.set(true);
         client.close();
     }
 
@@ -1320,7 +1314,7 @@ public class PrestoResultSet
     public boolean isClosed()
             throws SQLException
     {
-        return client.isClosed();
+        return closed.get();
     }
 
     @Override
@@ -1730,8 +1724,8 @@ public class PrestoResultSet
     private static List<Column> getColumns(StatementClient client, Consumer<QueryStats> progressCallback)
             throws SQLException
     {
-        while (client.isValid()) {
-            QueryResults results = client.current();
+        while (client.isRunning()) {
+            QueryStatusInfo results = client.currentStatusInfo();
             progressCallback.accept(QueryStats.create(results.getId(), results.getStats()));
             List<Column> columns = results.getColumns();
             if (columns != null) {
@@ -1740,8 +1734,9 @@ public class PrestoResultSet
             client.advance();
         }
 
-        QueryResults results = client.finalResults();
-        if (!client.isFailed()) {
+        verify(client.isFinished());
+        QueryStatusInfo results = client.finalStatusInfo();
+        if (results.getError() == null) {
             throw new SQLException(format("Query has no columns (#%s)", results.getId()));
         }
         throw resultsException(results);
@@ -1768,30 +1763,34 @@ public class PrestoResultSet
         @Override
         protected Iterable<List<Object>> computeNext()
         {
-            while (client.isValid()) {
+            while (client.isRunning()) {
                 if (Thread.currentThread().isInterrupted()) {
                     client.close();
-                    throw propagate(new SQLException("ResultSet thread was interrupted"));
+                    throw new RuntimeException(new SQLException("ResultSet thread was interrupted"));
                 }
 
-                QueryResults results = client.current();
+                QueryStatusInfo results = client.currentStatusInfo();
                 progressCallback.accept(QueryStats.create(results.getId(), results.getStats()));
-                Iterable<List<Object>> data = results.getData();
+                Iterable<List<Object>> data = client.currentData().getData();
                 client.advance();
                 if (data != null) {
                     return data;
                 }
             }
 
-            if (client.isFailed()) {
-                throw propagate(resultsException(client.finalResults()));
+            verify(client.isFinished());
+            QueryStatusInfo results = client.finalStatusInfo();
+            progressCallback.accept(QueryStats.create(results.getId(), results.getStats()));
+
+            if (results.getError() != null) {
+                throw new RuntimeException(resultsException(results));
             }
 
             return endOfData();
         }
     }
 
-    static SQLException resultsException(QueryResults results)
+    static SQLException resultsException(QueryStatusInfo results)
     {
         QueryError error = requireNonNull(results.getError());
         String message = format("Query failed (#%s): %s", results.getId(), error.getMessage());

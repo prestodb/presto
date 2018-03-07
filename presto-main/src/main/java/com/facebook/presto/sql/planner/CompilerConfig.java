@@ -15,21 +15,26 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.spi.function.Description;
 import io.airlift.configuration.Config;
+import io.airlift.configuration.DefunctConfig;
 
+import javax.validation.constraints.Min;
+
+@DefunctConfig("compiler.interpreter-enabled")
 public class CompilerConfig
 {
-    private boolean interpreterEnabled;
+    private int expressionCacheSize = 10_000;
 
-    public boolean isInterpreterEnabled()
+    @Min(0)
+    public int getExpressionCacheSize()
     {
-        return interpreterEnabled;
+        return expressionCacheSize;
     }
 
-    @Config("compiler.interpreter-enabled")
-    @Description("Allows evaluation to fall back to interpreter if compilation fails")
-    public CompilerConfig setInterpreterEnabled(boolean interpreterEnabled)
+    @Config("compiler.expression-cache-size")
+    @Description("Reuse compiled expressions across multiple queries")
+    public CompilerConfig setExpressionCacheSize(int expressionCacheSize)
     {
-        this.interpreterEnabled = interpreterEnabled;
+        this.expressionCacheSize = expressionCacheSize;
         return this;
     }
 }

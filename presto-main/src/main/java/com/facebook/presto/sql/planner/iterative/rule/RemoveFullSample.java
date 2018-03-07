@@ -13,41 +13,32 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
-import com.facebook.presto.sql.planner.SymbolAllocator;
-import com.facebook.presto.sql.planner.iterative.Lookup;
-import com.facebook.presto.sql.planner.iterative.Pattern;
+import com.facebook.presto.matching.Captures;
+import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 
-import java.util.Optional;
+import static com.facebook.presto.sql.planner.plan.Patterns.Sample.sampleRatio;
+import static com.facebook.presto.sql.planner.plan.Patterns.sample;
 
 /**
  * Removes 100% sample nodes.
  */
 public class RemoveFullSample
-        implements Rule
+        implements Rule<SampleNode>
 {
-    private static final Pattern PATTERN = Pattern.node(SampleNode.class);
+    private static final Pattern<SampleNode> PATTERN = sample()
+            .with(sampleRatio().equalTo(1.0));
 
     @Override
-    public Pattern getPattern()
+    public Pattern<SampleNode> getPattern()
     {
         return PATTERN;
     }
 
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Lookup lookup, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session)
+    public Result apply(SampleNode sample, Captures captures, Context context)
     {
-        SampleNode sample = (SampleNode) node;
-
-        //noinspection FloatingPointEquality
-        if (sample.getSampleRatio() != 1.0) {
-            return Optional.empty();
-        }
-
-        return Optional.of(sample.getSource());
+        return Result.ofPlanNode(sample.getSource());
     }
 }

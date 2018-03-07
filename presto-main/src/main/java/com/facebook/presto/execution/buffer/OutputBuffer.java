@@ -41,6 +41,11 @@ public interface OutputBuffer
     double getUtilization();
 
     /**
+     * Check if the buffer is blocking producers.
+     */
+    boolean isOverutilized();
+
+    /**
      * Add a listener which fires anytime the buffer state changes.
      */
     void addStateChangeListener(StateChangeListener<BufferState> stateChangeListener);
@@ -58,6 +63,11 @@ public interface OutputBuffer
      * receipt of the final state.
      */
     ListenableFuture<BufferResult> get(OutputBufferId bufferId, long token, DataSize maxSize);
+
+    /**
+     * Acknowledges the previously received pages from the output buffer.
+     */
+    void acknowledge(OutputBufferId bufferId, long token);
 
     /**
      * Closes the specified output buffer.

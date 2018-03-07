@@ -60,6 +60,30 @@ public interface Operator
     Page getOutput();
 
     /**
+     * After calling this method operator should revoke all reserved revocable memory.
+     * As soon as memory is revoked returned future should be marked as done.
+     * <p>
+     * Spawned threads can not modify OperatorContext because it's not thread safe.
+     * For this purpose use implement finishMemoryRevoke
+     * <p>
+     * After startMemoryRevoke is called on Operator the Driver is disallowed to call any
+     * processing methods on it (finish/isFinished/isBlocked/needsInput/addInput/getOutput) until
+     * finishMemoryRevoke is called.
+     */
+    default ListenableFuture<?> startMemoryRevoke()
+    {
+        return NOT_BLOCKED;
+    }
+
+    /**
+     * Clean up and release resources after completed memory revoking. Called by driver
+     * once future returned by startMemoryRevoke is completed.
+     */
+    default void finishMemoryRevoke()
+    {
+    }
+
+    /**
      * Notifies the operator that no more pages will be added and the
      * operator should finish processing and flush results. This method
      * will not be called if the Task is already failed or canceled.

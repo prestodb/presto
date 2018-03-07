@@ -100,6 +100,11 @@ public class AllowAllAccessControl
     }
 
     @Override
+    public void checkCanDropColumn(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
+    {
+    }
+
+    @Override
     public void checkCanRenameColumn(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
     {
     }

@@ -43,6 +43,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateT
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateView;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateViewWithSelect;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDeleteTable;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyDropColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropView;
@@ -156,6 +157,14 @@ public class SqlStandardAccessControl
     {
         if (!checkTablePermission(transaction, identity, tableName, OWNERSHIP)) {
             denyAddColumn(tableName.toString());
+        }
+    }
+
+    @Override
+    public void checkCanDropColumn(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
+    {
+        if (!checkTablePermission(transaction, identity, tableName, OWNERSHIP)) {
+            denyDropColumn(tableName.toString());
         }
     }
 

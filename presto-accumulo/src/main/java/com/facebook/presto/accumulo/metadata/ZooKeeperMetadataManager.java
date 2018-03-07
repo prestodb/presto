@@ -27,7 +27,6 @@ import org.apache.curator.framework.CuratorFrameworkFactory;
 import org.apache.curator.retry.RetryForever;
 import org.apache.zookeeper.KeeperException;
 
-import javax.activity.InvalidActivityException;
 import javax.inject.Inject;
 
 import java.io.IOException;
@@ -208,7 +207,7 @@ public class ZooKeeperMetadataManager
         String tablePath = getTablePath(tableName);
         try {
             if (curator.checkExists().forPath(tablePath) != null) {
-                throw new InvalidActivityException(format("Metadata for table %s already exists", tableName));
+                throw new IOException(format("Metadata for table %s already exists", tableName));
             }
         }
         catch (Exception e) {
@@ -239,7 +238,7 @@ public class ZooKeeperMetadataManager
         String viewPath = getTablePath(tableName);
         try {
             if (curator.checkExists().forPath(viewPath) != null) {
-                throw new InvalidActivityException(format("Metadata for view %s already exists", tableName));
+                throw new IOException(format("Metadata for view %s already exists", tableName));
             }
         }
         catch (Exception e) {

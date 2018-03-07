@@ -38,7 +38,7 @@ public interface TaskManager
     /**
      * Gets the info for the specified task.  If the task has not been created
      * yet, an uninitialized task is created and the info is returned.
-     *
+     * <p>
      * NOTE: this design assumes that only tasks that will eventually exist are
      * queried.
      */
@@ -54,7 +54,7 @@ public interface TaskManager
      * {@code current state}. If the task has not been created yet, an
      * uninitialized task is created and the future is returned.  If the task
      * is already in a final state, the info is returned immediately.
-     *
+     * <p>
      * NOTE: this design assumes that only tasks that will eventually exist are
      * queried.
      */
@@ -71,7 +71,7 @@ public interface TaskManager
      * {@code current state}. If the task has not been created yet, an
      * uninitialized task is created and the future is returned.  If the task
      * is already in a final state, the status is returned immediately.
-     *
+     * <p>
      * NOTE: this design assumes that only tasks that will eventually exist are
      * queried.
      */
@@ -101,17 +101,22 @@ public interface TaskManager
      * Gets results from a task either immediately or in the future.  If the
      * task or buffer has not been created yet, an uninitialized task is
      * created and a future is returned.
-     *
+     * <p>
      * NOTE: this design assumes that only tasks and buffers that will
      * eventually exist are queried.
      */
     ListenableFuture<BufferResult> getTaskResults(TaskId taskId, OutputBufferId bufferId, long startingSequenceId, DataSize maxSize);
 
     /**
+     * Acknowledges previously received results.
+     */
+    void acknowledgeTaskResults(TaskId taskId, OutputBufferId bufferId, long sequenceId);
+
+    /**
      * Aborts a result buffer for a task.  If the task or buffer has not been
      * created yet, an uninitialized task is created and a the buffer is
      * aborted.
-     *
+     * <p>
      * NOTE: this design assumes that only tasks and buffers that will
      * eventually exist are queried.
      */

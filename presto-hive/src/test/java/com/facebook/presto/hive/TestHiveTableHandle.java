@@ -25,12 +25,11 @@ public class TestHiveTableHandle
     @Test
     public void testRoundTrip()
     {
-        HiveTableHandle expected = new HiveTableHandle("client", "schema", "table");
+        HiveTableHandle expected = new HiveTableHandle("schema", "table");
 
         String json = codec.toJson(expected);
         HiveTableHandle actual = codec.fromJson(json);
 
-        assertEquals(actual.getClientId(), expected.getClientId());
         assertEquals(actual.getSchemaTableName(), expected.getSchemaTableName());
     }
 }

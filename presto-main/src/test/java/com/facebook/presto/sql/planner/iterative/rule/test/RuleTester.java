@@ -15,7 +15,6 @@ package com.facebook.presto.sql.planner.iterative.rule.test;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.sql.planner.iterative.Rule;
@@ -35,7 +34,6 @@ public class RuleTester
     public static final ConnectorId CONNECTOR_ID = new ConnectorId(CATALOG_ID);
 
     private final Metadata metadata;
-    private final CostCalculator costCalculator;
     private final Session session;
     private final LocalQueryRunner queryRunner;
     private final TransactionManager transactionManager;
@@ -52,22 +50,31 @@ public class RuleTester
         queryRunner = new LocalQueryRunner(session);
         queryRunner.createCatalog(session.getCatalog().get(),
                 new TpchConnectorFactory(1),
-                ImmutableMap.<String, String>of());
+                ImmutableMap.of());
 
         this.metadata = queryRunner.getMetadata();
-        this.costCalculator = queryRunner.getCostCalculator();
         this.transactionManager = queryRunner.getTransactionManager();
         this.accessControl = queryRunner.getAccessControl();
     }
 
     public RuleAssert assertThat(Rule rule)
     {
-        return new RuleAssert(metadata, costCalculator, session, rule, transactionManager, accessControl);
+        return new RuleAssert(metadata, queryRunner.getStatsCalculator(), queryRunner.getEstimatedExchangesCostCalculator(), session, rule, transactionManager, accessControl);
     }
 
     @Override
     public void close()
     {
         queryRunner.close();
+    }
+
+    public Metadata getMetadata()
+    {
+        return metadata;
+    }
+
+    public ConnectorId getCurrentConnectorId()
+    {
+        return queryRunner.inTransaction(transactionSession -> metadata.getCatalogHandle(transactionSession, session.getCatalog().get())).get();
     }
 }

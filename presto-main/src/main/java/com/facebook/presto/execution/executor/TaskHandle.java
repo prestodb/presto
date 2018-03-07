@@ -15,7 +15,6 @@ package com.facebook.presto.execution.executor;
 
 import com.facebook.presto.execution.SplitConcurrencyController;
 import com.facebook.presto.execution.TaskId;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
 
@@ -27,54 +26,83 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.DoubleSupplier;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public class TaskHandle
 {
     private final TaskId taskId;
-    private final DoubleSupplier utilizationSupplier;
+    protected final DoubleSupplier utilizationSupplier;
 
     @GuardedBy("this")
-    private final Queue<PrioritizedSplitRunner> queuedLeafSplits = new ArrayDeque<>(10);
+    protected final Queue<PrioritizedSplitRunner> queuedLeafSplits = new ArrayDeque<>(10);
     @GuardedBy("this")
-    private final List<PrioritizedSplitRunner> runningLeafSplits = new ArrayList<>(10);
+    protected final List<PrioritizedSplitRunner> runningLeafSplits = new ArrayList<>(10);
     @GuardedBy("this")
-    private final List<PrioritizedSplitRunner> runningIntermediateSplits = new ArrayList<>(10);
+    protected final List<PrioritizedSplitRunner> runningIntermediateSplits = new ArrayList<>(10);
     @GuardedBy("this")
-    private long taskThreadUsageNanos;
+    protected long scheduledNanos;
     @GuardedBy("this")
     private boolean destroyed;
     @GuardedBy("this")
-    private final SplitConcurrencyController concurrencyController;
+    protected final SplitConcurrencyController concurrencyController;
 
     private final AtomicInteger nextSplitId = new AtomicInteger();
 
-    public TaskHandle(TaskId taskId, DoubleSupplier utilizationSupplier, int initialSplitConcurrency, Duration splitConcurrencyAdjustFrequency)
+    protected final AtomicReference<Priority> priority = new AtomicReference<>(new Priority(0, 0));
+    private final MultilevelSplitQueue splitQueue;
+
+    public TaskHandle(TaskId taskId, MultilevelSplitQueue splitQueue, DoubleSupplier utilizationSupplier, int initialSplitConcurrency, Duration splitConcurrencyAdjustFrequency)
     {
-        this.taskId = taskId;
-        this.utilizationSupplier = utilizationSupplier;
-        this.concurrencyController = new SplitConcurrencyController(initialSplitConcurrency, splitConcurrencyAdjustFrequency);
+        this.taskId = requireNonNull(taskId, "taskId is null");
+        this.splitQueue = requireNonNull(splitQueue, "splitQueue is null");
+        this.utilizationSupplier = requireNonNull(utilizationSupplier, "utilizationSupplier is null");
+        this.concurrencyController = new SplitConcurrencyController(
+                initialSplitConcurrency,
+                requireNonNull(splitConcurrencyAdjustFrequency, "splitConcurrencyAdjustFrequency is null"));
     }
 
-    public synchronized long addThreadUsageNanos(long durationNanos)
+    public synchronized Priority addScheduledNanos(long durationNanos)
     {
         concurrencyController.update(durationNanos, utilizationSupplier.getAsDouble(), runningLeafSplits.size());
-        taskThreadUsageNanos += durationNanos;
-        return taskThreadUsageNanos;
+        scheduledNanos += durationNanos;
+
+        Priority newPriority = splitQueue.updatePriority(priority.get(), durationNanos, scheduledNanos);
+
+        priority.set(newPriority);
+        return newPriority;
     }
 
-    public TaskId getTaskId()
+    public synchronized Priority resetLevelPriority()
     {
-        return taskId;
+        long levelMinPriority = splitQueue.getLevelMinPriority(priority.get().getLevel(), scheduledNanos);
+        if (priority.get().getLevelPriority() < levelMinPriority) {
+            Priority newPriority = new Priority(priority.get().getLevel(), levelMinPriority);
+            priority.set(newPriority);
+            return newPriority;
+        }
+
+        return priority.get();
     }
 
     public synchronized boolean isDestroyed()
     {
         return destroyed;
+    }
+
+    public Priority getPriority()
+    {
+        return priority.get();
+    }
+
+    public TaskId getTaskId()
+    {
+        return taskId;
     }
 
     // Returns any remaining splits. The caller must destroy these.
@@ -104,15 +132,14 @@ public class TaskHandle
         runningIntermediateSplits.add(split);
     }
 
-    @VisibleForTesting
-    public synchronized int getRunningLeafSplits()
+    synchronized int getRunningLeafSplits()
     {
         return runningLeafSplits.size();
     }
 
-    public synchronized long getThreadUsageNanos()
+    public synchronized long getScheduledNanos()
     {
-        return taskThreadUsageNanos;
+        return scheduledNanos;
     }
 
     public synchronized PrioritizedSplitRunner pollNextSplit()

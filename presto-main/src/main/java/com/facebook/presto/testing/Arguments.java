@@ -31,6 +31,6 @@ public class Arguments
 
     public static Object[][] toArgumentsArrays(Stream<List<?>> argumentsLists)
     {
-       return argumentsLists.map(List::toArray).toArray(Object[][]::new);
+        return argumentsLists.map(List::toArray).toArray(Object[][]::new);
     }
 }

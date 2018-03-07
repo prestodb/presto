@@ -17,13 +17,13 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.SortExpressionExtractor.SortExpression;
 import com.facebook.presto.type.TypeUtils;
 import com.google.common.collect.ImmutableList;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -38,15 +38,15 @@ public class SimplePagesHashStrategy
     private final List<List<Block>> channels;
     private final List<Integer> hashChannels;
     private final List<Block> precomputedHashChannel;
-    private final Optional<SortExpression> sortChannel;
+    private final Optional<Integer> sortChannel;
 
     public SimplePagesHashStrategy(
             List<Type> types,
             List<Integer> outputChannels,
             List<List<Block>> channels,
             List<Integer> hashChannels,
-            Optional<Integer> precomputedHashChannel,
-            Optional<SortExpression> sortChannel)
+            OptionalInt precomputedHashChannel,
+            Optional<Integer> sortChannel)
     {
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.outputChannels = ImmutableList.copyOf(requireNonNull(outputChannels, "outputChannels is null"));
@@ -55,7 +55,7 @@ public class SimplePagesHashStrategy
         checkArgument(types.size() == channels.size(), "Expected types and channels to be the same length");
         this.hashChannels = ImmutableList.copyOf(requireNonNull(hashChannels, "hashChannels is null"));
         if (precomputedHashChannel.isPresent()) {
-            this.precomputedHashChannel = channels.get(precomputedHashChannel.get());
+            this.precomputedHashChannel = channels.get(precomputedHashChannel.getAsInt());
         }
         else {
             this.precomputedHashChannel = null;
@@ -245,9 +245,6 @@ public class SimplePagesHashStrategy
 
     private int getSortChannel()
     {
-        if (!sortChannel.isPresent()) {
-            throw new UnsupportedOperationException();
-        }
-        return sortChannel.get().getChannel();
+        return sortChannel.get();
     }
 }

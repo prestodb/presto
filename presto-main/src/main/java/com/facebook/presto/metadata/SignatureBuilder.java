@@ -15,12 +15,12 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.metadata.FunctionRegistry.mangleOperatorName;
-import static com.google.common.collect.ImmutableList.copyOf;
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
@@ -63,7 +63,7 @@ public final class SignatureBuilder
 
     public SignatureBuilder typeVariableConstraints(List<TypeVariableConstraint> typeVariableConstraints)
     {
-        this.typeVariableConstraints = copyOf(requireNonNull(typeVariableConstraints, "typeVariableConstraints is null"));
+        this.typeVariableConstraints = ImmutableList.copyOf(requireNonNull(typeVariableConstraints, "typeVariableConstraints is null"));
         return this;
     }
 
@@ -80,7 +80,7 @@ public final class SignatureBuilder
 
     public SignatureBuilder longVariableConstraints(List<LongVariableConstraint> longVariableConstraints)
     {
-        this.longVariableConstraints = copyOf(requireNonNull(longVariableConstraints, "longVariableConstraints is null"));
+        this.longVariableConstraints = ImmutableList.copyOf(requireNonNull(longVariableConstraints, "longVariableConstraints is null"));
         return this;
     }
 
@@ -91,7 +91,7 @@ public final class SignatureBuilder
 
     public SignatureBuilder argumentTypes(List<TypeSignature> argumentTypes)
     {
-        this.argumentTypes = copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));
+        this.argumentTypes = ImmutableList.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));
         return this;
     }
 

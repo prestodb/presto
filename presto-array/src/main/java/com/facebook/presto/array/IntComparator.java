@@ -17,12 +17,13 @@ package com.facebook.presto.array;
 // Copyright (C) 2010-2013 Sebastiano Vigna
 public interface IntComparator
 {
-    /** Compares the given primitive types.
+    /**
+     * Compares the given primitive types.
      *
-     * @see java.util.Comparator
      * @return A positive integer, zero, or a negative integer if the first
      * argument is greater than, equal to, or smaller than, respectively, the
      * second one.
+     * @see java.util.Comparator
      */
     int compare(int k1, int k2);
 }

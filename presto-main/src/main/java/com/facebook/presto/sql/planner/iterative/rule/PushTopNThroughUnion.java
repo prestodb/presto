@@ -13,12 +13,10 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
+import com.facebook.presto.matching.Capture;
+import com.facebook.presto.matching.Captures;
+import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.SymbolAllocator;
-import com.facebook.presto.sql.planner.iterative.Lookup;
-import com.facebook.presto.sql.planner.iterative.Pattern;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.optimizations.SymbolMapper;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -27,42 +25,36 @@ import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
-import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.matching.Capture.newCapture;
+import static com.facebook.presto.sql.planner.plan.Patterns.TopN.step;
+import static com.facebook.presto.sql.planner.plan.Patterns.source;
+import static com.facebook.presto.sql.planner.plan.Patterns.topN;
+import static com.facebook.presto.sql.planner.plan.Patterns.union;
 import static com.facebook.presto.sql.planner.plan.TopNNode.Step.PARTIAL;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Sets.intersection;
 
 public class PushTopNThroughUnion
-        implements Rule
+        implements Rule<TopNNode>
 {
-    private static final Pattern PATTERN = Pattern.node(TopNNode.class);
+    private static final Capture<UnionNode> CHILD = newCapture();
+
+    private static final Pattern<TopNNode> PATTERN = topN()
+            .with(step().equalTo(PARTIAL))
+            .with(source().matching(union().capturedAs(CHILD)));
 
     @Override
-    public Pattern getPattern()
+    public Pattern<TopNNode> getPattern()
     {
         return PATTERN;
     }
 
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Lookup lookup, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session)
+    public Result apply(TopNNode topNNode, Captures captures, Context context)
     {
-        if (!(node instanceof TopNNode)) {
-            return Optional.empty();
-        }
-
-        TopNNode topNNode = (TopNNode) node;
-
-        if (!topNNode.getStep().equals(PARTIAL)) {
-            return Optional.empty();
-        }
-
-        PlanNode child = lookup.resolve(topNNode.getSource());
-        if (!(child instanceof UnionNode)) {
-            return Optional.empty();
-        }
-        UnionNode unionNode = (UnionNode) child;
+        UnionNode unionNode = captures.get(CHILD);
 
         ImmutableList.Builder<PlanNode> sources = ImmutableList.builder();
 
@@ -75,10 +67,10 @@ public class PushTopNThroughUnion
                 Symbol unionInput = getLast(intersection(inputSymbols, sourceOutputSymbols));
                 symbolMapper.put(unionOutput, unionInput);
             }
-            sources.add(symbolMapper.build().map(topNNode, source, idAllocator.getNextId()));
+            sources.add(symbolMapper.build().map(topNNode, source, context.getIdAllocator().getNextId()));
         }
 
-        return Optional.of(new UnionNode(
+        return Result.ofPlanNode(new UnionNode(
                 unionNode.getId(),
                 sources.build(),
                 unionNode.getSymbolMapping(),

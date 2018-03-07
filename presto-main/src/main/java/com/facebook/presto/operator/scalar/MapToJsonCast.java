@@ -37,6 +37,8 @@ import java.util.TreeMap;
 
 import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.facebook.presto.operator.scalar.JsonOperators.JSON_FACTORY;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.Failures.checkCondition;
@@ -52,7 +54,7 @@ public class MapToJsonCast
         extends SqlOperator
 {
     public static final MapToJsonCast MAP_TO_JSON = new MapToJsonCast();
-    private static final MethodHandle METHOD_HANDLE = methodHandle(MapToJsonCast.class, "toJson",  ObjectKeyProvider.class, JsonGeneratorWriter.class, ConnectorSession.class, Block.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(MapToJsonCast.class, "toJson", ObjectKeyProvider.class, JsonGeneratorWriter.class, ConnectorSession.class, Block.class);
 
     private MapToJsonCast()
     {
@@ -78,7 +80,11 @@ public class MapToJsonCast
         JsonGeneratorWriter writer = JsonGeneratorWriter.createJsonGeneratorWriter(valueType);
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(provider).bindTo(writer);
 
-        return new ScalarFunctionImplementation(false, ImmutableList.of(false), methodHandle, isDeterministic());
+        return new ScalarFunctionImplementation(
+                false,
+                ImmutableList.of(valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
+                methodHandle,
+                isDeterministic());
     }
 
     @UsedByGeneratedCode

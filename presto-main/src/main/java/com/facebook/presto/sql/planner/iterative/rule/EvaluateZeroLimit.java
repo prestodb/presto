@@ -13,39 +13,31 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
-import com.facebook.presto.sql.planner.SymbolAllocator;
-import com.facebook.presto.sql.planner.iterative.Lookup;
-import com.facebook.presto.sql.planner.iterative.Pattern;
+import com.facebook.presto.matching.Captures;
+import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.LimitNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.google.common.collect.ImmutableList;
 
-import java.util.Optional;
+import static com.facebook.presto.sql.planner.plan.Patterns.Limit.count;
+import static com.facebook.presto.sql.planner.plan.Patterns.limit;
 
 public class EvaluateZeroLimit
-    implements Rule
+        implements Rule<LimitNode>
 {
-    private static final Pattern PATTERN = Pattern.node(LimitNode.class);
+    private static final Pattern<LimitNode> PATTERN = limit()
+            .with(count().equalTo(0L));
 
     @Override
-    public Pattern getPattern()
+    public Pattern<LimitNode> getPattern()
     {
         return PATTERN;
     }
 
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Lookup lookup, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session)
+    public Result apply(LimitNode limit, Captures captures, Context context)
     {
-        LimitNode limit = (LimitNode) node;
-
-        if (limit.getCount() != 0) {
-            return Optional.empty();
-        }
-
-        return Optional.of(new ValuesNode(limit.getId(), limit.getOutputSymbols(), ImmutableList.of()));
+        return Result.ofPlanNode(new ValuesNode(limit.getId(), limit.getOutputSymbols(), ImmutableList.of()));
     }
 }

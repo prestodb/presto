@@ -52,8 +52,7 @@ public class TestPushAggregationThroughOuterJoin
                                         ImmutableList.of(p.symbol("COL1"), p.symbol("COL2")),
                                         Optional.empty(),
                                         Optional.empty(),
-                                        Optional.empty()
-                                ))
+                                        Optional.empty()))
                         .addAggregation(p.symbol("AVG", DOUBLE), PlanBuilder.expression("avg(COL2)"), ImmutableList.of(DOUBLE))
                         .addGroupingSet(p.symbol("COL1"))))
                 .matches(
@@ -152,8 +151,7 @@ public class TestPushAggregationThroughOuterJoin
                                 Optional.empty(),
                                 Optional.empty()))
                         .addAggregation(new Symbol("AVG"), PlanBuilder.expression("avg(COL2)"), ImmutableList.of(DOUBLE))
-                        .addGroupingSet(new Symbol("COL1"), new Symbol("COL3")))
-                )
+                        .addGroupingSet(new Symbol("COL1"), new Symbol("COL3"))))
                 .doesNotFire();
     }
 }

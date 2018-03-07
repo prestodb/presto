@@ -45,6 +45,7 @@ public class SpillSpaceTracker
 
     /**
      * Reserves the given number of bytes to spill. If more than the maximum, throws an exception.
+     *
      * @throws ExceededSpillLimitException
      */
     public synchronized ListenableFuture<?> reserve(long bytes)

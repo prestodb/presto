@@ -45,7 +45,6 @@ import com.facebook.presto.spi.eventlistener.StageCpuDistribution;
 import com.facebook.presto.transaction.TransactionId;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
@@ -102,6 +101,15 @@ public class QueryMonitor
 
     public void queryCreatedEvent(QueryInfo queryInfo)
     {
+        Optional<String> plan = Optional.empty();
+        try {
+            if (queryInfo.getPlan().isPresent()) {
+                plan = Optional.of(objectMapper.writeValueAsString(queryInfo.getPlan().get()));
+            }
+        }
+        catch (JsonProcessingException ignored) {
+        }
+
         eventListenerManager.queryCreated(
                 new QueryCreatedEvent(
                         queryInfo.getQueryStats().getCreateTime().toDate().toInstant(),
@@ -111,6 +119,7 @@ public class QueryMonitor
                                 queryInfo.getSession().getRemoteUserAddress(),
                                 queryInfo.getSession().getUserAgent(),
                                 queryInfo.getSession().getClientInfo(),
+                                queryInfo.getSession().getClientTags(),
                                 queryInfo.getSession().getSource(),
                                 queryInfo.getSession().getCatalog(),
                                 queryInfo.getSession().getSchema(),
@@ -125,6 +134,7 @@ public class QueryMonitor
                                 queryInfo.getQuery(),
                                 queryInfo.getState().toString(),
                                 queryInfo.getSelf(),
+                                plan,
                                 Optional.empty())));
     }
 
@@ -153,7 +163,7 @@ public class QueryMonitor
                         input.getSchema(),
                         input.getTable(),
                         input.getColumns().stream()
-                                .map(Column::toString).collect(Collectors.toList()),
+                                .map(Column::getName).collect(Collectors.toList()),
                         input.getConnectorInfo()));
             }
 
@@ -181,6 +191,11 @@ public class QueryMonitor
                 operatorSummaries.add(objectMapper.writeValueAsString(summary));
             }
 
+            Optional<String> plan = Optional.empty();
+            if (queryInfo.getPlan().isPresent()) {
+                plan = Optional.of(objectMapper.writeValueAsString(queryInfo.getPlan().get()));
+            }
+
             eventListenerManager.queryCompleted(
                     new QueryCompletedEvent(
                             new QueryMetadata(
@@ -189,6 +204,7 @@ public class QueryMonitor
                                     queryInfo.getQuery(),
                                     queryInfo.getState().toString(),
                                     queryInfo.getSelf(),
+                                    plan,
                                     queryInfo.getOutputStage().flatMap(stage -> stageInfoCodec.toJsonWithLengthLimit(stage, toIntExact(config.getMaxOutputStageJsonSize().toBytes())))),
                             new QueryStatistics(
                                     ofMillis(queryStats.getTotalCpuTime().toMillis()),
@@ -196,10 +212,15 @@ public class QueryMonitor
                                     ofMillis(queryStats.getQueuedTime().toMillis()),
                                     Optional.ofNullable(queryStats.getAnalysisTime()).map(duration -> ofMillis(duration.toMillis())),
                                     Optional.ofNullable(queryStats.getDistributedPlanningTime()).map(duration -> ofMillis(duration.toMillis())),
-                                    queryStats.getPeakMemoryReservation().toBytes(),
+                                    queryStats.getPeakUserMemoryReservation().toBytes(),
+                                    queryStats.getPeakTotalMemoryReservation().toBytes(),
                                     queryStats.getRawInputDataSize().toBytes(),
                                     queryStats.getRawInputPositions(),
-                                    queryStats.getCumulativeMemory(),
+                                    queryStats.getOutputDataSize().toBytes(),
+                                    queryStats.getOutputPositions(),
+                                    queryStats.getLogicalWrittenDataSize().toBytes(),
+                                    queryStats.getWrittenPositions(),
+                                    queryStats.getCumulativeUserMemory(),
                                     queryStats.getCompletedDrivers(),
                                     queryInfo.isCompleteInfo(),
                                     getCpuDistributions(queryInfo),
@@ -210,6 +231,7 @@ public class QueryMonitor
                                     queryInfo.getSession().getRemoteUserAddress(),
                                     queryInfo.getSession().getUserAgent(),
                                     queryInfo.getSession().getClientInfo(),
+                                    queryInfo.getSession().getClientTags(),
                                     queryInfo.getSession().getSource(),
                                     queryInfo.getSession().getCatalog(),
                                     queryInfo.getSession().getSchema(),
@@ -227,7 +249,7 @@ public class QueryMonitor
             logQueryTimeline(queryInfo);
         }
         catch (JsonProcessingException e) {
-            throw Throwables.propagate(e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -367,7 +389,6 @@ public class QueryMonitor
                                     ofMillis(driverStats.getRawInputReadTime().toMillis()),
                                     driverStats.getRawInputPositions(),
                                     driverStats.getRawInputDataSize().toBytes(),
-                                    driverStats.getPeakMemoryReservation().toBytes(),
                                     timeToStart,
                                     timeToEnd),
                             splitFailureMetadata,

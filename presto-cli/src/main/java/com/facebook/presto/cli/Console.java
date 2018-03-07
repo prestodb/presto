@@ -15,14 +15,9 @@ package com.facebook.presto.cli;
 
 import com.facebook.presto.cli.ClientOptions.OutputFormat;
 import com.facebook.presto.client.ClientSession;
-import com.facebook.presto.sql.parser.IdentifierSymbol;
-import com.facebook.presto.sql.parser.ParsingException;
-import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.sql.parser.StatementSplitter;
-import com.facebook.presto.sql.tree.Use;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
 import io.airlift.airline.Command;
@@ -40,10 +35,11 @@ import javax.inject.Inject;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
-import java.util.EnumSet;
+import java.io.UncheckedIOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 
@@ -61,22 +57,20 @@ import static com.facebook.presto.sql.parser.StatementSplitter.isEmptyStatement;
 import static com.facebook.presto.sql.parser.StatementSplitter.squeezeStatement;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.io.ByteStreams.nullOutputStream;
+import static com.google.common.util.concurrent.Uninterruptibles.awaitUninterruptibly;
 import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static jline.internal.Configuration.getUserHome;
 
 @Command(name = "presto", description = "Presto interactive console")
 public class Console
-        implements Runnable
 {
     private static final String PROMPT_NAME = "presto";
     private static final Duration EXIT_DELAY = new Duration(3, SECONDS);
-
-    // create a parser with all identifier options enabled, since this is only used for USE statements
-    private static final SqlParser SQL_PARSER = new SqlParser(new SqlParserOptions().allowIdentifierSymbol(EnumSet.allOf(IdentifierSymbol.class)));
 
     private static final Pattern HISTORY_INDEX_PATTERN = Pattern.compile("!\\d+");
 
@@ -89,8 +83,7 @@ public class Console
     @Inject
     public ClientOptions clientOptions = new ClientOptions();
 
-    @Override
-    public void run()
+    public boolean run()
     {
         ClientSession session = clientOptions.toClientSession();
         boolean hasQuery = !Strings.isNullOrEmpty(clientOptions.execute);
@@ -120,11 +113,19 @@ public class Console
             }
         }
 
+        // abort any running query if the CLI is terminated
         AtomicBoolean exiting = new AtomicBoolean();
-        interruptThreadOnExit(Thread.currentThread(), exiting);
+        ThreadInterruptor interruptor = new ThreadInterruptor();
+        CountDownLatch exited = new CountDownLatch(1);
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            exiting.set(true);
+            interruptor.interrupt();
+            awaitUninterruptibly(exited, EXIT_DELAY.toMillis(), MILLISECONDS);
+        }));
 
         try (QueryRunner queryRunner = new QueryRunner(
                 session,
+                clientOptions.debug,
                 Optional.ofNullable(clientOptions.socksProxy),
                 Optional.ofNullable(clientOptions.httpProxy),
                 Optional.ofNullable(clientOptions.keystorePath),
@@ -141,11 +142,15 @@ public class Console
                 !clientOptions.krb5DisableRemoteServiceHostnameCanonicalization,
                 clientOptions.authenticationEnabled)) {
             if (hasQuery) {
-                executeCommand(queryRunner, query, clientOptions.outputFormat);
+                return executeCommand(queryRunner, query, clientOptions.outputFormat, clientOptions.ignoreErrors);
             }
-            else {
-                runConsole(queryRunner, session, exiting);
-            }
+
+            runConsole(queryRunner, exiting);
+            return true;
+        }
+        finally {
+            exited.countDown();
+            interruptor.close();
         }
     }
 
@@ -168,7 +173,7 @@ public class Console
         return "";
     }
 
-    private static void runConsole(QueryRunner queryRunner, ClientSession session, AtomicBoolean exiting)
+    private static void runConsole(QueryRunner queryRunner, AtomicBoolean exiting)
     {
         try (TableNameCompleter tableNameCompleter = new TableNameCompleter(queryRunner);
                 LineReader reader = new LineReader(getHistory(), commandCompleter(), lowerCaseCommandCompleter(), tableNameCompleter)) {
@@ -177,8 +182,9 @@ public class Console
             while (!exiting.get()) {
                 // read a line of input from user
                 String prompt = PROMPT_NAME;
-                if (session.getSchema() != null) {
-                    prompt += ":" + session.getSchema();
+                String schema = queryRunner.getSession().getSchema();
+                if (schema != null) {
+                    prompt += ":" + schema;
                 }
                 if (buffer.length() > 0) {
                     prompt = Strings.repeat(" ", prompt.length() - 1) + "-";
@@ -244,22 +250,12 @@ public class Console
                 String sql = buffer.toString();
                 StatementSplitter splitter = new StatementSplitter(sql, ImmutableSet.of(";", "\\G"));
                 for (Statement split : splitter.getCompleteStatements()) {
-                    Optional<Object> statement = getParsedStatement(split.statement());
-                    if (statement.isPresent() && isSessionParameterChange(statement.get())) {
-                        Map<String, String> properties = queryRunner.getSession().getProperties();
-                        Map<String, String> preparedStatements = queryRunner.getSession().getPreparedStatements();
-                        session = processSessionParameterChange(statement.get(), session, properties, preparedStatements);
-                        queryRunner.setSession(session);
-                        tableNameCompleter.populateCache();
+                    OutputFormat outputFormat = OutputFormat.ALIGNED;
+                    if (split.terminator().equals("\\G")) {
+                        outputFormat = OutputFormat.VERTICAL;
                     }
-                    else {
-                        OutputFormat outputFormat = OutputFormat.ALIGNED;
-                        if (split.terminator().equals("\\G")) {
-                            outputFormat = OutputFormat.VERTICAL;
-                        }
 
-                        process(queryRunner, split.statement(), outputFormat, true);
-                    }
+                    process(queryRunner, split.statement(), outputFormat, tableNameCompleter::populateCache, true);
                     reader.getHistory().add(squeezeStatement(split.statement()) + split.terminator());
                 }
 
@@ -276,46 +272,28 @@ public class Console
         }
     }
 
-    private static Optional<Object> getParsedStatement(String statement)
+    private static boolean executeCommand(QueryRunner queryRunner, String query, OutputFormat outputFormat, boolean ignoreErrors)
     {
-        try {
-            return Optional.of((Object) SQL_PARSER.createStatement(statement));
-        }
-        catch (ParsingException e) {
-            return Optional.empty();
-        }
-    }
-
-    static ClientSession processSessionParameterChange(Object parsedStatement, ClientSession session, Map<String, String> existingProperties, Map<String, String> existingPreparedStatements)
-    {
-        if (parsedStatement instanceof Use) {
-            Use use = (Use) parsedStatement;
-            session = withCatalogAndSchema(session, use.getCatalog().orElse(session.getCatalog()), use.getSchema());
-            session = withProperties(session, existingProperties);
-            session = withPreparedStatements(session, existingPreparedStatements);
-        }
-        return session;
-    }
-
-    private static boolean isSessionParameterChange(Object statement)
-    {
-        return statement instanceof Use;
-    }
-
-    private static void executeCommand(QueryRunner queryRunner, String query, OutputFormat outputFormat)
-    {
+        boolean success = true;
         StatementSplitter splitter = new StatementSplitter(query);
         for (Statement split : splitter.getCompleteStatements()) {
             if (!isEmptyStatement(split.statement())) {
-                process(queryRunner, split.statement(), outputFormat, false);
+                if (!process(queryRunner, split.statement(), outputFormat, () -> {}, false)) {
+                    if (!ignoreErrors) {
+                        return false;
+                    }
+                    success = false;
+                }
             }
         }
         if (!isEmptyStatement(splitter.getPartialStatement())) {
             System.err.println("Non-terminated statement: " + splitter.getPartialStatement());
+            return false;
         }
+        return success;
     }
 
-    private static void process(QueryRunner queryRunner, String sql, OutputFormat outputFormat, boolean interactive)
+    private static boolean process(QueryRunner queryRunner, String sql, OutputFormat outputFormat, Runnable schemaChanged, boolean interactive)
     {
         String finalSql;
         try {
@@ -326,16 +304,24 @@ public class Console
         }
         catch (QueryPreprocessorException e) {
             System.err.println(e.getMessage());
-            if (queryRunner.getSession().isDebug()) {
+            if (queryRunner.isDebug()) {
                 e.printStackTrace();
             }
-            return;
+            return false;
         }
 
         try (Query query = queryRunner.startQuery(finalSql)) {
-            query.renderOutput(System.out, outputFormat, interactive);
+            boolean success = query.renderOutput(System.out, outputFormat, interactive);
 
             ClientSession session = queryRunner.getSession();
+
+            // update catalog and schema if present
+            if (query.getSetCatalog().isPresent() || query.getSetSchema().isPresent()) {
+                session = withCatalogAndSchema(session,
+                        query.getSetCatalog().orElse(session.getCatalog()),
+                        query.getSetSchema().orElse(session.getSchema()));
+                schemaChanged.run();
+            }
 
             // update session properties if present
             if (!query.getSetSessionProperties().isEmpty() || !query.getResetSessionProperties().isEmpty()) {
@@ -362,26 +348,43 @@ public class Console
             }
 
             queryRunner.setSession(session);
+
+            return success;
         }
         catch (RuntimeException e) {
             System.err.println("Error running command: " + e.getMessage());
-            if (queryRunner.getSession().isDebug()) {
+            if (queryRunner.isDebug()) {
                 e.printStackTrace();
             }
+            return false;
         }
     }
 
     private static MemoryHistory getHistory()
     {
+        return getHistory(new File(getUserHome(), ".presto_history"));
+    }
+
+    @VisibleForTesting
+    static MemoryHistory getHistory(File historyFile)
+    {
+        if (!historyFile.canWrite() || !historyFile.canRead()) {
+            System.err.printf("WARNING: History file is not readable/writable: %s. " +
+                            "History will not be available during this session.%n",
+                    historyFile.getAbsolutePath());
+            MemoryHistory history = new MemoryHistory();
+            history.setAutoTrim(true);
+            return history;
+        }
+
         MemoryHistory history;
-        File historyFile = new File(getUserHome(), ".presto_history");
         try {
             history = new FileHistory(historyFile);
             history.setMaxSize(10000);
         }
         catch (IOException e) {
             System.err.printf("WARNING: Failed to load history file (%s): %s. " +
-                    "History will not be available during this session.%n",
+                            "History will not be available during this session.%n",
                     historyFile, e.getMessage());
             history = new MemoryHistory();
         }
@@ -412,24 +415,11 @@ public class Console
             logging.configure(config);
         }
         catch (IOException e) {
-            throw Throwables.propagate(e);
+            throw new UncheckedIOException(e);
         }
         finally {
             System.setOut(out);
             System.setErr(err);
         }
-    }
-
-    private static void interruptThreadOnExit(Thread thread, AtomicBoolean exiting)
-    {
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            exiting.set(true);
-            thread.interrupt();
-            try {
-                thread.join(EXIT_DELAY.toMillis());
-            }
-            catch (InterruptedException ignored) {
-            }
-        }));
     }
 }

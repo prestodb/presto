@@ -22,6 +22,7 @@ import org.testng.annotations.Test;
 import java.io.IOException;
 import java.util.Optional;
 
+import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 import static com.facebook.presto.sql.testing.TreeAssertions.assertFormattedSql;
 import static com.google.common.base.Strings.repeat;
 import static java.lang.String.format;
@@ -35,7 +36,6 @@ public class TestStatementBuilder
 
     @Test
     public void testStatementBuilder()
-            throws Exception
     {
         printStatement("select * from foo");
         printStatement("explain select * from foo");
@@ -148,6 +148,13 @@ public class TestStatementBuilder
         printStatement("create table if not exists foo as (with t(x) as (values 1) select x from t) WITH DATA");
         printStatement("create table foo as (with t(x) as (values 1) select x from t) WITH NO DATA");
         printStatement("create table if not exists foo as (with t(x) as (values 1) select x from t) WITH NO DATA");
+
+        printStatement("create table foo(a) as (with t(x) as (values 1) select x from t)");
+        printStatement("create table if not exists foo(a) as (with t(x) as (values 1) select x from t)");
+        printStatement("create table foo(a) as (with t(x) as (values 1) select x from t) WITH DATA");
+        printStatement("create table if not exists foo(a) as (with t(x) as (values 1) select x from t) WITH DATA");
+        printStatement("create table foo(a) as (with t(x) as (values 1) select x from t) WITH NO DATA");
+        printStatement("create table if not exists foo(a) as (with t(x) as (values 1) select x from t) WITH NO DATA");
         printStatement("drop table foo");
 
         printStatement("insert into foo select * from abc");
@@ -185,6 +192,8 @@ public class TestStatementBuilder
         printStatement("alter table a.b.c rename column x to y");
 
         printStatement("alter table a.b.c add column x bigint");
+
+        printStatement("alter table a.b.c drop column x");
 
         printStatement("create schema test");
         printStatement("create schema if not exists test");
@@ -250,7 +259,6 @@ public class TestStatementBuilder
 
     @Test
     public void testStringFormatter()
-            throws Exception
     {
         assertSqlFormatter("U&'hello\\6d4B\\8Bd5\\+10FFFFworld\\7F16\\7801'",
                 "U&'hello\\6D4B\\8BD5\\+10FFFFworld\\7F16\\7801'");
@@ -258,7 +266,7 @@ public class TestStatementBuilder
         assertSqlFormatter("U&'!+10FFFF!6d4B!8Bd5ABC!6d4B!8Bd5' UESCAPE '!'", "U&'\\+10FFFF\\6D4B\\8BD5ABC\\6D4B\\8BD5'");
         assertSqlFormatter("U&'\\+10FFFF\\6D4B\\8BD5\\0041\\0042\\0043\\6D4B\\8BD5'", "U&'\\+10FFFF\\6D4B\\8BD5ABC\\6D4B\\8BD5'");
         assertSqlFormatter("U&'\\\\abc\\6D4B'''", "U&'\\\\abc\\6D4B'''");
-   }
+    }
 
     @Test
     public void testStatementBuilderTpch()
@@ -300,7 +308,8 @@ public class TestStatementBuilder
         println(sql.trim());
         println("");
 
-        Statement statement = SQL_PARSER.createStatement(sql);
+        ParsingOptions parsingOptions = new ParsingOptions(AS_DOUBLE /* anything */);
+        Statement statement = SQL_PARSER.createStatement(sql, parsingOptions);
         println(statement.toString());
         println("");
 

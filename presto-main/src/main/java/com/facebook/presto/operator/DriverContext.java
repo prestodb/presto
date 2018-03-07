@@ -14,8 +14,12 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.memory.QueryContextVisitor;
+import com.facebook.presto.memory.context.MemoryTrackingContext;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -29,6 +33,7 @@ import java.lang.management.ThreadMXBean;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -42,6 +47,7 @@ import static io.airlift.units.DataSize.succinctBytes;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
+import static java.util.stream.Collectors.toList;
 
 /**
  * Only calling getDriverStats is ThreadSafe
@@ -51,7 +57,8 @@ public class DriverContext
     private static final ThreadMXBean THREAD_MX_BEAN = ManagementFactory.getThreadMXBean();
 
     private final PipelineContext pipelineContext;
-    private final Executor executor;
+    private final Executor notificationExecutor;
+    private final ScheduledExecutorService yieldExecutor;
 
     private final AtomicBoolean finished = new AtomicBoolean();
 
@@ -76,18 +83,29 @@ public class DriverContext
     private final AtomicReference<DateTime> executionStartTime = new AtomicReference<>();
     private final AtomicReference<DateTime> executionEndTime = new AtomicReference<>();
 
-    private final AtomicLong memoryReservation = new AtomicLong();
-    private final AtomicLong peakMemoryReservation = new AtomicLong();
-    private final AtomicLong systemMemoryReservation = new AtomicLong();
+    private final MemoryTrackingContext driverMemoryContext;
+
+    private final DriverYieldSignal yieldSignal;
 
     private final List<OperatorContext> operatorContexts = new CopyOnWriteArrayList<>();
     private final boolean partitioned;
+    private final Lifespan lifespan;
 
-    public DriverContext(PipelineContext pipelineContext, Executor executor, boolean partitioned)
+    public DriverContext(
+            PipelineContext pipelineContext,
+            Executor notificationExecutor,
+            ScheduledExecutorService yieldExecutor,
+            MemoryTrackingContext driverMemoryContext,
+            boolean partitioned,
+            Lifespan lifespan)
     {
         this.pipelineContext = requireNonNull(pipelineContext, "pipelineContext is null");
-        this.executor = requireNonNull(executor, "executor is null");
+        this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
+        this.yieldExecutor = requireNonNull(yieldExecutor, "scheduler is null");
+        this.driverMemoryContext = requireNonNull(driverMemoryContext, "driverMemoryContext is null");
         this.partitioned = partitioned;
+        this.lifespan = requireNonNull(lifespan, "lifespan is null");
+        this.yieldSignal = new DriverYieldSignal();
     }
 
     public TaskId getTaskId()
@@ -103,7 +121,13 @@ public class DriverContext
             checkArgument(operatorId != operatorContext.getOperatorId(), "A context already exists for operatorId %s", operatorId);
         }
 
-        OperatorContext operatorContext = new OperatorContext(operatorId, planNodeId, operatorType, this, executor);
+        OperatorContext operatorContext = new OperatorContext(
+                operatorId,
+                planNodeId,
+                operatorType,
+                this,
+                notificationExecutor,
+                driverMemoryContext.newMemoryTrackingContext());
         operatorContexts.add(operatorContext);
         return operatorContext;
     }
@@ -154,7 +178,7 @@ public class DriverContext
             oldMonitor.run();
         }
 
-        blocked.addListener(monitor, executor);
+        blocked.addListener(monitor, notificationExecutor);
     }
 
     public void finished()
@@ -180,63 +204,9 @@ public class DriverContext
         return finished.get() || pipelineContext.isDone();
     }
 
-    public void transferMemoryToTaskContext(long bytes)
-    {
-        pipelineContext.transferMemoryToTaskContext(bytes);
-        checkArgument(memoryReservation.addAndGet(-bytes) >= 0, "Tried to transfer more memory than is reserved");
-    }
-
-    public ListenableFuture<?> reserveMemory(long bytes)
-    {
-        ListenableFuture<?> future = pipelineContext.reserveMemory(bytes);
-        long newMemoryReservation = memoryReservation.addAndGet(bytes);
-        peakMemoryReservation.accumulateAndGet(newMemoryReservation, Math::max);
-        return future;
-    }
-
-    public ListenableFuture<?> reserveSystemMemory(long bytes)
-    {
-        checkArgument(bytes >= 0, "bytes is negative");
-        ListenableFuture<?> future = pipelineContext.reserveSystemMemory(bytes);
-        systemMemoryReservation.getAndAdd(bytes);
-        return future;
-    }
-
     public ListenableFuture<?> reserveSpill(long bytes)
     {
         return pipelineContext.reserveSpill(bytes);
-    }
-
-    public boolean tryReserveMemory(long bytes)
-    {
-        if (pipelineContext.tryReserveMemory(bytes)) {
-            long newMemoryReservation = memoryReservation.addAndGet(bytes);
-            peakMemoryReservation.accumulateAndGet(newMemoryReservation, Math::max);
-            return true;
-        }
-        return false;
-    }
-
-    public void freeMemory(long bytes)
-    {
-        if (bytes == 0) {
-            return;
-        }
-        checkArgument(bytes > 0, "bytes is negative");
-        checkArgument(bytes <= memoryReservation.get(), "tried to free more memory than is reserved");
-        pipelineContext.freeMemory(bytes);
-        memoryReservation.getAndAdd(-bytes);
-    }
-
-    public void freeSystemMemory(long bytes)
-    {
-        if (bytes == 0) {
-            return;
-        }
-        checkArgument(bytes > 0, "bytes is negative");
-        checkArgument(bytes <= systemMemoryReservation.get(), "tried to free more memory than is reserved");
-        pipelineContext.freeSystemMemory(bytes);
-        systemMemoryReservation.getAndAdd(-bytes);
     }
 
     public void freeSpill(long bytes)
@@ -248,14 +218,24 @@ public class DriverContext
         pipelineContext.freeSpill(bytes);
     }
 
+    public DriverYieldSignal getYieldSignal()
+    {
+        return yieldSignal;
+    }
+
     public long getSystemMemoryUsage()
     {
-        return systemMemoryReservation.get();
+        return driverMemoryContext.getSystemMemory();
     }
 
     public long getMemoryUsage()
     {
-        return memoryReservation.get();
+        return driverMemoryContext.getUserMemory();
+    }
+
+    public long getRevocableMemoryUsage()
+    {
+        return driverMemoryContext.getRevocableMemory();
     }
 
     public void moreMemoryAvailable()
@@ -317,6 +297,23 @@ public class DriverContext
         }
     }
 
+    public long getPphysicalWrittenDataSize()
+    {
+        return operatorContexts.stream()
+                .mapToLong(OperatorContext::getPhysicalWrittenDataSize)
+                .sum();
+    }
+
+    public boolean isExecutionStarted()
+    {
+        return executionStartTime.get() != null;
+    }
+
+    public boolean isFullyBlocked()
+    {
+        return blockedMonitor.get() != null;
+    }
+
     public DriverStats getDriverStats()
     {
         long totalScheduledTime = processWallNanos.get();
@@ -362,6 +359,11 @@ public class DriverContext
             outputPositions = 0;
         }
 
+        long physicalWrittenDataSize = operators.stream()
+                .map(OperatorStats::getPhysicalWrittenDataSize)
+                .mapToLong(DataSize::toBytes)
+                .sum();
+
         long startNanos = this.startNanos.get();
         if (startNanos < createNanos) {
             startNanos = System.nanoTime();
@@ -391,9 +393,9 @@ public class DriverContext
                 executionEndTime.get(),
                 queuedTime.convertToMostSuccinctTimeUnit(),
                 elapsedTime.convertToMostSuccinctTimeUnit(),
-                succinctBytes(memoryReservation.get()),
-                succinctBytes(peakMemoryReservation.get()),
-                succinctBytes(systemMemoryReservation.get()),
+                succinctBytes(driverMemoryContext.getUserMemory()),
+                succinctBytes(driverMemoryContext.getRevocableMemory()),
+                succinctBytes(driverMemoryContext.getSystemMemory()),
                 new Duration(totalScheduledTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalCpuTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalUserTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
@@ -407,12 +409,35 @@ public class DriverContext
                 processedInputPositions,
                 outputDataSize.convertToMostSuccinctDataSize(),
                 outputPositions,
+                succinctBytes(physicalWrittenDataSize),
                 ImmutableList.copyOf(transform(operatorContexts, OperatorContext::getOperatorStats)));
+    }
+
+    public <C, R> R accept(QueryContextVisitor<C, R> visitor, C context)
+    {
+        return visitor.visitDriverContext(this, context);
+    }
+
+    public <C, R> List<R> acceptChildren(QueryContextVisitor<C, R> visitor, C context)
+    {
+        return operatorContexts.stream()
+                .map(operatorContext -> operatorContext.accept(visitor, context))
+                .collect(toList());
     }
 
     public boolean isPartitioned()
     {
         return partitioned;
+    }
+
+    public Lifespan getLifespan()
+    {
+        return lifespan;
+    }
+
+    public ScheduledExecutorService getYieldExecutor()
+    {
+        return yieldExecutor;
     }
 
     private long currentThreadUserTime()
@@ -434,13 +459,6 @@ public class DriverContext
     private static long nanosBetween(long start, long end)
     {
         return Math.abs(end - start);
-    }
-
-    // hack for index joins
-    @Deprecated
-    public Executor getExecutor()
-    {
-        return executor;
     }
 
     private class BlockedMonitor
@@ -466,5 +484,11 @@ public class DriverContext
         {
             return nanosBetween(start, System.nanoTime());
         }
+    }
+
+    @VisibleForTesting
+    public MemoryTrackingContext getDriverMemoryContext()
+    {
+        return driverMemoryContext;
     }
 }

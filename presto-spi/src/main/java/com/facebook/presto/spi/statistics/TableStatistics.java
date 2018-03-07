@@ -27,33 +27,18 @@ public final class TableStatistics
 {
     public static final TableStatistics EMPTY_STATISTICS = TableStatistics.builder().build();
 
-    private static final String ROW_COUNT_STATISTIC_KEY = "row_count";
-
-    private final Map<String, Estimate> statistics;
+    private final Estimate rowCount;
     private final Map<ColumnHandle, ColumnStatistics> columnStatistics;
 
     public TableStatistics(Estimate rowCount, Map<ColumnHandle, ColumnStatistics> columnStatistics)
     {
-        requireNonNull(rowCount, "rowCount can not be null");
+        this.rowCount = requireNonNull(rowCount, "rowCount can not be null");
         this.columnStatistics = unmodifiableMap(requireNonNull(columnStatistics, "columnStatistics can not be null"));
-        this.statistics = createStatisticsMap(rowCount);
-    }
-
-    private static Map<String, Estimate> createStatisticsMap(Estimate rowCount)
-    {
-        Map<String, Estimate> statistics = new HashMap<>();
-        statistics.put(ROW_COUNT_STATISTIC_KEY, rowCount);
-        return unmodifiableMap(statistics);
     }
 
     public Estimate getRowCount()
     {
-        return statistics.get(ROW_COUNT_STATISTIC_KEY);
-    }
-
-    public Map<String, Estimate> getTableStatistics()
-    {
-        return statistics;
+        return rowCount;
     }
 
     public Map<ColumnHandle, ColumnStatistics> getColumnStatistics()

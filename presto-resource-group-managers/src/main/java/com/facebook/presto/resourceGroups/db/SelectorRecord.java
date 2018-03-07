@@ -13,30 +13,47 @@
  */
 package com.facebook.presto.resourceGroups.db;
 
-import org.skife.jdbi.v2.StatementContext;
-import org.skife.jdbi.v2.tweak.ResultSetMapper;
+import com.google.common.collect.ImmutableList;
+import io.airlift.json.JsonCodec;
+import org.jdbi.v3.core.mapper.RowMapper;
+import org.jdbi.v3.core.statement.StatementContext;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.List;
 import java.util.Optional;
 import java.util.regex.Pattern;
+
+import static io.airlift.json.JsonCodec.listJsonCodec;
+import static java.util.Objects.requireNonNull;
 
 public class SelectorRecord
 {
     private final long resourceGroupId;
+    private final long priority;
     private final Optional<Pattern> userRegex;
     private final Optional<Pattern> sourceRegex;
+    private final Optional<String> queryType;
+    private final Optional<List<String>> clientTags;
 
-    public SelectorRecord(long resourceGroupId, Optional<Pattern> userRegex, Optional<Pattern> sourceRegex)
+    public SelectorRecord(long resourceGroupId, long priority, Optional<Pattern> userRegex, Optional<Pattern> sourceRegex, Optional<String> queryType, Optional<List<String>> clientTags)
     {
         this.resourceGroupId = resourceGroupId;
-        this.userRegex = userRegex;
-        this.sourceRegex = sourceRegex;
+        this.priority = priority;
+        this.userRegex = requireNonNull(userRegex, "userRegex is null");
+        this.sourceRegex = requireNonNull(sourceRegex, "sourceRegex is null");
+        this.queryType = requireNonNull(queryType, "queryType is null");
+        this.clientTags = requireNonNull(clientTags, "clientTags is null").map(ImmutableList::copyOf);
     }
 
     public long getResourceGroupId()
     {
         return resourceGroupId;
+    }
+
+    public long getPriority()
+    {
+        return priority;
     }
 
     public Optional<Pattern> getUserRegex()
@@ -49,18 +66,32 @@ public class SelectorRecord
         return sourceRegex;
     }
 
-    public static class Mapper
-        implements ResultSetMapper<SelectorRecord>
+    public Optional<String> getQueryType()
     {
+        return queryType;
+    }
+
+    public Optional<List<String>> getClientTags()
+    {
+        return clientTags;
+    }
+
+    public static class Mapper
+            implements RowMapper<SelectorRecord>
+    {
+        private static final JsonCodec<List<String>> LIST_STRING_CODEC = listJsonCodec(String.class);
+
         @Override
-        public SelectorRecord map(int index, ResultSet resultSet, StatementContext context)
-            throws SQLException
+        public SelectorRecord map(ResultSet resultSet, StatementContext context)
+                throws SQLException
         {
             return new SelectorRecord(
                     resultSet.getLong("resource_group_id"),
+                    resultSet.getLong("priority"),
                     Optional.ofNullable(resultSet.getString("user_regex")).map(Pattern::compile),
-                    Optional.ofNullable(resultSet.getString("source_regex")).map(Pattern::compile)
-            );
+                    Optional.ofNullable(resultSet.getString("source_regex")).map(Pattern::compile),
+                    Optional.ofNullable(resultSet.getString("query_type")),
+                    Optional.ofNullable(resultSet.getString("client_tags")).map(LIST_STRING_CODEC::fromJson));
         }
     }
 }

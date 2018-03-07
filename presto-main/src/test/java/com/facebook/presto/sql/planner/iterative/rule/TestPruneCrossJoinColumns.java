@@ -53,7 +53,7 @@ public class TestPruneCrossJoinColumns
                                                 ImmutableMap.of(),
                                                 values(ImmutableList.of("leftValue"))),
                                         values(ImmutableList.of("rightValue")))
-                                .withExactOutputs("rightValue")));
+                                        .withExactOutputs("rightValue")));
     }
 
     @Test
@@ -72,7 +72,7 @@ public class TestPruneCrossJoinColumns
                                         strictProject(
                                                 ImmutableMap.of(),
                                                 values(ImmutableList.of("rightValue"))))
-                                .withExactOutputs("leftValue")));
+                                        .withExactOutputs("leftValue")));
     }
 
     @Test

@@ -13,17 +13,9 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.bytecode.BytecodeBlock;
-import com.facebook.presto.bytecode.BytecodeNode;
-import com.facebook.presto.bytecode.ClassDefinition;
-import com.facebook.presto.bytecode.MethodDefinition;
-import com.facebook.presto.bytecode.Parameter;
-import com.facebook.presto.bytecode.Scope;
-import com.facebook.presto.bytecode.Variable;
-import com.facebook.presto.bytecode.control.ForLoop;
-import com.facebook.presto.bytecode.control.IfStatement;
-import com.facebook.presto.bytecode.instruction.LabelNode;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.operator.DriverYieldSignal;
+import com.facebook.presto.operator.project.CursorProcessorOutput;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.RecordCursor;
@@ -36,28 +28,36 @@ import com.facebook.presto.sql.relational.InputReferenceExpression;
 import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.RowExpressionVisitor;
-import com.facebook.presto.sql.relational.Signatures;
 import com.facebook.presto.sql.relational.VariableReferenceExpression;
 import com.google.common.base.VerifyException;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Primitives;
+import io.airlift.bytecode.BytecodeBlock;
+import io.airlift.bytecode.BytecodeNode;
+import io.airlift.bytecode.ClassDefinition;
+import io.airlift.bytecode.MethodDefinition;
+import io.airlift.bytecode.Parameter;
+import io.airlift.bytecode.Scope;
+import io.airlift.bytecode.Variable;
+import io.airlift.bytecode.control.IfStatement;
+import io.airlift.bytecode.control.WhileLoop;
+import io.airlift.bytecode.instruction.LabelNode;
 import io.airlift.slice.Slice;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
-import static com.facebook.presto.bytecode.Access.PUBLIC;
-import static com.facebook.presto.bytecode.Access.a;
-import static com.facebook.presto.bytecode.OpCode.NOP;
-import static com.facebook.presto.bytecode.Parameter.arg;
-import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static com.facebook.presto.sql.gen.BytecodeUtils.generateWrite;
 import static com.facebook.presto.sql.gen.LambdaAndTryExpressionExtractor.extractLambdaAndTryExpressions;
-import static com.facebook.presto.sql.gen.TryCodeGenerator.defineTryMethod;
-import static com.google.common.base.Verify.verify;
+import static io.airlift.bytecode.Access.PUBLIC;
+import static io.airlift.bytecode.Access.a;
+import static io.airlift.bytecode.Parameter.arg;
+import static io.airlift.bytecode.ParameterizedType.type;
+import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
+import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
+import static io.airlift.bytecode.expression.BytecodeExpressions.or;
+import static io.airlift.bytecode.instruction.JumpInstruction.jump;
 import static java.lang.String.format;
 
 public class CursorProcessorCompiler
@@ -74,18 +74,15 @@ public class CursorProcessorCompiler
     public void generateMethods(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, RowExpression filter, List<RowExpression> projections)
     {
         CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(classDefinition, callSiteBinder);
-        List<PreGeneratedExpressions> allPreGeneratedExpressions = new ArrayList<>(projections.size() + 1);
 
         generateProcessMethod(classDefinition, projections.size());
 
         PreGeneratedExpressions filterPreGeneratedExpressions = generateMethodsForLambdaAndTry(classDefinition, callSiteBinder, cachedInstanceBinder, filter, "filter");
-        allPreGeneratedExpressions.add(filterPreGeneratedExpressions);
         generateFilterMethod(classDefinition, callSiteBinder, cachedInstanceBinder, filterPreGeneratedExpressions, filter);
 
         for (int i = 0; i < projections.size(); i++) {
             String methodName = "project_" + i;
             PreGeneratedExpressions projectPreGeneratedExpressions = generateMethodsForLambdaAndTry(classDefinition, callSiteBinder, cachedInstanceBinder, projections.get(i), methodName);
-            allPreGeneratedExpressions.add(projectPreGeneratedExpressions);
             generateProjectMethod(classDefinition, callSiteBinder, cachedInstanceBinder, projectPreGeneratedExpressions, methodName, projections.get(i));
         }
 
@@ -97,60 +94,64 @@ public class CursorProcessorCompiler
                 .invokeConstructor(Object.class);
 
         cachedInstanceBinder.generateInitializations(thisVariable, constructorBody);
-        for (PreGeneratedExpressions preGeneratedExpressions : allPreGeneratedExpressions) {
-            for (CompiledLambda compiledLambda : preGeneratedExpressions.getCompiledLambdaMap().values()) {
-                compiledLambda.generateInitialization(thisVariable, constructorBody);
-            }
-        }
         constructorBody.ret();
     }
 
     private static void generateProcessMethod(ClassDefinition classDefinition, int projections)
     {
         Parameter session = arg("session", ConnectorSession.class);
+        Parameter yieldSignal = arg("yieldSignal", DriverYieldSignal.class);
         Parameter cursor = arg("cursor", RecordCursor.class);
-        Parameter count = arg("count", int.class);
         Parameter pageBuilder = arg("pageBuilder", PageBuilder.class);
-        MethodDefinition method = classDefinition.declareMethod(a(PUBLIC), "process", type(int.class), session, cursor, count, pageBuilder);
+        MethodDefinition method = classDefinition.declareMethod(a(PUBLIC), "process", type(CursorProcessorOutput.class), session, yieldSignal, cursor, pageBuilder);
 
         Scope scope = method.getScope();
         Variable completedPositionsVariable = scope.declareVariable(int.class, "completedPositions");
+        Variable finishedVariable = scope.declareVariable(boolean.class, "finished");
 
         method.getBody()
                 .comment("int completedPositions = 0;")
-                .putVariable(completedPositionsVariable, 0);
+                .putVariable(completedPositionsVariable, 0)
+                .comment("boolean finished = false;")
+                .putVariable(finishedVariable, false);
 
-        //
-        // for loop loop body
-        //
+        // while loop loop body
         LabelNode done = new LabelNode("done");
-        ForLoop forLoop = new ForLoop()
-                .initialize(NOP)
-                .condition(new BytecodeBlock()
-                                .comment("completedPositions < count")
-                                .getVariable(completedPositionsVariable)
-                                .getVariable(count)
-                                .invokeStatic(CompilerOperations.class, "lessThan", boolean.class, int.class, int.class)
-                )
-                .update(new BytecodeBlock()
-                                .comment("completedPositions++")
-                                .incrementVariable(completedPositionsVariable, (byte) 1)
-                );
+        WhileLoop whileLoop = new WhileLoop()
+                .condition(constantTrue())
+                .body(new BytecodeBlock()
+                        .comment("if (pageBuilder.isFull() || yieldSignal.isSet()) return new CursorProcessorOutput(completedPositions, false);")
+                        .append(new IfStatement()
+                                .condition(or(
+                                        pageBuilder.invoke("isFull", boolean.class),
+                                        yieldSignal.invoke("isSet", boolean.class)))
+                                .ifTrue(jump(done)))
+                        .comment("if (!cursor.advanceNextPosition()) return new CursorProcessorOutput(completedPositions, true);")
+                        .append(new IfStatement()
+                                .condition(cursor.invoke("advanceNextPosition", boolean.class))
+                                .ifFalse(new BytecodeBlock()
+                                        .putVariable(finishedVariable, true)
+                                        .gotoLabel(done)))
+                        .comment("do the projection")
+                        .append(createProjectIfStatement(classDefinition, method, session, cursor, pageBuilder, projections))
+                        .comment("completedPositions++;")
+                        .incrementVariable(completedPositionsVariable, (byte) 1));
 
-        BytecodeBlock forLoopBody = new BytecodeBlock()
-                .comment("if (pageBuilder.isFull()) break;")
-                .append(new BytecodeBlock()
-                        .getVariable(pageBuilder)
-                        .invokeVirtual(PageBuilder.class, "isFull", boolean.class)
-                        .ifTrueGoto(done))
-                .comment("if (!cursor.advanceNextPosition()) break;")
-                .append(new BytecodeBlock()
-                        .getVariable(cursor)
-                        .invokeInterface(RecordCursor.class, "advanceNextPosition", boolean.class)
-                        .ifFalseGoto(done));
+        method.getBody()
+                .append(whileLoop)
+                .visitLabel(done)
+                .append(newInstance(CursorProcessorOutput.class, completedPositionsVariable, finishedVariable)
+                        .ret());
+    }
 
-        forLoop.body(forLoopBody);
-
+    private static IfStatement createProjectIfStatement(
+            ClassDefinition classDefinition,
+            MethodDefinition method,
+            Parameter session,
+            Parameter cursor,
+            Parameter pageBuilder,
+            int projections)
+    {
         // if (filter(cursor))
         IfStatement ifStatement = new IfStatement();
         ifStatement.condition()
@@ -180,20 +181,13 @@ public class CursorProcessorCompiler
             // project(block..., blockBuilder)gen
             ifStatement.ifTrue()
                     .invokeVirtual(classDefinition.getType(),
-                    "project_" + projectionIndex,
-                    type(void.class),
-                    type(ConnectorSession.class),
-                    type(RecordCursor.class),
-                    type(BlockBuilder.class));
+                            "project_" + projectionIndex,
+                            type(void.class),
+                            type(ConnectorSession.class),
+                            type(RecordCursor.class),
+                            type(BlockBuilder.class));
         }
-        forLoopBody.append(ifStatement);
-
-        method.getBody()
-                .append(forLoop)
-                .visitLabel(done)
-                .comment("return completedPositions;")
-                .getVariable(completedPositionsVariable)
-                .retInt();
+        return ifStatement;
     }
 
     private PreGeneratedExpressions generateMethodsForLambdaAndTry(
@@ -210,43 +204,13 @@ public class CursorProcessorCompiler
 
         int counter = 0;
         for (RowExpression expression : lambdaAndTryExpressions) {
-            if (expression instanceof CallExpression) {
-                CallExpression tryExpression = (CallExpression) expression;
-                verify(!Signatures.TRY.equals(tryExpression.getSignature().getName()));
-
-                Parameter session = arg("session", ConnectorSession.class);
-                Parameter cursor = arg("cursor", RecordCursor.class);
-
-                List<Parameter> inputParameters = ImmutableList.<Parameter>builder()
-                        .add(session)
-                        .add(cursor)
-                        .build();
-
-                RowExpressionCompiler innerExpressionCompiler = new RowExpressionCompiler(
-                        callSiteBinder,
-                        cachedInstanceBinder,
-                        fieldReferenceCompiler(cursor),
-                        metadata.getFunctionRegistry(),
-                        new PreGeneratedExpressions(tryMethodMap.build(), compiledLambdaMap.build()));
-
-                MethodDefinition tryMethod = defineTryMethod(
-                        innerExpressionCompiler,
-                        containerClassDefinition,
-                        methodPrefix + "_try_" + counter,
-                        inputParameters,
-                        Primitives.wrap(tryExpression.getType().getJavaType()),
-                        tryExpression,
-                        callSiteBinder);
-
-                tryMethodMap.put(tryExpression, tryMethod);
-            }
-            else if (expression instanceof LambdaDefinitionExpression) {
+            if (expression instanceof LambdaDefinitionExpression) {
                 LambdaDefinitionExpression lambdaExpression = (LambdaDefinitionExpression) expression;
-                String fieldName = methodPrefix + "_lambda_" + counter;
+                String methodName = methodPrefix + "_lambda_" + counter;
                 PreGeneratedExpressions preGeneratedExpressions = new PreGeneratedExpressions(tryMethodMap.build(), compiledLambdaMap.build());
                 CompiledLambda compiledLambda = LambdaBytecodeGenerator.preGenerateLambdaExpression(
                         lambdaExpression,
-                        fieldName,
+                        methodName,
                         containerClassDefinition,
                         preGeneratedExpressions,
                         callSiteBinder,

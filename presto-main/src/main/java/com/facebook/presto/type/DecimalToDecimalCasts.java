@@ -62,8 +62,7 @@ public final class DecimalToDecimalCasts
                                 argumentType.getPrecision(), argumentType.getScale(),
                                 resultType.getPrecision(), resultType.getScale(),
                                 rescale, rescale / 2);
-                    })
-            )
+                    }))
             .implementation(b -> b
                     .methods("shortToLongCast", "longToShortCast", "longToLongCast")
                     .withExtraParameters((context) -> {
@@ -72,8 +71,7 @@ public final class DecimalToDecimalCasts
                         return ImmutableList.of(
                                 argumentType.getPrecision(), argumentType.getScale(),
                                 resultType.getPrecision(), resultType.getScale());
-                    })
-            )
+                    }))
             .build();
 
     private DecimalToDecimalCasts() {}

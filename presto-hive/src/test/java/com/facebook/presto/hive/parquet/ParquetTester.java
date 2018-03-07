@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive.parquet;
 
-import com.facebook.presto.hive.parquet.memory.AggregatedMemoryContext;
 import com.facebook.presto.hive.parquet.reader.ParquetMetadataReader;
 import com.facebook.presto.hive.parquet.reader.ParquetReader;
 import com.facebook.presto.spi.block.Block;
@@ -29,7 +28,6 @@ import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
-import org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat;
 import org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
@@ -41,7 +39,6 @@ import org.apache.hadoop.mapred.JobConf;
 import org.joda.time.DateTimeZone;
 import parquet.column.ColumnDescriptor;
 import parquet.column.ParquetProperties.WriterVersion;
-import parquet.hadoop.ParquetOutputFormat;
 import parquet.hadoop.metadata.CompressionCodecName;
 import parquet.hadoop.metadata.FileMetaData;
 import parquet.hadoop.metadata.ParquetMetadata;
@@ -52,10 +49,12 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
 
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
+import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.google.common.base.Functions.constant;
 import static com.google.common.collect.Iterables.transform;
@@ -65,6 +64,9 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 import static parquet.column.ParquetProperties.WriterVersion.PARQUET_1_0;
+import static parquet.hadoop.ParquetOutputFormat.COMPRESSION;
+import static parquet.hadoop.ParquetOutputFormat.ENABLE_DICTIONARY;
+import static parquet.hadoop.ParquetOutputFormat.WRITER_VERSION;
 import static parquet.hadoop.metadata.CompressionCodecName.GZIP;
 import static parquet.hadoop.metadata.CompressionCodecName.LZO;
 import static parquet.hadoop.metadata.CompressionCodecName.SNAPPY;
@@ -116,6 +118,16 @@ public class ParquetTester
         assertRoundTrip(objectInspector, transform(writeValues, constant(null)), transform(readValues, constant(null)), type);
     }
 
+    public void testRoundTrip(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, Type type, Optional<MessageType> parquetSchema)
+            throws Exception
+    {
+        // just the values
+        testRoundTripType(objectInspector, writeValues, readValues, type);
+
+        // all nulls
+        assertRoundTrip(objectInspector, transform(writeValues, constant(null)), transform(readValues, constant(null)), type, parquetSchema);
+    }
+
     private void testRoundTripType(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, Type type)
             throws Exception
     {
@@ -132,39 +144,48 @@ public class ParquetTester
         assertRoundTrip(objectInspector, insertNullEvery(5, reverse(writeValues)), insertNullEvery(5, reverse(readValues)), type);
     }
 
-    public void assertRoundTrip(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, Type type)
+    public void assertRoundTrip(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, Type type, Optional<MessageType> parquetSchema)
             throws Exception
     {
         for (WriterVersion version : versions) {
             for (CompressionCodecName compressionCodecName : compressions) {
                 try (TempFile tempFile = new TempFile("test", "parquet")) {
                     JobConf jobConf = new JobConf();
-                    jobConf.setEnum(ParquetOutputFormat.COMPRESSION, compressionCodecName);
-                    jobConf.setBoolean(ParquetOutputFormat.ENABLE_DICTIONARY, true);
-                    jobConf.setEnum(ParquetOutputFormat.WRITER_VERSION, version);
-                    writeParquetColumn(jobConf,
-                                    tempFile.getFile(),
-                                    compressionCodecName,
-                                    objectInspector,
-                                    writeValues.iterator());
-                    assertFileContents(jobConf,
-                                    tempFile,
-                                    readValues,
-                                    type);
+                    jobConf.setEnum(COMPRESSION, compressionCodecName);
+                    jobConf.setBoolean(ENABLE_DICTIONARY, true);
+                    jobConf.setEnum(WRITER_VERSION, version);
+                    writeParquetColumn(
+                            jobConf,
+                            tempFile.getFile(),
+                            compressionCodecName,
+                            objectInspector,
+                            writeValues.iterator(),
+                            parquetSchema);
+                    assertFileContents(
+                            jobConf,
+                            tempFile,
+                            readValues,
+                            type);
                 }
             }
         }
+    }
+
+    public void assertRoundTrip(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, Type type)
+            throws Exception
+    {
+        assertRoundTrip(objectInspector, writeValues, readValues, type, Optional.empty());
     }
 
     private static void assertFileContents(JobConf jobConf,
             TempFile tempFile,
             Iterable<?> expectedValues,
             Type type)
-            throws IOException, InterruptedException
+            throws IOException
     {
         Path path = new Path(tempFile.getFile().toURI());
         FileSystem fileSystem = path.getFileSystem(jobConf);
-        ParquetMetadata parquetMetadata = ParquetMetadataReader.readFooter(fileSystem, path);
+        ParquetMetadata parquetMetadata = ParquetMetadataReader.readFooter(fileSystem, path, fileSystem.getFileStatus(path).getLen());
         FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
         MessageType fileSchema = fileMetaData.getSchema();
 
@@ -172,7 +193,7 @@ public class ParquetTester
         FSDataInputStream inputStream = fileSystem.open(path);
         ParquetDataSource dataSource = new HdfsParquetDataSource(path, size, inputStream);
 
-        ParquetReader parquetReader = new ParquetReader(fileSchema, fileSchema, parquetMetadata.getBlocks(), dataSource, TYPE_MANAGER, new AggregatedMemoryContext());
+        ParquetReader parquetReader = new ParquetReader(fileSchema, fileSchema, parquetMetadata.getBlocks(), dataSource, TYPE_MANAGER, newSimpleAggregatedMemoryContext());
         assertEquals(parquetReader.getPosition(), 0);
 
         int rowsProcessed = 0;
@@ -199,22 +220,21 @@ public class ParquetTester
             File outputFile,
             CompressionCodecName compressionCodecName,
             ObjectInspector columnObjectInspector,
-            Iterator<?> values)
+            Iterator<?> values,
+            Optional<MessageType> parquetSchema)
             throws Exception
     {
-        RecordWriter recordWriter = new MapredParquetOutputFormat().getHiveRecordWriter(jobConf,
-                                            new Path(outputFile.toURI()),
-                                            Text.class,
-                                            compressionCodecName != UNCOMPRESSED,
-                                            createTableProperties("test", columnObjectInspector.getTypeName()),
-                                            () -> { }
-                                    );
+        RecordWriter recordWriter = new TestMapredParquetOutputFormat(parquetSchema)
+                .getHiveRecordWriter(
+                        jobConf,
+                        new Path(outputFile.toURI()),
+                        Text.class,
+                        compressionCodecName != UNCOMPRESSED,
+                        createTableProperties("test", columnObjectInspector.getTypeName()),
+                        () -> {});
         SettableStructObjectInspector objectInspector = createSettableStructObjectInspector("test", columnObjectInspector);
         Object row = objectInspector.create();
-
         List<StructField> fields = ImmutableList.copyOf(objectInspector.getAllStructFieldRefs());
-
-        int i = 0;
         while (values.hasNext()) {
             Object value = values.next();
             objectInspector.setStructFieldData(row, fields.get(0), value);
@@ -223,9 +243,7 @@ public class ParquetTester
             serde.initialize(jobConf, createTableProperties("test", columnObjectInspector.getTypeName()), null);
             Writable record = serde.serialize(row, objectInspector);
             recordWriter.write(record);
-            i++;
         }
-
         recordWriter.close(false);
         return succinctBytes(outputFile.length());
     }

@@ -14,10 +14,7 @@
 package com.facebook.presto.hive.parquet.reader;
 
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Type;
-import org.apache.hadoop.hive.common.type.HiveDecimal;
-import org.apache.hadoop.hive.serde2.io.HiveDecimalWritable;
 import parquet.column.ColumnDescriptor;
 
 import static com.facebook.presto.hive.util.DecimalUtils.getShortDecimalValue;
@@ -37,13 +34,12 @@ public class ParquetShortDecimalColumnReader
     {
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
             long decimalValue;
+            // When decimals are encoded with primitive types Parquet stores unscaled values
             if (columnDescriptor.getType().equals(INT32)) {
-                HiveDecimalWritable hiveDecimalWritable = new HiveDecimalWritable(HiveDecimal.create(valuesReader.readInteger()));
-                decimalValue = getShortDecimalValue(hiveDecimalWritable, ((DecimalType) type).getScale());
+                decimalValue = valuesReader.readInteger();
             }
             else if (columnDescriptor.getType().equals(INT64)) {
-                HiveDecimalWritable hiveDecimalWritable = new HiveDecimalWritable(HiveDecimal.create(valuesReader.readLong()));
-                decimalValue = getShortDecimalValue(hiveDecimalWritable, ((DecimalType) type).getScale());
+                decimalValue = valuesReader.readLong();
             }
             else {
                 decimalValue = getShortDecimalValue(valuesReader.readBytes().getBytes());

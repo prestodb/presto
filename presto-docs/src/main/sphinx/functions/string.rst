@@ -42,6 +42,12 @@ String Functions
     This function provides the same functionality as the
     SQL-standard concatenation operator (``||``).
 
+.. function:: hamming_distance(string1, string2) -> bigint
+
+    Returns the Hamming distance of ``string1`` and ``string2``,
+    i.e. the number of positions at which the corresponding characters are different.
+    Note that the two strings must have the same length.
+
 .. function:: length(string) -> bigint
 
     Returns the length of ``string`` in characters.
@@ -141,6 +147,14 @@ String Functions
 .. function:: upper(string) -> varchar
 
     Converts ``string`` to uppercase.
+
+.. function:: word_stem(word) -> varchar
+
+    Returns the stem of ``word`` in the English language.
+
+.. function:: word_stem(word, lang) -> varchar
+
+    Returns the stem of ``word`` in the ``lang`` language.
 
 Unicode Functions
 -----------------

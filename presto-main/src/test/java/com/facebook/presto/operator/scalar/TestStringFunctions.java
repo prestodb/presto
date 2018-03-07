@@ -22,6 +22,7 @@ import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.SqlVarbinary;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.LiteralParameter;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
@@ -40,6 +41,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.FUNCTION_NOT_FO
 import static com.facebook.presto.util.StructuralTestUtil.mapType;
 import static com.google.common.base.Strings.repeat;
 import static java.lang.String.format;
+import static java.util.Collections.nCopies;
 
 public class TestStringFunctions
         extends AbstractTestFunctions
@@ -101,7 +103,6 @@ public class TestStringFunctions
     @Test
     public void testConcat()
     {
-        assertInvalidFunction("CONCAT()", "There must be two or more concatenation arguments");
         assertInvalidFunction("CONCAT('')", "There must be two or more concatenation arguments");
         assertFunction("CONCAT('hello', ' world')", VARCHAR, "hello world");
         assertFunction("CONCAT('', '')", VARCHAR, "");
@@ -109,12 +110,16 @@ public class TestStringFunctions
         assertFunction("CONCAT('', 'what')", VARCHAR, "what");
         assertFunction("CONCAT(CONCAT('this', ' is'), ' cool')", VARCHAR, "this is cool");
         assertFunction("CONCAT('this', CONCAT(' is', ' cool'))", VARCHAR, "this is cool");
-        //
+
         // Test concat for non-ASCII
         assertFunction("CONCAT('hello na\u00EFve', ' world')", VARCHAR, "hello na\u00EFve world");
         assertFunction("CONCAT('\uD801\uDC2D', 'end')", VARCHAR, "\uD801\uDC2Dend");
         assertFunction("CONCAT('\uD801\uDC2D', 'end', '\uD801\uDC2D')", VARCHAR, "\uD801\uDC2Dend\uD801\uDC2D");
         assertFunction("CONCAT(CONCAT('\u4FE1\u5FF5', ',\u7231'), ',\u5E0C\u671B')", VARCHAR, "\u4FE1\u5FF5,\u7231,\u5E0C\u671B");
+
+        // Test argument count limit
+        assertFunction("CONCAT(" + Joiner.on(", ").join(nCopies(254, "'1'")) + ")", VARCHAR, Joiner.on("").join(nCopies(254, "1")));
+        assertNotSupported("CONCAT(" + Joiner.on(", ").join(nCopies(255, "'1'")) + ")", "Too many arguments for string concatenation");
     }
 
     @Test
@@ -132,7 +137,7 @@ public class TestStringFunctions
 
     @Test
     public void testCharLength()
-        {
+    {
         assertFunction("LENGTH(CAST('hello' AS CHAR(5)))", BIGINT, 5L);
         assertFunction("LENGTH(CAST('Quadratically' AS CHAR(13)))", BIGINT, 13L);
         assertFunction("LENGTH(CAST('' AS CHAR(20)))", BIGINT, 20L);
@@ -179,6 +184,32 @@ public class TestStringFunctions
         assertInvalidFunction(format("LEVENSHTEIN_DISTANCE('%s', '%s')", repeat("x", 1001), repeat("x", 1001)), "The combined inputs for Levenshtein distance are too large");
         assertInvalidFunction(format("LEVENSHTEIN_DISTANCE('hello', '%s')", repeat("x", 500_000)), "The combined inputs for Levenshtein distance are too large");
         assertInvalidFunction(format("LEVENSHTEIN_DISTANCE('%s', 'hello')", repeat("x", 500_000)), "The combined inputs for Levenshtein distance are too large");
+    }
+
+    @Test
+    public void testHammingDistance()
+    {
+        assertFunction("HAMMING_DISTANCE('', '')", BIGINT, 0L);
+        assertFunction("HAMMING_DISTANCE('hello', 'hello')", BIGINT, 0L);
+        assertFunction("HAMMING_DISTANCE('hello', 'jello')", BIGINT, 1L);
+        assertFunction("HAMMING_DISTANCE('like', 'hate')", BIGINT, 3L);
+        assertFunction("HAMMING_DISTANCE('hello', 'world')", BIGINT, 4L);
+        assertFunction("HAMMING_DISTANCE(NULL, NULL)", BIGINT, null);
+        assertFunction("HAMMING_DISTANCE('hello', NULL)", BIGINT, null);
+        assertFunction("HAMMING_DISTANCE(NULL, 'world')", BIGINT, null);
+
+        // Test for unicode
+        assertFunction("HAMMING_DISTANCE('hello na\u00EFve world', 'hello naive world')", BIGINT, 1L);
+        assertFunction("HAMMING_DISTANCE('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', '\u4FE1\u4EF0,\u7231,\u5E0C\u671B')", BIGINT, 1L);
+        assertFunction("HAMMING_DISTANCE('\u4F11\u5FF5,\u7231,\u5E0C\u671B', '\u4FE1\u5FF5,\u7231,\u5E0C\u671B')", BIGINT, 1L);
+
+        // Test for invalid arguments
+        assertInvalidFunction("HAMMING_DISTANCE('hello', '')", "The input strings to hamming_distance function must have the same length");
+        assertInvalidFunction("HAMMING_DISTANCE('', 'hello')", "The input strings to hamming_distance function must have the same length");
+        assertInvalidFunction("HAMMING_DISTANCE('hello', 'o')", "The input strings to hamming_distance function must have the same length");
+        assertInvalidFunction("HAMMING_DISTANCE('h', 'hello')", "The input strings to hamming_distance function must have the same length");
+        assertInvalidFunction("HAMMING_DISTANCE('hello na\u00EFve world', 'hello na:ive world')", "The input strings to hamming_distance function must have the same length");
+        assertInvalidFunction("HAMMING_DISTANCE('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', '\u4FE1\u5FF5\u5E0C\u671B')", "The input strings to hamming_distance function must have the same length");
     }
 
     @Test
@@ -321,6 +352,8 @@ public class TestStringFunctions
         assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 0, 4)", createCharType(13), padRight("", 13));
         assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 5, 0)", createCharType(13), padRight("", 13));
 
+        assertFunction("SUBSTR(CAST('abc def' AS CHAR(7)), 1, 4)", createCharType(7), padRight("abc", 7));
+
         assertFunction("SUBSTRING(CAST('Quadratically' AS CHAR(13)) FROM 5)", createCharType(13), padRight("ratically", 13));
         assertFunction("SUBSTRING(CAST('Quadratically' AS CHAR(13)) FROM 50)", createCharType(13), padRight("", 13));
         assertFunction("SUBSTRING(CAST('Quadratically' AS CHAR(13)) FROM -5)", createCharType(13), padRight("cally", 13));
@@ -403,6 +436,8 @@ public class TestStringFunctions
         assertInvalidFunction("SPLIT_TO_MAP('key', ',', '=')", "Key-value delimiter must appear exactly once in each entry. Bad input: 'key'");
         assertInvalidFunction("SPLIT_TO_MAP('key==value', ',', '=')", "Key-value delimiter must appear exactly once in each entry. Bad input: 'key==value'");
         assertInvalidFunction("SPLIT_TO_MAP('key=va=lue', ',', '=')", "Key-value delimiter must appear exactly once in each entry. Bad input: 'key=va=lue'");
+
+        assertCachedInstanceHasBoundedRetainedSize("SPLIT_TO_MAP('a=123,b=.4,c=,=d', ',', '=')");
     }
 
     @Test
@@ -628,6 +663,7 @@ public class TestStringFunctions
         assertFunction("RTRIM(' hello world ', ' ld')", createVarcharType(13), " hello wor");
         assertFunction("RTRIM(' hello world ', ' ehlowrd')", createVarcharType(13), "");
         assertFunction("RTRIM(' hello world ', ' x')", createVarcharType(13), " hello world");
+        assertFunction("RTRIM(CAST('abc def' AS CHAR(7)), 'def')", createCharType(7), padRight("abc", 7));
 
         // non latin characters
         assertFunction("RTRIM('\u017a\u00f3\u0142\u0107', '\u0107\u0142')", createVarcharType(4), "\u017a\u00f3");
@@ -707,6 +743,7 @@ public class TestStringFunctions
         assertFunction("TRIM(CAST(' hello world ' AS CHAR(13)), ' eh')", createCharType(13), padRight("llo world", 13));
         assertFunction("TRIM(CAST(' hello world ' AS CHAR(13)), ' ehlowrd')", createCharType(13), padRight("", 13));
         assertFunction("TRIM(CAST(' hello world ' AS CHAR(13)), ' x')", createCharType(13), padRight("hello world", 13));
+        assertFunction("TRIM(CAST('abc def' AS CHAR(7)), 'def')", createCharType(7), padRight("abc", 7));
 
         // non latin characters
         assertFunction("TRIM(CAST('\u017a\u00f3\u0142\u0107' AS CHAR(4)), '\u017a\u0107\u0142')", createCharType(4), padRight("\u00f3", 4));

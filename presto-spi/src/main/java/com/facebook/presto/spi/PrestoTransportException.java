@@ -14,7 +14,7 @@
 package com.facebook.presto.spi;
 
 public class PrestoTransportException
-    extends PrestoException
+        extends PrestoException
 {
     private final HostAddress remoteHost;
 

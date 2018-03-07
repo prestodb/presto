@@ -42,7 +42,7 @@ public class LocalFileSplitManager
     }
 
     @Override
-    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableLayoutHandle layout)
+    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableLayoutHandle layout, SplitSchedulingStrategy splitSchedulingStrategy)
     {
         LocalFileTableLayoutHandle layoutHandle = (LocalFileTableLayoutHandle) layout;
         LocalFileTableHandle tableHandle = layoutHandle.getTable();

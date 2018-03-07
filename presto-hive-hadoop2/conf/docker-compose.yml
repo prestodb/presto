@@ -2,13 +2,15 @@ version: '2'
 services:
   hadoop-master:
     hostname: hadoop-master
-    image: 'teradatalabs/cdh5-hive:14'
+    image: 'prestodb/hdp2.5-hive:1'
     ports:
       - '1180:1180'
       - '8020:8020'
+      - '8042:8042'
       - '8088:8088'
       - '9083:9083'
       - '10000:10000'
+      - '19888:19888'
       - '50070:50070'
       - '50075:50075'
     volumes:
@@ -16,7 +18,7 @@ services:
       - ./files/words:/usr/share/dict/words:ro
   dnsmasq:
     hostname: dnsmasq
-    image: 'teradatalabs/dns:2.75-4e54a19'
+    image: 'prestodb/dns:1'
     cap_add:
       - NET_ADMIN
     ports:

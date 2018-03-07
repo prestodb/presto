@@ -27,7 +27,7 @@ import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
-final class ExpressionTreeUtils
+public final class ExpressionTreeUtils
 {
     private ExpressionTreeUtils() {}
 
@@ -41,7 +41,7 @@ final class ExpressionTreeUtils
         return extractExpressions(nodes, FunctionCall.class, ExpressionTreeUtils::isWindowFunction);
     }
 
-    static <T extends Expression> List<T> extractExpressions(
+    public static <T extends Expression> List<T> extractExpressions(
             Iterable<? extends Node> nodes,
             Class<T> clazz)
     {
@@ -50,7 +50,9 @@ final class ExpressionTreeUtils
 
     private static Predicate<FunctionCall> isAggregationPredicate(FunctionRegistry functionRegistry)
     {
-        return ((functionCall) -> (functionRegistry.isAggregationFunction(functionCall.getName()) || functionCall.getFilter().isPresent()) && !functionCall.getWindow().isPresent());
+        return ((functionCall) -> (functionRegistry.isAggregationFunction(functionCall.getName())
+                || functionCall.getFilter().isPresent()) && !functionCall.getWindow().isPresent()
+                || functionCall.getOrderBy().isPresent());
     }
 
     private static boolean isWindowFunction(FunctionCall functionCall)

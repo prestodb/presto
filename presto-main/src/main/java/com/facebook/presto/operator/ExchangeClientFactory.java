@@ -13,59 +13,71 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.execution.SystemMemoryUsageListener;
+import com.facebook.presto.memory.context.LocalMemoryContext;
+import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.http.client.HttpClient;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
+import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newFixedThreadPool;
 
 public class ExchangeClientFactory
         implements ExchangeClientSupplier
 {
     private final DataSize maxBufferedBytes;
     private final int concurrentRequestMultiplier;
-    private final Duration minErrorDuration;
     private final Duration maxErrorDuration;
     private final HttpClient httpClient;
     private final DataSize maxResponseSize;
-    private final ScheduledExecutorService executor;
+    private final boolean acknowledgePages;
+    private final ScheduledExecutorService scheduler;
+    private final ThreadPoolExecutorMBean executorMBean;
+    private final ExecutorService pageBufferClientCallbackExecutor;
 
     @Inject
     public ExchangeClientFactory(
             ExchangeClientConfig config,
             @ForExchange HttpClient httpClient,
-            @ForExchange ScheduledExecutorService executor)
+            @ForExchange ScheduledExecutorService scheduler)
     {
         this(
                 config.getMaxBufferSize(),
                 config.getMaxResponseSize(),
                 config.getConcurrentRequestMultiplier(),
-                config.getMinErrorDuration(),
                 config.getMaxErrorDuration(),
+                config.isAcknowledgePages(),
+                config.getPageBufferClientMaxCallbackThreads(),
                 httpClient,
-                executor);
+                scheduler);
     }
 
     public ExchangeClientFactory(
             DataSize maxBufferedBytes,
             DataSize maxResponseSize,
             int concurrentRequestMultiplier,
-            Duration minErrorDuration,
             Duration maxErrorDuration,
+            boolean acknowledgePages,
+            int pageBufferClientMaxCallbackThreads,
             HttpClient httpClient,
-            ScheduledExecutorService executor)
+            ScheduledExecutorService scheduler)
     {
         this.maxBufferedBytes = requireNonNull(maxBufferedBytes, "maxBufferedBytes is null");
         this.concurrentRequestMultiplier = concurrentRequestMultiplier;
-        this.minErrorDuration = requireNonNull(minErrorDuration, "minErrorDuration is null");
         this.maxErrorDuration = requireNonNull(maxErrorDuration, "maxErrorDuration is null");
+        this.acknowledgePages = acknowledgePages;
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
 
         // Use only 0.75 of the maxResponseSize to leave room for additional bytes from the encoding
@@ -74,24 +86,41 @@ public class ExchangeClientFactory
         long maxResponseSizeBytes = (long) (Math.min(httpClient.getMaxContentLength(), maxResponseSize.toBytes()) * 0.75);
         this.maxResponseSize = new DataSize(maxResponseSizeBytes, BYTE);
 
-        this.executor = requireNonNull(executor, "executor is null");
+        this.scheduler = requireNonNull(scheduler, "scheduler is null");
+
+        this.pageBufferClientCallbackExecutor = newFixedThreadPool(pageBufferClientMaxCallbackThreads, daemonThreadsNamed("page-buffer-client-callback-%s"));
+        this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) pageBufferClientCallbackExecutor);
 
         checkArgument(maxBufferedBytes.toBytes() > 0, "maxBufferSize must be at least 1 byte: %s", maxBufferedBytes);
         checkArgument(maxResponseSize.toBytes() > 0, "maxResponseSize must be at least 1 byte: %s", maxResponseSize);
         checkArgument(concurrentRequestMultiplier > 0, "concurrentRequestMultiplier must be at least 1: %s", concurrentRequestMultiplier);
     }
 
+    @PreDestroy
+    public void stop()
+    {
+        pageBufferClientCallbackExecutor.shutdownNow();
+    }
+
+    @Managed
+    @Nested
+    public ThreadPoolExecutorMBean getExecutor()
+    {
+        return executorMBean;
+    }
+
     @Override
-    public ExchangeClient get(SystemMemoryUsageListener systemMemoryUsageListener)
+    public ExchangeClient get(LocalMemoryContext systemMemoryContext)
     {
         return new ExchangeClient(
                 maxBufferedBytes,
                 maxResponseSize,
                 concurrentRequestMultiplier,
-                minErrorDuration,
                 maxErrorDuration,
+                acknowledgePages,
                 httpClient,
-                executor,
-                systemMemoryUsageListener);
+                scheduler,
+                systemMemoryContext,
+                pageBufferClientCallbackExecutor);
     }
 }

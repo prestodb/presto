@@ -558,6 +558,8 @@ is also in the result set of the second query, it is not included in the final r
        42
     (2 rows)
 
+.. _order-by-clause:
+
 ORDER BY Clause
 ---------------
 

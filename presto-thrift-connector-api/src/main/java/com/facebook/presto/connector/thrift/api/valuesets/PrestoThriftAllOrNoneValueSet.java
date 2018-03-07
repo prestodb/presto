@@ -20,6 +20,9 @@ import com.facebook.swift.codec.ThriftStruct;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
+/**
+ * Set that either includes all values, or excludes all values.
+ */
 @ThriftStruct
 public final class PrestoThriftAllOrNoneValueSet
 {

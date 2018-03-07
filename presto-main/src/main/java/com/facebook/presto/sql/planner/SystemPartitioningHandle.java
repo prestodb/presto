@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.scheduler.NodeScheduler;
 import com.facebook.presto.execution.scheduler.NodeSelector;
+import com.facebook.presto.operator.BucketPartitionFunction;
 import com.facebook.presto.operator.HashGenerator;
 import com.facebook.presto.operator.InterpretedHashGenerator;
 import com.facebook.presto.operator.PartitionFunction;
@@ -49,6 +50,7 @@ public final class SystemPartitioningHandle
         SINGLE,
         FIXED,
         SOURCE,
+        SCALED,
         COORDINATOR_ONLY
     }
 
@@ -57,6 +59,7 @@ public final class SystemPartitioningHandle
     public static final PartitioningHandle FIXED_HASH_DISTRIBUTION = createSystemPartitioning(SystemPartitioning.FIXED, SystemPartitionFunction.HASH);
     public static final PartitioningHandle FIXED_ARBITRARY_DISTRIBUTION = createSystemPartitioning(SystemPartitioning.FIXED, SystemPartitionFunction.ROUND_ROBIN);
     public static final PartitioningHandle FIXED_BROADCAST_DISTRIBUTION = createSystemPartitioning(SystemPartitioning.FIXED, SystemPartitionFunction.BROADCAST);
+    public static final PartitioningHandle SCALED_WRITER_DISTRIBUTION = createSystemPartitioning(SystemPartitioning.SCALED, SystemPartitionFunction.ROUND_ROBIN);
     public static final PartitioningHandle SOURCE_DISTRIBUTION = createSystemPartitioning(SystemPartitioning.SOURCE, SystemPartitionFunction.UNKNOWN);
 
     private static PartitioningHandle createSystemPartitioning(SystemPartitioning partitioning, SystemPartitionFunction function)
@@ -164,7 +167,7 @@ public final class SystemPartitioningHandle
         requireNonNull(bucketToPartition, "bucketToPartition is null");
 
         BucketFunction bucketFunction = function.createBucketFunction(partitionChannelTypes, isHashPrecomputed, bucketToPartition.length);
-        return new PartitionFunction(bucketFunction, bucketToPartition);
+        return new BucketPartitionFunction(bucketFunction, bucketToPartition);
     }
 
     public enum SystemPartitionFunction

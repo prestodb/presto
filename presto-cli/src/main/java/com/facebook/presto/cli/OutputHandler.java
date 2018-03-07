@@ -70,8 +70,8 @@ public final class OutputHandler
     public void processRows(StatementClient client)
             throws IOException
     {
-        while (client.isValid()) {
-            Iterable<List<Object>> data = client.current().getData();
+        while (client.isRunning()) {
+            Iterable<List<Object>> data = client.currentData().getData();
             if (data != null) {
                 for (List<Object> row : data) {
                     processRow(unmodifiableList(row));

@@ -81,8 +81,7 @@ public class RedisConnectorFactory
                                     .to(RedisTableDescriptionSupplier.class)
                                     .in(Scopes.SINGLETON);
                         }
-                    }
-            );
+                    });
 
             Injector injector = app.strictConfig()
                     .doNotInitializeLogging()

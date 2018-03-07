@@ -13,18 +13,33 @@
  */
 package com.facebook.presto.connector.thrift.util;
 
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import io.airlift.log.Logger;
+import io.airlift.stats.CounterStat;
+import io.airlift.stats.DistributionStat;
+import io.airlift.stats.TimeStat;
 import io.airlift.units.Duration;
+import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
+
+import javax.annotation.Nullable;
 
 import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
+import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
+import static io.airlift.units.Duration.nanosSince;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class RetryDriver
 {
@@ -39,9 +54,10 @@ public class RetryDriver
     private final Duration maxSleepTime;
     private final double scaleFactor;
     private final Duration maxRetryTime;
-    private final Optional<Runnable> retryRunnable;
+    private final Optional<Consumer<Exception>> onFailure;
     private final Predicate<Exception> stopRetrying;
     private final Function<Exception, Exception> classifier;
+    private final ListeningScheduledExecutorService retryExecutorService;
 
     private RetryDriver(
             int maxAttempts,
@@ -49,21 +65,23 @@ public class RetryDriver
             Duration maxSleepTime,
             double scaleFactor,
             Duration maxRetryTime,
-            Optional<Runnable> retryRunnable,
+            Optional<Consumer<Exception>> onFailure,
             Predicate<Exception> stopRetrying,
-            Function<Exception, Exception> classifier)
+            Function<Exception, Exception> classifier,
+            ListeningScheduledExecutorService retryExecutorService)
     {
         this.maxAttempts = maxAttempts;
         this.minSleepTime = minSleepTime;
         this.maxSleepTime = maxSleepTime;
         this.scaleFactor = scaleFactor;
         this.maxRetryTime = maxRetryTime;
-        this.retryRunnable = retryRunnable;
+        this.onFailure = onFailure;
         this.stopRetrying = stopRetrying;
         this.classifier = classifier;
+        this.retryExecutorService = retryExecutorService;
     }
 
-    private RetryDriver()
+    private RetryDriver(ListeningScheduledExecutorService executor)
     {
         this(DEFAULT_RETRY_ATTEMPTS,
                 DEFAULT_SLEEP_TIME,
@@ -72,80 +90,133 @@ public class RetryDriver
                 DEFAULT_MAX_RETRY_TIME,
                 Optional.empty(),
                 e -> false,
-                Function.identity());
+                Function.identity(),
+                executor);
     }
 
-    public static RetryDriver retry()
+    public static RetryDriver retry(ListeningScheduledExecutorService executor)
     {
-        return new RetryDriver();
+        return new RetryDriver(executor);
     }
 
     public final RetryDriver maxAttempts(int maxAttempts)
     {
-        return new RetryDriver(maxAttempts, minSleepTime, maxSleepTime, scaleFactor, maxRetryTime, retryRunnable, stopRetrying, classifier);
+        return new RetryDriver(maxAttempts, minSleepTime, maxSleepTime, scaleFactor, maxRetryTime, onFailure, stopRetrying, classifier, retryExecutorService);
     }
 
     public final RetryDriver exponentialBackoff(Duration minSleepTime, Duration maxSleepTime, Duration maxRetryTime, double scaleFactor)
     {
-        return new RetryDriver(maxAttempts, minSleepTime, maxSleepTime, scaleFactor, maxRetryTime, retryRunnable, stopRetrying, classifier);
+        return new RetryDriver(maxAttempts, minSleepTime, maxSleepTime, scaleFactor, maxRetryTime, onFailure, stopRetrying, classifier, retryExecutorService);
     }
 
-    public final RetryDriver onRetry(Runnable retryRunnable)
+    public final RetryDriver onFailure(Consumer<Exception> onFailure)
     {
-        return new RetryDriver(maxAttempts, minSleepTime, maxSleepTime, scaleFactor, maxRetryTime, Optional.ofNullable(retryRunnable), stopRetrying, classifier);
+        return new RetryDriver(maxAttempts, minSleepTime, maxSleepTime, scaleFactor, maxRetryTime, Optional.ofNullable(onFailure), stopRetrying, classifier, retryExecutorService);
     }
 
     public RetryDriver stopRetryingWhen(Predicate<Exception> stopRetrying)
     {
-        return new RetryDriver(maxAttempts, minSleepTime, maxSleepTime, scaleFactor, maxRetryTime, retryRunnable, stopRetrying, classifier);
+        return new RetryDriver(maxAttempts, minSleepTime, maxSleepTime, scaleFactor, maxRetryTime, onFailure, stopRetrying, classifier, retryExecutorService);
     }
 
     public RetryDriver withClassifier(Function<Exception, Exception> classifier)
     {
-        return new RetryDriver(maxAttempts, minSleepTime, maxSleepTime, scaleFactor, maxRetryTime, retryRunnable, stopRetrying, classifier);
+        return new RetryDriver(maxAttempts, minSleepTime, maxSleepTime, scaleFactor, maxRetryTime, onFailure, stopRetrying, classifier, retryExecutorService);
     }
 
-    public <V> V run(String callableName, Callable<V> callable)
+    /**
+     * This is only for sync calls. For Callable that returns Future object, use runAsync instead.
+     */
+    public <V> V run(String callableName, RetryStats stats, Callable<V> callable)
     {
         requireNonNull(callableName, "callableName is null");
         requireNonNull(callable, "callable is null");
+        RetryStatus retryStatus = new RetryStatus();
 
-        long startTime = System.nanoTime();
-        int attempt = 0;
         while (true) {
-            attempt++;
-
-            if (attempt > 1) {
-                retryRunnable.ifPresent(Runnable::run);
-            }
-
+            retryStatus.nextAttempt();
             try {
-                return callable.call();
+                V result = callable.call();
+                stats.addSuccess();
+                stats.addAttemptsBeforeSuccess(retryStatus.getAttempts());
+                stats.addSuccessLatency(retryStatus.getDuration());
+                return result;
             }
             catch (InterruptedException ie) {
                 Thread.currentThread().interrupt();
+                recordFailure(retryStatus, stats);
                 throw propagate(ie);
             }
             catch (Exception e) {
-                if (stopRetrying.test(e)) {
+                onFailure.ifPresent(exceptionConsumer -> exceptionConsumer.accept(e));
+                if (retryStatus.shouldStopRetry(e)) {
+                    recordFailure(retryStatus, stats);
                     throw propagate(e);
                 }
-                if (attempt >= maxAttempts || Duration.nanosSince(startTime).compareTo(maxRetryTime) >= 0) {
-                    throw propagate(e);
-                }
-                log.warn("Failed on executing %s with attempt %d, will retry. Exception: %s", callableName, attempt, e.getMessage());
 
-                int delayInMs = (int) Math.min(minSleepTime.toMillis() * Math.pow(scaleFactor, attempt - 1), maxSleepTime.toMillis());
-                int jitter = ThreadLocalRandom.current().nextInt(Math.max(1, (int) (delayInMs * 0.1)));
+                log.warn(e, "Failed on executing %s with attempt %d, will retry.", callableName, retryStatus.getAttempts());
                 try {
-                    TimeUnit.MILLISECONDS.sleep(delayInMs + jitter);
+                    MILLISECONDS.sleep(retryStatus.getRetryDelayInMs());
                 }
                 catch (InterruptedException ie) {
                     Thread.currentThread().interrupt();
+                    recordFailure(retryStatus, stats);
                     throw propagate(ie);
                 }
             }
         }
+    }
+
+    public <V> ListenableFuture<V> runAsync(String callableName, RetryStats stats, Callable<ListenableFuture<V>> callable)
+    {
+        requireNonNull(callableName, "callableName is null");
+        requireNonNull(callable, "callable is null");
+        return runAsyncInternal(callableName, stats, callable, new RetryStatus());
+    }
+
+    private <V> ListenableFuture<V> runAsyncInternal(String callableName, RetryStats stats, Callable<ListenableFuture<V>> callable, RetryStatus retryStatus)
+    {
+        retryStatus.nextAttempt();
+        ListenableFuture<V> resultFuture;
+        try {
+            resultFuture = callable.call();
+            Futures.addCallback(resultFuture, new FutureCallback<V>()
+            {
+                @Override
+                public void onSuccess(@Nullable V result)
+                {
+                    stats.addSuccess();
+                    stats.addAttemptsBeforeSuccess(retryStatus.getAttempts());
+                    stats.addSuccessLatency(retryStatus.getDuration());
+                }
+
+                @Override
+                public void onFailure(Throwable t) {}
+            });
+        }
+        catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            recordFailure(retryStatus, stats);
+            throw propagate(ie);
+        }
+        catch (Exception e) {
+            resultFuture = immediateFailedFuture(e);
+        }
+
+        return Futures.catchingAsync(resultFuture, Exception.class, e -> {
+            onFailure.ifPresent(exceptionConsumer -> exceptionConsumer.accept(e));
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+                recordFailure(retryStatus, stats);
+                throw propagate(e);
+            }
+            else if (retryStatus.shouldStopRetry(e)) {
+                recordFailure(retryStatus, stats);
+                throw propagate(e);
+            }
+            log.warn(e, "Failed on executing %s with attempt %d, will perform async retry.", callableName, retryStatus.getAttempts());
+            return Futures.dereference(retryExecutorService.schedule(() -> runAsyncInternal(callableName, stats, callable, retryStatus), retryStatus.getRetryDelayInMs(), MILLISECONDS));
+        });
     }
 
     private RuntimeException propagate(Exception e)
@@ -153,5 +224,133 @@ public class RetryDriver
         Exception classified = classifier.apply(e);
         throwIfUnchecked(classified);
         throw new RuntimeException(classified);
+    }
+
+    private void recordFailure(RetryStatus retryStatus, RetryStats stats)
+    {
+        stats.addFinalFailure();
+        stats.addAttemptsBeforeFailure(retryStatus.getAttempts());
+        stats.addFailureLatency(retryStatus.getDuration());
+    }
+
+    private final class RetryStatus
+    {
+        private final long startTime;
+        private final AtomicInteger attempts;
+
+        RetryStatus()
+        {
+            this.startTime = System.nanoTime();
+            this.attempts = new AtomicInteger(0);
+        }
+
+        long getRetryDelayInMs()
+        {
+            int delayInMs = (int) Math.min(minSleepTime.toMillis() * Math.pow(scaleFactor, attempts.get() - 1), maxSleepTime.toMillis());
+            int jitter = ThreadLocalRandom.current().nextInt(Math.max(1, (int) (delayInMs * 0.1)));
+            return delayInMs + jitter;
+        }
+
+        Duration getDuration()
+        {
+            return nanosSince(startTime);
+        }
+
+        boolean shouldStopRetry(Exception e)
+        {
+            return stopRetrying.test(e) || attempts.get() >= maxAttempts || nanosSince(startTime).compareTo(maxRetryTime) >= 0;
+        }
+
+        int getAttempts()
+        {
+            return attempts.get();
+        }
+
+        void nextAttempt()
+        {
+            attempts.incrementAndGet();
+        }
+    }
+
+    public static final class RetryStats
+    {
+        private final CounterStat success = new CounterStat();
+        private final CounterStat finalFailure = new CounterStat();
+        private final DistributionStat attemptsBeforeFailure = new DistributionStat();
+        private final TimeStat failureLatency = new TimeStat(MILLISECONDS);
+        private final DistributionStat attemptsBeforeSuccess = new DistributionStat();
+        private final TimeStat successLatency = new TimeStat(MILLISECONDS);
+
+        @Managed
+        @Nested
+        public CounterStat getSuccess()
+        {
+            return success;
+        }
+
+        @Managed
+        @Nested
+        public DistributionStat getAttemptsBeforeSuccess()
+        {
+            return attemptsBeforeSuccess;
+        }
+
+        @Managed
+        @Nested
+        public TimeStat getSuccessLatency()
+        {
+            return successLatency;
+        }
+
+        @Managed
+        @Nested
+        public CounterStat getFinalFailure()
+        {
+            return finalFailure;
+        }
+
+        @Managed
+        @Nested
+        public DistributionStat getAttemptsBeforeFailure()
+        {
+            return attemptsBeforeFailure;
+        }
+
+        @Managed
+        @Nested
+        public TimeStat getFailureLatency()
+        {
+            return failureLatency;
+        }
+
+        public void addSuccess()
+        {
+            success.update(1);
+        }
+
+        public void addAttemptsBeforeSuccess(int count)
+        {
+            attemptsBeforeSuccess.add(count);
+        }
+
+        public void addSuccessLatency(Duration duration)
+        {
+            successLatency.add(duration);
+        }
+
+        public void addFinalFailure()
+        {
+            finalFailure.update(1);
+        }
+
+        public void addAttemptsBeforeFailure(int count)
+        {
+            attemptsBeforeFailure.add(count);
+        }
+
+        public void addFailureLatency(Duration duration)
+        {
+            failureLatency.add(duration);
+        }
     }
 }

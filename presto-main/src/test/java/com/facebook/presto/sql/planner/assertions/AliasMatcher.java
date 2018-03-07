@@ -14,7 +14,7 @@
 package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.cost.PlanNodeCost;
+import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -26,7 +26,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class AliasMatcher
-    implements Matcher
+        implements Matcher
 {
     private final Optional<String> alias;
     private final RvalueMatcher matcher;
@@ -52,7 +52,7 @@ public class AliasMatcher
      *    higher up the tree.
      */
     @Override
-    public MatchResult detailMatches(PlanNode node, PlanNodeCost cost, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    public MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
         Optional<Symbol> symbol = matcher.getAssignedSymbol(node, session, metadata, symbolAliases);
         if (symbol.isPresent() && alias.isPresent()) {
@@ -64,6 +64,9 @@ public class AliasMatcher
     @Override
     public String toString()
     {
-        return format("bind %s -> %s", alias, matcher);
+        if (alias.isPresent()) {
+            return format("bind %s -> %s", alias.get(), matcher);
+        }
+        return format("bind %s", matcher);
     }
 }

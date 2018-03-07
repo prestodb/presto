@@ -32,7 +32,6 @@ public class TestRaptorBucketFunction
 {
     @Test
     public void testBigint()
-            throws Exception
     {
         BucketFunction function = bucketFunction(50, BIGINT);
         assertEquals(getBucket(function, createLongsBlock(123456789012L)), 12);

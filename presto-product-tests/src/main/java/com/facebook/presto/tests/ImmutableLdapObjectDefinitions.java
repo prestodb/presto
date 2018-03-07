@@ -14,7 +14,7 @@
 package com.facebook.presto.tests;
 
 import com.google.common.collect.ImmutableMap;
-import com.teradata.tempto.fulfillment.ldap.LdapObjectDefinition;
+import io.prestodb.tempto.fulfillment.ldap.LdapObjectDefinition;
 
 import java.util.Arrays;
 import java.util.List;
@@ -122,8 +122,7 @@ public final class ImmutableLdapObjectDefinitions
                     .setAttributes(ImmutableMap.of(
                             "cn", userName,
                             "sn", userName,
-                            "userPassword", password
-                    ))
+                            "userPassword", password))
                     .setObjectClasses(Arrays.asList("person", "inetOrgPerson"))
                     .setModificationAttributes(getAttributes(groupNames.get(), groupOrganizationName.get(), MEMBER_OF))
                     .build();
@@ -134,8 +133,7 @@ public final class ImmutableLdapObjectDefinitions
                     .setAttributes(ImmutableMap.of(
                             "cn", userName,
                             "sn", userName,
-                            "userPassword", password
-                    ))
+                            "userPassword", password))
                     .setObjectClasses(Arrays.asList("person", "inetOrgPerson"))
                     .build();
         }

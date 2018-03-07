@@ -27,6 +27,8 @@ import java.lang.invoke.MethodHandle;
 
 import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
 import static com.facebook.presto.metadata.Signature.internalOperator;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
@@ -58,7 +60,11 @@ public class MapHashCodeOperator
         MethodHandle valueHashCodeFunction = functionRegistry.getScalarFunctionImplementation(internalOperator(HASH_CODE, BIGINT, ImmutableList.of(valueType))).getMethodHandle();
 
         MethodHandle method = METHOD_HANDLE.bindTo(keyHashCodeFunction).bindTo(valueHashCodeFunction).bindTo(keyType).bindTo(valueType);
-        return new ScalarFunctionImplementation(false, ImmutableList.of(false), method, isDeterministic());
+        return new ScalarFunctionImplementation(
+                false,
+                ImmutableList.of(valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
+                method,
+                isDeterministic());
     }
 
     @UsedByGeneratedCode
@@ -66,8 +72,7 @@ public class MapHashCodeOperator
     {
         long result = 0;
         for (int position = 0; position < block.getPositionCount(); position += 2) {
-            result += hashPosition(keyHashCodeFunction, keyType, block, position);
-            result += hashPosition(valueHashCodeFunction, valueType, block, position + 1);
+            result += hashPosition(keyHashCodeFunction, keyType, block, position) ^ hashPosition(valueHashCodeFunction, valueType, block, position + 1);
         }
         return result;
     }

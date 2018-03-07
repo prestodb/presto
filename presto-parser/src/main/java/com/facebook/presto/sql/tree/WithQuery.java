@@ -25,29 +25,29 @@ import static java.util.Objects.requireNonNull;
 public class WithQuery
         extends Node
 {
-    private final String name;
+    private final Identifier name;
     private final Query query;
-    private final Optional<List<String>> columnNames;
+    private final Optional<List<Identifier>> columnNames;
 
-    public WithQuery(String name, Query query, Optional<List<String>> columnNames)
+    public WithQuery(Identifier name, Query query, Optional<List<Identifier>> columnNames)
     {
         this(Optional.empty(), name, query, columnNames);
     }
 
-    public WithQuery(NodeLocation location, String name, Query query, Optional<List<String>> columnNames)
+    public WithQuery(NodeLocation location, Identifier name, Query query, Optional<List<Identifier>> columnNames)
     {
         this(Optional.of(location), name, query, columnNames);
     }
 
-    private WithQuery(Optional<NodeLocation> location, String name, Query query, Optional<List<String>> columnNames)
+    private WithQuery(Optional<NodeLocation> location, Identifier name, Query query, Optional<List<Identifier>> columnNames)
     {
         super(location);
-        this.name = QualifiedName.of(requireNonNull(name, "name is null")).getParts().get(0);
+        this.name = name;
         this.query = requireNonNull(query, "query is null");
         this.columnNames = requireNonNull(columnNames, "columnNames is null");
     }
 
-    public String getName()
+    public Identifier getName()
     {
         return name;
     }
@@ -57,7 +57,7 @@ public class WithQuery
         return query;
     }
 
-    public Optional<List<String>> getColumnNames()
+    public Optional<List<Identifier>> getColumnNames()
     {
         return columnNames;
     }

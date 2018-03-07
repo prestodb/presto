@@ -29,7 +29,7 @@ public class TestRealCovariancePopAggregation
     @Override
     public Block[] getSequenceBlocks(int start, int length)
     {
-        return new Block[]{createSequenceBlockOfReal(start, start + length), createSequenceBlockOfReal(start + 5, start + 5 + length)};
+        return new Block[] {createSequenceBlockOfReal(start, start + length), createSequenceBlockOfReal(start + 5, start + 5 + length)};
     }
 
     @Override

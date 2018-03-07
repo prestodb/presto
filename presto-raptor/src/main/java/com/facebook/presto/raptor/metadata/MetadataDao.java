@@ -178,6 +178,13 @@ public interface MetadataDao
             @Bind("columnId") long columnId,
             @Bind("target") String target);
 
+    @SqlUpdate("DELETE FROM columns\n" +
+            " WHERE table_id = :tableId\n" +
+            "  AND column_id = :columnId")
+    void dropColumn(
+            @Bind("tableId") long tableId,
+            @Bind("columnId") long column);
+
     @SqlUpdate("INSERT INTO views (schema_name, table_name, data)\n" +
             "VALUES (:schemaName, :tableName, :data)")
     void insertView(

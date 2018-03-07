@@ -33,10 +33,10 @@ import static java.util.Objects.requireNonNull;
 public class HiveSplit
         implements ConnectorSplit
 {
-    private final String clientId;
     private final String path;
     private final long start;
     private final long length;
+    private final long fileSize;
     private final Properties schema;
     private final List<HivePartitionKey> partitionKeys;
     private final List<HostAddress> addresses;
@@ -50,13 +50,13 @@ public class HiveSplit
 
     @JsonCreator
     public HiveSplit(
-            @JsonProperty("clientId") String clientId,
             @JsonProperty("database") String database,
             @JsonProperty("table") String table,
             @JsonProperty("partitionName") String partitionName,
             @JsonProperty("path") String path,
             @JsonProperty("start") long start,
             @JsonProperty("length") long length,
+            @JsonProperty("fileSize") long fileSize,
             @JsonProperty("schema") Properties schema,
             @JsonProperty("partitionKeys") List<HivePartitionKey> partitionKeys,
             @JsonProperty("addresses") List<HostAddress> addresses,
@@ -65,9 +65,9 @@ public class HiveSplit
             @JsonProperty("effectivePredicate") TupleDomain<HiveColumnHandle> effectivePredicate,
             @JsonProperty("columnCoercions") Map<Integer, HiveType> columnCoercions)
     {
-        requireNonNull(clientId, "clientId is null");
         checkArgument(start >= 0, "start must be positive");
         checkArgument(length >= 0, "length must be positive");
+        checkArgument(fileSize >= 0, "fileSize must be positive");
         requireNonNull(database, "database is null");
         requireNonNull(table, "table is null");
         requireNonNull(partitionName, "partitionName is null");
@@ -79,13 +79,13 @@ public class HiveSplit
         requireNonNull(effectivePredicate, "tupleDomain is null");
         requireNonNull(columnCoercions, "columnCoercions is null");
 
-        this.clientId = clientId;
         this.database = database;
         this.table = table;
         this.partitionName = partitionName;
         this.path = path;
         this.start = start;
         this.length = length;
+        this.fileSize = fileSize;
         this.schema = schema;
         this.partitionKeys = ImmutableList.copyOf(partitionKeys);
         this.addresses = ImmutableList.copyOf(addresses);
@@ -93,12 +93,6 @@ public class HiveSplit
         this.forceLocalScheduling = forceLocalScheduling;
         this.effectivePredicate = effectivePredicate;
         this.columnCoercions = columnCoercions;
-    }
-
-    @JsonProperty
-    public String getClientId()
-    {
-        return clientId;
     }
 
     @JsonProperty
@@ -135,6 +129,12 @@ public class HiveSplit
     public long getLength()
     {
         return length;
+    }
+
+    @JsonProperty
+    public long getFileSize()
+    {
+        return fileSize;
     }
 
     @JsonProperty
@@ -193,6 +193,7 @@ public class HiveSplit
                 .put("path", path)
                 .put("start", start)
                 .put("length", length)
+                .put("fileSize", fileSize)
                 .put("hosts", addresses)
                 .put("database", database)
                 .put("table", table)
@@ -208,6 +209,7 @@ public class HiveSplit
                 .addValue(path)
                 .addValue(start)
                 .addValue(length)
+                .addValue(fileSize)
                 .addValue(effectivePredicate)
                 .toString();
     }

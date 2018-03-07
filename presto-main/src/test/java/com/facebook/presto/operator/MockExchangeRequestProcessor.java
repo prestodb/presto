@@ -57,14 +57,7 @@ public class MockExchangeRequestProcessor
     private static final String TASK_INSTANCE_ID = "task-instance-id";
     private static final PagesSerde PAGES_SERDE = testingPagesSerde();
 
-    private final LoadingCache<URI, MockBuffer> buffers = CacheBuilder.newBuilder().build(new CacheLoader<URI, MockBuffer>()
-    {
-        @Override
-        public MockBuffer load(URI location)
-        {
-            return new MockBuffer(location);
-        }
-    });
+    private final LoadingCache<URI, MockBuffer> buffers = CacheBuilder.newBuilder().build(CacheLoader.from(MockBuffer::new));
 
     private final DataSize expectedMaxSize;
 
@@ -85,7 +78,6 @@ public class MockExchangeRequestProcessor
 
     @Override
     public Response handle(Request request)
-            throws Exception
     {
         if (request.getMethod().equalsIgnoreCase("DELETE")) {
             return new TestingResponse(HttpStatus.NO_CONTENT, ImmutableListMultimap.of(), new byte[0]);
@@ -120,8 +112,7 @@ public class MockExchangeRequestProcessor
                         PRESTO_TASK_INSTANCE_ID, String.valueOf(result.getTaskInstanceId()),
                         PRESTO_PAGE_TOKEN, String.valueOf(result.getToken()),
                         PRESTO_PAGE_NEXT_TOKEN, String.valueOf(result.getNextToken()),
-                        PRESTO_BUFFER_COMPLETE, String.valueOf(result.isBufferComplete())
-                ),
+                        PRESTO_BUFFER_COMPLETE, String.valueOf(result.isBufferComplete())),
                 bytes);
     }
 

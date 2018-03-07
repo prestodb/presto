@@ -24,7 +24,6 @@ import static java.util.Objects.requireNonNull;
 
 public class HiveWritableTableHandle
 {
-    private final String clientId;
     private final String schemaName;
     private final String tableName;
     private final List<HiveColumnHandle> inputColumns;
@@ -36,7 +35,6 @@ public class HiveWritableTableHandle
     private final HiveStorageFormat partitionStorageFormat;
 
     public HiveWritableTableHandle(
-            String clientId,
             String schemaName,
             String tableName,
             List<HiveColumnHandle> inputColumns,
@@ -47,7 +45,6 @@ public class HiveWritableTableHandle
             HiveStorageFormat tableStorageFormat,
             HiveStorageFormat partitionStorageFormat)
     {
-        this.clientId = requireNonNull(clientId, "clientId is null");
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.inputColumns = ImmutableList.copyOf(requireNonNull(inputColumns, "inputColumns is null"));
@@ -57,12 +54,6 @@ public class HiveWritableTableHandle
         this.bucketProperty = requireNonNull(bucketProperty, "bucketProperty is null");
         this.tableStorageFormat = requireNonNull(tableStorageFormat, "tableStorageFormat is null");
         this.partitionStorageFormat = requireNonNull(partitionStorageFormat, "partitionStorageFormat is null");
-    }
-
-    @JsonProperty
-    public String getClientId()
-    {
-        return clientId;
     }
 
     @JsonProperty
@@ -122,6 +113,6 @@ public class HiveWritableTableHandle
     @Override
     public String toString()
     {
-        return clientId + ":" + schemaName + "." + tableName;
+        return schemaName + "." + tableName;
     }
 }

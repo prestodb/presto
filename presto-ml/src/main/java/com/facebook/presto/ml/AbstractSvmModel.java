@@ -24,6 +24,7 @@ import libsvm.svm_problem;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.util.List;
 import java.util.SortedMap;
@@ -62,7 +63,7 @@ public abstract class AbstractSvmModel
             return Files.readAllBytes(file.toPath());
         }
         catch (IOException e) {
-            throw Throwables.propagate(e);
+            throw new UncheckedIOException(e);
         }
         finally {
             if (file != null) {
@@ -87,7 +88,7 @@ public abstract class AbstractSvmModel
         }
         catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw Throwables.propagate(e);
+            throw new RuntimeException(e);
         }
         catch (Exception e) {
             throw Throwables.propagate(e);

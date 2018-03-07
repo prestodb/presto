@@ -14,15 +14,6 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.annotation.UsedByGeneratedCode;
-import com.facebook.presto.bytecode.BytecodeBlock;
-import com.facebook.presto.bytecode.BytecodeNode;
-import com.facebook.presto.bytecode.ClassDefinition;
-import com.facebook.presto.bytecode.MethodDefinition;
-import com.facebook.presto.bytecode.Parameter;
-import com.facebook.presto.bytecode.Scope;
-import com.facebook.presto.bytecode.Variable;
-import com.facebook.presto.bytecode.control.ForLoop;
-import com.facebook.presto.bytecode.control.IfStatement;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.FunctionRegistry;
@@ -45,38 +36,50 @@ import com.facebook.presto.sql.gen.SqlTypeBytecodeExpression;
 import com.facebook.presto.sql.gen.lambda.BinaryFunctionInterface;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
+import io.airlift.bytecode.BytecodeBlock;
+import io.airlift.bytecode.BytecodeNode;
+import io.airlift.bytecode.ClassDefinition;
+import io.airlift.bytecode.MethodDefinition;
+import io.airlift.bytecode.Parameter;
+import io.airlift.bytecode.Scope;
+import io.airlift.bytecode.Variable;
+import io.airlift.bytecode.control.ForLoop;
+import io.airlift.bytecode.control.IfStatement;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 
-import static com.facebook.presto.bytecode.Access.FINAL;
-import static com.facebook.presto.bytecode.Access.PRIVATE;
-import static com.facebook.presto.bytecode.Access.PUBLIC;
-import static com.facebook.presto.bytecode.Access.STATIC;
-import static com.facebook.presto.bytecode.Access.a;
-import static com.facebook.presto.bytecode.CompilerUtils.defineClass;
-import static com.facebook.presto.bytecode.CompilerUtils.makeClassName;
-import static com.facebook.presto.bytecode.Parameter.arg;
-import static com.facebook.presto.bytecode.ParameterizedType.type;
-import static com.facebook.presto.bytecode.expression.BytecodeExpressions.add;
-import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantInt;
-import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantNull;
-import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantString;
-import static com.facebook.presto.bytecode.expression.BytecodeExpressions.divide;
-import static com.facebook.presto.bytecode.expression.BytecodeExpressions.equal;
-import static com.facebook.presto.bytecode.expression.BytecodeExpressions.getStatic;
-import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invokeStatic;
-import static com.facebook.presto.bytecode.expression.BytecodeExpressions.lessThan;
-import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newArray;
-import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newInstance;
-import static com.facebook.presto.bytecode.expression.BytecodeExpressions.subtract;
-import static com.facebook.presto.bytecode.instruction.VariableInstruction.incrementVariable;
 import static com.facebook.presto.metadata.Signature.typeVariable;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.functionTypeArgumentProperty;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
+import static com.facebook.presto.util.CompilerUtils.defineClass;
+import static com.facebook.presto.util.CompilerUtils.makeClassName;
 import static com.facebook.presto.util.Reflection.methodHandle;
+import static io.airlift.bytecode.Access.FINAL;
+import static io.airlift.bytecode.Access.PRIVATE;
+import static io.airlift.bytecode.Access.PUBLIC;
+import static io.airlift.bytecode.Access.STATIC;
+import static io.airlift.bytecode.Access.a;
+import static io.airlift.bytecode.Parameter.arg;
+import static io.airlift.bytecode.ParameterizedType.type;
+import static io.airlift.bytecode.expression.BytecodeExpressions.add;
+import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
+import static io.airlift.bytecode.expression.BytecodeExpressions.constantNull;
+import static io.airlift.bytecode.expression.BytecodeExpressions.constantString;
+import static io.airlift.bytecode.expression.BytecodeExpressions.divide;
+import static io.airlift.bytecode.expression.BytecodeExpressions.equal;
+import static io.airlift.bytecode.expression.BytecodeExpressions.getStatic;
+import static io.airlift.bytecode.expression.BytecodeExpressions.invokeStatic;
+import static io.airlift.bytecode.expression.BytecodeExpressions.lessThan;
+import static io.airlift.bytecode.expression.BytecodeExpressions.newArray;
+import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
+import static io.airlift.bytecode.expression.BytecodeExpressions.subtract;
+import static io.airlift.bytecode.instruction.VariableInstruction.incrementVariable;
 
 public final class MapTransformKeyFunction
         extends SqlScalarFunction
@@ -125,9 +128,9 @@ public final class MapTransformKeyFunction
                 TypeSignatureParameter.of(valueType.getTypeSignature())));
         return new ScalarFunctionImplementation(
                 false,
-                ImmutableList.of(false, false),
-                ImmutableList.of(false, false),
-                ImmutableList.of(Optional.empty(), Optional.of(BinaryFunctionInterface.class)),
+                ImmutableList.of(
+                        valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
+                        functionTypeArgumentProperty(BinaryFunctionInterface.class)),
                 generateTransformKey(keyType, transformedKeyType, valueType, resultMapType),
                 Optional.of(STATE_FACTORY.bindTo(resultMapType)),
                 isDeterministic());
@@ -189,7 +192,8 @@ public final class MapTransformKeyFunction
         body.append(typedSet.set(newInstance(
                 TypedSet.class,
                 constantType(binder, transformedKeyType),
-                divide(positionCount, constantInt(2)))));
+                divide(positionCount, constantInt(2)),
+                constantString(MAP_TRANSFORM_KEY_FUNCTION.getSignature().getName()))));
 
         // throw null key exception block
         BytecodeNode throwNullKeyException = new BytecodeBlock()
@@ -207,7 +211,10 @@ public final class MapTransformKeyFunction
         else {
             // make sure invokeExact will not take uninitialized keys during compile time
             // but if we reach this point during runtime, it is an exception
+            // also close the block builder before throwing as we may be in a TRY() call
+            // so that subsequent calls do not find it in an inconsistent state
             loadKeyElement = new BytecodeBlock()
+                    .append(mapBlockBuilder.invoke("closeEntry", BlockBuilder.class).pop())
                     .append(keyElement.set(constantNull(keyJavaType)))
                     .append(throwNullKeyException);
         }
@@ -240,6 +247,7 @@ public final class MapTransformKeyFunction
 
             // make sure getObjectValue takes a known key type
             throwDuplicatedKeyException = new BytecodeBlock()
+                    .append(mapBlockBuilder.invoke("closeEntry", BlockBuilder.class).pop())
                     .append(newInstance(
                             PrestoException.class,
                             getStatic(INVALID_FUNCTION_ARGUMENT.getDeclaringClass(), "INVALID_FUNCTION_ARGUMENT").cast(ErrorCodeSupplier.class),
@@ -274,6 +282,7 @@ public final class MapTransformKeyFunction
         body.append(mapBlockBuilder
                 .invoke("closeEntry", BlockBuilder.class)
                 .pop());
+        body.append(pageBuilder.invoke("declarePosition", void.class));
         body.append(constantType(binder, resultMapType)
                 .invoke(
                         "getObject",

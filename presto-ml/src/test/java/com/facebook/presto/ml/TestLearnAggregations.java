@@ -22,15 +22,12 @@ import com.facebook.presto.ml.type.ClassifierType;
 import com.facebook.presto.ml.type.ModelType;
 import com.facebook.presto.ml.type.RegressorType;
 import com.facebook.presto.operator.aggregation.Accumulator;
-import com.facebook.presto.operator.aggregation.AggregationCompiler;
+import com.facebook.presto.operator.aggregation.AggregationFromAnnotationsParser;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.InterleavedBlockBuilder;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -38,7 +35,6 @@ import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.type.TypeRegistry;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
@@ -46,9 +42,11 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 import java.util.Random;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.testing.AggregationTestUtils.generateInternalAggregationFunction;
-import static com.facebook.presto.type.TypeJsonUtils.appendToBlockBuilder;
+import static com.facebook.presto.tests.StructuralTestUtil.mapBlockOf;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
@@ -70,28 +68,25 @@ public class TestLearnAggregations
 
     @Test
     public void testLearn()
-            throws Exception
     {
         Type mapType = typeManager.getParameterizedType("map", ImmutableList.of(TypeSignatureParameter.of(parseTypeSignature(StandardTypes.BIGINT)), TypeSignatureParameter.of(parseTypeSignature(StandardTypes.DOUBLE))));
-        InternalAggregationFunction aggregation = generateInternalAggregationFunction(LearnClassifierAggregation.class, ClassifierType.BIGINT_CLASSIFIER.getTypeSignature(), ImmutableList.of(BigintType.BIGINT.getTypeSignature(), mapType.getTypeSignature()), typeManager);
+        InternalAggregationFunction aggregation = generateInternalAggregationFunction(LearnClassifierAggregation.class, ClassifierType.BIGINT_CLASSIFIER.getTypeSignature(), ImmutableList.of(BIGINT.getTypeSignature(), mapType.getTypeSignature()), typeManager);
         assertLearnClassifer(aggregation.bind(ImmutableList.of(0, 1), Optional.empty()).createAccumulator());
     }
 
     @Test
     public void testLearnLibSvm()
-            throws Exception
     {
         Type mapType = typeManager.getParameterizedType("map", ImmutableList.of(TypeSignatureParameter.of(parseTypeSignature(StandardTypes.BIGINT)), TypeSignatureParameter.of(parseTypeSignature(StandardTypes.DOUBLE))));
-        InternalAggregationFunction aggregation = AggregationCompiler.generateAggregationBindableFunction(
+        InternalAggregationFunction aggregation = AggregationFromAnnotationsParser.parseFunctionDefinitionWithTypesConstraint(
                 LearnLibSvmClassifierAggregation.class,
                 ClassifierType.BIGINT_CLASSIFIER.getTypeSignature(),
-                ImmutableList.of(BigintType.BIGINT.getTypeSignature(), mapType.getTypeSignature(), VarcharType.getParametrizedVarcharSignature("x"))
+                ImmutableList.of(BIGINT.getTypeSignature(), mapType.getTypeSignature(), VarcharType.getParametrizedVarcharSignature("x"))
         ).specialize(BoundVariables.builder().setLongVariable("x", (long) Integer.MAX_VALUE).build(), 3, typeManager);
         assertLearnClassifer(aggregation.bind(ImmutableList.of(0, 1, 2), Optional.empty()).createAccumulator());
     }
 
     private static void assertLearnClassifer(Accumulator accumulator)
-            throws Exception
     {
         accumulator.addInput(getPage());
         BlockBuilder finalOut = accumulator.getFinalType().createBlockBuilder(new BlockBuilderStatus(), 1);
@@ -104,25 +99,16 @@ public class TestLearnAggregations
     }
 
     private static Page getPage()
-            throws JsonProcessingException
     {
         Type mapType = typeManager.getParameterizedType("map", ImmutableList.of(TypeSignatureParameter.of(parseTypeSignature(StandardTypes.BIGINT)), TypeSignatureParameter.of(parseTypeSignature(StandardTypes.DOUBLE))));
         int datapoints = 100;
-        RowPageBuilder builder = RowPageBuilder.rowPageBuilder(BigintType.BIGINT, mapType, VarcharType.VARCHAR);
+        RowPageBuilder builder = RowPageBuilder.rowPageBuilder(BIGINT, mapType, VarcharType.VARCHAR);
         Random rand = new Random(0);
         for (int i = 0; i < datapoints; i++) {
             long label = rand.nextDouble() < 0.5 ? 0 : 1;
-            builder.row(label, mapSliceOf(BigintType.BIGINT, DoubleType.DOUBLE, 0, label + rand.nextGaussian()), "C=1");
+            builder.row(label, mapBlockOf(BIGINT, DOUBLE, 0L, label + rand.nextGaussian()), "C=1");
         }
 
         return builder.build();
-    }
-
-    private static Block mapSliceOf(Type keyType, Type valueType, Object key, Object value)
-    {
-        BlockBuilder blockBuilder = new InterleavedBlockBuilder(ImmutableList.of(keyType, valueType), new BlockBuilderStatus(), 100);
-        appendToBlockBuilder(keyType, key, blockBuilder);
-        appendToBlockBuilder(valueType, value, blockBuilder);
-        return blockBuilder.build();
     }
 }

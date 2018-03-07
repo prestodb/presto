@@ -69,11 +69,11 @@ public class AddColumnTask
         if ((type == null) || type.equals(UNKNOWN)) {
             throw new SemanticException(TYPE_MISMATCH, element, "Unknown type for column '%s' ", element.getName());
         }
-        if (columnHandles.containsKey(element.getName().toLowerCase(ENGLISH))) {
+        if (columnHandles.containsKey(element.getName().getValue().toLowerCase(ENGLISH))) {
             throw new SemanticException(COLUMN_ALREADY_EXISTS, statement, "Column '%s' already exists", element.getName());
         }
 
-        metadata.addColumn(session, tableHandle.get(), new ColumnMetadata(element.getName(), type));
+        metadata.addColumn(session, tableHandle.get(), new ColumnMetadata(element.getName().getValue(), type));
 
         return immediateFuture(null);
     }

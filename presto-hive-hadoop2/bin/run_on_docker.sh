@@ -1,4 +1,6 @@
-#!/bin/bash -ex
+#!/bin/bash
+
+set -euo pipefail -x
 
 # http://stackoverflow.com/questions/3572030/bash-script-absolute-path-with-osx
 function absolutepath() {
@@ -81,7 +83,9 @@ docker-compose -f "${DOCKER_COMPOSE_LOCATION}" down || true
 trap termination_handler INT TERM
 
 # pull docker images
-docker-compose -f "${DOCKER_COMPOSE_LOCATION}" pull
+if [[ "${CONTINUOUS_INTEGRATION:-false}" == 'true' ]]; then
+    docker-compose -f "${DOCKER_COMPOSE_LOCATION}" pull
+fi
 
 # start containers
 docker-compose -f "${DOCKER_COMPOSE_LOCATION}" up -d
@@ -98,7 +102,7 @@ exec_in_hadoop_master_container su hive -s /usr/bin/hive -f /files/sql/create-te
 
 stop_unnecessary_hadoop_services
 
-if [ -n "$DOCKER_MACHINE_NAME" ]
+if [ -n "${DOCKER_MACHINE_NAME:-}" ]
 then
   PROXY=`docker-machine ip`
 else
@@ -112,6 +116,7 @@ set +e
   -Dhive.hadoop2.timeZone=UTC \
   -DHADOOP_USER_NAME=hive \
   -Dhive.hadoop2.metastoreHost=hadoop-master \
+  -Dhive.hadoop2.timeZone=Asia/Kathmandu \
   -Dhive.metastore.thrift.client.socks-proxy=$PROXY:1180 \
   -Dsun.net.spi.nameservice.provider.1=default \
   -Dsun.net.spi.nameservice.provider.2=dns,dnsjava \

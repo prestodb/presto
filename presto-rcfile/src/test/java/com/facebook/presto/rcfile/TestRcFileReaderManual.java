@@ -242,7 +242,7 @@ public class TestRcFileReaderManual
                 new BogusRcFileCodecFactory(),
                 offset,
                 length,
-                new DataSize(1, MEGABYTE));
+                new DataSize(8, MEGABYTE));
 
         ImmutableList.Builder<Integer> values = ImmutableList.builder();
         while (reader.advance() >= 0) {
@@ -294,6 +294,8 @@ public class TestRcFileReaderManual
     private static class SliceRcFileDataSource
             implements RcFileDataSource
     {
+        private static final RcFileDataSourceId DATA_SOURCE_ID = new RcFileDataSourceId("test");
+
         private final Slice data;
 
         public SliceRcFileDataSource(Slice data)
@@ -328,6 +330,12 @@ public class TestRcFileReaderManual
         @Override
         public void close()
         {
+        }
+
+        @Override
+        public RcFileDataSourceId getId()
+        {
+            return DATA_SOURCE_ID;
         }
     }
 

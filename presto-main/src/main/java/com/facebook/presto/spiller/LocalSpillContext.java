@@ -15,11 +15,17 @@ package com.facebook.presto.spiller;
 
 import com.facebook.presto.operator.SpillContext;
 
-public class LocalSpillContext
-    implements SpillContext
+import javax.annotation.concurrent.ThreadSafe;
+
+import static com.google.common.base.Preconditions.checkState;
+
+@ThreadSafe
+public final class LocalSpillContext
+        implements SpillContext
 {
     private final SpillContext parentSpillContext;
     private long spilledBytes;
+    private boolean closed;
 
     public LocalSpillContext(SpillContext parentSpillContext)
     {
@@ -27,15 +33,21 @@ public class LocalSpillContext
     }
 
     @Override
-    public void updateBytes(long bytes)
+    public synchronized void updateBytes(long bytes)
     {
+        checkState(!closed, "Already closed");
         parentSpillContext.updateBytes(bytes);
         spilledBytes += bytes;
     }
 
     @Override
-    public void close()
+    public synchronized void close()
     {
+        if (closed) {
+            return;
+        }
+
+        closed = true;
         parentSpillContext.updateBytes(-spilledBytes);
     }
 }

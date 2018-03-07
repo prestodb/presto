@@ -22,11 +22,13 @@ import com.facebook.presto.execution.CreateTableTask;
 import com.facebook.presto.execution.CreateViewTask;
 import com.facebook.presto.execution.DataDefinitionTask;
 import com.facebook.presto.execution.DeallocateTask;
+import com.facebook.presto.execution.DropColumnTask;
 import com.facebook.presto.execution.DropSchemaTask;
 import com.facebook.presto.execution.DropTableTask;
 import com.facebook.presto.execution.DropViewTask;
 import com.facebook.presto.execution.ForQueryExecution;
 import com.facebook.presto.execution.GrantTask;
+import com.facebook.presto.execution.PlanFlattener;
 import com.facebook.presto.execution.PrepareTask;
 import com.facebook.presto.execution.QueryExecution;
 import com.facebook.presto.execution.QueryExecutionMBean;
@@ -48,6 +50,7 @@ import com.facebook.presto.execution.SqlQueryManager;
 import com.facebook.presto.execution.SqlQueryQueueManager;
 import com.facebook.presto.execution.StartTransactionTask;
 import com.facebook.presto.execution.TaskInfo;
+import com.facebook.presto.execution.UseTask;
 import com.facebook.presto.execution.resourceGroups.InternalResourceGroupManager;
 import com.facebook.presto.execution.resourceGroups.LegacyResourceGroupConfigurationManagerFactory;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
@@ -57,7 +60,14 @@ import com.facebook.presto.execution.scheduler.PhasedExecutionPolicy;
 import com.facebook.presto.execution.scheduler.SplitSchedulerStats;
 import com.facebook.presto.memory.ClusterMemoryManager;
 import com.facebook.presto.memory.ForMemoryManager;
+import com.facebook.presto.memory.LowMemoryKiller;
+import com.facebook.presto.memory.MemoryManagerConfig;
+import com.facebook.presto.memory.MemoryManagerConfig.LowMemoryKillerPolicy;
+import com.facebook.presto.memory.NoneLowMemoryKiller;
+import com.facebook.presto.memory.TotalReservationLowMemoryKiller;
+import com.facebook.presto.memory.TotalReservationOnBlockedNodesLowMemoryKiller;
 import com.facebook.presto.operator.ForScheduler;
+import com.facebook.presto.server.protocol.StatementResource;
 import com.facebook.presto.server.remotetask.RemoteTaskStats;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -73,6 +83,7 @@ import com.facebook.presto.sql.tree.Deallocate;
 import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.DescribeInput;
 import com.facebook.presto.sql.tree.DescribeOutput;
+import com.facebook.presto.sql.tree.DropColumn;
 import com.facebook.presto.sql.tree.DropSchema;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.DropView;
@@ -101,6 +112,7 @@ import com.facebook.presto.sql.tree.ShowTables;
 import com.facebook.presto.sql.tree.StartTransaction;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.Use;
+import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
@@ -113,19 +125,21 @@ import javax.inject.Inject;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.presto.execution.DataDefinitionExecution.DataDefinitionExecutionFactory;
 import static com.facebook.presto.execution.QueryExecution.QueryExecutionFactory;
 import static com.facebook.presto.execution.SqlQueryExecution.SqlQueryExecutionFactory;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static io.airlift.concurrent.Threads.threadsNamed;
+import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
 import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
 import static io.airlift.http.server.HttpServerBinder.httpServerBinder;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
-import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.weakref.jmx.ObjectNames.generatedNameOf;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
@@ -157,7 +171,9 @@ public class CoordinatorModule
         jaxrsBinder(binder).bind(ResourceGroupStateInfoResource.class);
         binder.bind(QueryIdGenerator.class).in(Scopes.SINGLETON);
         binder.bind(QueryManager.class).to(SqlQueryManager.class).in(Scopes.SINGLETON);
+        binder.bind(SessionSupplier.class).to(QuerySessionSupplier.class).in(Scopes.SINGLETON);
         binder.bind(InternalResourceGroupManager.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(InternalResourceGroupManager.class).withGeneratedName();
         binder.bind(ResourceGroupManager.class).to(InternalResourceGroupManager.class);
         binder.bind(LegacyResourceGroupConfigurationManagerFactory.class).in(Scopes.SINGLETON);
         if (buildConfigObject(FeaturesConfig.class).isResourceGroupsEnabled()) {
@@ -178,13 +194,17 @@ public class CoordinatorModule
                     config.setIdleTimeout(new Duration(30, SECONDS));
                     config.setRequestTimeout(new Duration(10, SECONDS));
                 });
+        bindLowMemoryKiller(LowMemoryKillerPolicy.NONE, NoneLowMemoryKiller.class);
+        bindLowMemoryKiller(LowMemoryKillerPolicy.TOTAL_RESERVATION, TotalReservationLowMemoryKiller.class);
+        bindLowMemoryKiller(LowMemoryKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES, TotalReservationOnBlockedNodesLowMemoryKiller.class);
         newExporter(binder).export(ClusterMemoryManager.class).withGeneratedName();
 
         // cluster statistics
         jaxrsBinder(binder).bind(ClusterStatsResource.class);
 
-        // query explainer
+        // explainers
         binder.bind(QueryExplainer.class).in(Scopes.SINGLETON);
+        binder.bind(PlanFlattener.class).in(Scopes.SINGLETON);
 
         // execution scheduler
         binder.bind(RemoteTaskFactory.class).to(HttpRemoteTaskFactory.class).in(Scopes.SINGLETON);
@@ -200,6 +220,9 @@ public class CoordinatorModule
                     config.setRequestTimeout(new Duration(10, SECONDS));
                     config.setMaxConnectionsPerServer(250);
                 });
+
+        binder.bind(ScheduledExecutorService.class).annotatedWith(ForScheduler.class)
+                .toInstance(newSingleThreadScheduledExecutor(threadsNamed("stage-scheduler")));
 
         // query execution
         binder.bind(ExecutorService.class).annotatedWith(ForQueryExecution.class)
@@ -223,7 +246,6 @@ public class CoordinatorModule
         executionBinder.addBinding(ShowTables.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
         executionBinder.addBinding(ShowSchemas.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
         executionBinder.addBinding(ShowCatalogs.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
-        executionBinder.addBinding(Use.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
         executionBinder.addBinding(ShowSession.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
         executionBinder.addBinding(ShowGrants.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
         executionBinder.addBinding(CreateTableAsSelect.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
@@ -240,9 +262,11 @@ public class CoordinatorModule
         bindDataDefinitionTask(binder, executionBinder, CreateTable.class, CreateTableTask.class);
         bindDataDefinitionTask(binder, executionBinder, RenameTable.class, RenameTableTask.class);
         bindDataDefinitionTask(binder, executionBinder, RenameColumn.class, RenameColumnTask.class);
+        bindDataDefinitionTask(binder, executionBinder, DropColumn.class, DropColumnTask.class);
         bindDataDefinitionTask(binder, executionBinder, DropTable.class, DropTableTask.class);
         bindDataDefinitionTask(binder, executionBinder, CreateView.class, CreateViewTask.class);
         bindDataDefinitionTask(binder, executionBinder, DropView.class, DropViewTask.class);
+        bindDataDefinitionTask(binder, executionBinder, Use.class, UseTask.class);
         bindDataDefinitionTask(binder, executionBinder, SetSession.class, SetSessionTask.class);
         bindDataDefinitionTask(binder, executionBinder, ResetSession.class, ResetSessionTask.class);
         bindDataDefinitionTask(binder, executionBinder, StartTransaction.class, StartTransactionTask.class);
@@ -275,20 +299,33 @@ public class CoordinatorModule
         executionBinder.addBinding(statement).to(DataDefinitionExecutionFactory.class).in(Scopes.SINGLETON);
     }
 
+    private void bindLowMemoryKiller(String name, Class<? extends LowMemoryKiller> clazz)
+    {
+        install(installModuleIf(
+                MemoryManagerConfig.class,
+                config -> name.equals(config.getLowMemoryKillerPolicy()),
+                binder -> binder.bind(LowMemoryKiller.class).to(clazz).in(Scopes.SINGLETON)));
+    }
+
     public static class ExecutorCleanup
     {
-        private final ExecutorService executor;
+        private final List<ExecutorService> executors;
 
         @Inject
-        public ExecutorCleanup(@ForQueryExecution ExecutorService executor)
+        public ExecutorCleanup(
+                @ForQueryExecution ExecutorService queryExecutionExecutor,
+                @ForScheduler ScheduledExecutorService schedulerExecutor)
         {
-            this.executor = requireNonNull(executor, "executor is null");
+            executors = ImmutableList.<ExecutorService>builder()
+                    .add(queryExecutionExecutor)
+                    .add(schedulerExecutor)
+                    .build();
         }
 
         @PreDestroy
         public void shutdown()
         {
-            executor.shutdownNow();
+            executors.forEach(ExecutorService::shutdownNow);
         }
     }
 }

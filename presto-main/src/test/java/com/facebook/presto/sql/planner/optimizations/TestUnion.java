@@ -162,21 +162,25 @@ public class TestUnion
 
     private void assertPlanIsFullyDistributed(Plan plan)
     {
+        int numberOfGathers = searchFrom(plan.getRoot())
+                .where(TestUnion::isRemoteGatheringExchange)
+                .findAll()
+                .size();
+
+        if (numberOfGathers == 0) {
+            // there are no "gather" nodes, so the plan is expected to be fully distributed
+            return;
+        }
+
         assertTrue(
                 searchFrom(plan.getRoot())
-                        .skipOnlyWhen(TestUnion::isNotRemoteGatheringExchange)
+                        .recurseOnlyWhen(TestUnion::isNotRemoteGatheringExchange)
                         .findAll()
                         .stream()
                         .noneMatch(this::shouldBeDistributed),
                 "There is a node that should be distributed between output and first REMOTE GATHER ExchangeNode");
 
-        List<PlanNode> gathers = searchFrom(plan.getRoot())
-                .where(TestUnion::isRemoteGatheringExchange)
-                .findAll()
-                .stream()
-                .collect(toList());
-
-        assertEquals(gathers.size(), 1, "Only a single REMOTE GATHER was expected");
+        assertEquals(numberOfGathers, 1, "Only a single REMOTE GATHER was expected");
     }
 
     private boolean shouldBeDistributed(PlanNode planNode)
@@ -206,7 +210,7 @@ public class TestUnion
         for (PlanNode fragment : fragments) {
             List<PlanNode> aggregations = searchFrom(fragment)
                     .where(AggregationNode.class::isInstance)
-                    .skipOnlyWhen(TestUnion::isNotRemoteExchange)
+                    .recurseOnlyWhen(TestUnion::isNotRemoteExchange)
                     .findAll();
 
             assertFalse(aggregations.size() > 1, "More than a single AggregationNode between remote exchanges");

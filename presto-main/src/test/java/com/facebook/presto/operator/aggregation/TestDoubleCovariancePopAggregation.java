@@ -29,7 +29,7 @@ public class TestDoubleCovariancePopAggregation
     @Override
     public Block[] getSequenceBlocks(int start, int length)
     {
-        return new Block[]{createDoubleSequenceBlock(start, start + length), createDoubleSequenceBlock(start + 5, start + 5 + length)};
+        return new Block[] {createDoubleSequenceBlock(start, start + length), createDoubleSequenceBlock(start + 5, start + 5 + length)};
     }
 
     @Override

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.orc.OrcTester.Format;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DecimalType;
@@ -33,6 +34,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
+import static com.facebook.presto.orc.OrcTester.Format.DWRF;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
@@ -56,63 +58,64 @@ import static org.testng.Assert.fail;
 
 public final class TestingOrcPredicate
 {
-    private static final int ORC_ROW_GROUP_SIZE = 10_000;
+    public static final int ORC_STRIPE_SIZE = 30_000;
+    public static final int ORC_ROW_GROUP_SIZE = 10_000;
 
     private TestingOrcPredicate()
     {
     }
 
-    public static OrcPredicate createOrcPredicate(Type type, Iterable<?> values, boolean noFileStats)
+    public static OrcPredicate createOrcPredicate(Type type, Iterable<?> values, Format format, boolean isHiveWriter)
     {
         List<Object> expectedValues = newArrayList(values);
         if (BOOLEAN.equals(type)) {
-            return new BooleanOrcPredicate(expectedValues, noFileStats);
+            return new BooleanOrcPredicate(expectedValues, format == DWRF);
         }
         if (TINYINT.equals(type) || SMALLINT.equals(type) || INTEGER.equals(type) || BIGINT.equals(type)) {
             return new LongOrcPredicate(
                     expectedValues.stream()
                             .map(value -> value == null ? null : ((Number) value).longValue())
                             .collect(toList()),
-                    noFileStats);
+                    format == DWRF);
         }
         if (TIMESTAMP.equals(type)) {
             return new LongOrcPredicate(
                     expectedValues.stream()
                             .map(value -> value == null ? null : ((SqlTimestamp) value).getMillisUtc())
                             .collect(toList()),
-                    noFileStats);
+                    format == DWRF);
         }
         if (DATE.equals(type)) {
             return new DateOrcPredicate(
                     expectedValues.stream()
                             .map(value -> value == null ? null : (long) ((SqlDate) value).getDays())
                             .collect(toList()),
-                    noFileStats);
+                    format == DWRF);
         }
         if (REAL.equals(type) || DOUBLE.equals(type)) {
             return new DoubleOrcPredicate(
                     expectedValues.stream()
                             .map(value -> value == null ? null : ((Number) value).doubleValue())
                             .collect(toList()),
-                    noFileStats);
+                    format == DWRF);
         }
         if (type instanceof VarbinaryType) {
             // binary does not have stats
-            return new BasicOrcPredicate<>(expectedValues, Object.class, noFileStats);
+            return new BasicOrcPredicate<>(expectedValues, Object.class, format == DWRF);
         }
         if (type instanceof VarcharType) {
-            return new StringOrcPredicate(expectedValues, noFileStats);
+            return new StringOrcPredicate(expectedValues, format, isHiveWriter);
         }
         if (type instanceof CharType) {
-            return new CharOrcPredicate(expectedValues, noFileStats);
+            return new CharOrcPredicate(expectedValues, format == DWRF);
         }
         if (type instanceof DecimalType) {
-            return new DecimalOrcPredicate(expectedValues, noFileStats);
+            return new DecimalOrcPredicate(expectedValues, format == DWRF);
         }
 
         String baseType = type.getTypeSignature().getBase();
         if (ARRAY.equals(baseType) || MAP.equals(baseType) || ROW.equals(baseType)) {
-            return new BasicOrcPredicate<>(expectedValues, Object.class, noFileStats);
+            return new BasicOrcPredicate<>(expectedValues, Object.class, format == DWRF);
         }
         throw new IllegalArgumentException("Unsupported type " + type);
     }
@@ -151,19 +154,18 @@ public final class TestingOrcPredicate
             }
             else if (numberOfRows == ORC_ROW_GROUP_SIZE) {
                 // middle section
-                boolean foundMatch = false;
-
-                int length;
-                for (int offset = 0; offset < expectedValues.size(); offset += length) {
-                    length = Math.min(ORC_ROW_GROUP_SIZE, expectedValues.size() - offset);
-                    if (chunkMatchesStats(expectedValues.subList(offset, offset + length), columnStatistics)) {
-                        foundMatch = true;
-                        break;
-                    }
-                }
-                assertTrue(foundMatch);
+                matchMiddleSection(columnStatistics, ORC_ROW_GROUP_SIZE);
             }
-            else if (numberOfRows == expectedValues.size() % ORC_ROW_GROUP_SIZE) {
+            else if (numberOfRows == ORC_STRIPE_SIZE) {
+                // middle section
+                matchMiddleSection(columnStatistics, ORC_STRIPE_SIZE);
+            }
+            else if (numberOfRows == expectedValues.size() % ORC_ROW_GROUP_SIZE || numberOfRows == expectedValues.size() % ORC_STRIPE_SIZE) {
+                // tail section
+                List<T> chunk = expectedValues.subList((int) (expectedValues.size() - numberOfRows), expectedValues.size());
+                assertChunkStats(chunk, columnStatistics);
+            }
+            else if (numberOfRows == expectedValues.size() % ORC_STRIPE_SIZE) {
                 // tail section
                 List<T> chunk = expectedValues.subList((int) (expectedValues.size() - numberOfRows), expectedValues.size());
                 assertChunkStats(chunk, columnStatistics);
@@ -172,6 +174,18 @@ public final class TestingOrcPredicate
                 fail("Unexpected number of rows: " + numberOfRows);
             }
             return true;
+        }
+
+        private void matchMiddleSection(ColumnStatistics columnStatistics, int size)
+        {
+            int length;
+            for (int offset = 0; offset < expectedValues.size(); offset += length) {
+                length = Math.min(size, expectedValues.size() - offset);
+                if (chunkMatchesStats(expectedValues.subList(offset, offset + length), columnStatistics)) {
+                    return;
+                }
+            }
+            fail("match not found for middle section");
         }
 
         private void assertChunkStats(List<T> chunk, ColumnStatistics columnStatistics)
@@ -308,9 +322,14 @@ public final class TestingOrcPredicate
     public static class StringOrcPredicate
             extends BasicOrcPredicate<String>
     {
-        public StringOrcPredicate(Iterable<?> expectedValues, boolean noFileStats)
+        private final Format format;
+        private final boolean isHiveWriter;
+
+        public StringOrcPredicate(Iterable<?> expectedValues, Format format, boolean isHiveWriter)
         {
-            super(expectedValues, String.class, noFileStats);
+            super(expectedValues, String.class, format == DWRF);
+            this.format = format;
+            this.isHiveWriter = isHiveWriter;
         }
 
         @Override
@@ -333,16 +352,24 @@ public final class TestingOrcPredicate
 
             // statistics can be missing for any reason
             if (columnStatistics.getStringStatistics() != null) {
-                // verify min
                 Slice chunkMin = Ordering.natural().nullsLast().min(slices);
-                if (columnStatistics.getStringStatistics().getMin().compareTo(chunkMin) > 0) {
-                    return false;
-                }
-
-                // verify max
                 Slice chunkMax = Ordering.natural().nullsFirst().max(slices);
-                if (columnStatistics.getStringStatistics().getMax().compareTo(chunkMax) < 0) {
-                    return false;
+                if (format == DWRF && isHiveWriter) {
+                    // We use the OLD open source DWRF writer for tests which uses UTF-16be for string stats. These are widened by the our reader.
+                    if (columnStatistics.getStringStatistics().getMin().compareTo(chunkMin) > 0) {
+                        return false;
+                    }
+                    if (columnStatistics.getStringStatistics().getMax().compareTo(chunkMax) < 0) {
+                        return false;
+                    }
+                }
+                else {
+                    if (!columnStatistics.getStringStatistics().getMin().equals(chunkMin)) {
+                        return false;
+                    }
+                    if (!columnStatistics.getStringStatistics().getMax().equals(chunkMax)) {
+                        return false;
+                    }
                 }
             }
 

@@ -90,15 +90,15 @@
             <div className="col-xs-12 tinystat-row">
                 <span className="tinystat" data-toggle="tooltip" data-placement="top" title="Current reserved memory">
                     <span className="glyphicon glyphicon-scale" style={ GLYPHICON_HIGHLIGHT }/>&nbsp;&nbsp;
-                    { query.queryStats.totalMemoryReservation }
+                    { query.queryStats.userMemoryReservation }
                 </span>
                 <span className="tinystat" data-toggle="tooltip" data-placement="top" title="Peak memory">
                     <span className="glyphicon glyphicon-fire" style={ GLYPHICON_HIGHLIGHT }/>&nbsp;&nbsp;
-                    { query.queryStats.peakMemoryReservation }
+                    { query.queryStats.peakUserMemoryReservation }
                 </span>
                 <span className="tinystat" data-toggle="tooltip" data-placement="top" title="Cumulative memory">
                     <span className="glyphicon glyphicon-equalizer" style={ GLYPHICON_HIGHLIGHT }/>&nbsp;&nbsp;
-                    { formatDataSizeBytes(query.queryStats.cumulativeMemory) }
+                    { formatDataSizeBytes(query.queryStats.cumulativeUserMemory) }
                 </span>
             </div> );
 
@@ -200,8 +200,8 @@ const SORT_TYPE = {
     ELAPSED: function (query) {return parseDuration(query.queryStats.elapsedTime)},
     EXECUTION: function (query) {return parseDuration(query.queryStats.executionTime)},
     CPU: function (query) {return parseDuration(query.queryStats.totalCpuTime)},
-    CUMULATIVE_MEMORY: function (query) {return query.queryStats.cumulativeMemory},
-    CURRENT_MEMORY: function (query) {return parseDataSize(query.queryStats.totalMemoryReservation)},
+    CUMULATIVE_MEMORY: function (query) {return query.queryStats.cumulativeUserMemory},
+    CURRENT_MEMORY: function (query) {return parseDataSize(query.queryStats.userMemoryReservation)},
 };
 
 const SORT_ORDER = {

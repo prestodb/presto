@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.spiller;
 
-import com.facebook.presto.memory.LocalMemoryContext;
+import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.SpillContext;
 import com.facebook.presto.spi.type.Type;
 
@@ -22,4 +22,11 @@ import java.util.List;
 public interface SingleStreamSpillerFactory
 {
     SingleStreamSpiller create(List<Type> types, SpillContext spillContext, LocalMemoryContext memoryContext);
+
+    static SingleStreamSpillerFactory unsupportedSingleStreamSpillerFactory()
+    {
+        return (types, spillContext, memoryContext) -> {
+            throw new UnsupportedOperationException();
+        };
+    }
 }

@@ -19,6 +19,7 @@ import io.airlift.configuration.ConfigDescription;
 public class LegacySecurityConfig
 {
     private boolean allowAddColumn;
+    private boolean allowDropColumn;
     private boolean allowDropTable;
     private boolean allowRenameTable;
     private boolean allowRenameColumn;
@@ -33,6 +34,19 @@ public class LegacySecurityConfig
     public LegacySecurityConfig setAllowAddColumn(boolean allowAddColumn)
     {
         this.allowAddColumn = allowAddColumn;
+        return this;
+    }
+
+    public boolean getAllowDropColumn()
+    {
+        return this.allowDropColumn;
+    }
+
+    @Config("hive.allow-drop-column")
+    @ConfigDescription("Allow Hive connector to drop column")
+    public LegacySecurityConfig setAllowDropColumn(boolean allowDropColumn)
+    {
+        this.allowDropColumn = allowDropColumn;
         return this;
     }
 

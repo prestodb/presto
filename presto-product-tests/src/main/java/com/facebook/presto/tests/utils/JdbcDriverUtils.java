@@ -14,7 +14,9 @@
 package com.facebook.presto.tests.utils;
 
 import com.facebook.presto.jdbc.PrestoConnection;
+import io.airlift.log.Logger;
 
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -22,17 +24,23 @@ import java.sql.Statement;
 
 public class JdbcDriverUtils
 {
-    public static String getSessionProperty(Connection connection, String key) throws SQLException
+    private static final Logger LOGGER = Logger.get(JdbcDriverUtils.class);
+    private static final String IS_NUMERIC_REGEX = "-?\\d*[\\.\\d]*";
+
+    public static String getSessionProperty(Connection connection, String key)
+            throws SQLException
     {
         return getSessionProperty(connection, key, "Value");
     }
 
-    public static String getSessionPropertyDefault(Connection connection, String key) throws SQLException
+    public static String getSessionPropertyDefault(Connection connection, String key)
+            throws SQLException
     {
         return getSessionProperty(connection, key, "Default");
     }
 
-    private static String getSessionProperty(Connection connection, String key, String valueType) throws SQLException
+    private static String getSessionProperty(Connection connection, String key, String valueType)
+            throws SQLException
     {
         try (Statement statement = connection.createStatement()) {
             ResultSet rs = statement.executeQuery("SHOW SESSION");
@@ -45,7 +53,8 @@ public class JdbcDriverUtils
         return null;
     }
 
-    public static void setSessionProperty(Connection connection, String key, String value) throws SQLException
+    public static void setSessionProperty(Connection connection, String key, String value)
+            throws SQLException
     {
         if (usingPrestoJdbcDriver(connection)) {
             PrestoConnection prestoConnection = connection.unwrap(PrestoConnection.class);
@@ -53,6 +62,9 @@ public class JdbcDriverUtils
         }
         else if (usingTeradataJdbcDriver(connection)) {
             try (Statement statement = connection.createStatement()) {
+                if (shouldValueBeQuoted(value)) {
+                    value = "'" + value + "'";
+                }
                 statement.execute(String.format("set session %s=%s", key, value));
             }
         }
@@ -61,7 +73,29 @@ public class JdbcDriverUtils
         }
     }
 
-    public static void resetSessionProperty(Connection connection, String key) throws SQLException
+    private static boolean shouldValueBeQuoted(String value)
+    {
+        if (value.equalsIgnoreCase("true") || value.equalsIgnoreCase("false")) {
+            return false;
+        }
+
+        if (value.matches(IS_NUMERIC_REGEX)) {
+            return false;
+        }
+
+        try {
+            new BigDecimal(value);
+            return false;
+        }
+        catch (NumberFormatException e) {
+            LOGGER.info("'%s' is not a number", value, e);
+        }
+
+        return true;
+    }
+
+    public static void resetSessionProperty(Connection connection, String key)
+            throws SQLException
     {
         if (usingPrestoJdbcDriver(connection)) {
             setSessionProperty(connection, key, getSessionPropertyDefault(connection, key));
@@ -83,12 +117,12 @@ public class JdbcDriverUtils
 
     public static boolean usingTeradataJdbcDriver(Connection connection)
     {
-        return  getClassNameForJdbcDriver(connection).startsWith("com.teradata.jdbc.");
+        return getClassNameForJdbcDriver(connection).startsWith("com.teradata.presto.");
     }
 
     public static boolean usingTeradataJdbc4Driver(Connection connection)
     {
-        return getClassNameForJdbcDriver(connection).startsWith("com.teradata.jdbc.jdbc4.");
+        return getClassNameForJdbcDriver(connection).startsWith("com.teradata.presto.jdbc.jdbc4.");
     }
 
     private static String getClassNameForJdbcDriver(Connection connection)

@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.google.common.base.Throwables;
-
 import java.lang.invoke.CallSite;
 import java.lang.invoke.LambdaConversionException;
 import java.lang.invoke.LambdaMetafactory;
@@ -34,7 +32,7 @@ public final class LambdaCapture
             LAMBDA_CAPTURE_METHOD = LambdaCapture.class.getMethod("lambdaCapture", MethodHandles.Lookup.class, String.class, MethodType.class, MethodType.class, MethodHandle.class, MethodType.class);
         }
         catch (NoSuchMethodException e) {
-            throw Throwables.propagate(e);
+            throw new RuntimeException(e);
         }
     }
 

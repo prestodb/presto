@@ -26,7 +26,6 @@ public class TestPrestoThriftAllOrNoneValueSet
 {
     @Test
     public void testFromValueSetAll()
-            throws Exception
     {
         PrestoThriftValueSet thriftValueSet = fromValueSet(ValueSet.all(HYPER_LOG_LOG));
         assertNotNull(thriftValueSet.getAllOrNoneValueSet());
@@ -35,7 +34,6 @@ public class TestPrestoThriftAllOrNoneValueSet
 
     @Test
     public void testFromValueSetNone()
-            throws Exception
     {
         PrestoThriftValueSet thriftValueSet = fromValueSet(ValueSet.none(HYPER_LOG_LOG));
         assertNotNull(thriftValueSet.getAllOrNoneValueSet());

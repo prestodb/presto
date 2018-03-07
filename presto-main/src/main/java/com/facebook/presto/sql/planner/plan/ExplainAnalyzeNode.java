@@ -31,16 +31,19 @@ public class ExplainAnalyzeNode
 {
     private final PlanNode source;
     private final Symbol outputSymbol;
+    private final boolean verbose;
 
     @JsonCreator
     public ExplainAnalyzeNode(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
-            @JsonProperty("outputSymbol") Symbol outputSymbol)
+            @JsonProperty("outputSymbol") Symbol outputSymbol,
+            @JsonProperty("verbose") boolean verbose)
     {
         super(id);
         this.source = requireNonNull(source, "source is null");
         this.outputSymbol = requireNonNull(outputSymbol, "outputSymbol is null");
+        this.verbose = verbose;
     }
 
     @JsonProperty("outputSymbol")
@@ -53,6 +56,12 @@ public class ExplainAnalyzeNode
     public PlanNode getSource()
     {
         return source;
+    }
+
+    @JsonProperty("verbose")
+    public boolean isVerbose()
+    {
+        return verbose;
     }
 
     @Override
@@ -76,6 +85,6 @@ public class ExplainAnalyzeNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new ExplainAnalyzeNode(getId(), Iterables.getOnlyElement(newChildren), outputSymbol);
+        return new ExplainAnalyzeNode(getId(), Iterables.getOnlyElement(newChildren), outputSymbol, isVerbose());
     }
 }

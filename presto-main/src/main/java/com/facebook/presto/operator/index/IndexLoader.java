@@ -43,7 +43,7 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -71,7 +71,7 @@ public class IndexLoader
     private final AtomicReference<TaskContext> taskContextReference = new AtomicReference<>();
     private final Set<Integer> lookupSourceInputChannels;
     private final List<Integer> keyOutputChannels;
-    private final Optional<Integer> keyOutputHashChannel;
+    private final OptionalInt keyOutputHashChannel;
     private final List<Type> keyTypes;
     private final PagesIndex.Factory pagesIndexFactory;
     private final JoinCompiler joinCompiler;
@@ -88,7 +88,7 @@ public class IndexLoader
     public IndexLoader(
             Set<Integer> lookupSourceInputChannels,
             List<Integer> keyOutputChannels,
-            Optional<Integer> keyOutputHashChannel,
+            OptionalInt keyOutputHashChannel,
             List<Type> outputTypes,
             IndexBuildDriverFactoryProvider indexBuildDriverFactoryProvider,
             int expectedPositions,
@@ -298,7 +298,7 @@ public class IndexLoader
                 Set<Integer> lookupSourceInputChannels,
                 List<Type> indexTypes,
                 List<Integer> keyOutputChannels,
-                Optional<Integer> keyOutputHashChannel,
+                OptionalInt keyOutputHashChannel,
                 int expectedPositions,
                 DataSize maxIndexMemorySize,
                 PagesIndex.Factory pagesIndexFactory,
@@ -397,7 +397,7 @@ public class IndexLoader
         }
 
         @Override
-        public int getJoinPositionCount()
+        public long getJoinPositionCount()
         {
             return 0;
         }
@@ -406,6 +406,12 @@ public class IndexLoader
         public long getInMemorySizeInBytes()
         {
             return 0;
+        }
+
+        @Override
+        public long joinPositionWithinPartition(long joinPosition)
+        {
+            throw new UnsupportedOperationException();
         }
 
         @Override

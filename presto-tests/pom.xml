@@ -5,7 +5,7 @@
     <parent>
         <artifactId>presto-root</artifactId>
         <groupId>com.facebook.presto</groupId>
-        <version>0.180-SNAPSHOT</version>
+        <version>0.197-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-tests</artifactId>
@@ -58,28 +58,8 @@
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>discovery</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>io.airlift.discovery</groupId>
             <artifactId>discovery-server</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>http-server</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>jaxrs</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>jmx</artifactId>
         </dependency>
 
         <dependency>
@@ -123,6 +103,11 @@
         </dependency>
 
         <dependency>
+            <groupId>javax.inject</groupId>
+            <artifactId>javax.inject</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>com.squareup.okhttp3</groupId>
             <artifactId>okhttp</artifactId>
         </dependency>
@@ -149,7 +134,7 @@
 
         <dependency>
             <groupId>org.jdbi</groupId>
-            <artifactId>jdbi</artifactId>
+            <artifactId>jdbi3-core</artifactId>
         </dependency>
 
         <dependency>
@@ -174,11 +159,24 @@
         </dependency>
 
         <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
             <scope>runtime</scope>
         </dependency>
 
+        <!-- used by tests but also needed transitively -->
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>log-manager</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- for testing -->
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-resource-group-managers</artifactId>
@@ -189,12 +187,6 @@
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-resource-group-managers</artifactId>
             <type>test-jar</type>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>log-manager</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -209,8 +201,7 @@
                     <excludes>
                         <exclude>**/TestDistributedQueriesNoHashGeneration.java</exclude>
                         <exclude>**/TestLocalQueries.java</exclude>
-                        <exclude>**/TestLocalQueriesIndexed.java</exclude>
-                        <exclude>**/TestLocalBinarySpilledQueries.java</exclude>
+                        <exclude>**/TestNonIterativeDistributedQueries.java</exclude>
                     </excludes>
                 </configuration>
             </plugin>
@@ -245,8 +236,7 @@
                             <includes>
                                 <include>**/TestDistributedQueriesNoHashGeneration.java</include>
                                 <include>**/TestLocalQueries.java</include>
-                                <include>**/TestLocalQueriesIndexed.java</include>
-                                <include>**/TestLocalBinarySpilledQueries.java</include>
+                                <include>**/TestNonIterativeDistributedQueries.java</include>
                             </includes>
                         </configuration>
                     </plugin>

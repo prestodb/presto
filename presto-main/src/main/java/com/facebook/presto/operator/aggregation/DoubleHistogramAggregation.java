@@ -51,6 +51,7 @@ public final class DoubleHistogramAggregation
     {
         @NotNull
         NumericHistogram get();
+
         void set(NumericHistogram value);
     }
 

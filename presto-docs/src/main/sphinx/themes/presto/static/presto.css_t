@@ -125,3 +125,7 @@ tt.docutils.literal, code.docutils.literal {
 div.toctree-wrapper > ul > li:last-child > ul {
     display: none;
 }
+
+table.docutils col {
+    width: auto;
+}

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.rcfile;
 
+import io.airlift.compress.gzip.JdkGzipCodec;
 import io.airlift.compress.lz4.Lz4Codec;
 import io.airlift.compress.lzo.LzoCodec;
 import io.airlift.compress.snappy.SnappyCodec;
@@ -27,6 +28,7 @@ public class AircompressorCodecFactory
     private static final String LZO_CODEC_NAME_DEPRECATED = "org.apache.hadoop.io.compress.LzoCodec";
     private static final String LZ4_CODEC_NAME = "org.apache.hadoop.io.compress.Lz4Codec";
     private static final String LZ4_HC_CODEC_NAME = "org.apache.hadoop.io.compress.Lz4Codec";
+    private static final String GZIP_CODEC_NAME = "org.apache.hadoop.io.compress.GzipCodec";
 
     private final RcFileCodecFactory delegate;
 
@@ -47,6 +49,9 @@ public class AircompressorCodecFactory
         if (LZ4_CODEC_NAME.equals(codecName)) {
             return new AircompressorCompressor(new Lz4Codec());
         }
+        if (GZIP_CODEC_NAME.equals(codecName)) {
+            return new AircompressorCompressor(new JdkGzipCodec());
+        }
         return delegate.createCompressor(codecName);
     }
 
@@ -61,6 +66,9 @@ public class AircompressorCodecFactory
         }
         if (LZ4_CODEC_NAME.equals(codecName) || LZ4_HC_CODEC_NAME.equals(codecName)) {
             return new AircompressorDecompressor(new Lz4Codec());
+        }
+        if (GZIP_CODEC_NAME.equals(codecName)) {
+            return new AircompressorDecompressor(new JdkGzipCodec());
         }
         return delegate.createDecompressor(codecName);
     }

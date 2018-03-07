@@ -37,6 +37,17 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
 
+import static com.facebook.presto.plugin.jdbc.TestingJdbcTypeHandle.JDBC_BIGINT;
+import static com.facebook.presto.plugin.jdbc.TestingJdbcTypeHandle.JDBC_BOOLEAN;
+import static com.facebook.presto.plugin.jdbc.TestingJdbcTypeHandle.JDBC_DATE;
+import static com.facebook.presto.plugin.jdbc.TestingJdbcTypeHandle.JDBC_DOUBLE;
+import static com.facebook.presto.plugin.jdbc.TestingJdbcTypeHandle.JDBC_INTEGER;
+import static com.facebook.presto.plugin.jdbc.TestingJdbcTypeHandle.JDBC_REAL;
+import static com.facebook.presto.plugin.jdbc.TestingJdbcTypeHandle.JDBC_SMALLINT;
+import static com.facebook.presto.plugin.jdbc.TestingJdbcTypeHandle.JDBC_TIME;
+import static com.facebook.presto.plugin.jdbc.TestingJdbcTypeHandle.JDBC_TIMESTAMP;
+import static com.facebook.presto.plugin.jdbc.TestingJdbcTypeHandle.JDBC_TINYINT;
+import static com.facebook.presto.plugin.jdbc.TestingJdbcTypeHandle.JDBC_VARCHAR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
@@ -71,17 +82,17 @@ public class TestJdbcQueryBuilder
         jdbcClient = database.getJdbcClient();
 
         columns = ImmutableList.of(
-                new JdbcColumnHandle("test_id", "col_0", BIGINT),
-                new JdbcColumnHandle("test_id", "col_1", DOUBLE),
-                new JdbcColumnHandle("test_id", "col_2", BOOLEAN),
-                new JdbcColumnHandle("test_id", "col_3", VARCHAR),
-                new JdbcColumnHandle("test_id", "col_4", DATE),
-                new JdbcColumnHandle("test_id", "col_5", TIME),
-                new JdbcColumnHandle("test_id", "col_6", TIMESTAMP),
-                new JdbcColumnHandle("test_id", "col_7", TINYINT),
-                new JdbcColumnHandle("test_id", "col_8", SMALLINT),
-                new JdbcColumnHandle("test_id", "col_9", INTEGER),
-                new JdbcColumnHandle("test_id", "col_10", REAL));
+                new JdbcColumnHandle("test_id", "col_0", JDBC_BIGINT, BIGINT),
+                new JdbcColumnHandle("test_id", "col_1", JDBC_DOUBLE, DOUBLE),
+                new JdbcColumnHandle("test_id", "col_2", JDBC_BOOLEAN, BOOLEAN),
+                new JdbcColumnHandle("test_id", "col_3", JDBC_VARCHAR, VARCHAR),
+                new JdbcColumnHandle("test_id", "col_4", JDBC_DATE, DATE),
+                new JdbcColumnHandle("test_id", "col_5", JDBC_TIME, TIME),
+                new JdbcColumnHandle("test_id", "col_6", JDBC_TIMESTAMP, TIMESTAMP),
+                new JdbcColumnHandle("test_id", "col_7", JDBC_TINYINT, TINYINT),
+                new JdbcColumnHandle("test_id", "col_8", JDBC_SMALLINT, SMALLINT),
+                new JdbcColumnHandle("test_id", "col_9", JDBC_INTEGER, INTEGER),
+                new JdbcColumnHandle("test_id", "col_10", JDBC_REAL, REAL));
 
         Connection connection = database.getConnection();
         try (PreparedStatement preparedStatement = connection.prepareStatement("create table \"test_table\" (" + "" +
@@ -195,16 +206,15 @@ public class TestJdbcQueryBuilder
     {
         TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
                 columns.get(10), Domain.create(SortedRangeSet.copyOf(REAL,
-                                ImmutableList.of(
-                                        Range.equal(REAL, (long) floatToRawIntBits(100.0f + 0)),
-                                        Range.equal(REAL, (long) floatToRawIntBits(100.008f + 0)),
-                                        Range.equal(REAL, (long) floatToRawIntBits(100.0f + 14)))),
-                        false)
-        ));
+                        ImmutableList.of(
+                                Range.equal(REAL, (long) floatToRawIntBits(100.0f + 0)),
+                                Range.equal(REAL, (long) floatToRawIntBits(100.008f + 0)),
+                                Range.equal(REAL, (long) floatToRawIntBits(100.0f + 14)))),
+                        false)));
 
         Connection connection = database.getConnection();
         try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, connection, "", "", "test_table", columns, tupleDomain);
-             ResultSet resultSet = preparedStatement.executeQuery()) {
+                ResultSet resultSet = preparedStatement.executeQuery()) {
             ImmutableSet.Builder<Long> longBuilder = ImmutableSet.builder();
             ImmutableSet.Builder<Float> floatBuilder = ImmutableSet.builder();
             while (resultSet.next()) {
@@ -226,8 +236,7 @@ public class TestJdbcQueryBuilder
                                 Range.range(VARCHAR, utf8Slice("test_str_700"), true, utf8Slice("test_str_702"), false),
                                 Range.equal(VARCHAR, utf8Slice("test_str_180")),
                                 Range.equal(VARCHAR, utf8Slice("test_str_196")))),
-                        false)
-        ));
+                        false)));
 
         Connection connection = database.getConnection();
         try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, connection, "", "", "test_table", columns, tupleDomain);
@@ -260,8 +269,7 @@ public class TestJdbcQueryBuilder
                                 Range.range(TIME, toTime(2016, 6, 7, 6, 12, 23).getTime(), false, toTime(2016, 6, 7, 8, 23, 37).getTime(), true),
                                 Range.equal(TIME, toTime(2016, 6, 1, 2, 3, 4).getTime()),
                                 Range.equal(TIME, toTime(2016, 10, 21, 20, 23, 37).getTime()))),
-                        false)
-        ));
+                        false)));
 
         Connection connection = database.getConnection();
         try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, connection, "", "", "test_table", columns, tupleDomain);
@@ -294,8 +302,7 @@ public class TestJdbcQueryBuilder
                                 Range.equal(TIMESTAMP, toTimestamp(2016, 6, 3, 0, 23, 37).getTime()),
                                 Range.equal(TIMESTAMP, toTimestamp(2016, 10, 19, 16, 23, 37).getTime()),
                                 Range.range(TIMESTAMP, toTimestamp(2016, 6, 7, 8, 23, 37).getTime(), false, toTimestamp(2016, 6, 9, 12, 23, 37).getTime(), true))),
-                        false)
-        ));
+                        false)));
 
         Connection connection = database.getConnection();
         try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, connection, "", "", "test_table", columns, tupleDomain);
@@ -322,8 +329,7 @@ public class TestJdbcQueryBuilder
     {
         TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
                 columns.get(0), Domain.all(BIGINT),
-                columns.get(1), Domain.onlyNull(DOUBLE)
-        ));
+                columns.get(1), Domain.onlyNull(DOUBLE)));
 
         Connection connection = database.getConnection();
         try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, connection, "", "", "test_table", columns, tupleDomain);

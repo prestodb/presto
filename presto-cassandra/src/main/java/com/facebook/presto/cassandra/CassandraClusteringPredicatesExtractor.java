@@ -78,87 +78,87 @@ public class CassandraClusteringPredicatesExtractor
             String predicateString = null;
             predicateString = domain.getValues().getValuesProcessor().transform(
                     ranges -> {
-                List<Object> singleValues = new ArrayList<>();
-                List<String> rangeConjuncts = new ArrayList<>();
-                String predicate = null;
+                        List<Object> singleValues = new ArrayList<>();
+                        List<String> rangeConjuncts = new ArrayList<>();
+                        String predicate = null;
 
-                for (Range range : ranges.getOrderedRanges()) {
-                    if (range.isAll()) {
+                        for (Range range : ranges.getOrderedRanges()) {
+                            if (range.isAll()) {
+                                return null;
+                            }
+                            if (range.isSingleValue()) {
+                                singleValues.add(CassandraCqlUtils.cqlValue(toCQLCompatibleString(range.getSingleValue()),
+                                        columnHandle.getCassandraType()));
+                            }
+                            else {
+                                if (!range.getLow().isLowerUnbounded()) {
+                                    switch (range.getLow().getBound()) {
+                                        case ABOVE:
+                                            rangeConjuncts.add(CassandraCqlUtils.validColumnName(columnHandle.getName()) + " > "
+                                                    + CassandraCqlUtils.cqlValue(toCQLCompatibleString(range.getLow().getValue()),
+                                                    columnHandle.getCassandraType()));
+                                            break;
+                                        case EXACTLY:
+                                            rangeConjuncts.add(CassandraCqlUtils.validColumnName(columnHandle.getName()) + " >= "
+                                                    + CassandraCqlUtils.cqlValue(toCQLCompatibleString(range.getLow().getValue()),
+                                                    columnHandle.getCassandraType()));
+                                            break;
+                                        case BELOW:
+                                            throw new VerifyException("Low Marker should never use BELOW bound");
+                                        default:
+                                            throw new AssertionError("Unhandled bound: " + range.getLow().getBound());
+                                    }
+                                }
+                                if (!range.getHigh().isUpperUnbounded()) {
+                                    switch (range.getHigh().getBound()) {
+                                        case ABOVE:
+                                            throw new VerifyException("High Marker should never use ABOVE bound");
+                                        case EXACTLY:
+                                            rangeConjuncts.add(CassandraCqlUtils.validColumnName(columnHandle.getName()) + " <= "
+                                                    + CassandraCqlUtils.cqlValue(toCQLCompatibleString(range.getHigh().getValue()),
+                                                    columnHandle.getCassandraType()));
+                                            break;
+                                        case BELOW:
+                                            rangeConjuncts.add(CassandraCqlUtils.validColumnName(columnHandle.getName()) + " < "
+                                                    + CassandraCqlUtils.cqlValue(toCQLCompatibleString(range.getHigh().getValue()),
+                                                    columnHandle.getCassandraType()));
+                                            break;
+                                        default:
+                                            throw new AssertionError("Unhandled bound: " + range.getHigh().getBound());
+                                    }
+                                }
+                            }
+                        }
+
+                        if (!singleValues.isEmpty() && !rangeConjuncts.isEmpty()) {
+                            return null;
+                        }
+                        if (!singleValues.isEmpty()) {
+                            if (singleValues.size() == 1) {
+                                predicate = CassandraCqlUtils.validColumnName(columnHandle.getName()) + " = " + singleValues.get(0);
+                            }
+                            else {
+                                predicate = CassandraCqlUtils.validColumnName(columnHandle.getName()) + " IN ("
+                                        + Joiner.on(",").join(singleValues) + ")";
+                            }
+                        }
+                        else if (!rangeConjuncts.isEmpty()) {
+                            predicate = Joiner.on(" AND ").join(rangeConjuncts);
+                        }
+                        return predicate;
+                    }, discreteValues -> {
+                        if (discreteValues.isWhiteList()) {
+                            ImmutableList.Builder<Object> discreteValuesList = ImmutableList.builder();
+                            for (Object discreteValue : discreteValues.getValues()) {
+                                discreteValuesList.add(CassandraCqlUtils.cqlValue(toCQLCompatibleString(discreteValue),
+                                        columnHandle.getCassandraType()));
+                            }
+                            String predicate = CassandraCqlUtils.validColumnName(columnHandle.getName()) + " IN ("
+                                    + Joiner.on(",").join(discreteValuesList.build()) + ")";
+                            return predicate;
+                        }
                         return null;
-                    }
-                    if (range.isSingleValue()) {
-                        singleValues.add(CassandraCqlUtils.cqlValue(toCQLCompatibleString(range.getSingleValue()),
-                                columnHandle.getCassandraType()));
-                    }
-                    else {
-                        if (!range.getLow().isLowerUnbounded()) {
-                            switch (range.getLow().getBound()) {
-                                case ABOVE:
-                                    rangeConjuncts.add(CassandraCqlUtils.validColumnName(columnHandle.getName()) + " > "
-                                            + CassandraCqlUtils.cqlValue(toCQLCompatibleString(range.getLow().getValue()),
-                                            columnHandle.getCassandraType()));
-                                    break;
-                                case EXACTLY:
-                                    rangeConjuncts.add(CassandraCqlUtils.validColumnName(columnHandle.getName()) + " >= "
-                                            + CassandraCqlUtils.cqlValue(toCQLCompatibleString(range.getLow().getValue()),
-                                            columnHandle.getCassandraType()));
-                                    break;
-                                case BELOW:
-                                    throw new VerifyException("Low Marker should never use BELOW bound");
-                                default:
-                                    throw new AssertionError("Unhandled bound: " + range.getLow().getBound());
-                            }
-                        }
-                        if (!range.getHigh().isUpperUnbounded()) {
-                            switch (range.getHigh().getBound()) {
-                                case ABOVE:
-                                    throw new VerifyException("High Marker should never use ABOVE bound");
-                                case EXACTLY:
-                                    rangeConjuncts.add(CassandraCqlUtils.validColumnName(columnHandle.getName()) + " <= "
-                                            + CassandraCqlUtils.cqlValue(toCQLCompatibleString(range.getHigh().getValue()),
-                                            columnHandle.getCassandraType()));
-                                    break;
-                                case BELOW:
-                                    rangeConjuncts.add(CassandraCqlUtils.validColumnName(columnHandle.getName()) + " < "
-                                            + CassandraCqlUtils.cqlValue(toCQLCompatibleString(range.getHigh().getValue()),
-                                            columnHandle.getCassandraType()));
-                                    break;
-                                default:
-                                    throw new AssertionError("Unhandled bound: " + range.getHigh().getBound());
-                            }
-                        }
-                    }
-                }
-
-                if (!singleValues.isEmpty() && !rangeConjuncts.isEmpty()) {
-                    return null;
-                }
-                if (!singleValues.isEmpty()) {
-                    if (singleValues.size() == 1) {
-                        predicate = CassandraCqlUtils.validColumnName(columnHandle.getName()) + " = " + singleValues.get(0);
-                    }
-                    else {
-                        predicate = CassandraCqlUtils.validColumnName(columnHandle.getName()) + " IN ("
-                                + Joiner.on(",").join(singleValues) + ")";
-                    }
-                }
-                else if (!rangeConjuncts.isEmpty()) {
-                    predicate = Joiner.on(" AND ").join(rangeConjuncts);
-                }
-                return predicate;
-            }, discreteValues -> {
-                if (discreteValues.isWhiteList()) {
-                    ImmutableList.Builder<Object> discreteValuesList = ImmutableList.builder();
-                    for (Object discreteValue : discreteValues.getValues()) {
-                        discreteValuesList.add(CassandraCqlUtils.cqlValue(toCQLCompatibleString(discreteValue),
-                                columnHandle.getCassandraType()));
-                    }
-                    String predicate = CassandraCqlUtils.validColumnName(columnHandle.getName()) + " IN ("
-                            + Joiner.on(",").join(discreteValuesList.build()) + ")";
-                    return predicate;
-                }
-                return null;
-            }, allOrNone -> null);
+                    }, allOrNone -> null);
 
             if (predicateString == null) {
                 break;

@@ -13,30 +13,30 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.sql.planner.ExpressionSymbolInliner;
-import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
+import com.facebook.presto.matching.Capture;
+import com.facebook.presto.matching.Captures;
+import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
-import com.facebook.presto.sql.planner.iterative.Lookup;
-import com.facebook.presto.sql.planner.iterative.Pattern;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.Assignments;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Literal;
 import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.sql.util.AstUtils;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.matching.Capture.newCapture;
+import static com.facebook.presto.sql.planner.ExpressionSymbolInliner.inlineSymbols;
+import static com.facebook.presto.sql.planner.plan.Patterns.project;
+import static com.facebook.presto.sql.planner.plan.Patterns.source;
 import static java.util.stream.Collectors.toSet;
 
 /**
@@ -46,31 +46,27 @@ import static java.util.stream.Collectors.toSet;
  * within a TRY block (to avoid changing semantics).
  */
 public class InlineProjections
-        implements Rule
+        implements Rule<ProjectNode>
 {
-    private static final Pattern PATTERN = Pattern.node(ProjectNode.class);
+    private static final Capture<ProjectNode> CHILD = newCapture();
+
+    private static final Pattern<ProjectNode> PATTERN = project()
+            .with(source().matching(project().capturedAs(CHILD)));
 
     @Override
-    public Pattern getPattern()
+    public Pattern<ProjectNode> getPattern()
     {
         return PATTERN;
     }
 
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Lookup lookup, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session)
+    public Result apply(ProjectNode parent, Captures captures, Context context)
     {
-        ProjectNode parent = (ProjectNode) node;
-
-        PlanNode source = lookup.resolve(parent.getSource());
-        if (!(source instanceof ProjectNode)) {
-            return Optional.empty();
-        }
-
-        ProjectNode child = (ProjectNode) source;
+        ProjectNode child = captures.get(CHILD);
 
         Sets.SetView<Symbol> targets = extractInliningTargets(parent, child);
         if (targets.isEmpty()) {
-            return Optional.empty();
+            return Result.empty();
         }
 
         // inline the expressions
@@ -102,7 +98,7 @@ public class InlineProjections
             childAssignments.putIdentity(input);
         }
 
-        return Optional.of(
+        return Result.ofPlanNode(
                 new ProjectNode(
                         parent.getId(),
                         new ProjectNode(
@@ -123,7 +119,7 @@ public class InlineProjections
             return symbol.toSymbolReference();
         };
 
-        return new ExpressionSymbolInliner(mapping).rewrite(expression);
+        return inlineSymbols(mapping, expression);
     }
 
     private Sets.SetView<Symbol> extractInliningTargets(ProjectNode parent, ProjectNode child)
@@ -134,10 +130,14 @@ public class InlineProjections
         //      a. are not inputs to try() expressions
         //      b. appear only once across all expressions
         //      c. are not identity projections
+        // which come from the child, as opposed to an enclosing scope.
+
+        Set<Symbol> childOutputSet = ImmutableSet.copyOf(child.getOutputSymbols());
 
         Map<Symbol, Long> dependencies = parent.getAssignments()
                 .getExpressions().stream()
                 .flatMap(expression -> SymbolsExtractor.extractAll(expression).stream())
+                .filter(childOutputSet::contains)
                 .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
 
         // find references to simple constants

@@ -28,7 +28,6 @@ public class TestCassandraDistributed
         extends AbstractTestDistributedQueries
 {
     public TestCassandraDistributed()
-            throws Exception
     {
         super(CassandraQueryRunner::createCassandraQueryRunner);
     }
@@ -41,18 +40,6 @@ public class TestCassandraDistributed
 
     @Override
     public void testJoinWithLessThanOnDatesInJoinClause()
-    {
-        // Cassandra does not support DATE
-    }
-
-    @Override
-    public void testGroupingSetMixedExpressionAndColumn()
-    {
-        // Cassandra does not support DATE
-    }
-
-    @Override
-    public void testGroupingSetMixedExpressionAndOrdinal()
     {
         // Cassandra does not support DATE
     }
@@ -73,6 +60,12 @@ public class TestCassandraDistributed
     public void testRenameColumn()
     {
         // Cassandra does not support renaming columns
+    }
+
+    @Override
+    public void testDropColumn()
+    {
+        // Cassandra does not support dropping columns
     }
 
     @Override
@@ -129,5 +122,11 @@ public class TestCassandraDistributed
     public void testDescribeOutputNamedAndUnnamed()
     {
         // this connector uses a non-canonical type for varchar columns in tpch
+    }
+
+    @Override
+    public void testWrittenStats()
+    {
+        // Cassandra connector currently does not support create table nor insert
     }
 }

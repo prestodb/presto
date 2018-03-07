@@ -35,7 +35,8 @@ import static com.google.common.base.Preconditions.checkArgument;
  * Elements of {@code nulls} array determine if a value for a corresponding row is null.
  * Each elements of {@code sizes} array contains the length in bytes for the corresponding element.
  * If row is null then the corresponding element in {@code sizes} is ignored.
- * {@code bytes} array contains encoded byte values for HyperLogLog representation as defined in airlift specification.
+ * {@code bytes} array contains encoded byte values for HyperLogLog representation as defined in
+ * Airlift specification: href="https://github.com/airlift/airlift/blob/master/stats/docs/hll.md
  * Values for all rows are written to {@code bytes} array one after another.
  * The total number of bytes must be equal to the sum of all sizes.
  */

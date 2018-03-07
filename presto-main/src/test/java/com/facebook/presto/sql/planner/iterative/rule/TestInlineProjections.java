@@ -25,7 +25,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
 
 public class TestInlineProjections
-            extends BaseRuleTest
+        extends BaseRuleTest
 {
     @Test
     public void test()
@@ -69,12 +69,24 @@ public class TestInlineProjections
 
     @Test
     public void testIdentityProjections()
-            throws Exception
     {
         tester().assertThat(new InlineProjections())
                 .on(p ->
                         p.project(
                                 Assignments.of(p.symbol("output"), expression("value")),
+                                p.project(
+                                        Assignments.identity(p.symbol("value")),
+                                        p.values(p.symbol("value")))))
+                .doesNotFire();
+    }
+
+    @Test
+    public void testSubqueryProjections()
+    {
+        tester().assertThat(new InlineProjections())
+                .on(p ->
+                        p.project(
+                                Assignments.identity(p.symbol("fromOuterScope"), p.symbol("value")),
                                 p.project(
                                         Assignments.identity(p.symbol("value")),
                                         p.values(p.symbol("value")))))

@@ -14,8 +14,11 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.operator.LookupJoinOperators.JoinType;
+import com.facebook.presto.util.Mergeable;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+
+import java.util.Optional;
 
 import static com.facebook.presto.operator.JoinStatisticsCounter.HISTOGRAM_BUCKETS;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -28,8 +31,9 @@ public class JoinOperatorInfo
     private final JoinType joinType;
     private final long[] logHistogramProbes;
     private final long[] logHistogramOutput;
+    private final Optional<Long> lookupSourcePositions;
 
-    public static JoinOperatorInfo createJoinOperatorInfo(JoinType joinType, long[] logHistogramCounters)
+    public static JoinOperatorInfo createJoinOperatorInfo(JoinType joinType, long[] logHistogramCounters, Optional<Long> lookupSourcePositions)
     {
         long[] logHistogramProbes = new long[HISTOGRAM_BUCKETS];
         long[] logHistogramOutput = new long[HISTOGRAM_BUCKETS];
@@ -37,20 +41,22 @@ public class JoinOperatorInfo
             logHistogramProbes[i] = logHistogramCounters[2 * i];
             logHistogramOutput[i] = logHistogramCounters[2 * i + 1];
         }
-        return new JoinOperatorInfo(joinType, logHistogramProbes, logHistogramOutput);
+        return new JoinOperatorInfo(joinType, logHistogramProbes, logHistogramOutput, lookupSourcePositions);
     }
 
     @JsonCreator
     public JoinOperatorInfo(
             @JsonProperty("joinType") JoinType joinType,
             @JsonProperty("logHistogramProbes") long[] logHistogramProbes,
-            @JsonProperty("logHistogramOutput") long[] logHistogramOutput)
+            @JsonProperty("logHistogramOutput") long[] logHistogramOutput,
+            @JsonProperty("lookupSourcePositions") Optional<Long> lookupSourcePositions)
     {
         checkArgument(logHistogramProbes.length == HISTOGRAM_BUCKETS);
         checkArgument(logHistogramOutput.length == HISTOGRAM_BUCKETS);
         this.joinType = joinType;
         this.logHistogramProbes = logHistogramProbes;
         this.logHistogramOutput = logHistogramOutput;
+        this.lookupSourcePositions = lookupSourcePositions;
     }
 
     @JsonProperty
@@ -71,6 +77,13 @@ public class JoinOperatorInfo
         return logHistogramOutput;
     }
 
+    /** Estimated number of positions in on the build side */
+    @JsonProperty
+    public Optional<Long> getLookupSourcePositions()
+    {
+        return lookupSourcePositions;
+    }
+
     @Override
     public String toString()
     {
@@ -78,6 +91,7 @@ public class JoinOperatorInfo
                 .add("joinType", joinType)
                 .add("logHistogramProbes", logHistogramProbes)
                 .add("logHistogramOutput", logHistogramOutput)
+                .add("lookupSourcePositions", lookupSourcePositions)
                 .toString();
     }
 
@@ -91,7 +105,13 @@ public class JoinOperatorInfo
             logHistogramProbes[i] = this.logHistogramProbes[i] + other.logHistogramProbes[i];
             logHistogramOutput[i] = this.logHistogramOutput[i] + other.logHistogramOutput[i];
         }
-        return new JoinOperatorInfo(this.joinType, logHistogramProbes, logHistogramOutput);
+
+        Optional<Long> mergedSourcePositions = Optional.empty();
+        if (this.lookupSourcePositions.isPresent() || other.lookupSourcePositions.isPresent()) {
+            mergedSourcePositions = Optional.of(this.lookupSourcePositions.orElse(0L) + other.lookupSourcePositions.orElse(0L));
+        }
+
+        return new JoinOperatorInfo(this.joinType, logHistogramProbes, logHistogramOutput, mergedSourcePositions);
     }
 
     @Override

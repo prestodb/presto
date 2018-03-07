@@ -15,7 +15,7 @@ package com.facebook.presto.spi.connector;
 
 /**
  * Connectors can choose to return ConnectorOutputMetadata from finishInsert or finishCreate.
- *
+ * <p>
  * The getInfo method must return a JSON-serializable object
  */
 public interface ConnectorOutputMetadata

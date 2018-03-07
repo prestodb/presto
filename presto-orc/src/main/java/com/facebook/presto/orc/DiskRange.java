@@ -28,7 +28,7 @@ public final class DiskRange
     public DiskRange(long offset, int length)
     {
         checkArgument(offset >= 0, "offset is negative");
-        checkArgument(length >= 0, "length is negative");
+        checkArgument(length > 0, "length must be at least 1");
 
         this.offset = offset;
         this.length = length;

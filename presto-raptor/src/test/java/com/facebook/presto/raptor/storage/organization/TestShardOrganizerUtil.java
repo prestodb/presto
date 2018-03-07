@@ -30,7 +30,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.io.Files;
-import io.airlift.testing.FileUtils;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
 import org.testng.annotations.AfterMethod;
@@ -56,8 +55,11 @@ import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static org.testng.Assert.assertEquals;
 
+@Test(singleThreaded = true)
 public class TestShardOrganizerUtil
 {
     private static final List<ColumnInfo> COLUMNS = ImmutableList.of(
@@ -89,14 +91,14 @@ public class TestShardOrganizerUtil
 
     @AfterMethod(alwaysRun = true)
     public void teardown()
+            throws Exception
     {
         dummyHandle.close();
-        FileUtils.deleteRecursively(dataDir);
+        deleteRecursively(dataDir.toPath(), ALLOW_INSECURE);
     }
 
     @Test
     public void testGetOrganizationEligibleShards()
-            throws Exception
     {
         int day1 = 1111;
         int day2 = 2222;
@@ -108,7 +110,8 @@ public class TestShardOrganizerUtil
                 .column("orderstatus", createVarcharType(3))
                 .property("ordering", ImmutableList.of("orderstatus", "orderkey"))
                 .property("temporal_column", "orderdate")
-                .build());
+                .build(),
+                false);
         Table tableInfo = metadataDao.getTableInformation(tableName.getSchemaName(), tableName.getTableName());
         List<TableColumn> tableColumns = metadataDao.listTableColumns(tableInfo.getTableId());
         Map<String, TableColumn> tableColumnMap = Maps.uniqueIndex(tableColumns, TableColumn::getColumnName);

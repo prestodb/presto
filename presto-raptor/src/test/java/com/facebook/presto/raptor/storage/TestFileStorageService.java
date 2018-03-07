@@ -24,7 +24,8 @@ import java.util.UUID;
 
 import static com.facebook.presto.raptor.storage.FileStorageService.getFileSystemPath;
 import static com.google.common.io.Files.createTempDir;
-import static io.airlift.testing.FileUtils.deleteRecursively;
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static java.lang.String.format;
 import static java.util.UUID.randomUUID;
 import static org.testng.Assert.assertEquals;
@@ -41,7 +42,6 @@ public class TestFileStorageService
 
     @BeforeMethod
     public void setup()
-            throws Exception
     {
         temporary = createTempDir();
         store = new FileStorageService(temporary);
@@ -52,12 +52,11 @@ public class TestFileStorageService
     public void tearDown()
             throws Exception
     {
-        deleteRecursively(temporary);
+        deleteRecursively(temporary.toPath(), ALLOW_INSECURE);
     }
 
     @Test
     public void testGetFileSystemPath()
-            throws Exception
     {
         UUID uuid = UUID.fromString("701e1a79-74f7-4f56-b438-b41e8e7d019d");
         File expected = new File("/test", format("70/1e/%s.orc", uuid));

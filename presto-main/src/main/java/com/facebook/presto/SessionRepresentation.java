@@ -16,6 +16,7 @@ package com.facebook.presto;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.security.BasicPrincipal;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.transaction.TransactionId;
@@ -27,6 +28,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
@@ -45,6 +47,7 @@ public final class SessionRepresentation
     private final Optional<String> remoteUserAddress;
     private final Optional<String> userAgent;
     private final Optional<String> clientInfo;
+    private final Set<String> clientTags;
     private final long startTime;
     private final Map<String, String> systemProperties;
     private final Map<ConnectorId, Map<String, String>> catalogProperties;
@@ -65,6 +68,7 @@ public final class SessionRepresentation
             @JsonProperty("remoteUserAddress") Optional<String> remoteUserAddress,
             @JsonProperty("userAgent") Optional<String> userAgent,
             @JsonProperty("clientInfo") Optional<String> clientInfo,
+            @JsonProperty("clientTags") Set<String> clientTags,
             @JsonProperty("startTime") long startTime,
             @JsonProperty("systemProperties") Map<String, String> systemProperties,
             @JsonProperty("catalogProperties") Map<ConnectorId, Map<String, String>> catalogProperties,
@@ -83,6 +87,7 @@ public final class SessionRepresentation
         this.remoteUserAddress = requireNonNull(remoteUserAddress, "remoteUserAddress is null");
         this.userAgent = requireNonNull(userAgent, "userAgent is null");
         this.clientInfo = requireNonNull(clientInfo, "clientInfo is null");
+        this.clientTags = requireNonNull(clientTags, "clientTags is null");
         this.startTime = startTime;
         this.systemProperties = ImmutableMap.copyOf(systemProperties);
         this.preparedStatements = ImmutableMap.copyOf(preparedStatements);
@@ -173,6 +178,12 @@ public final class SessionRepresentation
     }
 
     @JsonProperty
+    public Set<String> getClientTags()
+    {
+        return clientTags;
+    }
+
+    @JsonProperty
     public long getStartTime()
     {
         return startTime;
@@ -202,7 +213,7 @@ public final class SessionRepresentation
                 new QueryId(queryId),
                 transactionId,
                 clientTransactionSupport,
-                new Identity(user, Optional.empty()),
+                new Identity(user, principal.map(BasicPrincipal::new)),
                 source,
                 catalog,
                 schema,
@@ -211,6 +222,7 @@ public final class SessionRepresentation
                 remoteUserAddress,
                 userAgent,
                 clientInfo,
+                clientTags,
                 startTime,
                 systemProperties,
                 catalogProperties,

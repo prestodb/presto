@@ -120,8 +120,7 @@ public class HandTpchQuery1
                         longAverage.bind(ImmutableList.of(2), Optional.empty()),
                         doubleAverage.bind(ImmutableList.of(5), Optional.empty()),
                         doubleAverage.bind(ImmutableList.of(6), Optional.empty()),
-                        countFunction.bind(ImmutableList.of(2), Optional.empty())
-                        ),
+                        countFunction.bind(ImmutableList.of(2), Optional.empty())),
                 Optional.empty(),
                 Optional.empty(),
                 10_000,
@@ -167,7 +166,7 @@ public class HandTpchQuery1
             }
 
             @Override
-            public void close()
+            public void noMoreOperators()
             {
             }
 

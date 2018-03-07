@@ -13,18 +13,27 @@
  */
 package com.facebook.presto.orc.metadata.statistics;
 
+import java.util.Objects;
+
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 
 public class IntegerStatistics
         implements RangeStatistics<Long>
 {
+    // 1 byte to denote if null + 8 bytes for the value (integer is of long type)
+    public static final long INTEGER_VALUE_BYTES = Byte.BYTES + Long.BYTES;
+
     private final Long minimum;
     private final Long maximum;
+    private final Long sum;
 
-    public IntegerStatistics(Long minimum, Long maximum)
+    public IntegerStatistics(Long minimum, Long maximum, Long sum)
     {
+        checkArgument(minimum == null || maximum == null || minimum <= maximum, "minimum is not less than maximum");
         this.minimum = minimum;
         this.maximum = maximum;
+        this.sum = sum;
     }
 
     @Override
@@ -39,12 +48,39 @@ public class IntegerStatistics
         return maximum;
     }
 
+    public Long getSum()
+    {
+        return sum;
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        IntegerStatistics that = (IntegerStatistics) o;
+        return Objects.equals(minimum, that.minimum) &&
+                Objects.equals(maximum, that.maximum) &&
+                Objects.equals(sum, that.sum);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(minimum, maximum, sum);
+    }
+
     @Override
     public String toString()
     {
         return toStringHelper(this)
                 .add("min", minimum)
                 .add("max", maximum)
+                .add("sum", sum)
                 .toString();
     }
 }

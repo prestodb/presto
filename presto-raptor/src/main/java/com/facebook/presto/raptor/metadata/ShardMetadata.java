@@ -140,6 +140,7 @@ public class ShardMetadata
                 OptionalLong.of(rangeStart),
                 OptionalLong.of(rangeEnd));
     }
+
     @Override
     public String toString()
     {

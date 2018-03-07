@@ -176,8 +176,7 @@ public class TupleDomainParquetPredicate
 
             ParquetIntegerStatistics parquetStatistics = new ParquetIntegerStatistics(
                     (long) floatToRawIntBits(floatStatistics.getMin()),
-                    (long) floatToRawIntBits(floatStatistics.getMax())
-            );
+                    (long) floatToRawIntBits(floatStatistics.getMax()));
 
             return createDomain(type, hasNullValue, parquetStatistics);
         }

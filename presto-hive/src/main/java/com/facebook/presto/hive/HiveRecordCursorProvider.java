@@ -28,12 +28,12 @@ import java.util.Properties;
 public interface HiveRecordCursorProvider
 {
     Optional<RecordCursor> createRecordCursor(
-            String clientId,
             Configuration configuration,
             ConnectorSession session,
             Path path,
             long start,
             long length,
+            long fileSize,
             Properties schema,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,

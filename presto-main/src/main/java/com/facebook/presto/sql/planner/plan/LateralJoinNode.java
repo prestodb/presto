@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.tree.Node;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -28,7 +29,7 @@ import static java.util.Objects.requireNonNull;
 /**
  * For every row from {@link #input} a {@link #subquery} relation is calculated.
  * Then input row is cross joined with subquery relation and returned as a result.
- *
+ * <p>
  * INNER - does not return any row for input row when subquery relation is empty
  * LEFT - does return input completed with NULL values when subquery relation is empty
  */
@@ -51,18 +52,26 @@ public class LateralJoinNode
     private final List<Symbol> correlation;
     private final Type type;
 
+    /**
+     * HACK!
+     * Used for error reporting in case this ApplyNode is not supported
+     */
+    private final Node originSubquery;
+
     @JsonCreator
     public LateralJoinNode(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("input") PlanNode input,
             @JsonProperty("subquery") PlanNode subquery,
             @JsonProperty("correlation") List<Symbol> correlation,
-            @JsonProperty("type") Type type)
+            @JsonProperty("type") Type type,
+            @JsonProperty("originSubquery") Node originSubquery)
     {
         super(id);
         requireNonNull(input, "input is null");
         requireNonNull(subquery, "right is null");
         requireNonNull(correlation, "correlation is null");
+        requireNonNull(originSubquery, "originSubquery is null");
 
         checkArgument(input.getOutputSymbols().containsAll(correlation), "Input does not contain symbols from correlation");
 
@@ -70,6 +79,7 @@ public class LateralJoinNode
         this.subquery = subquery;
         this.correlation = ImmutableList.copyOf(correlation);
         this.type = type;
+        this.originSubquery = originSubquery;
     }
 
     @JsonProperty("input")
@@ -96,6 +106,12 @@ public class LateralJoinNode
         return type;
     }
 
+    @JsonProperty("originSubquery")
+    public Node getOriginSubquery()
+    {
+        return originSubquery;
+    }
+
     @Override
     public List<PlanNode> getSources()
     {
@@ -116,7 +132,7 @@ public class LateralJoinNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         checkArgument(newChildren.size() == 2, "expected newChildren to contain 2 nodes");
-        return new LateralJoinNode(getId(), newChildren.get(0), newChildren.get(1), correlation, type);
+        return new LateralJoinNode(getId(), newChildren.get(0), newChildren.get(1), correlation, type, originSubquery);
     }
 
     @Override

@@ -120,8 +120,8 @@ public class LimitPushDown
             // return empty ValuesNode in case of limit 0
             if (count == 0) {
                 return new ValuesNode(idAllocator.getNextId(),
-                                        node.getOutputSymbols(),
-                                        ImmutableList.of());
+                        node.getOutputSymbols(),
+                        ImmutableList.of());
             }
 
             // default visitPlan logic will insert the limit node
@@ -179,7 +179,7 @@ public class LimitPushDown
             if (limit != null) {
                 count = Math.min(count, limit.getCount());
             }
-            return new TopNNode(node.getId(), rewrittenSource, count, node.getOrderBy(), node.getOrderings(), node.getStep());
+            return new TopNNode(node.getId(), rewrittenSource, count, node.getOrderingScheme(), node.getStep());
         }
 
         @Override
@@ -190,10 +190,10 @@ public class LimitPushDown
 
             PlanNode rewrittenSource = context.rewrite(node.getSource());
             if (limit != null) {
-                return new TopNNode(node.getId(), rewrittenSource, limit.getCount(), node.getOrderBy(), node.getOrderings(), TopNNode.Step.SINGLE);
+                return new TopNNode(node.getId(), rewrittenSource, limit.getCount(), node.getOrderingScheme(), TopNNode.Step.SINGLE);
             }
             else if (rewrittenSource != node.getSource()) {
-                return new SortNode(node.getId(), rewrittenSource, node.getOrderBy(), node.getOrderings());
+                return new SortNode(node.getId(), rewrittenSource, node.getOrderingScheme());
             }
             return node;
         }

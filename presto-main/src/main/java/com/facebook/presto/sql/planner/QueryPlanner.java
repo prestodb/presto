@@ -26,6 +26,7 @@ import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.RelationId;
 import com.facebook.presto.sql.analyzer.RelationType;
 import com.facebook.presto.sql.analyzer.Scope;
+import com.facebook.presto.sql.analyzer.SemanticExceptions;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.Assignments;
@@ -170,7 +171,10 @@ class QueryPlanner
                 List<Expression> orderByAggregates = analysis.getOrderByAggregates(node.getOrderBy().get());
                 builder = project(builder, Iterables.concat(outputs, orderByAggregates));
                 outputs = toSymbolReferences(computeOutputs(builder, outputs));
-                builder = planBuilderFor(builder, analysis.getScope(node.getOrderBy().get()), orderByAggregates);
+                List<Expression> complexOrderByAggregatesToRemap = orderByAggregates.stream()
+                        .filter(expression -> !analysis.isColumnReference(expression))
+                        .collect(toImmutableList());
+                builder = planBuilderFor(builder, analysis.getScope(node.getOrderBy().get()), complexOrderByAggregatesToRemap);
             }
 
             builder = window(builder, node.getOrderBy().get());
@@ -387,6 +391,14 @@ class QueryPlanner
         projections.putAll(coerce(uncoerced, subPlan, translations));
 
         for (Expression expression : alreadyCoerced) {
+            if (expression instanceof SymbolReference) {
+                // If this is an identity projection, no need to rewrite it
+                // This is needed because certain synthetic identity expressions such as "group id" introduced when planning GROUPING
+                // don't have a corresponding analysis, so the code below doesn't work for them
+                projections.put(Symbol.from(expression), expression);
+                continue;
+            }
+
             Symbol symbol = symbolAllocator.newSymbol(expression, analysis.getType(expression));
             Expression parametersReplaced = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis.getParameters(), analysis), expression);
             translations.addIntermediateMapping(expression, parametersReplaced);
@@ -406,8 +418,9 @@ class QueryPlanner
     {
         TranslationMap translations = subPlan.copyTranslations();
 
-        Assignments assignments = Assignments.builder().putAll(coerce(uncoerced, subPlan, translations))
-                .putAll(Assignments.identity(alreadyCoerced))
+        Assignments assignments = Assignments.builder()
+                .putAll(coerce(uncoerced, subPlan, translations))
+                .putIdentities(alreadyCoerced)
                 .build();
 
         return new PlanBuilder(translations, new ProjectNode(
@@ -433,6 +446,15 @@ class QueryPlanner
         analysis.getAggregates(node).stream()
                 .map(FunctionCall::getArguments)
                 .flatMap(List::stream)
+                .forEach(arguments::add);
+
+        analysis.getAggregates(node).stream()
+                .map(FunctionCall::getOrderBy)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .map(OrderBy::getSortItems)
+                .flatMap(List::stream)
+                .map(SortItem::getSortKey)
                 .forEach(arguments::add);
 
         // filter expressions need to be projected first
@@ -519,7 +541,7 @@ class QueryPlanner
         aggregationTranslations.copyMappingsFrom(groupingTranslations);
 
         // 2.d. Rewrite aggregates
-        ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
+        ImmutableMap.Builder<Symbol, Aggregation> aggregationsBuilder = ImmutableMap.builder();
         // Map from aggregate function arguments to marker symbols, so that we can reuse the markers, if two aggregates have the same argument
         Map<Set<Expression>, Symbol> argumentMarkers = new HashMap<>();
         boolean needPostProjectionCoercion = false;
@@ -552,8 +574,10 @@ class QueryPlanner
                     argumentMarkers.put(args, marker.get());
                 }
             }
-            aggregations.put(newSymbol, new Aggregation((FunctionCall) rewritten, analysis.getFunctionSignature(aggregate), marker));
+
+            aggregationsBuilder.put(newSymbol, new Aggregation((FunctionCall) rewritten, analysis.getFunctionSignature(aggregate), marker));
         }
+        Map<Symbol, Aggregation> aggregations = aggregationsBuilder.build();
 
         // 2.e. Mark distinct rows for each aggregate that has DISTINCT
         for (Map.Entry<Set<Expression>, Symbol> entry : argumentMarkers.entrySet()) {
@@ -579,11 +603,19 @@ class QueryPlanner
         AggregationNode aggregationNode = new AggregationNode(
                 idAllocator.getNextId(),
                 subPlan.getRoot(),
-                aggregations.build(),
+                aggregations,
                 groupingSymbols,
                 AggregationNode.Step.SINGLE,
                 Optional.empty(),
                 groupIdSymbol);
+
+        if (aggregationNode.hasEmptyGroupingSet() && aggregationNode.hasNonEmptyGroupingSet() && aggregationNode.hasOrderings()) {
+            // Having both empty grouping set and non-empty grouping set will require partial aggregation.
+            // Since aggregation with ORDER BY does not support partial aggregation, we can not allow queries to have both.
+            throw SemanticExceptions.notSupportedException(
+                    node,
+                    "ORDER BY in aggregate function with at least one empty grouping set and at least one non-empty grouping set");
+        }
 
         subPlan = new PlanBuilder(aggregationTranslations, aggregationNode, analysis.getParameters());
 
@@ -591,7 +623,11 @@ class QueryPlanner
         // Add back the implicit casts that we removed in 2.a
         // TODO: this is a hack, we should change type coercions to coerce the inputs to functions/operators instead of coercing the output
         if (needPostProjectionCoercion) {
-            return explicitCoercionFields(subPlan, distinctGroupingColumns, analysis.getAggregates(node));
+            ImmutableList.Builder<Expression> alreadyCoerced = ImmutableList.builder();
+            alreadyCoerced.addAll(distinctGroupingColumns);
+            groupIdSymbol.map(Symbol::toSymbolReference).ifPresent(alreadyCoerced::add);
+
+            subPlan = explicitCoercionFields(subPlan, alreadyCoerced.build(), analysis.getAggregates(node));
         }
 
         // 4. Project and re-write all grouping functions
@@ -610,7 +646,7 @@ class QueryPlanner
         projections.putIdentities(subPlan.getRoot().getOutputSymbols());
 
         for (GroupingOperation groupingOperation : analysis.getGroupingOperations(node)) {
-            Expression rewritten = GroupingOperationRewriter.rewriteGroupingOperation(groupingOperation, node, analysis, metadata, groupIdSymbol);
+            Expression rewritten = GroupingOperationRewriter.rewriteGroupingOperation(groupingOperation, node, analysis, groupIdSymbol);
             Type coercion = analysis.getCoercion(groupingOperation);
             Symbol symbol = symbolAllocator.newSymbol(rewritten, analysis.getTypeWithCoercions(groupingOperation));
             if (coercion != null) {
@@ -689,10 +725,11 @@ class QueryPlanner
             }
 
             // Rewrite ORDER BY in terms of pre-projected inputs
-            Map<Symbol, SortOrder> orderings = new LinkedHashMap<>();
+            LinkedHashMap<Symbol, SortOrder> orderings = new LinkedHashMap<>();
             for (SortItem item : getSortItemsFromOrderBy(window.getOrderBy())) {
                 Symbol symbol = subPlan.translate(item.getSortKey());
-                orderings.put(symbol, toSortOrder(item));
+                // don't override existing keys, i.e. when "ORDER BY a ASC, a DESC" is specified
+                orderings.putIfAbsent(symbol, toSortOrder(item));
             }
 
             // Rewrite frame bounds in terms of pre-projected inputs
@@ -740,6 +777,10 @@ class QueryPlanner
             List<Symbol> sourceSymbols = subPlan.getRoot().getOutputSymbols();
             ImmutableList.Builder<Symbol> orderBySymbols = ImmutableList.builder();
             orderBySymbols.addAll(orderings.keySet());
+            Optional<OrderingScheme> orderingScheme = Optional.empty();
+            if (!orderings.isEmpty()) {
+                orderingScheme = Optional.of(new OrderingScheme(orderBySymbols.build(), orderings));
+            }
 
             // create window node
             subPlan = new PlanBuilder(outputTranslations,
@@ -748,8 +789,7 @@ class QueryPlanner
                             subPlan.getRoot(),
                             new WindowNode.Specification(
                                     partitionBySymbols.build(),
-                                    orderBySymbols.build(),
-                                    orderings),
+                                    orderingScheme),
                             ImmutableMap.of(newSymbol, function),
                             Optional.empty(),
                             ImmutableSet.of(),
@@ -822,11 +862,12 @@ class QueryPlanner
         }
 
         PlanNode planNode;
+        OrderingScheme orderingScheme = new OrderingScheme(orderBySymbols.build(), orderings);
         if (limit.isPresent() && !limit.get().equalsIgnoreCase("all")) {
-            planNode = new TopNNode(idAllocator.getNextId(), subPlan.getRoot(), Long.parseLong(limit.get()), orderBySymbols.build(), orderings, TopNNode.Step.SINGLE);
+            planNode = new TopNNode(idAllocator.getNextId(), subPlan.getRoot(), Long.parseLong(limit.get()), orderingScheme, TopNNode.Step.SINGLE);
         }
         else {
-            planNode = new SortNode(idAllocator.getNextId(), subPlan.getRoot(), orderBySymbols.build(), orderings);
+            planNode = new SortNode(idAllocator.getNextId(), subPlan.getRoot(), orderingScheme);
         }
 
         return subPlan.withNewRoot(planNode);
@@ -868,7 +909,7 @@ class QueryPlanner
                 .collect(toImmutableMap(expression -> expression, builder::translate));
     }
 
-    private static SortOrder toSortOrder(SortItem sortItem)
+    public static SortOrder toSortOrder(SortItem sortItem)
     {
         if (sortItem.getOrdering() == Ordering.ASCENDING) {
             if (sortItem.getNullOrdering() == NullOrdering.FIRST) {

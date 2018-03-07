@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.HdfsEnvironment.HdfsContext;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.HivePageSinkMetadataProvider;
 import com.facebook.presto.hive.metastore.Partition;
@@ -25,6 +26,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.google.common.base.CharMatcher;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
@@ -54,6 +56,7 @@ import java.util.function.Consumer;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_READ_ONLY;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PATH_ALREADY_EXISTS;
@@ -67,8 +70,10 @@ import static com.facebook.presto.hive.util.ConfigurationUtils.toJobConf;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.io.BaseEncoding.base16;
 import static java.lang.Math.min;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.function.Function.identity;
@@ -114,6 +119,8 @@ public class HiveWriterFactory
     private final EventClient eventClient;
     private final Map<String, String> sessionProperties;
 
+    private final HiveWriterStats hiveWriterStats;
+
     public HiveWriterFactory(
             Set<HiveFileWriterFactory> fileWriterFactories,
             String schemaName,
@@ -133,7 +140,8 @@ public class HiveWriterFactory
             ConnectorSession session,
             NodeManager nodeManager,
             EventClient eventClient,
-            HiveSessionProperties hiveSessionProperties)
+            HiveSessionProperties hiveSessionProperties,
+            HiveWriterStats hiveWriterStats)
     {
         this.fileWriterFactories = ImmutableSet.copyOf(requireNonNull(fileWriterFactories, "fileWriterFactories is null"));
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
@@ -164,7 +172,7 @@ public class HiveWriterFactory
                 partitionColumnTypes.add(typeManager.getType(column.getTypeSignature()));
             }
             else {
-                dataColumns.add(new DataColumn(column.getName(), typeManager.getType(column.getTypeSignature()), hiveType));
+                dataColumns.add(new DataColumn(column.getName(), hiveType));
             }
         }
         this.partitionColumnNames = partitionColumnNames.build();
@@ -199,9 +207,9 @@ public class HiveWriterFactory
         requireNonNull(hiveSessionProperties, "hiveSessionProperties is null");
         this.sessionProperties = hiveSessionProperties.getSessionProperties().stream()
                 .collect(toImmutableMap(PropertyMetadata::getName,
-                                        entry -> session.getProperty(entry.getName(), entry.getJavaType()).toString()));
+                        entry -> session.getProperty(entry.getName(), entry.getJavaType()).toString()));
 
-        Configuration conf = hdfsEnvironment.getConfiguration(writePath);
+        Configuration conf = hdfsEnvironment.getConfiguration(new HdfsContext(session, schemaName, tableName), writePath);
         this.conf = toJobConf(conf);
 
         // make sure the FileSystem is created with the correct Configuration object
@@ -211,6 +219,8 @@ public class HiveWriterFactory
         catch (IOException e) {
             throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed getting FileSystem: " + writePath, e);
         }
+
+        this.hiveWriterStats = requireNonNull(hiveWriterStats, "hiveWriterStats is null");
     }
 
     public HiveWriter createWriter(Page partitionColumns, int position, OptionalInt bucketNumber)
@@ -264,6 +274,7 @@ public class HiveWriterFactory
                 schema.setProperty(META_TABLE_COLUMN_TYPES, dataColumns.stream()
                         .map(DataColumn::getHiveType)
                         .map(HiveType::getHiveTypeName)
+                        .map(HiveTypeName::toString)
                         .collect(joining(":")));
                 target = locationService.targetPath(locationHandle, partitionName);
                 write = locationService.writePath(locationHandle, partitionName).get();
@@ -271,7 +282,7 @@ public class HiveWriterFactory
                 if (partitionName.isPresent() && !target.equals(write)) {
                     // When target path is different from write path,
                     // verify that the target directory for the partition does not already exist
-                    if (HiveWriteUtils.pathExists(session.getUser(), hdfsEnvironment, target)) {
+                    if (HiveWriteUtils.pathExists(new HdfsContext(session, schemaName, tableName), hdfsEnvironment, target)) {
                         throw new PrestoException(HIVE_PATH_ALREADY_EXISTS, format(
                                 "Target directory for new partition '%s' of table '%s.%s' already exists: %s",
                                 partitionName,
@@ -415,7 +426,7 @@ public class HiveWriterFactory
                     hiveWriter.getRowCount()));
         };
 
-        return new HiveWriter(hiveFileWriter, partitionName, isNew, fileNameWithExtension, write.toString(), target.toString(), onCommit);
+        return new HiveWriter(hiveFileWriter, partitionName, isNew, fileNameWithExtension, write.toString(), target.toString(), onCommit, hiveWriterStats);
     }
 
     private void validateSchema(Optional<String> partitionName, Properties schema)
@@ -473,7 +484,13 @@ public class HiveWriterFactory
                 partitionValues.add(HIVE_DEFAULT_DYNAMIC_PARTITION);
             }
             else {
-                partitionValues.add(value.toString());
+                String valueString = value.toString();
+                if (!CharMatcher.inRange((char) 0x20, (char) 0x7E).matchesAllOf(valueString)) {
+                    throw new PrestoException(HIVE_INVALID_PARTITION_VALUE,
+                            "Hive partition keys can only contain printable ASCII characters (0x20 - 0x7E). Invalid value: " +
+                                    base16().withSeparator(" ", 2).encode(valueString.getBytes(UTF_8)));
+                }
+                partitionValues.add(valueString);
             }
         }
         return partitionValues.build();
@@ -511,24 +528,17 @@ public class HiveWriterFactory
     private static class DataColumn
     {
         private final String name;
-        private final Type type;
         private final HiveType hiveType;
 
-        public DataColumn(String name, Type type, HiveType hiveType)
+        public DataColumn(String name, HiveType hiveType)
         {
             this.name = requireNonNull(name, "name is null");
-            this.type = requireNonNull(type, "type is null");
             this.hiveType = requireNonNull(hiveType, "hiveType is null");
         }
 
         public String getName()
         {
             return name;
-        }
-
-        public Type getType()
-        {
-            return type;
         }
 
         public HiveType getHiveType()

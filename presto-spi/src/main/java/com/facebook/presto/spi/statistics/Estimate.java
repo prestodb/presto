@@ -39,6 +39,11 @@ public final class Estimate
         this.value = value;
     }
 
+    public static final Estimate zeroValue()
+    {
+        return new Estimate(0);
+    }
+
     public boolean isValueUnknown()
     {
         return isNaN(value);

@@ -18,7 +18,7 @@ import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
-import static org.testng.AssertJUnit.assertTrue;
+import static org.testng.Assert.assertTrue;
 
 public class TestResourceGroupId
 {
@@ -29,6 +29,7 @@ public class TestResourceGroupId
         new ResourceGroupId("test.test");
         new ResourceGroupId(new ResourceGroupId("test"), "test");
     }
+
     @Test
     public void testCodec()
     {

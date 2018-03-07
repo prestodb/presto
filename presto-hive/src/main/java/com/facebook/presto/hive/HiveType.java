@@ -84,18 +84,17 @@ public final class HiveType
     public static final HiveType HIVE_DATE = new HiveType(dateTypeInfo);
     public static final HiveType HIVE_BINARY = new HiveType(binaryTypeInfo);
 
-    private final String hiveTypeName;
+    private final HiveTypeName hiveTypeName;
     private final TypeInfo typeInfo;
 
     private HiveType(TypeInfo typeInfo)
     {
         requireNonNull(typeInfo, "typeInfo is null");
-        this.hiveTypeName = typeInfo.getTypeName();
+        this.hiveTypeName = new HiveTypeName(typeInfo.getTypeName());
         this.typeInfo = typeInfo;
     }
 
-    @JsonValue
-    public String getHiveTypeName()
+    public HiveTypeName getHiveTypeName()
     {
         return hiveTypeName;
     }
@@ -145,10 +144,11 @@ public final class HiveType
         return hiveTypeName.hashCode();
     }
 
+    @JsonValue
     @Override
     public String toString()
     {
-        return hiveTypeName;
+        return hiveTypeName.toString();
     }
 
     public boolean isSupportedType()

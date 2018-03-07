@@ -14,19 +14,17 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.metadata.SessionPropertyManager;
-import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.security.Identity;
-import com.facebook.presto.transaction.TransactionManager;
+import com.facebook.presto.spi.session.SessionPropertyConfigurationManagerFactory;
+
+import java.io.IOException;
 
 public interface SessionSupplier
 {
-    Identity getIdentity();
+    Session createSession(QueryId queryId, SessionContext context);
 
-    Session createSession(
-            QueryId queryId,
-            TransactionManager transactionManager,
-            AccessControl accessControl,
-            SessionPropertyManager sessionPropertyManager);
+    void addConfigurationManager(SessionPropertyConfigurationManagerFactory sessionConfigFactory);
+
+    void loadConfigurationManager()
+            throws IOException;
 }

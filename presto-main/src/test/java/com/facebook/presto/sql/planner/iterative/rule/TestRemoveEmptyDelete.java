@@ -31,7 +31,6 @@ public class TestRemoveEmptyDelete
 {
     @Test
     public void testDoesNotFire()
-            throws Exception
     {
         tester().assertThat(new RemoveEmptyDelete())
                 .on(p -> p.tableDelete(
@@ -40,8 +39,7 @@ public class TestRemoveEmptyDelete
                                 new TableHandle(CONNECTOR_ID, new TpchTableHandle(CATALOG_ID, "nation", 1.0)),
                                 ImmutableList.of(),
                                 ImmutableMap.of()),
-                        p.symbol("a", BigintType.BIGINT))
-                )
+                        p.symbol("a", BigintType.BIGINT)))
                 .doesNotFire();
     }
 
@@ -52,11 +50,8 @@ public class TestRemoveEmptyDelete
                 .on(p -> p.tableDelete(
                         new SchemaTableName("sch", "tab"),
                         p.values(),
-                        p.symbol("a", BigintType.BIGINT)
-                        )
-                )
+                        p.symbol("a", BigintType.BIGINT)))
                 .matches(
-                        PlanMatchPattern.values(ImmutableMap.of("a", 0))
-                );
+                        PlanMatchPattern.values(ImmutableMap.of("a", 0)));
     }
 }

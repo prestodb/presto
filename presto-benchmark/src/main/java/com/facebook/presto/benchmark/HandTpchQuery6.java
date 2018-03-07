@@ -32,6 +32,7 @@ import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.util.DateTimeUtils;
 import com.google.common.collect.ImmutableList;
+import io.airlift.units.DataSize;
 
 import java.util.List;
 import java.util.Optional;
@@ -43,6 +44,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.sql.relational.Expressions.field;
+import static io.airlift.units.DataSize.Unit.BYTE;
 
 public class HandTpchQuery6
         extends AbstractSimpleOperatorBenchmark
@@ -69,21 +71,22 @@ public class HandTpchQuery6
         //    and quantity < 24;
         OperatorFactory tableScanOperator = createTableScanOperator(0, new PlanNodeId("test"), "lineitem", "extendedprice", "discount", "shipdate", "quantity");
 
-        Supplier<PageProjection> projection = new PageFunctionCompiler(localQueryRunner.getMetadata()).compileProjection(field(0, BIGINT));
+        Supplier<PageProjection> projection = new PageFunctionCompiler(localQueryRunner.getMetadata(), 0).compileProjection(field(0, BIGINT), Optional.empty());
 
         FilterAndProjectOperator.FilterAndProjectOperatorFactory tpchQuery6Operator = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
                 1,
                 new PlanNodeId("test"),
                 () -> new PageProcessor(Optional.of(new TpchQuery6Filter()), ImmutableList.of(projection.get())),
-                ImmutableList.of(DOUBLE));
+                ImmutableList.of(DOUBLE),
+                new DataSize(0, BYTE),
+                0);
 
         AggregationOperatorFactory aggregationOperator = new AggregationOperatorFactory(
                 2,
                 new PlanNodeId("test"),
                 Step.SINGLE,
                 ImmutableList.of(
-                        doubleSum.bind(ImmutableList.of(0), Optional.empty())
-                ));
+                        doubleSum.bind(ImmutableList.of(0), Optional.empty())));
 
         return ImmutableList.of(tableScanOperator, tpchQuery6Operator, aggregationOperator);
     }

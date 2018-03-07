@@ -1,0 +1,161 @@
+{
+  "rowCount" : 2,
+  "columns" : {
+    "web_site_sk" : {
+      "distinctValuesCount" : 2,
+      "nullsCount" : 0,
+      "min" : 1,
+      "max" : 2
+    },
+    "web_site_id" : {
+      "distinctValuesCount" : 2,
+      "nullsCount" : 0,
+      "min" : "AAAAAAAABAAAAAAA",
+      "max" : "AAAAAAAACAAAAAAA"
+    },
+    "web_rec_start_date" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : 10089,
+      "max" : 10089
+    },
+    "web_rec_end_date" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 1,
+      "min" : 11184,
+      "max" : 11184
+    },
+    "web_name" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "site_0",
+      "max" : "site_0"
+    },
+    "web_open_date_sk" : {
+      "distinctValuesCount" : 2,
+      "nullsCount" : 0,
+      "min" : 2450798,
+      "max" : 2450807
+    },
+    "web_close_date_sk" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 1,
+      "min" : 2448973,
+      "max" : 2448973
+    },
+    "web_class" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "Unknown",
+      "max" : "Unknown"
+    },
+    "web_manager" : {
+      "distinctValuesCount" : 2,
+      "nullsCount" : 0,
+      "min" : "Ronald Shaffer",
+      "max" : "Tommy Jones"
+    },
+    "web_mkt_id" : {
+      "distinctValuesCount" : 2,
+      "nullsCount" : 0,
+      "min" : 4,
+      "max" : 6
+    },
+    "web_mkt_class" : {
+      "distinctValuesCount" : 2,
+      "nullsCount" : 0,
+      "min" : "Completely excellent things ought to pro",
+      "max" : "Grey lines ought to result indeed centres. Tod"
+    },
+    "web_mkt_desc" : {
+      "distinctValuesCount" : 2,
+      "nullsCount" : 0,
+      "min" : "Lucky passengers know. Red details will not hang alive, international s",
+      "max" : "Well similar decisions used to keep hardly democratic, personal priorities."
+    },
+    "web_market_manager" : {
+      "distinctValuesCount" : 2,
+      "nullsCount" : 0,
+      "min" : "David Myers",
+      "max" : "Joe George"
+    },
+    "web_company_id" : {
+      "distinctValuesCount" : 2,
+      "nullsCount" : 0,
+      "min" : 4,
+      "max" : 6
+    },
+    "web_company_name" : {
+      "distinctValuesCount" : 2,
+      "nullsCount" : 0,
+      "min" : "cally",
+      "max" : "ese"
+    },
+    "web_street_number" : {
+      "distinctValuesCount" : 2,
+      "nullsCount" : 0,
+      "min" : "358",
+      "max" : "51"
+    },
+    "web_street_name" : {
+      "distinctValuesCount" : 2,
+      "nullsCount" : 0,
+      "min" : "Dogwood Sunset",
+      "max" : "Ridge Wilson"
+    },
+    "web_street_type" : {
+      "distinctValuesCount" : 2,
+      "nullsCount" : 0,
+      "min" : "Cir.",
+      "max" : "Ln"
+    },
+    "web_suite_number" : {
+      "distinctValuesCount" : 2,
+      "nullsCount" : 0,
+      "min" : "Suite 150",
+      "max" : "Suite 330"
+    },
+    "web_city" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "Midway",
+      "max" : "Midway"
+    },
+    "web_county" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "Williamson County",
+      "max" : "Williamson County"
+    },
+    "web_state" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "TN",
+      "max" : "TN"
+    },
+    "web_zip" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "31904",
+      "max" : "31904"
+    },
+    "web_country" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "United States",
+      "max" : "United States"
+    },
+    "web_gmt_offset" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : -500,
+      "max" : -500
+    },
+    "web_tax_percentage" : {
+      "distinctValuesCount" : 2,
+      "nullsCount" : 0,
+      "min" : 0,
+      "max" : 10
+    }
+  }
+}

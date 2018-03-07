@@ -60,8 +60,7 @@ public enum AtopTable
             new AtopColumn("read_requests", BIGINT, bigintParser(8)),
             new AtopColumn("sectors_read", BIGINT, bigintParser(9)),
             new AtopColumn("write_requests", BIGINT, bigintParser(10)),
-            new AtopColumn("sectors_written", BIGINT, bigintParser(11))
-    )),
+            new AtopColumn("sectors_written", BIGINT, bigintParser(11)))),
 
     REBOOTS("reboots", "DSK", ImmutableList.of(HOST_IP, new AtopColumn("power_on_time", TIMESTAMP_WITH_TIME_ZONE, (fields, type, builder, session) -> {
         long millisUtc = Long.valueOf(fields.get(2)) * 1000;

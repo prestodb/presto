@@ -50,8 +50,8 @@ public class DbResourceGroupConfigurationManagerFactory
             Bootstrap app = new Bootstrap(
                     new JsonModule(),
                     new DbResourceGroupsModule(),
-                    binder -> binder.bind(ClusterMemoryPoolManager.class).toInstance(context.getMemoryPoolManager())
-            );
+                    binder -> binder.bind(String.class).annotatedWith(ForEnvironment.class).toInstance(context.getEnvironment()),
+                    binder -> binder.bind(ClusterMemoryPoolManager.class).toInstance(context.getMemoryPoolManager()));
 
             Injector injector = app
                     .strictConfig()

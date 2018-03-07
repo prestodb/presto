@@ -17,8 +17,8 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockEncoding;
+import com.facebook.presto.spi.block.DictionaryId;
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Ints;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
@@ -26,11 +26,10 @@ import io.airlift.slice.Slices;
 import org.openjdk.jol.info.ClassLayout;
 import org.testng.annotations.Test;
 
+import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
-import java.util.IdentityHashMap;
 import java.util.List;
-import java.util.Map;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
@@ -41,6 +40,7 @@ import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.SIZE_OF_SHORT;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Math.toIntExact;
+import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -71,94 +71,87 @@ public abstract class AbstractTestBlock
         }
     }
 
-    // copied from SliceArrayBlock, any changes should be reflected
-    private static long getSliceArrayRetainedSizeInBytes(Slice[] values)
-    {
-        long sizeInBytes = sizeOf(values);
-        Map<Object, Boolean> uniqueRetained = new IdentityHashMap<>(values.length);
-        for (Slice value : values) {
-            if (value == null) {
-                continue;
-            }
-            if (value.getBase() != null && uniqueRetained.put(value.getBase(), true) == null) {
-                sizeInBytes += value.getRetainedSize();
-            }
-        }
-        return sizeInBytes;
-    }
-
     private void assertRetainedSize(Block block)
     {
         long retainedSize = ClassLayout.parseClass(block.getClass()).instanceSize();
         Field[] fields = block.getClass().getDeclaredFields();
         try {
             for (Field field : fields) {
-                Class type = field.getType();
+                Class<?> type = field.getType();
                 if (type.isPrimitive()) {
                     continue;
                 }
 
                 field.setAccessible(true);
 
-                if (type.equals(Slice.class)) {
+                if (type == Slice.class) {
                     retainedSize += ((Slice) field.get(block)).getRetainedSize();
                 }
-                else if (type.equals(BlockBuilderStatus.class)) {
+                else if (type == BlockBuilderStatus.class) {
                     retainedSize += BlockBuilderStatus.INSTANCE_SIZE;
                 }
-                else if (type.equals(BlockBuilder.class) || type.equals(Block.class)) {
+                else if (type == BlockBuilder.class || type == Block.class) {
                     retainedSize += ((Block) field.get(block)).getRetainedSizeInBytes();
                 }
-                else if (type.equals(Slice[].class)) {
-                    retainedSize += getSliceArrayRetainedSizeInBytes((Slice[]) field.get(block));
-                }
-                else if (type.equals(BlockBuilder[].class) || type.equals(Block[].class)) {
+                else if (type == BlockBuilder[].class || type == Block[].class) {
                     Block[] blocks = (Block[]) field.get(block);
                     for (Block innerBlock : blocks) {
                         assertRetainedSize(innerBlock);
                         retainedSize += innerBlock.getRetainedSizeInBytes();
                     }
                 }
-                else if (type.equals(SliceOutput.class)) {
+                else if (type == SliceOutput.class) {
                     retainedSize += ((SliceOutput) field.get(block)).getRetainedSize();
                 }
-                else if (type.equals(int[].class)) {
+                else if (type == int[].class) {
                     retainedSize += sizeOf((int[]) field.get(block));
                 }
-                else if (type.equals(boolean[].class)) {
+                else if (type == boolean[].class) {
                     retainedSize += sizeOf((boolean[]) field.get(block));
                 }
-                else if (type.equals(byte[].class)) {
+                else if (type == byte[].class) {
                     retainedSize += sizeOf((byte[]) field.get(block));
                 }
-                else if (type.equals(long[].class)) {
+                else if (type == long[].class) {
                     retainedSize += sizeOf((long[]) field.get(block));
                 }
-                else if (type.equals(short[].class)) {
+                else if (type == short[].class) {
                     retainedSize += sizeOf((short[]) field.get(block));
+                }
+                else if (type == DictionaryId.class) {
+                    retainedSize += ClassLayout.parseClass(DictionaryId.class).instanceSize();
+                }
+                else if (type == MethodHandle.class) {
+                    // MethodHandles are only used in MapBlock/MapBlockBuilder,
+                    // and they are shared among blocks created by the same MapType.
+                    // So we don't account for the memory held onto by MethodHandle instances.
+                    // Otherwise, we will be counting it multiple times.
+                }
+                else {
+                    throw new IllegalArgumentException(format("Unknown type encountered: %s", type));
                 }
             }
         }
-        catch (IllegalAccessException | IllegalArgumentException t) {
+        catch (IllegalAccessException t) {
             throw new RuntimeException(t);
         }
         assertEquals(block.getRetainedSizeInBytes(), retainedSize);
     }
 
-    protected <T> void assertBlockFilteredPositions(T[] expectedValues, Block block, List<Integer> positions)
+    protected <T> void assertBlockFilteredPositions(T[] expectedValues, Block block, int... positions)
     {
-        Block filteredBlock = block.copyPositions(positions);
+        Block filteredBlock = block.copyPositions(positions, 0, positions.length);
         T[] filteredExpectedValues = filter(expectedValues, positions);
-        assertEquals(filteredBlock.getPositionCount(), positions.size());
+        assertEquals(filteredBlock.getPositionCount(), positions.length);
         assertBlock(filteredBlock, filteredExpectedValues);
     }
 
-    private static <T> T[] filter(T[] expectedValues, List<Integer> positions)
+    private static <T> T[] filter(T[] expectedValues, int[] positions)
     {
         @SuppressWarnings("unchecked")
-        T[] prunedExpectedValues = (T[]) Array.newInstance(expectedValues.getClass().getComponentType(), positions.size());
+        T[] prunedExpectedValues = (T[]) Array.newInstance(expectedValues.getClass().getComponentType(), positions.length);
         for (int i = 0; i < prunedExpectedValues.length; i++) {
-            prunedExpectedValues[i] = expectedValues[positions.get(i)];
+            prunedExpectedValues[i] = expectedValues[positions[i]];
         }
         return prunedExpectedValues;
     }
@@ -215,7 +208,7 @@ public abstract class AbstractTestBlock
         assertPositionValue(block.copyRegion(position, 1), 0, expectedValue);
         assertPositionValue(block.copyRegion(0, position + 1), position, expectedValue);
         assertPositionValue(block.copyRegion(position, block.getPositionCount() - position), 0, expectedValue);
-        assertPositionValue(block.copyPositions(Ints.asList(position)), 0, expectedValue);
+        assertPositionValue(block.copyPositions(new int[] {position}, 0, 1), 0, expectedValue);
     }
 
     protected <T> void assertPositionValue(Block block, int position, T expectedValue)

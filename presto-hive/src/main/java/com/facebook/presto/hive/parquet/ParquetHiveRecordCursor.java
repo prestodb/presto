@@ -27,7 +27,6 @@ import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
@@ -57,6 +56,7 @@ import parquet.schema.MessageType;
 import parquet.schema.PrimitiveType;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.List;
@@ -77,7 +77,7 @@ import static com.facebook.presto.hive.parquet.predicate.ParquetPredicateUtils.b
 import static com.facebook.presto.hive.parquet.predicate.ParquetPredicateUtils.getParquetTupleDomain;
 import static com.facebook.presto.hive.parquet.predicate.ParquetPredicateUtils.predicateMatches;
 import static com.facebook.presto.spi.type.Chars.isCharType;
-import static com.facebook.presto.spi.type.Chars.trimSpacesAndTruncateToLength;
+import static com.facebook.presto.spi.type.Chars.truncateToLengthAndTrimSpaces;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
 import static com.facebook.presto.spi.type.StandardTypes.MAP;
@@ -87,6 +87,7 @@ import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.facebook.presto.spi.type.Varchars.truncateToLength;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.max;
@@ -123,6 +124,7 @@ public class ParquetHiveRecordCursor
             Path path,
             long start,
             long length,
+            long fileSize,
             Properties splitSchema,
             List<HiveColumnHandle> columns,
             boolean useParquetColumnNames,
@@ -162,17 +164,11 @@ public class ParquetHiveRecordCursor
                 path,
                 start,
                 length,
+                fileSize,
                 columns,
                 useParquetColumnNames,
                 predicatePushdownEnabled,
-                effectivePredicate
-        );
-    }
-
-    @Override
-    public long getTotalBytes()
-    {
-        return totalBytes;
+                effectivePredicate);
     }
 
     @Override
@@ -308,7 +304,7 @@ public class ParquetHiveRecordCursor
             recordReader.close();
         }
         catch (IOException e) {
-            throw Throwables.propagate(e);
+            throw new UncheckedIOException(e);
         }
     }
 
@@ -319,6 +315,7 @@ public class ParquetHiveRecordCursor
             Path path,
             long start,
             long length,
+            long fileSize,
             List<HiveColumnHandle> columns,
             boolean useParquetColumnNames,
             boolean predicatePushdownEnabled,
@@ -327,7 +324,7 @@ public class ParquetHiveRecordCursor
         ParquetDataSource dataSource = null;
         try {
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(sessionUser, path, configuration);
-            dataSource = buildHdfsParquetDataSource(fileSystem, path, start, length);
+            dataSource = buildHdfsParquetDataSource(fileSystem, path, start, length, fileSize);
             ParquetMetadata parquetMetadata = hdfsEnvironment.doAs(sessionUser, () -> ParquetFileReader.readFooter(configuration, path, NO_FILTER));
             List<BlockMetaData> blocks = parquetMetadata.getBlocks();
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
@@ -371,10 +368,10 @@ public class ParquetHiveRecordCursor
             });
         }
         catch (Exception e) {
-            Throwables.propagateIfInstanceOf(e, PrestoException.class);
+            throwIfInstanceOf(e, PrestoException.class);
             if (e instanceof InterruptedException) {
                 Thread.currentThread().interrupt();
-                throw Throwables.propagate(e);
+                throw new RuntimeException(e);
             }
             String message = format("Error opening Hive split %s (offset=%s, length=%s): %s", path, start, length, e.getMessage());
             if (e.getClass().getSimpleName().equals("BlockMissingException")) {
@@ -594,7 +591,7 @@ public class ParquetHiveRecordCursor
                 slices[fieldIndex] = truncateToLength(wrappedBuffer(value.getBytes()), type);
             }
             else if (isCharType(type)) {
-                slices[fieldIndex] = trimSpacesAndTruncateToLength(wrappedBuffer(value.getBytes()), type);
+                slices[fieldIndex] = truncateToLengthAndTrimSpaces(wrappedBuffer(value.getBytes()), type);
             }
             else {
                 slices[fieldIndex] = wrappedBuffer(value.getBytes());
@@ -1286,7 +1283,7 @@ public class ParquetHiveRecordCursor
                 type.writeSlice(builder, truncateToLength(wrappedBuffer(value.getBytes()), type));
             }
             else if (isCharType(type)) {
-                type.writeSlice(builder, trimSpacesAndTruncateToLength(wrappedBuffer(value.getBytes()), type));
+                type.writeSlice(builder, truncateToLengthAndTrimSpaces(wrappedBuffer(value.getBytes()), type));
             }
             else {
                 type.writeSlice(builder, wrappedBuffer(value.getBytes()));

@@ -29,6 +29,7 @@ public class TestLegacySecurityConfig
     {
         assertRecordedDefaults(recordDefaults(LegacySecurityConfig.class)
                 .setAllowAddColumn(false)
+                .setAllowDropColumn(false)
                 .setAllowDropTable(false)
                 .setAllowRenameTable(false)
                 .setAllowRenameColumn(false));
@@ -39,6 +40,7 @@ public class TestLegacySecurityConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("hive.allow-add-column", "true")
+                .put("hive.allow-drop-column", "true")
                 .put("hive.allow-drop-table", "true")
                 .put("hive.allow-rename-table", "true")
                 .put("hive.allow-rename-column", "true")
@@ -46,6 +48,7 @@ public class TestLegacySecurityConfig
 
         LegacySecurityConfig expected = new LegacySecurityConfig()
                 .setAllowAddColumn(true)
+                .setAllowDropColumn(true)
                 .setAllowDropTable(true)
                 .setAllowRenameTable(true)
                 .setAllowRenameColumn(true);

@@ -24,6 +24,7 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.predicate.Range.equal;
 import static com.facebook.presto.spi.predicate.Range.greaterThan;
+import static com.facebook.presto.spi.predicate.Range.greaterThanOrEqual;
 import static com.facebook.presto.spi.predicate.Range.lessThan;
 import static com.facebook.presto.spi.predicate.Range.range;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -42,8 +43,7 @@ public class TestMongoSession
     {
         TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
                 COL1, Domain.create(ValueSet.ofRanges(range(BIGINT, 100L, false, 200L, true)), false),
-                COL2, Domain.singleValue(createUnboundedVarcharType(), utf8Slice("a value"))
-        ));
+                COL2, Domain.singleValue(createUnboundedVarcharType(), utf8Slice("a value"))));
 
         Document query = MongoSession.buildQuery(tupleDomain);
         Document expected = new Document()
@@ -53,11 +53,24 @@ public class TestMongoSession
     }
 
     @Test
+    public void testBuildQueryStringType()
+    {
+        TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
+                COL1, Domain.create(ValueSet.ofRanges(range(createUnboundedVarcharType(), utf8Slice("hello"), false, utf8Slice("world"), true)), false),
+                COL2, Domain.create(ValueSet.ofRanges(greaterThanOrEqual(createUnboundedVarcharType(), utf8Slice("a value"))), false)));
+
+        Document query = MongoSession.buildQuery(tupleDomain);
+        Document expected = new Document()
+                .append(COL1.getName(), new Document().append("$gt", "hello").append("$lte", "world"))
+                .append(COL2.getName(), new Document("$gte", "a value"));
+        assertEquals(query, expected);
+    }
+
+    @Test
     public void testBuildQueryIn()
     {
         TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
-                COL2, Domain.create(ValueSet.ofRanges(equal(createUnboundedVarcharType(), utf8Slice("hello")), equal(createUnboundedVarcharType(), utf8Slice("world"))), false)
-        ));
+                COL2, Domain.create(ValueSet.ofRanges(equal(createUnboundedVarcharType(), utf8Slice("hello")), equal(createUnboundedVarcharType(), utf8Slice("world"))), false)));
 
         Document query = MongoSession.buildQuery(tupleDomain);
         Document expected = new Document(COL2.getName(), new Document("$in", ImmutableList.of("hello", "world")));
@@ -68,14 +81,12 @@ public class TestMongoSession
     public void testBuildQueryOr()
     {
         TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
-                COL1, Domain.create(ValueSet.ofRanges(lessThan(BIGINT, 100L), greaterThan(BIGINT, 200L)), false)
-        ));
+                COL1, Domain.create(ValueSet.ofRanges(lessThan(BIGINT, 100L), greaterThan(BIGINT, 200L)), false)));
 
         Document query = MongoSession.buildQuery(tupleDomain);
         Document expected = new Document("$or", asList(
                 new Document(COL1.getName(), new Document("$lt", 100L)),
-                new Document(COL1.getName(), new Document("$gt", 200L))
-        ));
+                new Document(COL1.getName(), new Document("$gt", 200L))));
         assertEquals(query, expected);
     }
 
@@ -83,14 +94,12 @@ public class TestMongoSession
     public void testBuildQueryNull()
     {
         TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
-                COL1, Domain.create(ValueSet.ofRanges(greaterThan(BIGINT, 200L)), true)
-        ));
+                COL1, Domain.create(ValueSet.ofRanges(greaterThan(BIGINT, 200L)), true)));
 
         Document query = MongoSession.buildQuery(tupleDomain);
         Document expected = new Document("$or", asList(
                 new Document(COL1.getName(), new Document("$gt", 200L)),
-                new Document(COL1.getName(), new Document("$exists", true).append("$eq", null))
-        ));
+                new Document(COL1.getName(), new Document("$exists", true).append("$eq", null))));
         assertEquals(query, expected);
     }
 }

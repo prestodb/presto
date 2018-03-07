@@ -210,10 +210,10 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            delegate.createTable(session, tableMetadata);
+            delegate.createTable(session, tableMetadata, ignoreExisting);
         }
     }
 
@@ -230,6 +230,14 @@ public class ClassLoaderSafeConnectorMetadata
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             delegate.renameColumn(session, tableHandle, source, target);
+        }
+    }
+
+    @Override
+    public void dropColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            delegate.dropColumn(session, tableHandle, column);
         }
     }
 

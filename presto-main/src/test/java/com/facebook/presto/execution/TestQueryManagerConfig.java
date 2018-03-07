@@ -38,13 +38,15 @@ public class TestQueryManagerConfig
                 .setQueueConfigFile(null)
                 .setInitialHashPartitions(100)
                 .setQueryManagerExecutorPoolSize(5)
-                .setRemoteTaskMinErrorDuration(new Duration(2, TimeUnit.MINUTES))
+                .setRemoteTaskMinErrorDuration(new Duration(5, TimeUnit.MINUTES))
                 .setRemoteTaskMaxErrorDuration(new Duration(5, TimeUnit.MINUTES))
                 .setRemoteTaskMaxCallbackThreads(1000)
                 .setQueryExecutionPolicy("all-at-once")
                 .setQueryMaxRunTime(new Duration(100, TimeUnit.DAYS))
+                .setQueryMaxExecutionTime(new Duration(100, TimeUnit.DAYS))
                 .setQueryMaxCpuTime(new Duration(1_000_000_000, TimeUnit.DAYS))
-        );
+                .setInitializationRequiredWorkers(1)
+                .setInitializationTimeout(new Duration(5, TimeUnit.MINUTES)));
     }
 
     @Test
@@ -67,7 +69,10 @@ public class TestQueryManagerConfig
                 .put("query.remote-task.max-callback-threads", "10")
                 .put("query.execution-policy", "phased")
                 .put("query.max-run-time", "2h")
+                .put("query.max-execution-time", "3h")
                 .put("query.max-cpu-time", "2d")
+                .put("query-manager.initialization-required-workers", "200")
+                .put("query-manager.initialization-timeout", "1m")
                 .build();
 
         QueryManagerConfig expected = new QueryManagerConfig()
@@ -82,12 +87,15 @@ public class TestQueryManagerConfig
                 .setQueueConfigFile("/etc/presto/queues.json")
                 .setInitialHashPartitions(16)
                 .setQueryManagerExecutorPoolSize(11)
-                .setRemoteTaskMinErrorDuration(new Duration(30, TimeUnit.SECONDS))
+                .setRemoteTaskMinErrorDuration(new Duration(60, TimeUnit.SECONDS))
                 .setRemoteTaskMaxErrorDuration(new Duration(60, TimeUnit.SECONDS))
                 .setRemoteTaskMaxCallbackThreads(10)
                 .setQueryExecutionPolicy("phased")
                 .setQueryMaxRunTime(new Duration(2, TimeUnit.HOURS))
-                .setQueryMaxCpuTime(new Duration(2, TimeUnit.DAYS));
+                .setQueryMaxExecutionTime(new Duration(3, TimeUnit.HOURS))
+                .setQueryMaxCpuTime(new Duration(2, TimeUnit.DAYS))
+                .setInitializationRequiredWorkers(200)
+                .setInitializationTimeout(new Duration(1, TimeUnit.MINUTES));
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

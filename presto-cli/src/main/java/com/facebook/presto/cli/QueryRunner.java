@@ -23,13 +23,17 @@ import java.io.Closeable;
 import java.io.File;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 
+import static com.facebook.presto.client.ClientSession.stripTransactionId;
 import static com.facebook.presto.client.OkHttpUtil.basicAuth;
+import static com.facebook.presto.client.OkHttpUtil.setupCookieJar;
 import static com.facebook.presto.client.OkHttpUtil.setupHttpProxy;
 import static com.facebook.presto.client.OkHttpUtil.setupKerberos;
 import static com.facebook.presto.client.OkHttpUtil.setupSocksProxy;
 import static com.facebook.presto.client.OkHttpUtil.setupSsl;
 import static com.facebook.presto.client.OkHttpUtil.setupTimeouts;
+import static com.facebook.presto.client.StatementClientFactory.newStatementClient;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -38,10 +42,13 @@ public class QueryRunner
         implements Closeable
 {
     private final AtomicReference<ClientSession> session;
+    private final boolean debug;
     private final OkHttpClient httpClient;
+    private final Consumer<OkHttpClient.Builder> sslSetup;
 
     public QueryRunner(
             ClientSession session,
+            boolean debug,
             Optional<HostAndPort> socksProxy,
             Optional<HostAndPort> httpProxy,
             Optional<String> keystorePath,
@@ -59,13 +66,16 @@ public class QueryRunner
             boolean kerberosEnabled)
     {
         this.session = new AtomicReference<>(requireNonNull(session, "session is null"));
+        this.debug = debug;
+
+        this.sslSetup = builder -> setupSsl(builder, keystorePath, keystorePassword, truststorePath, truststorePassword);
 
         OkHttpClient.Builder builder = new OkHttpClient.Builder();
 
-        setupTimeouts(builder, 5, SECONDS);
+        setupTimeouts(builder, 30, SECONDS);
+        setupCookieJar(builder);
         setupSocksProxy(builder, socksProxy);
         setupHttpProxy(builder, httpProxy);
-        setupSsl(builder, keystorePath, keystorePassword, truststorePath, truststorePassword);
         setupBasicAuth(builder, session, user, password);
 
         if (kerberosEnabled) {
@@ -92,14 +102,28 @@ public class QueryRunner
         this.session.set(requireNonNull(session, "session is null"));
     }
 
+    public boolean isDebug()
+    {
+        return debug;
+    }
+
     public Query startQuery(String query)
     {
-        return new Query(startInternalQuery(query));
+        return new Query(startInternalQuery(session.get(), query), debug);
     }
 
     public StatementClient startInternalQuery(String query)
     {
-        return new StatementClient(httpClient, session.get(), query);
+        return startInternalQuery(stripTransactionId(session.get()), query);
+    }
+
+    private StatementClient startInternalQuery(ClientSession session, String query)
+    {
+        OkHttpClient.Builder builder = httpClient.newBuilder();
+        sslSetup.accept(builder);
+        OkHttpClient client = builder.build();
+
+        return newStatementClient(client, session, query);
     }
 
     @Override

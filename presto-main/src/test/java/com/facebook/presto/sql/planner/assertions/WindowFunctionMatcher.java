@@ -15,25 +15,41 @@ package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.FunctionCall;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class WindowFunctionMatcher
         implements RvalueMatcher
 {
     private final ExpectedValueProvider<FunctionCall> callMaker;
+    private final Optional<Signature> signature;
+    private final Optional<ExpectedValueProvider<WindowNode.Frame>> frameMaker;
 
-    public WindowFunctionMatcher(ExpectedValueProvider<FunctionCall> callMaker)
+    /**
+     * @param callMaker Always validates the function call
+     * @param signature Optionally validates the signature
+     * @param frameMaker Optionally validates the frame
+     */
+    public WindowFunctionMatcher(
+            ExpectedValueProvider<FunctionCall> callMaker,
+            Optional<Signature> signature,
+            Optional<ExpectedValueProvider<WindowNode.Frame>> frameMaker)
     {
         this.callMaker = requireNonNull(callMaker, "functionCall is null");
+        this.signature = requireNonNull(signature, "signature is null");
+        this.frameMaker = requireNonNull(frameMaker, "frameMaker is null");
     }
 
     @Override
@@ -47,19 +63,33 @@ public class WindowFunctionMatcher
         WindowNode windowNode = (WindowNode) node;
 
         FunctionCall expectedCall = callMaker.getExpectedValue(symbolAliases);
-        for (Map.Entry<Symbol, WindowNode.Function> assignment : windowNode.getWindowFunctions().entrySet()) {
-            if (expectedCall.equals(assignment.getValue().getFunctionCall())) {
-                checkState(!result.isPresent(), "Ambiguous function calls in %s", windowNode);
-                result = Optional.of(assignment.getKey());
-            }
-        }
+        Optional<WindowNode.Frame> expectedFrame = frameMaker.map(maker -> maker.getExpectedValue(symbolAliases));
 
-        return result;
+        List<Symbol> matchedOutputs = windowNode.getWindowFunctions().entrySet().stream()
+                .filter(assignment ->
+                        expectedCall.equals(assignment.getValue().getFunctionCall())
+                                && signature.map(assignment.getValue().getSignature()::equals).orElse(true)
+                                && expectedFrame.map(assignment.getValue().getFrame()::equals).orElse(true))
+                .map(Map.Entry::getKey)
+                .collect(toImmutableList());
+
+        checkState(matchedOutputs.size() <= 1, "Ambiguous function calls in %s", windowNode);
+
+        if (matchedOutputs.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(matchedOutputs.get(0));
     }
 
     @Override
     public String toString()
     {
-        return callMaker.toString();
+        // Only include fields in the description if they are actual constraints.
+        return toStringHelper(this)
+                .omitNullValues()
+                .add("callMaker", callMaker)
+                .add("signature", signature.orElse(null))
+                .add("frameMaker", frameMaker.orElse(null))
+                .toString();
     }
 }

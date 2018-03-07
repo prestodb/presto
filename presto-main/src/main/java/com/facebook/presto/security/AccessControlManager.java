@@ -37,21 +37,19 @@ import org.weakref.jmx.Nested;
 import javax.inject.Inject;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.security.Principal;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.spi.StandardErrorCode.SERVER_STARTING_UP;
+import static com.facebook.presto.util.PropertiesUtil.loadProperties;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static com.google.common.collect.Maps.fromProperties;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -353,6 +351,22 @@ public class AccessControlManager
     }
 
     @Override
+    public void checkCanDropColumn(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
+    {
+        requireNonNull(identity, "identity is null");
+        requireNonNull(tableName, "tableName is null");
+
+        authenticationCheck(() -> checkCanAccessCatalog(identity, tableName.getCatalogName()));
+
+        authorizationCheck(() -> systemAccessControl.get().checkCanDropColumn(identity, tableName.asCatalogSchemaTableName()));
+
+        CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, tableName.getCatalogName());
+        if (entry != null) {
+            authorizationCheck(() -> entry.getAccessControl().checkCanDropColumn(entry.getTransactionHandle(transactionId), identity, tableName.asSchemaTableName()));
+        }
+    }
+
+    @Override
     public void checkCanRenameColumn(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
     {
         requireNonNull(identity, "identity is null");
@@ -613,18 +627,6 @@ public class AccessControlManager
             authorizationFail.update(1);
             throw e;
         }
-    }
-
-    private static Map<String, String> loadProperties(File file)
-            throws Exception
-    {
-        requireNonNull(file, "file is null");
-
-        Properties properties = new Properties();
-        try (FileInputStream in = new FileInputStream(file)) {
-            properties.load(in);
-        }
-        return fromProperties(properties);
     }
 
     private class CatalogAccessControlEntry

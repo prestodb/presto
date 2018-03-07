@@ -13,15 +13,18 @@ from different data sources.
     connector/cassandra
     connector/hive
     connector/hive-security
-    connector/memory
     connector/jmx
     connector/kafka
     connector/kafka-tutorial
     connector/localfile
+    connector/memory
     connector/mongodb
     connector/mysql
     connector/postgresql
     connector/redis
+    connector/redshift
     connector/sqlserver
     connector/system
+    connector/thrift
+    connector/tpcds
     connector/tpch

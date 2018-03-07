@@ -62,12 +62,12 @@ public class ParquetRecordCursorProvider
 
     @Override
     public Optional<RecordCursor> createRecordCursor(
-            String clientId,
             Configuration configuration,
             ConnectorSession session,
             Path path,
             long start,
             long length,
+            long fileSize,
             Properties schema,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
@@ -85,12 +85,12 @@ public class ParquetRecordCursorProvider
                 path,
                 start,
                 length,
+                fileSize,
                 schema,
                 columns,
                 useParquetColumnNames,
                 typeManager,
                 isParquetPredicatePushdownEnabled(session),
-                effectivePredicate
-        ));
+                effectivePredicate));
     }
 }

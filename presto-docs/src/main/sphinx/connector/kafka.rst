@@ -275,12 +275,11 @@ or key and converting it into Presto columns.
 
 For fields, the following attributes are supported:
 
+* ``dataFormat`` - selects the width of the data type converted
 * ``type`` - all Presto primitive data types are supported
-* ``dataFormat`` - only ``_default`` supported (optional)
-* ``mapping`` - selects the width of the data type converted
-* ``formatHint`` - ``<start>[:<end>]``; start and end position of bytes to convert (optional)
+* ``mapping`` - ``<start>[:<end>]``; start and end position of bytes to convert (optional)
 
-The ``mapping`` column selects the number of bytes converted.
+The ``dataFormat`` column selects the number of bytes converted.
 If absent, ``BYTE`` is assumed. All values are signed.
 
 Supported values are:
@@ -294,17 +293,17 @@ Supported values are:
 
 The ``type`` column defines the Presto data type on which the value is mapped.
 
-* boolean based types require a mapping to ``BYTE``, ``SHORT``, ``INT`` or ``LONG``.
+* boolean based types require a ``dataFormat`` to be ``BYTE``, ``SHORT``, ``INT`` or ``LONG``.
   Any other type will throw a conversion error.
   A value of ``0`` returns false, everything else true.
-* long based types require a mapping to ``BYTE``, ``SHORT``, ``INT`` or ``LONG``.
+* long based types require a ``dataFormat`` to be ``BYTE``, ``SHORT``, ``INT`` or ``LONG``.
   Any other type will throw a conversion error.
-* double based types require a mapping to ``FLOAT`` or ``DOUBLE``.
+* double based types require a ``dataFormat`` to be ``FLOAT`` or ``DOUBLE``.
   Any other type will throw a conversion error.
-* string based types require a mapping to ``BYTE``.
+* string based types require a ``dataFormat`` to be ``BYTE``.
   Any other type will throw a conversion error.
 
-The ``formatHint`` field specifies the position of the bytes in a key or
+The ``mapping`` field specifies the position of the bytes in a key or
 message. It can be one or two numbers separated by a colon (``<start>[:<end>]``).
 If only a start position is given, the column will use the appropriate
 number of bytes for the type (see above). string based types (``VARCHAR``)

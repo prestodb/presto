@@ -57,6 +57,7 @@ public class TestPrestoDatabaseMetaData
 
     @AfterClass(alwaysRun = true)
     public void tearDownServer()
+            throws Exception
     {
         server.close();
     }
@@ -71,7 +72,6 @@ public class TestPrestoDatabaseMetaData
 
     @AfterMethod(alwaysRun = true)
     public void tearDown()
-            throws SQLException
     {
         closeQuietly(connection);
     }

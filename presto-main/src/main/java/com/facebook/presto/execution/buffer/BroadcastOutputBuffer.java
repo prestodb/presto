@@ -17,7 +17,7 @@ import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.OutputBuffers.OutputBufferId;
 import com.facebook.presto.execution.StateMachine;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
-import com.facebook.presto.execution.SystemMemoryUsageListener;
+import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
@@ -34,6 +34,7 @@ import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Supplier;
 
 import static com.facebook.presto.OutputBuffers.BufferType.BROADCAST;
 import static com.facebook.presto.execution.buffer.BufferState.FAILED;
@@ -72,14 +73,14 @@ public class BroadcastOutputBuffer
             String taskInstanceId,
             StateMachine<BufferState> state,
             DataSize maxBufferSize,
-            SystemMemoryUsageListener systemMemoryUsageListener,
+            Supplier<LocalMemoryContext> systemMemoryContextSupplier,
             Executor notificationExecutor)
     {
         this.taskInstanceId = requireNonNull(taskInstanceId, "taskInstanceId is null");
         this.state = requireNonNull(state, "state is null");
         this.memoryManager = new OutputBufferMemoryManager(
                 requireNonNull(maxBufferSize, "maxBufferSize is null").toBytes(),
-                requireNonNull(systemMemoryUsageListener, "systemMemoryUsageListener is null"),
+                requireNonNull(systemMemoryContextSupplier, "systemMemoryContextSupplier is null"),
                 requireNonNull(notificationExecutor, "notificationExecutor is null"));
     }
 
@@ -99,6 +100,12 @@ public class BroadcastOutputBuffer
     public double getUtilization()
     {
         return memoryManager.getUtilization();
+    }
+
+    @Override
+    public boolean isOverutilized()
+    {
+        return memoryManager.isOverutilized();
     }
 
     @Override
@@ -241,6 +248,15 @@ public class BroadcastOutputBuffer
     }
 
     @Override
+    public void acknowledge(OutputBufferId bufferId, long sequenceId)
+    {
+        checkState(!Thread.holdsLock(this), "Can not acknowledge pages while holding a lock on this");
+        requireNonNull(bufferId, "bufferId is null");
+
+        getBuffer(bufferId).acknowledgePages(sequenceId);
+    }
+
+    @Override
     public void abort(OutputBufferId bufferId)
     {
         checkState(!Thread.holdsLock(this), "Can not abort while holding a lock on this");
@@ -299,23 +315,28 @@ public class BroadcastOutputBuffer
         // NOTE: buffers are allowed to be created in the FINISHED state because destroy() can move to the finished state
         // without a clean "no-more-buffers" message from the scheduler.  This happens with limit queries and is ok because
         // the buffer will be immediately destroyed.
-        checkState(state.get().canAddBuffers() || !outputBuffers.isNoMoreBufferIds(), "No more buffers already set");
+        BufferState state = this.state.get();
+        checkState(state.canAddBuffers() || !outputBuffers.isNoMoreBufferIds(), "No more buffers already set");
 
         // NOTE: buffers are allowed to be created before they are explicitly declared by setOutputBuffers
         // When no-more-buffers is set, we verify that all created buffers have been declared
         buffer = new ClientBuffer(taskInstanceId, id);
 
-        // add initial pages
-        buffer.enqueuePages(initialPagesForNewBuffers);
+        // do not setup the new buffer if we are already failed
+        if (state != FAILED) {
+            // add initial pages
+            buffer.enqueuePages(initialPagesForNewBuffers);
 
-        // update state
-        if (!state.get().canAddPages()) {
-            buffer.setNoMorePages();
-        }
+            // update state
+            if (!state.canAddPages()) {
+                // BE CAREFUL: set no more pages only if not FAILED, because this allows clients to FINISH
+                buffer.setNoMorePages();
+            }
 
-        // buffer may have finished immediately before calling this method
-        if (state.get() == FINISHED) {
-            buffer.destroy();
+            // buffer may have finished immediately before calling this method
+            if (state == FINISHED) {
+                buffer.destroy();
+            }
         }
 
         buffers.put(id, buffer);

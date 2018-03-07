@@ -24,12 +24,12 @@ import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.testing.TestingTicker;
-import io.airlift.units.Duration;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -53,7 +53,9 @@ import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.execution.QueryState.STARTING;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.USER_CANCELED;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.transaction.TransactionManager.createTestTransactionManager;
+import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -71,6 +73,7 @@ public class TestQueryStateMachine
     private static final List<Input> INPUTS = ImmutableList.of(new Input(new ConnectorId("connector"), "schema", "table", Optional.empty(), ImmutableList.of(new Column("a", "varchar"))));
     private static final Optional<Output> OUTPUT = Optional.empty();
     private static final List<String> OUTPUT_FIELD_NAMES = ImmutableList.of("a", "b", "c");
+    private static final List<Type> OUTPUT_FIELD_TYPES = ImmutableList.of(BIGINT, BIGINT, BIGINT);
     private static final String UPDATE_TYPE = "update type";
     private static final VersionedMemoryPoolId MEMORY_POOL = new VersionedMemoryPoolId(new MemoryPoolId("pool"), 42);
     private static final Map<String, String> SET_SESSION_PROPERTIES = ImmutableMap.<String, String>builder()
@@ -81,7 +84,7 @@ public class TestQueryStateMachine
 
     private final ExecutorService executor = newCachedThreadPool();
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void tearDown()
     {
         executor.shutdownNow();
@@ -89,7 +92,6 @@ public class TestQueryStateMachine
 
     @Test
     public void testBasicStateChanges()
-            throws InterruptedException
     {
         QueryStateMachine stateMachine = createQueryStateMachine();
         assertState(stateMachine, QUEUED);
@@ -104,13 +106,12 @@ public class TestQueryStateMachine
         assertState(stateMachine, RUNNING);
 
         assertTrue(stateMachine.transitionToFinishing());
-        stateMachine.waitForStateChange(FINISHING, new Duration(2, TimeUnit.SECONDS));
+        tryGetFutureValue(stateMachine.getStateChange(FINISHING), 2, TimeUnit.SECONDS);
         assertState(stateMachine, FINISHED);
     }
 
     @Test
     public void testQueued()
-            throws InterruptedException
     {
         QueryStateMachine stateMachine = createQueryStateMachine();
         assertState(stateMachine, QUEUED);
@@ -128,7 +129,7 @@ public class TestQueryStateMachine
 
         stateMachine = createQueryStateMachine();
         assertTrue(stateMachine.transitionToFinishing());
-        stateMachine.waitForStateChange(FINISHING, new Duration(2, TimeUnit.SECONDS));
+        tryGetFutureValue(stateMachine.getStateChange(FINISHING), 2, TimeUnit.SECONDS);
         assertState(stateMachine, FINISHED);
 
         stateMachine = createQueryStateMachine();
@@ -138,7 +139,6 @@ public class TestQueryStateMachine
 
     @Test
     public void testPlanning()
-            throws InterruptedException
     {
         QueryStateMachine stateMachine = createQueryStateMachine();
         assertTrue(stateMachine.transitionToPlanning());
@@ -158,7 +158,7 @@ public class TestQueryStateMachine
         stateMachine = createQueryStateMachine();
         stateMachine.transitionToPlanning();
         assertTrue(stateMachine.transitionToFinishing());
-        stateMachine.waitForStateChange(FINISHING, new Duration(2, TimeUnit.SECONDS));
+        tryGetFutureValue(stateMachine.getStateChange(FINISHING), 2, TimeUnit.SECONDS);
         assertState(stateMachine, FINISHED);
 
         stateMachine = createQueryStateMachine();
@@ -169,7 +169,6 @@ public class TestQueryStateMachine
 
     @Test
     public void testStarting()
-            throws InterruptedException
     {
         QueryStateMachine stateMachine = createQueryStateMachine();
         assertTrue(stateMachine.transitionToStarting());
@@ -187,7 +186,7 @@ public class TestQueryStateMachine
         stateMachine = createQueryStateMachine();
         stateMachine.transitionToStarting();
         assertTrue(stateMachine.transitionToFinishing());
-        stateMachine.waitForStateChange(FINISHING, new Duration(2, TimeUnit.SECONDS));
+        tryGetFutureValue(stateMachine.getStateChange(FINISHING), 2, TimeUnit.SECONDS);
         assertState(stateMachine, FINISHED);
 
         stateMachine = createQueryStateMachine();
@@ -198,7 +197,6 @@ public class TestQueryStateMachine
 
     @Test
     public void testRunning()
-            throws InterruptedException
     {
         QueryStateMachine stateMachine = createQueryStateMachine();
         assertTrue(stateMachine.transitionToRunning());
@@ -214,7 +212,7 @@ public class TestQueryStateMachine
         assertState(stateMachine, RUNNING);
 
         assertTrue(stateMachine.transitionToFinishing());
-        stateMachine.waitForStateChange(FINISHING, new Duration(2, TimeUnit.SECONDS));
+        tryGetFutureValue(stateMachine.getStateChange(FINISHING), 2, TimeUnit.SECONDS);
         assertState(stateMachine, FINISHED);
 
         stateMachine = createQueryStateMachine();
@@ -225,11 +223,10 @@ public class TestQueryStateMachine
 
     @Test
     public void testFinished()
-            throws InterruptedException
     {
         QueryStateMachine stateMachine = createQueryStateMachine();
         assertTrue(stateMachine.transitionToFinishing());
-        stateMachine.waitForStateChange(FINISHING, new Duration(2, TimeUnit.SECONDS));
+        tryGetFutureValue(stateMachine.getStateChange(FINISHING), 2, TimeUnit.SECONDS);
         assertFinalState(stateMachine, FINISHED);
     }
 
@@ -251,7 +248,6 @@ public class TestQueryStateMachine
 
     @Test
     public void testPlanningTimeDuration()
-            throws InterruptedException
     {
         TestingTicker mockTicker = new TestingTicker();
         QueryStateMachine stateMachine = createQueryStateMachineWithTicker(mockTicker);
@@ -271,7 +267,7 @@ public class TestQueryStateMachine
 
         mockTicker.increment(200, TimeUnit.MILLISECONDS);
         assertTrue(stateMachine.transitionToFinishing());
-        stateMachine.waitForStateChange(FINISHING, new Duration(2, TimeUnit.SECONDS));
+        tryGetFutureValue(stateMachine.getStateChange(FINISHING), 2, TimeUnit.SECONDS);
         assertState(stateMachine, FINISHED);
 
         QueryStats queryStats = stateMachine.getQueryInfo(Optional.empty()).getQueryStats();
@@ -335,7 +331,6 @@ public class TestQueryStateMachine
 
         QueryStats queryStats = queryInfo.getQueryStats();
         if (queryInfo.getState() == QUEUED) {
-            assertNull(queryStats.getQueuedTime());
             assertNull(queryStats.getTotalPlanningTime());
             assertNull(queryStats.getExecutionStartTime());
             assertNull(queryStats.getFinishingTime());
@@ -410,7 +405,7 @@ public class TestQueryStateMachine
         QueryStateMachine stateMachine = QueryStateMachine.beginWithTicker(QUERY_ID, QUERY, TEST_SESSION, LOCATION, false, transactionManager, accessControl, executor, ticker, metadata);
         stateMachine.setInputs(INPUTS);
         stateMachine.setOutput(OUTPUT);
-        stateMachine.setOutputFieldNames(OUTPUT_FIELD_NAMES);
+        stateMachine.setColumns(OUTPUT_FIELD_NAMES, OUTPUT_FIELD_TYPES);
         stateMachine.setUpdateType(UPDATE_TYPE);
         stateMachine.setMemoryPool(MEMORY_POOL);
         for (Entry<String, String> entry : SET_SESSION_PROPERTIES.entrySet()) {

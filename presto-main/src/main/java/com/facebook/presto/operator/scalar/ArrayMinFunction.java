@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.OperatorDependency;
@@ -31,9 +30,8 @@ import static com.facebook.presto.operator.scalar.ArrayMinMaxUtils.booleanArrayM
 import static com.facebook.presto.operator.scalar.ArrayMinMaxUtils.doubleArrayMinMax;
 import static com.facebook.presto.operator.scalar.ArrayMinMaxUtils.longArrayMinMax;
 import static com.facebook.presto.operator.scalar.ArrayMinMaxUtils.sliceArrayMinMax;
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
-import static com.google.common.base.Throwables.propagateIfInstanceOf;
+import static com.facebook.presto.util.Failures.internalError;
 
 @ScalarFunction("array_min")
 @Description("Get minimum value of array")
@@ -122,9 +120,7 @@ public final class ArrayMinFunction
             return selectedValue;
         }
         catch (Throwable t) {
-            propagateIfInstanceOf(t, Error.class);
-            propagateIfInstanceOf(t, PrestoException.class);
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
+            throw internalError(t);
         }
     }
 }

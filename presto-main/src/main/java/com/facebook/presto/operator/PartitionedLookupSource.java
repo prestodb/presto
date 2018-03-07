@@ -17,18 +17,21 @@ import com.facebook.presto.operator.exchange.LocalPartitionGenerator;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.io.Closer;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.NotThreadSafe;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.Integer.numberOfTrailingZeros;
@@ -38,21 +41,40 @@ import static java.lang.Math.toIntExact;
 public class PartitionedLookupSource
         implements LookupSource
 {
-    public static Supplier<LookupSource> createPartitionedLookupSourceSupplier(List<Supplier<LookupSource>> partitions, List<Type> hashChannelTypes, boolean outer)
+    public static TrackingLookupSourceSupplier createPartitionedLookupSourceSupplier(List<Supplier<LookupSource>> partitions, List<Type> hashChannelTypes, boolean outer)
     {
-        Optional<OuterPositionTracker.Factory> outerPositionTrackerFactory = outer ?
-                Optional.of(new OuterPositionTracker.Factory(
-                        partitions.stream()
-                                .map(partition -> partition.get().getJoinPositionCount())
-                                .collect(toImmutableList())))
-                : Optional.empty();
+        if (outer) {
+            OuterPositionTracker.Factory outerPositionTrackerFactory = new OuterPositionTracker.Factory(partitions);
 
-        return () -> new PartitionedLookupSource(
-                partitions.stream()
-                        .map(Supplier::get)
-                        .collect(toImmutableList()),
-                hashChannelTypes,
-                outerPositionTrackerFactory.map(OuterPositionTracker.Factory::create));
+            return new TrackingLookupSourceSupplier()
+            {
+                @Override
+                public LookupSource getLookupSource()
+                {
+                    return new PartitionedLookupSource(
+                            partitions.stream()
+                                    .map(Supplier::get)
+                                    .collect(toImmutableList()),
+                            hashChannelTypes,
+                            Optional.of(outerPositionTrackerFactory.create()));
+                }
+
+                @Override
+                public OuterPositionIterator getOuterPositionIterator()
+                {
+                    return outerPositionTrackerFactory.getOuterPositionIterator();
+                }
+            };
+        }
+        else {
+            return TrackingLookupSourceSupplier.nonTracking(
+                    () -> new PartitionedLookupSource(
+                            partitions.stream()
+                                    .map(Supplier::get)
+                                    .collect(toImmutableList()),
+                            hashChannelTypes,
+                            Optional.empty()));
+        }
     }
 
     private final LookupSource[] lookupSources;
@@ -61,6 +83,8 @@ public class PartitionedLookupSource
     private final int shiftSize;
     @Nullable
     private final OuterPositionTracker outerPositionTracker;
+
+    private boolean closed;
 
     private PartitionedLookupSource(List<? extends LookupSource> lookupSources, List<Type> hashChannelTypes, Optional<OuterPositionTracker> outerPositionTracker)
     {
@@ -86,9 +110,11 @@ public class PartitionedLookupSource
     }
 
     @Override
-    public int getJoinPositionCount()
+    public long getJoinPositionCount()
     {
-        throw new UnsupportedOperationException("Parallel hash can not be used in a RIGHT or FULL outer join");
+        return Arrays.stream(lookupSources)
+                .mapToLong(LookupSource::getJoinPositionCount)
+                .sum();
     }
 
     @Override
@@ -100,7 +126,7 @@ public class PartitionedLookupSource
     @Override
     public long getJoinPosition(int position, Page hashChannelsPage, Page allChannelsPage)
     {
-        return getJoinPosition(position, hashChannelsPage, allChannelsPage, partitionGenerator.getRawHash(position, hashChannelsPage));
+        return getJoinPosition(position, hashChannelsPage, allChannelsPage, partitionGenerator.getRawHash(hashChannelsPage, position));
     }
 
     @Override
@@ -149,18 +175,29 @@ public class PartitionedLookupSource
     }
 
     @Override
-    public OuterPositionIterator getOuterPositionIterator()
+    public long joinPositionWithinPartition(long joinPosition)
     {
-        checkState(outerPositionTracker != null, "This is not an outer lookup source");
-        return new PartitionedLookupOuterPositionIterator(lookupSources, outerPositionTracker.getVisitedPositions());
+        return decodeJoinPosition(joinPosition);
     }
 
     @Override
     public void close()
     {
-        if (outerPositionTracker != null) {
-            outerPositionTracker.commit();
+        if (closed) {
+            return;
         }
+
+        try (Closer closer = Closer.create()) {
+            if (outerPositionTracker != null) {
+                closer.register(outerPositionTracker::commit);
+            }
+            Arrays.stream(lookupSources).forEach(closer::register);
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+
+        closed = true;
     }
 
     private int decodePartition(long partitionedJoinPosition)
@@ -219,12 +256,12 @@ public class PartitionedLookupSource
      * Each LookupSource has it's own copy of OuterPositionTracker instance.
      * Each of those OuterPositionTracker must be committed after last write
      * and before first read.
-     *
+     * <p>
      * All instances share visitedPositions array, but it is safe because each thread
      * starts with visitedPositions filled with false values and marks only some positions
      * to true. Since we don't care what will be the order of those writes to
      * visitedPositions, writes can be without synchronization.
-     *
+     * <p>
      * Memory visibility between last writes in commit() and first read in
      * getVisitedPositions() is guaranteed by accessing AtomicLong referenceCount
      * variables in those two methods.
@@ -233,30 +270,47 @@ public class PartitionedLookupSource
     {
         public static class Factory
         {
+            private final LookupSource[] lookupSources;
             private final boolean[][] visitedPositions;
+            private final AtomicBoolean finished = new AtomicBoolean();
             private final AtomicLong referenceCount = new AtomicLong();
 
-            public Factory(List<Integer> positionCounts)
+            public Factory(List<Supplier<LookupSource>> partitions)
             {
-                visitedPositions = new boolean[positionCounts.size()][];
-                for (int partition = 0; partition < visitedPositions.length; partition++) {
-                    visitedPositions[partition] = new boolean[positionCounts.get(partition)];
-                }
+                this.lookupSources = partitions.stream()
+                        .map(Supplier::get)
+                        .toArray(LookupSource[]::new);
+
+                visitedPositions = Arrays.stream(this.lookupSources)
+                        .map(LookupSource::getJoinPositionCount)
+                        .map(Math::toIntExact)
+                        .map(boolean[]::new)
+                        .toArray(boolean[][]::new);
             }
 
             public OuterPositionTracker create()
             {
-                return new OuterPositionTracker(visitedPositions, referenceCount);
+                return new OuterPositionTracker(visitedPositions, finished, referenceCount);
+            }
+
+            public OuterPositionIterator getOuterPositionIterator()
+            {
+                // touching atomic values ensures memory visibility between commit and getVisitedPositions
+                verify(referenceCount.get() == 0);
+                finished.set(true);
+                return new PartitionedLookupOuterPositionIterator(lookupSources, visitedPositions);
             }
         }
 
         private final boolean[][] visitedPositions; // shared across multiple operators/drivers
+        private final AtomicBoolean finished; // shared across multiple operators/drivers
         private final AtomicLong referenceCount; // shared across multiple operators/drivers
         private boolean written; // unique per each operator/driver
 
-        private OuterPositionTracker(boolean[][] visitedPositions, AtomicLong referenceCount)
+        private OuterPositionTracker(boolean[][] visitedPositions, AtomicBoolean finished, AtomicLong referenceCount)
         {
             this.visitedPositions = visitedPositions;
+            this.finished = finished;
             this.referenceCount = referenceCount;
         }
 
@@ -267,7 +321,8 @@ public class PartitionedLookupSource
         {
             if (!written) {
                 written = true;
-                incrementReferenceCount();
+                verify(!finished.get());
+                referenceCount.incrementAndGet();
             }
             visitedPositions[partition][position] = true;
         }
@@ -278,18 +333,6 @@ public class PartitionedLookupSource
                 // touching atomic values ensures memory visibility between commit and getVisitedPositions
                 referenceCount.decrementAndGet();
             }
-        }
-
-        public boolean[][] getVisitedPositions()
-        {
-            // touching atomic values ensures memory visibility between commit and getVisitedPositions
-            verify(referenceCount.get() == 0);
-            return visitedPositions;
-        }
-
-        private void incrementReferenceCount()
-        {
-            referenceCount.incrementAndGet();
         }
     }
 }

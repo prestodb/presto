@@ -79,7 +79,7 @@ public class ScalarAggregationToJoinRewriter
 
         Symbol nonNull = symbolAllocator.newSymbol("non_null", BooleanType.BOOLEAN);
         Assignments scalarAggregationSourceAssignments = Assignments.builder()
-                .putAll(Assignments.identity(source.get().getNode().getOutputSymbols()))
+                .putIdentities(source.get().getNode().getOutputSymbols())
                 .put(nonNull, TRUE_LITERAL)
                 .build();
         ProjectNode scalarAggregationSourceWithNonNullableSymbol = new ProjectNode(
@@ -133,14 +133,14 @@ public class ScalarAggregationToJoinRewriter
 
         Optional<ProjectNode> subqueryProjection = searchFrom(lateralJoinNode.getSubquery(), lookup)
                 .where(ProjectNode.class::isInstance)
-                .skipOnlyWhen(EnforceSingleRowNode.class::isInstance)
+                .recurseOnlyWhen(EnforceSingleRowNode.class::isInstance)
                 .findFirst();
 
         List<Symbol> aggregationOutputSymbols = getTruncatedAggregationSymbols(lateralJoinNode, aggregationNode.get());
 
         if (subqueryProjection.isPresent()) {
             Assignments assignments = Assignments.builder()
-                    .putAll(Assignments.identity(aggregationOutputSymbols))
+                    .putIdentities(aggregationOutputSymbols)
                     .putAll(subqueryProjection.get().getAssignments())
                     .build();
 
@@ -150,14 +150,10 @@ public class ScalarAggregationToJoinRewriter
                     assignments);
         }
         else {
-            Assignments assignments = Assignments.builder()
-                    .putAll(Assignments.identity(aggregationOutputSymbols))
-                    .build();
-
             return new ProjectNode(
                     idAllocator.getNextId(),
                     aggregationNode.get(),
-                    assignments);
+                    Assignments.identity(aggregationOutputSymbols));
         }
     }
 
@@ -183,8 +179,8 @@ public class ScalarAggregationToJoinRewriter
                         symbolAllocator.getTypes().get(nonNullableAggregationSourceSymbol).getTypeSignature());
                 aggregations.put(symbol, new Aggregation(
                         new FunctionCall(
-                            COUNT,
-                            ImmutableList.of(nonNullableAggregationSourceSymbol.toSymbolReference())),
+                                COUNT,
+                                ImmutableList.of(nonNullableAggregationSourceSymbol.toSymbolReference())),
                         functionRegistry.resolveFunction(
                                 COUNT,
                                 fromTypeSignatures(scalarAggregationSourceTypeSignatures)),

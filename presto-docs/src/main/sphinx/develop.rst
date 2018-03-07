@@ -13,4 +13,5 @@ This guide is intended for Presto contributors and plugin developers.
     develop/types
     develop/functions
     develop/system-access-control
+    develop/password-authenticator
     develop/event-listener

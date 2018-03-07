@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.bytecode.DynamicClassLoader;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.SqlAggregationFunction;
@@ -28,6 +27,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.google.common.collect.ImmutableList;
+import io.airlift.bytecode.DynamicClassLoader;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
@@ -98,15 +98,15 @@ public class MapAggregationFunction
                 outputType);
 
         GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
-        return new InternalAggregationFunction(NAME, inputTypes, intermediateType, outputType, true, factory);
+        return new InternalAggregationFunction(NAME, inputTypes, intermediateType, outputType, true, true, factory);
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type keyType, Type valueType)
     {
         return ImmutableList.of(new ParameterMetadata(STATE),
-                                new ParameterMetadata(BLOCK_INPUT_CHANNEL, keyType),
-                                new ParameterMetadata(NULLABLE_BLOCK_INPUT_CHANNEL, valueType),
-                                new ParameterMetadata(BLOCK_INDEX));
+                new ParameterMetadata(BLOCK_INPUT_CHANNEL, keyType),
+                new ParameterMetadata(NULLABLE_BLOCK_INPUT_CHANNEL, valueType),
+                new ParameterMetadata(BLOCK_INDEX));
     }
 
     public static void input(Type keyType, Type valueType, KeyValuePairsState state, Block key, Block value, int position)

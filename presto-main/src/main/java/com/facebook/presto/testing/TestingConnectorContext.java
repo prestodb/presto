@@ -35,7 +35,7 @@ public class TestingConnectorContext
 {
     private final NodeManager nodeManager = new ConnectorAwareNodeManager(new InMemoryNodeManager(), "testenv", new ConnectorId("test"));
     private final TypeManager typeManager = new TypeRegistry();
-    private final PageSorter pageSorter = new PagesIndexPageSorter(new PagesIndex.TestingFactory());
+    private final PageSorter pageSorter = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
     private final PageIndexerFactory pageIndexerFactory = new GroupByHashPageIndexerFactory(new JoinCompiler());
 
     public TestingConnectorContext()

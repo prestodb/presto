@@ -43,7 +43,6 @@ public class TestMarker
 {
     @Test
     public void testTypes()
-            throws Exception
     {
         assertEquals(Marker.lowerUnbounded(BIGINT).getType(), BIGINT);
         assertEquals(Marker.below(BIGINT, 1L).getType(), BIGINT);
@@ -54,7 +53,6 @@ public class TestMarker
 
     @Test
     public void testUnbounded()
-            throws Exception
     {
         assertTrue(Marker.lowerUnbounded(BIGINT).isLowerUnbounded());
         assertFalse(Marker.lowerUnbounded(BIGINT).isUpperUnbounded());
@@ -71,7 +69,6 @@ public class TestMarker
 
     @Test
     public void testComparisons()
-            throws Exception
     {
         ImmutableList<Marker> markers = ImmutableList.of(
                 Marker.lowerUnbounded(BIGINT),
@@ -96,7 +93,6 @@ public class TestMarker
 
     @Test
     public void testAdjacency()
-            throws Exception
     {
         ImmutableMap<Marker, Integer> markers = ImmutableMap.<Marker, Integer>builder()
                 .put(Marker.lowerUnbounded(BIGINT), -1000)

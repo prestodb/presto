@@ -13,23 +13,23 @@
  */
 package com.facebook.presto.tests;
 
-import com.teradata.tempto.AfterTestWithContext;
-import com.teradata.tempto.BeforeTestWithContext;
-import com.teradata.tempto.ProductTest;
-import com.teradata.tempto.Requirement;
-import com.teradata.tempto.RequirementsProvider;
-import com.teradata.tempto.Requires;
-import com.teradata.tempto.assertions.QueryAssert;
-import com.teradata.tempto.configuration.Configuration;
-import com.teradata.tempto.fulfillment.table.ImmutableTableRequirement;
+import io.prestodb.tempto.AfterTestWithContext;
+import io.prestodb.tempto.BeforeTestWithContext;
+import io.prestodb.tempto.ProductTest;
+import io.prestodb.tempto.Requirement;
+import io.prestodb.tempto.RequirementsProvider;
+import io.prestodb.tempto.Requires;
+import io.prestodb.tempto.assertions.QueryAssert;
+import io.prestodb.tempto.configuration.Configuration;
+import io.prestodb.tempto.fulfillment.table.ImmutableTableRequirement;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.tests.TestGroups.SIMPLE;
 import static com.facebook.presto.tests.TestGroups.SMOKE;
-import static com.teradata.tempto.assertions.QueryAssert.Row.row;
-import static com.teradata.tempto.context.ThreadLocalTestContextHolder.testContextIfSet;
-import static com.teradata.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
-import static com.teradata.tempto.query.QueryExecutor.query;
+import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
+import static io.prestodb.tempto.context.ThreadLocalTestContextHolder.testContextIfSet;
+import static io.prestodb.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
+import static io.prestodb.tempto.query.QueryExecutor.query;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class SimpleQueryTest

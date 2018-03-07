@@ -56,7 +56,6 @@ public class TestSecondsSinceEpochJsonFieldDecoder
 
     @Test
     public void testBasicFormatting()
-            throws Exception
     {
         long now = System.currentTimeMillis() / 1000; // SecondsSinceEpoch is second granularity
         String nowString = FORMATTER.print(now * 1000);
@@ -99,7 +98,6 @@ public class TestSecondsSinceEpochJsonFieldDecoder
 
     @Test
     public void testNullValues()
-            throws Exception
     {
         byte[] json = "{}".getBytes(StandardCharsets.UTF_8);
 

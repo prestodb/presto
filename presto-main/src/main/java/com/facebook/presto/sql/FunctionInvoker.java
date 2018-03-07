@@ -16,6 +16,7 @@ package com.facebook.presto.sql;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
+import com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty;
 import com.facebook.presto.spi.ConnectorSession;
 import com.google.common.base.Defaults;
 import com.google.common.base.Throwables;
@@ -23,10 +24,11 @@ import com.google.common.base.Throwables;
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Iterator;
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentType.VALUE_TYPE;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_NULL_FLAG;
+import static java.lang.invoke.MethodHandleProxies.asInterfaceInstance;
 import static java.util.Objects.requireNonNull;
 
 public class FunctionInvoker
@@ -45,7 +47,7 @@ public class FunctionInvoker
 
     /**
      * Arguments must be the native container type for the corresponding SQL types.
-     *
+     * <p>
      * Returns a value in the native container type corresponding to the declared SQL return type
      */
     public Object invoke(Signature function, ConnectorSession session, List<Object> arguments)
@@ -53,39 +55,56 @@ public class FunctionInvoker
         ScalarFunctionImplementation implementation = registry.getScalarFunctionImplementation(function);
         MethodHandle method = implementation.getMethodHandle();
 
-        List<Object> actualArguments = new ArrayList<>(arguments.size() + 1);
+        // handle function on instance method, to allow use of fields
+        method = bindInstanceFactory(method, implementation);
 
-        Iterator<Object> iterator = arguments.iterator();
-        for (int i = 0; i < method.type().parameterCount(); i++) {
-            Class<?> parameterType = method.type().parameterType(i);
-            if (parameterType == ConnectorSession.class) {
-                actualArguments.add(session);
-            }
-            else {
-                checkArgument(iterator.hasNext(), "Not enough arguments provided for method: %s", method.type());
-                Object argument = iterator.next();
-                if (implementation.getNullFlags().get(i)) {
+        if (method.type().parameterCount() > 0 && method.type().parameterType(0) == ConnectorSession.class) {
+            method = method.bindTo(session);
+        }
+        List<Object> actualArguments = new ArrayList<>();
+        for (int i = 0; i < arguments.size(); i++) {
+            Object argument = arguments.get(i);
+            ArgumentProperty argumentProperty = implementation.getArgumentProperty(i);
+            if (argumentProperty.getArgumentType() == VALUE_TYPE) {
+                if (implementation.getArgumentProperty(i).getNullConvention() == USE_NULL_FLAG) {
                     boolean isNull = argument == null;
                     if (isNull) {
-                        argument = Defaults.defaultValue(parameterType);
+                        argument = Defaults.defaultValue(method.type().parameterType(actualArguments.size()));
                     }
                     actualArguments.add(argument);
                     actualArguments.add(isNull);
-                    // Skip the next method parameter which is marked @IsNull
-                    i++;
                 }
                 else {
                     actualArguments.add(argument);
                 }
             }
+            else {
+                argument = asInterfaceInstance(argumentProperty.getLambdaInterface(), (MethodHandle) argument);
+                actualArguments.add(argument);
+            }
         }
-
-        checkArgument(!iterator.hasNext(), "Too many arguments provided for method: %s", method.type());
 
         try {
             return method.invokeWithArguments(actualArguments);
         }
         catch (Throwable throwable) {
+            throw Throwables.propagate(throwable);
+        }
+    }
+
+    private static MethodHandle bindInstanceFactory(MethodHandle method, ScalarFunctionImplementation implementation)
+    {
+        if (!implementation.getInstanceFactory().isPresent()) {
+            return method;
+        }
+
+        try {
+            return method.bindTo(implementation.getInstanceFactory().get().invoke());
+        }
+        catch (Throwable throwable) {
+            if (throwable instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
             throw Throwables.propagate(throwable);
         }
     }

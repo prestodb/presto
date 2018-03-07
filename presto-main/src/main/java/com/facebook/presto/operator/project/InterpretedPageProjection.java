@@ -15,6 +15,8 @@ package com.facebook.presto.operator.project;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.operator.DriverYieldSignal;
+import com.facebook.presto.operator.Work;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
@@ -35,7 +37,9 @@ import java.util.Map;
 
 import static com.facebook.presto.spi.type.TypeUtils.writeNativeValue;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypesFromInput;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Collections.emptyList;
+import static java.util.Objects.requireNonNull;
 
 public class InterpretedPageProjection
         implements PageProjection
@@ -90,36 +94,64 @@ public class InterpretedPageProjection
     }
 
     @Override
-    public Block project(ConnectorSession session, Page page, SelectedPositions selectedPositions)
+    public Work<Block> project(ConnectorSession session, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
     {
-        if (selectedPositions.isList()) {
-            project(page, selectedPositions.getPositions(), selectedPositions.getOffset(), selectedPositions.size());
-        }
-        else {
-            project(page, selectedPositions.getOffset(), selectedPositions.size());
-        }
-        Block block = blockBuilder.build();
-        blockBuilder = blockBuilder.newBlockBuilderLike(new BlockBuilderStatus());
-        return block;
+        return new InterpretedPageProjectionWork(yieldSignal, page, selectedPositions);
     }
 
-    private void project(Page page, int[] selectedPositions, int offset, int length)
+    private class InterpretedPageProjectionWork
+            implements Work<Block>
     {
-        for (int index = offset; index < offset + length; index++) {
-            project(page, selectedPositions[index]);
-        }
-    }
+        private final DriverYieldSignal yieldSignal;
+        private final Block[] blocks;
+        private final SelectedPositions selectedPositions;
 
-    private void project(Page page, int offset, int length)
-    {
-        for (int position = offset; position < offset + length; position++) {
-            project(page, position);
-        }
-    }
+        private int nextIndexOrPosition;
+        private Block result;
 
-    private void project(Page page, int position)
-    {
-        Object value = evaluator.evaluate(position, page.getBlocks());
-        writeNativeValue(evaluator.getType(), blockBuilder, value);
+        public InterpretedPageProjectionWork(DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
+        {
+            this.yieldSignal = requireNonNull(yieldSignal, "yieldSignal is null");
+            this.blocks = requireNonNull(page, "page is null").getBlocks();
+            this.selectedPositions = requireNonNull(selectedPositions, "selectedPositions is null");
+            this.nextIndexOrPosition = selectedPositions.getOffset();
+        }
+
+        @Override
+        public boolean process()
+        {
+            checkState(result == null, "result has been generated");
+            int length = selectedPositions.getOffset() + selectedPositions.size();
+            if (selectedPositions.isList()) {
+                int[] positions = selectedPositions.getPositions();
+                while (nextIndexOrPosition < length) {
+                    writeNativeValue(evaluator.getType(), blockBuilder, evaluator.evaluate(positions[nextIndexOrPosition], blocks));
+                    nextIndexOrPosition++;
+                    if (yieldSignal.isSet()) {
+                        return false;
+                    }
+                }
+            }
+            else {
+                while (nextIndexOrPosition < length) {
+                    writeNativeValue(evaluator.getType(), blockBuilder, evaluator.evaluate(nextIndexOrPosition, blocks));
+                    nextIndexOrPosition++;
+                    if (yieldSignal.isSet()) {
+                        return false;
+                    }
+                }
+            }
+
+            result = blockBuilder.build();
+            blockBuilder = blockBuilder.newBlockBuilderLike(new BlockBuilderStatus());
+            return true;
+        }
+
+        @Override
+        public Block getResult()
+        {
+            checkState(result != null, "result has not been generated");
+            return result;
+        }
     }
 }

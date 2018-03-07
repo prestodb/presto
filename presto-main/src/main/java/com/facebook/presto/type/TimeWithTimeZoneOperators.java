@@ -32,6 +32,7 @@ import static com.facebook.presto.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
+import static com.facebook.presto.spi.function.OperatorType.SUBTRACT;
 import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static com.facebook.presto.util.DateTimeUtils.printTimeWithTimeZone;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -40,6 +41,13 @@ public final class TimeWithTimeZoneOperators
 {
     private TimeWithTimeZoneOperators()
     {
+    }
+
+    @ScalarOperator(SUBTRACT)
+    @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND)
+    public static long subtract(@SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long left, @SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long right)
+    {
+        return unpackMillisUtc(left) - unpackMillisUtc(right);
     }
 
     @ScalarOperator(EQUAL)

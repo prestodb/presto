@@ -38,6 +38,7 @@ import com.facebook.presto.testing.TestingHandleResolver;
 import com.facebook.presto.type.TypeDeserializer;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableMultimap;
+import com.google.common.collect.ImmutableSet;
 import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.Module;
@@ -70,6 +71,7 @@ import java.net.URI;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 
 import static com.facebook.presto.OutputBuffers.createInitialEmptyOutputBuffers;
@@ -138,7 +140,7 @@ public class TestHttpRemoteTask
                 TaskTestUtils.PLAN_FRAGMENT,
                 ImmutableMultimap.of(),
                 createInitialEmptyOutputBuffers(OutputBuffers.BufferType.BROADCAST),
-                new NodeTaskMap.PartitionedSplitCountTracker(i -> { }),
+                new NodeTaskMap.PartitionedSplitCountTracker(i -> {}),
                 true);
 
         testingTaskResource.setInitialTaskInfo(remoteTask.getTaskInfo());
@@ -155,15 +157,16 @@ public class TestHttpRemoteTask
 
         httpRemoteTaskFactory.stop();
         assertTrue(remoteTask.getTaskStatus().getState().isDone(), format("TaskStatus is not in a done state: %s", remoteTask.getTaskStatus()));
-        assertTrue(remoteTask.getTaskInfo().getTaskStatus().getState().isDone(), format("TaskInfo is not in a done state: %s", remoteTask.getTaskInfo()));
 
         ErrorCode actualErrorCode = getOnlyElement(remoteTask.getTaskStatus().getFailures()).getErrorCode();
         switch (testCase) {
             case TASK_MISMATCH:
             case TASK_MISMATCH_WHEN_VERSION_IS_HIGH:
+                assertTrue(remoteTask.getTaskInfo().getTaskStatus().getState().isDone(), format("TaskInfo is not in a done state: %s", remoteTask.getTaskInfo()));
                 assertEquals(actualErrorCode, REMOTE_TASK_MISMATCH.toErrorCode());
                 break;
             case REJECTED_EXECUTION:
+                // for a rejection to occur, the http client must be shutdown, which means we will not be able to ge the final task info
                 assertEquals(actualErrorCode, REMOTE_TASK_ERROR.toErrorCode());
                 break;
             default:
@@ -202,6 +205,7 @@ public class TestHttpRemoteTask
                     {
                         JaxrsTestingHttpProcessor jaxrsTestingHttpProcessor = new JaxrsTestingHttpProcessor(URI.create("http://fake.invalid/"), testingTaskResource, jsonMapper);
                         TestingHttpClient testingHttpClient = new TestingHttpClient(jaxrsTestingHttpProcessor.setTrace(TRACE_HTTP));
+                        testingTaskResource.setHttpClient(testingHttpClient);
                         return new HttpRemoteTaskFactory(
                                 new QueryManagerConfig(),
                                 TASK_MANAGER_CONFIG,
@@ -212,11 +216,11 @@ public class TestHttpRemoteTask
                                 taskUpdateRequestCodec,
                                 new RemoteTaskStats());
                     }
-                }
-        );
+                });
         Injector injector = app
                 .strictConfig()
                 .doNotInitializeLogging()
+                .quiet()
                 .initialize();
         HandleResolver handleResolver = injector.getInstance(HandleResolver.class);
         handleResolver.addConnectorName("test", new TestingHandleResolver());
@@ -267,6 +271,8 @@ public class TestHttpRemoteTask
         private final AtomicLong lastActivityNanos;
         private final TestCase testCase;
 
+        private AtomicReference<TestingHttpClient> httpClient = new AtomicReference<>();
+
         private TaskInfo initialTaskInfo;
         private TaskStatus initialTaskStatus;
         private long version;
@@ -279,6 +285,11 @@ public class TestHttpRemoteTask
         {
             this.lastActivityNanos = requireNonNull(lastActivityNanos, "lastActivityNanos is null");
             this.testCase = requireNonNull(testCase, "testCase is null");
+        }
+
+        public void setHttpClient(TestingHttpClient newValue)
+        {
+            httpClient.set(newValue);
         }
 
         @GET
@@ -372,7 +383,7 @@ public class TestHttpRemoteTask
         private TaskStatus buildTaskStatus()
         {
             statusFetchCounter++;
-                // Change the task instance id after 10th fetch to simulate worker restart
+            // Change the task instance id after 10th fetch to simulate worker restart
             switch (testCase) {
                 case TASK_MISMATCH:
                 case TASK_MISMATCH_WHEN_VERSION_IS_HIGH:
@@ -383,6 +394,7 @@ public class TestHttpRemoteTask
                     break;
                 case REJECTED_EXECUTION:
                     if (statusFetchCounter >= 10) {
+                        httpClient.get().close();
                         throw new RejectedExecutionException();
                     }
                     break;
@@ -396,10 +408,15 @@ public class TestHttpRemoteTask
                     ++version,
                     taskState,
                     initialTaskStatus.getSelf(),
+                    "fake",
+                    ImmutableSet.of(),
                     initialTaskStatus.getFailures(),
                     initialTaskStatus.getQueuedPartitionedDrivers(),
                     initialTaskStatus.getRunningPartitionedDrivers(),
-                    initialTaskStatus.getMemoryReservation());
+                    initialTaskStatus.isOutputBufferOverutilized(),
+                    initialTaskStatus.getPhysicalWrittenDataSize(),
+                    initialTaskStatus.getMemoryReservation(),
+                    initialTaskStatus.getSystemMemoryReservation());
         }
     }
 }

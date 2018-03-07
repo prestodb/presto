@@ -34,7 +34,6 @@ import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
-import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.Assignments;
@@ -83,7 +82,6 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
-import com.google.common.collect.Lists;
 import com.google.common.collect.SetMultimap;
 
 import java.util.ArrayList;
@@ -96,18 +94,20 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
-import java.util.function.Predicate;
 
 import static com.facebook.presto.SystemSessionProperties.isColocatedJoinEnabled;
+import static com.facebook.presto.SystemSessionProperties.isForceSingleNodeOutput;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
-import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
-import static com.facebook.presto.sql.ExpressionUtils.stripDeterministicConjuncts;
-import static com.facebook.presto.sql.ExpressionUtils.stripNonDeterministicConjuncts;
+import static com.facebook.presto.sql.ExpressionUtils.filterConjuncts;
+import static com.facebook.presto.sql.ExpressionUtils.filterDeterministicConjuncts;
+import static com.facebook.presto.sql.ExpressionUtils.filterNonDeterministicConjuncts;
+import static com.facebook.presto.sql.ExpressionUtils.referencesAny;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.planner.FragmentTableScanCounter.countSources;
 import static com.facebook.presto.sql.planner.FragmentTableScanCounter.hasMultipleSources;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SCALED_WRITER_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.partitionedOn;
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.singleStreamPartition;
@@ -165,11 +165,6 @@ public class AddExchanges
             return new Context(preferredProperties, correlations);
         }
 
-        Context withCorrelations(List<Symbol> correlations)
-        {
-            return new Context(preferredProperties, correlations);
-        }
-
         PreferredProperties getPreferredProperties()
         {
             return preferredProperties;
@@ -191,6 +186,7 @@ public class AddExchanges
         private final boolean distributedIndexJoins;
         private final boolean preferStreamingOperators;
         private final boolean redistributeWrites;
+        private final boolean scaleWriters;
 
         public Rewriter(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session)
         {
@@ -200,6 +196,7 @@ public class AddExchanges
             this.session = session;
             this.distributedIndexJoins = SystemSessionProperties.isDistributedIndexJoinEnabled(session);
             this.redistributeWrites = SystemSessionProperties.isRedistributeWrites(session);
+            this.scaleWriters = SystemSessionProperties.isScaleWriters(session);
             this.preferStreamingOperators = SystemSessionProperties.preferStreamingOperators(session);
         }
 
@@ -223,7 +220,7 @@ public class AddExchanges
         {
             PlanWithProperties child = planChild(node, context.withPreferredProperties(PreferredProperties.undistributed()));
 
-            if (!child.getProperties().isSingleNode()) {
+            if (!child.getProperties().isSingleNode() && isForceSingleNodeOutput(session)) {
                 child = withDerivedProperties(
                         gatheringExchange(idAllocator.getNextId(), REMOTE, child.getNode()),
                         child.getProperties());
@@ -341,9 +338,10 @@ public class AddExchanges
             if (!node.getPartitionBy().isEmpty()) {
                 desiredProperties.add(new GroupingProperty<>(node.getPartitionBy()));
             }
-            for (Symbol symbol : node.getOrderBy()) {
-                desiredProperties.add(new SortingProperty<>(symbol, node.getOrderings().get(symbol)));
-            }
+            node.getOrderingScheme().ifPresent(orderingScheme ->
+                    orderingScheme.getOrderBy().stream()
+                            .map(symbol -> new SortingProperty<>(symbol, orderingScheme.getOrdering(symbol)))
+                            .forEach(desiredProperties::add));
 
             PlanWithProperties child = planChild(
                     node,
@@ -477,8 +475,8 @@ public class AddExchanges
                 // skip the SortNode if the local properties guarantee ordering on Sort keys
                 // TODO: This should be extracted as a separate optimizer once the planner is able to reason about the ordering of each operator
                 List<LocalProperty<Symbol>> desiredProperties = new ArrayList<>();
-                for (Symbol symbol : node.getOrderBy()) {
-                    desiredProperties.add(new SortingProperty<>(symbol, node.getOrderings().get(symbol)));
+                for (Symbol symbol : node.getOrderingScheme().getOrderBy()) {
+                    desiredProperties.add(new SortingProperty<>(symbol, node.getOrderingScheme().getOrdering(symbol)));
                 }
 
                 if (LocalProperties.match(child.getProperties().getLocalProperties(), desiredProperties).stream()
@@ -547,19 +545,23 @@ public class AddExchanges
             PlanWithProperties source = node.getSource().accept(this, context);
 
             Optional<PartitioningScheme> partitioningScheme = node.getPartitioningScheme();
-            if (!partitioningScheme.isPresent() && redistributeWrites) {
-                partitioningScheme = Optional.of(new PartitioningScheme(Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of()), source.getNode().getOutputSymbols()));
+            if (!partitioningScheme.isPresent()) {
+                if (scaleWriters) {
+                    partitioningScheme = Optional.of(new PartitioningScheme(Partitioning.create(SCALED_WRITER_DISTRIBUTION, ImmutableList.of()), source.getNode().getOutputSymbols()));
+                }
+                else if (redistributeWrites) {
+                    partitioningScheme = Optional.of(new PartitioningScheme(Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of()), source.getNode().getOutputSymbols()));
+                }
             }
 
-            if (partitioningScheme.isPresent()) {
+            if (partitioningScheme.isPresent() && !source.getProperties().isNodePartitionedOn(partitioningScheme.get().getPartitioning(), false)) {
                 source = withDerivedProperties(
                         partitionedExchange(
                                 idAllocator.getNextId(),
                                 REMOTE,
                                 source.getNode(),
                                 partitioningScheme.get()),
-                        source.getProperties()
-                );
+                        source.getProperties());
             }
             return rebaseAndDeriveProperties(node, source);
         }
@@ -567,7 +569,7 @@ public class AddExchanges
         private PlanWithProperties planTableScan(TableScanNode node, Expression predicate, Context context)
         {
             // don't include non-deterministic predicates
-            Expression deterministicPredicate = stripNonDeterministicConjuncts(predicate);
+            Expression deterministicPredicate = filterDeterministicConjuncts(predicate);
 
             DomainTranslator.ExtractionResult decomposedPredicate = DomainTranslator.fromPredicate(
                     metadata,
@@ -575,20 +577,28 @@ public class AddExchanges
                     deterministicPredicate,
                     types);
 
-            TupleDomain<ColumnHandle> simplifiedConstraint = decomposedPredicate.getTupleDomain()
+            TupleDomain<ColumnHandle> newDomain = decomposedPredicate.getTupleDomain()
                     .transform(node.getAssignments()::get)
                     .intersect(node.getCurrentConstraint());
 
             Map<ColumnHandle, Symbol> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
 
+            // Simplify the tuple domain to avoid creating an expression with too many nodes that's
+            // expensive to evaluate in the call to shouldPrune below.
             Expression constraint = combineConjuncts(
                     deterministicPredicate,
-                    DomainTranslator.toPredicate(node.getCurrentConstraint().transform(assignments::get)));
+                    DomainTranslator.toPredicate(newDomain.simplify().transform(assignments::get)));
+
+            LayoutConstraintEvaluator evaluator = new LayoutConstraintEvaluator(
+                    session,
+                    symbolAllocator.getTypes(),
+                    node.getAssignments(),
+                    filterConjuncts(constraint, conjunct -> !referencesAny(conjunct, context.getCorrelations())));
 
             // Layouts will be returned in order of the connector's preference
             List<TableLayoutResult> layouts = metadata.getLayouts(
                     session, node.getTable(),
-                    new Constraint<>(simplifiedConstraint, bindings -> !shouldPrune(constraint, node.getAssignments(), bindings, context.getCorrelations())),
+                    new Constraint<>(newDomain, evaluator::isCandidate),
                     Optional.of(node.getOutputSymbols().stream()
                             .map(node.getAssignments()::get)
                             .collect(toImmutableSet())));
@@ -603,7 +613,7 @@ public class AddExchanges
 
             // Filter out layouts that cannot supply all the required columns
             layouts = layouts.stream()
-                    .filter(layoutHasAllNeededOutputs(node))
+                    .filter(layout -> layout.hasAllOutputs(node))
                     .collect(toList());
             checkState(!layouts.isEmpty(), "No usable layouts for %s", node);
 
@@ -615,14 +625,14 @@ public class AddExchanges
                                 node.getOutputSymbols(),
                                 node.getAssignments(),
                                 Optional.of(layout.getLayout().getHandle()),
-                                simplifiedConstraint.intersect(layout.getLayout().getPredicate()),
+                                newDomain.intersect(layout.getLayout().getPredicate()),
                                 Optional.ofNullable(node.getOriginalConstraint()).orElse(predicate));
 
                         PlanWithProperties result = new PlanWithProperties(tableScan, deriveProperties(tableScan, ImmutableList.of()));
 
                         Expression resultingPredicate = combineConjuncts(
                                 DomainTranslator.toPredicate(layout.getUnenforcedConstraint().transform(assignments::get)),
-                                stripDeterministicConjuncts(predicate),
+                                filterNonDeterministicConjuncts(predicate),
                                 decomposedPredicate.getRemainingExpression());
 
                         if (!BooleanLiteral.TRUE_LITERAL.equals(resultingPredicate)) {
@@ -638,12 +648,6 @@ public class AddExchanges
             return pickPlan(possiblePlans, context);
         }
 
-        private Predicate<TableLayoutResult> layoutHasAllNeededOutputs(TableScanNode node)
-        {
-            return layout -> !layout.getLayout().getColumns().isPresent()
-                    || layout.getLayout().getColumns().get().containsAll(Lists.transform(node.getOutputSymbols(), node.getAssignments()::get));
-        }
-
         /**
          * possiblePlans should be provided in layout preference order
          */
@@ -657,34 +661,6 @@ public class AddExchanges
             }
 
             return possiblePlans.get(0);
-        }
-
-        private boolean shouldPrune(Expression predicate, Map<Symbol, ColumnHandle> assignments, Map<ColumnHandle, NullableValue> bindings, List<Symbol> correlations)
-        {
-            List<Expression> conjuncts = extractConjuncts(predicate);
-            Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(
-                    session,
-                    metadata,
-                    parser,
-                    types,
-                    predicate,
-                    emptyList() /* parameters already replaced */);
-
-            LookupSymbolResolver inputs = new LookupSymbolResolver(assignments, bindings);
-
-            // If any conjuncts evaluate to FALSE or null, then the whole predicate will never be true and so the partition should be pruned
-            for (Expression expression : conjuncts) {
-                if (SymbolsExtractor.extractUnique(expression).stream().anyMatch(correlations::contains)) {
-                    // expression contains correlated symbol with outer query
-                    continue;
-                }
-                ExpressionInterpreter optimizer = ExpressionInterpreter.expressionOptimizer(expression, metadata, session, expressionTypes);
-                Object optimized = optimizer.optimize(inputs);
-                if (Boolean.FALSE.equals(optimized) || optimized == null || optimized instanceof NullLiteral) {
-                    return true;
-                }
-            }
-            return false;
         }
 
         @Override
@@ -757,8 +733,12 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitJoin(JoinNode node, Context context)
         {
-            List<Symbol> leftSymbols = Lists.transform(node.getCriteria(), JoinNode.EquiJoinClause::getLeft);
-            List<Symbol> rightSymbols = Lists.transform(node.getCriteria(), JoinNode.EquiJoinClause::getRight);
+            List<Symbol> leftSymbols = node.getCriteria().stream()
+                    .map(JoinNode.EquiJoinClause::getLeft)
+                    .collect(toImmutableList());
+            List<Symbol> rightSymbols = node.getCriteria().stream()
+                    .map(JoinNode.EquiJoinClause::getRight)
+                    .collect(toImmutableList());
             JoinNode.Type type = node.getType();
 
             PlanWithProperties left;
@@ -943,7 +923,9 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitIndexJoin(IndexJoinNode node, Context context)
         {
-            List<Symbol> joinColumns = Lists.transform(node.getCriteria(), IndexJoinNode.EquiJoinClause::getProbe);
+            List<Symbol> joinColumns = node.getCriteria().stream()
+                    .map(IndexJoinNode.EquiJoinClause::getProbe)
+                    .collect(toImmutableList());
 
             // Only prefer grouping on join columns if no parent local property preferences
             List<LocalProperty<Symbol>> desiredLocalProperties = context.getPreferredProperties().getLocalProperties().isEmpty() ? grouped(joinColumns) : ImmutableList.of();
@@ -1214,31 +1196,13 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitApply(ApplyNode node, Context context)
         {
-            PlanWithProperties input = node.getInput().accept(this, context);
-            PlanWithProperties subquery = node.getSubquery().accept(this, context.withCorrelations(node.getCorrelation()));
-
-            ApplyNode rewritten = new ApplyNode(
-                    node.getId(),
-                    input.getNode(),
-                    subquery.getNode(),
-                    node.getSubqueryAssignments(),
-                    node.getCorrelation());
-            return new PlanWithProperties(rewritten, deriveProperties(rewritten, ImmutableList.of(input.getProperties(), subquery.getProperties())));
+            throw new IllegalStateException("Unexpected node: " + node.getClass().getName());
         }
 
         @Override
         public PlanWithProperties visitLateralJoin(LateralJoinNode node, Context context)
         {
-            PlanWithProperties input = node.getInput().accept(this, context);
-            PlanWithProperties subquery = node.getSubquery().accept(this, context.withCorrelations(node.getCorrelation()));
-
-            LateralJoinNode rewritten = new LateralJoinNode(
-                    node.getId(),
-                    input.getNode(),
-                    subquery.getNode(),
-                    node.getCorrelation(),
-                    node.getType());
-            return new PlanWithProperties(rewritten, deriveProperties(rewritten, ImmutableList.of(input.getProperties(), subquery.getProperties())));
+            throw new IllegalStateException("Unexpected node: " + node.getClass().getName());
         }
 
         private PlanWithProperties planChild(PlanNode node, Context context)
@@ -1294,14 +1258,7 @@ public class AddExchanges
     {
         // Calculating the matches can be a bit expensive, so cache the results between comparisons
         LoadingCache<List<LocalProperty<Symbol>>, List<Optional<LocalProperty<Symbol>>>> matchCache = CacheBuilder.newBuilder()
-                .build(new CacheLoader<List<LocalProperty<Symbol>>, List<Optional<LocalProperty<Symbol>>>>()
-                {
-                    @Override
-                    public List<Optional<LocalProperty<Symbol>>> load(List<LocalProperty<Symbol>> actualProperties)
-                    {
-                        return LocalProperties.match(actualProperties, preferred.getLocalProperties());
-                    }
-                });
+                .build(CacheLoader.from(actualProperties -> LocalProperties.match(actualProperties, preferred.getLocalProperties())));
 
         return (actual1, actual2) -> {
             List<Optional<LocalProperty<Symbol>>> matchLayout1 = matchCache.getUnchecked(actual1.getLocalProperties());
@@ -1389,6 +1346,34 @@ public class AddExchanges
         public ActualProperties getProperties()
         {
             return properties;
+        }
+    }
+
+    private class LayoutConstraintEvaluator
+    {
+        private final Map<Symbol, ColumnHandle> assignments;
+        private final ExpressionInterpreter evaluator;
+
+        public LayoutConstraintEvaluator(Session session, Map<Symbol, Type> types, Map<Symbol, ColumnHandle> assignments, Expression expression)
+        {
+            this.assignments = assignments;
+
+            Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, metadata, parser, types, expression, emptyList());
+
+            evaluator = ExpressionInterpreter.expressionOptimizer(expression, metadata, session, expressionTypes);
+        }
+
+        private boolean isCandidate(Map<ColumnHandle, NullableValue> bindings)
+        {
+            LookupSymbolResolver inputs = new LookupSymbolResolver(assignments, bindings);
+
+            // If any conjuncts evaluate to FALSE or null, then the whole predicate will never be true and so the partition should be pruned
+            Object optimized = evaluator.optimize(inputs);
+            if (Boolean.FALSE.equals(optimized) || optimized == null || optimized instanceof NullLiteral) {
+                return false;
+            }
+
+            return true;
         }
     }
 }

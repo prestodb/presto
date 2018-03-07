@@ -5,7 +5,7 @@
     <parent>
         <artifactId>presto-root</artifactId>
         <groupId>com.facebook.presto</groupId>
-        <version>0.180-SNAPSHOT</version>
+        <version>0.197-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-benchmark</artifactId>
@@ -38,12 +38,18 @@
 
         <dependency>
             <groupId>com.google.code.findbugs</groupId>
-            <artifactId>annotations</artifactId>
+            <artifactId>jsr305</artifactId>
+            <optional>true</optional>
         </dependency>
 
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>json</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>concurrent</artifactId>
         </dependency>
 
         <dependency>

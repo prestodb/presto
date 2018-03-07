@@ -46,7 +46,7 @@ public final class FunctionExtractor
         }
 
         if (clazz.isAnnotationPresent(AggregationFunction.class)) {
-            return SqlAggregationFunction.createByAnnotations(clazz);
+            return SqlAggregationFunction.createFunctionsByAnnotations(clazz);
         }
 
         if (clazz.isAnnotationPresent(ScalarFunction.class) ||

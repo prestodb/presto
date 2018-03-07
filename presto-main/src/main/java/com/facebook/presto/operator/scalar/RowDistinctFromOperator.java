@@ -17,22 +17,22 @@ import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.SqlOperator;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 
 import static com.facebook.presto.metadata.Signature.comparableWithVariadicBound;
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_BOXED_TYPE;
 import static com.facebook.presto.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
+import static com.facebook.presto.util.Failures.internalError;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Defaults.defaultValue;
 
@@ -62,7 +62,9 @@ public class RowDistinctFromOperator
         }
         return new ScalarFunctionImplementation(
                 false,
-                ImmutableList.of(true, true),
+                ImmutableList.of(
+                        valueTypeArgumentProperty(USE_BOXED_TYPE),
+                        valueTypeArgumentProperty(USE_BOXED_TYPE)),
                 METHOD_HANDLE.bindTo(type).bindTo(argumentMethods.build()),
                 isDeterministic());
     }
@@ -100,10 +102,7 @@ public class RowDistinctFromOperator
                 }
             }
             catch (Throwable t) {
-                Throwables.propagateIfInstanceOf(t, Error.class);
-                Throwables.propagateIfInstanceOf(t, PrestoException.class);
-
-                throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
+                throw internalError(t);
             }
         }
         return false;

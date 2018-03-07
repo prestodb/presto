@@ -67,6 +67,11 @@ public class AllowAllAccessControl
     }
 
     @Override
+    public void checkCanDropColumn(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
+    {
+    }
+
+    @Override
     public void checkCanRenameColumn(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
     {
     }

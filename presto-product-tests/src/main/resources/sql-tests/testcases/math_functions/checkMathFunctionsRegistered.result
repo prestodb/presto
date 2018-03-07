@@ -49,9 +49,9 @@
  log | double | double, double | scalar | true | logarithm to given base |
  log10 | double | double | scalar | true | logarithm to base 10 |
  log2 | double | double | scalar | true | logarithm to base 2 |
- max | E | E | aggregate | true | Returns the maximum value of the argument |
+ max | T | T | aggregate | true | Returns the maximum value of the argument |
  max_by | V | V, K | aggregate | true | Returns the value of the first argument, associated with the maximum value of the second argument |
- min | E | E | aggregate | true | Returns the minimum value of the argument |
+ min | T | T | aggregate | true | Returns the minimum value of the argument |
  min_by | V | V, K | aggregate | true | Returns the value of the first argument, associated with the minimum value of the second argument |
  mod | bigint | bigint, bigint | scalar | true | remainder of given quotient |
  mod | double | double, double | scalar | true | remainder of given quotient |
@@ -75,12 +75,12 @@
  row_number | bigint | | window | true | |
  sin | double | double | scalar | true | sine |
  sqrt | double | double | scalar | true | square root |
- stddev | double | bigint | aggregate | true | Returns the variance of the argument |
- stddev | double | double | aggregate | true | Returns the variance of the argument |
- stddev_pop | double | bigint | aggregate | true | Returns the variance of the argument |
- stddev_pop | double | double | aggregate | true | Returns the variance of the argument |
- stddev_samp | double | bigint | aggregate | true | Returns the variance of the argument |
- stddev_samp | double | double | aggregate | true | Returns the variance of the argument |
+ stddev | double | bigint | aggregate | true | Returns the sample standard deviation of the argument |
+ stddev | double | double | aggregate | true | Returns the sample standard deviation of the argument |
+ stddev_pop | double | bigint | aggregate | true | Returns the population standard deviation of the argument |
+ stddev_pop | double | double | aggregate | true | Returns the population standard deviation of the argument |
+ stddev_samp | double | bigint | aggregate | true | Returns the sample standard deviation of the argument |
+ stddev_samp | double | double | aggregate | true | Returns the sample standard deviation of the argument |
  sum | bigint | bigint | aggregate | true | |
  sum | double | double | aggregate | true | |
  tan | double | double | scalar | true | tangent |

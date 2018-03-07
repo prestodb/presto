@@ -19,13 +19,32 @@ import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.block.BlockJsonSerde;
 import com.facebook.presto.client.NodeVersion;
+import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.system.SystemConnectorModule;
-import com.facebook.presto.cost.CoefficientBasedCostCalculator;
+import com.facebook.presto.cost.CoefficientBasedStatsCalculator;
+import com.facebook.presto.cost.ComposableStatsCalculator;
 import com.facebook.presto.cost.CostCalculator;
+import com.facebook.presto.cost.CostCalculator.EstimatedExchanges;
+import com.facebook.presto.cost.CostCalculatorUsingExchanges;
+import com.facebook.presto.cost.CostCalculatorWithEstimatedExchanges;
+import com.facebook.presto.cost.CostComparator;
+import com.facebook.presto.cost.EnforceSingleRowStatsRule;
+import com.facebook.presto.cost.FilterStatsCalculator;
+import com.facebook.presto.cost.FilterStatsRule;
+import com.facebook.presto.cost.LimitStatsRule;
+import com.facebook.presto.cost.OutputStatsRule;
+import com.facebook.presto.cost.ProjectStatsRule;
+import com.facebook.presto.cost.ScalarStatsCalculator;
+import com.facebook.presto.cost.SelectingStatsCalculator;
+import com.facebook.presto.cost.SelectingStatsCalculator.New;
+import com.facebook.presto.cost.StatsCalculator;
+import com.facebook.presto.cost.TableScanStatsRule;
+import com.facebook.presto.cost.ValuesStatsRule;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.event.query.QueryMonitorConfig;
 import com.facebook.presto.execution.LocationFactory;
+import com.facebook.presto.execution.MemoryRevokingScheduler;
 import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryManagerConfig;
@@ -34,9 +53,11 @@ import com.facebook.presto.execution.QueryPerformanceFetcherProvider;
 import com.facebook.presto.execution.SqlTaskManager;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskInfo;
+import com.facebook.presto.execution.TaskManagementExecutor;
 import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.TaskStatus;
+import com.facebook.presto.execution.executor.MultilevelSplitQueue;
 import com.facebook.presto.execution.executor.TaskExecutor;
 import com.facebook.presto.execution.resourceGroups.NoOpResourceGroupManager;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
@@ -88,9 +109,11 @@ import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spiller.FileSingleStreamSpillerFactory;
+import com.facebook.presto.spiller.GenericPartitioningSpillerFactory;
 import com.facebook.presto.spiller.GenericSpillerFactory;
 import com.facebook.presto.spiller.LocalSpillManager;
 import com.facebook.presto.spiller.NodeSpillConfig;
+import com.facebook.presto.spiller.PartitioningSpillerFactory;
 import com.facebook.presto.spiller.SingleStreamSpillerFactory;
 import com.facebook.presto.spiller.SpillerFactory;
 import com.facebook.presto.spiller.SpillerStats;
@@ -106,8 +129,8 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler;
-import com.facebook.presto.sql.gen.JoinProbeCompiler;
 import com.facebook.presto.sql.gen.OrderingCompiler;
+import com.facebook.presto.sql.gen.PageFunctionCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.sql.planner.CompilerConfig;
@@ -125,12 +148,14 @@ import com.facebook.presto.util.FinalizerService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Binder;
+import com.google.inject.Key;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.discovery.client.ServiceDescriptor;
+import io.airlift.discovery.server.EmbeddedDiscoveryModule;
 import io.airlift.http.client.HttpClientConfig;
 import io.airlift.slice.Slice;
 import io.airlift.stats.PauseMeter;
@@ -186,10 +211,14 @@ public class ServerMainModule
 
         if (serverConfig.isCoordinator()) {
             install(new CoordinatorModule());
-            binder.bind(new TypeLiteral<Optional<QueryPerformanceFetcher>>(){}).toProvider(QueryPerformanceFetcherProvider.class).in(Scopes.SINGLETON);
+            binder.bind(new TypeLiteral<Optional<QueryPerformanceFetcher>>() {}).toProvider(QueryPerformanceFetcherProvider.class).in(Scopes.SINGLETON);
         }
         else {
-            binder.bind(new TypeLiteral<Optional<QueryPerformanceFetcher>>(){}).toInstance(Optional.empty());
+            binder.bind(new TypeLiteral<Optional<QueryPerformanceFetcher>>() {}).toInstance(Optional.empty());
+
+            // Install no-op session supplier on workers, since only coordinators create sessions.
+            binder.bind(SessionSupplier.class).to(NoOpSessionSupplier.class).in(Scopes.SINGLETON);
+
             // Install no-op resource group manager on workers, since only coordinators manage resource groups.
             binder.bind(ResourceGroupManager.class).to(NoOpResourceGroupManager.class).in(Scopes.SINGLETON);
 
@@ -198,6 +227,10 @@ public class ServerMainModule
                 throw new UnsupportedOperationException();
             }));
         }
+
+        // discovery server
+        // TODO: move to CoordinatorModule
+        install(installModuleIf(EmbeddedDiscoveryConfig.class, EmbeddedDiscoveryConfig::isEnabled, new EmbeddedDiscoveryModule()));
 
         InternalCommunicationConfig internalCommunicationConfig = buildConfigObject(InternalCommunicationConfig.class);
         configBinder(binder).bindConfigGlobalDefaults(HttpClientConfig.class, config -> {
@@ -262,13 +295,12 @@ public class ServerMainModule
         // task execution
         jaxrsBinder(binder).bind(TaskResource.class);
         newExporter(binder).export(TaskResource.class).withGeneratedName();
-        binder.bind(TaskManager.class).to(SqlTaskManager.class).in(Scopes.SINGLETON);
+        binder.bind(TaskManagementExecutor.class).in(Scopes.SINGLETON);
+        binder.bind(SqlTaskManager.class).in(Scopes.SINGLETON);
+        binder.bind(TaskManager.class).to(Key.get(SqlTaskManager.class));
 
-        // workaround for CodeCache GC issue
-        if (JavaVersion.current().getMajor() == 8) {
-            configBinder(binder).bindConfig(CodeCacheGcConfig.class);
-            binder.bind(CodeCacheGcTrigger.class).in(Scopes.SINGLETON);
-        }
+        // memory revoking scheduler
+        binder.bind(MemoryRevokingScheduler.class).in(Scopes.SINGLETON);
 
         // Add monitoring for JVM pauses
         binder.bind(PauseMeter.class).in(Scopes.SINGLETON);
@@ -282,13 +314,19 @@ public class ServerMainModule
         newExporter(binder).export(TaskManager.class).withGeneratedName();
         binder.bind(TaskExecutor.class).in(Scopes.SINGLETON);
         newExporter(binder).export(TaskExecutor.class).withGeneratedName();
+        binder.bind(MultilevelSplitQueue.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(MultilevelSplitQueue.class).withGeneratedName();
         binder.bind(LocalExecutionPlanner.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(CompilerConfig.class);
         binder.bind(ExpressionCompiler.class).in(Scopes.SINGLETON);
         newExporter(binder).export(ExpressionCompiler.class).withGeneratedName();
+        binder.bind(PageFunctionCompiler.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(PageFunctionCompiler.class).withGeneratedName();
         configBinder(binder).bindConfig(TaskManagerConfig.class);
         binder.bind(IndexJoinLookupStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(IndexJoinLookupStats.class).withGeneratedName();
+        binder.bind(StatementHttpExecutionMBean.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(StatementHttpExecutionMBean.class).withGeneratedName();
         binder.bind(AsyncHttpExecutionMBean.class).in(Scopes.SINGLETON);
         newExporter(binder).export(AsyncHttpExecutionMBean.class).withGeneratedName();
         binder.bind(JoinFilterFunctionCompiler.class).in(Scopes.SINGLETON);
@@ -298,8 +336,6 @@ public class ServerMainModule
         binder.bind(OrderingCompiler.class).in(Scopes.SINGLETON);
         newExporter(binder).export(OrderingCompiler.class).withGeneratedName();
         binder.bind(PagesIndex.Factory.class).to(PagesIndex.DefaultFactory.class);
-        binder.bind(JoinProbeCompiler.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(JoinProbeCompiler.class).withGeneratedName();
         binder.bind(LookupJoinOperators.class).in(Scopes.SINGLETON);
 
         jsonCodecBinder(binder).bindJsonCodec(TaskStatus.class);
@@ -349,7 +385,13 @@ public class ServerMainModule
         binder.bind(Metadata.class).to(MetadataManager.class).in(Scopes.SINGLETON);
 
         // statistics calculator
-        binder.bind(CostCalculator.class).to(CoefficientBasedCostCalculator.class).in(Scopes.SINGLETON);
+        binder.bind(StatsCalculator.class).annotatedWith(SelectingStatsCalculator.Old.class).to(CoefficientBasedStatsCalculator.class).in(Scopes.SINGLETON);
+        binder.bind(StatsCalculator.class).to(SelectingStatsCalculator.class).in(Scopes.SINGLETON);
+
+        // cost calculator
+        binder.bind(CostCalculator.class).to(CostCalculatorUsingExchanges.class).in(Scopes.SINGLETON);
+        binder.bind(CostCalculator.class).annotatedWith(EstimatedExchanges.class).to(CostCalculatorWithEstimatedExchanges.class).in(Scopes.SINGLETON);
+        binder.bind(CostComparator.class).in(Scopes.SINGLETON);
 
         // type
         binder.bind(TypeRegistry.class).in(Scopes.SINGLETON);
@@ -406,6 +448,11 @@ public class ServerMainModule
 
         // server info resource
         jaxrsBinder(binder).bind(ServerInfoResource.class);
+        jsonCodecBinder(binder).bindJsonCodec(ServerInfo.class);
+
+        // node status resource
+        jaxrsBinder(binder).bind(StatusResource.class);
+        jsonCodecBinder(binder).bindJsonCodec(NodeStatus.class);
 
         // plugin manager
         binder.bind(PluginManager.class).in(Scopes.SINGLETON);
@@ -438,6 +485,7 @@ public class ServerMainModule
         // Spiller
         binder.bind(SpillerFactory.class).to(GenericSpillerFactory.class).in(Scopes.SINGLETON);
         binder.bind(SingleStreamSpillerFactory.class).to(FileSingleStreamSpillerFactory.class).in(Scopes.SINGLETON);
+        binder.bind(PartitioningSpillerFactory.class).to(GenericPartitioningSpillerFactory.class).in(Scopes.SINGLETON);
         binder.bind(SpillerStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(SpillerFactory.class).withGeneratedName();
         binder.bind(LocalSpillManager.class).in(Scopes.SINGLETON);
@@ -445,6 +493,24 @@ public class ServerMainModule
 
         // cleanup
         binder.bind(ExecutorCleanup.class).in(Scopes.SINGLETON);
+    }
+
+    @Provides
+    @Singleton
+    @New
+    public static StatsCalculator createNewStatsCalculator(Metadata metadata)
+    {
+        ScalarStatsCalculator scalarStatsCalculator = new ScalarStatsCalculator(metadata);
+
+        ImmutableList.Builder<ComposableStatsCalculator.Rule> rules = ImmutableList.builder();
+        rules.add(new OutputStatsRule());
+        rules.add(new TableScanStatsRule(metadata));
+        rules.add(new FilterStatsRule(new FilterStatsCalculator(metadata, scalarStatsCalculator)));
+        rules.add(new ValuesStatsRule(metadata));
+        rules.add(new LimitStatsRule());
+        rules.add(new EnforceSingleRowStatsRule());
+        rules.add(new ProjectStatsRule(scalarStatsCalculator));
+        return new ComposableStatsCalculator(rules.build());
     }
 
     @Provides
@@ -481,6 +547,30 @@ public class ServerMainModule
 
     @Provides
     @Singleton
+    @ForStatementResource
+    public static ExecutorService createStatementResponseCoreExecutor()
+    {
+        return newCachedThreadPool(daemonThreadsNamed("statement-response-%s"));
+    }
+
+    @Provides
+    @Singleton
+    @ForStatementResource
+    public static BoundedExecutor createStatementResponseExecutor(@ForStatementResource ExecutorService coreExecutor, TaskManagerConfig config)
+    {
+        return new BoundedExecutor(coreExecutor, config.getHttpResponseThreads());
+    }
+
+    @Provides
+    @Singleton
+    @ForStatementResource
+    public static ScheduledExecutorService createStatementTimeoutExecutor(TaskManagerConfig config)
+    {
+        return newScheduledThreadPool(config.getHttpTimeoutThreads(), daemonThreadsNamed("statement-timeout-%s"));
+    }
+
+    @Provides
+    @Singleton
     @ForTransactionManager
     public static ScheduledExecutorService createTransactionIdleCheckExecutor()
     {
@@ -512,6 +602,8 @@ public class ServerMainModule
         if (coordinator) {
             binder.install(new FailureDetectorModule());
             jaxrsBinder(binder).bind(NodeResource.class);
+            jaxrsBinder(binder).bind(WorkerResource.class);
+            httpClientBinder(binder).bindHttpClient("workerInfo", ForWorkerInfo.class);
         }
         else {
             binder.bind(FailureDetector.class).toInstance(new FailureDetector()

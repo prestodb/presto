@@ -112,6 +112,10 @@ public final class MLFeaturesFunctions
 
     private Block featuresHelper(double... features)
     {
+        if (pageBuilder.isFull()) {
+            pageBuilder.reset();
+        }
+
         BlockBuilder mapBlockBuilder = pageBuilder.getBlockBuilder(0);
         BlockBuilder blockBuilder = mapBlockBuilder.beginBlockEntry();
 
@@ -121,6 +125,7 @@ public final class MLFeaturesFunctions
         }
 
         mapBlockBuilder.closeEntry();
+        pageBuilder.declarePosition();
         return mapBlockBuilder.getObject(mapBlockBuilder.getPositionCount() - 1, Block.class);
     }
 }

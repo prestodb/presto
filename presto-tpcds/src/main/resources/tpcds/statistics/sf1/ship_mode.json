@@ -1,0 +1,41 @@
+{
+  "rowCount" : 20,
+  "columns" : {
+    "sm_ship_mode_sk" : {
+      "distinctValuesCount" : 20,
+      "nullsCount" : 0,
+      "min" : 1,
+      "max" : 20
+    },
+    "sm_ship_mode_id" : {
+      "distinctValuesCount" : 20,
+      "nullsCount" : 0,
+      "min" : "AAAAAAAAABAAAAAA",
+      "max" : "AAAAAAAAPAAAAAAA"
+    },
+    "sm_type" : {
+      "distinctValuesCount" : 6,
+      "nullsCount" : 0,
+      "min" : "EXPRESS",
+      "max" : "TWO DAY"
+    },
+    "sm_code" : {
+      "distinctValuesCount" : 4,
+      "nullsCount" : 0,
+      "min" : "AIR",
+      "max" : "SURFACE"
+    },
+    "sm_carrier" : {
+      "distinctValuesCount" : 20,
+      "nullsCount" : 0,
+      "min" : "AIRBORNE",
+      "max" : "ZOUROS"
+    },
+    "sm_contract" : {
+      "distinctValuesCount" : 20,
+      "nullsCount" : 0,
+      "min" : "2mM8l",
+      "max" : "yVfotg7Tio3MVhBg6Bkn"
+    }
+  }
+}

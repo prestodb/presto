@@ -39,6 +39,7 @@ import java.util.concurrent.ExecutorService;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.sql.QueryUtil.identifier;
 import static com.facebook.presto.sql.QueryUtil.selectList;
 import static com.facebook.presto.sql.QueryUtil.simpleQuery;
 import static com.facebook.presto.sql.QueryUtil.table;
@@ -57,7 +58,6 @@ public class TestPrepareTask
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
-            throws Exception
     {
         executor.shutdownNow();
     }
@@ -87,7 +87,7 @@ public class TestPrepareTask
     @Test
     public void testPrepareInvalidStatement()
     {
-        Statement statement = new Execute("foo", emptyList());
+        Statement statement = new Execute(identifier("foo"), emptyList());
         String sqlString = "PREPARE my_query FROM EXECUTE foo";
         try {
             executePrepare("my_query", statement, sqlString, TEST_SESSION);
@@ -104,7 +104,7 @@ public class TestPrepareTask
         TransactionManager transactionManager = createTestTransactionManager();
         AccessControl accessControl = new AccessControlManager(transactionManager);
         QueryStateMachine stateMachine = QueryStateMachine.begin(new QueryId("query"), sqlString, session, URI.create("fake://uri"), false, transactionManager, accessControl, executor, metadata);
-        Prepare prepare = new Prepare(statementName, statement);
+        Prepare prepare = new Prepare(identifier(statementName), statement);
         new PrepareTask(new SqlParser()).execute(prepare, transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList());
         return stateMachine.getAddedPreparedStatements();
     }

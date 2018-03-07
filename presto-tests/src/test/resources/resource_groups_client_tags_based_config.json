@@ -1,0 +1,66 @@
+{
+  "rootGroups": [
+    {
+      "name": "global",
+      "softMemoryLimit": "1MB",
+      "hardConcurrencyLimit": 100,
+      "maxQueued": 1000,
+      "softCpuLimit": "1h",
+      "hardCpuLimit": "1d",
+      "subGroups": [
+        {
+          "name": "a",
+          "softMemoryLimit": "2MB",
+          "hardConcurrencyLimit": 3,
+          "maxQueued": 4,
+          "subGroups": [
+            {
+              "name": "c",
+              "softMemoryLimit": "2MB",
+              "hardConcurrencyLimit": 3,
+              "maxQueued": 4
+            },
+            {
+              "name": "default",
+              "softMemoryLimit": "2MB",
+              "hardConcurrencyLimit": 3,
+              "maxQueued": 4
+            }
+
+          ]
+        },
+        {
+          "name": "b",
+          "softMemoryLimit": "2MB",
+          "hardConcurrencyLimit": 3,
+          "maxQueued": 4
+        },
+        {
+          "name": "other",
+          "softMemoryLimit": "2MB",
+          "hardConcurrencyLimit": 3,
+          "maxQueued": 4
+        }
+      ]
+    }
+  ],
+  "selectors": [
+    {
+      "clientTags" : ["a", "c"],
+      "group": "global.a.c"
+    },
+    {
+      "clientTags" : ["a"],
+      "group": "global.a.default"
+    },
+    {
+      "clientTags" : ["b"],
+      "group": "global.b"
+    },
+    {
+      "group": "global.other"
+    }
+  ],
+  "cpuQuotaPeriod": "1h"
+}
+

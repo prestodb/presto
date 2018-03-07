@@ -32,7 +32,7 @@ final class StochasticPriorityQueue<E>
     private Node<E> root;
 
     @Override
-    public boolean addOrUpdate(E element, int priority)
+    public boolean addOrUpdate(E element, long priority)
     {
         checkArgument(priority > 0, "priority must be positive");
         if (root == null) {
@@ -152,7 +152,7 @@ final class StochasticPriorityQueue<E>
         private E value;
         private Optional<Node<E>> left = Optional.empty();
         private Optional<Node<E>> right = Optional.empty();
-        private int tickets;
+        private long tickets;
         private long totalTickets;
         private int descendants;
 
@@ -187,18 +187,18 @@ final class StochasticPriorityQueue<E>
             return totalTickets;
         }
 
-        public int getTickets()
+        public long getTickets()
         {
             return tickets;
         }
 
-        public void setTickets(int tickets)
+        public void setTickets(long tickets)
         {
             checkArgument(tickets > 0, "tickets must be positive");
             if (tickets == this.tickets) {
                 return;
             }
-            int ticketDelta = tickets - this.tickets;
+            long ticketDelta = tickets - this.tickets;
             Node<E> node = this;
             // Update total tickets in this node and all ancestors
             while (node != null) {
@@ -252,7 +252,7 @@ final class StochasticPriorityQueue<E>
             this.parent = Optional.empty();
         }
 
-        public Node<E> addNode(E value, int tickets)
+        public Node<E> addNode(E value, long tickets)
         {
             // setTickets call in base case will update totalTickets
             descendants++;

@@ -13,10 +13,12 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
+import com.facebook.presto.sql.gen.PageFunctionCompiler;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
@@ -37,24 +39,23 @@ public class TestColumnarPageProcessor
 {
     private static final int POSITIONS = 100;
     private final List<Type> types = ImmutableList.of(BIGINT, VARCHAR);
-    private final PageProcessor processor = new ExpressionCompiler(createTestMetadataManager())
+    private final MetadataManager metadata = createTestMetadataManager();
+    private final PageProcessor processor = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0))
             .compilePageProcessor(Optional.empty(), ImmutableList.of(field(0, types.get(0)), field(1, types.get(1)))).get();
 
     @Test
     public void testProcess()
-            throws Exception
     {
         Page page = createPage(types, false);
-        Page outputPage = getOnlyElement(processor.process(SESSION, page));
+        Page outputPage = getOnlyElement(processor.process(SESSION, new DriverYieldSignal(), page)).orElseThrow(() -> new AssertionError("page is not present"));
         assertPageEquals(types, outputPage, page);
     }
 
     @Test
     public void testProcessWithDictionary()
-            throws Exception
     {
         Page page = createPage(types, true);
-        Page outputPage = getOnlyElement(processor.process(SESSION, page));
+        Page outputPage = getOnlyElement(processor.process(SESSION, new DriverYieldSignal(), page)).orElseThrow(() -> new AssertionError("page is not present"));
         assertPageEquals(types, outputPage, page);
     }
 

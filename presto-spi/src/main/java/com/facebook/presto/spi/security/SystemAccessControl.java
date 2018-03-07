@@ -28,6 +28,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateT
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateView;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateViewWithSelect;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDeleteTable;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyDropColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropView;
@@ -109,7 +110,7 @@ public interface SystemAccessControl
 
     /**
      * Check if identity is allowed to execute SHOW SCHEMAS in a catalog.
-     *
+     * <p>
      * NOTE: This method is only present to give users an error message when listing is not allowed.
      * The {@link #filterSchemas} method must filter all results for unauthorized users,
      * since there are multiple ways to list schemas.
@@ -161,7 +162,7 @@ public interface SystemAccessControl
 
     /**
      * Check if identity is allowed to show metadata of tables by executing SHOW TABLES, SHOW GRANTS etc. in a catalog.
-     *
+     * <p>
      * NOTE: This method is only present to give users an error message when listing is not allowed.
      * The {@link #filterTables} method must filter all results for unauthorized users,
      * since there are multiple ways to list tables.
@@ -189,6 +190,16 @@ public interface SystemAccessControl
     default void checkCanAddColumn(Identity identity, CatalogSchemaTableName table)
     {
         denyAddColumn(table.toString());
+    }
+
+    /**
+     * Check if identity is allowed to drop columns from the specified table in a catalog.
+     *
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanDropColumn(Identity identity, CatalogSchemaTableName table)
+    {
+        denyDropColumn(table.toString());
     }
 
     /**

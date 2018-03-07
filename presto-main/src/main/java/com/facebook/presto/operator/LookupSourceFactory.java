@@ -19,6 +19,11 @@ import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalInt;
+import java.util.function.Supplier;
+
+import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static java.util.Collections.emptyList;
 
 public interface LookupSourceFactory
 {
@@ -26,12 +31,45 @@ public interface LookupSourceFactory
 
     List<Type> getOutputTypes();
 
-    ListenableFuture<LookupSource> createLookupSource();
+    ListenableFuture<LookupSourceProvider> createLookupSourceProvider();
+
+    int partitions();
+
+    default ListenableFuture<PartitionedConsumption<Supplier<LookupSource>>> finishProbeOperator(OptionalInt lookupJoinsCount)
+    {
+        return immediateFuture(new PartitionedConsumption<>(
+                1,
+                emptyList(),
+                i -> {
+                    throw new UnsupportedOperationException();
+                },
+                i -> {}));
+    }
+
+    /**
+     * Can be called only after {@link #createLookupSourceProvider()} is done and all users of {@link LookupSource}-s finished.
+     */
+    OuterPositionIterator getOuterPositionIterator();
 
     Map<Symbol, Integer> getLayout();
 
     // this is only here for the index lookup source
     default void setTaskContext(TaskContext taskContext) {}
 
+    default ListenableFuture<?> lendPartitionLookupSource(int partitionIndex, Supplier<LookupSource> partitionLookupSource)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default void setPartitionSpilledLookupSourceHandle(int partitionIndex, SpilledLookupSourceHandle spilledLookupSourceHandle)
+    {
+        throw new UnsupportedOperationException();
+    }
+
     void destroy();
+
+    default ListenableFuture<?> isDestroyed()
+    {
+        throw new UnsupportedOperationException();
+    }
 }

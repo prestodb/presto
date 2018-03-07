@@ -17,9 +17,11 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.scalar.FunctionAssertions;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarbinaryType;
+import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.Symbol;
@@ -43,6 +45,7 @@ import org.joda.time.LocalDate;
 import org.joda.time.LocalTime;
 import org.testng.annotations.Test;
 
+import java.math.BigInteger;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
@@ -52,6 +55,7 @@ import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TimeType.TIME;
@@ -61,6 +65,7 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.sql.ExpressionFormatter.formatExpression;
 import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
+import static com.facebook.presto.sql.ParsingUtil.createParsingOptions;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.expressionInterpreter;
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.expressionOptimizer;
@@ -88,6 +93,8 @@ public class TestExpressionInterpreter
             .put(new Symbol("bound_timestamp"), TIMESTAMP)
             .put(new Symbol("bound_pattern"), VARCHAR)
             .put(new Symbol("bound_null_string"), VARCHAR)
+            .put(new Symbol("bound_decimal_short"), createDecimalType(5, 2))
+            .put(new Symbol("bound_decimal_long"), createDecimalType(23, 3))
             .put(new Symbol("time"), BIGINT) // for testing reserved identifiers
             .put(new Symbol("unbound_integer"), INTEGER)
             .put(new Symbol("unbound_long"), BIGINT)
@@ -108,7 +115,6 @@ public class TestExpressionInterpreter
 
     @Test
     public void testAnd()
-            throws Exception
     {
         assertOptimizedEquals("true and false", "false");
         assertOptimizedEquals("false and true", "false");
@@ -130,7 +136,6 @@ public class TestExpressionInterpreter
 
     @Test
     public void testOr()
-            throws Exception
     {
         assertOptimizedEquals("true or true", "true");
         assertOptimizedEquals("true or false", "true");
@@ -154,7 +159,6 @@ public class TestExpressionInterpreter
 
     @Test
     public void testComparison()
-            throws Exception
     {
         assertOptimizedEquals("null = null", "null");
 
@@ -174,11 +178,15 @@ public class TestExpressionInterpreter
 
         assertOptimizedEquals("bound_varbinary = X'a b'", "true");
         assertOptimizedEquals("bound_varbinary = X'a d'", "false");
+
+        assertOptimizedEquals("1.1 = 1.1", "true");
+        assertOptimizedEquals("9876543210.9874561203 = 9876543210.9874561203", "true");
+        assertOptimizedEquals("bound_decimal_short = 123.45", "true");
+        assertOptimizedEquals("bound_decimal_long = 12345678901234567890.123", "true");
     }
 
     @Test
     public void testIsDistinctFrom()
-            throws Exception
     {
         assertOptimizedEquals("null is distinct from null", "false");
 
@@ -190,11 +198,15 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("null is distinct from 3", "true");
 
         assertOptimizedEquals("10151082135029368 is distinct from 10151082135029369", "true");
+
+        assertOptimizedEquals("1.1 is distinct from 1.1", "false");
+        assertOptimizedEquals("9876543210.9874561203 is distinct from NULL", "true");
+        assertOptimizedEquals("bound_decimal_short is distinct from NULL", "true");
+        assertOptimizedEquals("bound_decimal_long is distinct from 12345678901234567890.123", "false");
     }
 
     @Test
     public void testIsNull()
-            throws Exception
     {
         assertOptimizedEquals("null is null", "true");
         assertOptimizedEquals("1 is null", "false");
@@ -206,11 +218,14 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("null+1 is null", "true");
         assertOptimizedEquals("unbound_string is null", "unbound_string is null");
         assertOptimizedEquals("unbound_long+(1+1) is null", "unbound_long+2 is null");
+        assertOptimizedEquals("1.1 is null", "false");
+        assertOptimizedEquals("9876543210.9874561203 is null", "false");
+        assertOptimizedEquals("bound_decimal_short is null", "false");
+        assertOptimizedEquals("bound_decimal_long is null", "false");
     }
 
     @Test
     public void testIsNotNull()
-            throws Exception
     {
         assertOptimizedEquals("null is not null", "false");
         assertOptimizedEquals("1 is not null", "true");
@@ -222,11 +237,14 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("null+1 is not null", "false");
         assertOptimizedEquals("unbound_string is not null", "unbound_string is not null");
         assertOptimizedEquals("unbound_long+(1+1) is not null", "unbound_long+2 is not null");
+        assertOptimizedEquals("1.1 is not null", "true");
+        assertOptimizedEquals("9876543210.9874561203 is not null", "true");
+        assertOptimizedEquals("bound_decimal_short is not null", "true");
+        assertOptimizedEquals("bound_decimal_long is not null", "true");
     }
 
     @Test
     public void testNullIf()
-            throws Exception
     {
         assertOptimizedEquals("nullif(true, true)", "null");
         assertOptimizedEquals("nullif(true, false)", "true");
@@ -242,21 +260,25 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("nullif(1, 2)", "1");
         assertOptimizedEquals("nullif(1, BIGINT '2')", "1");
         assertOptimizedEquals("nullif(1, 20000000000)", "1");
-        assertOptimizedEquals("nullif(1.0, 1)", "null");
-        assertOptimizedEquals("nullif(10000000000.0, 10000000000)", "null");
-        assertOptimizedEquals("nullif(1.1, 1)", "1.1");
-        assertOptimizedEquals("nullif(1.1, 1.1)", "null");
+        assertOptimizedEquals("nullif(1.0E0, 1)", "null");
+        assertOptimizedEquals("nullif(10000000000.0E0, 10000000000)", "null");
+        assertOptimizedEquals("nullif(1.1E0, 1)", "1.1E0");
+        assertOptimizedEquals("nullif(1.1E0, 1.1E0)", "null");
         assertOptimizedEquals("nullif(1, 2-1)", "null");
         assertOptimizedEquals("nullif(null, null)", "null");
         assertOptimizedEquals("nullif(1, null)", "1");
         assertOptimizedEquals("nullif(unbound_long, 1)", "nullif(unbound_long, 1)");
         assertOptimizedEquals("nullif(unbound_long, unbound_long2)", "nullif(unbound_long, unbound_long2)");
         assertOptimizedEquals("nullif(unbound_long, unbound_long2+(1+1))", "nullif(unbound_long, unbound_long2+2)");
+
+        assertOptimizedEquals("nullif(1.1, 1.2)", "1.1");
+        assertOptimizedEquals("nullif(9876543210.9874561203, 9876543210.9874561203)", "null");
+        assertOptimizedEquals("nullif(bound_decimal_short, 123.45)", "null");
+        assertOptimizedEquals("nullif(bound_decimal_long, 12345678901234567890.123)", "null");
     }
 
     @Test
     public void testNegative()
-            throws Exception
     {
         assertOptimizedEquals("-(1)", "-1");
         assertOptimizedEquals("-(BIGINT '1')", "BIGINT '-1'");
@@ -265,11 +287,14 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("-(1+ BIGINT '1')", "BIGINT '-2'");
         assertOptimizedEquals("-(CAST(NULL AS BIGINT))", "null");
         assertOptimizedEquals("-(unbound_long+(1+1))", "-(unbound_long+2)");
+        assertOptimizedEquals("-(1.1+1.2)", "-2.3");
+        // TODO enabled when DECIMAL is default for literal: assertOptimizedEquals("-(9876543210.9874561203-9876543210.9874561203)", "CAST(0 AS DECIMAL(20,10))");
+        assertOptimizedEquals("-(bound_decimal_short+123.45)", "-246.90");
+        // TODO enabled when DECIMAL is default for literal: assertOptimizedEquals("-(bound_decimal_long-12345678901234567890.123)", "CAST(0 AS DECIMAL(20,10))");
     }
 
     @Test
     public void testNot()
-            throws Exception
     {
         assertOptimizedEquals("not true", "false");
         assertOptimizedEquals("not false", "true");
@@ -283,7 +308,6 @@ public class TestExpressionInterpreter
 
     @Test
     public void testFunctionCall()
-            throws Exception
     {
         assertOptimizedEquals("abs(-5)", "5");
         assertOptimizedEquals("abs(-10-5)", "15");
@@ -297,7 +321,6 @@ public class TestExpressionInterpreter
 
     @Test
     public void testNonDeterministicFunctionCall()
-            throws Exception
     {
         // optimize should do nothing
         assertOptimizedEquals("random()", "random()");
@@ -311,7 +334,6 @@ public class TestExpressionInterpreter
 
     @Test
     public void testBetween()
-            throws Exception
     {
         assertOptimizedEquals("3 between 2 and 4", "true");
         assertOptimizedEquals("2 between 3 and 4", "false");
@@ -337,6 +359,11 @@ public class TestExpressionInterpreter
         assertOptimizedEquals(
                 "bound_string between unbound_string and 'bar'",
                 format("CAST('hello' AS VARCHAR(%s)) between unbound_string and 'bar'", TEST_VARCHAR_TYPE_LENGTH));
+
+        assertOptimizedEquals("1.15 between 1.1 and 1.2", "true");
+        assertOptimizedEquals("9876543210.98745612035 between 9876543210.9874561203 and 9876543210.9874561204", "true");
+        assertOptimizedEquals("123.455 between bound_decimal_short and 123.46", "true");
+        // TODO enabled when DECIMAL is default for literal: assertOptimizedEquals("12345678901234567890.1235 between bound_decimal_long and 12345678901234567890.123", "false");
     }
 
     @Test
@@ -379,7 +406,6 @@ public class TestExpressionInterpreter
 
     @Test
     public void testIn()
-            throws Exception
     {
         assertOptimizedEquals("3 in (2, 4, 3, 5)", "true");
         assertOptimizedEquals("3 in (2, 4, 9, 5)", "false");
@@ -414,11 +440,16 @@ public class TestExpressionInterpreter
 
         assertOptimizedEquals("bound_long in (2, 4, unbound_long, unbound_long2, 9)", "1234 in (unbound_long, unbound_long2)");
         assertOptimizedEquals("unbound_long in (2, 4, bound_long, unbound_long2, 5)", "unbound_long in (2, 4, 1234, unbound_long2, 5)");
+
+        assertOptimizedEquals("1.15 in (1.1, 1.2, 1.3, 1.15)", "true");
+        assertOptimizedEquals("9876543210.98745612035 in (9876543210.9874561203, 9876543210.9874561204, 9876543210.98745612035)", "true");
+        assertOptimizedEquals("bound_decimal_short in (123.455, 123.46, 123.45)", "true");
+        assertOptimizedEquals("bound_decimal_long in (12345678901234567890.123, 9876543210.9874561204, 9876543210.98745612035)", "true");
+        assertOptimizedEquals("bound_decimal_long in (9876543210.9874561204, null, 9876543210.98745612035)", "null");
     }
 
     @Test
     public void testCurrentTimestamp()
-            throws Exception
     {
         double current = TEST_SESSION.getStartTime() / 1000.0;
         assertOptimizedEquals("current_timestamp = from_unixtime(" + current + ")", "true");
@@ -428,7 +459,6 @@ public class TestExpressionInterpreter
 
     @Test
     public void testCastToString()
-            throws Exception
     {
         // integer
         assertOptimizedEquals("cast(123 as VARCHAR(20))", "'123'");
@@ -440,10 +470,10 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("cast(-12300000000 as VARCHAR)", "'-12300000000'");
 
         // double
-        assertOptimizedEquals("cast(123.0 as VARCHAR)", "'123.0'");
-        assertOptimizedEquals("cast(-123.0 as VARCHAR)", "'-123.0'");
-        assertOptimizedEquals("cast(123.456 as VARCHAR)", "'123.456'");
-        assertOptimizedEquals("cast(-123.456 as VARCHAR)", "'-123.456'");
+        assertOptimizedEquals("cast(123.0E0 as VARCHAR)", "'123.0'");
+        assertOptimizedEquals("cast(-123.0E0 as VARCHAR)", "'-123.0'");
+        assertOptimizedEquals("cast(123.456E0 as VARCHAR)", "'123.456'");
+        assertOptimizedEquals("cast(-123.456E0 as VARCHAR)", "'-123.456'");
 
         // boolean
         assertOptimizedEquals("cast(true as VARCHAR)", "'true'");
@@ -454,11 +484,14 @@ public class TestExpressionInterpreter
 
         // null
         assertOptimizedEquals("cast(null as VARCHAR)", "null");
+
+        // decimal
+        assertOptimizedEquals("cast(1.1 as VARCHAR)", "'1.1'");
+        // TODO enabled when DECIMAL is default for literal: assertOptimizedEquals("cast(12345678901234567890.123 as VARCHAR)", "'12345678901234567890.123'");
     }
 
     @Test
     public void testCastToBoolean()
-            throws Exception
     {
         // integer
         assertOptimizedEquals("cast(123 as BOOLEAN)", "true");
@@ -486,14 +519,19 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("cast(null as BOOLEAN)", "null");
 
         // double
-        assertOptimizedEquals("cast(123.45 as BOOLEAN)", "true");
-        assertOptimizedEquals("cast(-123.45 as BOOLEAN)", "true");
-        assertOptimizedEquals("cast(0.0 as BOOLEAN)", "false");
+        assertOptimizedEquals("cast(123.45E0 as BOOLEAN)", "true");
+        assertOptimizedEquals("cast(-123.45E0 as BOOLEAN)", "true");
+        assertOptimizedEquals("cast(0.0E0 as BOOLEAN)", "false");
+
+        // decimal
+        assertOptimizedEquals("cast(0.00 as BOOLEAN)", "false");
+        assertOptimizedEquals("cast(7.8 as BOOLEAN)", "true");
+        assertOptimizedEquals("cast(12345678901234567890.123 as BOOLEAN)", "true");
+        assertOptimizedEquals("cast(00000000000000000000.000 as BOOLEAN)", "false");
     }
 
     @Test
     public void testCastToBigint()
-            throws Exception
     {
         // integer
         assertOptimizedEquals("cast(0 as BIGINT)", "0");
@@ -506,10 +544,10 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("cast(BIGINT '-123' as BIGINT)", "-123");
 
         // double
-        assertOptimizedEquals("cast(123.0 as BIGINT)", "123");
-        assertOptimizedEquals("cast(-123.0 as BIGINT)", "-123");
-        assertOptimizedEquals("cast(123.456 as BIGINT)", "123");
-        assertOptimizedEquals("cast(-123.456 as BIGINT)", "-123");
+        assertOptimizedEquals("cast(123.0E0 as BIGINT)", "123");
+        assertOptimizedEquals("cast(-123.0E0 as BIGINT)", "-123");
+        assertOptimizedEquals("cast(123.456E0 as BIGINT)", "123");
+        assertOptimizedEquals("cast(-123.456E0 as BIGINT)", "-123");
 
         // boolean
         assertOptimizedEquals("cast(true as BIGINT)", "1");
@@ -521,11 +559,16 @@ public class TestExpressionInterpreter
 
         // null
         assertOptimizedEquals("cast(null as BIGINT)", "null");
+
+        // decimal
+        assertOptimizedEquals("cast(DECIMAL '1.01' as BIGINT)", "1");
+        assertOptimizedEquals("cast(DECIMAL '7.8' as BIGINT)", "8");
+        assertOptimizedEquals("cast(DECIMAL '1234567890.123' as BIGINT)", "1234567890");
+        assertOptimizedEquals("cast(DECIMAL '00000000000000000000.000' as BIGINT)", "0");
     }
 
     @Test
     public void testCastToInteger()
-            throws Exception
     {
         // integer
         assertOptimizedEquals("cast(0 as INTEGER)", "0");
@@ -538,10 +581,10 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("cast(BIGINT '-123' as INTEGER)", "-123");
 
         // double
-        assertOptimizedEquals("cast(123.0 as INTEGER)", "123");
-        assertOptimizedEquals("cast(-123.0 as INTEGER)", "-123");
-        assertOptimizedEquals("cast(123.456 as INTEGER)", "123");
-        assertOptimizedEquals("cast(-123.456 as INTEGER)", "-123");
+        assertOptimizedEquals("cast(123.0E0 as INTEGER)", "123");
+        assertOptimizedEquals("cast(-123.0E0 as INTEGER)", "-123");
+        assertOptimizedEquals("cast(123.456E0 as INTEGER)", "123");
+        assertOptimizedEquals("cast(-123.456E0 as INTEGER)", "-123");
 
         // boolean
         assertOptimizedEquals("cast(true as INTEGER)", "1");
@@ -557,50 +600,95 @@ public class TestExpressionInterpreter
 
     @Test
     public void testCastToDouble()
-            throws Exception
     {
         // integer
-        assertOptimizedEquals("cast(0 as DOUBLE)", "0.0");
-        assertOptimizedEquals("cast(123 as DOUBLE)", "123.0");
-        assertOptimizedEquals("cast(-123 as DOUBLE)", "-123.0");
+        assertOptimizedEquals("cast(0 as DOUBLE)", "0.0E0");
+        assertOptimizedEquals("cast(123 as DOUBLE)", "123.0E0");
+        assertOptimizedEquals("cast(-123 as DOUBLE)", "-123.0E0");
 
         // bigint
-        assertOptimizedEquals("cast(BIGINT '0' as DOUBLE)", "0.0");
-        assertOptimizedEquals("cast(12300000000 as DOUBLE)", "12300000000.0");
-        assertOptimizedEquals("cast(-12300000000 as DOUBLE)", "-12300000000.0");
+        assertOptimizedEquals("cast(BIGINT '0' as DOUBLE)", "0.0E0");
+        assertOptimizedEquals("cast(12300000000 as DOUBLE)", "12300000000.0E0");
+        assertOptimizedEquals("cast(-12300000000 as DOUBLE)", "-12300000000.0E0");
 
         // double
-        assertOptimizedEquals("cast(123.0 as DOUBLE)", "123.0");
-        assertOptimizedEquals("cast(-123.0 as DOUBLE)", "-123.0");
-        assertOptimizedEquals("cast(123.456 as DOUBLE)", "123.456");
-        assertOptimizedEquals("cast(-123.456 as DOUBLE)", "-123.456");
+        assertOptimizedEquals("cast(123.0E0 as DOUBLE)", "123.0E0");
+        assertOptimizedEquals("cast(-123.0E0 as DOUBLE)", "-123.0E0");
+        assertOptimizedEquals("cast(123.456E0 as DOUBLE)", "123.456E0");
+        assertOptimizedEquals("cast(-123.456E0 as DOUBLE)", "-123.456E0");
 
         // string
-        assertOptimizedEquals("cast('0' as DOUBLE)", "0.0");
-        assertOptimizedEquals("cast('123' as DOUBLE)", "123.0");
-        assertOptimizedEquals("cast('-123' as DOUBLE)", "-123.0");
-        assertOptimizedEquals("cast('123.0' as DOUBLE)", "123.0");
-        assertOptimizedEquals("cast('-123.0' as DOUBLE)", "-123.0");
-        assertOptimizedEquals("cast('123.456' as DOUBLE)", "123.456");
-        assertOptimizedEquals("cast('-123.456' as DOUBLE)", "-123.456");
+        assertOptimizedEquals("cast('0' as DOUBLE)", "0.0E0");
+        assertOptimizedEquals("cast('123' as DOUBLE)", "123.0E0");
+        assertOptimizedEquals("cast('-123' as DOUBLE)", "-123.0E0");
+        assertOptimizedEquals("cast('123.0E0' as DOUBLE)", "123.0E0");
+        assertOptimizedEquals("cast('-123.0E0' as DOUBLE)", "-123.0E0");
+        assertOptimizedEquals("cast('123.456E0' as DOUBLE)", "123.456E0");
+        assertOptimizedEquals("cast('-123.456E0' as DOUBLE)", "-123.456E0");
 
         // null
         assertOptimizedEquals("cast(null as DOUBLE)", "null");
 
         // boolean
-        assertOptimizedEquals("cast(true as DOUBLE)", "1.0");
-        assertOptimizedEquals("cast(false as DOUBLE)", "0.0");
+        assertOptimizedEquals("cast(true as DOUBLE)", "1.0E0");
+        assertOptimizedEquals("cast(false as DOUBLE)", "0.0E0");
+
+        // decimal
+        assertOptimizedEquals("cast(1.01 as DOUBLE)", "DOUBLE '1.01'");
+        assertOptimizedEquals("cast(7.8 as DOUBLE)", "DOUBLE '7.8'");
+        assertOptimizedEquals("cast(1234567890.123 as DOUBLE)", "DOUBLE '1234567890.123'");
+        assertOptimizedEquals("cast(00000000000000000000.000 as DOUBLE)", "DOUBLE '0.0'");
+    }
+
+    @Test
+    public void testCastToDecimal()
+    {
+        // long
+        assertOptimizedEquals("cast(0 as DECIMAL(1,0))", "DECIMAL '0'");
+        assertOptimizedEquals("cast(123 as DECIMAL(3,0))", "DECIMAL '123'");
+        assertOptimizedEquals("cast(-123 as DECIMAL(3,0))", "DECIMAL '-123'");
+        assertOptimizedEquals("cast(-123 as DECIMAL(20,10))", "cast(-123 as DECIMAL(20,10))");
+
+        // double
+        assertOptimizedEquals("cast(0E0 as DECIMAL(1,0))", "DECIMAL '0'");
+        assertOptimizedEquals("cast(123.2E0 as DECIMAL(4,1))", "DECIMAL '123.2'");
+        assertOptimizedEquals("cast(-123.0E0 as DECIMAL(3,0))", "DECIMAL '-123'");
+        assertOptimizedEquals("cast(-123.55E0 as DECIMAL(20,10))", "cast(-123.55 as DECIMAL(20,10))");
+
+        // string
+        assertOptimizedEquals("cast('0' as DECIMAL(1,0))", "DECIMAL '0'");
+        assertOptimizedEquals("cast('123.2' as DECIMAL(4,1))", "DECIMAL '123.2'");
+        assertOptimizedEquals("cast('-123.0' as DECIMAL(3,0))", "DECIMAL '-123'");
+        assertOptimizedEquals("cast('-123.55' as DECIMAL(20,10))", "cast(-123.55 as DECIMAL(20,10))");
+
+        // null
+        assertOptimizedEquals("cast(null as DECIMAL(1,0))", "null");
+        assertOptimizedEquals("cast(null as DECIMAL(20,10))", "null");
+
+        // boolean
+        assertOptimizedEquals("cast(true as DECIMAL(1,0))", "DECIMAL '1'");
+        assertOptimizedEquals("cast(false as DECIMAL(4,1))", "DECIMAL '000.0'");
+        assertOptimizedEquals("cast(true as DECIMAL(3,0))", "DECIMAL '001'");
+        assertOptimizedEquals("cast(false as DECIMAL(20,10))", "cast(0 as DECIMAL(20,10))");
+
+        // decimal
+        assertOptimizedEquals("cast(0.0 as DECIMAL(1,0))", "DECIMAL '0'");
+        assertOptimizedEquals("cast(123.2 as DECIMAL(4,1))", "DECIMAL '123.2'");
+        assertOptimizedEquals("cast(-123.0 as DECIMAL(3,0))", "DECIMAL '-123'");
+        assertOptimizedEquals("cast(-123.55 as DECIMAL(20,10))", "cast(-123.55 as DECIMAL(20,10))");
     }
 
     @Test
     public void testCastOptimization()
-            throws Exception
     {
         assertOptimizedEquals("cast(bound_integer as VARCHAR)", "'1234'");
         assertOptimizedEquals("cast(bound_long as VARCHAR)", "'1234'");
         assertOptimizedEquals("cast(bound_integer + 1 as VARCHAR)", "'1235'");
         assertOptimizedEquals("cast(bound_long + 1 as VARCHAR)", "'1235'");
         assertOptimizedEquals("cast(unbound_string as VARCHAR)", "cast(unbound_string as VARCHAR)");
+        assertOptimizedMatches("cast(unbound_string as VARCHAR)", "unbound_string");
+        assertOptimizedMatches("cast(unbound_integer as INTEGER)", "unbound_integer");
+        assertOptimizedMatches("cast(unbound_string as VARCHAR(10))", "cast(unbound_string as VARCHAR(10))");
     }
 
     @Test
@@ -613,18 +701,17 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("try_cast('foo' as VARCHAR)", "'foo'");
         assertOptimizedEquals("try_cast('foo' as BIGINT)", "null");
         assertOptimizedEquals("try_cast(unbound_string as BIGINT)", "try_cast(unbound_string as BIGINT)");
+        assertOptimizedEquals("try_cast('foo' as DECIMAL(2,1))", "null");
     }
 
     @Test
     public void testReservedWithDoubleQuotes()
-            throws Exception
     {
         assertOptimizedEquals("\"time\"", "\"time\"");
     }
 
     @Test
     public void testSearchCase()
-            throws Exception
     {
         assertOptimizedEquals("case " +
                         "when true then 33 " +
@@ -716,11 +803,29 @@ public class TestExpressionInterpreter
                 "case when cast(fail() as boolean) then 1 end");
 
         assertOptimizedMatches("if(false, 1, 0 / 0)", "cast(fail() as integer)");
+
+        assertOptimizedEquals("case " +
+                        "when false then 2.2 " +
+                        "when true then 2.2 " +
+                        "end",
+                "2.2");
+
+        // TODO enabled when DECIMAL is default for literal:
+//        assertOptimizedEquals("case " +
+//                        "when false then 1234567890.0987654321 " +
+//                        "when true then 3.3 " +
+//                        "end",
+//                "CAST(3.3 AS DECIMAL(20,10))");
+
+        assertOptimizedEquals("case " +
+                        "when false then 1 " +
+                        "when true then 2.2 " +
+                        "end",
+                "2.2");
     }
 
     @Test
     public void testSimpleCase()
-            throws Exception
     {
         assertOptimizedEquals("case 1 " +
                         "when 1 then 32 + 1 " +
@@ -930,25 +1035,42 @@ public class TestExpressionInterpreter
                         "when cast(fail() as integer) then 2 " +
                         "else 1 " +
                         "end");
+
+        assertOptimizedEquals("case true " +
+                        "when false then 2.2 " +
+                        "when true then 2.2 " +
+                        "end",
+                "2.2");
+
+        // TODO enabled when DECIMAL is default for literal:
+//        assertOptimizedEquals("case true " +
+//                        "when false then 1234567890.0987654321 " +
+//                        "when true then 3.3 " +
+//                        "end",
+//                "CAST(3.3 AS DECIMAL(20,10))");
+
+        assertOptimizedEquals("case true " +
+                        "when false then 1 " +
+                        "when true then 2.2 " +
+                        "end",
+                "2.2");
     }
 
     @Test
     public void testCoalesce()
-            throws Exception
     {
         assertOptimizedEquals("coalesce(2 * 3 * unbound_long, 1 - 1, null)", "coalesce(6 * unbound_long, 0)");
-        assertOptimizedEquals("coalesce(2 * 3 * unbound_long, 1.0/2.0, null)", "coalesce(6 * unbound_long, 0.5)");
-        assertOptimizedEquals("coalesce(unbound_long, 2, 1.0/2.0, 12.34, null)", "coalesce(unbound_long, 2.0, 0.5, 12.34)");
+        assertOptimizedEquals("coalesce(2 * 3 * unbound_long, 1.0E0/2.0E0, null)", "coalesce(6 * unbound_long, 0.5E0)");
+        assertOptimizedEquals("coalesce(unbound_long, 2, 1.0E0/2.0E0, 12.34E0, null)", "coalesce(unbound_long, 2.0E0, 0.5E0, 12.34E0)");
         assertOptimizedEquals("coalesce(2 * 3 * unbound_integer, 1 - 1, null)", "coalesce(6 * unbound_integer, 0)");
-        assertOptimizedEquals("coalesce(2 * 3 * unbound_integer, 1.0/2.0, null)", "coalesce(6 * unbound_integer, 0.5)");
-        assertOptimizedEquals("coalesce(unbound_integer, 2, 1.0/2.0, 12.34, null)", "coalesce(unbound_integer, 2.0, 0.5, 12.34)");
+        assertOptimizedEquals("coalesce(2 * 3 * unbound_integer, 1.0E0/2.0E0, null)", "coalesce(6 * unbound_integer, 0.5E0)");
+        assertOptimizedEquals("coalesce(unbound_integer, 2, 1.0E0/2.0E0, 12.34E0, null)", "coalesce(unbound_integer, 2.0E0, 0.5E0, 12.34E0)");
         assertOptimizedMatches("coalesce(0 / 0 > 1, unbound_boolean, 0 / 0 = 0)",
                 "coalesce(cast(fail() as boolean), unbound_boolean, cast(fail() as boolean))");
     }
 
     @Test
     public void testIf()
-            throws Exception
     {
         assertOptimizedEquals("IF(2 = 2, 3, 4)", "3");
         assertOptimizedEquals("IF(1 = 2, 3, 4)", "4");
@@ -966,11 +1088,16 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("IF(true, null, null)", "null");
         assertOptimizedEquals("IF(false, null, null)", "null");
 
-        assertOptimizedEquals("IF(true, 3.5, 4.2)", "3.5");
-        assertOptimizedEquals("IF(false, 3.5, 4.2)", "4.2");
+        assertOptimizedEquals("IF(true, 3.5E0, 4.2E0)", "3.5E0");
+        assertOptimizedEquals("IF(false, 3.5E0, 4.2E0)", "4.2E0");
 
         assertOptimizedEquals("IF(true, 'foo', 'bar')", "'foo'");
         assertOptimizedEquals("IF(false, 'foo', 'bar')", "'bar'");
+
+        assertOptimizedEquals("IF(true, 1.01, 1.02)", "1.01");
+        assertOptimizedEquals("IF(false, 1.01, 1.02)", "1.02");
+        assertOptimizedEquals("IF(true, 1234567890.123, 1.02)", "1234567890.123");
+        assertOptimizedEquals("IF(false, 1.01, 1234567890.123)", "1234567890.123");
 
         // todo optimize case statement
         assertOptimizedEquals("IF(unbound_boolean, 1 + 2, 3 + 4)", "CASE WHEN unbound_boolean THEN (1 + 2) ELSE (3 + 4) END");
@@ -978,28 +1105,7 @@ public class TestExpressionInterpreter
     }
 
     @Test
-    public void testTry()
-            throws Exception
-    {
-        assertOptimizedEquals("TRY(2/1)", "2");
-        assertOptimizedEquals("TRY(2/0)", "null");
-        assertOptimizedEquals("COALESCE(TRY(2/0), 0)", "0");
-
-        assertOptimizedEquals("TRY(CAST (CAST (bound_long AS VARCHAR) AS BIGINT))", "bound_long");
-        assertOptimizedEquals("TRY(CAST (CAST (bound_integer AS VARCHAR) AS INTEGER))", "bound_integer");
-        assertOptimizedEquals("TRY(CAST (CONCAT('a', CAST (bound_long AS VARCHAR)) AS BIGINT))", "null");
-        assertOptimizedEquals("COALESCE(TRY(CAST (CONCAT('a', CAST (bound_long AS VARCHAR)) AS BIGINT)), 0)", "0");
-
-        assertOptimizedEquals("TRY(ABS(-2))", "2");
-        assertOptimizedEquals("42 + TRY(ABS(-9223372036854775807 - 1))", "null");
-
-        assertOptimizedEquals("JSON_FORMAT(TRY(JSON '[]')) || unbound_string", "'[]' || unbound_string");
-        assertOptimizedEquals("JSON_FORMAT(TRY(JSON 'INVALID')) || unbound_string", "null");
-    }
-
-    @Test
     public void testLike()
-            throws Exception
     {
         assertOptimizedEquals("'a' LIKE 'a'", "true");
         assertOptimizedEquals("'' LIKE 'a'", "false");
@@ -1071,7 +1177,6 @@ public class TestExpressionInterpreter
 
     @Test
     public void testLikeOptimization()
-            throws Exception
     {
         assertOptimizedEquals("unbound_string LIKE 'abc'", "unbound_string = CAST('abc' AS VARCHAR)");
 
@@ -1103,7 +1208,6 @@ public class TestExpressionInterpreter
 
     @Test
     public void testFailedExpressionOptimization()
-            throws Exception
     {
         assertOptimizedEquals("if(unbound_boolean, 1, 0 / 0)", "CASE WHEN unbound_boolean THEN 1 ELSE 0 / 0 END");
         assertOptimizedEquals("if(unbound_boolean, 0 / 0, 1)", "CASE WHEN unbound_boolean THEN 0 / 0 ELSE 1 END");
@@ -1129,7 +1233,6 @@ public class TestExpressionInterpreter
 
     @Test(expectedExceptions = PrestoException.class)
     public void testOptimizeDivideByZero()
-            throws Exception
     {
         optimize("0 / 0");
     }
@@ -1163,13 +1266,13 @@ public class TestExpressionInterpreter
         optimize("ROW(unbound_long + 0)");
         optimize("ROW(unbound_long + unbound_long2, unbound_string, unbound_double)");
         optimize("ROW(unbound_boolean, FALSE, ARRAY[unbound_long, unbound_long2], unbound_null_string, unbound_interval)");
-        optimize("ARRAY [ROW(unbound_string, unbound_double), ROW(unbound_string, 0.0)]");
+        optimize("ARRAY [ROW(unbound_string, unbound_double), ROW(unbound_string, 0.0E0)]");
         optimize("ARRAY [ROW('string', unbound_double), ROW('string', bound_double)]");
         optimize("ROW(ROW(NULL), ROW(ROW(ROW(ROW('rowception')))))");
         optimize("ROW(unbound_string, bound_string)");
 
-        optimize("ARRAY [ROW(unbound_string, unbound_double), ROW(CAST(bound_string AS VARCHAR), 0.0)]");
-        optimize("ARRAY [ROW(CAST(bound_string AS VARCHAR), 0.0), ROW(unbound_string, unbound_double)]");
+        optimize("ARRAY [ROW(unbound_string, unbound_double), ROW(CAST(bound_string AS VARCHAR), 0.0E0)]");
+        optimize("ARRAY [ROW(CAST(bound_string AS VARCHAR), 0.0E0), ROW(unbound_string, unbound_double)]");
 
         optimize("ARRAY [ROW(unbound_string, unbound_double), CAST(NULL AS ROW(VARCHAR, DOUBLE))]");
         optimize("ARRAY [CAST(NULL AS ROW(VARCHAR, DOUBLE)), ROW(unbound_string, unbound_double)]");
@@ -1292,6 +1395,10 @@ public class TestExpressionInterpreter
                     return new SqlTimestampWithTimeZone(new DateTime(1970, 1, 1, 1, 0, 0, 999, DateTimeZone.UTC).getMillis(), getTimeZoneKey("Z"));
                 case "bound_varbinary":
                     return Slices.wrappedBuffer((byte) 0xab);
+                case "bound_decimal_short":
+                    return 12345L;
+                case "bound_decimal_long":
+                    return Decimals.encodeUnscaledValue(new BigInteger("12345678901234567890123"));
             }
 
             return symbol.toSymbolReference();
@@ -1309,8 +1416,9 @@ public class TestExpressionInterpreter
 
     private static void assertRoundTrip(String expression)
     {
-        assertEquals(SQL_PARSER.createExpression(expression),
-                SQL_PARSER.createExpression(formatExpression(SQL_PARSER.createExpression(expression), Optional.empty())));
+        ParsingOptions parsingOptions = createParsingOptions(TEST_SESSION);
+        assertEquals(SQL_PARSER.createExpression(expression, parsingOptions),
+                SQL_PARSER.createExpression(formatExpression(SQL_PARSER.createExpression(expression, parsingOptions), Optional.empty()), parsingOptions));
     }
 
     private static Object evaluate(Expression expression)

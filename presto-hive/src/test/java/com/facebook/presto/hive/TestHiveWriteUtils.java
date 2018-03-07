@@ -13,23 +13,27 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.HdfsEnvironment.HdfsContext;
 import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.hive.HiveTestUtils.createTestHdfsEnvironment;
 import static com.facebook.presto.hive.HiveWriteUtils.isS3FileSystem;
 import static com.facebook.presto.hive.HiveWriteUtils.isViewFileSystem;
+import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public class TestHiveWriteUtils
 {
+    private static final HdfsContext CONTEXT = new HdfsContext(SESSION, "test_schema");
+
     @Test
     public void testIsS3FileSystem()
     {
         HdfsEnvironment hdfsEnvironment = createTestHdfsEnvironment(new HiveClientConfig());
-        assertTrue(isS3FileSystem("user", hdfsEnvironment, new Path("s3://test-bucket/test-folder")));
-        assertFalse(isS3FileSystem("user", hdfsEnvironment, new Path("/test-dir/test-folder")));
+        assertTrue(isS3FileSystem(CONTEXT, hdfsEnvironment, new Path("s3://test-bucket/test-folder")));
+        assertFalse(isS3FileSystem(CONTEXT, hdfsEnvironment, new Path("/test-dir/test-folder")));
     }
 
     @Test
@@ -40,9 +44,9 @@ public class TestHiveWriteUtils
         Path nonViewfsPath = new Path("hdfs://localhost/test-dir/test-folder");
 
         // ViewFS check requires the mount point config
-        hdfsEnvironment.getConfiguration(viewfsPath).set("fs.viewfs.mounttable.ns-default.link./test-folder", "hdfs://localhost/app");
+        hdfsEnvironment.getConfiguration(CONTEXT, viewfsPath).set("fs.viewfs.mounttable.ns-default.link./test-folder", "hdfs://localhost/app");
 
-        assertTrue(isViewFileSystem("user", hdfsEnvironment, viewfsPath));
-        assertFalse(isViewFileSystem("user", hdfsEnvironment, nonViewfsPath));
+        assertTrue(isViewFileSystem(CONTEXT, hdfsEnvironment, viewfsPath));
+        assertFalse(isViewFileSystem(CONTEXT, hdfsEnvironment, nonViewfsPath));
     }
 }

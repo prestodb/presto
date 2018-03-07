@@ -18,6 +18,8 @@ import com.facebook.presto.hive.benchmark.HiveFileFormatBenchmark.CompressionCou
 import com.facebook.presto.hive.benchmark.HiveFileFormatBenchmark.DataSet;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
+
 public class TestHiveFileFormatBenchmark
 {
     @Test
@@ -54,6 +56,7 @@ public class TestHiveFileFormatBenchmark
     }
 
     private static void executeBenchmark(DataSet dataSet, HiveCompressionCodec codec, FileFormat format)
+            throws IOException
     {
         HiveFileFormatBenchmark benchmark = new HiveFileFormatBenchmark(dataSet, codec, format);
         try {

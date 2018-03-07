@@ -13,70 +13,37 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.Session;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.SymbolAllocator;
-import com.facebook.presto.sql.planner.iterative.Lookup;
-import com.facebook.presto.sql.planner.iterative.Pattern;
-import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
-import static com.facebook.presto.sql.planner.iterative.rule.Util.pruneInputs;
-import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.facebook.presto.sql.planner.plan.Patterns.tableScan;
+import static com.facebook.presto.util.MoreLists.filteredCopy;
+import static com.google.common.collect.Maps.filterKeys;
 
 public class PruneTableScanColumns
-        implements Rule
+        extends ProjectOffPushDownRule<TableScanNode>
 {
-    private static final Pattern PATTERN = Pattern.node(ProjectNode.class);
-
-    @Override
-    public Pattern getPattern()
+    public PruneTableScanColumns()
     {
-        return PATTERN;
+        super(tableScan());
     }
 
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Lookup lookup, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session)
+    protected Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, TableScanNode tableScanNode, Set<Symbol> referencedOutputs)
     {
-        ProjectNode parent = (ProjectNode) node;
-
-        PlanNode source = lookup.resolve(parent.getSource());
-        if (!(source instanceof TableScanNode)) {
-            return Optional.empty();
-        }
-
-        TableScanNode child = (TableScanNode) source;
-
-        Optional<Set<Symbol>> dependencies = pruneInputs(child.getOutputSymbols(), parent.getAssignments().getExpressions());
-        if (!dependencies.isPresent()) {
-            return Optional.empty();
-        }
-
-        List<Symbol> newOutputs = child.getOutputSymbols().stream()
-                .filter(dependencies.get()::contains)
-                .collect(toImmutableList());
-
         return Optional.of(
-                new ProjectNode(
-                        parent.getId(),
-                        new TableScanNode(
-                                child.getId(),
-                                child.getTable(),
-                                newOutputs,
-                                newOutputs.stream()
-                                        .collect(Collectors.toMap(Function.identity(), e -> child.getAssignments().get(e))),
-                                child.getLayout(),
-                                child.getCurrentConstraint(),
-                                child.getOriginalConstraint()),
-                        parent.getAssignments()));
+                new TableScanNode(
+                        tableScanNode.getId(),
+                        tableScanNode.getTable(),
+                        filteredCopy(tableScanNode.getOutputSymbols(), referencedOutputs::contains),
+                        filterKeys(tableScanNode.getAssignments(), referencedOutputs::contains),
+                        tableScanNode.getLayout(),
+                        tableScanNode.getCurrentConstraint(),
+                        tableScanNode.getOriginalConstraint()));
     }
 }

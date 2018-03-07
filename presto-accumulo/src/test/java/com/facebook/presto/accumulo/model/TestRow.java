@@ -42,7 +42,6 @@ public class TestRow
 {
     @Test
     public void testRow()
-            throws Exception
     {
         Row r1 = new Row();
         r1.addField(new Field(AccumuloRowSerializer.getBlockFromArray(VARCHAR, ImmutableList.of("a", "b", "c")), new ArrayType(VARCHAR)));
@@ -69,7 +68,6 @@ public class TestRow
 
     @Test(expectedExceptions = NullPointerException.class, expectedExceptionsMessageRegExp = "type is null")
     public void testRowTypeIsNull()
-            throws Exception
     {
         Row r1 = new Row();
         r1.addField(VARCHAR, null);
@@ -77,7 +75,6 @@ public class TestRow
 
     @Test
     public void testRowFromString()
-            throws Exception
     {
         Row expected = new Row();
         expected.addField(new Field(AccumuloRowSerializer.getBlockFromArray(VARCHAR, ImmutableList.of("a", "b", "c")), new ArrayType(VARCHAR)));

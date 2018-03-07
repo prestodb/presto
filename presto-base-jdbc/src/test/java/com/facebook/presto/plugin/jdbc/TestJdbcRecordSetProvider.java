@@ -33,6 +33,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
@@ -71,7 +72,7 @@ public class TestJdbcRecordSetProvider
         valueColumn = columns.get("value");
     }
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void tearDown()
             throws Exception
     {
@@ -80,7 +81,6 @@ public class TestJdbcRecordSetProvider
 
     @Test
     public void testGetRecordSet()
-            throws Exception
     {
         ConnectorTransactionHandle transaction = new JdbcTransactionHandle();
         JdbcRecordSetProvider recordSetProvider = new JdbcRecordSetProvider(jdbcClient);
@@ -107,100 +107,80 @@ public class TestJdbcRecordSetProvider
 
     @Test
     public void testTupleDomain()
-            throws Exception
     {
         // single value
         getCursor(table, ImmutableList.of(textColumn, valueColumn), TupleDomain.withColumnDomains(
-                ImmutableMap.of(textColumn, Domain.singleValue(VARCHAR, utf8Slice("foo")))
-        ));
+                ImmutableMap.of(textColumn, Domain.singleValue(VARCHAR, utf8Slice("foo")))));
 
         // multiple values (string)
         getCursor(table, ImmutableList.of(textColumn, valueColumn), TupleDomain.withColumnDomains(
-                ImmutableMap.of(textColumn, Domain.union(ImmutableList.of(Domain.singleValue(VARCHAR, utf8Slice("foo")), Domain.singleValue(VARCHAR, utf8Slice("bar")))))
-        ));
+                ImmutableMap.of(textColumn, Domain.union(ImmutableList.of(Domain.singleValue(VARCHAR, utf8Slice("foo")), Domain.singleValue(VARCHAR, utf8Slice("bar")))))));
 
         // inequality (string)
         getCursor(table, ImmutableList.of(textColumn, valueColumn), TupleDomain.withColumnDomains(
-                ImmutableMap.of(textColumn, Domain.create(ValueSet.ofRanges(Range.greaterThan(VARCHAR, utf8Slice("foo"))), false))
-        ));
+                ImmutableMap.of(textColumn, Domain.create(ValueSet.ofRanges(Range.greaterThan(VARCHAR, utf8Slice("foo"))), false))));
 
         getCursor(table, ImmutableList.of(textColumn, valueColumn), TupleDomain.withColumnDomains(
-                ImmutableMap.of(textColumn, Domain.create(ValueSet.ofRanges(Range.greaterThan(VARCHAR, utf8Slice("foo"))), false))
-        ));
+                ImmutableMap.of(textColumn, Domain.create(ValueSet.ofRanges(Range.greaterThan(VARCHAR, utf8Slice("foo"))), false))));
 
         getCursor(table, ImmutableList.of(textColumn, valueColumn), TupleDomain.withColumnDomains(
-                ImmutableMap.of(textColumn, Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(VARCHAR, utf8Slice("foo"))), false))
-        ));
+                ImmutableMap.of(textColumn, Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(VARCHAR, utf8Slice("foo"))), false))));
 
         getCursor(table, ImmutableList.of(textColumn, valueColumn), TupleDomain.withColumnDomains(
-                ImmutableMap.of(textColumn, Domain.create(ValueSet.ofRanges(Range.lessThan(VARCHAR, utf8Slice("foo"))), false))
-        ));
+                ImmutableMap.of(textColumn, Domain.create(ValueSet.ofRanges(Range.lessThan(VARCHAR, utf8Slice("foo"))), false))));
 
         // is null
         getCursor(table, ImmutableList.of(textColumn, valueColumn), TupleDomain.withColumnDomains(
-                ImmutableMap.of(textColumn, Domain.onlyNull(VARCHAR))
-        ));
+                ImmutableMap.of(textColumn, Domain.onlyNull(VARCHAR))));
 
         // not null
         getCursor(table, ImmutableList.of(textColumn, valueColumn), TupleDomain.withColumnDomains(
-                ImmutableMap.of(textColumn, Domain.notNull(VARCHAR))
-        ));
+                ImmutableMap.of(textColumn, Domain.notNull(VARCHAR))));
 
         // specific value or null
         getCursor(table, ImmutableList.of(textColumn, valueColumn), TupleDomain.withColumnDomains(
-                ImmutableMap.of(textColumn, Domain.union(ImmutableList.of(Domain.singleValue(VARCHAR, utf8Slice("foo")), Domain.onlyNull(VARCHAR))))
-        ));
+                ImmutableMap.of(textColumn, Domain.union(ImmutableList.of(Domain.singleValue(VARCHAR, utf8Slice("foo")), Domain.onlyNull(VARCHAR))))));
 
         getCursor(table, ImmutableList.of(textColumn, valueColumn), TupleDomain.withColumnDomains(
-                ImmutableMap.of(textColumn, Domain.create(ValueSet.ofRanges(Range.range(VARCHAR, utf8Slice("bar"), true, utf8Slice("foo"), true)), false))
-        ));
+                ImmutableMap.of(textColumn, Domain.create(ValueSet.ofRanges(Range.range(VARCHAR, utf8Slice("bar"), true, utf8Slice("foo"), true)), false))));
 
         getCursor(table, ImmutableList.of(textColumn, textShortColumn, valueColumn), TupleDomain.withColumnDomains(
                 ImmutableMap.of(
                         textColumn,
                         Domain.create(ValueSet.ofRanges(
-                                        Range.range(VARCHAR, utf8Slice("bar"), true, utf8Slice("foo"), true),
-                                        Range.range(VARCHAR, utf8Slice("hello"), false, utf8Slice("world"), false)),
-                                false
-                        ),
+                                Range.range(VARCHAR, utf8Slice("bar"), true, utf8Slice("foo"), true),
+                                Range.range(VARCHAR, utf8Slice("hello"), false, utf8Slice("world"), false)),
+                                false),
 
                         textShortColumn,
                         Domain.create(ValueSet.ofRanges(
-                                        Range.range(createVarcharType(32), utf8Slice("bar"), true, utf8Slice("foo"), true),
-                                        Range.range(createVarcharType(32), utf8Slice("hello"), false, utf8Slice("world"), false)),
-                                false
-                        )
-                )
-        ));
+                                Range.range(createVarcharType(32), utf8Slice("bar"), true, utf8Slice("foo"), true),
+                                Range.range(createVarcharType(32), utf8Slice("hello"), false, utf8Slice("world"), false)),
+                                false))));
 
         getCursor(table, ImmutableList.of(textColumn, valueColumn), TupleDomain.withColumnDomains(
                 ImmutableMap.of(
                         textColumn,
                         Domain.create(ValueSet.ofRanges(
-                                        Range.range(VARCHAR, utf8Slice("bar"), true, utf8Slice("foo"), true),
-                                        Range.range(VARCHAR, utf8Slice("hello"), false, utf8Slice("world"), false),
-                                        Range.equal(VARCHAR, utf8Slice("apple")),
-                                        Range.equal(VARCHAR, utf8Slice("banana")),
-                                        Range.equal(VARCHAR, utf8Slice("zoo"))),
-                                false
-                        ),
+                                Range.range(VARCHAR, utf8Slice("bar"), true, utf8Slice("foo"), true),
+                                Range.range(VARCHAR, utf8Slice("hello"), false, utf8Slice("world"), false),
+                                Range.equal(VARCHAR, utf8Slice("apple")),
+                                Range.equal(VARCHAR, utf8Slice("banana")),
+                                Range.equal(VARCHAR, utf8Slice("zoo"))),
+                                false),
 
                         valueColumn,
                         Domain.create(ValueSet.ofRanges(
-                                        Range.range(BIGINT, 1L, true, 5L, true),
-                                        Range.range(BIGINT, 10L, false, 20L, false)),
-                                true
-                        )
-                )
-        ));
+                                Range.range(BIGINT, 1L, true, 5L, true),
+                                Range.range(BIGINT, 10L, false, 20L, false)),
+                                true))));
     }
 
     private RecordCursor getCursor(JdbcTableHandle jdbcTableHandle, List<JdbcColumnHandle> columns, TupleDomain<ColumnHandle> domain)
-            throws InterruptedException
     {
         JdbcTableLayoutHandle layoutHandle = new JdbcTableLayoutHandle(jdbcTableHandle, domain);
         ConnectorSplitSource splits = jdbcClient.getSplits(layoutHandle);
-        JdbcSplit split = (JdbcSplit) getOnlyElement(getFutureValue(splits.getNextBatch(1000)));
+        JdbcSplit split = (JdbcSplit) getOnlyElement(getFutureValue(splits.getNextBatch(NOT_PARTITIONED, 1000)).getSplits());
 
         ConnectorTransactionHandle transaction = new JdbcTransactionHandle();
         JdbcRecordSetProvider recordSetProvider = new JdbcRecordSetProvider(jdbcClient);

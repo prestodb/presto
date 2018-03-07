@@ -26,9 +26,8 @@ import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
-import java.sql.Date;
-import java.sql.SQLException;
-import java.sql.Timestamp;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 import static com.facebook.presto.plugin.blackhole.BlackHoleConnector.FIELD_LENGTH_PROPERTY;
@@ -66,8 +65,15 @@ public class TestBlackHoleSmoke
     }
 
     @Test
+    public void testCreateSchema()
+    {
+        assertEquals(queryRunner.execute("SHOW SCHEMAS FROM blackhole").getRowCount(), 2);
+        queryRunner.execute("CREATE SCHEMA blackhole.test");
+        assertEquals(queryRunner.execute("SHOW SCHEMAS FROM blackhole").getRowCount(), 3);
+    }
+
+    @Test
     public void createTableWhenTableIsAlreadyCreated()
-            throws SQLException
     {
         String createTableSql = "CREATE TABLE nation as SELECT * FROM tpch.tiny.nation";
         queryRunner.execute(createTableSql);
@@ -85,7 +91,6 @@ public class TestBlackHoleSmoke
 
     @Test
     public void blackHoleConnectorUsage()
-            throws SQLException
     {
         assertThatQueryReturnsValue("CREATE TABLE nation as SELECT * FROM tpch.tiny.nation", 25L);
 
@@ -134,6 +139,24 @@ public class TestBlackHoleSmoke
     }
 
     @Test
+    public void testCreateTableInNotExistSchema()
+    {
+        int tablesBeforeCreate = listBlackHoleTables().size();
+
+        String createTableSql = "CREATE TABLE schema1.test_table (x date)";
+        try {
+            queryRunner.execute(createTableSql);
+            fail("Expected exception to be thrown here!");
+        }
+        catch (RuntimeException ex) {
+            assertTrue(ex.getMessage().equals("Schema schema1 not found"));
+        }
+
+        int tablesAfterCreate = listBlackHoleTables().size();
+        assertEquals(tablesBeforeCreate, tablesAfterCreate);
+    }
+
+    @Test
     public void dataGenerationUsage()
     {
         Session session = testSessionBuilder()
@@ -174,7 +197,7 @@ public class TestBlackHoleSmoke
 
         assertThatQueryReturnsValue(
                 format("CREATE TABLE nation WITH ( %s = 8, %s = 1, %s = 1, %s = 1 ) AS " +
-                        "SELECT nationkey, name, regionkey, comment, 'abc' short_varchar FROM tpch.tiny.nation",
+                                "SELECT nationkey, name, regionkey, comment, 'abc' short_varchar FROM tpch.tiny.nation",
                         FIELD_LENGTH_PROPERTY,
                         ROWS_PER_PAGE_PROPERTY,
                         PAGES_PER_SPLIT_PROPERTY,
@@ -197,7 +220,6 @@ public class TestBlackHoleSmoke
 
     @Test
     public void testInsertAllTypes()
-            throws Exception
     {
         createBlackholeAllTypesTable();
         assertThatQueryReturnsValue(
@@ -220,7 +242,6 @@ public class TestBlackHoleSmoke
 
     @Test
     public void testSelectAllTypes()
-            throws Exception
     {
         createBlackholeAllTypesTable();
         MaterializedResult rows = queryRunner.execute("SELECT * FROM blackhole_all_types");
@@ -235,11 +256,20 @@ public class TestBlackHoleSmoke
         assertEquals(row.getField(5), 0.0f);
         assertEquals(row.getField(6), 0.0);
         assertEquals(row.getField(7), false);
-        assertEquals(row.getField(8), new Date(0));
-        assertEquals(row.getField(9), new Timestamp(0));
+        assertEquals(row.getField(8), LocalDate.ofEpochDay(0));
+        assertEquals(row.getField(9), LocalDateTime.of(1970, 1, 1, 0, 0, 0));
         assertEquals(row.getField(10), "****************".getBytes());
         assertEquals(row.getField(11), new BigDecimal("0.00"));
         assertEquals(row.getField(12), new BigDecimal("00000000000000000000.0000000000"));
+        dropBlackholeAllTypesTable();
+    }
+
+    @Test
+    public void testSelectWithUnenforcedConstraint()
+    {
+        createBlackholeAllTypesTable();
+        MaterializedResult rows = queryRunner.execute("SELECT * FROM blackhole_all_types where _bigint > 10");
+        assertEquals(rows.getRowCount(), 0);
         dropBlackholeAllTypesTable();
     }
 
@@ -274,7 +304,6 @@ public class TestBlackHoleSmoke
 
     @Test
     public void pageProcessingDelay()
-            throws Exception
     {
         Session session = testSessionBuilder()
                 .setCatalog("blackhole")

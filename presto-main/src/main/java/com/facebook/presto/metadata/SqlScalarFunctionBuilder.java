@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -26,9 +27,10 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.ImmutableList.copyOf;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
@@ -42,8 +44,7 @@ public final class SqlScalarFunctionBuilder
     private Optional<Boolean> hidden = Optional.empty();
     private boolean deterministic;
     private boolean nullableResult;
-    private List<Boolean> nullableArguments = emptyList();
-    private List<Boolean> nullFlags = emptyList();
+    private List<ArgumentProperty> argumentProperties = emptyList();
     private List<MethodsGroup> methodsGroups = new ArrayList<>();
 
     public SqlScalarFunctionBuilder(Class<?> clazz)
@@ -82,33 +83,16 @@ public final class SqlScalarFunctionBuilder
         return this;
     }
 
-    public SqlScalarFunctionBuilder nullableArguments(boolean... nullableArguments)
+    public SqlScalarFunctionBuilder argumentProperties(ArgumentProperty... argumentProperties)
     {
-        requireNonNull(nullableArguments, "nullableArguments is null");
-
-        ImmutableList.Builder<Boolean> nullableArgumentsBuilder = ImmutableList.builder();
-        for (boolean nullableArgument : nullableArguments) {
-            nullableArgumentsBuilder.add(nullableArgument);
-        }
-        this.nullableArguments = nullableArgumentsBuilder.build();
+        requireNonNull(argumentProperties, "argumentProperties is null");
+        this.argumentProperties = ImmutableList.copyOf(argumentProperties);
         return this;
     }
 
-    public SqlScalarFunctionBuilder nullableArguments(List<Boolean> nullableArguments)
+    public SqlScalarFunctionBuilder argumentProperties(List<ArgumentProperty> argumentProperties)
     {
-        this.nullableArguments = copyOf(requireNonNull(nullableArguments, "nullableArguments is null"));
-        return this;
-    }
-
-    public SqlScalarFunctionBuilder nullFlags(boolean... nullFlags)
-    {
-        requireNonNull(nullFlags, "nullFlags is null");
-
-        ImmutableList.Builder<Boolean> nullFlagsBuilder = ImmutableList.builder();
-        for (boolean flag : nullFlags) {
-            nullFlagsBuilder.add(flag);
-        }
-        this.nullFlags = nullFlagsBuilder.build();
+        this.argumentProperties = ImmutableList.copyOf(requireNonNull(argumentProperties, "argumentProperties is null"));
         return this;
     }
 
@@ -125,11 +109,8 @@ public final class SqlScalarFunctionBuilder
     {
         checkState(signature != null, "signature is null");
 
-        if (nullableArguments.isEmpty()) {
-            nullableArguments = Collections.nCopies(signature.getArgumentTypes().size(), false);
-        }
-        if (nullFlags.isEmpty()) {
-            nullFlags = Collections.nCopies(signature.getArgumentTypes().size(), false);
+        if (argumentProperties.isEmpty()) {
+            argumentProperties = Collections.nCopies(signature.getArgumentTypes().size(), valueTypeArgumentProperty(RETURN_NULL_ON_NULL));
         }
 
         return new PolymorphicScalarFunction(
@@ -138,8 +119,7 @@ public final class SqlScalarFunctionBuilder
                 hidden.orElse(false),
                 deterministic,
                 nullableResult,
-                nullableArguments,
-                nullFlags,
+                argumentProperties,
                 methodsGroups);
     }
 
@@ -222,7 +202,7 @@ public final class SqlScalarFunctionBuilder
     public static class MethodsGroupBuilder
     {
         private final Class<?> clazz;
-        private List<Method> methods = null;
+        private List<Method> methods;
         private Optional<Predicate<SpecializeContext>> predicate = Optional.empty();
         private Optional<Function<SpecializeContext, List<Object>>> extraParametersFunction = Optional.empty();
 

@@ -16,6 +16,7 @@ package com.facebook.presto.operator.index;
 import com.facebook.presto.Session;
 import com.facebook.presto.operator.GroupByHash;
 import com.facebook.presto.operator.GroupByIdBlock;
+import com.facebook.presto.operator.Work;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
@@ -39,6 +40,7 @@ import static com.facebook.presto.operator.GroupByHash.createGroupByHash;
 import static com.facebook.presto.operator.index.IndexSnapshot.UNLOADED_INDEX_KEY;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
 public class UnloadedIndexKeyRecordSet
@@ -79,7 +81,11 @@ public class UnloadedIndexKeyRecordSet
             }
 
             // Move through the positions while advancing the cursors in lockstep
-            GroupByIdBlock groupIds = groupByHash.getGroupIds(new Page(distinctBlocks));
+            Work<GroupByIdBlock> work = groupByHash.getGroupIds(new Page(distinctBlocks));
+            boolean done = work.process();
+            // TODO: this class does not yield wrt memory limit; enable it
+            verify(done);
+            GroupByIdBlock groupIds = work.getResult();
             int positionCount = blocks[0].getPositionCount();
             long nextDistinctId = -1;
             checkArgument(groupIds.getGroupCount() <= Integer.MAX_VALUE);
@@ -144,12 +150,6 @@ public class UnloadedIndexKeyRecordSet
             this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
             this.pageAndPositionsIterator = requireNonNull(pageAndPositions, "pageAndPositions is null").iterator();
             this.blocks = new Block[types.size()];
-        }
-
-        @Override
-        public long getTotalBytes()
-        {
-            return 0;
         }
 
         @Override

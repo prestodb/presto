@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.operator.PipelineExecutionStrategy;
 import com.facebook.presto.split.SampledSplitSource;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.split.SplitSource;
@@ -56,10 +57,12 @@ import io.airlift.log.Logger;
 
 import javax.inject.Inject;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.operator.PipelineExecutionStrategy.GROUPED_EXECUTION;
+import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.GROUPED_SCHEDULING;
+import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 
@@ -77,12 +80,12 @@ public class DistributedExecutionPlanner
 
     public StageExecutionPlan plan(SubPlan root, Session session)
     {
-        Visitor visitor = new Visitor(session);
+        ImmutableList.Builder<SplitSource> allSplitSources = ImmutableList.builder();
         try {
-            return plan(root, visitor);
+            return doPlan(root, session, allSplitSources);
         }
         catch (Throwable t) {
-            visitor.getSplitSources().forEach(DistributedExecutionPlanner::closeSplitSource);
+            allSplitSources.build().forEach(DistributedExecutionPlanner::closeSplitSource);
             throw t;
         }
     }
@@ -97,17 +100,17 @@ public class DistributedExecutionPlanner
         }
     }
 
-    private StageExecutionPlan plan(SubPlan root, Visitor visitor)
+    private StageExecutionPlan doPlan(SubPlan root, Session session, ImmutableList.Builder<SplitSource> allSplitSources)
     {
         PlanFragment currentFragment = root.getFragment();
 
         // get splits for this fragment, this is lazy so split assignments aren't actually calculated here
-        Map<PlanNodeId, SplitSource> splitSources = currentFragment.getRoot().accept(visitor, null);
+        Map<PlanNodeId, SplitSource> splitSources = currentFragment.getRoot().accept(new Visitor(session, currentFragment.getPipelineExecutionStrategy(), allSplitSources), null);
 
         // create child stages
         ImmutableList.Builder<StageExecutionPlan> dependencies = ImmutableList.builder();
         for (SubPlan childPlan : root.getChildren()) {
-            dependencies.add(plan(childPlan, visitor));
+            dependencies.add(doPlan(childPlan, session, allSplitSources));
         }
 
         return new StageExecutionPlan(
@@ -120,16 +123,14 @@ public class DistributedExecutionPlanner
             extends PlanVisitor<Map<PlanNodeId, SplitSource>, Void>
     {
         private final Session session;
-        private final List<SplitSource> splitSources = new ArrayList<>();
+        private final PipelineExecutionStrategy pipelineExecutionStrategy;
+        private final ImmutableList.Builder<SplitSource> splitSources;
 
-        private Visitor(Session session)
+        private Visitor(Session session, PipelineExecutionStrategy pipelineExecutionStrategy, ImmutableList.Builder<SplitSource> allSplitSources)
         {
             this.session = session;
-        }
-
-        public List<SplitSource> getSplitSources()
-        {
-            return splitSources;
+            this.pipelineExecutionStrategy = pipelineExecutionStrategy;
+            this.splitSources = allSplitSources;
         }
 
         @Override
@@ -142,7 +143,10 @@ public class DistributedExecutionPlanner
         public Map<PlanNodeId, SplitSource> visitTableScan(TableScanNode node, Void context)
         {
             // get dataSource for table
-            SplitSource splitSource = splitManager.getSplits(session, node.getLayout().get());
+            SplitSource splitSource = splitManager.getSplits(
+                    session,
+                    node.getLayout().get(),
+                    pipelineExecutionStrategy == GROUPED_EXECUTION ? GROUPED_SCHEDULING : UNGROUPED_SCHEDULING);
 
             splitSources.add(splitSource);
 

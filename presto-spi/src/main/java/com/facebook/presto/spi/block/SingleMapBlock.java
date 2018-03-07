@@ -30,7 +30,7 @@ import static io.airlift.slice.SizeOf.sizeOfIntArray;
 public class SingleMapBlock
         extends AbstractSingleMapBlock
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleMapBlockWriter.class).instanceSize();
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleMapBlock.class).instanceSize();
 
     private final int offset;
     private final int positionCount;
@@ -43,8 +43,6 @@ public class SingleMapBlock
 
     SingleMapBlock(int offset, int positionCount, Block keyBlock, Block valueBlock, int[] hashTable, Type keyType, MethodHandle keyNativeHashCode, MethodHandle keyBlockNativeEquals)
     {
-        super(offset, keyBlock, valueBlock);
-
         this.offset = offset;
         this.positionCount = positionCount;
         this.keyBlock = keyBlock;
@@ -90,16 +88,19 @@ public class SingleMapBlock
         return new SingleMapBlockEncoding(keyType, keyNativeHashCode, keyBlockNativeEquals, keyBlock.getEncoding(), valueBlock.getEncoding());
     }
 
+    @Override
     public int getOffset()
     {
         return offset;
     }
 
+    @Override
     Block getKeyBlock()
     {
         return keyBlock;
     }
 
+    @Override
     Block getValueBlock()
     {
         return valueBlock;

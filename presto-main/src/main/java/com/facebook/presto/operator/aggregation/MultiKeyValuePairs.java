@@ -91,7 +91,7 @@ public class MultiKeyValuePairs
         BlockBuilder distinctKeyBlockBuilder = keyType.createBlockBuilder(null, keys.getPositionCount(), expectedValueSize(keyType, EXPECTED_ENTRY_SIZE));
         ObjectBigArray<BlockBuilder> valueArrayBlockBuilders = new ObjectBigArray<>();
         valueArrayBlockBuilders.ensureCapacity(keys.getPositionCount());
-        TypedSet keySet = new TypedSet(keyType, keys.getPositionCount());
+        TypedSet keySet = new TypedSet(keyType, keys.getPositionCount(), MultimapAggregationFunction.NAME);
         for (int keyValueIndex = 0; keyValueIndex < keys.getPositionCount(); keyValueIndex++) {
             if (!keySet.contains(keys, keyValueIndex)) {
                 keySet.add(keys, keyValueIndex);

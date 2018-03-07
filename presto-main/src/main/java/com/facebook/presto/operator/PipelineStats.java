@@ -52,7 +52,8 @@ public class PipelineStats
     private final int blockedDrivers;
     private final int completedDrivers;
 
-    private final DataSize memoryReservation;
+    private final DataSize userMemoryReservation;
+    private final DataSize revocableMemoryReservation;
     private final DataSize systemMemoryReservation;
 
     private final DistributionSnapshot queuedTime;
@@ -73,6 +74,8 @@ public class PipelineStats
 
     private final DataSize outputDataSize;
     private final long outputPositions;
+
+    private final DataSize physicalWrittenDataSize;
 
     private final List<OperatorStats> operatorSummaries;
     private final List<DriverStats> drivers;
@@ -96,7 +99,8 @@ public class PipelineStats
             @JsonProperty("blockedDrivers") int blockedDrivers,
             @JsonProperty("completedDrivers") int completedDrivers,
 
-            @JsonProperty("memoryReservation") DataSize memoryReservation,
+            @JsonProperty("userMemoryReservation") DataSize userMemoryReservation,
+            @JsonProperty("revocableMemoryReservation") DataSize revocableMemoryReservation,
             @JsonProperty("systemMemoryReservation") DataSize systemMemoryReservation,
 
             @JsonProperty("queuedTime") DistributionSnapshot queuedTime,
@@ -117,6 +121,8 @@ public class PipelineStats
 
             @JsonProperty("outputDataSize") DataSize outputDataSize,
             @JsonProperty("outputPositions") long outputPositions,
+
+            @JsonProperty("physicalWrittenDataSize") DataSize physicalWrittenDataSize,
 
             @JsonProperty("operatorSummaries") List<OperatorStats> operatorSummaries,
             @JsonProperty("drivers") List<DriverStats> drivers)
@@ -145,7 +151,8 @@ public class PipelineStats
         checkArgument(completedDrivers >= 0, "completedDrivers is negative");
         this.completedDrivers = completedDrivers;
 
-        this.memoryReservation = requireNonNull(memoryReservation, "memoryReservation is null");
+        this.userMemoryReservation = requireNonNull(userMemoryReservation, "userMemoryReservation is null");
+        this.revocableMemoryReservation = requireNonNull(revocableMemoryReservation, "revocableMemoryReservation is null");
         this.systemMemoryReservation = requireNonNull(systemMemoryReservation, "systemMemoryReservation is null");
 
         this.queuedTime = requireNonNull(queuedTime, "queuedTime is null");
@@ -169,6 +176,8 @@ public class PipelineStats
         this.outputDataSize = requireNonNull(outputDataSize, "outputDataSize is null");
         checkArgument(outputPositions >= 0, "outputPositions is negative");
         this.outputPositions = outputPositions;
+
+        this.physicalWrittenDataSize = requireNonNull(physicalWrittenDataSize, "writtenDataSize is null");
 
         this.operatorSummaries = ImmutableList.copyOf(requireNonNull(operatorSummaries, "operatorSummaries is null"));
         this.drivers = ImmutableList.copyOf(requireNonNull(drivers, "drivers is null"));
@@ -256,9 +265,15 @@ public class PipelineStats
     }
 
     @JsonProperty
-    public DataSize getMemoryReservation()
+    public DataSize getUserMemoryReservation()
     {
-        return memoryReservation;
+        return userMemoryReservation;
+    }
+
+    @JsonProperty
+    public DataSize getRevocableMemoryReservation()
+    {
+        return revocableMemoryReservation;
     }
 
     @JsonProperty
@@ -352,6 +367,12 @@ public class PipelineStats
     }
 
     @JsonProperty
+    public DataSize getPhysicalWrittenDataSize()
+    {
+        return physicalWrittenDataSize;
+    }
+
+    @JsonProperty
     public List<OperatorStats> getOperatorSummaries()
     {
         return operatorSummaries;
@@ -379,7 +400,8 @@ public class PipelineStats
                 runningPartitionedDrivers,
                 blockedDrivers,
                 completedDrivers,
-                memoryReservation,
+                userMemoryReservation,
+                revocableMemoryReservation,
                 systemMemoryReservation,
                 queuedTime,
                 elapsedTime,
@@ -395,6 +417,7 @@ public class PipelineStats
                 processedInputPositions,
                 outputDataSize,
                 outputPositions,
+                physicalWrittenDataSize,
                 operatorSummaries.stream()
                         .map(OperatorStats::summarize)
                         .collect(Collectors.toList()),

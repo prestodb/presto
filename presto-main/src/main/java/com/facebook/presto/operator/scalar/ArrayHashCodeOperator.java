@@ -13,8 +13,6 @@ package com.facebook.presto.operator.scalar;
  * limitations under the License.
  */
 
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.OperatorDependency;
 import com.facebook.presto.spi.function.ScalarOperator;
@@ -23,7 +21,6 @@ import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.function.TypeParameterSpecialization;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Throwables;
 import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
@@ -31,6 +28,7 @@ import java.lang.invoke.MethodHandle;
 import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
 import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
 import static com.facebook.presto.type.TypeUtils.NULL_HASH_CODE;
+import static com.facebook.presto.util.Failures.internalError;
 
 @ScalarOperator(HASH_CODE)
 public final class ArrayHashCodeOperator
@@ -134,13 +132,5 @@ public final class ArrayHashCodeOperator
         catch (Throwable t) {
             throw internalError(t);
         }
-    }
-
-    private static PrestoException internalError(Throwable t)
-    {
-        Throwables.propagateIfInstanceOf(t, Error.class);
-        Throwables.propagateIfInstanceOf(t, PrestoException.class);
-
-        return new PrestoException(StandardErrorCode.GENERIC_INTERNAL_ERROR, t);
     }
 }

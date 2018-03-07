@@ -129,7 +129,7 @@ public class QueryExecutionResource
                         task.getStats().getRawInputPositions(),
                         task.getStats().getOutputDataSize().roundTo(DataSize.Unit.BYTE),
                         task.getStats().getOutputPositions(),
-                        task.getStats().getMemoryReservation().roundTo(DataSize.Unit.BYTE),
+                        task.getStats().getUserMemoryReservation().roundTo(DataSize.Unit.BYTE),
                         task.getStats().getQueuedDrivers(),
                         task.getStats().getRunningDrivers(),
                         task.getStats().getCompletedDrivers(),

@@ -5,7 +5,7 @@
     <parent>
         <artifactId>presto-root</artifactId>
         <groupId>com.facebook.presto</groupId>
-        <version>0.180-SNAPSHOT</version>
+        <version>0.197-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-product-tests</artifactId>
@@ -26,15 +26,15 @@
             <artifactId>presto-main</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.teradata.tempto</groupId>
+            <groupId>io.prestodb.tempto</groupId>
             <artifactId>tempto-core</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.teradata.tempto</groupId>
+            <groupId>io.prestodb.tempto</groupId>
             <artifactId>tempto-ldap</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.teradata.tempto</groupId>
+            <groupId>io.prestodb.tempto</groupId>
             <artifactId>tempto-runner</artifactId>
         </dependency>
         <dependency>
@@ -50,12 +50,20 @@
             <artifactId>guice</artifactId>
         </dependency>
         <dependency>
+            <groupId>joda-time</groupId>
+            <artifactId>joda-time</artifactId>
+        </dependency>
+        <dependency>
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>
         </dependency>
         <dependency>
             <groupId>org.testng</groupId>
             <artifactId>testng</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>testing</artifactId>
         </dependency>
         <dependency>
             <groupId>javax.inject</groupId>

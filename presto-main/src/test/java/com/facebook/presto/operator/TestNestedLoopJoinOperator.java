@@ -29,6 +29,7 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
@@ -40,6 +41,7 @@ import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.google.common.collect.Iterables.concat;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -47,22 +49,24 @@ import static org.testng.Assert.assertTrue;
 public class TestNestedLoopJoinOperator
 {
     private ExecutorService executor;
+    private ScheduledExecutorService scheduledExecutor;
 
     @BeforeClass
     public void setUp()
     {
-        executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
+        executor = newCachedThreadPool(daemonThreadsNamed("test-executor-%s"));
+        scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
     }
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void tearDown()
     {
         executor.shutdownNow();
+        scheduledExecutor.shutdownNow();
     }
 
     @Test
     public void testNestedLoopJoin()
-            throws Exception
     {
         TaskContext taskContext = createTaskContext();
         // build
@@ -116,7 +120,6 @@ public class TestNestedLoopJoinOperator
 
     @Test
     public void testCrossJoinWithNullProbe()
-            throws Exception
     {
         TaskContext taskContext = createTaskContext();
 
@@ -159,7 +162,6 @@ public class TestNestedLoopJoinOperator
 
     @Test
     public void testCrossJoinWithNullBuild()
-            throws Exception
     {
         TaskContext taskContext = createTaskContext();
 
@@ -201,7 +203,6 @@ public class TestNestedLoopJoinOperator
 
     @Test
     public void testCrossJoinWithNullOnBothSides()
-            throws Exception
     {
         TaskContext taskContext = createTaskContext();
 
@@ -255,7 +256,6 @@ public class TestNestedLoopJoinOperator
 
     @Test
     public void testBuildMultiplePages()
-            throws Exception
     {
         TaskContext taskContext = createTaskContext();
 
@@ -299,7 +299,6 @@ public class TestNestedLoopJoinOperator
 
     @Test
     public void testProbeMultiplePages()
-            throws Exception
     {
         TaskContext taskContext = createTaskContext();
 
@@ -343,7 +342,6 @@ public class TestNestedLoopJoinOperator
 
     @Test
     public void testProbeAndBuildMultiplePages()
-            throws Exception
     {
         TaskContext taskContext = createTaskContext();
 
@@ -394,7 +392,6 @@ public class TestNestedLoopJoinOperator
 
     @Test
     public void testEmptyProbePage()
-            throws Exception
     {
         TaskContext taskContext = createTaskContext();
 
@@ -424,7 +421,6 @@ public class TestNestedLoopJoinOperator
 
     @Test
     public void testEmptyBuildPage()
-            throws Exception
     {
         TaskContext taskContext = createTaskContext();
 
@@ -453,7 +449,6 @@ public class TestNestedLoopJoinOperator
 
     @Test
     public void testCount()
-            throws Exception
     {
         // normal case
         Page buildPage = new Page(100);
@@ -481,7 +476,7 @@ public class TestNestedLoopJoinOperator
 
     private TaskContext createTaskContext()
     {
-        return TestingTaskContext.createTaskContext(executor, TEST_SESSION);
+        return TestingTaskContext.createTaskContext(executor, scheduledExecutor, TEST_SESSION);
     }
 
     private static NestedLoopJoinPagesSupplier buildPageSource(TaskContext taskContext, RowPagesBuilder buildPages)
@@ -491,12 +486,12 @@ public class TestNestedLoopJoinOperator
         ValuesOperatorFactory valuesOperatorFactory = new ValuesOperatorFactory(0, new PlanNodeId("test"), buildPages.getTypes(), buildPages.build());
         NestedLoopBuildOperatorFactory nestedLoopBuildOperatorFactory = new NestedLoopBuildOperatorFactory(1, new PlanNodeId("test"), buildPages.getTypes());
 
-        Driver driver = new Driver(driverContext,
+        Driver driver = Driver.createDriver(driverContext,
                 valuesOperatorFactory.createOperator(driverContext),
                 nestedLoopBuildOperatorFactory.createOperator(driverContext));
 
-        valuesOperatorFactory.close();
-        nestedLoopBuildOperatorFactory.close();
+        valuesOperatorFactory.noMoreOperators();
+        nestedLoopBuildOperatorFactory.noMoreOperators();
 
         while (!driver.isFinished()) {
             driver.process();

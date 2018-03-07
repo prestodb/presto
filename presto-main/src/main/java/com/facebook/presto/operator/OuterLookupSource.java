@@ -31,7 +31,7 @@ import static java.util.Objects.requireNonNull;
 public final class OuterLookupSource
         implements LookupSource
 {
-    public static Supplier<LookupSource> createOuterLookupSourceSupplier(Supplier<LookupSource> lookupSourceSupplier)
+    public static TrackingLookupSourceSupplier createOuterLookupSourceSupplier(Supplier<LookupSource> lookupSourceSupplier)
     {
         return new OuterLookupSourceSupplier(lookupSourceSupplier);
     }
@@ -52,7 +52,7 @@ public final class OuterLookupSource
     }
 
     @Override
-    public int getJoinPositionCount()
+    public long getJoinPositionCount()
     {
         return lookupSource.getJoinPositionCount();
     }
@@ -61,6 +61,12 @@ public final class OuterLookupSource
     public long getInMemorySizeInBytes()
     {
         return lookupSource.getInMemorySizeInBytes();
+    }
+
+    @Override
+    public long joinPositionWithinPartition(long joinPosition)
+    {
+        return lookupSource.joinPositionWithinPartition(joinPosition);
     }
 
     @Override
@@ -92,12 +98,6 @@ public final class OuterLookupSource
     {
         lookupSource.appendTo(position, pageBuilder, outputChannelOffset);
         outerPositionTracker.positionVisited(position);
-    }
-
-    @Override
-    public OuterPositionIterator getOuterPositionIterator()
-    {
-        return outerPositionTracker.getOuterPositionIterator();
     }
 
     @Override
@@ -140,7 +140,7 @@ public final class OuterLookupSource
 
     @ThreadSafe
     private static class OuterLookupSourceSupplier
-            implements Supplier<LookupSource>
+            implements TrackingLookupSourceSupplier
     {
         private final Supplier<LookupSource> lookupSourceSupplier;
         private final OuterPositionTracker outerPositionTracker;
@@ -152,9 +152,14 @@ public final class OuterLookupSource
         }
 
         @Override
-        public LookupSource get()
+        public LookupSource getLookupSource()
         {
             return new OuterLookupSource(lookupSourceSupplier.get(), outerPositionTracker);
+        }
+
+        public OuterPositionIterator getOuterPositionIterator()
+        {
+            return outerPositionTracker.getOuterPositionIterator();
         }
     }
 
@@ -174,7 +179,7 @@ public final class OuterLookupSource
             this.lookupSourceSupplier = lookupSourceSupplier;
 
             try (LookupSource lookupSource = lookupSourceSupplier.get()) {
-                this.visitedPositions = new boolean[lookupSource.getJoinPositionCount()];
+                this.visitedPositions = new boolean[toIntExact(lookupSource.getJoinPositionCount())];
             }
         }
 

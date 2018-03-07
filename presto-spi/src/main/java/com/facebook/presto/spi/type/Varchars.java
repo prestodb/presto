@@ -17,6 +17,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
 import static io.airlift.slice.SliceUtf8.offsetOfCodePoint;
+import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
 public final class Varchars
@@ -52,17 +53,49 @@ public final class Varchars
         if (maxLength == 0) {
             return Slices.EMPTY_SLICE;
         }
+
+        return slice.slice(0, byteCount(slice, 0, slice.length(), maxLength));
+    }
+
+    /**
+     * Get the byte count of a given {@param slice} with in range {@param offset} to {@param offset} + {@param length}
+     * for at most {@param codePointCount} many code points
+     */
+    public static int byteCount(Slice slice, int offset, int length, int codePointCount)
+    {
+        requireNonNull(slice, "slice is null");
+        if (length < 0) {
+            throw new IllegalArgumentException("length must be greater than or equal to zero");
+        }
+        if (offset < 0 || offset + length > slice.length()) {
+            throw new IllegalArgumentException("invalid offset/length");
+        }
+        if (codePointCount < 0) {
+            throw new IllegalArgumentException("codePointsCount must be greater than or equal to zero");
+        }
+        if (codePointCount == 0) {
+            return 0;
+        }
+
         // min codepoint size is 1 byte.
         // if size in bytes is less than the max length
         // we don't need to decode codepoints
-        int sizeInBytes = slice.length();
-        if (sizeInBytes <= maxLength) {
-            return slice;
+        if (codePointCount > length) {
+            return length;
         }
-        int indexEnd = offsetOfCodePoint(slice, maxLength);
-        if (indexEnd < 0) {
-            return slice;
+
+        // get the end index with respect to code point count
+        int endIndex = offsetOfCodePoint(slice, offset, codePointCount);
+        if (endIndex < 0) {
+            // end index runs over the slice's length
+            return length;
         }
-        return slice.slice(0, indexEnd);
+        if (offset > endIndex) {
+            throw new AssertionError("offset cannot be smaller than or equal to endIndex");
+        }
+
+        // end index could run over length because of large code points (e.g., 4-byte code points)
+        // or within length because of small code points (e.g., 1-byte code points)
+        return min(endIndex - offset, length);
     }
 }

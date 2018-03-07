@@ -14,7 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
-import com.facebook.presto.hive.metastore.TestingHiveMetastore;
+import com.facebook.presto.hive.metastore.thrift.TestingHiveMetastore;
 
 import java.io.File;
 

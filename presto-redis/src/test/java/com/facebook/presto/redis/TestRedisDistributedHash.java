@@ -34,7 +34,6 @@ public class TestRedisDistributedHash
     }
 
     public TestRedisDistributedHash(EmbeddedRedis embeddedRedis)
-            throws Exception
     {
         super(() -> RedisQueryRunner.createRedisQueryRunner(embeddedRedis, "hash", TpchTable.getTables()));
         this.embeddedRedis = embeddedRedis;

@@ -25,7 +25,6 @@ public class TestVarcharOperators
 {
     @Test
     public void testLiteral()
-            throws Exception
     {
         assertFunction("'foo'", createVarcharType(3), "foo");
         assertFunction("'bar'", createVarcharType(3), "bar");
@@ -34,7 +33,6 @@ public class TestVarcharOperators
 
     @Test
     public void testTypeConstructor()
-            throws Exception
     {
         assertFunction("VARCHAR 'foo'", VARCHAR, "foo");
         assertFunction("VARCHAR 'bar'", VARCHAR, "bar");
@@ -43,7 +41,6 @@ public class TestVarcharOperators
 
     @Test
     public void testAdd()
-            throws Exception
     {
         // TODO change expected return type to createVarcharType(6) when function resolving is fixed
         assertFunction("'foo' || 'foo'", VARCHAR, "foo" + "foo");
@@ -55,7 +52,6 @@ public class TestVarcharOperators
 
     @Test
     public void testEqual()
-            throws Exception
     {
         assertFunction("'foo' = 'foo'", BOOLEAN, true);
         assertFunction("'foo' = 'bar'", BOOLEAN, false);
@@ -65,7 +61,6 @@ public class TestVarcharOperators
 
     @Test
     public void testNotEqual()
-            throws Exception
     {
         assertFunction("'foo' <> 'foo'", BOOLEAN, false);
         assertFunction("'foo' <> 'bar'", BOOLEAN, true);
@@ -75,7 +70,6 @@ public class TestVarcharOperators
 
     @Test
     public void testLessThan()
-            throws Exception
     {
         assertFunction("'foo' < 'foo'", BOOLEAN, false);
         assertFunction("'foo' < 'bar'", BOOLEAN, false);
@@ -85,7 +79,6 @@ public class TestVarcharOperators
 
     @Test
     public void testLessThanOrEqual()
-            throws Exception
     {
         assertFunction("'foo' <= 'foo'", BOOLEAN, true);
         assertFunction("'foo' <= 'bar'", BOOLEAN, false);
@@ -95,7 +88,6 @@ public class TestVarcharOperators
 
     @Test
     public void testGreaterThan()
-            throws Exception
     {
         assertFunction("'foo' > 'foo'", BOOLEAN, false);
         assertFunction("'foo' > 'bar'", BOOLEAN, true);
@@ -105,7 +97,6 @@ public class TestVarcharOperators
 
     @Test
     public void testGreaterThanOrEqual()
-            throws Exception
     {
         assertFunction("'foo' >= 'foo'", BOOLEAN, true);
         assertFunction("'foo' >= 'bar'", BOOLEAN, true);
@@ -115,7 +106,6 @@ public class TestVarcharOperators
 
     @Test
     public void testBetween()
-            throws Exception
     {
         assertFunction("'foo' BETWEEN 'foo' AND 'foo'", BOOLEAN, true);
         assertFunction("'foo' BETWEEN 'foo' AND 'bar'", BOOLEAN, false);
@@ -132,7 +122,6 @@ public class TestVarcharOperators
 
     @Test
     public void testIsDistinctFrom()
-            throws Exception
     {
         assertFunction("CAST(NULL AS VARCHAR) IS DISTINCT FROM CAST(NULL AS VARCHAR)", BOOLEAN, false);
         assertFunction("'foo' IS DISTINCT FROM 'foo'", BOOLEAN, false);

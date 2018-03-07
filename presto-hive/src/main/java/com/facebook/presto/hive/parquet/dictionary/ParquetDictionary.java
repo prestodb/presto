@@ -26,7 +26,7 @@ public abstract class ParquetDictionary
     {
         checkArgument(
                 encoding == ParquetEncoding.PLAIN_DICTIONARY || encoding == ParquetEncoding.PLAIN,
-                "Parquet dictionary does not support encoding: " + encoding);
+                "Parquet dictionary does not support encoding: %s", encoding);
         this.encoding = encoding;
     }
 

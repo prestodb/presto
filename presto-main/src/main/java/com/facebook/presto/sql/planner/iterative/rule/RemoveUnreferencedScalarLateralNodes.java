@@ -13,51 +13,46 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
-import com.facebook.presto.sql.planner.SymbolAllocator;
+import com.facebook.presto.matching.Captures;
+import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.iterative.Lookup;
-import com.facebook.presto.sql.planner.iterative.Pattern;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 
-import java.util.Optional;
-
-import static com.facebook.presto.sql.planner.optimizations.ScalarQueryUtil.isScalar;
-import static java.util.Optional.empty;
+import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
+import static com.facebook.presto.sql.planner.plan.Patterns.lateralJoin;
 
 public class RemoveUnreferencedScalarLateralNodes
-        implements Rule
+        implements Rule<LateralJoinNode>
 {
-    private static final Pattern PATTERN = Pattern.node(LateralJoinNode.class);
+    private static final Pattern<LateralJoinNode> PATTERN = lateralJoin();
 
     @Override
-    public Pattern getPattern()
+    public Pattern<LateralJoinNode> getPattern()
     {
         return PATTERN;
     }
 
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Lookup lookup, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session)
+    public Result apply(LateralJoinNode lateralJoinNode, Captures captures, Context context)
     {
-        LateralJoinNode lateralJoinNode = (LateralJoinNode) node;
         PlanNode input = lateralJoinNode.getInput();
         PlanNode subquery = lateralJoinNode.getSubquery();
 
-        if (isUnreferencedScalar(input, lookup)) {
-            return Optional.of(subquery);
+        if (isUnreferencedScalar(input, context.getLookup())) {
+            return Result.ofPlanNode(subquery);
         }
 
-        if (isUnreferencedScalar(subquery, lookup)) {
-            return Optional.of(input);
+        if (isUnreferencedScalar(subquery, context.getLookup())) {
+            return Result.ofPlanNode(input);
         }
 
-        return empty();
+        return Result.empty();
     }
 
-    private boolean isUnreferencedScalar(PlanNode input, Lookup lookup)
+    private boolean isUnreferencedScalar(PlanNode planNode, Lookup lookup)
     {
-        return input.getOutputSymbols().isEmpty() && isScalar(input, lookup);
+        return planNode.getOutputSymbols().isEmpty() && isScalar(planNode, lookup);
     }
 }

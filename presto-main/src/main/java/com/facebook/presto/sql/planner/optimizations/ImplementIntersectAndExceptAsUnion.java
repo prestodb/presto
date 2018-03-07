@@ -80,7 +80,7 @@ import static java.util.stream.Collectors.toList;
  * ) T1
  * GROUP BY a) T2
  * WHERE foo_cnt >= 1 AND bar_cnt >= 1;
- *
+ * <p>
  * Eg:  SELECT a FROM foo EXCEPT SELECT x FROM bar
  * <p/>
  * =>
@@ -225,6 +225,7 @@ public class ImplementIntersectAndExceptAsUnion
 
             return new UnionNode(idAllocator.getNextId(), nodes, outputsToInputs.build(), outputs);
         }
+
         private AggregationNode computeCounts(UnionNode sourceNode, List<Symbol> originalColumns, List<Symbol> markers, List<Symbol> aggregationOutputs)
         {
             ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();

@@ -27,7 +27,6 @@ public class TestStaticLocationProvider
 {
     @Test
     public void testGetAnyHostRoundRobin()
-            throws Exception
     {
         List<HostAddress> expected = ImmutableList.of(
                 HostAddress.fromParts("localhost1", 11111),
@@ -36,7 +35,7 @@ public class TestStaticLocationProvider
         HostLocationProvider provider = new StaticLocationProvider(new StaticLocationConfig().setHosts(HostList.fromList(expected)));
         List<HostAddress> actual = new ArrayList<>(expected.size());
         for (int i = 0; i < expected.size(); i++) {
-            actual.add(provider.getAnyHost());
+            actual.add(provider.getAnyHost().getHostAddress());
         }
         assertEquals(ImmutableSet.copyOf(actual), ImmutableSet.copyOf(expected));
     }

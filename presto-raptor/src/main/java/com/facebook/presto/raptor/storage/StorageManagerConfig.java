@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.raptor.storage;
 
+import com.facebook.presto.spi.type.TimeZoneKey;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
@@ -22,12 +23,14 @@ import io.airlift.units.Duration;
 import io.airlift.units.MaxDataSize;
 import io.airlift.units.MinDataSize;
 import io.airlift.units.MinDuration;
+import org.joda.time.DateTimeZone;
 
 import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
 import java.io.File;
+import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
 import static io.airlift.units.DataSize.Unit.BYTE;
@@ -48,6 +51,7 @@ public class StorageManagerConfig
     private DataSize orcMaxMergeDistance = new DataSize(1, MEGABYTE);
     private DataSize orcMaxReadSize = new DataSize(8, MEGABYTE);
     private DataSize orcStreamBufferSize = new DataSize(8, MEGABYTE);
+    private boolean orcLazyReadSmallRanges = true;
     private int deletionThreads = max(1, getRuntime().availableProcessors() / 2);
     private int recoveryThreads = 10;
     private int organizationThreads = 5;
@@ -58,6 +62,7 @@ public class StorageManagerConfig
     private DataSize maxShardSize = new DataSize(256, MEGABYTE);
     private DataSize maxBufferSize = new DataSize(256, MEGABYTE);
     private int oneSplitPerBucketThreshold;
+    private String shardDayBoundaryTimeZone = TimeZoneKey.UTC_KEY.getId();
 
     @NotNull
     public File getDataDirectory()
@@ -123,6 +128,21 @@ public class StorageManagerConfig
     public StorageManagerConfig setOrcStreamBufferSize(DataSize orcStreamBufferSize)
     {
         this.orcStreamBufferSize = orcStreamBufferSize;
+        return this;
+    }
+
+    @Deprecated
+    public boolean isOrcLazyReadSmallRanges()
+    {
+        return orcLazyReadSmallRanges;
+    }
+
+    // TODO remove config option once efficacy is proven
+    @Deprecated
+    @Config("storage.orc.lazy-read-small-ranges")
+    public StorageManagerConfig setOrcLazyReadSmallRanges(boolean orcLazyReadSmallRanges)
+    {
+        this.orcLazyReadSmallRanges = orcLazyReadSmallRanges;
         return this;
     }
 
@@ -318,6 +338,19 @@ public class StorageManagerConfig
     public StorageManagerConfig setOneSplitPerBucketThreshold(int oneSplitPerBucketThreshold)
     {
         this.oneSplitPerBucketThreshold = oneSplitPerBucketThreshold;
+        return this;
+    }
+
+    public DateTimeZone getShardDayBoundaryTimeZone()
+    {
+        return DateTimeZone.forTimeZone(TimeZone.getTimeZone(shardDayBoundaryTimeZone));
+    }
+
+    @Config("storage.shard-day-boundary-time-zone")
+    @ConfigDescription("Time zone to use for computing day boundary for shards")
+    public StorageManagerConfig setShardDayBoundaryTimeZone(String timeZone)
+    {
+        this.shardDayBoundaryTimeZone = timeZone;
         return this;
     }
 }

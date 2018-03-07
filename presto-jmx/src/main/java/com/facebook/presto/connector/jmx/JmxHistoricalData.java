@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -71,11 +72,11 @@ public class JmxHistoricalData
     {
         ImmutableList.Builder<List<Object>> result = ImmutableList.builder();
         for (List<Object> row : rows) {
-            ImmutableList.Builder<Object> projectedRow = ImmutableList.builder();
+            List<Object> projectedRow = new ArrayList<>();
             for (Integer selectedColumn : selectedColumns) {
                 projectedRow.add(row.get(selectedColumn));
             }
-            result.add(projectedRow.build());
+            result.add(projectedRow);
         }
         return result.build();
     }

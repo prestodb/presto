@@ -28,22 +28,26 @@ import java.util.function.Function;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
-public class ExpressionSymbolInliner
+public final class ExpressionSymbolInliner
 {
-    private final Function<Symbol, Expression> mapping;
-
-    @Deprecated
-    public ExpressionSymbolInliner(Map<Symbol, ? extends Expression> mappings)
+    public static Expression inlineSymbols(Map<Symbol, ? extends Expression> mapping, Expression expression)
     {
-        this.mapping = mappings::get;
+        return inlineSymbols(mapping::get, expression);
     }
 
-    public ExpressionSymbolInliner(Function<Symbol, Expression> mapping)
+    public static Expression inlineSymbols(Function<Symbol, Expression> mapping, Expression expression)
+    {
+        return new ExpressionSymbolInliner(mapping).rewrite(expression);
+    }
+
+    private final Function<Symbol, Expression> mapping;
+
+    private ExpressionSymbolInliner(Function<Symbol, Expression> mapping)
     {
         this.mapping = mapping;
     }
 
-    public Expression rewrite(Expression expression)
+    private Expression rewrite(Expression expression)
     {
         return ExpressionTreeRewriter.rewriteWith(new Visitor(), expression);
     }
@@ -69,14 +73,14 @@ public class ExpressionSymbolInliner
         public Expression rewriteLambdaExpression(LambdaExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
             for (LambdaArgumentDeclaration argument : node.getArguments()) {
-                String argumentName = argument.getName();
+                String argumentName = argument.getName().getValue();
                 // Symbol names are unique. As a result, a symbol should never be excluded multiple times.
                 checkArgument(!excludedNames.contains(argumentName));
                 excludedNames.add(argumentName);
             }
             Expression result = treeRewriter.defaultRewrite(node, context);
             for (LambdaArgumentDeclaration argument : node.getArguments()) {
-                excludedNames.remove(argument.getName());
+                excludedNames.remove(argument.getName().getValue());
             }
             return result;
         }

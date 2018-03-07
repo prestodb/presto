@@ -298,7 +298,7 @@ public class TreePrinter
                 if (resolved != null) {
                     resolvedName = "=>" + resolved.toString();
                 }
-                print(indentLevel, "Identifier[" + node.getName() + resolvedName + "]");
+                print(indentLevel, "Identifier[" + node.getValue() + resolvedName + "]");
                 return null;
             }
 

@@ -662,7 +662,7 @@ let StagePerformance = React.createClass({
                         </h3>
                     </div>
                     <div className="col-xs-6">
-                        <table className="query-links">
+                        <table className="header-inline-links">
                             <tbody>
                             <tr>
                                 <td>

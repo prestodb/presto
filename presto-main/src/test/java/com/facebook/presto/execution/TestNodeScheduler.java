@@ -28,6 +28,7 @@ import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.TestingTransactionHandle;
 import com.facebook.presto.util.FinalizerService;
@@ -51,12 +52,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.presto.execution.scheduler.NetworkLocation.ROOT_LOCATION;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -73,10 +76,10 @@ public class TestNodeScheduler
     private NodeSelector nodeSelector;
     private Map<Node, RemoteTask> taskMap;
     private ExecutorService remoteTaskExecutor;
+    private ScheduledExecutorService remoteTaskScheduledExecutor;
 
     @BeforeMethod
     public void setUp()
-            throws Exception
     {
         finalizerService = new FinalizerService();
         nodeTaskMap = new NodeTaskMap(finalizerService);
@@ -93,26 +96,35 @@ public class TestNodeScheduler
                 .setIncludeCoordinator(false)
                 .setMaxPendingSplitsPerTask(10);
 
-        NodeScheduler nodeScheduler = new NodeScheduler(new LegacyNetworkTopology(), nodeManager, nodeSchedulerConfig, nodeTaskMap);
+        NodeScheduler nodeScheduler = new NodeScheduler(new LegacyNetworkTopology(), nodeManager, nodeSchedulerConfig, nodeTaskMap, new QueryManagerConfig());
         // contents of taskMap indicate the node-task map for the current stage
         taskMap = new HashMap<>();
         nodeSelector = nodeScheduler.createNodeSelector(CONNECTOR_ID);
-        remoteTaskExecutor = Executors.newCachedThreadPool(daemonThreadsNamed("remoteTaskExecutor-%s"));
+        remoteTaskExecutor = newCachedThreadPool(daemonThreadsNamed("remoteTaskExecutor-%s"));
+        remoteTaskScheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("remoteTaskScheduledExecutor-%s"));
 
         finalizerService.start();
     }
 
     @AfterMethod
     public void tearDown()
-            throws Exception
     {
         remoteTaskExecutor.shutdown();
+        remoteTaskScheduledExecutor.shutdown();
         finalizerService.destroy();
+    }
+
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Not enough active nodes:.*")
+    public void testNotEnoughActiveNodes()
+    {
+        QueryManagerConfig queryManagerConfig = new QueryManagerConfig().setInitializationRequiredWorkers(Integer.MAX_VALUE);
+        NodeScheduler nodeScheduler = new NodeScheduler(new LegacyNetworkTopology(), nodeManager, new NodeSchedulerConfig(), nodeTaskMap, queryManagerConfig);
+        NodeSelector nodeSelector = nodeScheduler.createNodeSelector(CONNECTOR_ID);
+        nodeSelector.selectRandomNodes(5);
     }
 
     @Test
     public void testScheduleLocal()
-            throws Exception
     {
         Split split = new Split(CONNECTOR_ID, TestingTransactionHandle.create(), new TestSplitLocal());
         Set<Split> splits = ImmutableSet.of(split);
@@ -160,7 +172,7 @@ public class TestNodeScheduler
                 }
             }
         };
-        NodeScheduler nodeScheduler = new NodeScheduler(locationCache, topology, nodeManager, nodeSchedulerConfig, nodeTaskMap);
+        NodeScheduler nodeScheduler = new NodeScheduler(locationCache, topology, nodeManager, nodeSchedulerConfig, nodeTaskMap, new QueryManagerConfig());
         NodeSelector nodeSelector = nodeScheduler.createNodeSelector(CONNECTOR_ID);
 
         // Fill up the nodes with non-local data
@@ -170,7 +182,7 @@ public class TestNodeScheduler
         }
         Set<Split> nonRackLocalSplits = nonRackLocalBuilder.build();
         Multimap<Node, Split> assignments = nodeSelector.computeAssignments(nonRackLocalSplits, ImmutableList.copyOf(taskMap.values())).getAssignments();
-        MockRemoteTaskFactory remoteTaskFactory = new MockRemoteTaskFactory(remoteTaskExecutor);
+        MockRemoteTaskFactory remoteTaskFactory = new MockRemoteTaskFactory(remoteTaskExecutor, remoteTaskScheduledExecutor);
         int task = 0;
         for (Node node : assignments.keySet()) {
             TaskId taskId = new TaskId("test", 1, task);
@@ -263,7 +275,6 @@ public class TestNodeScheduler
 
     @Test
     public void testScheduleRemote()
-            throws Exception
     {
         Set<Split> splits = new HashSet<>();
         splits.add(new Split(CONNECTOR_ID, TestingTransactionHandle.create(), new TestSplitRemote()));
@@ -273,7 +284,6 @@ public class TestNodeScheduler
 
     @Test
     public void testBasicAssignment()
-            throws Exception
     {
         // One split for each node
         Set<Split> splits = new HashSet<>();
@@ -289,7 +299,6 @@ public class TestNodeScheduler
 
     @Test
     public void testMaxSplitsPerNode()
-            throws Exception
     {
         TestingTransactionHandle transactionHandle = TestingTransactionHandle.create();
 
@@ -301,7 +310,7 @@ public class TestNodeScheduler
             initialSplits.add(new Split(CONNECTOR_ID, transactionHandle, new TestSplitRemote()));
         }
 
-        MockRemoteTaskFactory remoteTaskFactory = new MockRemoteTaskFactory(remoteTaskExecutor);
+        MockRemoteTaskFactory remoteTaskFactory = new MockRemoteTaskFactory(remoteTaskExecutor, remoteTaskScheduledExecutor);
         // Max out number of splits on node
         TaskId taskId1 = new TaskId("test", 1, 1);
         RemoteTask remoteTask1 = remoteTaskFactory.createTableScanTask(taskId1, newNode, initialSplits.build(), nodeTaskMap.createPartitionedSplitCountTracker(newNode, taskId1));
@@ -328,7 +337,6 @@ public class TestNodeScheduler
 
     @Test
     public void testMaxSplitsPerNodePerTask()
-            throws Exception
     {
         TestingTransactionHandle transactionHandle = TestingTransactionHandle.create();
 
@@ -341,7 +349,7 @@ public class TestNodeScheduler
         }
 
         List<RemoteTask> tasks = new ArrayList<>();
-        MockRemoteTaskFactory remoteTaskFactory = new MockRemoteTaskFactory(remoteTaskExecutor);
+        MockRemoteTaskFactory remoteTaskFactory = new MockRemoteTaskFactory(remoteTaskExecutor, remoteTaskScheduledExecutor);
         for (Node node : nodeManager.getActiveConnectorNodes(CONNECTOR_ID)) {
             // Max out number of splits on node
             TaskId taskId = new TaskId("test", 1, 1);
@@ -378,7 +386,7 @@ public class TestNodeScheduler
     public void testTaskCompletion()
             throws Exception
     {
-        MockRemoteTaskFactory remoteTaskFactory = new MockRemoteTaskFactory(remoteTaskExecutor);
+        MockRemoteTaskFactory remoteTaskFactory = new MockRemoteTaskFactory(remoteTaskExecutor, remoteTaskScheduledExecutor);
         Node chosenNode = Iterables.get(nodeManager.getActiveConnectorNodes(CONNECTOR_ID), 0);
         TaskId taskId = new TaskId("test", 1, 1);
         RemoteTask remoteTask = remoteTaskFactory.createTableScanTask(
@@ -398,9 +406,8 @@ public class TestNodeScheduler
 
     @Test
     public void testSplitCount()
-            throws Exception
     {
-        MockRemoteTaskFactory remoteTaskFactory = new MockRemoteTaskFactory(remoteTaskExecutor);
+        MockRemoteTaskFactory remoteTaskFactory = new MockRemoteTaskFactory(remoteTaskExecutor, remoteTaskScheduledExecutor);
         Node chosenNode = Iterables.get(nodeManager.getActiveConnectorNodes(CONNECTOR_ID), 0);
 
         TaskId taskId1 = new TaskId("test", 1, 1);

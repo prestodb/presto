@@ -38,7 +38,7 @@ public class DoubleInputStream
     @Override
     public Class<DoubleStreamCheckpoint> getCheckpointType()
     {
-       return DoubleStreamCheckpoint.class;
+        return DoubleStreamCheckpoint.class;
     }
 
     @Override

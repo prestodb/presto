@@ -38,6 +38,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.execution.ParameterExtractor.getParameters;
+import static com.facebook.presto.sql.ParsingUtil.createParsingOptions;
 import static com.facebook.presto.sql.QueryUtil.aliased;
 import static com.facebook.presto.sql.QueryUtil.ascending;
 import static com.facebook.presto.sql.QueryUtil.identifier;
@@ -95,8 +96,8 @@ final class DescribeInputRewrite
         protected Node visitDescribeInput(DescribeInput node, Void context)
                 throws SemanticException
         {
-            String sqlString = session.getPreparedStatement(node.getName());
-            Statement statement = parser.createStatement(sqlString);
+            String sqlString = session.getPreparedStatement(node.getName().getValue());
+            Statement statement = parser.createStatement(sqlString, createParsingOptions(session));
 
             // create  analysis for the query we are describing.
             Analyzer analyzer = new Analyzer(session, metadata, parser, accessControl, queryExplainer, parameters);
@@ -123,8 +124,7 @@ final class DescribeInputRewrite
                     Optional.empty(),
                     Optional.empty(),
                     Optional.of(ordering(ascending("Position"))),
-                    limit
-            );
+                    limit);
         }
 
         private static Row createDescribeInputRow(Parameter parameter, Analysis queryAnalysis)

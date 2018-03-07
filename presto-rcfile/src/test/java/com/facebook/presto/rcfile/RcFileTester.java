@@ -87,6 +87,7 @@ import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.Writable;
+import org.apache.hadoop.io.compress.BZip2Codec;
 import org.apache.hadoop.io.compress.GzipCodec;
 import org.apache.hadoop.io.compress.Lz4Codec;
 import org.apache.hadoop.io.compress.SnappyCodec;
@@ -123,6 +124,7 @@ import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.presto.rcfile.RcFileDecoderUtils.findFirstSyncPosition;
+import static com.facebook.presto.rcfile.RcFileTester.Compression.BZIP2;
 import static com.facebook.presto.rcfile.RcFileTester.Compression.LZ4;
 import static com.facebook.presto.rcfile.RcFileTester.Compression.NONE;
 import static com.facebook.presto.rcfile.RcFileTester.Compression.SNAPPY;
@@ -150,9 +152,10 @@ import static com.google.common.base.Functions.constant;
 import static com.google.common.collect.Iterables.transform;
 import static com.google.common.collect.Iterators.advance;
 import static com.google.common.io.Files.createTempDir;
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
-import static io.airlift.testing.FileUtils.deleteRecursively;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -187,6 +190,7 @@ import static org.testng.Assert.assertTrue;
 public class RcFileTester
 {
     private static final TypeManager TYPE_MANAGER = new TypeRegistry();
+
     static {
         // associate TYPE_MANAGER with a function registry
         new FunctionRegistry(TYPE_MANAGER, new BlockEncodingManager(TYPE_MANAGER), new FeaturesConfig());
@@ -246,6 +250,13 @@ public class RcFileTester
 
     public enum Compression
     {
+        BZIP2 {
+            @Override
+            Optional<String> getCodecName()
+            {
+                return Optional.of(BZip2Codec.class.getName());
+            }
+        },
         ZLIB {
             @Override
             Optional<String> getCodecName()
@@ -318,7 +329,7 @@ public class RcFileTester
         // These compression algorithms were chosen to cover the three different
         // cases: uncompressed, aircompressor, and hadoop compression
         // We assume that the compression algorithms generally work
-        rcFileTester.compressions = ImmutableSet.of(NONE, LZ4, ZLIB);
+        rcFileTester.compressions = ImmutableSet.of(NONE, LZ4, ZLIB, BZIP2);
         return rcFileTester;
     }
 
@@ -1086,8 +1097,7 @@ public class RcFileTester
                 Text.class,
                 codecName.isPresent(),
                 createTableProperties("test", columnObjectInspector.getTypeName()),
-                () -> { }
-        );
+                () -> {});
     }
 
     private static SettableStructObjectInspector createSettableStructObjectInspector(String name, ObjectInspector objectInspector)
@@ -1125,9 +1135,10 @@ public class RcFileTester
 
         @Override
         public void close()
+                throws IOException
         {
             // hadoop creates crc files that must be deleted also, so just delete the whole directory
-            deleteRecursively(tempDir);
+            deleteRecursively(tempDir.toPath(), ALLOW_INSECURE);
         }
     }
 

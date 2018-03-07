@@ -46,7 +46,7 @@ public class TestAtopHang
         queryRunner = createQueryRunner(ImmutableMap.of("atop.executable-path", tempPath + "/hanging_atop.sh", "atop.executable-read-timeout", "1s"), AtopProcessFactory.class);
     }
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void tearDown()
     {
         queryRunner.close();

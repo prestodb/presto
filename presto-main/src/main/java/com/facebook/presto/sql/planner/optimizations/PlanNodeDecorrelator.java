@@ -18,6 +18,7 @@ import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
+import com.facebook.presto.sql.planner.iterative.GroupReference;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.FilterNode;
@@ -60,7 +61,7 @@ public class PlanNodeDecorrelator
     {
         PlanNodeSearcher filterNodeSearcher = searchFrom(node, lookup)
                 .where(FilterNode.class::isInstance)
-                .skipOnlyWhen(isInstanceOfAny(ProjectNode.class, LimitNode.class));
+                .recurseOnlyWhen(isInstanceOfAny(ProjectNode.class, LimitNode.class));
         List<FilterNode> filterNodes = filterNodeSearcher.findAll();
 
         if (filterNodes.isEmpty()) {
@@ -138,7 +139,7 @@ public class PlanNodeDecorrelator
     {
         node = searchFrom(node, lookup)
                 .where(LimitNode.class::isInstance)
-                .skipOnlyWhen(ProjectNode.class::isInstance)
+                .recurseOnlyWhen(ProjectNode.class::isInstance)
                 .removeFirst();
         return node;
     }
@@ -218,6 +219,12 @@ public class PlanNodeDecorrelator
                     .build();
 
             return new ProjectNode(idAllocator.getNextId(), rewrittenNode.getSource(), assignments);
+        }
+
+        @Override
+        public PlanNode visitGroupReference(GroupReference node, RewriteContext<PlanNode> context)
+        {
+            return node;
         }
     }
 }

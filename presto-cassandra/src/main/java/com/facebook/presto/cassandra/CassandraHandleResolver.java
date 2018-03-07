@@ -23,7 +23,7 @@ import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 
 public class CassandraHandleResolver
-    implements ConnectorHandleResolver
+        implements ConnectorHandleResolver
 {
     @Override
     public Class<? extends ConnectorTableHandle> getTableHandleClass()

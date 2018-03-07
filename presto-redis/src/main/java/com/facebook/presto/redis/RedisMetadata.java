@@ -216,8 +216,8 @@ public class RedisMetadata
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
 
         List<SchemaTableName> tableNames;
-        if (prefix.getSchemaName() == null) {
-            tableNames = listTables(session, null);
+        if (prefix.getTableName() == null) {
+            tableNames = listTables(session, prefix.getSchemaName());
         }
         else {
             tableNames = ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));

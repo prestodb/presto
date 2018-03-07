@@ -210,37 +210,43 @@ public final class ArrayFilterFunction
     }
 
     @FunctionalInterface
-    public interface FilterLongLambda extends LambdaFunctionInterface
+    public interface FilterLongLambda
+            extends LambdaFunctionInterface
     {
         Boolean apply(Long x);
     }
 
     @FunctionalInterface
-    public interface FilterDoubleLambda extends LambdaFunctionInterface
+    public interface FilterDoubleLambda
+            extends LambdaFunctionInterface
     {
         Boolean apply(Double x);
     }
 
     @FunctionalInterface
-    public interface FilterBooleanLambda extends LambdaFunctionInterface
+    public interface FilterBooleanLambda
+            extends LambdaFunctionInterface
     {
         Boolean apply(Boolean x);
     }
 
     @FunctionalInterface
-    public interface FilterSliceLambda extends LambdaFunctionInterface
+    public interface FilterSliceLambda
+            extends LambdaFunctionInterface
     {
         Boolean apply(Slice x);
     }
 
     @FunctionalInterface
-    public interface FilterBlockLambda extends LambdaFunctionInterface
+    public interface FilterBlockLambda
+            extends LambdaFunctionInterface
     {
         Boolean apply(Block x);
     }
 
     @FunctionalInterface
-    public interface FilterVoidLambda extends LambdaFunctionInterface
+    public interface FilterVoidLambda
+            extends LambdaFunctionInterface
     {
         Boolean apply(Void x);
     }

@@ -10,7 +10,6 @@ databases:
 
   hive:
     host: hadoop-master
-    path: /user/hive/warehouse/
     jdbc_driver_class: org.apache.hive.jdbc.HiveDriver
     jdbc_url: jdbc:hive2://${databases.hive.host}:10000
     jdbc_user: hdfs
@@ -21,12 +20,17 @@ databases:
     table_manager_type: hive
     warehouse_directory_path: /user/hive/warehouse
     path: /user/hive/warehouse
+    inject_stats_for_immutable_tables: true
+    inject_stats_for_mutable_tables: true
+    metastore:
+      host: ${databases.hive.host}
+      port: 9083
 
   presto:
     host: localhost
     port: 8080
     server_address: http://${databases.presto.host}:${databases.presto.port}
-    jdbc_driver_class: com.facebook.presto.jdbc.PrestoDriver
+    jdbc_driver_class: ${PRESTO_JDBC_DRIVER_CLASS:-com.facebook.presto.jdbc.PrestoDriver}
     jdbc_url: jdbc:presto://${databases.presto.host}:${databases.presto.port}/hive/${databases.hive.schema}
     jdbc_user: hdfs
     jdbc_password: "***empty***"
@@ -34,7 +38,7 @@ databases:
 
   presto_tpcds:
     host: localhost
-    jdbc_driver_class: com.facebook.presto.jdbc.PrestoDriver
+    jdbc_driver_class: ${databases.presto.jdbc_driver_class}
     jdbc_url: jdbc:presto://${databases.presto.host}:${databases.presto.port}/hive/tpcds
     jdbc_user: hdfs
     jdbc_password: "***empty***"

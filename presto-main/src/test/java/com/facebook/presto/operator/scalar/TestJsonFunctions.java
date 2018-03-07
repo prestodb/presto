@@ -27,6 +27,31 @@ public class TestJsonFunctions
         extends AbstractTestFunctions
 {
     @Test
+    public void testIsJsonScalar()
+    {
+        assertFunction("IS_JSON_SCALAR(null)", BOOLEAN, null);
+
+        assertFunction("IS_JSON_SCALAR(JSON 'null')", BOOLEAN, true);
+        assertFunction("IS_JSON_SCALAR(JSON 'true')", BOOLEAN, true);
+        assertFunction("IS_JSON_SCALAR(JSON '1')", BOOLEAN, true);
+        assertFunction("IS_JSON_SCALAR(JSON '\"str\"')", BOOLEAN, true);
+        assertFunction("IS_JSON_SCALAR('null')", BOOLEAN, true);
+        assertFunction("IS_JSON_SCALAR('true')", BOOLEAN, true);
+        assertFunction("IS_JSON_SCALAR('1')", BOOLEAN, true);
+        assertFunction("IS_JSON_SCALAR('\"str\"')", BOOLEAN, true);
+
+        assertFunction("IS_JSON_SCALAR(JSON '[1, 2, 3]')", BOOLEAN, false);
+        assertFunction("IS_JSON_SCALAR(JSON '{\"a\": 1, \"b\": 2}')", BOOLEAN, false);
+        assertFunction("IS_JSON_SCALAR('[1, 2, 3]')", BOOLEAN, false);
+        assertFunction("IS_JSON_SCALAR('{\"a\": 1, \"b\": 2}')", BOOLEAN, false);
+
+        assertInvalidFunction("IS_JSON_SCALAR('')", INVALID_FUNCTION_ARGUMENT, "Invalid JSON value: ");
+        assertInvalidFunction("IS_JSON_SCALAR('[1')", INVALID_FUNCTION_ARGUMENT, "Invalid JSON value: [1");
+        assertInvalidFunction("IS_JSON_SCALAR('1 trailing')", INVALID_FUNCTION_ARGUMENT, "Invalid JSON value: 1 trailing");
+        assertInvalidFunction("IS_JSON_SCALAR('[1, 2] trailing')", INVALID_FUNCTION_ARGUMENT, "Invalid JSON value: [1, 2] trailing");
+    }
+
+    @Test
     public void testJsonArrayLength()
     {
         assertFunction("JSON_ARRAY_LENGTH('[]')", BIGINT, 0L);
@@ -210,16 +235,14 @@ public class TestJsonFunctions
         assertFunction(
                 "JSON_ARRAY_GET('[true, false, false, true, true, false]', 5)",
                 JSON,
-                utf8Slice(String.valueOf(false))
-        );
+                utf8Slice(String.valueOf(false)));
         assertFunction("JSON_ARRAY_GET(JSON '[true]', 0)", JSON, utf8Slice(String.valueOf(true)));
         assertFunction("JSON_ARRAY_GET(JSON '[true, null]', 1)", JSON, null);
         assertFunction("JSON_ARRAY_GET(JSON '[false, false, true]', 1)", JSON, utf8Slice(String.valueOf(false)));
         assertFunction(
                 "JSON_ARRAY_GET(JSON '[true, false, false, true, true, false]', 5)",
                 JSON,
-                utf8Slice(String.valueOf(false))
-        );
+                utf8Slice(String.valueOf(false)));
         assertFunction("JSON_ARRAY_GET('[true]', -1)", JSON, utf8Slice(String.valueOf(true)));
     }
 
@@ -254,13 +277,7 @@ public class TestJsonFunctions
     {
         assertInvalidFunction("JSON 'INVALID'", INVALID_FUNCTION_ARGUMENT);
         assertInvalidFunction("JSON_PARSE('INVALID')", INVALID_FUNCTION_ARGUMENT);
-    }
-
-    @Test
-    public void testTryInvalidJsonParse()
-    {
-        assertFunction("TRY (JSON 'INVALID')", JSON, null);
-        assertFunction("TRY (JSON_PARSE('INVALID'))", JSON, null);
+        assertInvalidFunction("JSON_PARSE('\"x\": 1')", INVALID_FUNCTION_ARGUMENT);
     }
 
     @Test

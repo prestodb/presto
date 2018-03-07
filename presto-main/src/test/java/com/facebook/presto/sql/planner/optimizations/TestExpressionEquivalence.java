@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.Expression;
@@ -29,6 +30,7 @@ import java.util.Set;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
+import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 import static com.facebook.presto.sql.planner.SymbolsExtractor.extractUnique;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
@@ -43,7 +45,6 @@ public class TestExpressionEquivalence
 
     @Test
     public void testEquivalent()
-            throws Exception
     {
         assertEquivalent("a_bigint < b_double", "b_double > a_bigint");
         assertEquivalent("true", "true");
@@ -96,8 +97,9 @@ public class TestExpressionEquivalence
 
     private static void assertEquivalent(@Language("SQL") String left, @Language("SQL") String right)
     {
-        Expression leftExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(left));
-        Expression rightExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(right));
+        ParsingOptions parsingOptions = new ParsingOptions(AS_DOUBLE /* anything */);
+        Expression leftExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(left, parsingOptions));
+        Expression rightExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(right, parsingOptions));
 
         Set<Symbol> symbols = extractUnique(ImmutableList.of(leftExpression, rightExpression));
         Map<Symbol, Type> types = symbols.stream()
@@ -113,7 +115,6 @@ public class TestExpressionEquivalence
 
     @Test
     public void testNotEquivalent()
-            throws Exception
     {
         assertNotEquivalent("true", "false");
         assertNotEquivalent("4", "5");
@@ -142,8 +143,9 @@ public class TestExpressionEquivalence
 
     private static void assertNotEquivalent(@Language("SQL") String left, @Language("SQL") String right)
     {
-        Expression leftExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(left));
-        Expression rightExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(right));
+        ParsingOptions parsingOptions = new ParsingOptions(AS_DOUBLE /* anything */);
+        Expression leftExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(left, parsingOptions));
+        Expression rightExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(right, parsingOptions));
 
         Set<Symbol> symbols = extractUnique(ImmutableList.of(leftExpression, rightExpression));
         Map<Symbol, Type> types = symbols.stream()

@@ -66,12 +66,6 @@ public class MappedRecordSet
         }
 
         @Override
-        public long getTotalBytes()
-        {
-            return delegate.getTotalBytes();
-        }
-
-        @Override
         public long getCompletedBytes()
         {
             return delegate.getCompletedBytes();

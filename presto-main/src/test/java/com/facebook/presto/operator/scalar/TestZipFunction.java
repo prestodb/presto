@@ -38,7 +38,6 @@ public class TestZipFunction
 {
     @Test
     public void testSameLength()
-            throws Exception
     {
         assertFunction("zip(ARRAY[1, 2], ARRAY['a', 'b'])",
                 zipReturnType(INTEGER, createVarcharType(1)),
@@ -83,7 +82,6 @@ public class TestZipFunction
 
     @Test
     public void testDifferentLength()
-            throws Exception
     {
         assertFunction("zip(ARRAY[1], ARRAY['a', 'b'])",
                 zipReturnType(INTEGER, createVarcharType(1)),
@@ -104,7 +102,6 @@ public class TestZipFunction
 
     @Test
     public void testWithNull()
-            throws Exception
     {
         assertFunction("zip(CAST(NULL AS ARRAY(UNKNOWN)), ARRAY[],  ARRAY[1])",
                 zipReturnType(UNKNOWN, UNKNOWN, INTEGER),
@@ -113,7 +110,6 @@ public class TestZipFunction
 
     @Test
     public void testAllArities()
-            throws Exception
     {
         for (int arity = MIN_ARITY; arity <= MAX_ARITY; arity++) {
             String[] arguments = IntStream.rangeClosed(1, arity)

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.HdfsEnvironment.HdfsContext;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
@@ -87,13 +88,13 @@ public class HivePageSourceProvider
         Optional<ConnectorPageSource> pageSource = createHivePageSource(
                 cursorProviders,
                 pageSourceFactories,
-                hiveSplit.getClientId(),
-                hdfsEnvironment.getConfiguration(path),
+                hdfsEnvironment.getConfiguration(new HdfsContext(session, hiveSplit.getDatabase(), hiveSplit.getTable()), path),
                 session,
                 path,
                 hiveSplit.getBucketNumber(),
                 hiveSplit.getStart(),
                 hiveSplit.getLength(),
+                hiveSplit.getFileSize(),
                 hiveSplit.getSchema(),
                 hiveSplit.getEffectivePredicate(),
                 hiveColumns,
@@ -110,13 +111,13 @@ public class HivePageSourceProvider
     public static Optional<ConnectorPageSource> createHivePageSource(
             Set<HiveRecordCursorProvider> cursorProviders,
             Set<HivePageSourceFactory> pageSourceFactories,
-            String clientId,
             Configuration configuration,
             ConnectorSession session,
             Path path,
             OptionalInt bucketNumber,
             long start,
             long length,
+            long fileSize,
             Properties schema,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             List<HiveColumnHandle> hiveColumns,
@@ -135,11 +136,11 @@ public class HivePageSourceProvider
                     path,
                     start,
                     length,
+                    fileSize,
                     schema,
                     extractRegularColumnHandles(regularColumnMappings, true),
                     effectivePredicate,
-                    hiveStorageTimeZone
-            );
+                    hiveStorageTimeZone);
             if (pageSource.isPresent()) {
                 return Optional.of(
                         new HivePageSource(
@@ -155,12 +156,12 @@ public class HivePageSourceProvider
             boolean doCoercion = !(provider instanceof GenericHiveRecordCursorProvider);
 
             Optional<RecordCursor> cursor = provider.createRecordCursor(
-                    clientId,
                     configuration,
                     session,
                     path,
                     start,
                     length,
+                    fileSize,
                     schema,
                     extractRegularColumnHandles(regularColumnMappings, doCoercion),
                     effectivePredicate,
@@ -294,7 +295,7 @@ public class HivePageSourceProvider
                         if (!doCoercion || !columnMapping.getCoercionFrom().isPresent()) {
                             return columnHandle;
                         }
-                        return new HiveColumnHandle(columnHandle.getClientId(),
+                        return new HiveColumnHandle(
                                 columnHandle.getName(),
                                 columnMapping.getCoercionFrom().get(),
                                 columnMapping.getCoercionFrom().get().getTypeSignature(),

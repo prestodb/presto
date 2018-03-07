@@ -27,7 +27,6 @@ import com.facebook.presto.spi.ColumnIdentity;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorNewTableLayout;
-import com.facebook.presto.spi.ConnectorNodePartitioning;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
@@ -35,6 +34,7 @@ import com.facebook.presto.spi.ConnectorTableLayout;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.ConnectorTablePartitioning;
 import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
@@ -137,7 +137,7 @@ public class RaptorMetadata
 
     public RaptorMetadata(String connectorId, IDBI dbi, ShardManager shardManager)
     {
-        this(connectorId, dbi, shardManager, tableId -> { });
+        this(connectorId, dbi, shardManager, tableId -> {});
     }
 
     public RaptorMetadata(
@@ -313,7 +313,7 @@ public class RaptorMetadata
                 new RaptorTableLayoutHandle(handle, constraint, Optional.of(partitioning)),
                 Optional.empty(),
                 TupleDomain.all(),
-                Optional.of(new ConnectorNodePartitioning(
+                Optional.of(new ConnectorTablePartitioning(
                         partitioning,
                         ImmutableList.copyOf(bucketColumnHandles))),
                 oneSplitPerBucket ? Optional.of(ImmutableSet.copyOf(bucketColumnHandles)) : Optional.empty(),
@@ -415,7 +415,7 @@ public class RaptorMetadata
     }
 
     @Override
-    public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
     {
         Optional<ConnectorNewTableLayout> layout = getNewTableLayout(session, tableMetadata);
         finishCreateTable(session, beginCreateTable(session, tableMetadata, layout), ImmutableList.of());
@@ -469,6 +469,43 @@ public class RaptorMetadata
             dao.renameColumn(table.getTableId(), sourceColumn.getColumnId(), target);
             dao.updateTableVersion(table.getTableId(), session.getStartTime());
         });
+    }
+
+    @Override
+    public void dropColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column)
+    {
+        RaptorTableHandle table = (RaptorTableHandle) tableHandle;
+        RaptorColumnHandle raptorColumn = (RaptorColumnHandle) column;
+
+        List<TableColumn> existingColumns = dao.listTableColumns(table.getSchemaName(), table.getTableName());
+        if (existingColumns.size() <= 1) {
+            throw new PrestoException(NOT_SUPPORTED, "Cannot drop the only column in a table");
+        }
+        long maxColumnId = existingColumns.stream().mapToLong(TableColumn::getColumnId).max().getAsLong();
+        if (raptorColumn.getColumnId() == maxColumnId) {
+            throw new PrestoException(NOT_SUPPORTED, "Cannot drop the column which has the largest column ID in the table");
+        }
+
+        if (getBucketColumnHandles(table.getTableId()).contains(column)) {
+            throw new PrestoException(NOT_SUPPORTED, "Cannot drop bucket columns");
+        }
+
+        Optional.ofNullable(dao.getTemporalColumnId(table.getTableId())).ifPresent(tempColumnId -> {
+            if (raptorColumn.getColumnId() == tempColumnId) {
+                throw new PrestoException(NOT_SUPPORTED, "Cannot drop the temporal column");
+            }
+        });
+
+        if (getSortColumnHandles(table.getTableId()).contains(raptorColumn)) {
+            throw new PrestoException(NOT_SUPPORTED, "Cannot drop sort columns");
+        }
+
+        daoTransaction(dbi, MetadataDao.class, dao -> {
+            dao.dropColumn(table.getTableId(), raptorColumn.getColumnId());
+            dao.updateTableVersion(table.getTableId(), session.getStartTime());
+        });
+
+        // TODO: drop column from index table
     }
 
     @Override

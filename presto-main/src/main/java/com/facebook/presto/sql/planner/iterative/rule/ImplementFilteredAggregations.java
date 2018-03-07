@@ -13,17 +13,13 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
+import com.facebook.presto.matching.Captures;
+import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.SymbolAllocator;
-import com.facebook.presto.sql.planner.iterative.Lookup;
-import com.facebook.presto.sql.planner.iterative.Pattern;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.Assignments;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -33,6 +29,8 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
+import static com.google.common.base.Verify.verify;
 
 /**
  * Implements filtered aggregations by transforming plans of the following shape:
@@ -55,30 +53,28 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
  * </pre>
  */
 public class ImplementFilteredAggregations
-        implements Rule
+        implements Rule<AggregationNode>
 {
-    private static final Pattern PATTERN = Pattern.node(AggregationNode.class);
+    private static final Pattern<AggregationNode> PATTERN = aggregation()
+            .matching(aggregation -> hasFilters(aggregation));
+
+    private static boolean hasFilters(AggregationNode aggregation)
+    {
+        return aggregation.getAggregations()
+                .values().stream()
+                .anyMatch(e -> e.getCall().getFilter().isPresent() &&
+                        !e.getMask().isPresent()); // can't handle filtered aggregations with DISTINCT (conservatively, if they have a mask)
+    }
 
     @Override
-    public Pattern getPattern()
+    public Pattern<AggregationNode> getPattern()
     {
         return PATTERN;
     }
 
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Lookup lookup, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session)
+    public Result apply(AggregationNode aggregation, Captures captures, Context context)
     {
-        AggregationNode aggregation = (AggregationNode) node;
-
-        boolean hasFilters = aggregation.getAggregations()
-                .values().stream()
-                .anyMatch(e -> e.getCall().getFilter().isPresent() &&
-                        !e.getMask().isPresent()); // can't handle filtered aggregations with DISTINCT (conservatively, if they have a mask)
-
-        if (!hasFilters) {
-            return Optional.empty();
-        }
-
         Assignments.Builder newAssignments = Assignments.builder();
         ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
 
@@ -91,12 +87,13 @@ public class ImplementFilteredAggregations
 
             if (call.getFilter().isPresent()) {
                 Expression filter = call.getFilter().get();
-                Symbol symbol = symbolAllocator.newSymbol(filter, BOOLEAN);
+                Symbol symbol = context.getSymbolAllocator().newSymbol(filter, BOOLEAN);
+                verify(!mask.isPresent(), "Expected aggregation without mask symbols, see Rule pattern");
                 newAssignments.put(symbol, filter);
                 mask = Optional.of(symbol);
             }
             aggregations.put(output, new Aggregation(
-                    new FunctionCall(call.getName(), call.getWindow(), Optional.empty(), call.isDistinct(), call.getArguments()),
+                    new FunctionCall(call.getName(), call.getWindow(), Optional.empty(), call.getOrderBy(), call.isDistinct(), call.getArguments()),
                     entry.getValue().getSignature(),
                     mask));
         }
@@ -104,11 +101,11 @@ public class ImplementFilteredAggregations
         // identity projection for all existing inputs
         newAssignments.putIdentities(aggregation.getSource().getOutputSymbols());
 
-        return Optional.of(
+        return Result.ofPlanNode(
                 new AggregationNode(
-                        idAllocator.getNextId(),
+                        context.getIdAllocator().getNextId(),
                         new ProjectNode(
-                                idAllocator.getNextId(),
+                                context.getIdAllocator().getNextId(),
                                 aggregation.getSource(),
                                 newAssignments.build()),
                         aggregations.build(),

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
@@ -25,6 +26,7 @@ public class SchemaTableName
     private final String schemaName;
     private final String tableName;
 
+    @JsonCreator
     public SchemaTableName(@JsonProperty("schema") String schemaName, @JsonProperty("table") String tableName)
     {
         this.schemaName = checkNotEmpty(schemaName, "schemaName").toLowerCase(ENGLISH);

@@ -15,6 +15,7 @@ package com.facebook.presto.client;
 
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
 
 import java.net.URI;
@@ -22,11 +23,11 @@ import java.nio.charset.CharsetEncoder;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.nio.charset.StandardCharsets.US_ASCII;
-import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 
 public class ClientSession
@@ -34,6 +35,7 @@ public class ClientSession
     private final URI server;
     private final String user;
     private final String source;
+    private final Set<String> clientTags;
     private final String clientInfo;
     private final String catalog;
     private final String schema;
@@ -42,7 +44,6 @@ public class ClientSession
     private final Map<String, String> properties;
     private final Map<String, String> preparedStatements;
     private final String transactionId;
-    private final boolean debug;
     private final Duration clientRequestTimeout;
 
     public static ClientSession withCatalogAndSchema(ClientSession session, String catalog, String schema)
@@ -51,6 +52,7 @@ public class ClientSession
                 session.getServer(),
                 session.getUser(),
                 session.getSource(),
+                session.getClientTags(),
                 session.getClientInfo(),
                 catalog,
                 schema,
@@ -59,7 +61,6 @@ public class ClientSession
                 session.getProperties(),
                 session.getPreparedStatements(),
                 session.getTransactionId(),
-                session.isDebug(),
                 session.getClientRequestTimeout());
     }
 
@@ -69,6 +70,7 @@ public class ClientSession
                 session.getServer(),
                 session.getUser(),
                 session.getSource(),
+                session.getClientTags(),
                 session.getClientInfo(),
                 session.getCatalog(),
                 session.getSchema(),
@@ -77,7 +79,6 @@ public class ClientSession
                 properties,
                 session.getPreparedStatements(),
                 session.getTransactionId(),
-                session.isDebug(),
                 session.getClientRequestTimeout());
     }
 
@@ -87,6 +88,7 @@ public class ClientSession
                 session.getServer(),
                 session.getUser(),
                 session.getSource(),
+                session.getClientTags(),
                 session.getClientInfo(),
                 session.getCatalog(),
                 session.getSchema(),
@@ -95,7 +97,6 @@ public class ClientSession
                 session.getProperties(),
                 preparedStatements,
                 session.getTransactionId(),
-                session.isDebug(),
                 session.getClientRequestTimeout());
     }
 
@@ -105,6 +106,7 @@ public class ClientSession
                 session.getServer(),
                 session.getUser(),
                 session.getSource(),
+                session.getClientTags(),
                 session.getClientInfo(),
                 session.getCatalog(),
                 session.getSchema(),
@@ -113,7 +115,6 @@ public class ClientSession
                 session.getProperties(),
                 session.getPreparedStatements(),
                 transactionId,
-                session.isDebug(),
                 session.getClientRequestTimeout());
     }
 
@@ -123,6 +124,7 @@ public class ClientSession
                 session.getServer(),
                 session.getUser(),
                 session.getSource(),
+                session.getClientTags(),
                 session.getClientInfo(),
                 session.getCatalog(),
                 session.getSchema(),
@@ -131,7 +133,6 @@ public class ClientSession
                 session.getProperties(),
                 session.getPreparedStatements(),
                 null,
-                session.isDebug(),
                 session.getClientRequestTimeout());
     }
 
@@ -139,23 +140,7 @@ public class ClientSession
             URI server,
             String user,
             String source,
-            String clientInfo,
-            String catalog,
-            String schema,
-            String timeZoneId,
-            Locale locale,
-            Map<String, String> properties,
-            String transactionId,
-            boolean debug,
-            Duration clientRequestTimeout)
-    {
-        this(server, user, source, clientInfo, catalog, schema, timeZoneId, locale, properties, emptyMap(), transactionId, debug, clientRequestTimeout);
-    }
-
-    public ClientSession(
-            URI server,
-            String user,
-            String source,
+            Set<String> clientTags,
             String clientInfo,
             String catalog,
             String schema,
@@ -164,22 +149,25 @@ public class ClientSession
             Map<String, String> properties,
             Map<String, String> preparedStatements,
             String transactionId,
-            boolean debug,
             Duration clientRequestTimeout)
     {
         this.server = requireNonNull(server, "server is null");
         this.user = user;
         this.source = source;
+        this.clientTags = ImmutableSet.copyOf(requireNonNull(clientTags, "clientTags is null"));
         this.clientInfo = clientInfo;
         this.catalog = catalog;
         this.schema = schema;
         this.locale = locale;
         this.timeZone = TimeZoneKey.getTimeZoneKey(timeZoneId);
         this.transactionId = transactionId;
-        this.debug = debug;
         this.properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
         this.preparedStatements = ImmutableMap.copyOf(requireNonNull(preparedStatements, "preparedStatements is null"));
         this.clientRequestTimeout = clientRequestTimeout;
+
+        for (String clientTag : clientTags) {
+            checkArgument(!clientTag.contains(","), "client tag cannot contain ','");
+        }
 
         // verify the properties are valid
         CharsetEncoder charsetEncoder = US_ASCII.newEncoder();
@@ -204,6 +192,11 @@ public class ClientSession
     public String getSource()
     {
         return source;
+    }
+
+    public Set<String> getClientTags()
+    {
+        return clientTags;
     }
 
     public String getClientInfo()
@@ -248,7 +241,7 @@ public class ClientSession
 
     public boolean isDebug()
     {
-        return debug;
+        return false;
     }
 
     public Duration getClientRequestTimeout()
@@ -262,6 +255,7 @@ public class ClientSession
         return toStringHelper(this)
                 .add("server", server)
                 .add("user", user)
+                .add("clientTags", clientTags)
                 .add("clientInfo", clientInfo)
                 .add("catalog", catalog)
                 .add("schema", schema)
@@ -269,7 +263,6 @@ public class ClientSession
                 .add("locale", locale)
                 .add("properties", properties)
                 .add("transactionId", transactionId)
-                .add("debug", debug)
                 .toString();
     }
 }

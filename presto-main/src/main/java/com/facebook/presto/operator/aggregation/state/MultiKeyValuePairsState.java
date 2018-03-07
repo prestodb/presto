@@ -20,7 +20,7 @@ import com.facebook.presto.spi.type.Type;
 
 @AccumulatorStateMetadata(stateFactoryClass = MultiKeyValuePairsStateFactory.class, stateSerializerClass = MultiKeyValuePairStateSerializer.class)
 public interface MultiKeyValuePairsState
-    extends AccumulatorState
+        extends AccumulatorState
 {
     MultiKeyValuePairs get();
 

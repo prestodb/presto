@@ -50,7 +50,6 @@ public class BenchmarkResourceGroup
 {
     @Benchmark
     public Object benchmark(BenchmarkData data)
-            throws Throwable
     {
         data.getRoot().processQueuedQueries();
         return data.getRoot();
@@ -72,16 +71,16 @@ public class BenchmarkResourceGroup
         @Setup
         public void setup()
         {
-            root = new RootInternalResourceGroup("root", (group, export) -> { }, executor);
+            root = new RootInternalResourceGroup("root", (group, export) -> {}, executor);
             root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
             root.setMaxQueuedQueries(queries);
-            root.setMaxRunningQueries(queries);
+            root.setHardConcurrencyLimit(queries);
             InternalResourceGroup group = root;
             for (int i = 0; i < children; i++) {
                 group = root.getOrCreateSubGroup(String.valueOf(i));
                 group.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
                 group.setMaxQueuedQueries(queries);
-                group.setMaxRunningQueries(queries);
+                group.setHardConcurrencyLimit(queries);
             }
             for (int i = 0; i < queries; i++) {
                 group.run(new MockQueryExecution(10));

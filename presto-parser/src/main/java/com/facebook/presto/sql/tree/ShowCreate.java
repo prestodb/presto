@@ -25,7 +25,8 @@ import static java.util.Objects.requireNonNull;
 public class ShowCreate
         extends Statement
 {
-    public enum Type {
+    public enum Type
+    {
         TABLE,
         VIEW
     }

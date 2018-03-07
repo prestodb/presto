@@ -14,13 +14,13 @@
 package com.facebook.presto.server.testing;
 
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
 import io.airlift.airline.Option;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.ImmutableList.copyOf;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -59,7 +59,7 @@ class TestingPrestoServerLauncherOptions
     public List<Catalog> getCatalogs()
     {
         return catalogOptions.stream().map(catalogOption -> {
-            List<String> parts = copyOf(CATALOG_OPTION_SPLITTER.split(catalogOption));
+            List<String> parts = ImmutableList.copyOf(CATALOG_OPTION_SPLITTER.split(catalogOption));
             checkState(parts.size() == 2, "bad format of catalog definition '%s'; should be catalog_name:connector_name", catalogOption);
             return new Catalog(parts.get(0), parts.get(1));
         }).collect(toList());

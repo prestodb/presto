@@ -24,25 +24,25 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 public class DescribeInput
         extends Statement
 {
-    private final String name;
+    private final Identifier name;
 
-    public DescribeInput(NodeLocation location, String name)
+    public DescribeInput(NodeLocation location, Identifier name)
     {
         this(Optional.of(location), name);
     }
 
-    public DescribeInput(String name)
+    public DescribeInput(Identifier name)
     {
         this(Optional.empty(), name);
     }
 
-    private DescribeInput(Optional<NodeLocation> location, String name)
+    private DescribeInput(Optional<NodeLocation> location, Identifier name)
     {
         super(location);
         this.name = name;
     }
 
-    public String getName()
+    public Identifier getName()
     {
         return name;
     }

@@ -27,14 +27,14 @@ public final class Insert
 {
     private final QualifiedName target;
     private final Query query;
-    private final Optional<List<String>> columns;
+    private final Optional<List<Identifier>> columns;
 
-    public Insert(QualifiedName target, Optional<List<String>> columns, Query query)
+    public Insert(QualifiedName target, Optional<List<Identifier>> columns, Query query)
     {
         this(Optional.empty(), columns, target, query);
     }
 
-    private Insert(Optional<NodeLocation> location, Optional<List<String>> columns, QualifiedName target, Query query)
+    private Insert(Optional<NodeLocation> location, Optional<List<Identifier>> columns, QualifiedName target, Query query)
     {
         super(location);
         this.target = requireNonNull(target, "target is null");
@@ -47,7 +47,7 @@ public final class Insert
         return target;
     }
 
-    public Optional<List<String>> getColumns()
+    public Optional<List<Identifier>> getColumns()
     {
         return columns;
     }

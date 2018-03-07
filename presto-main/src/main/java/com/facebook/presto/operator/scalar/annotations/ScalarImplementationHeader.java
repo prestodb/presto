@@ -14,7 +14,6 @@
 package com.facebook.presto.operator.scalar.annotations;
 
 import com.facebook.presto.operator.scalar.ScalarHeader;
-import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.ScalarOperator;
@@ -26,6 +25,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.metadata.FunctionRegistry.mangleOperatorName;
+import static com.facebook.presto.operator.annotations.FunctionsParserHelper.parseDescription;
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static com.google.common.base.CaseFormat.LOWER_UNDERSCORE;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -73,14 +73,9 @@ public class ScalarImplementationHeader
     {
         ScalarFunction scalarFunction = annotated.getAnnotation(ScalarFunction.class);
         ScalarOperator scalarOperator = annotated.getAnnotation(ScalarOperator.class);
-        Description descriptionAnnotation = annotated.getAnnotation(Description.class);
+        Optional<String> description = parseDescription(annotated);
 
         ImmutableList.Builder<ScalarImplementationHeader> builder = ImmutableList.builder();
-
-        Optional<String> description = Optional.empty();
-        if (descriptionAnnotation != null) {
-            description = Optional.of(descriptionAnnotation.value());
-        }
 
         if (scalarFunction != null) {
             String baseName = scalarFunction.value().isEmpty() ? camelToSnake(annotatedName(annotated)) : scalarFunction.value();

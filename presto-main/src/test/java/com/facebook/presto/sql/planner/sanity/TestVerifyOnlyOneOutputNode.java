@@ -30,24 +30,20 @@ public class TestVerifyOnlyOneOutputNode
 
     @Test
     public void testValidateSuccessful()
-            throws Exception
     {
         // random seemingly valid plan
         PlanNode root =
                 new OutputNode(idAllocator.getNextId(),
                         new ProjectNode(idAllocator.getNextId(),
                                 new ValuesNode(
-                                        idAllocator.getNextId(), ImmutableList.of(), ImmutableList.of()
-                                ),
+                                        idAllocator.getNextId(), ImmutableList.of(), ImmutableList.of()),
                                 Assignments.of()
-                        ), ImmutableList.of(), ImmutableList.of()
-                );
+                        ), ImmutableList.of(), ImmutableList.of());
         new VerifyOnlyOneOutputNode().validate(root, null, null, null, null);
     }
 
     @Test(expectedExceptions = IllegalStateException.class)
     public void testValidateFailed()
-            throws Exception
     {
         // random plan with 2 output nodes
         PlanNode root =
@@ -56,14 +52,12 @@ public class TestVerifyOnlyOneOutputNode
                                 new OutputNode(idAllocator.getNextId(),
                                         new ProjectNode(idAllocator.getNextId(),
                                                 new ValuesNode(
-                                                        idAllocator.getNextId(), ImmutableList.of(), ImmutableList.of()
-                                                ),
+                                                        idAllocator.getNextId(), ImmutableList.of(), ImmutableList.of()),
                                                 Assignments.of()
                                         ), ImmutableList.of(), ImmutableList.of()
-                                ), new Symbol("a")
-                        ),
-                        ImmutableList.of(), ImmutableList.of()
-                );
+                                ), new Symbol("a"),
+                                false),
+                        ImmutableList.of(), ImmutableList.of());
         new VerifyOnlyOneOutputNode().validate(root, null, null, null, null);
     }
 }

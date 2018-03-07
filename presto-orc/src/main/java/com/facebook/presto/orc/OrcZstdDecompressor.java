@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.orc;
 
-import com.facebook.presto.orc.zstd.ZstdDecompressor;
 import io.airlift.compress.MalformedInputException;
+import io.airlift.compress.zstd.ZstdDecompressor;
 
 import static java.lang.StrictMath.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 class OrcZstdDecompressor
-    implements OrcDecompressor
+        implements OrcDecompressor
 {
     private final OrcDataSourceId orcDataSourceId;
     private final int maxBufferSize;

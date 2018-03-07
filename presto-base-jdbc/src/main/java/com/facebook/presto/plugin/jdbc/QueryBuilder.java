@@ -59,6 +59,10 @@ import static org.joda.time.DateTimeZone.UTC;
 
 public class QueryBuilder
 {
+    // not all databases support booleans, so use 1=1 and 1=0 instead
+    private static final String ALWAYS_TRUE = "1=1";
+    private static final String ALWAYS_FALSE = "1=0";
+
     private final String quote;
 
     private static class TypeAndValue
@@ -211,11 +215,11 @@ public class QueryBuilder
         checkArgument(domain.getType().isOrderable(), "Domain type must be orderable");
 
         if (domain.getValues().isNone()) {
-            return domain.isNullAllowed() ? quote(columnName) + " IS NULL" : "FALSE";
+            return domain.isNullAllowed() ? quote(columnName) + " IS NULL" : ALWAYS_FALSE;
         }
 
         if (domain.getValues().isAll()) {
-            return domain.isNullAllowed() ? "TRUE" : quote(columnName) + " IS NOT NULL";
+            return domain.isNullAllowed() ? ALWAYS_TRUE : quote(columnName) + " IS NOT NULL";
         }
 
         List<String> disjuncts = new ArrayList<>();

@@ -71,7 +71,7 @@ public class DeleteOperator
         }
 
         @Override
-        public void close()
+        public void noMoreOperators()
         {
             closed = true;
         }
@@ -187,7 +187,6 @@ public class DeleteOperator
 
     @Override
     public void close()
-            throws Exception
     {
         if (!closed) {
             closed = true;

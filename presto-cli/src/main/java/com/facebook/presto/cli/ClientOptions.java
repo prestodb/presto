@@ -16,6 +16,7 @@ package com.facebook.presto.cli;
 import com.facebook.presto.client.ClientSession;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
 import io.airlift.airline.Option;
 import io.airlift.units.Duration;
@@ -29,10 +30,12 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.TimeZone;
 
 import static com.facebook.presto.client.KerberosUtil.defaultCredentialCachePath;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Strings.nullToEmpty;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.Collections.emptyMap;
 import static java.util.Locale.ENGLISH;
@@ -86,6 +89,12 @@ public class ClientOptions
     @Option(name = "--source", title = "source", description = "Name of source making query")
     public String source = "presto-cli";
 
+    @Option(name = "--client-info", title = "client-info", description = "Extra information about client making query")
+    public String clientInfo;
+
+    @Option(name = "--client-tags", title = "client tags", description = "Client tags")
+    public String clientTags = "";
+
     @Option(name = "--catalog", title = "catalog", description = "Default catalog")
     public String catalog;
 
@@ -119,6 +128,9 @@ public class ClientOptions
     @Option(name = "--client-request-timeout", title = "client request timeout", description = "Client request timeout (default: 2m)")
     public Duration clientRequestTimeout = new Duration(2, MINUTES);
 
+    @Option(name = "--ignore-errors", title = "ignore errors", description = "Continue processing in batch mode when an error occurs (default is to exit immediately)")
+    public boolean ignoreErrors;
+
     public enum OutputFormat
     {
         ALIGNED,
@@ -136,7 +148,8 @@ public class ClientOptions
                 parseServer(server),
                 user,
                 source,
-                null, // client-supplied payload field not yet supported in CLI
+                parseClientTags(clientTags),
+                clientInfo,
                 catalog,
                 schema,
                 TimeZone.getDefault().getID(),
@@ -144,7 +157,6 @@ public class ClientOptions
                 toProperties(sessionProperties),
                 emptyMap(),
                 null,
-                debug,
                 clientRequestTimeout);
     }
 
@@ -162,6 +174,12 @@ public class ClientOptions
         catch (URISyntaxException e) {
             throw new IllegalArgumentException(e);
         }
+    }
+
+    public static Set<String> parseClientTags(String clientTagsString)
+    {
+        Splitter splitter = Splitter.on(',').trimResults().omitEmptyStrings();
+        return ImmutableSet.copyOf(splitter.split(nullToEmpty(clientTagsString)));
     }
 
     public static Map<String, String> toProperties(List<ClientSessionProperty> sessionProperties)

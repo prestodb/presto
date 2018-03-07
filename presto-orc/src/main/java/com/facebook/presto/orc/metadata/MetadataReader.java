@@ -31,7 +31,7 @@ public interface MetadataReader
     Footer readFooter(HiveWriterVersion hiveWriterVersion, InputStream inputStream)
             throws IOException;
 
-    StripeFooter readStripeFooter(HiveWriterVersion hiveWriterVersion, List<OrcType> types, InputStream inputStream)
+    StripeFooter readStripeFooter(List<OrcType> types, InputStream inputStream)
             throws IOException;
 
     List<RowGroupIndex> readRowIndexes(HiveWriterVersion hiveWriterVersion, InputStream inputStream)

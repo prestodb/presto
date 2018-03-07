@@ -20,7 +20,6 @@ public class TestJdbcConnectorFactory
 {
     @Test
     public void test()
-            throws Exception
     {
         JdbcConnectorFactory connectorFactory = new JdbcConnectorFactory(
                 "test",

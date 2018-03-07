@@ -33,12 +33,11 @@ public class TestAtopSmoke
 
     @BeforeClass
     public void setUp()
-            throws Exception
     {
         queryRunner = createQueryRunner();
     }
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void tearDown()
     {
         queryRunner.close();

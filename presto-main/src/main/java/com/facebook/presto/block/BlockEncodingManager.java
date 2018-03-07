@@ -21,13 +21,13 @@ import com.facebook.presto.spi.block.ByteArrayBlockEncoding;
 import com.facebook.presto.spi.block.DictionaryBlockEncoding;
 import com.facebook.presto.spi.block.FixedWidthBlockEncoding;
 import com.facebook.presto.spi.block.IntArrayBlockEncoding;
-import com.facebook.presto.spi.block.InterleavedBlockEncoding;
 import com.facebook.presto.spi.block.LongArrayBlockEncoding;
 import com.facebook.presto.spi.block.MapBlockEncoding;
+import com.facebook.presto.spi.block.RowBlockEncoding;
 import com.facebook.presto.spi.block.RunLengthBlockEncoding;
 import com.facebook.presto.spi.block.ShortArrayBlockEncoding;
 import com.facebook.presto.spi.block.SingleMapBlockEncoding;
-import com.facebook.presto.spi.block.SliceArrayBlockEncoding;
+import com.facebook.presto.spi.block.SingleRowBlockEncoding;
 import com.facebook.presto.spi.block.VariableWidthBlockEncoding;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableSet;
@@ -69,12 +69,12 @@ public final class BlockEncodingManager
         addBlockEncodingFactory(ShortArrayBlockEncoding.FACTORY);
         addBlockEncodingFactory(IntArrayBlockEncoding.FACTORY);
         addBlockEncodingFactory(LongArrayBlockEncoding.FACTORY);
-        addBlockEncodingFactory(SliceArrayBlockEncoding.FACTORY);
         addBlockEncodingFactory(DictionaryBlockEncoding.FACTORY);
         addBlockEncodingFactory(ArrayBlockEncoding.FACTORY);
-        addBlockEncodingFactory(InterleavedBlockEncoding.FACTORY);
         addBlockEncodingFactory(MapBlockEncoding.FACTORY);
         addBlockEncodingFactory(SingleMapBlockEncoding.FACTORY);
+        addBlockEncodingFactory(RowBlockEncoding.FACTORY);
+        addBlockEncodingFactory(SingleRowBlockEncoding.FACTORY);
         addBlockEncodingFactory(RunLengthBlockEncoding.FACTORY);
 
         for (BlockEncodingFactory<?> factory : requireNonNull(blockEncodingFactories, "blockEncodingFactories is null")) {

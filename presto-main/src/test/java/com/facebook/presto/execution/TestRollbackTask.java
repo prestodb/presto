@@ -53,14 +53,12 @@ public class TestRollbackTask
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
-            throws Exception
     {
         executor.shutdownNow();
     }
 
     @Test
     public void testRollback()
-            throws Exception
     {
         TransactionManager transactionManager = createTestTransactionManager();
         AccessControl accessControl = new AccessControlManager(transactionManager);
@@ -81,7 +79,6 @@ public class TestRollbackTask
 
     @Test
     public void testNoTransactionRollback()
-            throws Exception
     {
         TransactionManager transactionManager = createTestTransactionManager();
         AccessControl accessControl = new AccessControlManager(transactionManager);
@@ -110,7 +107,6 @@ public class TestRollbackTask
 
     @Test
     public void testUnknownTransactionRollback()
-            throws Exception
     {
         TransactionManager transactionManager = createTestTransactionManager();
         AccessControl accessControl = new AccessControlManager(transactionManager);

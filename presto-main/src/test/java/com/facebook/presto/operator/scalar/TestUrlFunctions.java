@@ -53,11 +53,11 @@ public class TestUrlFunctions
     public void testUrlEncode()
     {
         final String[][] outputInputPairs = {
-            {"http%3A%2F%2Ftest", "http://test"},
-            {"http%3A%2F%2Ftest%3Fa%3Db%26c%3Dd", "http://test?a=b&c=d"},
-            {"http%3A%2F%2F%E3%83%86%E3%82%B9%E3%83%88", "http://\u30c6\u30b9\u30c8"},
-            {"%7E%40%3A.-*_%2B+%E2%98%83", "~@:.-*_+ \u2603"},
-            {"test", "test"}
+                {"http%3A%2F%2Ftest", "http://test"},
+                {"http%3A%2F%2Ftest%3Fa%3Db%26c%3Dd", "http://test?a=b&c=d"},
+                {"http%3A%2F%2F%E3%83%86%E3%82%B9%E3%83%88", "http://\u30c6\u30b9\u30c8"},
+                {"%7E%40%3A.-*_%2B+%E2%98%83", "~@:.-*_+ \u2603"},
+                {"test", "test"},
         };
 
         for (String[] outputInputPair : outputInputPairs) {
@@ -77,8 +77,9 @@ public class TestUrlFunctions
                 {"http%3A%2F%2Ftest%3Fa%3Db%26c%3Dd", "http://test?a=b&c=d"},
                 {"http%3A%2F%2F%E3%83%86%E3%82%B9%E3%83%88", "http://\u30c6\u30b9\u30c8"},
                 {"%7E%40%3A.-*_%2B+%E2%98%83", "~@:.-*_+ \u2603"},
-                {"test", "test"}
+                {"test", "test"},
         };
+
         for (String[] inputOutputPair : inputOutputPairs) {
             String input = inputOutputPair[0];
             String output = inputOutputPair[1];

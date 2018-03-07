@@ -62,12 +62,15 @@ import java.sql.Types;
 import java.util.ArrayList;
 import java.util.GregorianCalendar;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TimeZone;
+import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.regex.Pattern;
 
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.spi.type.CharType.createCharType;
@@ -134,13 +137,21 @@ public class TestPrestoDriver
     {
         try (Connection connection = createConnection("blackhole", "blackhole");
                 Statement statement = connection.createStatement()) {
+            assertEquals(statement.executeUpdate("CREATE SCHEMA blackhole.blackhole"), 0);
             assertEquals(statement.executeUpdate("CREATE TABLE test_table (x bigint)"), 0);
+
+            assertEquals(statement.executeUpdate("CREATE TABLE slow_test_table (x bigint) " +
+                    "WITH (" +
+                    "   split_count = 1, " +
+                    "   pages_per_split = 1, " +
+                    "   rows_per_page = 1, " +
+                    "   page_processing_delay = '1m'" +
+                    ")"), 0);
         }
     }
 
     @AfterClass(alwaysRun = true)
     public void teardown()
-            throws Exception
     {
         closeQuietly(server);
         executorService.shutdownNow();
@@ -157,7 +168,7 @@ public class TestPrestoDriver
                         "  123 _integer" +
                         ",  12300000000 _bigint" +
                         ", 'foo' _varchar" +
-                        ", 0.1 _double" +
+                        ", 0.1E0 _double" +
                         ", true _boolean" +
                         ", cast('hello' as varbinary) _varbinary" +
                         ", DECIMAL '1234567890.1234567' _decimal_short" +
@@ -417,6 +428,7 @@ public class TestPrestoDriver
         List<List<String>> blackhole = new ArrayList<>();
         blackhole.add(list("blackhole", "information_schema"));
         blackhole.add(list("blackhole", "default"));
+        blackhole.add(list("blackhole", "blackhole"));
 
         List<List<String>> test = new ArrayList<>();
         test.add(list(TEST_CATALOG, "information_schema"));
@@ -826,9 +838,9 @@ public class TestPrestoDriver
                             "c_char_345 char(345), " +
                             "c_varbinary varbinary, " +
                             "c_time time, " +
-                            "c_time_with_time_zone \"time with time zone\", " +
+                            "c_time_with_time_zone time with time zone, " +
                             "c_timestamp timestamp, " +
-                            "c_timestamp_with_time_zone \"timestamp with time zone\", " +
+                            "c_timestamp_with_time_zone timestamp with time zone, " +
                             "c_date date, " +
                             "c_decimal_8_2 decimal(8,2), " +
                             "c_decimal_38_0 decimal(38,0), " +
@@ -1369,20 +1381,9 @@ public class TestPrestoDriver
     }
 
     @Test(timeOut = 10000)
-    public void testQueryCancellation()
+    public void testQueryCancelByInterrupt()
             throws Exception
     {
-        try (Connection connection = createConnection("blackhole", "blackhole");
-                Statement statement = connection.createStatement()) {
-            statement.executeUpdate("CREATE TABLE test_cancellation (key BIGINT) " +
-                    "WITH (" +
-                    "   split_count = 1, " +
-                    "   pages_per_split = 1, " +
-                    "   rows_per_page = 1, " +
-                    "   page_processing_delay = '1m'" +
-                    ")");
-        }
-
         CountDownLatch queryStarted = new CountDownLatch(1);
         CountDownLatch queryFinished = new CountDownLatch(1);
         AtomicReference<String> queryId = new AtomicReference<>();
@@ -1391,7 +1392,7 @@ public class TestPrestoDriver
         Future<?> queryFuture = executorService.submit(() -> {
             try (Connection connection = createConnection("blackhole", "default");
                     Statement statement = connection.createStatement();
-                    ResultSet resultSet = statement.executeQuery("SELECT * FROM test_cancellation")) {
+                    ResultSet resultSet = statement.executeQuery("SELECT * FROM slow_test_table")) {
                 queryId.set(resultSet.unwrap(PrestoResultSet.class).getQueryId());
                 queryStarted.countDown();
                 try {
@@ -1419,14 +1420,94 @@ public class TestPrestoDriver
         assertTrue(queryFinished.await(10, SECONDS));
         assertNotNull(queryFailure.get());
         assertEquals(getQueryState(queryId.get()), FAILED);
+    }
 
-        try (Connection connection = createConnection("blackhole", "blackhole");
+    @Test(timeOut = 10000)
+    public void testQueryCancelExplicit()
+            throws Exception
+    {
+        CountDownLatch queryStarted = new CountDownLatch(1);
+        CountDownLatch queryFinished = new CountDownLatch(1);
+        AtomicReference<String> queryId = new AtomicReference<>();
+        AtomicReference<Throwable> queryFailure = new AtomicReference<>();
+
+        try (Connection connection = createConnection("blackhole", "default");
                 Statement statement = connection.createStatement()) {
-            statement.executeUpdate("DROP TABLE test_cancellation");
+            // execute the slow query on another thread
+            executorService.execute(() -> {
+                try (ResultSet resultSet = statement.executeQuery("SELECT * FROM slow_test_table")) {
+                    queryId.set(resultSet.unwrap(PrestoResultSet.class).getQueryId());
+                    queryStarted.countDown();
+                    resultSet.next();
+                }
+                catch (SQLException t) {
+                    queryFailure.set(t);
+                }
+                finally {
+                    queryFinished.countDown();
+                }
+            });
+
+            // start query and make sure it is not finished
+            queryStarted.await(10, SECONDS);
+            assertNotNull(queryId.get());
+            assertFalse(getQueryState(queryId.get()).isDone());
+
+            // cancel the query from this test thread
+            statement.cancel();
+
+            // make sure the query was aborted
+            queryFinished.await(10, SECONDS);
+            assertNotNull(queryFailure.get());
+            assertEquals(getQueryState(queryId.get()), FAILED);
         }
     }
 
-    @Test(timeOut = 4000)
+    @Test(timeOut = 10000)
+    public void testUpdateCancelExplicit()
+            throws Exception
+    {
+        CountDownLatch queryFinished = new CountDownLatch(1);
+        AtomicReference<String> queryId = new AtomicReference<>();
+        AtomicReference<Throwable> queryFailure = new AtomicReference<>();
+        String queryUuid = "/* " + UUID.randomUUID().toString() + " */";
+
+        try (Connection connection = createConnection("blackhole", "default");
+                Statement statement = connection.createStatement()) {
+            // execute the slow update on another thread
+            executorService.execute(() -> {
+                try {
+                    statement.executeUpdate("CREATE TABLE test_cancel_create AS SELECT * FROM slow_test_table " + queryUuid);
+                }
+                catch (SQLException t) {
+                    queryFailure.set(t);
+                }
+                finally {
+                    queryFinished.countDown();
+                }
+            });
+
+            // start query and make sure it is not finished
+            while (true) {
+                Optional<QueryState> state = findQueryState(queryUuid);
+                if (state.isPresent()) {
+                    assertFalse(state.get().isDone());
+                    break;
+                }
+                MILLISECONDS.sleep(50);
+            }
+
+            // cancel the query from this test thread
+            statement.cancel();
+
+            // make sure the query was aborted
+            queryFinished.await(10, SECONDS);
+            assertNotNull(queryFailure.get());
+            assertEquals(findQueryState(queryUuid), Optional.of(FAILED));
+        }
+    }
+
+    @Test(timeOut = 10000)
     public void testQueryTimeout()
             throws Exception
     {
@@ -1464,7 +1545,7 @@ public class TestPrestoDriver
         });
 
         // make sure the query timed out
-        assertTrue(queryFinished.await(2, SECONDS));
+        queryFinished.await();
         assertNotNull(queryFailure.get());
         assertContains(queryFailure.get().getMessage(), "Query exceeded maximum time limit of 1.00s");
 
@@ -1483,6 +1564,22 @@ public class TestPrestoDriver
                 ResultSet resultSet = statement.executeQuery(sql)) {
             assertTrue(resultSet.next(), "Query was not found");
             return QueryState.valueOf(requireNonNull(resultSet.getString(1)));
+        }
+    }
+
+    private Optional<QueryState> findQueryState(String text)
+            throws SQLException
+    {
+        String sql = format("SELECT state FROM system.runtime.queries WHERE regexp_like(query, '%s$') /* */", Pattern.quote(text));
+        try (Connection connection = createConnection();
+                Statement statement = connection.createStatement();
+                ResultSet resultSet = statement.executeQuery(sql)) {
+            if (!resultSet.next()) {
+                return Optional.empty();
+            }
+            QueryState state = QueryState.valueOf(requireNonNull(resultSet.getString(1)));
+            assertFalse(resultSet.next(), "Found multiple queries");
+            return Optional.of(state);
         }
     }
 

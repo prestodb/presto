@@ -36,11 +36,15 @@ import static java.util.Objects.requireNonNull;
 
 /**
  * Converts delete followed immediately by table scan to a special metadata-only delete node
- *
+ * <p>
  * Turn
+ * <pre>
  *     TableCommit - Delete - TableScanNode (no node allowed in between except Exchanges)
+ * </pre>
  * into
+ * <pre>
  *     MetadataDelete
+ * </pre>
  */
 public class MetadataDeleteOptimizer
         implements PlanOptimizer

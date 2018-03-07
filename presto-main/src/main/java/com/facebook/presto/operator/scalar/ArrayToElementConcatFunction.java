@@ -27,6 +27,8 @@ import io.airlift.slice.Slice;
 import java.lang.invoke.MethodHandle;
 
 import static com.facebook.presto.metadata.Signature.typeVariable;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.Reflection.methodHandle;
 
@@ -93,6 +95,12 @@ public class ArrayToElementConcatFunction
         }
         methodHandle = methodHandle.bindTo(type);
 
-        return new ScalarFunctionImplementation(false, ImmutableList.of(false, false), methodHandle, isDeterministic());
+        return new ScalarFunctionImplementation(
+                false,
+                ImmutableList.of(
+                        valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
+                        valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
+                methodHandle,
+                isDeterministic());
     }
 }

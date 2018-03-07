@@ -31,6 +31,11 @@ public class Constraint<T>
         return new Constraint<>(TupleDomain.<V>all(), bindings -> true);
     }
 
+    public static <V> Constraint<V> alwaysFalse()
+    {
+        return new Constraint<>(TupleDomain.<V>none(), bindings -> false);
+    }
+
     public Constraint(TupleDomain<T> summary, Predicate<Map<T, NullableValue>> predicate)
     {
         requireNonNull(summary, "summary is null");

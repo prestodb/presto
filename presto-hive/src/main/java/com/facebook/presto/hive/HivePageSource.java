@@ -17,20 +17,29 @@ import com.facebook.presto.hive.HivePageSourceProvider.ColumnMapping;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.block.ArrayBlock;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.ColumnarArray;
+import com.facebook.presto.spi.block.ColumnarMap;
+import com.facebook.presto.spi.block.ColumnarRow;
+import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.block.LazyBlock;
 import com.facebook.presto.spi.block.LazyBlockLoader;
+import com.facebook.presto.spi.block.RowBlock;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.VarcharType;
-import com.google.common.base.Throwables;
+import org.apache.hadoop.hive.serde2.typeinfo.ListTypeInfo;
+import org.apache.hadoop.hive.serde2.typeinfo.MapTypeInfo;
 import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.function.Function;
 
@@ -46,8 +55,13 @@ import static com.facebook.presto.hive.HiveUtil.booleanPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.charPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.datePartitionKey;
 import static com.facebook.presto.hive.HiveUtil.doublePartitionKey;
+import static com.facebook.presto.hive.HiveUtil.extractStructFieldTypes;
 import static com.facebook.presto.hive.HiveUtil.floatPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.integerPartitionKey;
+import static com.facebook.presto.hive.HiveUtil.isArrayType;
+import static com.facebook.presto.hive.HiveUtil.isHiveNull;
+import static com.facebook.presto.hive.HiveUtil.isMapType;
+import static com.facebook.presto.hive.HiveUtil.isRowType;
 import static com.facebook.presto.hive.HiveUtil.longDecimalPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.shortDecimalPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.smallintPartitionKey;
@@ -55,6 +69,9 @@ import static com.facebook.presto.hive.HiveUtil.timestampPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.tinyintPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.varcharPartitionKey;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.block.ColumnarArray.toColumnarArray;
+import static com.facebook.presto.spi.block.ColumnarMap.toColumnarMap;
+import static com.facebook.presto.spi.block.ColumnarRow.toColumnarRow;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.Chars.isCharType;
@@ -71,7 +88,6 @@ import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.String.format;
-import static java.lang.String.valueOf;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
@@ -121,7 +137,7 @@ public class HivePageSource
                 byte[] bytes = columnValue.getBytes(UTF_8);
 
                 Object prefilledValue;
-                if (HiveUtil.isHiveNull(bytes)) {
+                if (isHiveNull(bytes)) {
                     prefilledValue = null;
                 }
                 else if (type.equals(BOOLEAN)) {
@@ -170,12 +186,6 @@ public class HivePageSource
                 prefilledValues[columnIndex] = prefilledValue;
             }
         }
-    }
-
-    @Override
-    public long getTotalBytes()
-    {
-        return delegate.getTotalBytes();
     }
 
     @Override
@@ -237,7 +247,7 @@ public class HivePageSource
             delegate.close();
         }
         catch (IOException e) {
-            throw Throwables.propagate(e);
+            throw new UncheckedIOException(e);
         }
     }
 
@@ -294,6 +304,15 @@ public class HivePageSource
         else if (fromHiveType.equals(HIVE_FLOAT) && toHiveType.equals(HIVE_DOUBLE)) {
             return new FloatToDoubleCoercer();
         }
+        else if (isArrayType(fromType) && isArrayType(toType)) {
+            return new ListCoercer(typeManager, fromHiveType, toHiveType);
+        }
+        else if (isMapType(fromType) && isMapType(toType)) {
+            return new MapCoercer(typeManager, fromHiveType, toHiveType);
+        }
+        else if (isRowType(fromType) && isRowType(toType)) {
+            return new StructCoercer(typeManager, fromHiveType, toHiveType);
+        }
 
         throw new PrestoException(NOT_SUPPORTED, format("Unsupported coercion from %s to %s", fromHiveType, toHiveType));
     }
@@ -346,7 +365,7 @@ public class HivePageSource
                     blockBuilder.appendNull();
                     continue;
                 }
-                toType.writeSlice(blockBuilder, utf8Slice(valueOf(fromType.getLong(block, i))));
+                toType.writeSlice(blockBuilder, utf8Slice(String.valueOf(fromType.getLong(block, i))));
             }
             return blockBuilder.build();
         }
@@ -431,6 +450,128 @@ public class HivePageSource
         }
     }
 
+    private static class ListCoercer
+            implements Function<Block, Block>
+    {
+        private final Function<Block, Block> elementCoercer;
+
+        public ListCoercer(TypeManager typeManager, HiveType fromHiveType, HiveType toHiveType)
+        {
+            requireNonNull(typeManager, "typeManage is null");
+            requireNonNull(fromHiveType, "fromHiveType is null");
+            requireNonNull(toHiveType, "toHiveType is null");
+            HiveType fromElementHiveType = HiveType.valueOf(((ListTypeInfo) fromHiveType.getTypeInfo()).getListElementTypeInfo().getTypeName());
+            HiveType toElementHiveType = HiveType.valueOf(((ListTypeInfo) toHiveType.getTypeInfo()).getListElementTypeInfo().getTypeName());
+            this.elementCoercer = fromElementHiveType.equals(toElementHiveType) ? null : createCoercer(typeManager, fromElementHiveType, toElementHiveType);
+        }
+
+        @Override
+        public Block apply(Block block)
+        {
+            if (elementCoercer == null) {
+                return block;
+            }
+            ColumnarArray arrayBlock = toColumnarArray(block);
+            Block elementsBlock = elementCoercer.apply(arrayBlock.getElementsBlock());
+            boolean[] valueIsNull = new boolean[arrayBlock.getPositionCount()];
+            int[] offsets = new int[arrayBlock.getPositionCount() + 1];
+            for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
+                valueIsNull[i] = arrayBlock.isNull(i);
+                offsets[i + 1] = offsets[i] + arrayBlock.getLength(i);
+            }
+            return new ArrayBlock(arrayBlock.getPositionCount(), valueIsNull, offsets, elementsBlock);
+        }
+    }
+
+    private static class MapCoercer
+            implements Function<Block, Block>
+    {
+        private final Type toType;
+        private final Function<Block, Block> keyCoercer;
+        private final Function<Block, Block> valueCoercer;
+
+        public MapCoercer(TypeManager typeManager, HiveType fromHiveType, HiveType toHiveType)
+        {
+            requireNonNull(typeManager, "typeManage is null");
+            requireNonNull(fromHiveType, "fromHiveType is null");
+            this.toType = requireNonNull(toHiveType, "toHiveType is null").getType(typeManager);
+            HiveType fromKeyHiveType = HiveType.valueOf(((MapTypeInfo) fromHiveType.getTypeInfo()).getMapKeyTypeInfo().getTypeName());
+            HiveType fromValueHiveType = HiveType.valueOf(((MapTypeInfo) fromHiveType.getTypeInfo()).getMapValueTypeInfo().getTypeName());
+            HiveType toKeyHiveType = HiveType.valueOf(((MapTypeInfo) toHiveType.getTypeInfo()).getMapKeyTypeInfo().getTypeName());
+            HiveType toValueHiveType = HiveType.valueOf(((MapTypeInfo) toHiveType.getTypeInfo()).getMapValueTypeInfo().getTypeName());
+            this.keyCoercer = fromKeyHiveType.equals(toKeyHiveType) ? null : createCoercer(typeManager, fromKeyHiveType, toKeyHiveType);
+            this.valueCoercer = fromValueHiveType.equals(toValueHiveType) ? null : createCoercer(typeManager, fromValueHiveType, toValueHiveType);
+        }
+
+        @Override
+        public Block apply(Block block)
+        {
+            ColumnarMap mapBlock = toColumnarMap(block);
+            Block keysBlock = keyCoercer == null ? mapBlock.getKeysBlock() : keyCoercer.apply(mapBlock.getKeysBlock());
+            Block valuesBlock = valueCoercer == null ? mapBlock.getValuesBlock() : valueCoercer.apply(mapBlock.getValuesBlock());
+            boolean[] valueIsNull = new boolean[mapBlock.getPositionCount()];
+            int[] offsets = new int[mapBlock.getPositionCount() + 1];
+            for (int i = 0; i < mapBlock.getPositionCount(); i++) {
+                valueIsNull[i] = mapBlock.isNull(i);
+                offsets[i + 1] = offsets[i] + mapBlock.getEntryCount(i);
+            }
+            return ((MapType) toType).createBlockFromKeyValue(valueIsNull, offsets, keysBlock, valuesBlock);
+        }
+    }
+
+    private static class StructCoercer
+            implements Function<Block, Block>
+    {
+        private final Function<Block, Block>[] coercers;
+        private final Block[] nullBlocks;
+
+        public StructCoercer(TypeManager typeManager, HiveType fromHiveType, HiveType toHiveType)
+        {
+            requireNonNull(typeManager, "typeManage is null");
+            requireNonNull(fromHiveType, "fromHiveType is null");
+            requireNonNull(toHiveType, "toHiveType is null");
+            List<HiveType> fromFieldTypes = extractStructFieldTypes(fromHiveType);
+            List<HiveType> toFieldTypes = extractStructFieldTypes(toHiveType);
+            this.coercers = new Function[toFieldTypes.size()];
+            this.nullBlocks = new Block[toFieldTypes.size()];
+            BlockBuilderStatus blockBuilderStatus = new BlockBuilderStatus();
+            for (int i = 0; i < coercers.length; i++) {
+                if (i >= fromFieldTypes.size()) {
+                    nullBlocks[i] = toFieldTypes.get(i).getType(typeManager).createBlockBuilder(blockBuilderStatus, 1).appendNull().build();
+                }
+                else if (!fromFieldTypes.get(i).equals(toFieldTypes.get(i))) {
+                    coercers[i] = createCoercer(typeManager, fromFieldTypes.get(i), toFieldTypes.get(i));
+                }
+            }
+        }
+
+        @Override
+        public Block apply(Block block)
+        {
+            ColumnarRow rowBlock = toColumnarRow(block);
+            Block[] fields = new Block[coercers.length];
+            int[] ids = new int[rowBlock.getField(0).getPositionCount()];
+            for (int i = 0; i < coercers.length; i++) {
+                if (coercers[i] != null) {
+                    fields[i] = coercers[i].apply(rowBlock.getField(i));
+                }
+                else if (i < rowBlock.getFieldCount()) {
+                    fields[i] = rowBlock.getField(i);
+                }
+                else {
+                    fields[i] = new DictionaryBlock(nullBlocks[i], ids);
+                }
+            }
+            boolean[] valueIsNull = new boolean[rowBlock.getPositionCount()];
+            int[] offsets = new int[rowBlock.getPositionCount() + 1];
+            for (int i = 0; i < rowBlock.getPositionCount(); i++) {
+                valueIsNull[i] = rowBlock.isNull(i);
+                offsets[i + 1] = offsets[i] + (valueIsNull[i] ? 0 : 1);
+            }
+            return new RowBlock(0, rowBlock.getPositionCount(), valueIsNull, offsets, fields);
+        }
+    }
+
     private final class CoercionLazyBlockLoader
             implements LazyBlockLoader<LazyBlock>
     {
@@ -450,6 +591,9 @@ public class HivePageSource
                 return;
             }
 
+            if (block instanceof LazyBlock) {
+                block = ((LazyBlock) block).getBlock();
+            }
             Block coercedBlock = coercer.apply(block);
             lazyBlock.setBlock(coercedBlock);
 

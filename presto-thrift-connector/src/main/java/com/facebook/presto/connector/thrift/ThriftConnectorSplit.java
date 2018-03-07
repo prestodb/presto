@@ -57,7 +57,7 @@ public class ThriftConnectorSplit
     @Override
     public Object getInfo()
     {
-        return this;
+        return "";
     }
 
     @Override

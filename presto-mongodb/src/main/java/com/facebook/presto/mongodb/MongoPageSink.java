@@ -75,11 +75,12 @@ public class MongoPageSink
     private final List<MongoColumnHandle> columns;
     private final String implicitPrefix;
 
-    public MongoPageSink(MongoClientConfig config,
-                         MongoSession mongoSession,
-                         ConnectorSession session,
-                         SchemaTableName schemaTableName,
-                         List<MongoColumnHandle> columns)
+    public MongoPageSink(
+            MongoClientConfig config,
+            MongoSession mongoSession,
+            ConnectorSession session,
+            SchemaTableName schemaTableName,
+            List<MongoColumnHandle> columns)
     {
         this.mongoSession = mongoSession;
         this.session = session;
@@ -162,6 +163,7 @@ public class MongoPageSink
         }
         if (type instanceof DecimalType) {
             // TODO: decimal type might not support yet
+            // TODO: this code is likely wrong and should switch to Decimals.readBigDecimal()
             DecimalType decimalType = (DecimalType) type;
             BigInteger unscaledValue;
             if (decimalType.isShort()) {

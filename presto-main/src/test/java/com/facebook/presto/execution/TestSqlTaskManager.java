@@ -25,6 +25,7 @@ import com.facebook.presto.execution.executor.TaskExecutor;
 import com.facebook.presto.memory.LocalMemoryManager;
 import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.memory.ReservedSystemMemoryConfig;
+import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.operator.ExchangeClientSupplier;
 import com.facebook.presto.spi.Node;
@@ -65,6 +66,7 @@ public class TestSqlTaskManager
     public static final OutputBufferId OUT = new OutputBufferId(0);
 
     private final TaskExecutor taskExecutor;
+    private final TaskManagementExecutor taskManagementExecutor;
     private final LocalMemoryManager localMemoryManager;
     private final LocalSpillManager localSpillManager;
 
@@ -74,18 +76,18 @@ public class TestSqlTaskManager
         localSpillManager = new LocalSpillManager(new NodeSpillConfig());
         taskExecutor = new TaskExecutor(8, 16);
         taskExecutor.start();
+        taskManagementExecutor = new TaskManagementExecutor();
     }
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void tearDown()
-            throws Exception
     {
         taskExecutor.stop();
+        taskManagementExecutor.close();
     }
 
     @Test
     public void testEmptyQuery()
-            throws Exception
     {
         try (SqlTaskManager sqlTaskManager = createSqlTaskManager(new TaskManagerConfig())) {
             TaskId taskId = TASK_ID;
@@ -94,7 +96,7 @@ public class TestSqlTaskManager
                     Optional.of(PLAN_FRAGMENT),
                     ImmutableList.of(),
                     createInitialEmptyOutputBuffers(PARTITIONED)
-                        .withNoMoreBufferIds());
+                            .withNoMoreBufferIds());
             assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
 
             taskInfo = sqlTaskManager.getTaskInfo(taskId);
@@ -155,7 +157,6 @@ public class TestSqlTaskManager
 
     @Test
     public void testCancel()
-            throws Exception
     {
         try (SqlTaskManager sqlTaskManager = createSqlTaskManager(new TaskManagerConfig())) {
             TaskId taskId = TASK_ID;
@@ -164,8 +165,8 @@ public class TestSqlTaskManager
                     Optional.of(PLAN_FRAGMENT),
                     ImmutableList.of(),
                     createInitialEmptyOutputBuffers(PARTITIONED)
-                        .withBuffer(OUT, 0)
-                        .withNoMoreBufferIds());
+                            .withBuffer(OUT, 0)
+                            .withNoMoreBufferIds());
             assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
             assertNull(taskInfo.getStats().getEndTime());
 
@@ -185,7 +186,6 @@ public class TestSqlTaskManager
 
     @Test
     public void testAbort()
-            throws Exception
     {
         try (SqlTaskManager sqlTaskManager = createSqlTaskManager(new TaskManagerConfig())) {
             TaskId taskId = TASK_ID;
@@ -194,8 +194,8 @@ public class TestSqlTaskManager
                     Optional.of(PLAN_FRAGMENT),
                     ImmutableList.of(),
                     createInitialEmptyOutputBuffers(PARTITIONED)
-                        .withBuffer(OUT, 0)
-                        .withNoMoreBufferIds());
+                            .withBuffer(OUT, 0)
+                            .withNoMoreBufferIds());
             assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
             assertNull(taskInfo.getStats().getEndTime());
 
@@ -253,8 +253,8 @@ public class TestSqlTaskManager
                     Optional.of(PLAN_FRAGMENT),
                     ImmutableList.of(),
                     createInitialEmptyOutputBuffers(PARTITIONED)
-                        .withBuffer(OUT, 0)
-                        .withNoMoreBufferIds());
+                            .withBuffer(OUT, 0)
+                            .withNoMoreBufferIds());
             assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
 
             taskInfo = sqlTaskManager.cancelTask(taskId);
@@ -281,6 +281,7 @@ public class TestSqlTaskManager
                 new QueryMonitor(new ObjectMapperProvider().get(), jsonCodec(StageInfo.class), new EventListenerManager(), new NodeInfo("test"), new NodeVersion("testVersion"), new QueryMonitorConfig()),
                 new NodeInfo("test"),
                 localMemoryManager,
+                taskManagementExecutor,
                 config,
                 new NodeMemoryConfig(),
                 localSpillManager,
@@ -291,7 +292,7 @@ public class TestSqlTaskManager
             implements ExchangeClientSupplier
     {
         @Override
-        public ExchangeClient get(SystemMemoryUsageListener systemMemoryUsageListener)
+        public ExchangeClient get(LocalMemoryContext systemMemoryContext)
         {
             throw new UnsupportedOperationException();
         }

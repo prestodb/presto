@@ -32,7 +32,6 @@ import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
 import java.lang.invoke.MethodHandles;
-import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
@@ -40,6 +39,8 @@ import static com.facebook.presto.metadata.FunctionRegistry.getMagicLiteralFunct
 import static com.facebook.presto.metadata.FunctionRegistry.mangleOperatorName;
 import static com.facebook.presto.metadata.FunctionRegistry.unmangleOperator;
 import static com.facebook.presto.metadata.Signature.typeVariable;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
@@ -48,6 +49,7 @@ import static com.facebook.presto.type.TypeUtils.resolveTypes;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Lists.transform;
 import static java.lang.String.format;
+import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -124,7 +126,6 @@ public class TestFunctionRegistry
 
     @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "'sum' is both an aggregation and a scalar function")
     public void testConflictingScalarAggregation()
-            throws Exception
     {
         List<SqlFunction> functions = new FunctionListBuilder()
                 .scalars(ScalarSum.class)
@@ -137,7 +138,6 @@ public class TestFunctionRegistry
 
     @Test
     public void testListingHiddenFunctions()
-            throws Exception
     {
         TypeRegistry typeManager = new TypeRegistry();
         FunctionRegistry registry = new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
@@ -152,7 +152,6 @@ public class TestFunctionRegistry
 
     @Test
     public void testResolveFunctionByExactMatch()
-            throws Exception
     {
         assertThatResolveFunction()
                 .among(functionSignature("bigint", "bigint"))
@@ -162,7 +161,6 @@ public class TestFunctionRegistry
 
     @Test
     public void testResolveTypeParametrizedFunction()
-            throws Exception
     {
         assertThatResolveFunction()
                 .among(functionSignature(ImmutableList.of("T", "T"), "boolean", ImmutableList.of(typeVariable("T"))))
@@ -172,82 +170,70 @@ public class TestFunctionRegistry
 
     @Test
     public void testResolveFunctionWithCoercion()
-            throws Exception
     {
         assertThatResolveFunction()
                 .among(
                         functionSignature("decimal(p,s)", "double"),
                         functionSignature("decimal(p,s)", "decimal(p,s)"),
-                        functionSignature("double", "double")
-                )
+                        functionSignature("double", "double"))
                 .forParameters("bigint", "bigint")
                 .returns(functionSignature("decimal(19,0)", "decimal(19,0)"));
     }
 
     @Test
     public void testAmbiguousCallWithNoCoercion()
-            throws Exception
     {
         assertThatResolveFunction()
                 .among(
                         functionSignature("decimal(p,s)", "decimal(p,s)"),
-                        functionSignature(ImmutableList.of("T", "T"), "boolean", ImmutableList.of(typeVariable("T")))
-                )
+                        functionSignature(ImmutableList.of("T", "T"), "boolean", ImmutableList.of(typeVariable("T"))))
                 .forParameters("decimal(3,1)", "decimal(3,1)")
                 .returns(functionSignature("decimal(3,1)", "decimal(3,1)"));
     }
 
     @Test
     public void testAmbiguousCallWithCoercion()
-            throws Exception
     {
         assertThatResolveFunction()
                 .among(
                         functionSignature("decimal(p,s)", "double"),
-                        functionSignature("double", "decimal(p,s)")
-                )
+                        functionSignature("double", "decimal(p,s)"))
                 .forParameters("bigint", "bigint")
                 .failsWithMessage("Could not choose a best candidate operator. Explicit type casts must be added.");
     }
 
     @Test
     public void testResolveFunctionWithCoercionInTypes()
-            throws Exception
     {
         assertThatResolveFunction()
                 .among(
                         functionSignature("array(decimal(p,s))", "array(double)"),
                         functionSignature("array(decimal(p,s))", "array(decimal(p,s))"),
-                        functionSignature("array(double)", "array(double)")
-                )
+                        functionSignature("array(double)", "array(double)"))
                 .forParameters("array(bigint)", "array(bigint)")
                 .returns(functionSignature("array(decimal(19,0))", "array(decimal(19,0))"));
     }
 
     @Test
     public void testResolveFunctionWithVariableArity()
-            throws Exception
     {
         assertThatResolveFunction()
                 .among(
                         functionSignature("double", "double", "double"),
-                        functionSignature("decimal(p,s)").setVariableArity(true)
-                )
+                        functionSignature("decimal(p,s)").setVariableArity(true))
                 .forParameters("bigint", "bigint", "bigint")
                 .returns(functionSignature("decimal(19,0)", "decimal(19,0)", "decimal(19,0)"));
 
         assertThatResolveFunction()
                 .among(
                         functionSignature("double", "double", "double"),
-                        functionSignature("bigint").setVariableArity(true)
-                )
+                        functionSignature("bigint").setVariableArity(true))
                 .forParameters("bigint", "bigint", "bigint")
                 .returns(functionSignature("bigint", "bigint", "bigint"));
     }
 
     @Test
     public void testResolveFunctionWithVariadicBound()
-            throws Exception
     {
         assertThatResolveFunction()
                 .among(
@@ -257,20 +243,17 @@ public class TestFunctionRegistry
                                 "boolean",
                                 ImmutableList.of(Signature.withVariadicBound("T1", "decimal"),
                                         Signature.withVariadicBound("T2", "decimal"),
-                                        Signature.withVariadicBound("T3", "decimal")))
-                )
+                                        Signature.withVariadicBound("T3", "decimal"))))
                 .forParameters("unknown", "bigint", "bigint")
                 .returns(functionSignature("bigint", "bigint", "bigint"));
     }
 
     @Test
     public void testResolveFunctionForUnknown()
-            throws Exception
     {
         assertThatResolveFunction()
                 .among(
-                        functionSignature("bigint")
-                )
+                        functionSignature("bigint"))
                 .forParameters("unknown")
                 .returns(functionSignature("bigint"));
 
@@ -278,8 +261,7 @@ public class TestFunctionRegistry
         assertThatResolveFunction()
                 .among(
                         functionSignature("bigint"),
-                        functionSignature("integer")
-                )
+                        functionSignature("integer"))
                 .forParameters("unknown")
                 .returns(functionSignature("integer"));
 
@@ -287,8 +269,7 @@ public class TestFunctionRegistry
         assertThatResolveFunction()
                 .among(
                         functionSignature("bigint", "bigint"),
-                        functionSignature("integer", "integer")
-                )
+                        functionSignature("integer", "integer"))
                 .forParameters("unknown", "bigint")
                 .returns(functionSignature("bigint", "bigint"));
 
@@ -296,8 +277,7 @@ public class TestFunctionRegistry
         assertThatResolveFunction()
                 .among(
                         functionSignature(ImmutableList.of("JoniRegExp"), "boolean"),
-                        functionSignature(ImmutableList.of("integer"), "boolean")
-                )
+                        functionSignature(ImmutableList.of("integer"), "boolean"))
                 .forParameters("unknown")
                 // any function can be selected, but to make it deterministic we sort function signatures alphabetically
                 .returns(functionSignature("integer"));
@@ -306,8 +286,7 @@ public class TestFunctionRegistry
         assertThatResolveFunction()
                 .among(
                         functionSignature(ImmutableList.of("JoniRegExp"), "JoniRegExp"),
-                        functionSignature(ImmutableList.of("integer"), "integer")
-                )
+                        functionSignature(ImmutableList.of("integer"), "integer"))
                 .forParameters("unknown")
                 .failsWithMessage("Could not choose a best candidate operator. Explicit type casts must be added.");
     }
@@ -408,7 +387,11 @@ public class TestFunctionRegistry
                             TypeManager typeManager,
                             FunctionRegistry functionRegistry)
                     {
-                        return new ScalarFunctionImplementation(false, Collections.nCopies(arity, Boolean.FALSE), MethodHandles.identity(Void.class), true);
+                        return new ScalarFunctionImplementation(
+                                false,
+                                nCopies(arity, valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
+                                MethodHandles.identity(Void.class),
+                                true);
                     }
 
                     @Override

@@ -121,6 +121,8 @@ Property Name                                      Description                  
                                                    Example: ``thrift://192.0.2.3:9083`` or
                                                    ``thrift://192.0.2.3:9083,thrift://192.0.2.4:9083``
 
+``hive.metastore.username``                        The username Presto will use to access the Hive metastore.
+
 ``hive.config.resources``                          An optional comma-separated list of HDFS
                                                    configuration files. These files must exist on the
                                                    machines running Presto. Only specify this if
@@ -142,6 +144,8 @@ Property Name                                      Description                  
 ``hive.immutable-partitions``                      Can new data be inserted into existing partitions?           ``false``
 
 ``hive.max-partitions-per-writers``                Maximum number of partitions per writer.                     100
+
+``hive.max-partitions-per-scan``                   Maximum number of partitions for a single table scan.        100,000
 
 ``hive.metastore.authentication.type``             Hive metastore authentication type.                          ``NONE``
                                                    Possible values are ``NONE`` or ``KERBEROS``.
@@ -169,6 +173,8 @@ Property Name                                      Description                  
                                                    See :ref:`hive-file-based-authorization` for details.
 
 ``hive.non-managed-table-writes-enabled``          Enable writes to non-managed (external) Hive tables.         ``false``
+
+``hive.non-managed-table-creates-enabled``         Enable creating non-managed (external) Hive tables.          ``true``
 ================================================== ============================================================ ==========
 
 Amazon S3 Configuration
@@ -202,6 +208,10 @@ Property Name                                Description
 
 ``hive.s3.signer-type``                      Specify a different signer type for S3-compatible storage.
                                              Example: ``S3SignerType`` for v2 signer type
+
+``hive.s3.path-style-access``                Use path-style access for all requests to the S3-compatible storage.
+                                             This is for S3-compatible storage that doesn't support virtual-hosted-style access.
+                                             (defaults to ``false``)
 
 ``hive.s3.staging-directory``                Local staging directory for data written to S3.
                                              This defaults to the Java temporary directory specified

@@ -15,6 +15,7 @@ package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
@@ -130,13 +131,14 @@ public class InCodeGeneratorBenchmark
                 BOOLEAN,
                 arguments);
 
-        processor = new ExpressionCompiler(MetadataManager.createTestMetadataManager()).compilePageProcessor(Optional.of(filter), ImmutableList.of(project)).get();
+        MetadataManager metadata = MetadataManager.createTestMetadataManager();
+        processor = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0)).compilePageProcessor(Optional.of(filter), ImmutableList.of(project)).get();
     }
 
     @Benchmark
-    public List<Page> benchmark()
+    public List<Optional<Page>> benchmark()
     {
-        return ImmutableList.copyOf(processor.process(SESSION, inputPage));
+        return ImmutableList.copyOf(processor.process(SESSION, new DriverYieldSignal(), inputPage));
     }
 
     public static void main(String[] args)

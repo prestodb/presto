@@ -14,6 +14,7 @@
 package com.facebook.presto.raptor;
 
 import com.facebook.presto.raptor.backup.BackupModule;
+import com.facebook.presto.raptor.security.RaptorSecurityModule;
 import com.facebook.presto.raptor.storage.StorageModule;
 import com.facebook.presto.raptor.util.RebindSafeMBeanServer;
 import com.facebook.presto.spi.ConnectorHandleResolver;
@@ -85,7 +86,8 @@ public class RaptorConnectorFactory
                     metadataModule,
                     new BackupModule(backupProviders),
                     new StorageModule(connectorId),
-                    new RaptorModule(connectorId));
+                    new RaptorModule(connectorId),
+                    new RaptorSecurityModule());
 
             Injector injector = app
                     .strictConfig()

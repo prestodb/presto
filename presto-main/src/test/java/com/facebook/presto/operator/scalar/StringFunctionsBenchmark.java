@@ -149,10 +149,10 @@ public class StringFunctionsBenchmark
                     .toArray();
         }
 
-        @Param({ "2", "5", "10", "100", "1000", "10000" })
+        @Param({"2", "5", "10", "100", "1000", "10000"})
         private int length;
 
-        @Param({ "true", "false" })
+        @Param({"true", "false"})
         private boolean ascii;
 
         private Slice slice;
@@ -200,10 +200,10 @@ public class StringFunctionsBenchmark
                     .toArray();
         }
 
-        @Param({ "2", "5", "10", "100", "1000", "10000" })
+        @Param({"2", "5", "10", "100", "1000", "10000"})
         private int length;
 
-        @Param({ "true", "false" })
+        @Param({"true", "false"})
         private boolean ascii;
 
         private Slice leftWhitespace;

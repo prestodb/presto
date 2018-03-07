@@ -17,11 +17,12 @@ import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.SqlScalarFunction;
+import com.facebook.presto.operator.ParametricImplementationsGroup;
 import com.facebook.presto.operator.scalar.annotations.ScalarImplementation;
 import com.facebook.presto.operator.scalar.annotations.ScalarImplementation.MethodHandleAndConstructor;
-import com.facebook.presto.operator.scalar.annotations.ScalarImplementations;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.TypeManager;
+import com.google.common.annotations.VisibleForTesting;
 
 import java.util.Optional;
 
@@ -37,12 +38,12 @@ public class ParametricScalar
         extends SqlScalarFunction
 {
     private final ScalarHeader details;
-    private final ScalarImplementations implementations;
+    private final ParametricImplementationsGroup<ScalarImplementation> implementations;
 
     public ParametricScalar(
             Signature signature,
             ScalarHeader details,
-            ScalarImplementations implementations)
+            ParametricImplementationsGroup<ScalarImplementation> implementations)
     {
         super(signature);
         this.details = requireNonNull(details);
@@ -67,6 +68,12 @@ public class ParametricScalar
         return details.getDescription().isPresent() ? details.getDescription().get() : "";
     }
 
+    @VisibleForTesting
+    public ParametricImplementationsGroup<ScalarImplementation> getImplementations()
+    {
+        return implementations;
+    }
+
     @Override
     public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
@@ -77,9 +84,7 @@ public class ParametricScalar
             checkCondition(methodHandleAndConstructor.isPresent(), FUNCTION_IMPLEMENTATION_ERROR, String.format("Exact implementation of %s do not match expected java types.", boundSignature.getName()));
             return new ScalarFunctionImplementation(
                     implementation.isNullable(),
-                    implementation.getNullableArguments(),
-                    implementation.getNullFlags(),
-                    implementation.getLambdaInterface(),
+                    implementation.getArgumentProperties(),
                     methodHandleAndConstructor.get().getMethodHandle(),
                     methodHandleAndConstructor.get().getConstructor(),
                     isDeterministic());
@@ -92,9 +97,7 @@ public class ParametricScalar
                 checkCondition(selectedImplementation == null, AMBIGUOUS_FUNCTION_IMPLEMENTATION, "Ambiguous implementation for %s with bindings %s", getSignature(), boundVariables.getTypeVariables());
                 selectedImplementation = new ScalarFunctionImplementation(
                         implementation.isNullable(),
-                        implementation.getNullableArguments(),
-                        implementation.getNullFlags(),
-                        implementation.getLambdaInterface(),
+                        implementation.getArgumentProperties(),
                         methodHandle.get().getMethodHandle(),
                         methodHandle.get().getConstructor(),
                         isDeterministic());
@@ -110,9 +113,7 @@ public class ParametricScalar
                 checkCondition(selectedImplementation == null, AMBIGUOUS_FUNCTION_IMPLEMENTATION, "Ambiguous implementation for %s with bindings %s", getSignature(), boundVariables.getTypeVariables());
                 selectedImplementation = new ScalarFunctionImplementation(
                         implementation.isNullable(),
-                        implementation.getNullableArguments(),
-                        implementation.getNullFlags(),
-                        implementation.getLambdaInterface(),
+                        implementation.getArgumentProperties(),
                         methodHandle.get().getMethodHandle(),
                         methodHandle.get().getConstructor(),
                         isDeterministic());

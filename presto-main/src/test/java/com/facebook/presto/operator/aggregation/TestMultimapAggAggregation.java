@@ -46,7 +46,6 @@ public class TestMultimapAggAggregation
 
     @Test
     public void testSingleValueMap()
-            throws Exception
     {
         testMultimapAgg(DOUBLE, ImmutableList.of(1.0), VARCHAR, ImmutableList.of("a"));
         testMultimapAgg(VARCHAR, ImmutableList.of("a"), BIGINT, ImmutableList.of(1L));
@@ -54,7 +53,6 @@ public class TestMultimapAggAggregation
 
     @Test
     public void testMultiValueMap()
-            throws Exception
     {
         testMultimapAgg(DOUBLE, ImmutableList.of(1.0, 1.0, 1.0), VARCHAR, ImmutableList.of("a", "b", "c"));
         testMultimapAgg(DOUBLE, ImmutableList.of(1.0, 1.0, 2.0), VARCHAR, ImmutableList.of("a", "b", "c"));
@@ -62,7 +60,6 @@ public class TestMultimapAggAggregation
 
     @Test
     public void testOrderValueMap()
-            throws Exception
     {
         testMultimapAgg(VARCHAR, ImmutableList.of("a", "a", "a"), BIGINT, ImmutableList.of(1L, 2L, 3L));
         testMultimapAgg(VARCHAR, ImmutableList.of("a", "a", "a"), BIGINT, ImmutableList.of(2L, 1L, 3L));
@@ -71,7 +68,6 @@ public class TestMultimapAggAggregation
 
     @Test
     public void testDuplicateValueMap()
-            throws Exception
     {
         testMultimapAgg(VARCHAR, ImmutableList.of("a", "a", "a"), BIGINT, ImmutableList.of(1L, 1L, 1L));
         testMultimapAgg(VARCHAR, ImmutableList.of("a", "b", "a", "b", "c"), BIGINT, ImmutableList.of(1L, 1L, 1L, 1L, 1L));
@@ -79,14 +75,12 @@ public class TestMultimapAggAggregation
 
     @Test
     public void testNullMap()
-            throws Exception
     {
         testMultimapAgg(DOUBLE, ImmutableList.<Double>of(), VARCHAR, ImmutableList.<String>of());
     }
 
     @Test
     public void testDoubleMapMultimap()
-            throws Exception
     {
         Type mapType = mapType(VARCHAR, BIGINT);
         List<Double> expectedKeys = ImmutableList.of(1.0, 2.0, 3.0);
@@ -97,7 +91,6 @@ public class TestMultimapAggAggregation
 
     @Test
     public void testDoubleArrayMultimap()
-            throws Exception
     {
         Type arrayType = new ArrayType(VARCHAR);
         List<Double> expectedKeys = ImmutableList.of(1.0, 2.0, 3.0);
@@ -108,7 +101,6 @@ public class TestMultimapAggAggregation
 
     @Test
     public void testDoubleRowMap()
-            throws Exception
     {
         RowType innerRowType = new RowType(ImmutableList.of(BIGINT, DOUBLE), Optional.of(ImmutableList.of("f1", "f2")));
         testMultimapAgg(DOUBLE, ImmutableList.of(1.0, 2.0, 3.0), innerRowType, ImmutableList.of(ImmutableList.of(1L, 1.0), ImmutableList.of(2L, 2.0), ImmutableList.of(3L, 3.0)));

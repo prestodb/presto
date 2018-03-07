@@ -20,7 +20,7 @@ import com.google.inject.Scopes;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class AccessControlModule
-    implements Module
+        implements Module
 {
     @Override
     public void configure(Binder binder)

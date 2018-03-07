@@ -24,12 +24,15 @@ import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.facebook.presto.block.BlockAssertions.assertBlockEquals;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 public class TestBlockBuilder
 {
@@ -78,6 +81,65 @@ public class TestBlockBuilder
             assertNotEquals(pageBuilder.getBlockBuilder(i), newPageBuilder.getBlockBuilder(i));
             assertEquals(newPageBuilder.getBlockBuilder(i).getPositionCount(), 0);
             assertTrue(newPageBuilder.getBlockBuilder(i).getRetainedSizeInBytes() < pageBuilder.getBlockBuilder(i).getRetainedSizeInBytes());
+        }
+    }
+
+    @Test
+    public void testGetPositions()
+    {
+        BlockBuilder blockBuilder = BIGINT.createFixedSizeBlockBuilder(5).appendNull().writeLong(42L).appendNull().writeLong(43L).appendNull();
+        int[] positions = new int[] {0, 1, 1, 1, 4};
+
+        // test getPositions for block builder
+        assertBlockEquals(BIGINT, blockBuilder.getPositions(positions, 0, positions.length), BIGINT.createFixedSizeBlockBuilder(5).appendNull().writeLong(42).writeLong(42).writeLong(42).appendNull().build());
+        assertBlockEquals(BIGINT, blockBuilder.getPositions(positions, 1, 4), BIGINT.createFixedSizeBlockBuilder(5).writeLong(42).writeLong(42).writeLong(42).appendNull().build());
+        assertBlockEquals(BIGINT, blockBuilder.getPositions(positions, 2, 1), BIGINT.createFixedSizeBlockBuilder(5).writeLong(42).build());
+        assertBlockEquals(BIGINT, blockBuilder.getPositions(positions, 0, 0), BIGINT.createFixedSizeBlockBuilder(5).build());
+        assertBlockEquals(BIGINT, blockBuilder.getPositions(positions, 1, 0), BIGINT.createFixedSizeBlockBuilder(5).build());
+
+        // out of range
+        assertInvalidGetPositions(blockBuilder, new int[] {-1}, 0, 1);
+        assertInvalidGetPositions(blockBuilder, new int[] {6}, 0, 1);
+        assertInvalidGetPositions(blockBuilder, new int[] {6}, 1, 1);
+        assertInvalidGetPositions(blockBuilder, new int[] {6}, -1, 1);
+        assertInvalidGetPositions(blockBuilder, new int[] {6}, 2, -1);
+
+        // test getPositions for block
+        Block block = blockBuilder.build();
+        assertBlockEquals(BIGINT, block.getPositions(positions, 0, positions.length), BIGINT.createFixedSizeBlockBuilder(5).appendNull().writeLong(42).writeLong(42).writeLong(42).appendNull().build());
+        assertBlockEquals(BIGINT, block.getPositions(positions, 1, 4), BIGINT.createFixedSizeBlockBuilder(5).writeLong(42).writeLong(42).writeLong(42).appendNull().build());
+        assertBlockEquals(BIGINT, block.getPositions(positions, 2, 1), BIGINT.createFixedSizeBlockBuilder(5).writeLong(42).build());
+        assertBlockEquals(BIGINT, block.getPositions(positions, 0, 0), BIGINT.createFixedSizeBlockBuilder(5).build());
+        assertBlockEquals(BIGINT, block.getPositions(positions, 1, 0), BIGINT.createFixedSizeBlockBuilder(5).build());
+
+        // out of range
+        assertInvalidGetPositions(block, new int[] {-1}, 0, 1);
+        assertInvalidGetPositions(block, new int[] {6}, 0, 1);
+        assertInvalidGetPositions(block, new int[] {6}, 1, 1);
+        assertInvalidGetPositions(block, new int[] {6}, -1, 1);
+        assertInvalidGetPositions(block, new int[] {6}, 2, -1);
+
+        // assert we should not copy ids
+        AtomicBoolean isIdentical = new AtomicBoolean(false);
+        block.getPositions(positions, 0, positions.length - 1).retainedBytesForEachPart((part, size) -> {
+            if (part == positions) {
+                isIdentical.set(true);
+            }
+        });
+        assertTrue(isIdentical.get());
+    }
+
+    private static void assertInvalidGetPositions(Block block, int[] positions, int offset, int length)
+    {
+        try {
+            block.getPositions(positions, offset, length).getLong(0, 0);
+            fail("Expected to fail");
+        }
+        catch (IllegalArgumentException e) {
+            assertTrue(e.getMessage().startsWith("position is not valid"));
+        }
+        catch (IndexOutOfBoundsException e) {
+            assertTrue(e.getMessage().startsWith("Invalid offset"));
         }
     }
 }

@@ -122,6 +122,11 @@ public class OptimizeMixedDistinctAggregations
                 return context.defaultRewrite(node, Optional.empty());
             }
 
+            if (node.hasOrderings()) {
+                // Skip if any aggregation contains a order by
+                return context.defaultRewrite(node, Optional.empty());
+            }
+
             AggregateInfo aggregateInfo = new AggregateInfo(
                     node.getGroupingKeys(),
                     Iterables.getOnlyElement(uniqueMasks),
@@ -365,6 +370,7 @@ public class OptimizeMixedDistinctAggregations
                     ImmutableMap.of(),
                     groupSymbol);
         }
+
         /*
          * This method returns a new Aggregation node which has aggregations on non-distinct symbols from original plan. Generates
          *      SELECT a1, a2,..., an, F1(b1) as f1, F2(b2) as f2,...., Fm(bm) as fm, c, group
@@ -382,8 +388,7 @@ public class OptimizeMixedDistinctAggregations
                 Set<Symbol> groupByKeys,
                 GroupIdNode groupIdNode,
                 MarkDistinctNode originalNode,
-                ImmutableMap.Builder<Symbol, Symbol> aggregationOutputSymbolsMapBuilder
-        )
+                ImmutableMap.Builder<Symbol, Symbol> aggregationOutputSymbolsMapBuilder)
         {
             ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
             for (Map.Entry<Symbol, Aggregation> entry : aggregateInfo.getAggregations().entrySet()) {

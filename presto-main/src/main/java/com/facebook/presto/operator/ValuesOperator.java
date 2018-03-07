@@ -60,7 +60,7 @@ public class ValuesOperator
         }
 
         @Override
-        public void close()
+        public void noMoreOperators()
         {
             closed = true;
         }

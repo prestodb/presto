@@ -31,7 +31,7 @@ public class ArrayBlock
     private final Block values;
     private final int[] offsets;
 
-    private long sizeInBytes;
+    private volatile long sizeInBytes;
     private final long retainedSizeInBytes;
 
     public ArrayBlock(int positionCount, boolean[] valueIsNull, int[] offsets, Block values)
@@ -78,7 +78,6 @@ public class ArrayBlock
     @Override
     public long getSizeInBytes()
     {
-        // this is racy but is safe because sizeInBytes is an int and the calculation is stable
         if (sizeInBytes < 0) {
             calculateSize();
         }

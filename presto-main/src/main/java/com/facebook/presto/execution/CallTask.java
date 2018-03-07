@@ -54,7 +54,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PROCEDU
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_CATALOG;
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
 import static com.facebook.presto.util.Failures.checkCondition;
-import static com.google.common.base.Throwables.propagateIfInstanceOf;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Arrays.asList;
 
@@ -164,7 +164,7 @@ public class CallTask
             if (t instanceof InterruptedException) {
                 Thread.currentThread().interrupt();
             }
-            propagateIfInstanceOf(t, PrestoException.class);
+            throwIfInstanceOf(t, PrestoException.class);
             throw new PrestoException(PROCEDURE_CALL_FAILED, t);
         }
 

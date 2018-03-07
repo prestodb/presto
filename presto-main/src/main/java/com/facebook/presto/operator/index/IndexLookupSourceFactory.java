@@ -13,9 +13,11 @@
  */
 package com.facebook.presto.operator.index;
 
-import com.facebook.presto.operator.LookupSource;
 import com.facebook.presto.operator.LookupSourceFactory;
+import com.facebook.presto.operator.LookupSourceProvider;
+import com.facebook.presto.operator.OuterPositionIterator;
 import com.facebook.presto.operator.PagesIndex;
+import com.facebook.presto.operator.StaticLookupSourceProvider;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinCompiler;
@@ -28,7 +30,7 @@ import io.airlift.units.DataSize;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Supplier;
 
@@ -46,7 +48,7 @@ public class IndexLookupSourceFactory
     public IndexLookupSourceFactory(
             Set<Integer> lookupSourceInputChannels,
             List<Integer> keyOutputChannels,
-            Optional<Integer> keyOutputHashChannel,
+            OptionalInt keyOutputHashChannel,
             List<Type> outputTypes,
             Map<Symbol, Integer> layout,
             IndexBuildDriverFactoryProvider indexBuildDriverFactoryProvider,
@@ -93,13 +95,25 @@ public class IndexLookupSourceFactory
     }
 
     @Override
-    public ListenableFuture<LookupSource> createLookupSource()
+    public ListenableFuture<LookupSourceProvider> createLookupSourceProvider()
     {
         checkState(taskContext != null, "taskContext not set");
 
         IndexLoader indexLoader = indexLoaderSupplier.get();
         indexLoader.setContext(taskContext);
-        return Futures.immediateFuture(new IndexLookupSource(indexLoader));
+        return Futures.immediateFuture(new StaticLookupSourceProvider(new IndexLookupSource(indexLoader)));
+    }
+
+    @Override
+    public int partitions()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public OuterPositionIterator getOuterPositionIterator()
+    {
+        throw new UnsupportedOperationException();
     }
 
     @Override

@@ -25,5 +25,5 @@ public interface ValueInputStream<C extends StreamCheckpoint>
             throws IOException;
 
     void skip(long items)
-                    throws IOException;
+            throws IOException;
 }

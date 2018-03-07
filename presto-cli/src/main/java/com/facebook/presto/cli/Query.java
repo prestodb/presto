@@ -17,14 +17,12 @@ import com.facebook.presto.cli.ClientOptions.OutputFormat;
 import com.facebook.presto.client.Column;
 import com.facebook.presto.client.ErrorLocation;
 import com.facebook.presto.client.QueryError;
-import com.facebook.presto.client.QueryResults;
+import com.facebook.presto.client.QueryStatusInfo;
 import com.facebook.presto.client.StatementClient;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
-import io.airlift.log.Logger;
 import org.fusesource.jansi.Ansi;
 import sun.misc.Signal;
 import sun.misc.SignalHandler;
@@ -34,14 +32,17 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.PrintStream;
+import java.io.UncheckedIOException;
 import java.io.Writer;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.cli.ConsolePrinter.REAL_TERMINAL;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
@@ -49,17 +50,26 @@ import static java.util.Objects.requireNonNull;
 public class Query
         implements Closeable
 {
-    private static final Logger log = Logger.get(Query.class);
-
     private static final Signal SIGINT = new Signal("INT");
 
     private final AtomicBoolean ignoreUserInterrupt = new AtomicBoolean();
-    private final AtomicBoolean userAbortedQuery = new AtomicBoolean();
     private final StatementClient client;
+    private final boolean debug;
 
-    public Query(StatementClient client)
+    public Query(StatementClient client, boolean debug)
     {
         this.client = requireNonNull(client, "client is null");
+        this.debug = debug;
+    }
+
+    public Optional<String> getSetCatalog()
+    {
+        return client.getSetCatalog();
+    }
+
+    public Optional<String> getSetSchema()
+    {
+        return client.getSetSchema();
     }
 
     public Map<String, String> getSetSessionProperties()
@@ -84,7 +94,7 @@ public class Query
 
     public String getStartedTransactionId()
     {
-        return client.getStartedtransactionId();
+        return client.getStartedTransactionId();
     }
 
     public boolean isClearTransactionId()
@@ -92,19 +102,18 @@ public class Query
         return client.isClearTransactionId();
     }
 
-    public void renderOutput(PrintStream out, OutputFormat outputFormat, boolean interactive)
+    public boolean renderOutput(PrintStream out, OutputFormat outputFormat, boolean interactive)
     {
         Thread clientThread = Thread.currentThread();
         SignalHandler oldHandler = Signal.handle(SIGINT, signal -> {
-            if (ignoreUserInterrupt.get() || client.isClosed()) {
+            if (ignoreUserInterrupt.get() || client.isClientAborted()) {
                 return;
             }
-            userAbortedQuery.set(true);
             client.close();
             clientThread.interrupt();
         });
         try {
-            renderQueryOutput(out, outputFormat, interactive);
+            return renderQueryOutput(out, outputFormat, interactive);
         }
         finally {
             Signal.handle(SIGINT, oldHandler);
@@ -112,57 +121,67 @@ public class Query
         }
     }
 
-    private void renderQueryOutput(PrintStream out, OutputFormat outputFormat, boolean interactive)
+    private boolean renderQueryOutput(PrintStream out, OutputFormat outputFormat, boolean interactive)
     {
         StatusPrinter statusPrinter = null;
         @SuppressWarnings("resource")
         PrintStream errorChannel = interactive ? out : System.err;
 
         if (interactive) {
-            statusPrinter = new StatusPrinter(client, out);
+            statusPrinter = new StatusPrinter(client, out, debug);
             statusPrinter.printInitialStatusUpdates();
         }
         else {
             waitForData();
         }
 
-        if ((!client.isFailed()) && (!client.isGone()) && (!client.isClosed())) {
-            QueryResults results = client.isValid() ? client.current() : client.finalResults();
+        // if running or finished
+        if (client.isRunning() || (client.isFinished() && client.finalStatusInfo().getError() == null)) {
+            QueryStatusInfo results = client.isRunning() ? client.currentStatusInfo() : client.finalStatusInfo();
             if (results.getUpdateType() != null) {
                 renderUpdate(errorChannel, results);
             }
             else if (results.getColumns() == null) {
                 errorChannel.printf("Query %s has no columns\n", results.getId());
-                return;
+                return false;
             }
             else {
                 renderResults(out, outputFormat, interactive, results.getColumns());
             }
         }
 
+        checkState(!client.isRunning());
+
         if (statusPrinter != null) {
             statusPrinter.printFinalInfo();
         }
 
-        if (client.isClosed()) {
+        if (client.isClientAborted()) {
             errorChannel.println("Query aborted by user");
+            return false;
         }
-        else if (client.isGone()) {
+        if (client.isClientError()) {
             errorChannel.println("Query is gone (server restarted?)");
+            return false;
         }
-        else if (client.isFailed()) {
+
+        verify(client.isFinished());
+        if (client.finalStatusInfo().getError() != null) {
             renderFailure(errorChannel);
+            return false;
         }
+
+        return true;
     }
 
     private void waitForData()
     {
-        while (client.isValid() && (client.current().getData() == null)) {
+        while (client.isRunning() && (client.currentData().getData() == null)) {
             client.advance();
         }
     }
 
-    private void renderUpdate(PrintStream out, QueryResults results)
+    private void renderUpdate(PrintStream out, QueryStatusInfo results)
     {
         String status = results.getUpdateType();
         if (results.getUpdateCount() != null) {
@@ -179,7 +198,7 @@ public class Query
             handler.processRows(client);
         }
         catch (IOException e) {
-            throw Throwables.propagate(e);
+            throw new UncheckedIOException(e);
         }
     }
 
@@ -193,7 +212,7 @@ public class Query
             client.close();
         }
         catch (IOException e) {
-            throw Throwables.propagate(e);
+            throw new UncheckedIOException(e);
         }
     }
 
@@ -220,15 +239,15 @@ public class Query
                 // ignore the user pressing ctrl-C while in the pager
                 ignoreUserInterrupt.set(true);
                 pager.getFinishFuture().thenRun(() -> {
-                    userAbortedQuery.set(true);
                     ignoreUserInterrupt.set(false);
+                    client.close();
                     clientThread.interrupt();
                 });
             }
             handler.processRows(client);
         }
         catch (RuntimeException | IOException e) {
-            if (userAbortedQuery.get() && !(e instanceof QueryAbortedException)) {
+            if (client.isClientAborted() && !(e instanceof QueryAbortedException)) {
                 throw new QueryAbortedException(e);
             }
             throw e;
@@ -282,12 +301,12 @@ public class Query
 
     public void renderFailure(PrintStream out)
     {
-        QueryResults results = client.finalResults();
+        QueryStatusInfo results = client.finalStatusInfo();
         QueryError error = results.getError();
         checkState(error != null);
 
         out.printf("Query %s failed: %s%n", results.getId(), error.getMessage());
-        if (client.isDebug() && (error.getFailureInfo() != null)) {
+        if (debug && (error.getFailureInfo() != null)) {
             error.getFailureInfo().toException().printStackTrace(out);
         }
         if (error.getErrorLocation() != null) {
@@ -331,26 +350,6 @@ public class Query
             String padding = Strings.repeat(" ", prefix.length() + (location.getColumnNumber() - 1));
             out.println(prefix + errorLine);
             out.println(padding + "^");
-        }
-    }
-
-    private static class ThreadInterruptor
-            implements Closeable
-    {
-        private final Thread thread = Thread.currentThread();
-        private final AtomicBoolean processing = new AtomicBoolean(true);
-
-        public synchronized void interrupt()
-        {
-            if (processing.get()) {
-                thread.interrupt();
-            }
-        }
-
-        @Override
-        public synchronized void close()
-        {
-            processing.set(false);
         }
     }
 }

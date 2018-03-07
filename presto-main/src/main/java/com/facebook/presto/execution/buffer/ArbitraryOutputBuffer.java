@@ -17,8 +17,8 @@ import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.OutputBuffers.OutputBufferId;
 import com.facebook.presto.execution.StateMachine;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
-import com.facebook.presto.execution.SystemMemoryUsageListener;
 import com.facebook.presto.execution.buffer.ClientBuffer.PagesSupplier;
+import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
@@ -38,6 +38,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Supplier;
 
 import static com.facebook.presto.OutputBuffers.BufferType.ARBITRARY;
 import static com.facebook.presto.OutputBuffers.createInitialEmptyOutputBuffers;
@@ -80,7 +81,7 @@ public class ArbitraryOutputBuffer
             String taskInstanceId,
             StateMachine<BufferState> state,
             DataSize maxBufferSize,
-            SystemMemoryUsageListener systemMemoryUsageListener,
+            Supplier<LocalMemoryContext> systemMemoryContextSupplier,
             Executor notificationExecutor)
     {
         this.taskInstanceId = requireNonNull(taskInstanceId, "taskInstanceId is null");
@@ -89,7 +90,7 @@ public class ArbitraryOutputBuffer
         checkArgument(maxBufferSize.toBytes() > 0, "maxBufferSize must be at least 1");
         this.memoryManager = new OutputBufferMemoryManager(
                 maxBufferSize.toBytes(),
-                requireNonNull(systemMemoryUsageListener, "systemMemoryUsageListener is null"),
+                requireNonNull(systemMemoryContextSupplier, "systemMemoryContextSupplier is null"),
                 requireNonNull(notificationExecutor, "notificationExecutor is null"));
         this.masterBuffer = new MasterBuffer();
     }
@@ -110,6 +111,12 @@ public class ArbitraryOutputBuffer
     public double getUtilization()
     {
         return memoryManager.getUtilization();
+    }
+
+    @Override
+    public boolean isOverutilized()
+    {
+        return (memoryManager.getUtilization() >= 0.5) || !state.get().canAddPages();
     }
 
     @Override
@@ -244,6 +251,15 @@ public class ArbitraryOutputBuffer
     }
 
     @Override
+    public void acknowledge(OutputBufferId bufferId, long sequenceId)
+    {
+        checkState(!Thread.holdsLock(this), "Can not acknowledge pages while holding a lock on this");
+        requireNonNull(bufferId, "bufferId is null");
+
+        getBuffer(bufferId).acknowledgePages(sequenceId);
+    }
+
+    @Override
     public void abort(OutputBufferId bufferId)
     {
         checkState(!Thread.holdsLock(this), "Can not abort while holding a lock on this");
@@ -263,6 +279,11 @@ public class ArbitraryOutputBuffer
         memoryManager.setNoBlockOnFull();
 
         masterBuffer.setNoMorePages();
+
+        // process any pending reads from the client buffers
+        for (ClientBuffer clientBuffer : safeGetBuffersSnapshot()) {
+            clientBuffer.loadPagesIfNecessary(masterBuffer);
+        }
 
         checkFlushComplete();
     }
@@ -336,12 +357,14 @@ public class ArbitraryOutputBuffer
     @GuardedBy("this")
     private void checkFlushComplete()
     {
-        if (state.get() != FLUSHING) {
-            return;
-        }
-
-        if (safeGetBuffersSnapshot().stream().allMatch(ClientBuffer::isDestroyed)) {
-            destroy();
+        // This buffer type assigns each page to a single, arbitrary reader,
+        // so we don't need to wait for no-more-buffers to finish the buffer.
+        // Any readers added after finish will simply receive no data.
+        BufferState state = this.state.get();
+        if ((state == FLUSHING) || ((state == NO_MORE_PAGES) && masterBuffer.isEmpty())) {
+            if (safeGetBuffersSnapshot().stream().allMatch(ClientBuffer::isDestroyed)) {
+                destroy();
+            }
         }
     }
 

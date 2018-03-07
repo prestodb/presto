@@ -25,6 +25,8 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 
 import static com.facebook.presto.metadata.Signature.typeVariable;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -48,6 +50,10 @@ public class IdentityCast
         checkArgument(boundVariables.getTypeVariables().size() == 1, "Expected only one type");
         Type type = boundVariables.getTypeVariable("T");
         MethodHandle identity = MethodHandles.identity(type.getJavaType());
-        return new ScalarFunctionImplementation(false, ImmutableList.of(false), identity, isDeterministic());
+        return new ScalarFunctionImplementation(
+                false,
+                ImmutableList.of(valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
+                identity,
+                isDeterministic());
     }
 }

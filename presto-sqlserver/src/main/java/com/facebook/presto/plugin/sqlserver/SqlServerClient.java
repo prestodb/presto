@@ -15,6 +15,7 @@ package com.facebook.presto.plugin.sqlserver;
 
 import com.facebook.presto.plugin.jdbc.BaseJdbcClient;
 import com.facebook.presto.plugin.jdbc.BaseJdbcConfig;
+import com.facebook.presto.plugin.jdbc.DriverConnectionFactory;
 import com.facebook.presto.plugin.jdbc.JdbcConnectorId;
 import com.facebook.presto.plugin.jdbc.JdbcOutputTableHandle;
 import com.facebook.presto.spi.PrestoException;
@@ -32,9 +33,8 @@ public class SqlServerClient
 {
     @Inject
     public SqlServerClient(JdbcConnectorId connectorId, BaseJdbcConfig config)
-            throws SQLException
     {
-        super(connectorId, config, "\"", new SQLServerDriver());
+        super(connectorId, config, "\"", new DriverConnectionFactory(new SQLServerDriver(), config));
     }
 
     @Override

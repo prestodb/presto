@@ -67,15 +67,37 @@ public class TestLocalQueries
 
     @Test
     public void testShowColumnStats()
-            throws Exception
     {
         // FIXME Add tests for more complex scenario with more stats
         MaterializedResult result = computeActual("SHOW STATS FOR nation");
 
-        MaterializedResult expectedStatistics = resultBuilder(getSession(), VARCHAR, DOUBLE)
-                .row(null, 25.0)
-                .build();
+        MaterializedResult expectedStatistics =
+                resultBuilder(getSession(), VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                        .row("regionkey", null, 5.0, 0.0, null, "0", "4")
+                        .row("name", null, 25.0, 0.0, null, "ALGERIA", "VIETNAM")
+                        .row("comment", null, 25.0, 0.0, null, " haggle. carefully final deposit...", "y final packages. slow foxes caj...")
+                        .row("nationkey", null, 25.0, 0.0, null, "0", "24")
+                        .row(null, null, null, null, 25.0, null, null)
+                        .build();
 
         assertEquals(result, expectedStatistics);
+    }
+
+    @Test
+    public void testRejectStarQueryWithoutFromRelation()
+    {
+        assertQueryFails("SELECT *", "line \\S+ SELECT \\* not allowed in queries without FROM clause");
+        assertQueryFails("SELECT 1, '2', *", "line \\S+ SELECT \\* not allowed in queries without FROM clause");
+    }
+
+    @Test
+    public void testDecimal()
+    {
+        assertQuery("SELECT DECIMAL '1.0'", "SELECT CAST('1.0' AS DECIMAL)");
+        assertQuery("SELECT DECIMAL '1.'", "SELECT CAST('1.0' AS DECIMAL)");
+        assertQuery("SELECT DECIMAL '0.1'", "SELECT CAST('0.1' AS DECIMAL)");
+        assertQuery("SELECT 1.0", "SELECT CAST('1.0' AS DECIMAL)");
+        assertQuery("SELECT 1.", "SELECT CAST('1.0' AS DECIMAL)");
+        assertQuery("SELECT 0.1", "SELECT CAST('0.1' AS DECIMAL)");
     }
 }

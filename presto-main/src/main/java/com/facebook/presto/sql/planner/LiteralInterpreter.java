@@ -17,14 +17,16 @@ import com.facebook.presto.block.BlockSerdeUtil;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.operator.scalar.VarbinaryFunctions;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.Decimals;
+import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.sql.FunctionInvoker;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
@@ -52,13 +54,13 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.SliceUtf8;
-import io.airlift.slice.Slices;
 
 import java.util.List;
 
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
@@ -171,26 +173,27 @@ public final class LiteralInterpreter
         }
 
         if (type instanceof VarcharType) {
-            if (object instanceof String) {
-                object = Slices.utf8Slice((String) object);
+            VarcharType varcharType = (VarcharType) type;
+            Slice value = (Slice) object;
+            StringLiteral stringLiteral = new StringLiteral(value.toStringUtf8());
+
+            if (!varcharType.isUnbounded() && varcharType.getLengthSafe() == SliceUtf8.countCodePoints(value)) {
+                return stringLiteral;
             }
+            return new Cast(stringLiteral, type.getDisplayName(), false, true);
+        }
 
-            if (object instanceof Slice) {
-                Slice value = (Slice) object;
-                int length = SliceUtf8.countCodePoints(value);
-
-                if (length == ((VarcharType) type).getLength()) {
-                    return new StringLiteral(value.toStringUtf8());
-                }
-
-                return new Cast(new StringLiteral(value.toStringUtf8()), type.getDisplayName(), false, true);
-            }
-
-            throw new IllegalArgumentException("object must be instance of Slice or String when type is VARCHAR");
+        if (type instanceof CharType) {
+            StringLiteral stringLiteral = new StringLiteral(((Slice) object).toStringUtf8());
+            return new Cast(stringLiteral, type.getDisplayName(), false, true);
         }
 
         if (type.equals(BOOLEAN)) {
             return new BooleanLiteral(object.toString());
+        }
+
+        if (type.equals(DATE)) {
+            return new GenericLiteral("DATE", new SqlDate(toIntExact((Long) object)).toString());
         }
 
         if (object instanceof Block) {
@@ -219,10 +222,12 @@ public final class LiteralInterpreter
             extends AstVisitor<Object, ConnectorSession>
     {
         private final Metadata metadata;
+        private final FunctionInvoker functionInvoker;
 
         private LiteralVisitor(Metadata metadata)
         {
             this.metadata = metadata;
+            this.functionInvoker = new FunctionInvoker(metadata.getFunctionRegistry());
         }
 
         @Override
@@ -282,25 +287,21 @@ public final class LiteralInterpreter
             }
 
             if (JSON.equals(type)) {
-                ScalarFunctionImplementation operator = metadata.getFunctionRegistry().getScalarFunctionImplementation(new Signature("json_parse", SCALAR, JSON.getTypeSignature(), VARCHAR.getTypeSignature()));
+                Signature operatorSignature = new Signature("json_parse", SCALAR, JSON.getTypeSignature(), VARCHAR.getTypeSignature());
                 try {
-                    return ExpressionInterpreter.invoke(session, operator, ImmutableList.of(utf8Slice(node.getValue())));
+                    return functionInvoker.invoke(operatorSignature, session, ImmutableList.of(utf8Slice(node.getValue())));
                 }
                 catch (Throwable throwable) {
                     throw Throwables.propagate(throwable);
                 }
             }
 
-            ScalarFunctionImplementation operator;
             try {
                 Signature signature = metadata.getFunctionRegistry().getCoercion(VARCHAR, type);
-                operator = metadata.getFunctionRegistry().getScalarFunctionImplementation(signature);
+                return functionInvoker.invoke(signature, session, ImmutableList.of(utf8Slice(node.getValue())));
             }
             catch (IllegalArgumentException e) {
                 throw new SemanticException(TYPE_MISMATCH, node, "No literal form for type %s", type);
-            }
-            try {
-                return ExpressionInterpreter.invoke(session, operator, ImmutableList.of(utf8Slice(node.getValue())));
             }
             catch (Throwable throwable) {
                 throw Throwables.propagate(throwable);

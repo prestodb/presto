@@ -27,6 +27,7 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
@@ -44,19 +45,22 @@ import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.NaN;
 import static java.lang.Double.POSITIVE_INFINITY;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newScheduledThreadPool;
 
 @Test(singleThreaded = true)
 public class TestUnnestOperator
 {
     private ExecutorService executor;
+    private ScheduledExecutorService scheduledExecutor;
     private DriverContext driverContext;
 
     @BeforeMethod
     public void setUp()
     {
-        executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
+        executor = newCachedThreadPool(daemonThreadsNamed("test-executor-%s"));
+        scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
 
-        driverContext = createTaskContext(executor, TEST_SESSION)
+        driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION)
                 .addPipelineContext(0, true, true)
                 .addDriverContext();
     }
@@ -65,11 +69,11 @@ public class TestUnnestOperator
     public void tearDown()
     {
         executor.shutdownNow();
+        scheduledExecutor.shutdownNow();
     }
 
     @Test
     public void testUnnest()
-            throws Exception
     {
         MetadataManager metadata = createTestMetadataManager();
         Type arrayType = metadata.getType(parseTypeSignature("array(bigint)"));
@@ -99,7 +103,6 @@ public class TestUnnestOperator
 
     @Test
     public void testUnnestWithArray()
-            throws Exception
     {
         MetadataManager metadata = createTestMetadataManager();
         Type arrayType = metadata.getType(parseTypeSignature("array(array(bigint))"));
@@ -135,7 +138,6 @@ public class TestUnnestOperator
 
     @Test
     public void testUnnestWithOrdinality()
-            throws Exception
     {
         MetadataManager metadata = createTestMetadataManager();
         Type arrayType = metadata.getType(parseTypeSignature("array(bigint)"));
@@ -165,7 +167,6 @@ public class TestUnnestOperator
 
     @Test
     public void testUnnestNonNumericDoubles()
-            throws Exception
     {
         MetadataManager metadata = createTestMetadataManager();
         Type arrayType = metadata.getType(parseTypeSignature("array(double)"));

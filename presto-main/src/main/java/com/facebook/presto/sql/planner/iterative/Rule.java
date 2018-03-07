@@ -14,23 +14,74 @@
 package com.facebook.presto.sql.planner.iterative;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.cost.CostProvider;
+import com.facebook.presto.cost.StatsProvider;
+import com.facebook.presto.matching.Captures;
+import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 
 import java.util.Optional;
 
-public interface Rule
+import static java.util.Objects.requireNonNull;
+
+public interface Rule<T>
 {
     /**
      * Returns a pattern to which plan nodes this rule applies.
-     * Notice that rule may be still invoked for plan nodes which given pattern does not apply,
-     * then rule should return Optional.empty() in such case
      */
-    default Pattern getPattern()
+    Pattern<T> getPattern();
+
+    default boolean isEnabled(Session session)
     {
-        return Pattern.any();
+        return true;
     }
 
-    Optional<PlanNode> apply(PlanNode node, Lookup lookup, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session);
+    Result apply(T node, Captures captures, Context context);
+
+    interface Context
+    {
+        Lookup getLookup();
+
+        PlanNodeIdAllocator getIdAllocator();
+
+        SymbolAllocator getSymbolAllocator();
+
+        Session getSession();
+
+        StatsProvider getStatsProvider();
+
+        CostProvider getCostProvider();
+    }
+
+    final class Result
+    {
+        public static Result empty()
+        {
+            return new Result(Optional.empty());
+        }
+
+        public static Result ofPlanNode(PlanNode transformedPlan)
+        {
+            return new Result(Optional.of(transformedPlan));
+        }
+
+        private final Optional<PlanNode> transformedPlan;
+
+        private Result(Optional<PlanNode> transformedPlan)
+        {
+            this.transformedPlan = requireNonNull(transformedPlan, "transformedPlan is null");
+        }
+
+        public Optional<PlanNode> getTransformedPlan()
+        {
+            return transformedPlan;
+        }
+
+        public boolean isEmpty()
+        {
+            return !transformedPlan.isPresent();
+        }
+    }
 }

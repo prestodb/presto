@@ -14,10 +14,8 @@
 package com.facebook.presto.sql.tree;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -30,26 +28,26 @@ public class CreateTable
     private final QualifiedName name;
     private final List<TableElement> elements;
     private final boolean notExists;
-    private final Map<String, Expression> properties;
+    private final List<Property> properties;
     private final Optional<String> comment;
 
-    public CreateTable(QualifiedName name, List<TableElement> elements, boolean notExists, Map<String, Expression> properties, Optional<String> comment)
+    public CreateTable(QualifiedName name, List<TableElement> elements, boolean notExists, List<Property> properties, Optional<String> comment)
     {
         this(Optional.empty(), name, elements, notExists, properties, comment);
     }
 
-    public CreateTable(NodeLocation location, QualifiedName name, List<TableElement> elements, boolean notExists, Map<String, Expression> properties, Optional<String> comment)
+    public CreateTable(NodeLocation location, QualifiedName name, List<TableElement> elements, boolean notExists, List<Property> properties, Optional<String> comment)
     {
         this(Optional.of(location), name, elements, notExists, properties, comment);
     }
 
-    private CreateTable(Optional<NodeLocation> location, QualifiedName name, List<TableElement> elements, boolean notExists, Map<String, Expression> properties, Optional<String> comment)
+    private CreateTable(Optional<NodeLocation> location, QualifiedName name, List<TableElement> elements, boolean notExists, List<Property> properties, Optional<String> comment)
     {
         super(location);
         this.name = requireNonNull(name, "table is null");
         this.elements = ImmutableList.copyOf(requireNonNull(elements, "elements is null"));
         this.notExists = notExists;
-        this.properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
+        this.properties = requireNonNull(properties, "properties is null");
         this.comment = requireNonNull(comment, "comment is null");
     }
 
@@ -68,7 +66,7 @@ public class CreateTable
         return notExists;
     }
 
-    public Map<String, Expression> getProperties()
+    public List<Property> getProperties()
     {
         return properties;
     }
@@ -89,7 +87,7 @@ public class CreateTable
     {
         return ImmutableList.<Node>builder()
                 .addAll(elements)
-                .addAll(properties.values())
+                .addAll(properties)
                 .build();
     }
 

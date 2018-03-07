@@ -15,14 +15,14 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.matching.Captures;
+import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.iterative.Lookup;
-import com.facebook.presto.sql.planner.iterative.Pattern;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
@@ -37,7 +37,12 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.getTaskConcurrency;
+import static com.facebook.presto.matching.Pattern.empty;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.plan.Patterns.Aggregation.groupingKeys;
+import static com.facebook.presto.sql.planner.plan.Patterns.Aggregation.step;
+import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 
@@ -65,38 +70,38 @@ import static com.google.common.collect.Iterables.getOnlyElement;
  * <p>
  */
 public class AddIntermediateAggregations
-        implements Rule
+        implements Rule<AggregationNode>
 {
-    private static final Pattern PATTERN = Pattern.node(AggregationNode.class);
+    private static final Pattern<AggregationNode> PATTERN = aggregation()
+            // Only consider FINAL un-grouped aggregations
+            .with(step().equalTo(AggregationNode.Step.FINAL))
+            .with(empty(groupingKeys()))
+            // Only consider aggregations without ORDER BY clause
+            .matching(node -> !node.hasOrderings());
 
     @Override
-    public Pattern getPattern()
+    public Pattern<AggregationNode> getPattern()
     {
         return PATTERN;
     }
 
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Lookup lookup, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session)
+    public boolean isEnabled(Session session)
     {
-        if (!SystemSessionProperties.isEnableIntermediateAggregations(session)) {
-            return Optional.empty();
-        }
+        return SystemSessionProperties.isEnableIntermediateAggregations(session);
+    }
 
-        if (!(node instanceof AggregationNode)) {
-            return Optional.empty();
-        }
-
-        AggregationNode aggregation = (AggregationNode) node;
-
-        // Only consider FINAL un-grouped aggregations
-        if (aggregation.getStep() != AggregationNode.Step.FINAL || !aggregation.getGroupingKeys().isEmpty()) {
-            return Optional.empty();
-        }
+    @Override
+    public Result apply(AggregationNode aggregation, Captures captures, Context context)
+    {
+        Lookup lookup = context.getLookup();
+        PlanNodeIdAllocator idAllocator = context.getIdAllocator();
+        Session session = context.getSession();
 
         Optional<PlanNode> rewrittenSource = recurseToPartial(lookup.resolve(aggregation.getSource()), lookup, idAllocator);
 
         if (!rewrittenSource.isPresent()) {
-            return Optional.empty();
+            return Result.empty();
         }
 
         PlanNode source = rewrittenSource.get();
@@ -118,7 +123,7 @@ public class AddIntermediateAggregations
             source = ExchangeNode.gatheringExchange(idAllocator.getNextId(), ExchangeNode.Scope.LOCAL, source);
         }
 
-        return Optional.of(node.replaceChildren(ImmutableList.of(source)));
+        return Result.ofPlanNode(aggregation.replaceChildren(ImmutableList.of(source)));
     }
 
     /**
@@ -172,12 +177,13 @@ public class AddIntermediateAggregations
         for (Map.Entry<Symbol, AggregationNode.Aggregation> entry : assignments.entrySet()) {
             Symbol output = entry.getKey();
             AggregationNode.Aggregation aggregation = entry.getValue();
+            checkState(!aggregation.getCall().getOrderBy().isPresent(), "Intermediate aggregation does not support ORDER BY");
             builder.put(
                     output,
                     new AggregationNode.Aggregation(
                             new FunctionCall(QualifiedName.of(aggregation.getSignature().getName()), ImmutableList.of(output.toSymbolReference())),
                             aggregation.getSignature(),
-                            Optional.empty())); // No mask for INTERMEDIATE
+                            Optional.empty()));  // No mask for INTERMEDIATE
         }
         return builder.build();
     }
