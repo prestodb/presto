@@ -46,94 +46,16 @@ public class ClientSession
     private final String transactionId;
     private final Duration clientRequestTimeout;
 
-    public static ClientSession withCatalogAndSchema(ClientSession session, String catalog, String schema)
+    public static Builder builder(ClientSession clientSession)
     {
-        return new ClientSession(
-                session.getServer(),
-                session.getUser(),
-                session.getSource(),
-                session.getClientTags(),
-                session.getClientInfo(),
-                catalog,
-                schema,
-                session.getTimeZone().getId(),
-                session.getLocale(),
-                session.getProperties(),
-                session.getPreparedStatements(),
-                session.getTransactionId(),
-                session.getClientRequestTimeout());
-    }
-
-    public static ClientSession withProperties(ClientSession session, Map<String, String> properties)
-    {
-        return new ClientSession(
-                session.getServer(),
-                session.getUser(),
-                session.getSource(),
-                session.getClientTags(),
-                session.getClientInfo(),
-                session.getCatalog(),
-                session.getSchema(),
-                session.getTimeZone().getId(),
-                session.getLocale(),
-                properties,
-                session.getPreparedStatements(),
-                session.getTransactionId(),
-                session.getClientRequestTimeout());
-    }
-
-    public static ClientSession withPreparedStatements(ClientSession session, Map<String, String> preparedStatements)
-    {
-        return new ClientSession(
-                session.getServer(),
-                session.getUser(),
-                session.getSource(),
-                session.getClientTags(),
-                session.getClientInfo(),
-                session.getCatalog(),
-                session.getSchema(),
-                session.getTimeZone().getId(),
-                session.getLocale(),
-                session.getProperties(),
-                preparedStatements,
-                session.getTransactionId(),
-                session.getClientRequestTimeout());
-    }
-
-    public static ClientSession withTransactionId(ClientSession session, String transactionId)
-    {
-        return new ClientSession(
-                session.getServer(),
-                session.getUser(),
-                session.getSource(),
-                session.getClientTags(),
-                session.getClientInfo(),
-                session.getCatalog(),
-                session.getSchema(),
-                session.getTimeZone().getId(),
-                session.getLocale(),
-                session.getProperties(),
-                session.getPreparedStatements(),
-                transactionId,
-                session.getClientRequestTimeout());
+        return new Builder(clientSession);
     }
 
     public static ClientSession stripTransactionId(ClientSession session)
     {
-        return new ClientSession(
-                session.getServer(),
-                session.getUser(),
-                session.getSource(),
-                session.getClientTags(),
-                session.getClientInfo(),
-                session.getCatalog(),
-                session.getSchema(),
-                session.getTimeZone().getId(),
-                session.getLocale(),
-                session.getProperties(),
-                session.getPreparedStatements(),
-                null,
-                session.getClientRequestTimeout());
+        return ClientSession.builder(session)
+                .withoutTransactionId()
+                .build();
     }
 
     public ClientSession(
@@ -264,5 +186,94 @@ public class ClientSession
                 .add("properties", properties)
                 .add("transactionId", transactionId)
                 .toString();
+    }
+
+    public static final class Builder
+    {
+        private URI server;
+        private String user;
+        private String source;
+        private Set<String> clientTags;
+        private String clientInfo;
+        private String catalog;
+        private String schema;
+        private TimeZoneKey timeZone;
+        private Locale locale;
+        private Map<String, String> properties;
+        private Map<String, String> preparedStatements;
+        private String transactionId;
+        private Duration clientRequestTimeout;
+
+        private Builder(ClientSession clientSession)
+        {
+            requireNonNull(clientSession, "clientSession is null");
+            server = clientSession.getServer();
+            user = clientSession.getUser();
+            source = clientSession.getSource();
+            clientTags = clientSession.getClientTags();
+            clientInfo = clientSession.getClientInfo();
+            catalog = clientSession.getCatalog();
+            schema = clientSession.getSchema();
+            timeZone = clientSession.getTimeZone();
+            locale = clientSession.getLocale();
+            properties = clientSession.getProperties();
+            preparedStatements = clientSession.getPreparedStatements();
+            transactionId = clientSession.getTransactionId();
+            clientRequestTimeout = clientSession.getClientRequestTimeout();
+        }
+
+        public Builder withCatalog(String catalog)
+        {
+            this.catalog = requireNonNull(catalog, "catalog is null");
+            return this;
+        }
+
+        public Builder withSchema(String schema)
+        {
+            this.schema = requireNonNull(schema, "schema is null");
+            return this;
+        }
+
+        public Builder withProperties(Map<String, String> properties)
+        {
+            this.properties = requireNonNull(properties, "properties is null");
+            return this;
+        }
+
+        public Builder withPreparedStatements(Map<String, String> preparedStatements)
+        {
+            this.preparedStatements = requireNonNull(preparedStatements, "preparedStatements is null");
+            return this;
+        }
+
+        public Builder withTransactionId(String transactionId)
+        {
+            this.transactionId = requireNonNull(transactionId, "transactionId is null");
+            return this;
+        }
+
+        public Builder withoutTransactionId()
+        {
+            this.transactionId = null;
+            return this;
+        }
+
+        public ClientSession build()
+        {
+            return new ClientSession(
+                    server,
+                    user,
+                    source,
+                    clientTags,
+                    clientInfo,
+                    catalog,
+                    schema,
+                    timeZone.getId(),
+                    locale,
+                    properties,
+                    preparedStatements,
+                    transactionId,
+                    clientRequestTimeout);
+        }
     }
 }
