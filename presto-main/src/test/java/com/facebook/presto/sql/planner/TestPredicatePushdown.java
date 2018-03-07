@@ -23,6 +23,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTre
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.semiJoin;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
@@ -59,5 +60,31 @@ public class TestPredicatePushdown
                                                         "LINE_NUMBER", "linenumber",
                                                         "LINE_QUANTITY", "quantity")))),
                                 anyTree(tableScan("orders", ImmutableMap.of("ORDERS_ORDER_KEY", "orderkey"))))));
+    }
+
+    @Test
+    public void testNonDeterministicPredicatePropagatesOnlyToSourceSideOfSemiJoin()
+    {
+        assertPlan("SELECT * FROM lineitem WHERE orderkey IN (SELECT orderkey FROM orders) AND orderkey = random(5)",
+                anyTree(
+                        semiJoin("LINE_ORDER_KEY", "ORDERS_ORDER_KEY", "SEMI_JOIN_RESULT",
+                                anyTree(
+                                        filter("LINE_ORDER_KEY = CAST(random(5) AS bigint)",
+                                                        tableScan("lineitem", ImmutableMap.of(
+                                                                "LINE_ORDER_KEY", "orderkey")))),
+                                anyTree(
+                                        project(// NO filter here
+                                                tableScan("orders", ImmutableMap.of("ORDERS_ORDER_KEY", "orderkey")))))));
+
+        assertPlan("SELECT * FROM lineitem WHERE orderkey NOT IN (SELECT orderkey FROM orders) AND orderkey = random(5)",
+                anyTree(
+                        semiJoin("LINE_ORDER_KEY", "ORDERS_ORDER_KEY", "SEMI_JOIN_RESULT",
+                                anyTree(
+                                        filter("LINE_ORDER_KEY = CAST(random(5) AS bigint)",
+                                                        tableScan("lineitem", ImmutableMap.of(
+                                                                "LINE_ORDER_KEY", "orderkey")))),
+                                anyTree(
+                                        project(// NO filter here
+                                                tableScan("orders", ImmutableMap.of("ORDERS_ORDER_KEY", "orderkey")))))));
     }
 }
