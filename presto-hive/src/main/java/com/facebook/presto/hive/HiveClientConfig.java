@@ -778,7 +778,7 @@ public class HiveClientConfig
     }
 
     @Config("hive.orc.writer.validate")
-    @ConfigDescription("Validate RCFile after write by re-reading the whole file")
+    @ConfigDescription("Validate ORC file after write by re-reading the whole file")
     public HiveClientConfig setOrcWriterValidate(boolean orcWriterValidate)
     {
         this.orcWriterValidate = orcWriterValidate;
