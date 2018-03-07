@@ -48,10 +48,6 @@ import static com.facebook.presto.cli.Completion.lowerCaseCommandCompleter;
 import static com.facebook.presto.cli.Help.getHelpText;
 import static com.facebook.presto.cli.QueryPreprocessor.preprocessQuery;
 import static com.facebook.presto.client.ClientSession.stripTransactionId;
-import static com.facebook.presto.client.ClientSession.withCatalogAndSchema;
-import static com.facebook.presto.client.ClientSession.withPreparedStatements;
-import static com.facebook.presto.client.ClientSession.withProperties;
-import static com.facebook.presto.client.ClientSession.withTransactionId;
 import static com.facebook.presto.sql.parser.StatementSplitter.Statement;
 import static com.facebook.presto.sql.parser.StatementSplitter.isEmptyStatement;
 import static com.facebook.presto.sql.parser.StatementSplitter.squeezeStatement;
@@ -317,9 +313,10 @@ public class Console
 
             // update catalog and schema if present
             if (query.getSetCatalog().isPresent() || query.getSetSchema().isPresent()) {
-                session = withCatalogAndSchema(session,
-                        query.getSetCatalog().orElse(session.getCatalog()),
-                        query.getSetSchema().orElse(session.getSchema()));
+                session = ClientSession.builder(session)
+                        .withCatalog(query.getSetCatalog().orElse(session.getCatalog()))
+                        .withSchema(query.getSetSchema().orElse(session.getSchema()))
+                        .build();
                 schemaChanged.run();
             }
 
@@ -328,7 +325,9 @@ public class Console
                 Map<String, String> sessionProperties = new HashMap<>(session.getProperties());
                 sessionProperties.putAll(query.getSetSessionProperties());
                 sessionProperties.keySet().removeAll(query.getResetSessionProperties());
-                session = withProperties(session, sessionProperties);
+                session = ClientSession.builder(session)
+                        .withProperties(sessionProperties)
+                        .build();
             }
 
             // update prepared statements if present
@@ -336,7 +335,9 @@ public class Console
                 Map<String, String> preparedStatements = new HashMap<>(session.getPreparedStatements());
                 preparedStatements.putAll(query.getAddedPreparedStatements());
                 preparedStatements.keySet().removeAll(query.getDeallocatedPreparedStatements());
-                session = withPreparedStatements(session, preparedStatements);
+                session = ClientSession.builder(session)
+                        .withPreparedStatements(preparedStatements)
+                        .build();
             }
 
             // update transaction ID if necessary
@@ -344,7 +345,9 @@ public class Console
                 session = stripTransactionId(session);
             }
             if (query.getStartedTransactionId() != null) {
-                session = withTransactionId(session, query.getStartedTransactionId());
+                session = ClientSession.builder(session)
+                        .withTransactionId(query.getStartedTransactionId())
+                        .build();
             }
 
             queryRunner.setSession(session);
