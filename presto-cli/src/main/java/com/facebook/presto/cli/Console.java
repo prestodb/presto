@@ -361,8 +361,12 @@ public class Console
 
     private static MemoryHistory getHistory()
     {
+        return getHistory(new File(getUserHome(), ".presto_history"));
+    }
+
+    private static MemoryHistory getHistory(File historyFile)
+    {
         MemoryHistory history;
-        File historyFile = new File(getUserHome(), ".presto_history");
         try {
             history = new FileHistory(historyFile);
             history.setMaxSize(10000);
