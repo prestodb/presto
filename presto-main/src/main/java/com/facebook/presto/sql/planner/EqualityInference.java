@@ -100,10 +100,21 @@ public class EqualityInference
     /**
      * Attempts to rewrite an Expression in terms of the symbols allowed by the symbol scope
      * given the known equalities. Returns null if unsuccessful.
+     * This method checks if rewritten expression is non-deterministic.
      */
     public Expression rewriteExpression(Expression expression, Predicate<Symbol> symbolScope)
     {
         checkArgument(DeterminismEvaluator.isDeterministic(expression), "Only deterministic expressions may be considered for rewrite");
+        return rewriteExpression(expression, symbolScope, true);
+    }
+
+    /**
+     * Attempts to rewrite an Expression in terms of the symbols allowed by the symbol scope
+     * given the known equalities. Returns null if unsuccessful.
+     * This method allows rewriting non-deterministic expressions.
+     */
+    public Expression rewriteExpressionAllowNonDeterministic(Expression expression, Predicate<Symbol> symbolScope)
+    {
         return rewriteExpression(expression, symbolScope, true);
     }
 
