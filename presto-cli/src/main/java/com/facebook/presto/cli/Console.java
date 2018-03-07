@@ -16,6 +16,7 @@ package com.facebook.presto.cli;
 import com.facebook.presto.cli.ClientOptions.OutputFormat;
 import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.sql.parser.StatementSplitter;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
@@ -361,8 +362,22 @@ public class Console
 
     private static MemoryHistory getHistory()
     {
+        return getHistory(new File(getUserHome(), ".presto_history"));
+    }
+
+    @VisibleForTesting
+    static MemoryHistory getHistory(File historyFile)
+    {
+        if (!historyFile.canWrite() || !historyFile.canRead()) {
+            System.err.printf("WARNING: Failed to load history file (%s): Not readable/writable path (%s). " +
+                            "History will not be available during this session.%n",
+                    historyFile, historyFile.getAbsolutePath());
+            MemoryHistory history = new MemoryHistory();
+            history.setAutoTrim(true);
+            return history;
+        }
+
         MemoryHistory history;
-        File historyFile = new File(getUserHome(), ".presto_history");
         try {
             history = new FileHistory(historyFile);
             history.setMaxSize(10000);
