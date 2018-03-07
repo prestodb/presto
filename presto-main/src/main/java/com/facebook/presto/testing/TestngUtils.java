@@ -18,9 +18,9 @@ import java.util.stream.Stream;
 
 import static java.util.Arrays.asList;
 
-public class Arguments
+public final class TestngUtils
 {
-    private Arguments()
+    private TestngUtils()
     {
     }
 
