@@ -46,8 +46,9 @@ import java.math.MathContext;
 import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Time;
-import java.sql.Timestamp;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -262,33 +263,36 @@ public class H2QueryRunner
                         }
                     }
                     else if (DATE.equals(type)) {
-                        Date dateValue = resultSet.getDate(i);
+                        // resultSet.getDate(i) doesn't work if JVM's zone skipped day being retrieved (e.g. 2011-12-30 and Pacific/Apia zone)
+                        LocalDate dateValue = resultSet.getObject(i, LocalDate.class);
                         if (resultSet.wasNull()) {
                             row.add(null);
                         }
                         else {
-                            row.add(dateValue.toLocalDate());
+                            row.add(dateValue);
                         }
                     }
                     else if (TIME.equals(type)) {
-                        Time timeValue = resultSet.getTime(i);
+                        // resultSet.getTime(i) doesn't work if JVM's zone had forward offset change during 1970-01-01 (e.g. America/Hermosillo zone)
+                        LocalTime timeValue = resultSet.getObject(i, LocalTime.class);
                         if (resultSet.wasNull()) {
                             row.add(null);
                         }
                         else {
-                            row.add(timeValue.toLocalTime());
+                            row.add(timeValue);
                         }
                     }
                     else if (TIME_WITH_TIME_ZONE.equals(type)) {
                         throw new UnsupportedOperationException("H2 does not support TIME WITH TIME ZONE");
                     }
                     else if (TIMESTAMP.equals(type)) {
-                        Timestamp timestampValue = resultSet.getTimestamp(i);
+                        // resultSet.getTimestamp(i) doesn't work if JVM's zone had forward offset at the date/time being retrieved
+                        LocalDateTime timestampValue = resultSet.getObject(i, LocalDateTime.class);
                         if (resultSet.wasNull()) {
                             row.add(null);
                         }
                         else {
-                            row.add(timestampValue.toLocalDateTime());
+                            row.add(timestampValue);
                         }
                     }
                     else if (TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
