@@ -57,16 +57,16 @@ public class TimestampStatisticsBuilder
     @Override
     public ColumnStatistics buildColumnStatistics()
     {
-        Optional<TimestampStatistics> dateStatistics = buildTimestampStatistics();
+        Optional<TimestampStatistics> timestampStatistics = buildTimestampStatistics();
         return new ColumnStatistics(
                 nonNullValueCount,
-                dateStatistics.map(s -> TIMESTAMP_VALUE_BYTES).orElse(0L),
+                timestampStatistics.map(s -> TIMESTAMP_VALUE_BYTES).orElse(0L),
                 null,
                 null,
                 null,
                 null,
                 null,
-                dateStatistics.orElse(null),
+                timestampStatistics.orElse(null),
                 null,
                 null,
                 null);

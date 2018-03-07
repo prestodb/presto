@@ -21,7 +21,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 public class TimestampStatistics
         implements RangeStatistics<Long>
 {
-    // 1 byte to denote if null + 4 bytes for the value (date is of integer type)
+    // 1 byte to denote if null + 8 bytes for the value (timestamp is of long type)
     public static final long TIMESTAMP_VALUE_BYTES = Byte.BYTES + Long.BYTES;
 
     private final Long minimum;
