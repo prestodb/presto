@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.type.Type;
@@ -29,8 +30,9 @@ public class JdbcRecordSet
     private final List<JdbcColumnHandle> columnHandles;
     private final List<Type> columnTypes;
     private final JdbcSplit split;
+    private final ConnectorSession session;
 
-    public JdbcRecordSet(JdbcClient jdbcClient, JdbcSplit split, List<JdbcColumnHandle> columnHandles)
+    public JdbcRecordSet(JdbcClient jdbcClient, ConnectorSession session, JdbcSplit split, List<JdbcColumnHandle> columnHandles)
     {
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
         this.split = requireNonNull(split, "split is null");
@@ -42,6 +44,7 @@ public class JdbcRecordSet
             types.add(column.getColumnType());
         }
         this.columnTypes = types.build();
+        this.session = requireNonNull(session, "session is null");
     }
 
     @Override
@@ -53,6 +56,6 @@ public class JdbcRecordSet
     @Override
     public RecordCursor cursor()
     {
-        return new JdbcRecordCursor(jdbcClient, split, columnHandles);
+        return new JdbcRecordCursor(jdbcClient, session, split, columnHandles);
     }
 }
