@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Throwables;
@@ -47,7 +48,7 @@ public class JdbcRecordCursor
     private final ResultSet resultSet;
     private boolean closed;
 
-    public JdbcRecordCursor(JdbcClient jdbcClient, JdbcSplit split, List<JdbcColumnHandle> columnHandles)
+    public JdbcRecordCursor(JdbcClient jdbcClient, ConnectorSession session, JdbcSplit split, List<JdbcColumnHandle> columnHandles)
     {
         this.columnHandles = columnHandles.toArray(new JdbcColumnHandle[0]);
 
@@ -57,7 +58,7 @@ public class JdbcRecordCursor
         sliceReadFunctions = new SliceReadFunction[columnHandles.size()];
 
         for (int i = 0; i < this.columnHandles.length; i++) {
-            ReadMapping readMapping = jdbcClient.toPrestoType(columnHandles.get(i).getJdbcTypeHandle())
+            ReadMapping readMapping = jdbcClient.toPrestoType(session, columnHandles.get(i).getJdbcTypeHandle())
                     .orElseThrow(() -> new VerifyException("Unsupported column type"));
             Class<?> javaType = readMapping.getType().getJavaType();
             ReadFunction readFunction = readMapping.getReadFunction();
