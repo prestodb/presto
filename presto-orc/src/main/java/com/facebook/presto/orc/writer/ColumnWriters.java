@@ -19,6 +19,7 @@ import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.orc.metadata.statistics.BinaryStatisticsBuilder;
 import com.facebook.presto.orc.metadata.statistics.DateStatisticsBuilder;
 import com.facebook.presto.orc.metadata.statistics.IntegerStatisticsBuilder;
+import com.facebook.presto.orc.metadata.statistics.TimestampStatisticsBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import org.joda.time.DateTimeZone;
@@ -71,7 +72,7 @@ public final class ColumnWriters
                 return new DecimalColumnWriter(columnIndex, type, compression, bufferSize, orcEncoding);
 
             case TIMESTAMP:
-                return new TimestampColumnWriter(columnIndex, type, compression, bufferSize, orcEncoding, hiveStorageTimeZone);
+                return new TimestampColumnWriter(columnIndex, type, compression, bufferSize, orcEncoding, hiveStorageTimeZone, TimestampStatisticsBuilder::new);
 
             case BINARY:
                 return new SliceDirectColumnWriter(columnIndex, type, compression, bufferSize, orcEncoding, BinaryStatisticsBuilder::new);

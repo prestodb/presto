@@ -245,6 +245,7 @@ public class DwrfMetadataReader
                 toStringStatistics(hiveWriterVersion, statistics.getStringStatistics(), isRowGroup),
                 null,
                 null,
+                null,
                 toBinaryStatistics(statistics.getBinaryStatistics()),
                 null);
     }

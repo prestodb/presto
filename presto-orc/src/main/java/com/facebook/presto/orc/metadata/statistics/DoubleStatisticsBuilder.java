@@ -94,6 +94,7 @@ public class DoubleStatisticsBuilder
                 null,
                 null,
                 null,
+                null,
                 null);
     }
 

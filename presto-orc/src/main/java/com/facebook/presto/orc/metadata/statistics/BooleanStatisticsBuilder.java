@@ -76,6 +76,7 @@ public class BooleanStatisticsBuilder
                 null,
                 null,
                 null,
+                null,
                 null);
     }
 

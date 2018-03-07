@@ -27,6 +27,7 @@ import com.facebook.presto.orc.metadata.statistics.HiveBloomFilter;
 import com.facebook.presto.orc.metadata.statistics.IntegerStatistics;
 import com.facebook.presto.orc.metadata.statistics.StringStatistics;
 import com.facebook.presto.orc.metadata.statistics.StripeStatistics;
+import com.facebook.presto.orc.metadata.statistics.TimestampStatistics;
 import com.facebook.presto.orc.proto.OrcProto;
 import com.facebook.presto.orc.proto.OrcProto.RowIndexEntry;
 import com.facebook.presto.orc.protobuf.ByteString;
@@ -271,6 +272,7 @@ public class OrcMetadataReader
                 toDoubleStatistics(statistics.getDoubleStatistics()),
                 toStringStatistics(hiveWriterVersion, statistics.getStringStatistics(), isRowGroup),
                 toDateStatistics(hiveWriterVersion, statistics.getDateStatistics(), isRowGroup),
+                toTimestampStatistics(hiveWriterVersion, statistics.getTimestampStatistics(), isRowGroup),
                 toDecimalStatistics(statistics.getDecimalStatistics()),
                 toBinaryStatistics(statistics.getBinaryStatistics()),
                 null);
@@ -479,6 +481,21 @@ public class OrcMetadataReader
         return new DateStatistics(
                 dateStatistics.hasMinimum() ? dateStatistics.getMinimum() : null,
                 dateStatistics.hasMaximum() ? dateStatistics.getMaximum() : null);
+    }
+
+    private static TimestampStatistics toTimestampStatistics(HiveWriterVersion hiveWriterVersion, OrcProto.TimestampStatistics timestampStatistics, boolean isRowGroup)
+    {
+        if (hiveWriterVersion == ORIGINAL && !isRowGroup) {
+            return null;
+        }
+
+        if (!timestampStatistics.hasMinimum() && !timestampStatistics.hasMaximum()) {
+            return null;
+        }
+
+        return new TimestampStatistics(
+                timestampStatistics.hasMinimum() ? timestampStatistics.getMinimum() : null,
+                timestampStatistics.hasMaximum() ? timestampStatistics.getMaximum() : null);
     }
 
     private static OrcType toType(OrcProto.Type type)

@@ -23,6 +23,7 @@ import com.facebook.presto.orc.metadata.RowGroupIndex;
 import com.facebook.presto.orc.metadata.Stream;
 import com.facebook.presto.orc.metadata.Stream.StreamKind;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
+import com.facebook.presto.orc.metadata.statistics.TimestampStatisticsBuilder;
 import com.facebook.presto.orc.stream.LongOutputStream;
 import com.facebook.presto.orc.stream.LongOutputStreamV1;
 import com.facebook.presto.orc.stream.LongOutputStreamV2;
@@ -42,6 +43,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
@@ -75,7 +77,10 @@ public class TimestampColumnWriter
 
     private boolean closed;
 
-    public TimestampColumnWriter(int column, Type type, CompressionKind compression, int bufferSize, OrcEncoding orcEncoding, DateTimeZone hiveStorageTimeZone)
+    private final Supplier<TimestampStatisticsBuilder> statisticsBuilderSupplier;
+    private TimestampStatisticsBuilder statisticsBuilder;
+
+    public TimestampColumnWriter(int column, Type type, CompressionKind compression, int bufferSize, OrcEncoding orcEncoding, DateTimeZone hiveStorageTimeZone, Supplier<TimestampStatisticsBuilder> statisticsBuilderSupplier)
     {
         checkArgument(column >= 0, "column is negative");
         this.column = column;
@@ -93,6 +98,8 @@ public class TimestampColumnWriter
         }
         this.presentStream = new PresentOutputStream(compression, bufferSize);
         this.baseTimestampInSeconds = new DateTime(2015, 1, 1, 0, 0, requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null")).getMillis() / MILLIS_PER_SECOND;
+        this.statisticsBuilderSupplier = requireNonNull(statisticsBuilderSupplier, "StatisticsBuilder supplier is null");
+        this.statisticsBuilder = statisticsBuilderSupplier.get();
     }
 
     @Override
@@ -140,6 +147,7 @@ public class TimestampColumnWriter
                 secondsStream.writeLong(seconds);
                 nanosStream.writeLong(encodedNanos);
                 nonNullValueCount++;
+                statisticsBuilder.addValue(value);
             }
         }
     }
@@ -148,9 +156,10 @@ public class TimestampColumnWriter
     public Map<Integer, ColumnStatistics> finishRowGroup()
     {
         checkState(!closed);
-        ColumnStatistics statistics = new ColumnStatistics((long) nonNullValueCount, 0, null, null, null, null, null, null, null, null);
+        ColumnStatistics statistics = statisticsBuilder.buildColumnStatistics();
         rowGroupColumnStatistics.add(statistics);
         nonNullValueCount = 0;
+        statisticsBuilder = statisticsBuilderSupplier.get();
         return ImmutableMap.of(column, statistics);
     }
 
@@ -242,5 +251,6 @@ public class TimestampColumnWriter
         presentStream.reset();
         rowGroupColumnStatistics.clear();
         nonNullValueCount = 0;
+        statisticsBuilder = statisticsBuilderSupplier.get();
     }
 }

@@ -23,6 +23,7 @@ import static com.facebook.presto.orc.metadata.statistics.DoubleStatisticsBuilde
 import static com.facebook.presto.orc.metadata.statistics.IntegerStatisticsBuilder.mergeIntegerStatistics;
 import static com.facebook.presto.orc.metadata.statistics.LongDecimalStatisticsBuilder.mergeDecimalStatistics;
 import static com.facebook.presto.orc.metadata.statistics.StringStatisticsBuilder.mergeStringStatistics;
+import static com.facebook.presto.orc.metadata.statistics.TimestampStatisticsBuilder.mergeTimestampStatistics;
 import static com.google.common.base.MoreObjects.toStringHelper;
 
 public class ColumnStatistics
@@ -34,6 +35,7 @@ public class ColumnStatistics
     private final DoubleStatistics doubleStatistics;
     private final StringStatistics stringStatistics;
     private final DateStatistics dateStatistics;
+    private final TimestampStatistics timestampStatistics;
     private final DecimalStatistics decimalStatistics;
     private final BinaryStatistics binaryStatistics;
     private final HiveBloomFilter bloomFilter;
@@ -46,6 +48,7 @@ public class ColumnStatistics
             DoubleStatistics doubleStatistics,
             StringStatistics stringStatistics,
             DateStatistics dateStatistics,
+            TimestampStatistics timestampStatistics,
             DecimalStatistics decimalStatistics,
             BinaryStatistics binaryStatistics,
             HiveBloomFilter bloomFilter)
@@ -57,6 +60,7 @@ public class ColumnStatistics
         this.doubleStatistics = doubleStatistics;
         this.stringStatistics = stringStatistics;
         this.dateStatistics = dateStatistics;
+        this.timestampStatistics = timestampStatistics;
         this.decimalStatistics = decimalStatistics;
         this.binaryStatistics = binaryStatistics;
         this.bloomFilter = bloomFilter;
@@ -96,6 +100,11 @@ public class ColumnStatistics
     public DateStatistics getDateStatistics()
     {
         return dateStatistics;
+    }
+
+    public TimestampStatistics getTimestampStatistics()
+    {
+        return timestampStatistics;
     }
 
     public DoubleStatistics getDoubleStatistics()
@@ -138,6 +147,7 @@ public class ColumnStatistics
                 doubleStatistics,
                 stringStatistics,
                 dateStatistics,
+                timestampStatistics,
                 decimalStatistics,
                 binaryStatistics,
                 bloomFilter);
@@ -159,6 +169,7 @@ public class ColumnStatistics
                 Objects.equals(doubleStatistics, that.doubleStatistics) &&
                 Objects.equals(stringStatistics, that.stringStatistics) &&
                 Objects.equals(dateStatistics, that.dateStatistics) &&
+                Objects.equals(timestampStatistics, that.timestampStatistics) &&
                 Objects.equals(decimalStatistics, that.decimalStatistics) &&
                 Objects.equals(bloomFilter, that.bloomFilter);
     }
@@ -180,6 +191,7 @@ public class ColumnStatistics
                 .add("doubleStatistics", doubleStatistics)
                 .add("stringStatistics", stringStatistics)
                 .add("dateStatistics", dateStatistics)
+                .add("timestampStatistics", timestampStatistics)
                 .add("decimalStatistics", decimalStatistics)
                 .add("bloomFilter", bloomFilter)
                 .toString();
@@ -206,6 +218,7 @@ public class ColumnStatistics
                 mergeDoubleStatistics(stats).orElse(null),
                 mergeStringStatistics(stats).orElse(null),
                 mergeDateStatistics(stats).orElse(null),
+                mergeTimestampStatistics(stats).orElse(null),
                 mergeDecimalStatistics(stats).orElse(null),
                 mergeBinaryStatistics(stats).orElse(null),
                 null);

@@ -225,6 +225,9 @@ public class TupleDomainOrcPredicate<C>
         else if (type.getTypeSignature().getBase().equals(StandardTypes.DATE) && columnStatistics.getDateStatistics() != null) {
             return createDomain(type, hasNullValue, columnStatistics.getDateStatistics(), value -> (long) value);
         }
+        else if (type.getTypeSignature().getBase().equals(StandardTypes.TIMESTAMP) && columnStatistics.getTimestampStatistics() != null) {
+            return createDomain(type, hasNullValue, columnStatistics.getTimestampStatistics());
+        }
         else if (type.getJavaType() == long.class && columnStatistics.getIntegerStatistics() != null) {
             return createDomain(type, hasNullValue, columnStatistics.getIntegerStatistics());
         }

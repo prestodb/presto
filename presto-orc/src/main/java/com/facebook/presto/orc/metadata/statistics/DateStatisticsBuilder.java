@@ -70,6 +70,7 @@ public class DateStatisticsBuilder
                 dateStatistics.orElse(null),
                 null,
                 null,
+                null,
                 null);
     }
 
