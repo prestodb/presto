@@ -80,10 +80,4 @@ public class CompressedMetadataWriter
         metadataWriter.writeRowIndexes(buffer, rowGroupIndexes);
         return buffer.writeDataTo(output);
     }
-
-    @Override
-    public MetadataReader getMetadataReader()
-    {
-        return metadataWriter.getMetadataReader();
-    }
 }

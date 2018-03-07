@@ -288,12 +288,6 @@ public class DwrfMetadataWriter
         return writeProtobufObject(output, rowIndexProtobuf);
     }
 
-    @Override
-    public MetadataReader getMetadataReader()
-    {
-        return new DwrfMetadataReader();
-    }
-
     private static RowIndexEntry toRowGroupIndex(RowGroupIndex rowGroupIndex)
     {
         return RowIndexEntry.newBuilder()

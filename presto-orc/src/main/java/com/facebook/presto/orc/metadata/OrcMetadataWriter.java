@@ -334,12 +334,6 @@ public class OrcMetadataWriter
         return writeProtobufObject(output, rowIndexProtobuf);
     }
 
-    @Override
-    public MetadataReader getMetadataReader()
-    {
-        return new OrcMetadataReader();
-    }
-
     private static RowIndexEntry toRowGroupIndex(RowGroupIndex rowGroupIndex)
     {
         return OrcProto.RowIndexEntry.newBuilder()
