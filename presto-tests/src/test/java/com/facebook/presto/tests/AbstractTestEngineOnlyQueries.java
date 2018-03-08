@@ -15,15 +15,19 @@ package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.type.TimeZoneKey;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.OffsetTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 
+import static com.google.common.base.Preconditions.checkState;
 import static org.testng.Assert.assertEquals;
 
 public abstract class AbstractTestEngineOnlyQueries
@@ -65,5 +69,15 @@ public abstract class AbstractTestEngineOnlyQueries
         // TODO #7122 assertQuery(kathmandu, "SELECT TIMESTAMP '1960-01-22 3:04:05.123'");
 
         assertEquals(computeScalar("SELECT TIMESTAMP '1960-01-22 3:04:05 +06:00'"), ZonedDateTime.of(1960, 1, 22, 3, 4, 5, 0, ZoneOffset.ofHoursMinutes(6, 0)));
+    }
+
+    @Test
+    public void testLocallyUnrepresentableTimeLiterals()
+    {
+        LocalDateTime localTimeThatDidNotExist = LocalDateTime.of(1986, 1, 1, 0, 10);
+        checkState(ZoneId.systemDefault().getRules().getValidOffsets(localTimeThatDidNotExist).isEmpty(), "This test assumes certain JVM time zone");
+        // This tests that Presto runner can return TIMESTAMP value that never happened in JVM's zone
+        @Language("SQL") String sql = DateTimeFormatter.ofPattern("'SELECT TIMESTAMP '''uuuu-MM-dd HH:mm:ss''").format(localTimeThatDidNotExist);
+        assertEquals(computeScalar(sql), localTimeThatDidNotExist);
     }
 }
