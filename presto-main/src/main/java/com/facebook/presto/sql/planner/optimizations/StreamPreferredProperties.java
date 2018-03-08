@@ -34,6 +34,7 @@ import static com.facebook.presto.sql.planner.optimizations.StreamPropertyDeriva
 import static com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.SINGLE;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 class StreamPreferredProperties
@@ -265,7 +266,9 @@ class StreamPreferredProperties
             return any();
         }
 
-        Set<Symbol> common = Sets.intersection(availableSymbols, ImmutableSet.copyOf(partitioningColumns.get()));
+        List<Symbol> common = partitioningColumns.get().stream()
+                .filter(availableSymbols::contains)
+                .collect(toImmutableList());
         if (common.isEmpty()) {
             return any();
         }
