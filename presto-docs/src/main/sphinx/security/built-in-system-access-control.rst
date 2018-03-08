@@ -128,7 +128,7 @@ and Kerberos authentication:
 .. code-block:: json
 
     {
-      "catalog": [
+      "catalogs": [
         {
           "allow": true
         }
