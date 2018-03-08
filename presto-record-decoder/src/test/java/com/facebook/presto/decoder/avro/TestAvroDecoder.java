@@ -33,6 +33,7 @@ import com.facebook.presto.spi.type.VarbinaryType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import org.apache.avro.AvroTypeException;
 import org.apache.avro.Schema;
 import org.apache.avro.file.DataFileWriter;
 import org.apache.avro.generic.GenericData;
@@ -49,6 +50,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.decoder.util.DecoderTestUtil.checkIsNull;
 import static com.facebook.presto.decoder.util.DecoderTestUtil.checkValue;
@@ -79,23 +81,41 @@ public class TestAvroDecoder
 
     private static String getAvroSchema(String name, String dataType)
     {
+        return getAvroSchema(ImmutableMap.of(name, dataType));
+    }
+
+    private static String getAvroSchema(Map<String, String> fields)
+    {
+        String fieldSchema = fields.entrySet().stream()
+                .map(entry -> "{\"name\": \"" + entry.getKey() + "\",\"type\": " + entry.getValue() + ",\"default\": null}")
+                .collect(Collectors.joining(","));
+
         return "{\"type\" : \"record\"," +
                 "  \"name\" : \"test_schema\"," +
                 "  \"namespace\" : \"com.facebook.presto.decoder.avro\"," +
                 "  \"fields\" :" +
                 "  [" +
-                "   {\"name\": \"" + name + "\",\"type\": " + dataType + "} " +
+                fieldSchema +
                 "  ]}";
+    }
+
+    private Map<DecoderColumnHandle, FieldValueProvider> buildAndDecodeColumns(Set<DecoderColumnHandle> columns, Map<String, String> fieldSchema, Map<String, Object> fieldValue)
+    {
+        String schema = getAvroSchema(fieldSchema);
+        byte[] avroData = buildAvroData(new Schema.Parser().parse(schema), fieldValue);
+
+        return decodeRow(
+                avroData,
+                columns,
+                ImmutableMap.of(DATA_SCHEMA, schema));
     }
 
     private Map<DecoderColumnHandle, FieldValueProvider> buildAndDecodeColumn(DecoderTestColumnHandle column, String columnName, String columnType, Object actualValue)
     {
-        String schema = getAvroSchema(columnName, columnType);
-        byte[] avroData = buildAvroData(new Schema.Parser().parse(schema), columnName, actualValue);
-        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = decodeRow(
-                avroData,
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumns(
                 ImmutableSet.of(column),
-                ImmutableMap.of(DATA_SCHEMA, schema));
+                ImmutableMap.of(columnName, columnType),
+                ImmutableMap.of(columnName, actualValue));
 
         assertEquals(decodedRow.size(), 1);
         return decodedRow;
@@ -110,8 +130,13 @@ public class TestAvroDecoder
 
     private static byte[] buildAvroData(Schema schema, String name, Object value)
     {
+        return buildAvroData(schema, ImmutableMap.of(name, value));
+    }
+
+    private static byte[] buildAvroData(Schema schema, Map<String, Object> values)
+    {
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-        buildAvroRecord(schema, outputStream, ImmutableMap.of(name, value));
+        buildAvroRecord(schema, outputStream, values);
         return outputStream.toByteArray();
     }
 
@@ -140,6 +165,128 @@ public class TestAvroDecoder
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "string_field", "\"string\"", "Mon Jul 28 20:38:07 +0000 2014");
 
         checkValue(decodedRow, row, "Mon Jul 28 20:38:07 +0000 2014");
+    }
+
+    @Test
+    public void testSchemaEvolutionAddingColumn()
+            throws Exception
+    {
+        DecoderTestColumnHandle originalColumn = new DecoderTestColumnHandle(0, "row0", VARCHAR, "string_field", null, null, false, false, false);
+        DecoderTestColumnHandle newlyAddedColumn = new DecoderTestColumnHandle(1, "row1", VARCHAR, "string_field_added", null, null, false, false, false);
+
+        // the decoded avro data file does not have string_field_added
+        byte[] originalData = buildAvroData(new Schema.Parser().parse(
+                getAvroSchema("string_field", "\"string\"")),
+                "string_field", "string_field_value");
+        String addedColumnSchema = getAvroSchema(ImmutableMap.of(
+                "string_field", "\"string\"",
+                "string_field_added", "[\"null\", \"string\"]"));
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = decodeRow(
+                originalData,
+                ImmutableSet.of(originalColumn, newlyAddedColumn),
+                ImmutableMap.of(DATA_SCHEMA, addedColumnSchema));
+
+        assertEquals(decodedRow.size(), 2);
+        checkValue(decodedRow, originalColumn, "string_field_value");
+        checkIsNull(decodedRow, newlyAddedColumn);
+    }
+
+    @Test
+    public void testSchemaEvolutionRenamingColumn()
+            throws Exception
+    {
+        byte[] originalData = buildAvroData(new Schema.Parser().parse(
+                getAvroSchema("string_field", "\"string\"")),
+                "string_field", "string_field_value");
+
+        DecoderTestColumnHandle renamedColumn = new DecoderTestColumnHandle(0, "row0", VARCHAR, "string_field_renamed", null, null, false, false, false);
+        String renamedColumnSchema = getAvroSchema("string_field_renamed", "[\"null\", \"string\"]");
+        Map<DecoderColumnHandle, FieldValueProvider> decodedEvolvedRow = decodeRow(
+                originalData,
+                ImmutableSet.of(renamedColumn),
+                ImmutableMap.of(DATA_SCHEMA, renamedColumnSchema));
+
+        assertEquals(decodedEvolvedRow.size(), 1);
+        checkIsNull(decodedEvolvedRow, renamedColumn);
+    }
+
+    @Test
+    public void testSchemaEvolutionRemovingColumn()
+            throws Exception
+    {
+        byte[] originalData = buildAvroData(new Schema.Parser().parse(
+                getAvroSchema(ImmutableMap.of(
+                        "string_field", "\"string\"",
+                        "string_field_to_be_removed", "[\"null\", \"string\"]"))),
+                ImmutableMap.of(
+                        "string_field", "string_field_value",
+                        "string_field_to_be_removed", "removed_field_value"));
+
+        DecoderTestColumnHandle evolvedColumn = new DecoderTestColumnHandle(0, "row0", VARCHAR, "string_field", null, null, false, false, false);
+        String removedColumnSchema = getAvroSchema("string_field", "\"string\"");
+        Map<DecoderColumnHandle, FieldValueProvider> decodedEvolvedRow = decodeRow(
+                originalData,
+                ImmutableSet.of(evolvedColumn),
+                ImmutableMap.of(DATA_SCHEMA, removedColumnSchema));
+
+        assertEquals(decodedEvolvedRow.size(), 1);
+        checkValue(decodedEvolvedRow, evolvedColumn, "string_field_value");
+    }
+
+    @Test
+    public void testSchemaEvolutionIntToLong()
+            throws Exception
+    {
+        byte[] originalIntData = buildAvroData(new Schema.Parser().parse(
+                getAvroSchema("int_to_long_field", "\"int\"")),
+                "int_to_long_field", 100);
+
+        DecoderTestColumnHandle longColumnReadingIntData = new DecoderTestColumnHandle(0, "row0", BIGINT, "int_to_long_field", null, null, false, false, false);
+        String changedTypeSchema = getAvroSchema("int_to_long_field", "\"long\"");
+        Map<DecoderColumnHandle, FieldValueProvider> decodedEvolvedRow = decodeRow(
+                originalIntData,
+                ImmutableSet.of(longColumnReadingIntData),
+                ImmutableMap.of(DATA_SCHEMA, changedTypeSchema));
+
+        assertEquals(decodedEvolvedRow.size(), 1);
+        checkValue(decodedEvolvedRow, longColumnReadingIntData, 100);
+    }
+
+    @Test
+    public void testSchemaEvolutionIntToDouble()
+            throws Exception
+    {
+        byte[] originalIntData = buildAvroData(new Schema.Parser().parse(
+                getAvroSchema("int_to_double_field", "\"int\"")),
+                "int_to_double_field", 100);
+
+        DecoderTestColumnHandle doubleColumnReadingIntData = new DecoderTestColumnHandle(0, "row0", DOUBLE, "int_to_double_field", null, null, false, false, false);
+        String changedTypeSchema = getAvroSchema("int_to_double_field", "\"double\"");
+        Map<DecoderColumnHandle, FieldValueProvider> decodedEvolvedRow = decodeRow(
+                originalIntData,
+                ImmutableSet.of(doubleColumnReadingIntData),
+                ImmutableMap.of(DATA_SCHEMA, changedTypeSchema));
+
+        assertEquals(decodedEvolvedRow.size(), 1);
+        checkValue(decodedEvolvedRow, doubleColumnReadingIntData, 100.0);
+    }
+
+    @Test
+    public void testSchemaEvolutionToIncompatibleType()
+            throws Exception
+    {
+        byte[] originalIntData = buildAvroData(new Schema.Parser().parse(
+                getAvroSchema("int_to_string_field", "\"int\"")),
+                "int_to_string_field", 100);
+
+        DecoderTestColumnHandle stringColumnReadingIntData = new DecoderTestColumnHandle(0, "row0", VARCHAR, "int_to_string_field", null, null, false, false, false);
+        String changedTypeSchema = getAvroSchema("int_to_string_field", "\"string\"");
+
+        assertThatThrownBy(() -> decodeRow(originalIntData, ImmutableSet.of(stringColumnReadingIntData), ImmutableMap.of(DATA_SCHEMA, changedTypeSchema)))
+                .isInstanceOf(PrestoException.class)
+                .hasCauseExactlyInstanceOf(AvroTypeException.class)
+                .hasStackTraceContaining("Found int, expecting string")
+                .hasMessageMatching("Decoding AVRO record failed.");
     }
 
     @Test
