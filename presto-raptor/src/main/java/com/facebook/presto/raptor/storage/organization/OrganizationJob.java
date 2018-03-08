@@ -24,6 +24,7 @@ import io.airlift.log.Logger;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
@@ -82,7 +83,7 @@ class OrganizationJob
         TableMetadata metadata = getTableMetadata(tableId);
         List<ShardInfo> newShards = performCompaction(transactionId, bucketNumber, shardUuids, metadata);
         log.info("Compacted shards %s into %s", shardUuids, newShards.stream().map(ShardInfo::getShardUuid).collect(toList()));
-        shardManager.replaceShardUuids(transactionId, tableId, metadata.getColumns(), shardUuids, newShards, OptionalLong.empty());
+        shardManager.replaceShardUuids(transactionId, tableId, metadata.getColumns(), shardUuids, newShards, OptionalLong.empty(), Optional.empty());
     }
 
     private TableMetadata getTableMetadata(long tableId)

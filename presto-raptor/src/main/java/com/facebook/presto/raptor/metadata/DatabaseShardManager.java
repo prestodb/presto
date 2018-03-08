@@ -15,8 +15,10 @@ package com.facebook.presto.raptor.metadata;
 
 import com.facebook.presto.raptor.NodeSupplier;
 import com.facebook.presto.raptor.RaptorColumnHandle;
+import com.facebook.presto.raptor.event.ShardOperationEventFactory;
 import com.facebook.presto.raptor.storage.organization.ShardOrganizerDao;
 import com.facebook.presto.raptor.util.DaoSupplier;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.predicate.TupleDomain;
@@ -34,6 +36,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ExecutionError;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+import io.airlift.event.client.EventClient;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import org.h2.jdbc.JdbcConnection;
@@ -110,6 +113,8 @@ public class DatabaseShardManager
     private final ShardDao dao;
     private final NodeSupplier nodeSupplier;
     private final AssignmentLimiter assignmentLimiter;
+    private final ShardOperationEventFactory shardOperationEventFactory;
+    private final EventClient eventClient;
     private final Ticker ticker;
     private final Duration startupGracePeriod;
     private final long startTime;
@@ -129,9 +134,11 @@ public class DatabaseShardManager
             NodeSupplier nodeSupplier,
             AssignmentLimiter assignmentLimiter,
             Ticker ticker,
+            ShardOperationEventFactory shardOperationEventFactory,
+            EventClient eventClient,
             MetadataConfig config)
     {
-        this(dbi, shardDaoSupplier, nodeSupplier, assignmentLimiter, ticker, config.getStartupGracePeriod());
+        this(dbi, shardDaoSupplier, nodeSupplier, assignmentLimiter, ticker, shardOperationEventFactory, eventClient, config.getStartupGracePeriod());
     }
 
     public DatabaseShardManager(
@@ -140,6 +147,8 @@ public class DatabaseShardManager
             NodeSupplier nodeSupplier,
             AssignmentLimiter assignmentLimiter,
             Ticker ticker,
+            ShardOperationEventFactory shardOperationEventFactory,
+            EventClient eventClient,
             Duration startupGracePeriod)
     {
         this.dbi = requireNonNull(dbi, "dbi is null");
@@ -149,6 +158,8 @@ public class DatabaseShardManager
         this.assignmentLimiter = requireNonNull(assignmentLimiter, "assignmentLimiter is null");
         this.ticker = requireNonNull(ticker, "ticker is null");
         this.startupGracePeriod = requireNonNull(startupGracePeriod, "startupGracePeriod is null");
+        this.shardOperationEventFactory = requireNonNull(shardOperationEventFactory, "shardOperationEventFactory is null");
+        this.eventClient = requireNonNull(eventClient, "eventClient is null");
         this.startTime = ticker.read();
     }
 
@@ -286,7 +297,14 @@ public class DatabaseShardManager
     }
 
     @Override
-    public void commitShards(long transactionId, long tableId, List<ColumnInfo> columns, Collection<ShardInfo> shards, Optional<String> externalBatchId, long updateTime)
+    public void commitShards(
+            long transactionId,
+            long tableId,
+            List<ColumnInfo> columns,
+            Collection<ShardInfo> shards,
+            Optional<String> externalBatchId,
+            long updateTime,
+            Optional<ConnectorSession> session)
     {
         // attempt to fail up front with a proper exception
         if (externalBatchId.isPresent() && dao.externalBatchExists(externalBatchId.get())) {
@@ -305,10 +323,19 @@ public class DatabaseShardManager
             metadata.updateTableStats(tableId, shards.size(), stats.getRowCount(), stats.getCompressedSize(), stats.getUncompressedSize());
             metadata.updateTableVersion(tableId, updateTime);
         });
+
+        eventClient.post(shardOperationEventFactory.getShardOperationEvent(tableId, columns.size(), shards.size(), 0, session));
     }
 
     @Override
-    public void replaceShardUuids(long transactionId, long tableId, List<ColumnInfo> columns, Set<UUID> oldShardUuids, Collection<ShardInfo> newShards, OptionalLong updateTime)
+    public void replaceShardUuids(
+            long transactionId,
+            long tableId,
+            List<ColumnInfo> columns,
+            Set<UUID> oldShardUuids,
+            Collection<ShardInfo> newShards,
+            OptionalLong updateTime,
+            Optional<ConnectorSession> session)
     {
         Map<String, Integer> nodeIds = toNodeIdMap(newShards);
 
@@ -343,6 +370,8 @@ public class DatabaseShardManager
                 updateTime.ifPresent(time -> metadata.updateTableVersion(tableId, time));
             }
         });
+
+        eventClient.post(shardOperationEventFactory.getShardOperationEvent(tableId, columns.size(), newShards.size(), oldShardUuids.size(), session));
     }
 
     private void runCommit(long transactionId, HandleConsumer callback)

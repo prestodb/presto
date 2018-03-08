@@ -29,6 +29,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.inject.Injector;
 import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
+import io.airlift.event.client.EventModule;
 import io.airlift.json.JsonModule;
 import org.weakref.jmx.guice.MBeanModule;
 
@@ -46,13 +47,15 @@ public class RaptorConnectorFactory
 {
     private final String name;
     private final Module metadataModule;
+    private final Module eventClientModule;
     private final Map<String, Module> backupProviders;
 
-    public RaptorConnectorFactory(String name, Module metadataModule, Map<String, Module> backupProviders)
+    public RaptorConnectorFactory(String name, Module metadataModule, Module eventClientModule, Map<String, Module> backupProviders)
     {
         checkArgument(!isNullOrEmpty(name), "name is null or empty");
         this.name = name;
         this.metadataModule = requireNonNull(metadataModule, "metadataModule is null");
+        this.eventClientModule = requireNonNull(eventClientModule, "eventClientModule is null");
         this.backupProviders = ImmutableMap.copyOf(requireNonNull(backupProviders, "backupProviders is null"));
     }
 
@@ -74,6 +77,7 @@ public class RaptorConnectorFactory
         NodeManager nodeManager = context.getNodeManager();
         try {
             Bootstrap app = new Bootstrap(
+                    new EventModule(),
                     new JsonModule(),
                     new MBeanModule(),
                     binder -> {
@@ -83,12 +87,12 @@ public class RaptorConnectorFactory
                         binder.bind(PageSorter.class).toInstance(context.getPageSorter());
                         binder.bind(TypeManager.class).toInstance(context.getTypeManager());
                     },
+                    eventClientModule,
                     metadataModule,
                     new BackupModule(backupProviders),
                     new StorageModule(connectorId),
-                    new RaptorModule(connectorId),
+                    new RaptorModule(connectorId, nodeManager.getEnvironment()),
                     new RaptorSecurityModule());
-
             Injector injector = app
                     .strictConfig()
                     .doNotInitializeLogging()

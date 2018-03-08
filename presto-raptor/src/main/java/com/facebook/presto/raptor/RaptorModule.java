@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.raptor;
 
+import com.facebook.presto.raptor.event.ShardOperationEventFactory;
 import com.facebook.presto.raptor.metadata.Distribution;
 import com.facebook.presto.raptor.metadata.ForMetadata;
 import com.facebook.presto.raptor.metadata.TableColumn;
@@ -41,15 +42,18 @@ public class RaptorModule
         implements Module
 {
     private final String connectorId;
+    private final String environment;
 
-    public RaptorModule(String connectorId)
+    public RaptorModule(String connectorId, String environment)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.environment = requireNonNull(environment, "environment is null");
     }
 
     @Override
     public void configure(Binder binder)
     {
+        binder.bind(ShardOperationEventFactory.class).toInstance(new ShardOperationEventFactory(environment));
         binder.bind(RaptorConnectorId.class).toInstance(new RaptorConnectorId(connectorId));
         binder.bind(RaptorConnector.class).in(Scopes.SINGLETON);
         binder.bind(RaptorMetadataFactory.class).in(Scopes.SINGLETON);

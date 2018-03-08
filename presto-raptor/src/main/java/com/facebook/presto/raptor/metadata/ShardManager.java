@@ -14,6 +14,7 @@
 package com.facebook.presto.raptor.metadata;
 
 import com.facebook.presto.raptor.RaptorColumnHandle;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import org.skife.jdbi.v2.ResultIterator;
 
@@ -45,12 +46,12 @@ public interface ShardManager
     /**
      * Commit data for a table.
      */
-    void commitShards(long transactionId, long tableId, List<ColumnInfo> columns, Collection<ShardInfo> shards, Optional<String> externalBatchId, long updateTime);
+    void commitShards(long transactionId, long tableId, List<ColumnInfo> columns, Collection<ShardInfo> shards, Optional<String> externalBatchId, long updateTime, Optional<ConnectorSession> session);
 
     /**
      * Replace oldShardsUuids with newShards.
      */
-    void replaceShardUuids(long transactionId, long tableId, List<ColumnInfo> columns, Set<UUID> oldShardUuids, Collection<ShardInfo> newShards, OptionalLong updateTime);
+    void replaceShardUuids(long transactionId, long tableId, List<ColumnInfo> columns, Set<UUID> oldShardUuids, Collection<ShardInfo> newShards, OptionalLong updateTime, Optional<ConnectorSession> session);
 
     /**
      * Get shard metadata for a shard.

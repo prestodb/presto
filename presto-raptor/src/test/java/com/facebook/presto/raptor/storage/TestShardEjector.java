@@ -129,7 +129,7 @@ public class TestShardEjector
         shardManager.createTable(tableId, columns, false, OptionalLong.empty());
 
         long transactionId = shardManager.beginTransaction();
-        shardManager.commitShards(transactionId, tableId, columns, shards, Optional.empty(), 0);
+        shardManager.commitShards(transactionId, tableId, columns, shards, Optional.empty(), 0, Optional.empty());
 
         for (ShardInfo shard : shards.subList(0, 8)) {
             File file = storageService.getStorageFile(shard.getShardUuid());

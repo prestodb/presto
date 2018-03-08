@@ -663,7 +663,7 @@ public class RaptorMetadata
 
         // TODO: refactor this to avoid creating an empty table on failure
         shardManager.createTable(newTableId, columns, table.getBucketCount().isPresent(), temporalColumnId);
-        shardManager.commitShards(transactionId, newTableId, columns, parseFragments(fragments), Optional.empty(), updateTime);
+        shardManager.commitShards(transactionId, newTableId, columns, parseFragments(fragments), Optional.empty(), updateTime, Optional.of(session));
 
         clearRollback();
 
@@ -735,7 +735,7 @@ public class RaptorMetadata
 
         Collection<ShardInfo> shards = parseFragments(fragments);
         log.info("Committing insert into tableId %s (queryId: %s, shards: %s, columns: %s)", handle.getTableId(), session.getQueryId(), shards.size(), columns.size());
-        shardManager.commitShards(transactionId, tableId, columns, shards, externalBatchId, updateTime);
+        shardManager.commitShards(transactionId, tableId, columns, shards, externalBatchId, updateTime, Optional.of(session));
 
         clearRollback();
 
@@ -798,7 +798,7 @@ public class RaptorMetadata
         OptionalLong updateTime = OptionalLong.of(session.getStartTime());
 
         log.info("Finishing delete for tableId %s (removed: %s, rewritten: %s)", tableId, oldShardUuids.size() - newShards.size(), newShards.size());
-        shardManager.replaceShardUuids(transactionId, tableId, columns, oldShardUuids, newShards, updateTime);
+        shardManager.replaceShardUuids(transactionId, tableId, columns, oldShardUuids, newShards, updateTime, Optional.of(session));
 
         clearRollback();
     }

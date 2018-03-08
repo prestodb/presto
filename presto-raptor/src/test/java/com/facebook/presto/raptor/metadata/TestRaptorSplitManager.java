@@ -24,6 +24,8 @@ import com.facebook.presto.raptor.RaptorSplitManager;
 import com.facebook.presto.raptor.RaptorTableHandle;
 import com.facebook.presto.raptor.RaptorTableLayoutHandle;
 import com.facebook.presto.raptor.RaptorTransactionHandle;
+import com.facebook.presto.raptor.event.LoggingEventClient;
+import com.facebook.presto.raptor.event.ShardOperationEventFactory;
 import com.facebook.presto.raptor.util.DaoSupplier;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
@@ -100,7 +102,15 @@ public class TestRaptorSplitManager
         createTablesWithRetry(dbi);
         temporary = createTempDir();
         AssignmentLimiter assignmentLimiter = new AssignmentLimiter(ImmutableSet::of, systemTicker(), new MetadataConfig());
-        shardManager = new DatabaseShardManager(dbi, new DaoSupplier<>(dbi, ShardDao.class), ImmutableSet::of, assignmentLimiter, systemTicker(), new Duration(0, MINUTES));
+        shardManager = new DatabaseShardManager(
+                dbi,
+                new DaoSupplier<>(dbi, ShardDao.class),
+                ImmutableSet::of,
+                assignmentLimiter,
+                systemTicker(),
+                new ShardOperationEventFactory("test-environment"),
+                new LoggingEventClient(),
+                new Duration(0, MINUTES));
         TestingNodeManager nodeManager = new TestingNodeManager();
         NodeSupplier nodeSupplier = nodeManager::getWorkerNodes;
 
@@ -128,7 +138,7 @@ public class TestRaptorSplitManager
                 .collect(toList());
 
         long transactionId = shardManager.beginTransaction();
-        shardManager.commitShards(transactionId, tableId, columns, shards, Optional.empty(), 0);
+        shardManager.commitShards(transactionId, tableId, columns, shards, Optional.empty(), 0, Optional.empty());
 
         raptorSplitManager = new RaptorSplitManager(connectorId, nodeSupplier, shardManager, false);
     }

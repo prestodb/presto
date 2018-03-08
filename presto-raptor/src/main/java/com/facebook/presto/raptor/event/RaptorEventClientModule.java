@@ -11,34 +11,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.raptor;
+package com.facebook.presto.raptor.event;
 
-import com.facebook.presto.raptor.event.RaptorEventClientModule;
-import com.facebook.presto.raptor.metadata.DatabaseMetadataModule;
-import com.google.common.collect.ImmutableMap;
+import com.google.inject.Binder;
 import com.google.inject.Module;
+import io.airlift.event.client.EventClient;
 
-import java.util.Map;
+import static com.google.inject.Scopes.SINGLETON;
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 
-public class PluginInfo
+public class RaptorEventClientModule
+        implements Module
 {
-    public String getName()
+    @Override
+    public void configure(Binder binder)
     {
-        return "raptor";
-    }
-
-    public Module getMetadataModule()
-    {
-        return new DatabaseMetadataModule();
-    }
-
-    public Map<String, Module> getBackupProviders()
-    {
-        return ImmutableMap.of();
-    }
-
-    public Module getEventClientModule()
-    {
-        return new RaptorEventClientModule();
+        newSetBinder(binder, EventClient.class).addBinding().to(LoggingEventClient.class).in(SINGLETON);
     }
 }
