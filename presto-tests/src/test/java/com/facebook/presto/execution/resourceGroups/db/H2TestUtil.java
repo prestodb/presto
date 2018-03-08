@@ -16,12 +16,13 @@ package com.facebook.presto.execution.resourceGroups.db;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryState;
+import com.facebook.presto.resourceGroups.ResourceGroupSelector;
 import com.facebook.presto.resourceGroups.db.DbResourceGroupConfig;
+import com.facebook.presto.resourceGroups.db.DbResourceGroupConfigurationManager;
 import com.facebook.presto.resourceGroups.db.H2DaoProvider;
 import com.facebook.presto.resourceGroups.db.H2ResourceGroupsDao;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupSelector;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableList;
@@ -187,7 +188,7 @@ class H2TestUtil
     public static List<ResourceGroupSelector> getSelectors(DistributedQueryRunner queryRunner)
     {
         try {
-            return queryRunner.getCoordinator().getResourceGroupManager().get().getConfigurationManager().getSelectors();
+            return ((DbResourceGroupConfigurationManager) queryRunner.getCoordinator().getResourceGroupManager().get().getConfigurationManager()).getSelectors();
         }
         catch (PrestoException e) {
             if (e.getErrorCode() == CONFIGURATION_INVALID.toErrorCode()) {

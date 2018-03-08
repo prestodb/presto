@@ -23,7 +23,6 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManager;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerContext;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerFactory;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupSelector;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.annotations.VisibleForTesting;
@@ -265,13 +264,9 @@ public final class InternalResourceGroupManager
                 session.getClientTags(),
                 getQueryPriority(session),
                 determineQueryType(queryExecution));
-        for (ResourceGroupSelector selector : configurationManager.get().getSelectors()) {
-            Optional<ResourceGroupId> group = selector.match(context);
-            if (group.isPresent()) {
-                return group.get();
-            }
-        }
-        throw new PrestoException(QUERY_REJECTED, "Query did not match any selection rule");
+
+        return configurationManager.get().match(context)
+                .orElseThrow(() -> new PrestoException(QUERY_REJECTED, "Query did not match any selection rule"));
     }
 
     private Optional<String> determineQueryType(QueryExecution queryExecution)
