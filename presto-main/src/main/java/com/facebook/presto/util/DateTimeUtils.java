@@ -159,7 +159,8 @@ public final class DateTimeUtils
                 return true;
             }
             catch (Exception e) {
-                TIMESTAMP_WITHOUT_TIME_ZONE_FORMATTER.parseMillis(value);
+                // `.withZoneUTC()` makes `timestampHasTimeZone` return value independent of JVM zone
+                TIMESTAMP_WITHOUT_TIME_ZONE_FORMATTER.withZoneUTC().parseMillis(value);
                 return false;
             }
         }
