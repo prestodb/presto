@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.facebook.presto.connector.thrift.api.PrestoThriftSessionProperty.serviceNamespacedProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanSessionProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.doubleSessionProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerSessionProperty;
@@ -63,31 +64,31 @@ public class TestThriftSessionProperties
     public void testGetSessionProperties()
     {
         List<PropertyMetadata<?>> registeredProperty = sessionProperties.getSessionProperties();
-        assertAllEquals(registeredProperty, propertyMetadataList);
+        assertAllEquals(registeredProperty, transformToNamespaced(propertyMetadataList));
     }
 
     @Test
     public void testConvertConnectorSession()
     {
         ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
-        properties.put("test_bool_prop", false);
-        properties.put("test_bool_prop_nullable", true);
-        properties.put("test_int_prop", 1);
-        properties.put("test_int_prop_nullable", 100);
-        properties.put("test_long_prop", 1001L);
-        properties.put("test_long_prop_nullable", 1000L);
-        properties.put("test_double_prop", 100.1);
-        properties.put("test_double_prop_nullable", 1.9);
-        properties.put("test_string_prop", "another string");
-        properties.put("test_string_prop_nullable", "This is a string");
-        properties.put("test_additional_prop", "should be ignored?");
+        properties.put("service.test_bool_prop", false);
+        properties.put("service.test_bool_prop_nullable", true);
+        properties.put("service.test_int_prop", 1);
+        properties.put("service.test_int_prop_nullable", 100);
+        properties.put("service.test_long_prop", 1001L);
+        properties.put("service.test_long_prop_nullable", 1000L);
+        properties.put("service.test_double_prop", 100.1);
+        properties.put("service.test_double_prop_nullable", 1.9);
+        properties.put("service.test_string_prop", "another string");
+        properties.put("service.test_string_prop_nullable", "This is a string");
+        properties.put("service.test_additional_prop", "should be ignored?");
 
         ConnectorSession connectorSession = new TestingConnectorSession("user",
                 Optional.of("test"),
                 UTC_KEY,
                 ENGLISH,
                 1234,
-                propertyMetadataList,
+                transformToNamespaced(propertyMetadataList),
                 properties.build(),
                 new FeaturesConfig().isLegacyTimestamp());
 
@@ -131,12 +132,21 @@ public class TestThriftSessionProperties
                 UTC_KEY,
                 ENGLISH,
                 System.currentTimeMillis(),
-                propertyMetadataList,
+                transformToNamespaced(propertyMetadataList),
                 properties.build(),
                 new FeaturesConfig().isLegacyTimestamp());
         PrestoThriftSession thriftSession = sessionProperties.convertConnectorSession(connectorSession);
         Map<String, PrestoThriftBlock> passedSessionProperties = thriftSession.getPropertyMap();
         assertEqualsIgnoreOrder(passedSessionProperties.keySet(), ImmutableSet.of());
+    }
+
+    private static List<PropertyMetadata<?>> transformToNamespaced(List<PropertyMetadata<?>> propertyMetadataList)
+    {
+        ImmutableList.Builder<PropertyMetadata<?>> transformedList = ImmutableList.builder();
+        for (PropertyMetadata<?> property : propertyMetadataList) {
+            transformedList.add(serviceNamespacedProperty(property));
+        }
+        return transformedList.build();
     }
 
     private void assertAllEquals(List<PropertyMetadata<?>> actual, List<PropertyMetadata<?>> expected)

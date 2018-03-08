@@ -45,6 +45,7 @@ public final class PrestoThriftSessionProperty
     private final String description;
     private final PrestoThriftBlock defaultValue;
     private boolean hidden;
+    public static final String PREFIX = "service.";
 
     @ThriftConstructor
     public PrestoThriftSessionProperty(String name, @Nullable String description, PrestoThriftBlock defaultValue, boolean hidden)
@@ -83,22 +84,43 @@ public final class PrestoThriftSessionProperty
     public <T> PropertyMetadata<?> getSessionProperty()
     {
         if (defaultValue.getBooleanData() != null) {
-            return booleanSessionProperty(name, description, defaultValue.getBooleanData().getSingleValue(), hidden);
+            return booleanSessionProperty(PREFIX + name, description, defaultValue.getBooleanData().getSingleValue(), hidden);
         }
         else if (defaultValue.getIntegerData() != null) {
-            return integerSessionProperty(name, description, defaultValue.getIntegerData().getSingleValue(), hidden);
+            return integerSessionProperty(PREFIX + name, description, defaultValue.getIntegerData().getSingleValue(), hidden);
         }
         else if (defaultValue.getBigintData() != null) {
-            return longSessionProperty(name, description, defaultValue.getBigintData().getSingleValue(), hidden);
+            return longSessionProperty(PREFIX + name, description, defaultValue.getBigintData().getSingleValue(), hidden);
         }
         else if (defaultValue.getDoubleData() != null) {
-            return doubleSessionProperty(name, description, defaultValue.getDoubleData().getSingleValue(), hidden);
+            return doubleSessionProperty(PREFIX + name, description, defaultValue.getDoubleData().getSingleValue(), hidden);
         }
         else if (defaultValue.getVarcharData() != null) {
-            return stringSessionProperty(name, description, defaultValue.getVarcharData().getSingleValue(), hidden);
+            return stringSessionProperty(PREFIX + name, description, defaultValue.getVarcharData().getSingleValue(), hidden);
         }
 
         throw new PrestoException(NOT_SUPPORTED, format("Session property %s has type not supported by presto thrift connector", name));
+    }
+
+    public static <T> PropertyMetadata serviceNamespacedProperty(PropertyMetadata<T> serviceProperty)
+    {
+        if (serviceProperty.getJavaType() == Boolean.class) {
+            return booleanSessionProperty(PREFIX + serviceProperty.getName(), serviceProperty.getDescription(), (Boolean) serviceProperty.getDefaultValue(), serviceProperty.isHidden());
+        }
+        else if (serviceProperty.getJavaType() == Integer.class) {
+            return integerSessionProperty(PREFIX + serviceProperty.getName(), serviceProperty.getDescription(), (Integer) serviceProperty.getDefaultValue(), serviceProperty.isHidden());
+        }
+        else if (serviceProperty.getJavaType() == Long.class) {
+            return longSessionProperty(PREFIX + serviceProperty.getName(), serviceProperty.getDescription(), (Long) serviceProperty.getDefaultValue(), serviceProperty.isHidden());
+        }
+        else if (serviceProperty.getJavaType() == Double.class) {
+            return doubleSessionProperty(PREFIX + serviceProperty.getName(), serviceProperty.getDescription(), (Double) serviceProperty.getDefaultValue(), serviceProperty.isHidden());
+        }
+        else if (serviceProperty.getJavaType() == String.class) {
+            return stringSessionProperty(PREFIX + serviceProperty.getName(), serviceProperty.getDescription(), (String) serviceProperty.getDefaultValue(), serviceProperty.isHidden());
+        }
+
+        throw new PrestoException(NOT_SUPPORTED, format("Session property %s has type not supported by presto thrift connector", serviceProperty.getName()));
     }
 
     public static PrestoThriftSessionProperty fromProperty(PropertyMetadata property)

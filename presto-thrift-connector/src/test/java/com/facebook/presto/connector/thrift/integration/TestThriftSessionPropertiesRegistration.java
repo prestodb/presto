@@ -15,6 +15,7 @@ package com.facebook.presto.connector.thrift.integration;
 
 import com.facebook.presto.connector.thrift.TestingThriftService;
 import com.facebook.presto.connector.thrift.api.PrestoThriftService;
+import com.facebook.presto.connector.thrift.api.PrestoThriftSessionProperty;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
@@ -75,34 +76,34 @@ public class TestThriftSessionPropertiesRegistration
     void testRegisterSessionProperties()
     {
         MaterializedResult result = queryRunner.execute(testSessionBuilder()
-                        .setCatalogSessionProperty("thrift", "test_bool_prop", "false")
-                        .setCatalogSessionProperty("thrift", "test_bool_prop_nullable", "false")
-                        .setCatalogSessionProperty("thrift", "test_int_prop", "10")
-                        .setCatalogSessionProperty("thrift", "test_int_prop_nullable", "10")
-                        .setCatalogSessionProperty("thrift", "test_long_prop", "2000")
-                        .setCatalogSessionProperty("thrift", "test_long_prop_nullable", "2000")
-                        .setCatalogSessionProperty("thrift", "test_double_prop", "77.81")
-                        .setCatalogSessionProperty("thrift", "test_double_prop_nullable", "2000")
-                        .setCatalogSessionProperty("thrift", "test_string_prop", "Another string")
-                        .setCatalogSessionProperty("thrift", "test_string_prop_nullable", "Another string")
+                        .setCatalogSessionProperty("thrift", "service.test_bool_prop", "false")
+                        .setCatalogSessionProperty("thrift", "service.test_bool_prop_nullable", "false")
+                        .setCatalogSessionProperty("thrift", "service.test_int_prop", "10")
+                        .setCatalogSessionProperty("thrift", "service.test_int_prop_nullable", "10")
+                        .setCatalogSessionProperty("thrift", "service.test_long_prop", "2000")
+                        .setCatalogSessionProperty("thrift", "service.test_long_prop_nullable", "2000")
+                        .setCatalogSessionProperty("thrift", "service.test_double_prop", "77.81")
+                        .setCatalogSessionProperty("thrift", "service.test_double_prop_nullable", "2000")
+                        .setCatalogSessionProperty("thrift", "service.test_string_prop", "Another string")
+                        .setCatalogSessionProperty("thrift", "service.test_string_prop_nullable", "Another string")
                         .build(),
                 "show session");
-        assertEquals(getSessionRowFromResult(result, "thrift", "test_bool_prop"), ImmutableList.of("thrift.test_bool_prop", "false", "true", "boolean", "boolean session property"));
-        assertEquals(getSessionRowFromResult(result, "thrift", "test_bool_prop_nullable"), ImmutableList.of("thrift.test_bool_prop_nullable", "false", "", "boolean", "nullable boolean session property"));
-        assertEquals(getSessionRowFromResult(result, "thrift", "test_int_prop"), ImmutableList.of("thrift.test_int_prop", "10", "100", "integer", "integer session property"));
-        assertEquals(getSessionRowFromResult(result, "thrift", "test_int_prop_nullable"), ImmutableList.of("thrift.test_int_prop_nullable", "10", "", "integer", "nullable integer session property"));
-        assertEquals(getSessionRowFromResult(result, "thrift", "test_long_prop"), ImmutableList.of("thrift.test_long_prop", "2000", "1000", "bigint", "long session property"));
-        assertEquals(getSessionRowFromResult(result, "thrift", "test_long_prop_nullable"), ImmutableList.of("thrift.test_long_prop_nullable", "2000", "", "bigint", "nullable long session property"));
-        assertEquals(getSessionRowFromResult(result, "thrift", "test_double_prop"), ImmutableList.of("thrift.test_double_prop", "77.81", "1.9", "double", "double session property"));
-        assertEquals(getSessionRowFromResult(result, "thrift", "test_double_prop_nullable"), ImmutableList.of("thrift.test_double_prop_nullable", "77.81", "", "double", "nullable double session property"));
-        assertEquals(getSessionRowFromResult(result, "thrift", "test_string_prop"), ImmutableList.of("thrift.test_string_prop", "Another string", "This is a string", "varchar", "string session property"));
-        assertEquals(getSessionRowFromResult(result, "thrift", "test_string_prop_nullable"), ImmutableList.of("thrift.test_string_prop_nullable", "Another string", "", "varchar", "nullable string session property"));
+        assertEquals(getSessionRowFromResult(result, "thrift", "test_bool_prop"), ImmutableList.of("thrift.service.test_bool_prop", "false", "true", "boolean", "boolean session property"));
+        assertEquals(getSessionRowFromResult(result, "thrift", "test_bool_prop_nullable"), ImmutableList.of("thrift.service.test_bool_prop_nullable", "false", "", "boolean", "nullable boolean session property"));
+        assertEquals(getSessionRowFromResult(result, "thrift", "test_int_prop"), ImmutableList.of("thrift.service.test_int_prop", "10", "100", "integer", "integer session property"));
+        assertEquals(getSessionRowFromResult(result, "thrift", "test_int_prop_nullable"), ImmutableList.of("thrift.service.test_int_prop_nullable", "10", "", "integer", "nullable integer session property"));
+        assertEquals(getSessionRowFromResult(result, "thrift", "test_long_prop"), ImmutableList.of("thrift.service.test_long_prop", "2000", "1000", "bigint", "long session property"));
+        assertEquals(getSessionRowFromResult(result, "thrift", "test_long_prop_nullable"), ImmutableList.of("thrift.service.test_long_prop_nullable", "2000", "", "bigint", "nullable long session property"));
+        assertEquals(getSessionRowFromResult(result, "thrift", "test_double_prop"), ImmutableList.of("thrift.service.test_double_prop", "77.81", "1.9", "double", "double session property"));
+        assertEquals(getSessionRowFromResult(result, "thrift", "test_double_prop_nullable"), ImmutableList.of("thrift.service.test_double_prop_nullable", "2000", "", "double", "nullable double session property"));
+        assertEquals(getSessionRowFromResult(result, "thrift", "test_string_prop"), ImmutableList.of("thrift.service.test_string_prop", "Another string", "This is a string", "varchar", "string session property"));
+        assertEquals(getSessionRowFromResult(result, "thrift", "test_string_prop_nullable"), ImmutableList.of("thrift.service.test_string_prop_nullable", "Another string", "", "varchar", "nullable string session property"));
     }
 
     private List<Object> getSessionRowFromResult(MaterializedResult result, String catalogName, String propertyName)
     {
         return result.getMaterializedRows().stream()
-                .filter(row -> row.getField(0).equals(catalogName + "." + propertyName))
+                .filter(row -> row.getField(0).equals(catalogName + "." + PrestoThriftSessionProperty.PREFIX + propertyName))
                 .findAny()
                 .map(MaterializedRow::getFields)
                 .orElse(null);

@@ -42,6 +42,7 @@ import static java.util.Objects.requireNonNull;
 public final class ThriftSessionProperties
 {
     private final PrestoThriftServiceProvider clientProvider;
+    private static final String SERVICE_SESSION_PROPERTY_PREFIX = "service";
 
     @Inject
     public ThriftSessionProperties(PrestoThriftServiceProvider clientProvider)
@@ -63,9 +64,13 @@ public final class ThriftSessionProperties
     {
         ImmutableMap.Builder<String, PrestoThriftBlock> properties = ImmutableMap.builder();
         for (PropertyMetadata<?> property : getSessionProperties()) {
+            if (!property.getName().startsWith(PrestoThriftSessionProperty.PREFIX)) {
+                continue;
+            }
+
             PrestoThriftBlock valueBlock = getValueBlock(property, session);
             if (valueBlock != null) {
-                properties.put(property.getName(), valueBlock);
+                properties.put(property.getName().substring(PrestoThriftSessionProperty.PREFIX.length()), valueBlock);
             }
         }
 

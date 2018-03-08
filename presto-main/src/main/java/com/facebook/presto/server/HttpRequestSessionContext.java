@@ -129,6 +129,16 @@ public final class HttpRequestSessionContext
                 // catalog session properties can not be validated until the transaction has stated
                 catalogSessionProperties.computeIfAbsent(catalogName, id -> new HashMap<>()).put(propertyName, propertyValue);
             }
+            else if (nameParts.size() == 3) {
+                String catalogName = nameParts.get(0);
+                String propertyName = nameParts.get(1) + '.' + nameParts.get(2);
+
+                assertRequest(!catalogName.isEmpty(), "Invalid %s header", PRESTO_SESSION);
+                assertRequest(!propertyName.isEmpty(), "Invalid %s header", PRESTO_SESSION);
+
+                // catalog session properties can not be validated until the transaction has stated
+                catalogSessionProperties.computeIfAbsent(catalogName, id -> new HashMap<>()).put(propertyName, propertyValue);
+            }
             else {
                 throw badRequest(format("Invalid %s header", PRESTO_SESSION));
             }
