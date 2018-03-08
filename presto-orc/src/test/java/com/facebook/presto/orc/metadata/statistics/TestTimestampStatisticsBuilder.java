@@ -19,10 +19,16 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Range;
 import org.testng.annotations.Test;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import static com.facebook.presto.orc.metadata.statistics.AbstractStatisticsBuilderTest.StatisticsType.TIMESTAMP;
+import static com.facebook.presto.orc.metadata.statistics.ColumnStatistics.mergeColumnStatistics;
 import static com.facebook.presto.orc.metadata.statistics.TimestampStatistics.TIMESTAMP_VALUE_BYTES;
 import static java.lang.Long.MAX_VALUE;
 import static java.lang.Long.MIN_VALUE;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.fail;
 
 public class TestTimestampStatisticsBuilder
@@ -79,5 +85,51 @@ public class TestTimestampStatisticsBuilder
         assertMinAverageValueBytes(TIMESTAMP_VALUE_BYTES, ImmutableList.of(42L));
         assertMinAverageValueBytes(TIMESTAMP_VALUE_BYTES, ImmutableList.of(0L));
         assertMinAverageValueBytes(TIMESTAMP_VALUE_BYTES, ImmutableList.of(0L, 42L, 42L, 43L));
+    }
+
+    @Test
+    public void testMerge()
+    {
+        List<ColumnStatistics> statisticsList = new ArrayList<>();
+
+        TimestampStatisticsBuilder statisticsBuilder = new TimestampStatisticsBuilder();
+        statisticsList.add(statisticsBuilder.buildColumnStatistics());
+        assertMergedTimestampStatistics(statisticsList, 0);
+
+        statisticsBuilder.addValue(0);
+        statisticsList.add(statisticsBuilder.buildColumnStatistics());
+        assertMergedTimestampStatistics(statisticsList, 1);
+
+        statisticsBuilder.addValue(-44);
+        statisticsList.add(statisticsBuilder.buildColumnStatistics());
+        assertMergedTimestampStatistics(statisticsList, 3);
+
+        statisticsBuilder.addValue(100);
+        statisticsList.add(statisticsBuilder.buildColumnStatistics());
+        assertMergedTimestampStatistics(statisticsList, 6);
+
+        statisticsBuilder.addValue(MAX_VALUE);
+        statisticsList.add(statisticsBuilder.buildColumnStatistics());
+        assertMergedTimestampStatistics(statisticsList, 10);
+    }
+
+    private static void assertMergedTimestampStatistics(List<ColumnStatistics> statisticsList, int expectedNumberOfValues)
+    {
+        assertTimestampStatistics(mergeColumnStatistics(statisticsList), expectedNumberOfValues);
+
+        assertNoColumnStatistics(mergeColumnStatistics(insertEmptyColumnStatisticsAt(statisticsList, 0, 10)), expectedNumberOfValues + 10);
+        assertNoColumnStatistics(mergeColumnStatistics(insertEmptyColumnStatisticsAt(statisticsList, statisticsList.size(), 10)), expectedNumberOfValues + 10);
+        assertNoColumnStatistics(mergeColumnStatistics(insertEmptyColumnStatisticsAt(statisticsList, statisticsList.size() / 2, 10)), expectedNumberOfValues + 10);
+    }
+
+    private static void assertTimestampStatistics(ColumnStatistics columnStatistics, int expectedNumberOfValues)
+    {
+        if (expectedNumberOfValues > 0) {
+            assertEquals(columnStatistics.getNumberOfValues(), expectedNumberOfValues);
+        }
+        else {
+            assertNull(columnStatistics.getTimestampStatistics());
+            assertEquals(columnStatistics.getNumberOfValues(), 0);
+        }
     }
 }
