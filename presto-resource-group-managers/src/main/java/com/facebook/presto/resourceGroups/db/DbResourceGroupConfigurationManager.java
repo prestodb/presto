@@ -16,13 +16,13 @@ package com.facebook.presto.resourceGroups.db;
 import com.facebook.presto.resourceGroups.AbstractResourceConfigurationManager;
 import com.facebook.presto.resourceGroups.ManagerSpec;
 import com.facebook.presto.resourceGroups.ResourceGroupIdTemplate;
+import com.facebook.presto.resourceGroups.ResourceGroupSelector;
 import com.facebook.presto.resourceGroups.ResourceGroupSpec;
 import com.facebook.presto.resourceGroups.SelectorSpec;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
 import com.facebook.presto.spi.resourceGroups.ResourceGroup;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupSelector;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -152,15 +152,32 @@ public class DbResourceGroupConfigurationManager
     }
 
     @Override
+    public Optional<ResourceGroupId> match(SelectionContext context)
+    {
+        if (lastRefresh.get() == 0) {
+            throw new PrestoException(CONFIGURATION_UNAVAILABLE, "Selectors cannot be fetched from database");
+        }
+        if (selectors.get().isEmpty()) {
+            throw new PrestoException(CONFIGURATION_INVALID, "No selectors are configured");
+        }
+
+        return selectors.get().stream()
+                .map(s -> s.match(context))
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .findFirst();
+    }
+
+    @VisibleForTesting
     public List<ResourceGroupSelector> getSelectors()
     {
         if (lastRefresh.get() == 0) {
             throw new PrestoException(CONFIGURATION_UNAVAILABLE, "Selectors cannot be fetched from database");
         }
-        if (this.selectors.get().isEmpty()) {
+        if (selectors.get().isEmpty()) {
             throw new PrestoException(CONFIGURATION_INVALID, "No selectors are configured");
         }
-        return this.selectors.get();
+        return selectors.get();
     }
 
     private synchronized Optional<Duration> getCpuQuotaPeriodFromDb()

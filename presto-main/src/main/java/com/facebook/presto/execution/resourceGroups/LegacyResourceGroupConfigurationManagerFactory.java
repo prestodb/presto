@@ -19,13 +19,10 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManager;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerContext;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerFactory;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupSelector;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
-import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
 
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -71,9 +68,9 @@ public class LegacyResourceGroupConfigurationManagerFactory
         }
 
         @Override
-        public List<ResourceGroupSelector> getSelectors()
+        public Optional<ResourceGroupId> match(SelectionContext context)
         {
-            return ImmutableList.of(context -> Optional.of(GLOBAL));
+            return Optional.of(GLOBAL);
         }
     }
 }

@@ -14,7 +14,6 @@
 package com.facebook.presto.resourceGroups;
 
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupSelector;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -46,7 +45,6 @@ public class StaticSelector
         this.group = requireNonNull(group, "group is null");
     }
 
-    @Override
     public Optional<ResourceGroupId> match(SelectionContext context)
     {
         if (userRegex.isPresent() && !userRegex.get().matcher(context.getUser()).matches()) {

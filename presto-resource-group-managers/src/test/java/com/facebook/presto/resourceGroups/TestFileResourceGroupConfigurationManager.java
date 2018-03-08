@@ -16,7 +16,6 @@ package com.facebook.presto.resourceGroups;
 import com.facebook.presto.spi.resourceGroups.ResourceGroup;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManager;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupSelector;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
@@ -61,7 +60,7 @@ public class TestFileResourceGroupConfigurationManager
     @Test
     public void testQueryTypeConfiguration()
     {
-        ResourceGroupConfigurationManager manager = parse("resource_groups_config_query_type.json");
+        FileResourceGroupConfigurationManager manager = parse("resource_groups_config_query_type.json");
         List<ResourceGroupSelector> selectors = manager.getSelectors();
         assertMatch(selectors, new SelectionContext(true, "test_user", Optional.empty(), ImmutableSet.of(), 1, Optional.of("select")), "global.select");
         assertMatch(selectors, new SelectionContext(true, "test_user", Optional.empty(), ImmutableSet.of(), 1, Optional.of("explain")), "global.explain");

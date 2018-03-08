@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.spi.resourceGroups;
 
-import java.util.List;
+import java.util.Optional;
 
 public interface ResourceGroupConfigurationManager
 {
@@ -26,5 +26,5 @@ public interface ResourceGroupConfigurationManager
     /**
      * This method is called for every query that is submitted, so it should be fast.
      */
-    List<ResourceGroupSelector> getSelectors();
+    Optional<ResourceGroupId> match(SelectionContext context);
 }
