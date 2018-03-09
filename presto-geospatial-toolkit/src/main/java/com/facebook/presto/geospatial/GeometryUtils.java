@@ -108,7 +108,7 @@ public final class GeometryUtils
         return n < -1.0E38D ? (0.0D / 0.0) : n;
     }
 
-    private static boolean isEsriNaN(double d)
+    public static boolean isEsriNaN(double d)
     {
         return Double.isNaN(d) || Double.isNaN(translateFromAVNaN(d));
     }

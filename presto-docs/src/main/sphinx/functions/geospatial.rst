@@ -163,6 +163,11 @@ Accessors
 
     Returns ``true`` if and only if the line is closed and simple.
 
+.. function:: ST_IsValid(Geometry) -> boolean
+
+    Returns ``true`` if and only if the input geometry is well formed.
+    Use :func:`geometry_invalid_reason` to determine why the geometry is not well formed.
+
 .. function:: ST_Length(Geometry) -> double
 
     Returns the length of a linestring or multi-linestring using Euclidean measurement on a
@@ -208,6 +213,11 @@ Accessors
 .. function:: ST_NumInteriorRing(Geometry) -> bigint
 
     Returns the cardinality of the collection of interior rings of a polygon.
+
+.. function:: geometry_invalid_reason(Geometry) -> varchar
+
+    Returns the reason for why the input geometry is not valid.
+    Returns null if the input is valid.
 
 Bing Tiles
 ----------
