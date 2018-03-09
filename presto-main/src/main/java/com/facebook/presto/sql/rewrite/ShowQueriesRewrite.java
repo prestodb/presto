@@ -215,7 +215,14 @@ final class ShowQueriesRewrite
 
             Optional<String> likePattern = showTables.getLikePattern();
             if (likePattern.isPresent()) {
-                Expression likePredicate = new LikePredicate(identifier("table_name"), new StringLiteral(likePattern.get()), null);
+                Expression likePredicate;
+                Optional<String> escape = showTables.getEscape();
+                if (escape.isPresent()){
+                    likePredicate = new LikePredicate(identifier("table_name"), new StringLiteral(likePattern.get()), new StringLiteral(escape.get()));
+                }
+                else {
+                    likePredicate = new LikePredicate(identifier("table_name"), new StringLiteral(likePattern.get()), null);
+                }
                 predicate = logicalAnd(predicate, likePredicate);
             }
 
@@ -286,7 +293,13 @@ final class ShowQueriesRewrite
             Optional<Expression> predicate = Optional.empty();
             Optional<String> likePattern = node.getLikePattern();
             if (likePattern.isPresent()) {
-                predicate = Optional.of(new LikePredicate(identifier("schema_name"), new StringLiteral(likePattern.get()), null));
+                Optional<String> escape = node.getEscape();
+                if (escape.isPresent()) {
+                    predicate = Optional.of(new LikePredicate(identifier("schema_name"), new StringLiteral(likePattern.get()), new StringLiteral(escape.get())));
+                }
+                else {
+                    predicate = Optional.of(new LikePredicate(identifier("schema_name"), new StringLiteral(likePattern.get()), null));
+                }
             }
 
             return simpleQuery(
