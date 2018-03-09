@@ -18,6 +18,7 @@ import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.SqlAggregationFunction;
 import com.facebook.presto.operator.aggregation.AccumulatorCompiler;
 import com.facebook.presto.operator.aggregation.AggregationMetadata;
+import com.facebook.presto.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
 import com.facebook.presto.operator.aggregation.GenericAccumulatorFactoryBinder;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.aggregation.state.StateCompiler;
@@ -154,9 +155,10 @@ public abstract class AbstractMinMaxBy
                 inputMethod,
                 combineMethod,
                 outputMethod,
-                stateClazz,
-                stateSerializer,
-                stateFactory,
+                ImmutableList.of(new AccumulatorStateDescriptor(
+                        stateClazz,
+                        stateSerializer,
+                        stateFactory)),
                 valueType);
         GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
         return new InternalAggregationFunction(getSignature().getName(), inputTypes, intermediateType, valueType, true, false, factory);

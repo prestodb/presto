@@ -16,6 +16,7 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.SqlAggregationFunction;
+import com.facebook.presto.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
 import com.facebook.presto.operator.aggregation.state.LongState;
 import com.facebook.presto.operator.aggregation.state.StateCompiler;
 import com.facebook.presto.spi.block.Block;
@@ -89,9 +90,10 @@ public class CountColumn
                 INPUT_FUNCTION,
                 COMBINE_FUNCTION,
                 OUTPUT_FUNCTION,
-                LongState.class,
-                stateSerializer,
-                stateFactory,
+                ImmutableList.of(new AccumulatorStateDescriptor(
+                        LongState.class,
+                        stateSerializer,
+                        stateFactory)),
                 BIGINT);
 
         GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
