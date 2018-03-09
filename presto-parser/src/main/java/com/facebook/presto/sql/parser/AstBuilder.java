@@ -723,6 +723,8 @@ class AstBuilder
                 Optional.ofNullable(context.qualifiedName())
                         .map(this::getQualifiedName),
                 getTextIfPresent(context.pattern)
+                        .map(AstBuilder::unquote),
+                getTextIfPresent(context.escape)
                         .map(AstBuilder::unquote));
     }
 
@@ -733,6 +735,8 @@ class AstBuilder
                 getLocation(context),
                 visitIfPresent(context.identifier(), Identifier.class),
                 getTextIfPresent(context.pattern)
+                        .map(AstBuilder::unquote),
+                getTextIfPresent(context.escape)
                         .map(AstBuilder::unquote));
     }
 
