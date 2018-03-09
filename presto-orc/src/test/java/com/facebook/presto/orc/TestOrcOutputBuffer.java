@@ -43,4 +43,35 @@ public class TestOrcOutputBuffer
         assertEquals(sliceOutput.writeDataTo(output), size - 100);
         assertEquals(output.slice(), wrappedBuffer(largeByteArray, 100, size - 100));
     }
+
+    @Test
+    public void testGrowCapacity()
+    {
+        byte[] largeByteArray = new byte[4096];
+        OrcOutputBuffer sliceOutput = new OrcOutputBuffer(CompressionKind.NONE, 3000);
+
+        // write some data that can fit the initial capacity = 256
+        sliceOutput.writeBytes(largeByteArray, 0, 200);
+        assertEquals(sliceOutput.getBufferCapacity(), 256);
+
+        // write some more data to exceed the capacity = 256; the capacity will double
+        sliceOutput.writeBytes(largeByteArray, 0, 200);
+        assertEquals(sliceOutput.getBufferCapacity(), 512);
+
+        // write a lot more data to exceed twice the capacity = 512 X 2; the capacity will be the required data size
+        sliceOutput.writeBytes(largeByteArray, 0, 1200);
+        assertEquals(sliceOutput.getBufferCapacity(), 1200);
+
+        // write some more data to double the capacity again
+        sliceOutput.writeBytes(largeByteArray, 0, 2000);
+        assertEquals(sliceOutput.getBufferCapacity(), 2400);
+
+        // make the buffer to reach the max buffer capacity
+        sliceOutput.writeBytes(largeByteArray, 0, 2500);
+        assertEquals(sliceOutput.getBufferCapacity(), 3000);
+
+        // make sure we didn't miss anything
+        DynamicSliceOutput output = new DynamicSliceOutput(6000);
+        assertEquals(sliceOutput.writeDataTo(output), 200 + 200 + 1200 + 2000 + 2500);
+    }
 }
