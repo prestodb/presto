@@ -147,7 +147,8 @@ These properties require some explanation:
 
 * ``http-server.http.port``:
   Specifies the port for the HTTP server. Presto uses HTTP for all
-  communication, internal and external.
+  communication, internal and external. If set to 0, PrestoServer 
+  will use system idle port, suggest only for Presto Worker.
 
 * ``query.max-memory``:
   The maximum amount of distributed memory that a query may use.
