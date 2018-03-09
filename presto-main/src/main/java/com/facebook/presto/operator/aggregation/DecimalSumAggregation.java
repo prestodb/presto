@@ -17,6 +17,7 @@ import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.SqlAggregationFunction;
+import com.facebook.presto.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
 import com.facebook.presto.operator.aggregation.state.LongDecimalWithOverflowState;
 import com.facebook.presto.operator.aggregation.state.LongDecimalWithOverflowStateFactory;
 import com.facebook.presto.operator.aggregation.state.LongDecimalWithOverflowStateSerializer;
@@ -109,9 +110,10 @@ public class DecimalSumAggregation
                 inputFunction.bindTo(inputType),
                 COMBINE_FUNCTION,
                 LONG_DECIMAL_OUTPUT_FUNCTION.bindTo(outputType),
-                stateInterface,
-                stateSerializer,
-                new LongDecimalWithOverflowStateFactory(),
+                ImmutableList.of(new AccumulatorStateDescriptor(
+                        stateInterface,
+                        stateSerializer,
+                        new LongDecimalWithOverflowStateFactory())),
                 outputType);
 
         Type intermediateType = stateSerializer.getSerializedType();
