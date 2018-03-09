@@ -164,6 +164,32 @@ public class TestGeoFunctions
         assertFunction("ST_IsEmpty(ST_GeometryFromText('POLYGON EMPTY'))", BOOLEAN, true);
     }
 
+    private void assertSimpleGeometry(String text)
+    {
+        assertFunction("ST_IsSimple(ST_GeometryFromText('" + text + "'))", BOOLEAN, true);
+    }
+
+    private void assertNotSimpleGeometry(String text)
+    {
+        assertFunction("ST_IsSimple(ST_GeometryFromText('" + text + "'))", BOOLEAN, false);
+    }
+
+    @Test
+    public void testSTIsSimple()
+    {
+        assertSimpleGeometry("POINT (1.5 2.5)");
+        assertSimpleGeometry("MULTIPOINT (1 2, 2 4, 3 6, 4 8)");
+        assertNotSimpleGeometry("MULTIPOINT (1 2, 2 4, 3 6, 1 2)");
+        assertSimpleGeometry("LINESTRING (8 4, 5 7)");
+        assertSimpleGeometry("LINESTRING (1 1, 2 2, 1 3, 1 1)");
+        assertNotSimpleGeometry("LINESTRING (0 0, 1 1, 1 0, 0 1)");
+        assertSimpleGeometry("MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))");
+        assertNotSimpleGeometry("MULTILINESTRING ((1 1, 5 1), (2 4, 4 0))");
+        assertSimpleGeometry("POLYGON EMPTY");
+        assertSimpleGeometry("POLYGON ((2 0, 2 1, 3 1))");
+        assertSimpleGeometry("MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1)), ((2 4, 2 6, 6 6, 6 4)))");
+    }
+
     @Test
     public void testSTLength()
     {
