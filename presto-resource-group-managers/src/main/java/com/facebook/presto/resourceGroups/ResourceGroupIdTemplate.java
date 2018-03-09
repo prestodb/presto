@@ -14,7 +14,7 @@
 package com.facebook.presto.resourceGroups;
 
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
-import com.facebook.presto.spi.resourceGroups.SelectionContext;
+import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
@@ -52,7 +52,7 @@ public class ResourceGroupIdTemplate
         return new ResourceGroupIdTemplate(String.join(".", segments.stream().map(ResourceGroupNameTemplate::toString).collect(Collectors.toList())));
     }
 
-    public ResourceGroupId expandTemplate(SelectionContext context)
+    public ResourceGroupId expandTemplate(SelectionCriteria context)
     {
         ResourceGroupId id = null;
         for (ResourceGroupNameTemplate segment : segments) {

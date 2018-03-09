@@ -14,11 +14,11 @@
 package com.facebook.presto.resourceGroups;
 
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
-import com.facebook.presto.spi.resourceGroups.SelectionContext;
+import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
 
 import java.util.Optional;
 
 public interface ResourceGroupSelector
 {
-    Optional<ResourceGroupId> match(SelectionContext context);
+    Optional<ResourceGroupId> match(SelectionCriteria criteria);
 }

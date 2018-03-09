@@ -20,7 +20,7 @@ import com.facebook.presto.resourceGroups.StaticSelector;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.resourceGroups.SchedulingPolicy;
-import com.facebook.presto.spi.resourceGroups.SelectionContext;
+import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -79,11 +79,11 @@ public class TestDbResourceGroupConfigurationManager
         List<ResourceGroupSpec> groups = manager.getRootGroups();
         assertEquals(groups.size(), 1);
         InternalResourceGroup prodGlobal = new InternalResourceGroup.RootInternalResourceGroup("prod_global", (group, export) -> {}, directExecutor());
-        manager.configure(prodGlobal, new SelectionContext(true, "user", Optional.empty(), ImmutableSet.of(), 1, Optional.empty()));
+        manager.configure(prodGlobal, new SelectionCriteria(true, "user", Optional.empty(), ImmutableSet.of(), 1, Optional.empty()));
         assertEqualsResourceGroup(prodGlobal, "10MB", 1000, 100, 100, WEIGHTED, DEFAULT_WEIGHT, true, new Duration(1, HOURS), new Duration(1, DAYS), new Duration(1, HOURS), new Duration(1, HOURS));
         assertEquals(manager.getSelectors().size(), 1);
         ResourceGroupSelector prodSelector = manager.getSelectors().get(0);
-        Optional<ResourceGroupId> prodResourceGroupId = prodSelector.match(new SelectionContext(true, "prod_user", Optional.empty(), ImmutableSet.of(), 1, Optional.empty()));
+        Optional<ResourceGroupId> prodResourceGroupId = prodSelector.match(new SelectionCriteria(true, "prod_user", Optional.empty(), ImmutableSet.of(), 1, Optional.empty()));
         assertTrue(prodResourceGroupId.isPresent());
         assertEquals(prodResourceGroupId.get().toString(), "prod_global");
 
@@ -91,11 +91,11 @@ public class TestDbResourceGroupConfigurationManager
         manager = new DbResourceGroupConfigurationManager((poolId, listener) -> {}, new DbResourceGroupConfig(), daoProvider.get(), devEnvironment);
         assertEquals(groups.size(), 1);
         InternalResourceGroup devGlobal = new InternalResourceGroup.RootInternalResourceGroup("dev_global", (group, export) -> {}, directExecutor());
-        manager.configure(devGlobal, new SelectionContext(true, "user", Optional.empty(), ImmutableSet.of(), 1, Optional.empty()));
+        manager.configure(devGlobal, new SelectionCriteria(true, "user", Optional.empty(), ImmutableSet.of(), 1, Optional.empty()));
         assertEqualsResourceGroup(devGlobal, "1MB", 1000, 100, 100, WEIGHTED, DEFAULT_WEIGHT, true, new Duration(1, HOURS), new Duration(1, DAYS), new Duration(1, HOURS), new Duration(1, HOURS));
         assertEquals(manager.getSelectors().size(), 1);
         ResourceGroupSelector devSelector = manager.getSelectors().get(0);
-        Optional<ResourceGroupId> devResourceGroupId = devSelector.match(new SelectionContext(true, "dev_user", Optional.empty(), ImmutableSet.of(), 1, Optional.empty()));
+        Optional<ResourceGroupId> devResourceGroupId = devSelector.match(new SelectionCriteria(true, "dev_user", Optional.empty(), ImmutableSet.of(), 1, Optional.empty()));
         assertTrue(devResourceGroupId.isPresent());
         assertEquals(devResourceGroupId.get().toString(), "dev_global");
     }
@@ -115,11 +115,11 @@ public class TestDbResourceGroupConfigurationManager
         DbResourceGroupConfigurationManager manager = new DbResourceGroupConfigurationManager((poolId, listener) -> {}, new DbResourceGroupConfig(), daoProvider.get(), ENVIRONMENT);
         AtomicBoolean exported = new AtomicBoolean();
         InternalResourceGroup global = new InternalResourceGroup.RootInternalResourceGroup("global", (group, export) -> exported.set(export), directExecutor());
-        manager.configure(global, new SelectionContext(true, "user", Optional.empty(), ImmutableSet.of(), 1, Optional.empty()));
+        manager.configure(global, new SelectionCriteria(true, "user", Optional.empty(), ImmutableSet.of(), 1, Optional.empty()));
         assertEqualsResourceGroup(global, "1MB", 1000, 100, 100, WEIGHTED, DEFAULT_WEIGHT, true, new Duration(1, HOURS), new Duration(1, DAYS), new Duration(1, HOURS), new Duration(1, HOURS));
         exported.set(false);
         InternalResourceGroup sub = global.getOrCreateSubGroup("sub");
-        manager.configure(sub, new SelectionContext(true, "user", Optional.empty(), ImmutableSet.of(), 1, Optional.empty()));
+        manager.configure(sub, new SelectionCriteria(true, "user", Optional.empty(), ImmutableSet.of(), 1, Optional.empty()));
         assertEqualsResourceGroup(sub, "2MB", 4, 3, 3, FAIR, 5, false, new Duration(Long.MAX_VALUE, MILLISECONDS), new Duration(Long.MAX_VALUE, MILLISECONDS), new Duration(1, HOURS), new Duration(1, HOURS));
     }
 
@@ -175,7 +175,7 @@ public class TestDbResourceGroupConfigurationManager
         dao.insertSelector(2, 1, null, null, null, null);
         DbResourceGroupConfigurationManager manager = new DbResourceGroupConfigurationManager((poolId, listener) -> {}, new DbResourceGroupConfig(), daoProvider.get(), ENVIRONMENT);
         InternalResourceGroup missing = new InternalResourceGroup.RootInternalResourceGroup("missing", (group, export) -> {}, directExecutor());
-        manager.configure(missing, new SelectionContext(true, "user", Optional.empty(), ImmutableSet.of(), 1, Optional.empty()));
+        manager.configure(missing, new SelectionCriteria(true, "user", Optional.empty(), ImmutableSet.of(), 1, Optional.empty()));
     }
 
     @Test(timeOut = 60_000)
@@ -195,9 +195,9 @@ public class TestDbResourceGroupConfigurationManager
         manager.start();
         AtomicBoolean exported = new AtomicBoolean();
         InternalResourceGroup global = new InternalResourceGroup.RootInternalResourceGroup("global", (group, export) -> exported.set(export), directExecutor());
-        manager.configure(global, new SelectionContext(true, "user", Optional.empty(), ImmutableSet.of(), 1, Optional.empty()));
+        manager.configure(global, new SelectionCriteria(true, "user", Optional.empty(), ImmutableSet.of(), 1, Optional.empty()));
         InternalResourceGroup globalSub = global.getOrCreateSubGroup("sub");
-        manager.configure(globalSub, new SelectionContext(true, "user", Optional.empty(), ImmutableSet.of(), 1, Optional.empty()));
+        manager.configure(globalSub, new SelectionCriteria(true, "user", Optional.empty(), ImmutableSet.of(), 1, Optional.empty()));
         // Verify record exists
         assertEqualsResourceGroup(globalSub, "2MB", 4, 3, 3, FAIR, 5, false, new Duration(Long.MAX_VALUE, MILLISECONDS), new Duration(Long.MAX_VALUE, MILLISECONDS), new Duration(Long.MAX_VALUE, MILLISECONDS), new Duration(Long.MAX_VALUE, MILLISECONDS));
         dao.updateResourceGroup(2, "sub", "3MB", 2, 1, 1, "weighted", 6, true, "1h", "1d", null, null, 1L, ENVIRONMENT);

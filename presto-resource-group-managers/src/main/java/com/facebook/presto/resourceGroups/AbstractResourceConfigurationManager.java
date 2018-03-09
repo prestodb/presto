@@ -18,7 +18,7 @@ import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.spi.resourceGroups.ResourceGroup;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManager;
-import com.facebook.presto.spi.resourceGroups.SelectionContext;
+import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -147,7 +147,7 @@ public abstract class AbstractResourceConfigurationManager
         });
     }
 
-    protected Map.Entry<ResourceGroupIdTemplate, ResourceGroupSpec> getMatchingSpec(ResourceGroup group, SelectionContext context)
+    protected Map.Entry<ResourceGroupIdTemplate, ResourceGroupSpec> getMatchingSpec(ResourceGroup group, SelectionCriteria context)
     {
         List<ResourceGroupSpec> candidates = getRootGroups();
         List<String> segments = group.getId().getSegments();

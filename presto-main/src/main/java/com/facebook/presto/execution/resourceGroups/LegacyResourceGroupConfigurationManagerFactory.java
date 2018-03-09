@@ -19,7 +19,7 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManager;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerContext;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerFactory;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
-import com.facebook.presto.spi.resourceGroups.SelectionContext;
+import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
 
 import javax.inject.Inject;
 
@@ -60,7 +60,7 @@ public class LegacyResourceGroupConfigurationManagerFactory
             implements ResourceGroupConfigurationManager
     {
         @Override
-        public void configure(ResourceGroup group, SelectionContext context)
+        public void configure(ResourceGroup group, SelectionCriteria criteria)
         {
             checkArgument(group.getId().equals(GLOBAL), "Unexpected resource group: %s", group.getId());
             group.setMaxQueuedQueries(maxQueued);
@@ -68,7 +68,7 @@ public class LegacyResourceGroupConfigurationManagerFactory
         }
 
         @Override
-        public Optional<ResourceGroupId> match(SelectionContext context)
+        public Optional<ResourceGroupId> match(SelectionCriteria criteria)
         {
             return Optional.of(GLOBAL);
         }

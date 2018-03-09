@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.resourceGroups;
 
+import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
-import com.facebook.presto.spi.resourceGroups.SelectionContext;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
@@ -29,9 +29,9 @@ public class TestResourceGroupIdTemplate
     {
         ResourceGroupIdTemplate template = new ResourceGroupIdTemplate("test.${USER}.${SOURCE}");
         ResourceGroupId expected = new ResourceGroupId(new ResourceGroupId(new ResourceGroupId("test"), "u"), "s");
-        assertEquals(template.expandTemplate(new SelectionContext(true, "u", Optional.of("s"), ImmutableSet.of(), 1, Optional.empty())), expected);
+        assertEquals(template.expandTemplate(new SelectionCriteria(true, "u", Optional.of("s"), ImmutableSet.of(), 1, Optional.empty())), expected);
         template = new ResourceGroupIdTemplate("test.${USER}");
-        assertEquals(template.expandTemplate(new SelectionContext(true, "alice.smith", Optional.empty(), ImmutableSet.of(), 1, Optional.empty())), new ResourceGroupId(new ResourceGroupId("test"), "alice.smith"));
+        assertEquals(template.expandTemplate(new SelectionCriteria(true, "alice.smith", Optional.empty(), ImmutableSet.of(), 1, Optional.empty())), new ResourceGroupId(new ResourceGroupId("test"), "alice.smith"));
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class)
