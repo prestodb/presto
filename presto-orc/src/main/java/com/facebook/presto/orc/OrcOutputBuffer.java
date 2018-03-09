@@ -21,7 +21,6 @@ import io.airlift.compress.snappy.SnappyCompressor;
 import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
-import io.airlift.slice.Slices;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
@@ -36,6 +35,7 @@ import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.SIZE_OF_SHORT;
+import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;
@@ -72,7 +72,7 @@ public class OrcOutputBuffer
         checkArgument(bufferSize >= MINIMUM_BUFFER_SIZE, "minimum buffer size of " + MINIMUM_BUFFER_SIZE + " required");
 
         this.buffer = new byte[bufferSize];
-        this.slice = Slices.wrappedBuffer(buffer);
+        this.slice = wrappedBuffer(buffer);
 
         compressedOutputStream = new ChunkedSliceOutput(MINIMUM_OUTPUT_BUFFER_CHUNK_SIZE, MAXIMUM_OUTPUT_BUFFER_CHUNK_SIZE);
 
@@ -222,7 +222,7 @@ public class OrcOutputBuffer
         // Write huge chunks direct to OutputStream
         if (length >= MINIMUM_BUFFER_SIZE) {
             flushBufferToOutputStream();
-            writeDirectlyToOutputStream(source, sourceIndex, length);
+            writeDirectlyToOutputStream((byte[]) source.getBase(), sourceIndex + (int) (slice.getAddress() - ARRAY_BYTE_BASE_OFFSET), length);
             bufferOffset += length;
         }
         else {
@@ -245,7 +245,7 @@ public class OrcOutputBuffer
         if (length >= MINIMUM_BUFFER_SIZE) {
             // todo fill buffer before flushing
             flushBufferToOutputStream();
-            writeChunkToOutputStream(source, sourceIndex, length);
+            writeDirectlyToOutputStream(source, sourceIndex, length);
             bufferOffset += length;
         }
         else {
@@ -411,15 +411,13 @@ public class OrcOutputBuffer
         }
     }
 
-    private void writeDirectlyToOutputStream(Slice slice, int sliceOffset, int length)
+    private void writeDirectlyToOutputStream(byte[] bytes, int bytesOffset, int length)
     {
         if (compressor == null) {
-            compressedOutputStream.writeBytes(slice, sliceOffset, length);
+            compressedOutputStream.writeBytes(bytes, bytesOffset, length);
             return;
         }
 
-        byte[] bytes = (byte[]) slice.getBase();
-        int bytesOffset = sliceOffset + (int) (slice.getAddress() - ARRAY_BYTE_BASE_OFFSET);
         while (length > 0) {
             int chunkSize = Integer.min(length, buffer.length);
             writeChunkToOutputStream(bytes, bytesOffset, chunkSize);
