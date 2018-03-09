@@ -228,6 +228,15 @@ public final class GeoFunctions
         return deserialize(input).isEmpty();
     }
 
+    @Description("Returns TRUE if this Geometry has no anomalous geometric points, such as self intersection or self tangency")
+    @ScalarFunction("ST_IsSimple")
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean stIsSimple(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
+    {
+        OGCGeometry geometry = deserialize(input);
+        return geometry.isEmpty() || geometry.isSimple();
+    }
+
     @Description("Returns the length of a LineString or Multi-LineString using Euclidean measurement on a 2D plane (based on spatial ref) in projected units")
     @ScalarFunction("ST_Length")
     @SqlType(DOUBLE)
