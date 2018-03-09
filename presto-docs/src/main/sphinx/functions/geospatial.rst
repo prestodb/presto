@@ -155,6 +155,10 @@ Accessors
 
     Returns ``true`` if this Geometry is an empty geometrycollection, polygon, point etc.
 
+.. function:: ST_IsSimple(Geometry) -> boolean
+
+    Returns ``true`` if this Geometry has no anomalous geometric points, such as self intersection or self tangency.
+
 .. function:: ST_IsRing(Geometry) -> boolean
 
     Returns ``true`` if and only if the line is closed and simple.
