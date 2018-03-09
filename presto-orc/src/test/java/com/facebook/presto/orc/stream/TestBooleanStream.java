@@ -32,7 +32,6 @@ import java.util.Optional;
 
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.orc.OrcDecompressor.createOrcDecompressor;
-import static com.facebook.presto.orc.OrcWriter.COMPRESSION_BLOCK_SIZE;
 import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;

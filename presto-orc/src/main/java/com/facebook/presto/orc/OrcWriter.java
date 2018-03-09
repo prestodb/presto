@@ -73,8 +73,6 @@ import static java.util.stream.Collectors.toList;
 public class OrcWriter
         implements Closeable
 {
-    public static final int COMPRESSION_BLOCK_SIZE = 256 * 1024;
-
     static final String PRESTO_ORC_WRITER_VERSION_METADATA_KEY = "presto.writer.version";
     static final String PRESTO_ORC_WRITER_VERSION;
     private final OrcWriterStats stats;
@@ -91,6 +89,7 @@ public class OrcWriter
     private final int stripeMaxBytes;
     private final int stripeMaxRowCount;
     private final int rowGroupMaxRowCount;
+    private final int maxCompressionBufferSize;
     private final Map<String, String> userMetadata;
     private final MetadataWriter metadataWriter;
     private final DateTimeZone hiveStorageTimeZone;
@@ -136,12 +135,13 @@ public class OrcWriter
         this.stripeMaxRowCount = options.getStripeMaxRowCount();
         this.rowGroupMaxRowCount = options.getRowGroupMaxRowCount();
         recordValidation(validation -> validation.setRowGroupMaxRowCount(rowGroupMaxRowCount));
+        this.maxCompressionBufferSize = toIntExact(options.getMaxCompressionBufferSize().toBytes());
 
         this.userMetadata = ImmutableMap.<String, String>builder()
                 .putAll(requireNonNull(userMetadata, "userMetadata is null"))
                 .put(PRESTO_ORC_WRITER_VERSION_METADATA_KEY, PRESTO_ORC_WRITER_VERSION)
                 .build();
-        this.metadataWriter = new CompressedMetadataWriter(orcEncoding.createMetadataWriter(), compression, COMPRESSION_BLOCK_SIZE);
+        this.metadataWriter = new CompressedMetadataWriter(orcEncoding.createMetadataWriter(), compression, maxCompressionBufferSize);
         this.hiveStorageTimeZone = requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
         this.stats = requireNonNull(stats, "stats is null");
 
@@ -157,7 +157,7 @@ public class OrcWriter
         for (int fieldId = 0; fieldId < types.size(); fieldId++) {
             int fieldColumnIndex = rootType.getFieldTypeIndex(fieldId);
             Type fieldType = types.get(fieldId);
-            ColumnWriter columnWriter = createColumnWriter(fieldColumnIndex, orcTypes, fieldType, compression, COMPRESSION_BLOCK_SIZE, orcEncoding, hiveStorageTimeZone, options.getMaxStringStatisticsLimit());
+            ColumnWriter columnWriter = createColumnWriter(fieldColumnIndex, orcTypes, fieldType, compression, maxCompressionBufferSize, orcEncoding, hiveStorageTimeZone, options.getMaxStringStatisticsLimit());
             columnWriters.add(columnWriter);
 
             if (columnWriter instanceof SliceDictionaryColumnWriter) {
@@ -400,7 +400,7 @@ public class OrcWriter
         int footerLength = metadataWriter.writeFooter(output, footer);
 
         recordValidation(validation -> validation.setVersion(metadataWriter.getOrcMetadataVersion()));
-        int postScriptLength = metadataWriter.writePostscript(output, footerLength, metadataLength, compression, COMPRESSION_BLOCK_SIZE);
+        int postScriptLength = metadataWriter.writePostscript(output, footerLength, metadataLength, compression, maxCompressionBufferSize);
 
         output.writeByte(postScriptLength);
 
