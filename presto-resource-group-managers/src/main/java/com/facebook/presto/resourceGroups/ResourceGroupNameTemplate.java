@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.resourceGroups;
 
-import com.facebook.presto.spi.resourceGroups.SelectionContext;
+import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
 import com.fasterxml.jackson.annotation.JsonCreator;
 
 import java.util.Objects;
@@ -44,7 +44,7 @@ public class ResourceGroupNameTemplate
         }
     }
 
-    public String expandTemplate(SelectionContext context)
+    public String expandTemplate(SelectionCriteria context)
     {
         String expanded = USER_PATTERN.matcher(name).replaceAll(context.getUser());
         return SOURCE_PATTERN.matcher(expanded).replaceAll(context.getSource().orElse(""));

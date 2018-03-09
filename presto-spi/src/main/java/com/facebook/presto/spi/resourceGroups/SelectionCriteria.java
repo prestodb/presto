@@ -19,7 +19,7 @@ import java.util.Set;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.Objects.requireNonNull;
 
-public final class SelectionContext
+public final class SelectionCriteria
 {
     private final boolean authenticated;
     private final String user;
@@ -28,7 +28,7 @@ public final class SelectionContext
     private final int queryPriority;
     private final Optional<String> queryType;
 
-    public SelectionContext(boolean authenticated, String user, Optional<String> source, Set<String> clientTags, int queryPriority, Optional<String> queryType)
+    public SelectionCriteria(boolean authenticated, String user, Optional<String> source, Set<String> clientTags, int queryPriority, Optional<String> queryType)
     {
         this.authenticated = authenticated;
         this.user = requireNonNull(user, "user is null");

@@ -14,9 +14,9 @@
 package com.facebook.presto.resourceGroups;
 
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
+import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
 import com.facebook.presto.spi.resourceGroups.ResourceGroup;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
-import com.facebook.presto.spi.resourceGroups.SelectionContext;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException;
 import com.google.common.annotations.VisibleForTesting;
@@ -102,17 +102,17 @@ public class FileResourceGroupConfigurationManager
     }
 
     @Override
-    public void configure(ResourceGroup group, SelectionContext context)
+    public void configure(ResourceGroup group, SelectionCriteria criteria)
     {
-        Map.Entry<ResourceGroupIdTemplate, ResourceGroupSpec> entry = getMatchingSpec(group, context);
+        Map.Entry<ResourceGroupIdTemplate, ResourceGroupSpec> entry = getMatchingSpec(group, criteria);
         configureGroup(group, entry.getValue());
     }
 
     @Override
-    public Optional<ResourceGroupId> match(SelectionContext context)
+    public Optional<ResourceGroupId> match(SelectionCriteria criteria)
     {
         return selectors.stream()
-                .map(s -> s.match(context))
+                .map(s -> s.match(criteria))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .findFirst();

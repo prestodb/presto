@@ -14,7 +14,7 @@
 package com.facebook.presto.resourceGroups;
 
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
-import com.facebook.presto.spi.resourceGroups.SelectionContext;
+import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -45,29 +45,29 @@ public class StaticSelector
         this.group = requireNonNull(group, "group is null");
     }
 
-    public Optional<ResourceGroupId> match(SelectionContext context)
+    public Optional<ResourceGroupId> match(SelectionCriteria criteria)
     {
-        if (userRegex.isPresent() && !userRegex.get().matcher(context.getUser()).matches()) {
+        if (userRegex.isPresent() && !userRegex.get().matcher(criteria.getUser()).matches()) {
             return Optional.empty();
         }
         if (sourceRegex.isPresent()) {
-            String source = context.getSource().orElse("");
+            String source = criteria.getSource().orElse("");
             if (!sourceRegex.get().matcher(source).matches()) {
                 return Optional.empty();
             }
         }
-        if (!clientTags.isEmpty() && !context.getTags().containsAll(clientTags)) {
+        if (!clientTags.isEmpty() && !criteria.getTags().containsAll(clientTags)) {
             return Optional.empty();
         }
 
         if (queryType.isPresent()) {
-            String contextQueryType = context.getQueryType().orElse("");
+            String contextQueryType = criteria.getQueryType().orElse("");
             if (!queryType.get().equalsIgnoreCase(contextQueryType)) {
                 return Optional.empty();
             }
         }
 
-        return Optional.of(group.expandTemplate(context));
+        return Optional.of(group.expandTemplate(criteria));
     }
 
     @VisibleForTesting

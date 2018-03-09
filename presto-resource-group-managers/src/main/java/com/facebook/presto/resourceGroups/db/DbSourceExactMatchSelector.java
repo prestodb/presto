@@ -15,7 +15,7 @@ package com.facebook.presto.resourceGroups.db;
 
 import com.facebook.presto.resourceGroups.ResourceGroupSelector;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
-import com.facebook.presto.spi.resourceGroups.SelectionContext;
+import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import org.jdbi.v3.core.JdbiException;
@@ -42,13 +42,13 @@ public class DbSourceExactMatchSelector
     }
 
     @Override
-    public Optional<ResourceGroupId> match(SelectionContext context)
+    public Optional<ResourceGroupId> match(SelectionCriteria criteria)
     {
-        if (!context.getSource().isPresent()) {
+        if (!criteria.getSource().isPresent()) {
             return Optional.empty();
         }
         try {
-            String resourceGroupId = dao.getExactMatchResourceGroup(environment, context.getSource().get(), context.getQueryType().orElse(""));
+            String resourceGroupId = dao.getExactMatchResourceGroup(environment, criteria.getSource().get(), criteria.getQueryType().orElse(""));
 
             Long start = daoOfflineStart.get();
             if (start != null && daoOfflineStart.compareAndSet(start, null)) {
