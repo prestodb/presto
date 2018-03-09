@@ -37,6 +37,7 @@ public final class HiveSessionProperties
     private static final String ORC_STREAM_BUFFER_SIZE = "orc_stream_buffer_size";
     private static final String ORC_MAX_READ_BLOCK_SIZE = "orc_max_read_block_size";
     private static final String ORC_LAZY_READ_SMALL_RANGES = "orc_lazy_read_small_ranges";
+    private static final String ORC_STRING_STATISTICS_LIMIT = "orc_string_statistics_limit";
     private static final String ORC_OPTIMIZED_WRITER_ENABLED = "orc_optimized_writer_enabled";
     private static final String ORC_OPTIMIZED_WRITER_VALIDATE = "orc_optimized_writer_validate";
     private static final String ORC_OPTIMIZED_WRITER_MAX_STRIPE_SIZE = "orc_optimized_writer_max_stripe_size";
@@ -95,6 +96,11 @@ public final class HiveSessionProperties
                         ORC_LAZY_READ_SMALL_RANGES,
                         "Experimental: ORC: Read small file segments lazily",
                         hiveClientConfig.isOrcLazyReadSmallRanges(),
+                        false),
+                dataSizeSessionProperty(
+                        ORC_STRING_STATISTICS_LIMIT,
+                        "ORC: Maximum size of string statistics; drop if exceeding",
+                        orcFileWriterConfig.getStringStatisticsLimit(),
                         false),
                 booleanSessionProperty(
                         ORC_OPTIMIZED_WRITER_ENABLED,
@@ -206,6 +212,11 @@ public final class HiveSessionProperties
     public static boolean getOrcLazyReadSmallRanges(ConnectorSession session)
     {
         return session.getProperty(ORC_LAZY_READ_SMALL_RANGES, Boolean.class);
+    }
+
+    public static DataSize getOrcStringStatisticsLimit(ConnectorSession session)
+    {
+        return session.getProperty(ORC_STRING_STATISTICS_LIMIT, DataSize.class);
     }
 
     public static boolean isOrcOptimizedWriterEnabled(ConnectorSession session)
