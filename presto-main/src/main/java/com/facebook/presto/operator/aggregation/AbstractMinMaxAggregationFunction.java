@@ -171,53 +171,17 @@ public abstract class AbstractMinMaxAggregationFunction
 
     public static void input(MethodHandle methodHandle, NullableDoubleState state, double value)
     {
-        if (state.isNull()) {
-            state.setNull(false);
-            state.setDouble(value);
-            return;
-        }
-        try {
-            if ((boolean) methodHandle.invokeExact(value, state.getDouble())) {
-                state.setDouble(value);
-            }
-        }
-        catch (Throwable t) {
-            throw internalError(t);
-        }
+        compareAndUpdateState(methodHandle, state, value);
     }
 
     public static void input(MethodHandle methodHandle, NullableLongState state, long value)
     {
-        if (state.isNull()) {
-            state.setNull(false);
-            state.setLong(value);
-            return;
-        }
-        try {
-            if ((boolean) methodHandle.invokeExact(value, state.getLong())) {
-                state.setLong(value);
-            }
-        }
-        catch (Throwable t) {
-            throw internalError(t);
-        }
+        compareAndUpdateState(methodHandle, state, value);
     }
 
     public static void input(MethodHandle methodHandle, NullableBooleanState state, boolean value)
     {
-        if (state.isNull()) {
-            state.setNull(false);
-            state.setBoolean(value);
-            return;
-        }
-        try {
-            if ((boolean) methodHandle.invokeExact(value, state.getBoolean())) {
-                state.setBoolean(value);
-            }
-        }
-        catch (Throwable t) {
-            throw internalError(t);
-        }
+        compareAndUpdateState(methodHandle, state, value);
     }
 
     public static void minInput(Type type, BlockPositionState state, Block block, int position)
@@ -238,53 +202,17 @@ public abstract class AbstractMinMaxAggregationFunction
 
     public static void combine(MethodHandle methodHandle, NullableLongState state, NullableLongState otherState)
     {
-        if (state.isNull()) {
-            state.setNull(false);
-            state.setLong(otherState.getLong());
-            return;
-        }
-        try {
-            if ((boolean) methodHandle.invokeExact(otherState.getLong(), state.getLong())) {
-                state.setLong(otherState.getLong());
-            }
-        }
-        catch (Throwable t) {
-            throw internalError(t);
-        }
+        compareAndUpdateState(methodHandle, state, otherState.getLong());
     }
 
     public static void combine(MethodHandle methodHandle, NullableDoubleState state, NullableDoubleState otherState)
     {
-        if (state.isNull()) {
-            state.setNull(false);
-            state.setDouble(otherState.getDouble());
-            return;
-        }
-        try {
-            if ((boolean) methodHandle.invokeExact(otherState.getDouble(), state.getDouble())) {
-                state.setDouble(otherState.getDouble());
-            }
-        }
-        catch (Throwable t) {
-            throw internalError(t);
-        }
+        compareAndUpdateState(methodHandle, state, otherState.getDouble());
     }
 
     public static void combine(MethodHandle methodHandle, NullableBooleanState state, NullableBooleanState otherState)
     {
-        if (state.isNull()) {
-            state.setNull(false);
-            state.setBoolean(otherState.getBoolean());
-            return;
-        }
-        try {
-            if ((boolean) methodHandle.invokeExact(otherState.getBoolean(), state.getBoolean())) {
-                state.setBoolean(otherState.getBoolean());
-            }
-        }
-        catch (Throwable t) {
-            throw internalError(t);
-        }
+        compareAndUpdateState(methodHandle, state, otherState.getBoolean());
     }
 
     public static void minCombine(Type type, BlockPositionState state, BlockPositionState otherState)
@@ -300,6 +228,57 @@ public abstract class AbstractMinMaxAggregationFunction
         if (state.getBlock() == null || type.compareTo(otherState.getBlock(), otherState.getPosition(), state.getBlock(), state.getPosition()) > 0) {
             state.setBlock(otherState.getBlock());
             state.setPosition(otherState.getPosition());
+        }
+    }
+
+    private static void compareAndUpdateState(MethodHandle methodHandle, NullableLongState state, long value)
+    {
+        if (state.isNull()) {
+            state.setNull(false);
+            state.setLong(value);
+            return;
+        }
+        try {
+            if ((boolean) methodHandle.invokeExact(value, state.getLong())) {
+                state.setLong(value);
+            }
+        }
+        catch (Throwable t) {
+            throw internalError(t);
+        }
+    }
+
+    private static void compareAndUpdateState(MethodHandle methodHandle, NullableDoubleState state, double value)
+    {
+        if (state.isNull()) {
+            state.setNull(false);
+            state.setDouble(value);
+            return;
+        }
+        try {
+            if ((boolean) methodHandle.invokeExact(value, state.getDouble())) {
+                state.setDouble(value);
+            }
+        }
+        catch (Throwable t) {
+            throw internalError(t);
+        }
+    }
+
+    private static void compareAndUpdateState(MethodHandle methodHandle, NullableBooleanState state, boolean value)
+    {
+        if (state.isNull()) {
+            state.setNull(false);
+            state.setBoolean(value);
+            return;
+        }
+        try {
+            if ((boolean) methodHandle.invokeExact(value, state.getBoolean())) {
+                state.setBoolean(value);
+            }
+        }
+        catch (Throwable t) {
+            throw internalError(t);
         }
     }
 }
