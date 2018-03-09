@@ -191,6 +191,51 @@ public class TestGeoFunctions
     }
 
     @Test
+    public void testSTIsValid()
+    {
+        // empty geometries are valid
+        assertValidGeometry("POINT EMPTY");
+        assertValidGeometry("MULTIPOINT EMPTY");
+        assertValidGeometry("LINESTRING EMPTY");
+        assertValidGeometry("MULTILINESTRING EMPTY");
+        assertValidGeometry("POLYGON EMPTY");
+        assertValidGeometry("MULTIPOLYGON EMPTY");
+        assertValidGeometry("GEOMETRYCOLLECTION EMPTY");
+
+        // valid geometries
+        assertValidGeometry("POINT (1 2)");
+        assertValidGeometry("MULTIPOINT (1 2, 3 4)");
+        assertValidGeometry("LINESTRING (0 0, 1 2, 3 4)");
+        assertValidGeometry("MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))");
+        assertValidGeometry("POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0))");
+        assertValidGeometry("MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1)), ((2 4, 2 6, 6 6, 6 4)))");
+        assertValidGeometry("GEOMETRYCOLLECTION (POINT (1 2), LINESTRING (0 0, 1 2, 3 4), POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0)))");
+
+        // invalid geometries
+        assertInvalidGeometry("POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0), (2 2, 2 3, 3 3, 3 2, 2 2))", "Hole lies outside shell at or near point (2.0, 2.0, NaN)");
+        assertInvalidGeometry("POLYGON ((0 0, 0 1, 2 1, 1 1, 1 0, 0 0))", "Self-intersection at or near point (1.0, 1.0, NaN)");
+        assertInvalidGeometry("POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0), (0 1, 1 1, 0.5 0.5, 0 1))", "Self-intersection at or near point (0.0, 1.0, NaN)");
+        assertInvalidGeometry("MULTIPOLYGON (((0 0, 0 1, 1 1, 1 0, 0 0)), ((0.5 0.5, 0.5 2, 2 2, 2 0.5, 0.5 0.5)))", "Self-intersection at or near point (0.5, 1.0, NaN)");
+        assertInvalidGeometry("GEOMETRYCOLLECTION (POINT (1 2), POLYGON ((0 0, 0 1, 2 1, 1 1, 1 0, 0 0)))", "Self-intersection at or near point (1.0, 1.0, NaN)");
+
+        // corner cases
+        assertFunction("ST_IsValid(ST_GeometryFromText(null))", BOOLEAN, null);
+        assertFunction("geometry_invalid_reason(ST_GeometryFromText(null))", VARCHAR, null);
+    }
+
+    private void assertValidGeometry(String wkt)
+    {
+        assertFunction("ST_IsValid(ST_GeometryFromText('" + wkt + "'))", BOOLEAN, true);
+        assertFunction("geometry_invalid_reason(ST_GeometryFromText('" + wkt + "'))", VARCHAR, null);
+    }
+
+    private void assertInvalidGeometry(String wkt, String reason)
+    {
+        assertFunction("ST_IsValid(ST_GeometryFromText('" + wkt + "'))", BOOLEAN, false);
+        assertFunction("geometry_invalid_reason(ST_GeometryFromText('" + wkt + "'))", VARCHAR, reason);
+    }
+
+    @Test
     public void testSTLength()
     {
         assertFunction("ST_Length(ST_GeometryFromText('LINESTRING EMPTY'))", DOUBLE, 0.0);

@@ -27,6 +27,7 @@ import com.esri.core.geometry.ogc.OGCPoint;
 import com.esri.core.geometry.ogc.OGCPolygon;
 import com.facebook.presto.geospatial.GeometryUtils;
 import com.facebook.presto.geospatial.GeometryUtils.GeometryTypeName;
+import com.facebook.presto.geospatial.JtsGeometryUtils;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
@@ -35,7 +36,9 @@ import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.google.common.base.Joiner;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
+import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.operation.valid.IsValidOp;
+import org.locationtech.jts.operation.valid.TopologyValidationError;
 
 import java.util.EnumSet;
 import java.util.Objects;
@@ -55,6 +58,7 @@ import static com.facebook.presto.plugin.geospatial.GeometryType.GEOMETRY_TYPE_N
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.StandardTypes.DOUBLE;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;
 
 public final class GeoFunctions
@@ -117,7 +121,7 @@ public final class GeoFunctions
     @SqlType(StandardTypes.VARCHAR)
     public static Slice stAsText(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
     {
-        return Slices.utf8Slice(deserialize(input).asText());
+        return utf8Slice(deserialize(input).asText());
     }
 
     @SqlNullable
@@ -235,6 +239,33 @@ public final class GeoFunctions
     {
         OGCGeometry geometry = deserialize(input);
         return geometry.isEmpty() || geometry.isSimple();
+    }
+
+    @Description("Returns true if the input geometry is well formed")
+    @ScalarFunction("ST_IsValid")
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean stIsValid(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
+    {
+        return JtsGeometryUtils.deserialize(input).isValid();
+    }
+
+    @Description("Returns the reason for why the input geometry is not valid. Returns null if the input is valid.")
+    @ScalarFunction("geometry_invalid_reason")
+    @SqlType(StandardTypes.VARCHAR)
+    @SqlNullable
+    public static Slice invalidReason(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
+    {
+        Geometry geometry = JtsGeometryUtils.deserialize(input);
+        if (geometry == null) {
+            return null;
+        }
+
+        TopologyValidationError error = new IsValidOp(geometry).getValidationError();
+        if (error == null) {
+            return null;
+        }
+
+        return utf8Slice(error.toString());
     }
 
     @Description("Returns the length of a LineString or Multi-LineString using Euclidean measurement on a 2D plane (based on spatial ref) in projected units")
