@@ -98,4 +98,16 @@ public class OrcFileWriterConfig
         options = options.withMaxStringStatisticsLimit(stringStatisticsLimit);
         return this;
     }
+
+    public DataSize getMaxCompressionBufferSize()
+    {
+        return options.getMaxCompressionBufferSize();
+    }
+
+    @Config("hive.orc.writer.max-compression-buffer-size")
+    public OrcFileWriterConfig setMaxCompressionBufferSize(DataSize maxCompressionBufferSize)
+    {
+        options = options.withMaxCompressionBufferSize(maxCompressionBufferSize);
+        return this;
+    }
 }
