@@ -96,9 +96,7 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.TIME_WITH_TIME_ZONE)
     public static long currentTime(ConnectorSession session)
     {
-        // Stack value is number of milliseconds from start of the current day,
-        // but the start of the day is relative to the current time zone.
-        long millis = getChronology(session.getTimeZoneKey()).millisOfDay().get(session.getStartTime());
+        long millis = UTC_CHRONOLOGY.millisOfDay().get(session.getStartTime());
         return packDateTimeWithZone(millis, session.getTimeZoneKey());
     }
 
@@ -107,9 +105,7 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.TIME)
     public static long localTime(ConnectorSession session)
     {
-        // Stack value is number of milliseconds from start of the current day,
-        // but the start of the day is relative to the current time zone.
-        return getChronology(session.getTimeZoneKey()).millisOfDay().get(session.getStartTime());
+        return UTC_CHRONOLOGY.millisOfDay().get(session.getStartTime());
     }
 
     @Description("current time zone")
