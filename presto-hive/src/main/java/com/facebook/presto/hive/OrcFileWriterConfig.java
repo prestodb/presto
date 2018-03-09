@@ -86,4 +86,16 @@ public class OrcFileWriterConfig
         options = options.withDictionaryMaxMemory(dictionaryMaxMemory);
         return this;
     }
+
+    public DataSize getStringStatisticsLimit()
+    {
+        return options.getMaxStringStatisticsLimit();
+    }
+
+    @Config("hive.orc.writer.string-statistics-limit")
+    public OrcFileWriterConfig setStringStatisticsLimit(DataSize stringStatisticsLimit)
+    {
+        options = options.withMaxStringStatisticsLimit(stringStatisticsLimit);
+        return this;
+    }
 }
