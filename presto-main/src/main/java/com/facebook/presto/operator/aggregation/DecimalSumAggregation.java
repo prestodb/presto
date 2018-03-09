@@ -109,9 +109,10 @@ public class DecimalSumAggregation
                 inputFunction.bindTo(inputType),
                 COMBINE_FUNCTION,
                 LONG_DECIMAL_OUTPUT_FUNCTION.bindTo(outputType),
-                stateInterface,
-                stateSerializer,
-                new LongDecimalWithOverflowStateFactory(),
+                ImmutableList.of(new AggregationMetadata.AccumulatorStateInfo(
+                        stateInterface,
+                        stateSerializer,
+                        new LongDecimalWithOverflowStateFactory())),
                 outputType);
 
         Type intermediateType = stateSerializer.getSerializedType();

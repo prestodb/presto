@@ -138,9 +138,10 @@ public class ArbitraryAggregationFunction
                 inputFunction,
                 combineFunction,
                 outputFunction.bindTo(type),
-                stateInterface,
-                stateSerializer,
-                StateCompiler.generateStateFactory(stateInterface, classLoader),
+                ImmutableList.of(new AggregationMetadata.AccumulatorStateInfo(
+                        stateInterface,
+                        stateSerializer,
+                        StateCompiler.generateStateFactory(stateInterface, classLoader))),
                 type);
 
         GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);

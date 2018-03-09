@@ -100,9 +100,10 @@ public class Histogram
                 inputFunction,
                 COMBINE_FUNCTION,
                 outputFunction,
-                HistogramState.class,
-                stateSerializer,
-                new HistogramStateFactory(keyType, EXPECTED_SIZE_FOR_HASHING, groupMode),
+                ImmutableList.of(new AggregationMetadata.AccumulatorStateInfo(
+                        HistogramState.class,
+                        stateSerializer,
+                        new HistogramStateFactory(keyType, EXPECTED_SIZE_FOR_HASHING, groupMode))),
                 outputType);
 
         GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);

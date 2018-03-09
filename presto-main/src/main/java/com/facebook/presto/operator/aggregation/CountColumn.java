@@ -89,9 +89,10 @@ public class CountColumn
                 INPUT_FUNCTION,
                 COMBINE_FUNCTION,
                 OUTPUT_FUNCTION,
-                LongState.class,
-                stateSerializer,
-                stateFactory,
+                ImmutableList.of(new AggregationMetadata.AccumulatorStateInfo(
+                        LongState.class,
+                        stateSerializer,
+                        stateFactory)),
                 BIGINT);
 
         GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);

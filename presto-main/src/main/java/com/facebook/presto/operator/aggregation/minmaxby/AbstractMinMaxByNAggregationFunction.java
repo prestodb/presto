@@ -164,9 +164,10 @@ public abstract class AbstractMinMaxByNAggregationFunction
                 INPUT_FUNCTION.bindTo(comparator).bindTo(valueType).bindTo(keyType),
                 COMBINE_FUNCTION,
                 OUTPUT_FUNCTION.bindTo(outputType),
-                MinMaxByNState.class,
-                stateSerializer,
-                new MinMaxByNStateFactory(),
+                ImmutableList.of(new AggregationMetadata.AccumulatorStateInfo(
+                        MinMaxByNState.class,
+                        stateSerializer,
+                        new MinMaxByNStateFactory())),
                 outputType);
 
         GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);

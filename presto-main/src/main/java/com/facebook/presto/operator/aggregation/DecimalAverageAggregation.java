@@ -120,9 +120,10 @@ public class DecimalAverageAggregation
                 inputFunction,
                 COMBINE_FUNCTION,
                 outputFunction,
-                stateInterface,
-                stateSerializer,
-                new LongDecimalWithOverflowAndLongStateFactory(),
+                ImmutableList.of(new AggregationMetadata.AccumulatorStateInfo(
+                        stateInterface,
+                        stateSerializer,
+                        new LongDecimalWithOverflowAndLongStateFactory())),
                 type);
 
         Type intermediateType = stateSerializer.getSerializedType();
