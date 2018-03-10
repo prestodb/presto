@@ -129,12 +129,7 @@ public class TaskContext
     // another thread, which will cause unsafe publication of this instance.
     private void initialize()
     {
-        taskStateMachine.addStateChangeListener(newState -> {
-            if (newState.isDone()) {
-                executionEndTime.set(DateTime.now());
-                endNanos.set(System.nanoTime());
-            }
-        });
+        taskStateMachine.addStateChangeListener(this::updateStatsIfDone);
     }
 
     public TaskId getTaskId()
@@ -169,6 +164,25 @@ public class TaskContext
 
         // always update last execution start time
         lastExecutionStartTime.set(now);
+    }
+
+    private void updateStatsIfDone(TaskState newState)
+    {
+        if (newState.isDone()) {
+            DateTime now = DateTime.now();
+
+            // before setting the end times, make sure a start has been recorded
+            executionStartTime.compareAndSet(null, now);
+            startNanos.compareAndSet(0, System.nanoTime());
+
+            // Only update last start time, if the nothing was started
+            lastExecutionStartTime.compareAndSet(null, now);
+
+            // use compare and set from initial value to avoid overwriting if there
+            // were a duplicate notification, which shouldn't happen
+            executionEndTime.compareAndSet(null, now);
+            endNanos.compareAndSet(0, System.nanoTime());
+        }
     }
 
     public void failed(Throwable cause)
@@ -308,13 +322,7 @@ public class TaskContext
     public TaskStats getTaskStats()
     {
         // check for end state to avoid callback ordering problems
-        if (taskStateMachine.getState().isDone()) {
-            DateTime now = DateTime.now();
-            if (executionEndTime.compareAndSet(null, now)) {
-                lastExecutionStartTime.compareAndSet(null, now);
-                endNanos.set(System.nanoTime());
-            }
-        }
+        updateStatsIfDone(taskStateMachine.getState());
 
         List<PipelineStats> pipelineStats = ImmutableList.copyOf(transform(pipelineContexts, PipelineContext::getPipelineStats));
 
