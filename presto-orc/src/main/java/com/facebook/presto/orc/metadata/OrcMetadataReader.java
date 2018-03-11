@@ -360,7 +360,8 @@ public class OrcMetadataReader
         BigDecimal minimum = decimalStatistics.hasMinimum() ? new BigDecimal(decimalStatistics.getMinimum()) : null;
         BigDecimal maximum = decimalStatistics.hasMaximum() ? new BigDecimal(decimalStatistics.getMaximum()) : null;
 
-        return new DecimalStatistics(minimum, maximum);
+        // could be long (16 bytes) or short (8 bytes); use short for estimation
+        return new DecimalStatistics(minimum, maximum, SHORT_DECIMAL_VALUE_BYTES);
     }
 
     private static BinaryStatistics toBinaryStatistics(OrcProto.BinaryStatistics binaryStatistics)

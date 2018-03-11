@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.orc.metadata.statistics;
 
+import org.openjdk.jol.info.ClassLayout;
+
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -21,6 +23,8 @@ public class BooleanStatistics
 {
     // 1 byte to denote if null + 1 byte for the value
     public static final long BOOLEAN_VALUE_BYTES = Byte.BYTES + Byte.BYTES;
+
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(BooleanStatistics.class).instanceSize();
 
     private final long trueValueCount;
 
@@ -32,6 +36,11 @@ public class BooleanStatistics
     public long getTrueValueCount()
     {
         return trueValueCount;
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE;
     }
 
     @Override

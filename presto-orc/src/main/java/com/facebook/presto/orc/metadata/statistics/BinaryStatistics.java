@@ -13,12 +13,16 @@
  */
 package com.facebook.presto.orc.metadata.statistics;
 
+import org.openjdk.jol.info.ClassLayout;
+
 import static com.google.common.base.MoreObjects.toStringHelper;
 
 public class BinaryStatistics
 {
     // 1 byte to denote if null + 4 bytes to denote offset
     public static final long BINARY_VALUE_BYTES_OVERHEAD = Byte.BYTES + Integer.BYTES;
+
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(BinaryStatistics.class).instanceSize();
 
     private final long sum;
 
@@ -30,6 +34,11 @@ public class BinaryStatistics
     public long getSum()
     {
         return sum;
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE;
     }
 
     @Override
