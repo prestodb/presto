@@ -63,6 +63,14 @@ public class ArrayAggregationStateFactory
     @Override
     public Class<? extends ArrayAggregationState> getGroupedStateClass()
     {
-        return GroupArrayAggregationState.class;
+        if (mode == NEW) {
+            return GroupArrayAggregationState.class;
+        }
+
+        if (mode == LEGACY) {
+            return LegacyArrayAggregationGroupState.class;
+        }
+
+        throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, format("Unexpected group enum type %s", mode));
     }
 }
