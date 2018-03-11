@@ -14,6 +14,7 @@
 package com.facebook.presto.orc.metadata.statistics;
 
 import io.airlift.slice.Slice;
+import org.openjdk.jol.info.ClassLayout;
 import org.testng.annotations.Test;
 
 import static io.airlift.slice.Slices.EMPTY_SLICE;
@@ -22,6 +23,8 @@ import static io.airlift.slice.Slices.utf8Slice;
 public class TestStringStatistics
         extends AbstractRangeStatisticsTest<StringStatistics, Slice>
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(StringStatistics.class).instanceSize();
+
     // U+0000 to U+D7FF
     private static final Slice LOW_BOTTOM_VALUE = utf8Slice("foo \u0000");
     private static final Slice LOW_TOP_VALUE = utf8Slice("foo \uD7FF");
@@ -68,5 +71,17 @@ public class TestStringStatistics
         assertMinMax(MEDIUM_TOP_VALUE, HIGH_TOP_VALUE);
 
         assertMinMax(HIGH_BOTTOM_VALUE, HIGH_TOP_VALUE);
+    }
+
+    @Test
+    public void testRetainedSize()
+    {
+        assertRetainedSize(EMPTY_SLICE, LOW_BOTTOM_VALUE, INSTANCE_SIZE + EMPTY_SLICE.getRetainedSize() + LOW_BOTTOM_VALUE.getRetainedSize());
+        assertRetainedSize(LOW_TOP_VALUE, LOW_TOP_VALUE, INSTANCE_SIZE + LOW_TOP_VALUE.getRetainedSize());
+        assertRetainedSize(EMPTY_SLICE, EMPTY_SLICE, INSTANCE_SIZE + EMPTY_SLICE.getRetainedSize());
+        assertRetainedSize(MEDIUM_TOP_VALUE, HIGH_BOTTOM_VALUE, INSTANCE_SIZE + MEDIUM_TOP_VALUE.getRetainedSize() + HIGH_BOTTOM_VALUE.getRetainedSize());
+        assertRetainedSize(null, HIGH_BOTTOM_VALUE, INSTANCE_SIZE + HIGH_BOTTOM_VALUE.getRetainedSize());
+        assertRetainedSize(EMPTY_SLICE, null, INSTANCE_SIZE + EMPTY_SLICE.getRetainedSize());
+        assertRetainedSize(null, null, INSTANCE_SIZE);
     }
 }

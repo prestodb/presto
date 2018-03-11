@@ -38,6 +38,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.OutputStreamSliceOutput;
 import io.airlift.slice.Slice;
 import org.joda.time.DateTimeZone;
+import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
@@ -73,6 +74,10 @@ import static java.util.stream.Collectors.toList;
 public class OrcWriter
         implements Closeable
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(OrcWriter.class).instanceSize();
+    // some data in ORC validation is shared with ORC writer; while some are not; track the size of validator in this class
+    private static final int VALIDATOR_INSTANCE_SIZE = ClassLayout.parseClass(OrcWriteValidationBuilder.class).instanceSize();
+
     static final String PRESTO_ORC_WRITER_VERSION_METADATA_KEY = "presto.writer.version";
     static final String PRESTO_ORC_WRITER_VERSION;
     private final OrcWriterStats stats;
@@ -103,7 +108,9 @@ public class OrcWriter
     private int stripeRowCount;
     private int rowGroupRowCount;
     private int bufferedBytes;
-    private int retainedBytes;
+    private long columnWritersRetainedBytes;
+    private long closedStripesRetainedBytes;
+    private long validatorRetainedBytes;
     private boolean closed;
 
     @Nullable
@@ -186,6 +193,8 @@ public class OrcWriter
         for (Entry<String, String> entry : this.userMetadata.entrySet()) {
             recordValidation(validation -> validation.addMetadataProperty(entry.getKey(), utf8Slice(entry.getValue())));
         }
+
+        this.validatorRetainedBytes = validationBuilder == null ? 0 : VALIDATOR_INSTANCE_SIZE;
     }
 
     public int getBufferedBytes()
@@ -195,7 +204,7 @@ public class OrcWriter
 
     public long getRetainedBytes()
     {
-        return retainedBytes;
+        return INSTANCE_SIZE + columnWritersRetainedBytes + closedStripesRetainedBytes + validatorRetainedBytes;
     }
 
     public void write(Page page)
@@ -268,7 +277,7 @@ public class OrcWriter
             writeStripe(DICTIONARY_FULL);
         }
 
-        retainedBytes = toIntExact(columnWriters.stream().mapToLong(ColumnWriter::getRetainedBytes).sum());
+        columnWritersRetainedBytes = toIntExact(columnWriters.stream().mapToLong(ColumnWriter::getRetainedBytes).sum());
     }
 
     private void finishRowGroup()
@@ -276,6 +285,13 @@ public class OrcWriter
         Map<Integer, ColumnStatistics> columnStatistics = new HashMap<>();
         columnWriters.forEach(columnWriter -> columnStatistics.putAll(columnWriter.finishRowGroup()));
         recordValidation(validation -> validation.addRowGroupStatistics(columnStatistics));
+        if (validationBuilder != null) {
+            // validator holds row group stats but ORC writer does not
+            for (Map.Entry<Integer, ColumnStatistics> statistics : columnStatistics.entrySet()) {
+                checkState(statistics.getValue() != null);
+                validatorRetainedBytes += Integer.BYTES + statistics.getValue().getRetainedSizeInBytes();
+            }
+        }
         rowGroupRowCount = 0;
     }
 
@@ -345,7 +361,9 @@ public class OrcWriter
         StripeStatistics statistics = new StripeStatistics(toDenseList(columnStatistics, orcTypes.size()));
         recordValidation(validation -> validation.addStripeStatistics(stripeStartOffset, statistics));
         StripeInformation stripeInformation = new StripeInformation(stripeRowCount, stripeStartOffset, indexLength, dataLength, footerLength);
-        closedStripes.add(new ClosedStripe(stripeInformation, statistics));
+        ClosedStripe closedStripe = new ClosedStripe(stripeInformation, statistics);
+        closedStripes.add(closedStripe);
+        closedStripesRetainedBytes += closedStripe.getRetainedSizeInBytes();
         stats.recordStripeWritten(flushReason, stripeInformation.getTotalLength(), stripeInformation.getNumberOfRows(), dictionaryCompressionOptimizer.getDictionaryMemoryBytes());
 
         // open next stripe
@@ -396,6 +414,9 @@ public class OrcWriter
                 orcTypes,
                 fileStats,
                 userMetadata);
+
+        closedStripes.clear();
+        closedStripesRetainedBytes = 0;
 
         int footerLength = metadataWriter.writeFooter(output, footer);
 
@@ -457,6 +478,8 @@ public class OrcWriter
 
     private static class ClosedStripe
     {
+        private static final int INSTANCE_SIZE = ClassLayout.parseClass(ClosedStripe.class).instanceSize() + ClassLayout.parseClass(StripeInformation.class).instanceSize();
+
         private final StripeInformation stripeInformation;
         private final StripeStatistics statistics;
 
@@ -474,6 +497,11 @@ public class OrcWriter
         public StripeStatistics getStatistics()
         {
             return statistics;
+        }
+
+        public long getRetainedSizeInBytes()
+        {
+            return INSTANCE_SIZE + statistics.getRetainedSizeInBytes();
         }
     }
 }

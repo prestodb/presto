@@ -14,6 +14,7 @@
 package com.facebook.presto.orc.metadata.statistics;
 
 import io.airlift.slice.Slice;
+import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
@@ -28,13 +29,15 @@ public class StringStatistics
     // 1 byte to denote if null + 4 bytes to denote offset
     public static final long STRING_VALUE_BYTES_OVERHEAD = Byte.BYTES + Integer.BYTES;
 
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(StringStatistics.class).instanceSize();
+
     @Nullable
     private final Slice minimum;
     @Nullable
     private final Slice maximum;
     private final long sum;
 
-    public StringStatistics(Slice minimum, Slice maximum, long sum)
+    public StringStatistics(@Nullable Slice minimum, @Nullable Slice maximum, long sum)
     {
         checkArgument(minimum == null || maximum == null || minimum.compareTo(maximum) <= 0, "minimum is not less than maximum");
         this.minimum = minimum;
@@ -57,6 +60,12 @@ public class StringStatistics
     public long getSum()
     {
         return sum;
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE + (minimum == null ? 0 : minimum.getRetainedSize()) + ((maximum == null || maximum == minimum) ? 0 : maximum.getRetainedSize());
     }
 
     @Override

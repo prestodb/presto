@@ -15,14 +15,19 @@ package com.facebook.presto.orc.metadata.statistics;
 
 import com.google.common.primitives.Longs;
 import org.apache.hive.common.util.BloomFilter;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
+import static io.airlift.slice.SizeOf.sizeOf;
+
 public class HiveBloomFilter
         extends BloomFilter
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(HiveBloomFilter.class).instanceSize() + ClassLayout.parseClass(BitSet.class).instanceSize();
+
     // constructor that allows deserialization of a long list into the actual hive bloom filter
     public HiveBloomFilter(List<Long> bits, int numBits, int numHashFunctions)
     {
@@ -36,6 +41,11 @@ public class HiveBloomFilter
         this.bitSet = new BitSet(bloomFilter.getBitSet().clone());
         this.numBits = bloomFilter.getBitSize();
         this.numHashFunctions = bloomFilter.getNumHashFunctions();
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE + sizeOf(bitSet.getData());
     }
 
     @Override
