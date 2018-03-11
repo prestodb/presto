@@ -25,4 +25,16 @@ public interface AccumulatorStateFactory<T>
     T createGroupedState();
 
     Class<? extends T> getGroupedStateClass();
+
+    // Scratch state class support fast (or even lazy) deseriazation,
+    // yet it doesn't have to support group-wise update.
+    default T createScratchState()
+    {
+        return createSingleState();
+    }
+
+    default Class<? extends T> getScratchStateClass()
+    {
+        return getSingleStateClass();
+    }
 }

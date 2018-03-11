@@ -11,19 +11,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator.aggregation.state;
+package com.facebook.presto.operator.aggregation.arrayagg;
 
-import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.AccumulatorState;
-import com.facebook.presto.spi.function.AccumulatorStateMetadata;
 
-@AccumulatorStateMetadata(stateFactoryClass = ArrayAggregationStateFactory.class, stateSerializerClass = ArrayAggregationStateSerializer.class)
 public interface ArrayAggregationState
         extends AccumulatorState
 {
-    BlockBuilder getBlockBuilder();
+    void add(Block block, int position);
 
-    void setBlockBuilder(BlockBuilder value);
+    void forEach(ArrayAggregationStateConsumer consumer);
 
-    void addMemoryUsage(long memory);
+    boolean isEmpty();
+
+    default void merge(ArrayAggregationState otherState)
+    {
+        otherState.forEach((block, position) -> add(block, position));
+    }
+
+    default void reset()
+    {
+        throw new UnsupportedOperationException();
+    }
 }
