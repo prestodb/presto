@@ -36,17 +36,17 @@ public class JodaDateTimeFormat
     /**
      * Maps patterns to formatters, patterns don't vary by locale. Size capped at PATTERN_CACHE_SIZE
      */
-    private static final LoadingCache<String, DateTimeFormatter> cPatternCache = CacheBuilder.newBuilder()
+    private static final LoadingCache<String, DateTimeFormatterEntry> cPatternCache = CacheBuilder.newBuilder()
             .maximumSize(PATTERN_CACHE_SIZE)
-            .build(new CacheLoader<String, DateTimeFormatter>()
+            .build(new CacheLoader<String, DateTimeFormatterEntry>()
             {
                 @Override
-                public DateTimeFormatter load(String pattern)
+                public DateTimeFormatterEntry load(String pattern)
                 {
                     // This method must not throw unchecked exception because the cache is invoked with getUnchecked.
                     DateTimeFormatterBuilder builder = new DateTimeFormatterBuilder();
-                    parsePatternTo(builder, pattern);
-                    return builder.toFormatter();
+                    boolean hasZone = parsePatternTo(builder, pattern);
+                    return new DateTimeFormatterEntry(builder.toFormatter(), hasZone);
                 }
             });
 
@@ -71,10 +71,19 @@ public class JodaDateTimeFormat
      */
     public static DateTimeFormatter forPattern(String pattern)
     {
-        return createFormatterForPattern(pattern);
+        return createFormatterForPattern(pattern).getDateTimeFormatter();
     }
 
-    private static DateTimeFormatter createFormatterForPattern(String pattern)
+    public static DateTimeFormatter forPatternLocalDateTime(String pattern)
+    {
+        DateTimeFormatterEntry entry = createFormatterForPattern(pattern);
+        if (entry.hasZone) {
+            throw new IllegalArgumentException("Pattern can only contain zone when timestamp value contains zone information");
+        }
+        return entry.getDateTimeFormatter();
+    }
+
+    private static DateTimeFormatterEntry createFormatterForPattern(String pattern)
     {
         if (pattern == null || pattern.length() == 0) {
             throw new IllegalArgumentException("Invalid pattern specification");
@@ -90,8 +99,10 @@ public class JodaDateTimeFormat
      * @throws IllegalArgumentException if the pattern is invalid
      * @see #forPattern
      */
-    private static void parsePatternTo(DateTimeFormatterBuilder builder, String pattern)
+    private static boolean parsePatternTo(DateTimeFormatterBuilder builder, String pattern)
     {
+        boolean hasZone = false;
+
         int length = pattern.length();
         int[] indexRef = new int[1];
 
@@ -228,6 +239,7 @@ public class JodaDateTimeFormat
                     builder.appendWeekOfWeekyear(tokenLen);
                     break;
                 case 'z': // time zone (text)
+                    hasZone = true;
                     if (tokenLen >= 4) {
                         builder.appendTimeZoneName();
                     }
@@ -236,6 +248,7 @@ public class JodaDateTimeFormat
                     }
                     break;
                 case 'Z': // time zone offset
+                    hasZone = true;
                     if (tokenLen == 1) {
                         builder.appendTimeZoneOffset(null, "Z", false, 2, 2);
                     }
@@ -261,6 +274,8 @@ public class JodaDateTimeFormat
                     throw new IllegalArgumentException("Illegal pattern component: " + token);
             }
         }
+
+        return hasZone;
     }
 
     /**
@@ -368,5 +383,27 @@ public class JodaDateTimeFormat
         }
 
         return false;
+    }
+
+    private static class DateTimeFormatterEntry
+    {
+        private final DateTimeFormatter dateTimeFormatter;
+        private final boolean hasZone;
+
+        public DateTimeFormatterEntry(DateTimeFormatter dateTimeFormatter, boolean hasZone)
+        {
+            this.dateTimeFormatter = dateTimeFormatter;
+            this.hasZone = hasZone;
+        }
+
+        public DateTimeFormatter getDateTimeFormatter()
+        {
+            return dateTimeFormatter;
+        }
+
+        public boolean isHasZone()
+        {
+            return hasZone;
+        }
     }
 }
