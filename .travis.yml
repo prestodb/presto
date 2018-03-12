@@ -10,15 +10,6 @@ env:
     - TEST_FLAGS=""
   matrix:
     - HIVE_TESTS=true
-    - HIVE_TESTS=true2
-    - HIVE_TESTS=true3
-    - HIVE_TESTS=true4
-    - HIVE_TESTS=true5
-    - HIVE_TESTS=true6
-    - HIVE_TESTS=true7
-    - HIVE_TESTS=true8
-    - HIVE_TESTS=true9
-    - HIVE_TESTS=true10
 
 sudo: required
 dist: trusty
