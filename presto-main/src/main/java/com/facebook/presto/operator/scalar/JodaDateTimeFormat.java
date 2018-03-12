@@ -21,12 +21,22 @@ import org.joda.time.format.DateTimeFormatterBuilder;
 import java.util.Locale;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * This class is a fork from org.joda.time.format.DateTimeFormat.
+ * The purpose of this fork is to make it possible to detect existence of zone in a pattern string.
+ */
 public class JodaDateTimeFormat
 {
-    /** Maximum size of the pattern cache. */
+    /**
+     * Maximum size of the pattern cache.
+     */
     private static final int PATTERN_CACHE_SIZE = 500;
-    /** Maps patterns to formatters, patterns don't vary by locale. Size capped at PATTERN_CACHE_SIZE*/
+    /**
+     * Maps patterns to formatters, patterns don't vary by locale. Size capped at PATTERN_CACHE_SIZE
+     */
     private static final ConcurrentHashMap<String, DateTimeFormatter> cPatternCache = new ConcurrentHashMap<String, DateTimeFormatter>();
+
+    private JodaDateTimeFormat() {}
 
     /**
      * Factory to create a formatter from a pattern string.
@@ -41,15 +51,17 @@ public class JodaDateTimeFormat
      * DateTimeFormat.forPattern(pattern).withLocale(Locale.FRANCE).print(dt);
      * </pre>
      *
-     * @param pattern  pattern specification
+     * @param pattern pattern specification
      * @return the formatter
      * @throws IllegalArgumentException if the pattern is invalid
      */
-    public static DateTimeFormatter forPattern(String pattern) {
+    public static DateTimeFormatter forPattern(String pattern)
+    {
         return createFormatterForPattern(pattern);
     }
 
-    private static DateTimeFormatter createFormatterForPattern(String pattern) {
+    private static DateTimeFormatter createFormatterForPattern(String pattern)
+    {
         if (pattern == null || pattern.length() == 0) {
             throw new IllegalArgumentException("Invalid pattern specification");
         }
@@ -74,15 +86,16 @@ public class JodaDateTimeFormat
      * Parses the given pattern and appends the rules to the given
      * DateTimeFormatterBuilder.
      *
-     * @param pattern  pattern specification
+     * @param pattern pattern specification
      * @throws IllegalArgumentException if the pattern is invalid
      * @see #forPattern
      */
-    private static void parsePatternTo(DateTimeFormatterBuilder builder, String pattern) {
+    private static void parsePatternTo(DateTimeFormatterBuilder builder, String pattern)
+    {
         int length = pattern.length();
         int[] indexRef = new int[1];
 
-        for (int i=0; i<length; i++) {
+        for (int i = 0; i < length; i++) {
             indexRef[0] = i;
             String token = parseToken(pattern, indexRef);
             i = indexRef[0];
@@ -121,8 +134,7 @@ public class JodaDateTimeFormat
                         // Use pivots which are compatible with SimpleDateFormat.
                         switch (c) {
                             case 'x':
-                                builder.appendTwoDigitWeekyear
-                                        (new DateTime().getWeekyear() - 30, lenientParse);
+                                builder.appendTwoDigitWeekyear(new DateTime().getWeekyear() - 30, lenientParse);
                                 break;
                             case 'y':
                             case 'Y':
@@ -130,7 +142,8 @@ public class JodaDateTimeFormat
                                 builder.appendTwoDigitYear(new DateTime().getYear() - 30, lenientParse);
                                 break;
                         }
-                    } else {
+                    }
+                    else {
                         // Try to support long year values.
                         int maxDigits = 9;
 
@@ -161,10 +174,12 @@ public class JodaDateTimeFormat
                     if (tokenLen >= 3) {
                         if (tokenLen >= 4) {
                             builder.appendMonthOfYearText();
-                        } else {
+                        }
+                        else {
                             builder.appendMonthOfYearShortText();
                         }
-                    } else {
+                    }
+                    else {
                         builder.appendMonthOfYear(tokenLen);
                     }
                     break;
@@ -201,7 +216,8 @@ public class JodaDateTimeFormat
                 case 'E': // dayOfWeek (text)
                     if (tokenLen >= 4) {
                         builder.appendDayOfWeekText();
-                    } else {
+                    }
+                    else {
                         builder.appendDayOfWeekShortText();
                     }
                     break;
@@ -214,16 +230,19 @@ public class JodaDateTimeFormat
                 case 'z': // time zone (text)
                     if (tokenLen >= 4) {
                         builder.appendTimeZoneName();
-                    } else {
+                    }
+                    else {
                         builder.appendTimeZoneShortName(null);
                     }
                     break;
                 case 'Z': // time zone offset
                     if (tokenLen == 1) {
                         builder.appendTimeZoneOffset(null, "Z", false, 2, 2);
-                    } else if (tokenLen == 2) {
+                    }
+                    else if (tokenLen == 2) {
                         builder.appendTimeZoneOffset(null, "Z", true, 2, 2);
-                    } else {
+                    }
+                    else {
                         builder.appendTimeZoneId();
                     }
                     break;
@@ -231,15 +250,15 @@ public class JodaDateTimeFormat
                     String sub = token.substring(1);
                     if (sub.length() == 1) {
                         builder.appendLiteral(sub.charAt(0));
-                    } else {
+                    }
+                    else {
                         // Create copy of sub since otherwise the temporary quoted
                         // string would still be referenced internally.
                         builder.appendLiteral(new String(sub));
                     }
                     break;
                 default:
-                    throw new IllegalArgumentException
-                            ("Illegal pattern component: " + token);
+                    throw new IllegalArgumentException("Illegal pattern component: " + token);
             }
         }
     }
@@ -247,12 +266,13 @@ public class JodaDateTimeFormat
     /**
      * Parses an individual token.
      *
-     * @param pattern  the pattern string
-     * @param indexRef  a single element array, where the input is the start
-     *  location and the output is the location after parsing the token
+     * @param pattern the pattern string
+     * @param indexRef a single element array, where the input is the start
+     * location and the output is the location after parsing the token
      * @return the parsed token
      */
-    private static String parseToken(String pattern, int[] indexRef) {
+    private static String parseToken(String pattern, int[] indexRef)
+    {
         StringBuilder buf = new StringBuilder();
 
         int i = indexRef[0];
@@ -269,11 +289,13 @@ public class JodaDateTimeFormat
                 if (peek == c) {
                     buf.append(c);
                     i++;
-                } else {
+                }
+                else {
                     break;
                 }
             }
-        } else {
+        }
+        else {
             // This will identify token as text.
             buf.append('\'');
 
@@ -287,14 +309,17 @@ public class JodaDateTimeFormat
                         // '' is treated as escaped '
                         i++;
                         buf.append(c);
-                    } else {
+                    }
+                    else {
                         inLiteral = !inLiteral;
                     }
-                } else if (!inLiteral &&
+                }
+                else if (!inLiteral &&
                         (c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z')) {
                     i--;
                     break;
-                } else {
+                }
+                else {
                     buf.append(c);
                 }
             }
@@ -307,10 +332,11 @@ public class JodaDateTimeFormat
     /**
      * Returns true if token should be parsed as a numeric field.
      *
-     * @param token  the token to parse
+     * @param token the token to parse
      * @return true if numeric field
      */
-    private static boolean isNumericToken(String token) {
+    private static boolean isNumericToken(String token)
+    {
         int tokenLen = token.length();
         if (tokenLen > 0) {
             char c = token.charAt(0);
