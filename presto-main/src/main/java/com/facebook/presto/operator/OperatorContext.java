@@ -156,13 +156,13 @@ public class OperatorContext
         return driverContext.isDone();
     }
 
-    public void startIntervalTimer()
+    void startIntervalTimer()
     {
         intervalWallStart.set(System.nanoTime());
         intervalCpuStart.set(currentThreadCpuTime());
     }
 
-    public void recordAddInput(Page page)
+    void recordAddInput(Page page)
     {
         addInputCalls.incrementAndGet();
         recordInputWallNanos(nanosBetween(intervalWallStart.get(), System.nanoTime()));
@@ -186,12 +186,12 @@ public class OperatorContext
         recordInputWallNanos(readNanos);
     }
 
-    public long recordInputWallNanos(long readNanos)
+    private long recordInputWallNanos(long readNanos)
     {
         return addInputWallNanos.getAndAdd(readNanos);
     }
 
-    public void recordGetOutput(Page page)
+    void recordGetOutput(Page page)
     {
         getOutputCalls.incrementAndGet();
         getOutputWallNanos.getAndAdd(nanosBetween(intervalWallStart.get(), System.nanoTime()));
@@ -229,7 +229,7 @@ public class OperatorContext
         // Do not register blocked with driver context.  The driver handles this directly.
     }
 
-    public void recordFinish()
+    void recordFinish()
     {
         finishCalls.incrementAndGet();
         finishWallNanos.getAndAdd(nanosBetween(intervalWallStart.get(), System.nanoTime()));
