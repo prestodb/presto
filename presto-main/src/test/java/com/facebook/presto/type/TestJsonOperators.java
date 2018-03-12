@@ -350,7 +350,7 @@ public class TestJsonOperators
     public void testCastFromTimestamp()
     {
         assertFunction("cast(cast (null as timestamp) as JSON)", JSON, null);
-        assertFunction("CAST(from_unixtime(1) AS JSON)", JSON, "\"" + sqlTimestamp(1000).toString() + "\"");
+        assertFunction("CAST(TIMESTAMP '1970-01-01 00:00:01' AS JSON)", JSON, "\"" + sqlTimestamp(1000).toString() + "\"");
     }
 
     @Test

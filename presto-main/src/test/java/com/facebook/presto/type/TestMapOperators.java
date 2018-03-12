@@ -23,7 +23,7 @@ import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.SqlDecimal;
-import com.facebook.presto.spi.type.SqlTimestamp;
+import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.spi.type.SqlVarbinary;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
@@ -34,12 +34,13 @@ import io.airlift.slice.Slice;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -48,7 +49,7 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -60,7 +61,6 @@ import static com.facebook.presto.util.StructuralTestUtil.mapType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableMap.builder;
 import static io.airlift.slice.Slices.utf8Slice;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
@@ -100,16 +100,22 @@ public class TestMapOperators
                 ImmutableMap.of(1.0, ImmutableList.of(1L, 2L), 2.0, ImmutableList.of(3L)));
         assertFunction("MAP(ARRAY['puppies'], ARRAY['kittens'])", mapType(createVarcharType(7), createVarcharType(7)), ImmutableMap.of("puppies", "kittens"));
         assertFunction("MAP(ARRAY[TRUE, FALSE], ARRAY[2,4])", mapType(BOOLEAN, INTEGER), ImmutableMap.of(true, 2, false, 4));
-        assertFunction("MAP(ARRAY['1', '100'], ARRAY[from_unixtime(1), from_unixtime(100)])", mapType(createVarcharType(3), TIMESTAMP), ImmutableMap.of(
-                "1",
-                new SqlTimestamp(1000, TEST_SESSION.getTimeZoneKey()),
-                "100",
-                new SqlTimestamp(100_000, TEST_SESSION.getTimeZoneKey())));
-        assertFunction("MAP(ARRAY[from_unixtime(1), from_unixtime(100)], ARRAY[1.0E0, 100.0E0])", mapType(TIMESTAMP, DOUBLE), ImmutableMap.of(
-                new SqlTimestamp(1000, TEST_SESSION.getTimeZoneKey()),
-                1.0,
-                new SqlTimestamp(100_000, TEST_SESSION.getTimeZoneKey()),
-                100.0));
+        assertFunction(
+                "MAP(ARRAY['1', '100'], ARRAY[TIMESTAMP '2000-01-02 03:04:05 Asia/Shanghai', TIMESTAMP '2001-02-03 04:05:06 Pacific/Honolulu'])",
+                mapType(createVarcharType(3), TIMESTAMP_WITH_TIME_ZONE),
+                ImmutableMap.of(
+                        "1",
+                        SqlTimestampWithTimeZone.of(ZonedDateTime.of(2000, 1, 2, 3, 4, 5, 0, ZoneId.of("Asia/Shanghai"))),
+                        "100",
+                        SqlTimestampWithTimeZone.of(ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 7, ZoneId.of("Pacific/Honolulu")))));
+        assertFunction(
+                "MAP(ARRAY[TIMESTAMP '2000-01-02 03:04:05 Asia/Shanghai', TIMESTAMP '2001-02-03 04:05:06 Pacific/Honolulu'], ARRAY[1.0E0, 100.0E0])",
+                mapType(TIMESTAMP_WITH_TIME_ZONE, DOUBLE),
+                ImmutableMap.of(
+                        SqlTimestampWithTimeZone.of(ZonedDateTime.of(2000, 1, 2, 3, 4, 5, 0, ZoneId.of("Asia/Shanghai"))),
+                        1.0,
+                        SqlTimestampWithTimeZone.of(ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 7, ZoneId.of("Pacific/Honolulu"))),
+                        100.0));
 
         assertInvalidFunction("MAP(ARRAY [1], ARRAY [2, 4])", "Key and value arrays must be the same length");
 
@@ -131,8 +137,8 @@ public class TestMapOperators
         assertFunction("CARDINALITY(MAP(ARRAY[1.0E0, 2.0E0], ARRAY[ ARRAY[1, 2], ARRAY[3]]))", BIGINT, 2L);
         assertFunction("CARDINALITY(MAP(ARRAY['puppies'], ARRAY['kittens']))", BIGINT, 1L);
         assertFunction("CARDINALITY(MAP(ARRAY[TRUE], ARRAY[2]))", BIGINT, 1L);
-        assertFunction("CARDINALITY(MAP(ARRAY['1'], ARRAY[from_unixtime(1)]))", BIGINT, 1L);
-        assertFunction("CARDINALITY(MAP(ARRAY[from_unixtime(1)], ARRAY[1.0E0]))", BIGINT, 1L);
+        assertFunction("CARDINALITY(MAP(ARRAY['1'], ARRAY[TIMESTAMP '1970-01-01 00:00:01']))", BIGINT, 1L);
+        assertFunction("CARDINALITY(MAP(ARRAY[TIMESTAMP '1970-01-01 00:00:01'], ARRAY[1.0E0]))", BIGINT, 1L);
         assertFunction("CARDINALITY(MAP(ARRAY [1.0, 383838383838383.12324234234234], ARRAY [2.2, 3.3]))", BIGINT, 2L);
         assertFunction("CARDINALITY(MAP(ARRAY [1.0], ARRAY [2.2]))", BIGINT, 1L);
     }
@@ -231,9 +237,9 @@ public class TestMapOperators
                 "{\"1\":123,\"13\":{\"a\":1,\"b\":\"str\",\"c\":null},\"2\":3.14,\"21\":null,\"3\":false,\"34\":null,\"5\":\"abc\",\"8\":[1,\"a\",null]}");
 
         assertFunction(
-                "CAST(MAP(ARRAY[1, 2], ARRAY[from_unixtime(1), null]) AS JSON)",
+                "CAST(MAP(ARRAY[1, 2], ARRAY[TIMESTAMP '2000-01-02 03:04:05', null]) AS JSON)",
                 JSON,
-                format("{\"1\":\"%s\",\"2\":null}", sqlTimestamp(1000).toString()));
+                "{\"1\":\"2000-01-02 03:04:05.000\",\"2\":null}");
         assertFunction(
                 "CAST(MAP(ARRAY[2, 5, 3], ARRAY[DATE '2001-08-22', DATE '2001-08-23', null]) AS JSON)",
                 JSON,
@@ -500,8 +506,11 @@ public class TestMapOperators
         assertFunction("element_at(MAP(ARRAY ['puppies'], ARRAY ['kittens']), 'puppies')", createVarcharType(7), "kittens");
         assertFunction("element_at(MAP(ARRAY [TRUE, FALSE], ARRAY [2, 4]), TRUE)", INTEGER, 2);
         assertFunction("element_at(MAP(ARRAY [ARRAY [1, 2], ARRAY [3]], ARRAY [1e0, 2e0]), ARRAY [1, 2])", DOUBLE, 1.0);
-        assertFunction("element_at(MAP(ARRAY ['1', '100'], ARRAY [from_unixtime(1), from_unixtime(100)]), '1')", TIMESTAMP, new SqlTimestamp(1000, TEST_SESSION.getTimeZoneKey()));
-        assertFunction("element_at(MAP(ARRAY [from_unixtime(1), from_unixtime(100)], ARRAY [1.0E0, 100.0E0]), from_unixtime(1))", DOUBLE, 1.0);
+        assertFunction(
+                "element_at(MAP(ARRAY ['1', '100'], ARRAY [TIMESTAMP '2000-01-02 03:04:05 Asia/Shanghai', NULL]), '1')",
+                TIMESTAMP_WITH_TIME_ZONE,
+                SqlTimestampWithTimeZone.of(ZonedDateTime.of(2000, 1, 2, 3, 4, 5, 0, ZoneId.of("Asia/Shanghai"))));
+        assertFunction("element_at(MAP(ARRAY [TIMESTAMP '1970-01-01 00:00:01', TIMESTAMP '1970-01-01 00:02:00'], ARRAY [1.0E0, 100.0E0]), TIMESTAMP '1970-01-01 00:00:01')", DOUBLE, 1.0);
     }
 
     @Test
@@ -522,8 +531,11 @@ public class TestMapOperators
         assertFunction("MAP(ARRAY[1.0E0, 2.0E0], ARRAY[ ARRAY[1, 2], ARRAY[3]])[1.0E0]", new ArrayType(INTEGER), ImmutableList.of(1, 2));
         assertFunction("MAP(ARRAY['puppies'], ARRAY['kittens'])['puppies']", createVarcharType(7), "kittens");
         assertFunction("MAP(ARRAY[TRUE,FALSE],ARRAY[2,4])[TRUE]", INTEGER, 2);
-        assertFunction("MAP(ARRAY['1', '100'], ARRAY[from_unixtime(1), from_unixtime(100)])['1']", TIMESTAMP, new SqlTimestamp(1000, TEST_SESSION.getTimeZoneKey()));
-        assertFunction("MAP(ARRAY[from_unixtime(1), from_unixtime(100)], ARRAY[1.0E0, 100.0E0])[from_unixtime(1)]", DOUBLE, 1.0);
+        assertFunction(
+                "MAP(ARRAY['1', '100'], ARRAY[TIMESTAMP '2000-01-02 03:04:05 Asia/Shanghai', NULL])['1']",
+                TIMESTAMP_WITH_TIME_ZONE,
+                SqlTimestampWithTimeZone.of(ZonedDateTime.of(2000, 1, 2, 3, 4, 5, 0, ZoneId.of("Asia/Shanghai"))));
+        assertFunction("MAP(ARRAY[TIMESTAMP '1970-01-01 00:00:01', TIMESTAMP '1970-01-01 00:02:00'], ARRAY[1.0E0, 100.0E0])[TIMESTAMP '1970-01-01 00:00:01']", DOUBLE, 1.0);
         assertInvalidFunction("MAP(ARRAY [BIGINT '1'], ARRAY [BIGINT '2'])[3]", "Key not present in map: 3");
         assertInvalidFunction("MAP(ARRAY ['hi'], ARRAY [2])['missing']", "Key not present in map: missing");
         assertFunction("MAP(ARRAY[array[1,1]], ARRAY['a'])[ARRAY[1,1]]", createVarcharType(1), "a");
@@ -539,7 +551,10 @@ public class TestMapOperators
         assertFunction("MAP_KEYS(MAP(ARRAY[1.0E0, 2.0E0], ARRAY[ARRAY[1, 2], ARRAY[3]]))", new ArrayType(DOUBLE), ImmutableList.of(1.0, 2.0));
         assertFunction("MAP_KEYS(MAP(ARRAY['puppies'], ARRAY['kittens']))", new ArrayType(createVarcharType(7)), ImmutableList.of("puppies"));
         assertFunction("MAP_KEYS(MAP(ARRAY[TRUE], ARRAY[2]))", new ArrayType(BOOLEAN), ImmutableList.of(true));
-        assertFunction("MAP_KEYS(MAP(ARRAY[from_unixtime(1)], ARRAY[1.0E0]))", new ArrayType(TIMESTAMP), ImmutableList.of(new SqlTimestamp(1000, TEST_SESSION.getTimeZoneKey())));
+        assertFunction(
+                "MAP_KEYS(MAP(ARRAY[TIMESTAMP '2000-01-02 03:04:05 Asia/Shanghai'], ARRAY[1.0E0]))",
+                new ArrayType(TIMESTAMP_WITH_TIME_ZONE),
+                ImmutableList.of(SqlTimestampWithTimeZone.of(ZonedDateTime.of(2000, 1, 2, 3, 4, 5, 0, ZoneId.of("Asia/Shanghai")))));
         assertFunction("MAP_KEYS(MAP(ARRAY[CAST('puppies' as varbinary)], ARRAY['kittens']))", new ArrayType(VARBINARY), ImmutableList.of(new SqlVarbinary("puppies".getBytes(UTF_8))));
         assertFunction("MAP_KEYS(MAP(ARRAY[1,2],  ARRAY[ARRAY[1, 2], ARRAY[3]]))", new ArrayType(INTEGER), ImmutableList.of(1, 2));
         assertFunction("MAP_KEYS(MAP(ARRAY[1,4], ARRAY[MAP(ARRAY[2], ARRAY[3]), MAP(ARRAY[5], ARRAY[6])]))", new ArrayType(INTEGER), ImmutableList.of(1, 4));
@@ -622,10 +637,10 @@ public class TestMapOperators
         assertFunction("MAP(ARRAY[TRUE, FALSE], ARRAY['2', '4']) = MAP(ARRAY[FALSE, TRUE], ARRAY['2', '4'])", BOOLEAN, false);
         assertFunction("MAP(ARRAY[1.0E0, 3.0E0], ARRAY[TRUE, FALSE]) = MAP(ARRAY[3.0E0, 1.0E0], ARRAY[FALSE, TRUE])", BOOLEAN, true);
         assertFunction("MAP(ARRAY[1.0E0, 3.0E0], ARRAY[TRUE, FALSE]) = MAP(ARRAY[3.0E0, 1.0E0], ARRAY[TRUE, FALSE])", BOOLEAN, false);
-        assertFunction("MAP(ARRAY[1.0E0, 3.0E0], ARRAY[from_unixtime(1), from_unixtime(100)]) = MAP(ARRAY[3.0E0, 1.0E0], ARRAY[from_unixtime(100), from_unixtime(1)])", BOOLEAN, true);
-        assertFunction("MAP(ARRAY[1.0E0, 3.0E0], ARRAY[from_unixtime(1), from_unixtime(100)]) = MAP(ARRAY[3.0E0, 1.0E0], ARRAY[from_unixtime(1), from_unixtime(100)])", BOOLEAN, false);
-        assertFunction("MAP(ARRAY[from_unixtime(1), from_unixtime(100)], ARRAY['kittens', 'puppies']) = MAP(ARRAY[from_unixtime(100), from_unixtime(1)], ARRAY['puppies', 'kittens'])", BOOLEAN, true);
-        assertFunction("MAP(ARRAY[from_unixtime(1), from_unixtime(100)], ARRAY['kittens', 'puppies']) = MAP(ARRAY[from_unixtime(100), from_unixtime(1)], ARRAY['kittens', 'puppies'])", BOOLEAN, false);
+        assertFunction("MAP(ARRAY[1.0E0, 3.0E0], ARRAY[TIMESTAMP '1970-01-01 00:00:01', TIMESTAMP '1970-01-01 00:02:00']) = MAP(ARRAY[3.0E0, 1.0E0], ARRAY[TIMESTAMP '1970-01-01 00:02:00', TIMESTAMP '1970-01-01 00:00:01'])", BOOLEAN, true);
+        assertFunction("MAP(ARRAY[1.0E0, 3.0E0], ARRAY[TIMESTAMP '1970-01-01 00:00:01', TIMESTAMP '1970-01-01 00:02:00']) = MAP(ARRAY[3.0E0, 1.0E0], ARRAY[TIMESTAMP '1970-01-01 00:00:01', TIMESTAMP '1970-01-01 00:02:00'])", BOOLEAN, false);
+        assertFunction("MAP(ARRAY[TIMESTAMP '1970-01-01 00:00:01', TIMESTAMP '1970-01-01 00:02:00'], ARRAY['kittens', 'puppies']) = MAP(ARRAY[TIMESTAMP '1970-01-01 00:02:00', TIMESTAMP '1970-01-01 00:00:01'], ARRAY['puppies', 'kittens'])", BOOLEAN, true);
+        assertFunction("MAP(ARRAY[TIMESTAMP '1970-01-01 00:00:01', TIMESTAMP '1970-01-01 00:02:00'], ARRAY['kittens', 'puppies']) = MAP(ARRAY[TIMESTAMP '1970-01-01 00:02:00', TIMESTAMP '1970-01-01 00:00:01'], ARRAY['kittens', 'puppies'])", BOOLEAN, false);
         assertFunction("MAP(ARRAY['kittens', 'puppies'], ARRAY[ARRAY[1, 2], ARRAY[3]]) = MAP(ARRAY['kittens', 'puppies'], ARRAY[ARRAY[1, 2], ARRAY[3]])", BOOLEAN, true);
         assertFunction("MAP(ARRAY['kittens', 'puppies'], ARRAY[ARRAY[1, 2], ARRAY[3]]) = MAP(ARRAY['kittens', 'puppies'], ARRAY[ARRAY[3], ARRAY[1, 2]])", BOOLEAN, false);
         assertFunction("MAP(ARRAY[ARRAY['kittens', 'puppies'], ARRAY['dog', 'cat']], ARRAY[ARRAY[1, 2], ARRAY[3]]) = MAP(ARRAY[ARRAY['kittens', 'puppies'], ARRAY['dog', 'cat']], ARRAY[ARRAY[1, 2], ARRAY[3]])", BOOLEAN, true);
@@ -637,8 +652,8 @@ public class TestMapOperators
         // nulls
         assertFunction("MAP(ARRAY['kittens', 'puppies'], ARRAY[NULL, 3]) = MAP(ARRAY['kittens', 'puppies'], ARRAY[NULL, 2])", BOOLEAN, null);
         assertFunction("MAP(ARRAY['kittens', 'puppies'], ARRAY[NULL, NULL]) = MAP(ARRAY['kittens', 'puppies'], ARRAY[NULL, NULL])", BOOLEAN, null);
-        assertFunction("MAP(ARRAY[from_unixtime(1), from_unixtime(100)], ARRAY[NULL, FALSE]) = MAP(ARRAY[from_unixtime(100), from_unixtime(1)], ARRAY[FALSE, NULL])", BOOLEAN, null);
-        assertFunction("MAP(ARRAY[from_unixtime(1), from_unixtime(100)], ARRAY[TRUE, NULL]) = MAP(ARRAY[from_unixtime(100), from_unixtime(1)], ARRAY[TRUE, NULL])", BOOLEAN, null);
+        assertFunction("MAP(ARRAY[TIMESTAMP '1970-01-01 00:00:01', TIMESTAMP '1970-01-01 00:02:00'], ARRAY[NULL, FALSE]) = MAP(ARRAY[TIMESTAMP '1970-01-01 00:02:00', TIMESTAMP '1970-01-01 00:00:01'], ARRAY[FALSE, NULL])", BOOLEAN, null);
+        assertFunction("MAP(ARRAY[TIMESTAMP '1970-01-01 00:00:01', TIMESTAMP '1970-01-01 00:02:00'], ARRAY[TRUE, NULL]) = MAP(ARRAY[TIMESTAMP '1970-01-01 00:02:00', TIMESTAMP '1970-01-01 00:00:01'], ARRAY[TRUE, NULL])", BOOLEAN, null);
         assertFunction("MAP(ARRAY [1.0, 383838383838383.12324234234234], ARRAY [2.2, null]) = MAP(ARRAY [1.0, 383838383838383.12324234234234], ARRAY [2.2, null])", BOOLEAN, null);
         assertFunction("MAP(ARRAY [1.0, 2.1], ARRAY [null, null]) = MAP(ARRAY [1.0, 2.1], ARRAY [null, null])", BOOLEAN, null);
     }
@@ -668,10 +683,10 @@ public class TestMapOperators
         assertFunction("MAP(ARRAY[TRUE, FALSE], ARRAY['2', '4']) != MAP(ARRAY[FALSE, TRUE], ARRAY['2', '4'])", BOOLEAN, true);
         assertFunction("MAP(ARRAY[1.0E0, 3.0E0], ARRAY[TRUE, FALSE]) != MAP(ARRAY[3.0E0, 1.0E0], ARRAY[FALSE, TRUE])", BOOLEAN, false);
         assertFunction("MAP(ARRAY[1.0E0, 3.0E0], ARRAY[TRUE, FALSE]) != MAP(ARRAY[3.0E0, 1.0E0], ARRAY[TRUE, FALSE])", BOOLEAN, true);
-        assertFunction("MAP(ARRAY[1.0E0, 3.0E0], ARRAY[from_unixtime(1), from_unixtime(100)]) != MAP(ARRAY[3.0E0, 1.0E0], ARRAY[from_unixtime(100), from_unixtime(1)])", BOOLEAN, false);
-        assertFunction("MAP(ARRAY[1.0E0, 3.0E0], ARRAY[from_unixtime(1), from_unixtime(100)]) != MAP(ARRAY[3.0E0, 1.0E0], ARRAY[from_unixtime(1), from_unixtime(100)])", BOOLEAN, true);
-        assertFunction("MAP(ARRAY[from_unixtime(1), from_unixtime(100)], ARRAY['kittens','puppies']) != MAP(ARRAY[from_unixtime(100), from_unixtime(1)], ARRAY['puppies', 'kittens'])", BOOLEAN, false);
-        assertFunction("MAP(ARRAY[from_unixtime(1), from_unixtime(100)], ARRAY['kittens','puppies']) != MAP(ARRAY[from_unixtime(100), from_unixtime(1)], ARRAY['kittens', 'puppies'])", BOOLEAN, true);
+        assertFunction("MAP(ARRAY[1.0E0, 3.0E0], ARRAY[TIMESTAMP '1970-01-01 00:00:01', TIMESTAMP '1970-01-01 00:02:00']) != MAP(ARRAY[3.0E0, 1.0E0], ARRAY[TIMESTAMP '1970-01-01 00:02:00', TIMESTAMP '1970-01-01 00:00:01'])", BOOLEAN, false);
+        assertFunction("MAP(ARRAY[1.0E0, 3.0E0], ARRAY[TIMESTAMP '1970-01-01 00:00:01', TIMESTAMP '1970-01-01 00:02:00']) != MAP(ARRAY[3.0E0, 1.0E0], ARRAY[TIMESTAMP '1970-01-01 00:00:01', TIMESTAMP '1970-01-01 00:02:00'])", BOOLEAN, true);
+        assertFunction("MAP(ARRAY[TIMESTAMP '1970-01-01 00:00:01', TIMESTAMP '1970-01-01 00:02:00'], ARRAY['kittens','puppies']) != MAP(ARRAY[TIMESTAMP '1970-01-01 00:02:00', TIMESTAMP '1970-01-01 00:00:01'], ARRAY['puppies', 'kittens'])", BOOLEAN, false);
+        assertFunction("MAP(ARRAY[TIMESTAMP '1970-01-01 00:00:01', TIMESTAMP '1970-01-01 00:02:00'], ARRAY['kittens','puppies']) != MAP(ARRAY[TIMESTAMP '1970-01-01 00:02:00', TIMESTAMP '1970-01-01 00:00:01'], ARRAY['kittens', 'puppies'])", BOOLEAN, true);
         assertFunction("MAP(ARRAY['kittens', 'puppies'], ARRAY[ARRAY[1, 2], ARRAY[3]]) != MAP(ARRAY['kittens','puppies'], ARRAY[ARRAY[1, 2], ARRAY[3]])", BOOLEAN, false);
         assertFunction("MAP(ARRAY['kittens', 'puppies'], ARRAY[ARRAY[1, 2], ARRAY[3]]) != MAP(ARRAY['kittens','puppies'], ARRAY[ARRAY[3], ARRAY[1, 2]])", BOOLEAN, true);
         assertFunction("MAP(ARRAY [1.0, 383838383838383.12324234234234], ARRAY [2.2, 3.3]) != MAP(ARRAY [1.0, 383838383838383.12324234234234], ARRAY [2.2, 3.3])", BOOLEAN, false);
@@ -680,8 +695,8 @@ public class TestMapOperators
         // nulls
         assertFunction("MAP(ARRAY['kittens', 'puppies'], ARRAY[NULL, 3]) != MAP(ARRAY['kittens', 'puppies'], ARRAY[NULL, 2])", BOOLEAN, null);
         assertFunction("MAP(ARRAY['kittens', 'puppies'], ARRAY[NULL, NULL]) != MAP(ARRAY['kittens', 'puppies'], ARRAY[NULL, NULL])", BOOLEAN, null);
-        assertFunction("MAP(ARRAY[from_unixtime(1), from_unixtime(100)], ARRAY[NULL, FALSE]) != MAP(ARRAY[from_unixtime(100), from_unixtime(1)], ARRAY[FALSE, NULL])", BOOLEAN, null);
-        assertFunction("MAP(ARRAY[from_unixtime(1), from_unixtime(100)], ARRAY[TRUE, NULL]) != MAP(ARRAY[from_unixtime(100), from_unixtime(1)], ARRAY[TRUE, NULL])", BOOLEAN, null);
+        assertFunction("MAP(ARRAY[TIMESTAMP '1970-01-01 00:00:01', TIMESTAMP '1970-01-01 00:02:00'], ARRAY[NULL, FALSE]) != MAP(ARRAY[TIMESTAMP '1970-01-01 00:02:00', TIMESTAMP '1970-01-01 00:00:01'], ARRAY[FALSE, NULL])", BOOLEAN, null);
+        assertFunction("MAP(ARRAY[TIMESTAMP '1970-01-01 00:00:01', TIMESTAMP '1970-01-01 00:02:00'], ARRAY[TRUE, NULL]) != MAP(ARRAY[TIMESTAMP '1970-01-01 00:02:00', TIMESTAMP '1970-01-01 00:00:01'], ARRAY[TRUE, NULL])", BOOLEAN, null);
         assertFunction("MAP(ARRAY [1.0, 383838383838383.12324234234234], ARRAY [2.2, null]) != MAP(ARRAY [1.0, 383838383838383.12324234234234], ARRAY [2.2, null])", BOOLEAN, null);
         assertFunction("MAP(ARRAY [1.0, 2.1], ARRAY [null, null]) != MAP(ARRAY [1.0, 2.1], ARRAY [null, null])", BOOLEAN, null);
     }
@@ -923,11 +938,6 @@ public class TestMapOperators
         long hashResult = mapType.hash(mapArrayBuilder.build(), 0);
 
         assertOperator(HASH_CODE, inputString, BIGINT, hashResult);
-    }
-
-    private static SqlTimestamp sqlTimestamp(long millisUtc)
-    {
-        return new SqlTimestamp(millisUtc, TEST_SESSION.getTimeZoneKey());
     }
 
     private static Type entryType(Type keyType, Type valueType)

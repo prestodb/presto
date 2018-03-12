@@ -22,7 +22,6 @@ import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.RowType;
-import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.SemanticErrorCode;
@@ -40,7 +39,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -118,9 +116,9 @@ public class TestRowOperators
                 "[\"2001-08-22\",\"2001-08-23\",null]");
 
         assertFunction(
-                "CAST(ROW(from_unixtime(1), cast(null as TIMESTAMP)) AS JSON)",
+                "CAST(ROW(TIMESTAMP '2000-01-02 03:04:05', cast(null as TIMESTAMP)) AS JSON)",
                 JSON,
-                format("[\"%s\",null]", sqlTimestamp(1000).toString()));
+                "[\"2000-01-02 03:04:05.000\",null]");
 
         assertFunction(
                 "cast(ROW(ARRAY[1, 2], ARRAY[3, null], ARRAY[], ARRAY[null, null], CAST(null AS ARRAY<BIGINT>)) AS JSON)",
@@ -379,8 +377,8 @@ public class TestRowOperators
         assertFunction("row(1, 'cat') IS DISTINCT FROM row(1, 'cat')", BOOLEAN, false);
         assertFunction("row(1, ARRAY [1]) IS DISTINCT FROM row(1, ARRAY [1])", BOOLEAN, false);
         assertFunction("row(1, ARRAY [1, 2]) IS DISTINCT FROM row(1, ARRAY [1, NULL])", BOOLEAN, true);
-        assertFunction("row(1, 2.0E0, TRUE, 'cat', from_unixtime(1)) IS DISTINCT FROM row(1, 2.0E0, TRUE, 'cat', from_unixtime(1))", BOOLEAN, false);
-        assertFunction("row(1, 2.0E0, TRUE, 'cat', from_unixtime(1)) IS DISTINCT FROM row(1, 2.0E0, TRUE, 'cat', from_unixtime(2))", BOOLEAN, true);
+        assertFunction("row(1, 2.0E0, TRUE, 'cat', TIMESTAMP '1970-01-01 00:00:01') IS DISTINCT FROM row(1, 2.0E0, TRUE, 'cat', TIMESTAMP '1970-01-01 00:00:01')", BOOLEAN, false);
+        assertFunction("row(1, 2.0E0, TRUE, 'cat', TIMESTAMP '1970-01-01 00:00:01') IS DISTINCT FROM row(1, 2.0E0, TRUE, 'cat', TIMESTAMP '1970-01-01 00:00:02')", BOOLEAN, true);
         assertFunction("row(1, 2.0E0, TRUE, 'cat', CAST(NULL AS INTEGER)) IS DISTINCT FROM row(1, 2.0E0, TRUE, 'cat', 2)", BOOLEAN, true);
         assertFunction("row(1, 2.0E0, TRUE, 'cat', CAST(NULL AS INTEGER)) IS DISTINCT FROM row(1, 2.0E0, TRUE, 'cat', CAST(NULL AS INTEGER))", BOOLEAN, false);
         assertFunction("row(1, 2.0E0, TRUE, 'cat') IS DISTINCT FROM row(1, 2.0E0, TRUE, CAST(NULL AS VARCHAR(3)))", BOOLEAN, true);
@@ -403,7 +401,7 @@ public class TestRowOperators
         assertComparisonCombination("row(1.0E0, 'kittens')", "row(1.0E0, 'puppies')");
         assertComparisonCombination("row(1, 2.0E0)", "row(5, 2.0E0)");
         assertComparisonCombination("row(TRUE, FALSE, TRUE, FALSE)", "row(TRUE, TRUE, TRUE, FALSE)");
-        assertComparisonCombination("row(1, 2.0E0, TRUE, 'kittens', from_unixtime(1))", "row(1, 3.0E0, TRUE, 'kittens', from_unixtime(1))");
+        assertComparisonCombination("row(1, 2.0E0, TRUE, 'kittens', TIMESTAMP '1970-01-01 00:00:01')", "row(1, 3.0E0, TRUE, 'kittens', TIMESTAMP '1970-01-01 00:00:01')");
 
         assertInvalidFunction("cast(row(cast(cast ('' as varbinary) as hyperloglog)) as row(col0 hyperloglog)) = cast(row(cast(cast ('' as varbinary) as hyperloglog)) as row(col0 hyperloglog))",
                 SemanticErrorCode.TYPE_MISMATCH, "line 1:81: '=' cannot be applied to row(col0 HyperLogLog), row(col0 HyperLogLog)");
@@ -462,10 +460,5 @@ public class TestRowOperators
             assertFunction(base + operator + greater, BOOLEAN, lessOrInequalityOperators.contains(operator));
             assertFunction(greater + operator + base, BOOLEAN, greaterOrInequalityOperators.contains(operator));
         }
-    }
-
-    private static SqlTimestamp sqlTimestamp(long millisUtc)
-    {
-        return new SqlTimestamp(millisUtc, TEST_SESSION.getTimeZoneKey());
     }
 }

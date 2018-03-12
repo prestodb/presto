@@ -46,9 +46,13 @@ import org.joda.time.LocalTime;
 import org.testng.annotations.Test;
 
 import java.math.BigInteger;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
@@ -369,21 +373,21 @@ public class TestExpressionInterpreter
     @Test
     public void testExtract()
     {
-        DateTime dateTime = new DateTime(2001, 8, 22, 3, 4, 5, 321, DateTimeZone.UTC);
-        double seconds = dateTime.getMillis() / 1000.0;
+        ZonedDateTime dateTime = ZonedDateTime.of(2001, 8, 22, 3, 4, 5, 321, ZoneOffset.ofHoursMinutes(7, 9));
+        String dateTimeLiteral = dateTime.format(DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss.SSS ZZZ"));
 
-        assertOptimizedEquals("extract (YEAR from from_unixtime(" + seconds + "))", "2001");
-        assertOptimizedEquals("extract (QUARTER from from_unixtime(" + seconds + "))", "3");
-        assertOptimizedEquals("extract (MONTH from from_unixtime(" + seconds + "))", "8");
-        assertOptimizedEquals("extract (WEEK from from_unixtime(" + seconds + "))", "34");
-        assertOptimizedEquals("extract (DOW from from_unixtime(" + seconds + "))", "3");
-        assertOptimizedEquals("extract (DOY from from_unixtime(" + seconds + "))", "234");
-        assertOptimizedEquals("extract (DAY from from_unixtime(" + seconds + "))", "22");
-        assertOptimizedEquals("extract (HOUR from from_unixtime(" + seconds + "))", "3");
-        assertOptimizedEquals("extract (MINUTE from from_unixtime(" + seconds + "))", "4");
-        assertOptimizedEquals("extract (SECOND from from_unixtime(" + seconds + "))", "5");
-        assertOptimizedEquals("extract (TIMEZONE_HOUR from from_unixtime(" + seconds + ", 7, 9))", "7");
-        assertOptimizedEquals("extract (TIMEZONE_MINUTE from from_unixtime(" + seconds + ", 7, 9))", "9");
+        assertOptimizedEquals("extract (YEAR from TIMESTAMP '" + dateTimeLiteral + "')", "2001");
+        assertOptimizedEquals("extract (QUARTER from TIMESTAMP '" + dateTimeLiteral + "')", "3");
+        assertOptimizedEquals("extract (MONTH from TIMESTAMP '" + dateTimeLiteral + "')", "8");
+        assertOptimizedEquals("extract (WEEK from TIMESTAMP '" + dateTimeLiteral + "')", "34");
+        assertOptimizedEquals("extract (DOW from TIMESTAMP '" + dateTimeLiteral + "')", "3");
+        assertOptimizedEquals("extract (DOY from TIMESTAMP '" + dateTimeLiteral + "')", "234");
+        assertOptimizedEquals("extract (DAY from TIMESTAMP '" + dateTimeLiteral + "')", "22");
+        assertOptimizedEquals("extract (HOUR from TIMESTAMP '" + dateTimeLiteral + "')", "3");
+        assertOptimizedEquals("extract (MINUTE from TIMESTAMP '" + dateTimeLiteral + "')", "4");
+        assertOptimizedEquals("extract (SECOND from TIMESTAMP '" + dateTimeLiteral + "')", "5");
+        assertOptimizedEquals("extract (TIMEZONE_HOUR from TIMESTAMP '" + dateTimeLiteral + "')", "7");
+        assertOptimizedEquals("extract (TIMEZONE_MINUTE from TIMESTAMP '" + dateTimeLiteral + "')", "9");
 
         assertOptimizedEquals("extract (YEAR from bound_timestamp)", "2001");
         assertOptimizedEquals("extract (QUARTER from bound_timestamp)", "3");
@@ -451,10 +455,12 @@ public class TestExpressionInterpreter
     @Test
     public void testCurrentTimestamp()
     {
-        double current = TEST_SESSION.getStartTime() / 1000.0;
-        assertOptimizedEquals("current_timestamp = from_unixtime(" + current + ")", "true");
-        double future = current + TimeUnit.MINUTES.toSeconds(1);
-        assertOptimizedEquals("current_timestamp > from_unixtime(" + future + ")", "false");
+        LocalDateTime current = LocalDateTime.ofInstant(Instant.ofEpochMilli(TEST_SESSION.getStartTime()), ZoneOffset.UTC);
+        String currentLiteral = current.format(DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss.SSS"));
+        assertOptimizedEquals("current_timestamp = TIMESTAMP '" + currentLiteral + "'", "true");
+        LocalDateTime future = current.plusMinutes(1);
+        String futureLiteral = future.format(DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss.SSS"));
+        assertOptimizedEquals("current_timestamp > TIMESTAMP '" + futureLiteral + "'", "false");
     }
 
     @Test

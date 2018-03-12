@@ -2012,7 +2012,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testNonEqalityJoinWithScalarRequiringSessionParameter()
     {
-        assertQuery("SELECT * FROM (VALUES (1,1), (1,2)) t1(a,b) LEFT OUTER JOIN (VALUES (1,1), (1,2)) t2(c,d) ON a=c AND from_unixtime(b) > current_timestamp",
+        assertQuery("SELECT * FROM (VALUES (1,1), (1,2)) t1(a,b) LEFT OUTER JOIN (VALUES (1,1), (1,2)) t2(c,d) ON a=c AND from_unixtime(b, 0, 0) > current_timestamp",
                 "VALUES (1, 1, NULL, NULL), (1, 2, NULL, NULL)");
     }
 
@@ -2025,7 +2025,7 @@ public abstract class AbstractTestQueries
 
         // use of scalar requiring session parameter within try
         assertQuery("SELECT * FROM (VALUES (1,1), (1,2)) t1(a,b) LEFT OUTER JOIN (VALUES (1,1), (1,2)) t2(c,d) " +
-                        "             ON a=c AND TRY(1 / (b-a) != 1000 OR from_unixtime(b) > current_timestamp)",
+                        "             ON a=c AND TRY(1 / (b-a) != 1000 OR from_unixtime(b, 0, 0) > current_timestamp)",
                 "VALUES (1, 1, NULL, NULL), (1, 2, 1, 1), (1, 2, 1, 2)");
     }
 

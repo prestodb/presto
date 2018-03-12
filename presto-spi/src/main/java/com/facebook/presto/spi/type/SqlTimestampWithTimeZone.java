@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonValue;
 
 import java.time.Instant;
 import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Objects;
 import java.util.TimeZone;
@@ -49,6 +50,13 @@ public final class SqlTimestampWithTimeZone
     {
         this.millisUtc = millisUtc;
         this.timeZoneKey = TimeZoneKey.getTimeZoneKey(timeZone.getID());
+    }
+
+    public static SqlTimestampWithTimeZone of(ZonedDateTime zonedDateTime)
+    {
+        return new SqlTimestampWithTimeZone(
+                zonedDateTime.toEpochSecond() * 1000 + zonedDateTime.getNano() / 1_000_000,
+                TimeZoneKey.getTimeZoneKey(zonedDateTime.getZone().getId()));
     }
 
     public long getMillisUtc()
