@@ -204,6 +204,7 @@ public class TestArrayOperators
                 JSON,
                 "[123,3.14,false,\"abc\",[1,\"a\",null],{\"a\":1,\"b\":\"str\",\"c\":null},null,null]");
 
+        // This test case is repeated in TestTimestampBase.testCastFromStructuralTypesToJson to make sure it works with both legacy and fixed Timestamp semantics
         assertFunction(
                 "CAST(ARRAY[TIMESTAMP '2000-01-02 03:04:05', null] AS JSON)",
                 JSON,

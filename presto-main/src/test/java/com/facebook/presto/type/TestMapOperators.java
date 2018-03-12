@@ -236,6 +236,7 @@ public class TestMapOperators
                 JSON,
                 "{\"1\":123,\"13\":{\"a\":1,\"b\":\"str\",\"c\":null},\"2\":3.14,\"21\":null,\"3\":false,\"34\":null,\"5\":\"abc\",\"8\":[1,\"a\",null]}");
 
+        // This test case is repeated in TestTimestampBase.testCastFromStructuralTypesToJson to make sure it works with both legacy and fixed Timestamp semantics
         assertFunction(
                 "CAST(MAP(ARRAY[1, 2], ARRAY[TIMESTAMP '2000-01-02 03:04:05', null]) AS JSON)",
                 JSON,

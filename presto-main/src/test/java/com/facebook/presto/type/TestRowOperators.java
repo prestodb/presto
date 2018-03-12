@@ -115,6 +115,7 @@ public class TestRowOperators
                 JSON,
                 "[\"2001-08-22\",\"2001-08-23\",null]");
 
+        // This test case is repeated in TestTimestampBase.testCastFromStructuralTypesToJson to make sure it works with both legacy and fixed Timestamp semantics
         assertFunction(
                 "CAST(ROW(TIMESTAMP '2000-01-02 03:04:05', cast(null as TIMESTAMP)) AS JSON)",
                 JSON,

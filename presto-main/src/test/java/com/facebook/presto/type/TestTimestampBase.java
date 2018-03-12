@@ -222,6 +222,25 @@ public abstract class TestTimestampBase
     }
 
     @Test
+    public void testCastFromStructuralTypesToJson()
+    {
+        // Tests for cast from structural types to json are primarily in TestRow/Array/MapOperators.testXToJson.
+        // These 3 test cases are repeated here to make sure it works with both legacy and fixed timestamp semantics.
+        assertFunction(
+                "CAST(ROW(TIMESTAMP '2000-01-02 03:04:05', cast(null as TIMESTAMP)) AS JSON)",
+                JSON,
+                "[\"2000-01-02 03:04:05.000\",null]");
+        assertFunction(
+                "CAST(ARRAY[TIMESTAMP '2000-01-02 03:04:05', null] AS JSON)",
+                JSON,
+                "[\"2000-01-02 03:04:05.000\",null]");
+        assertFunction(
+                "CAST(ARRAY[TIMESTAMP '2000-01-02 03:04:05', null] AS JSON)",
+                JSON,
+                "[\"2000-01-02 03:04:05.000\",null]");
+    }
+
+    @Test
     public void testCastFromSlice()
     {
         assertFunction("cast('2001-1-22 03:04:05.321' as timestamp)",
