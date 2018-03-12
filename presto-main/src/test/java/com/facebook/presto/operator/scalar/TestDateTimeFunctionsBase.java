@@ -24,6 +24,7 @@ import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.spi.type.TimeType;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.facebook.presto.type.SqlIntervalDayTime;
 import com.google.common.collect.ImmutableList;
@@ -45,6 +46,7 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.SystemSessionProperties.LEGACY_TIMESTAMP;
 import static com.facebook.presto.SystemSessionProperties.isLegacyTimestamp;
 import static com.facebook.presto.operator.scalar.DateTimeFunctions.currentDate;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -105,6 +107,7 @@ public abstract class TestDateTimeFunctionsBase
     protected static final LocalDateTime TIMESTAMP_WO_TZ = LocalDateTime.of(2001, 8, 22, 3, 4, 5, 321_000_000);
     protected static final DateTime TIMESTAMP_WITH_NUMERICAL_ZONE = new DateTime(2001, 8, 22, 3, 4, 5, 321, DATE_TIME_ZONE_NUMERICAL);
     protected static final String TIMESTAMP_WO_TZ_LITERAL = "TIMESTAMP '2001-08-22 03:04:05.321'";
+    protected static final String TIMESTAMP_WO_TZ_ISO8601_STRING = "2001-08-22T03:04:05.321";
     protected static final String TIMESTAMP_WITH_NUMERICAL_ZONE_ISO8601_STRING = "2001-08-22T03:04:05.321+05:45";
     protected static final DateTime WEIRD_TIMESTAMP = new DateTime(2001, 8, 22, 3, 4, 5, 321, WEIRD_ZONE);
     protected static final String WEIRD_TIMESTAMP_LITERAL = "TIMESTAMP '2001-08-22 03:04:05.321 +07:09'";
@@ -115,10 +118,13 @@ public abstract class TestDateTimeFunctionsBase
 
     protected TestDateTimeFunctionsBase(boolean legacyTimestamp)
     {
-        super(testSessionBuilder()
-                .setSystemProperty("legacy_timestamp", String.valueOf(legacyTimestamp))
-                .setTimeZoneKey(TIME_ZONE_KEY)
-                .build());
+        super(
+                testSessionBuilder()
+                        .setTimeZoneKey(TIME_ZONE_KEY)
+                        .setSystemProperty(LEGACY_TIMESTAMP, String.valueOf(legacyTimestamp))
+                        .build(),
+                new FeaturesConfig()
+                        .setLegacyTimestamp(legacyTimestamp));
     }
 
     @BeforeClass

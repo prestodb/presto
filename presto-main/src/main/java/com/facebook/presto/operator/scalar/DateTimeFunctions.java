@@ -467,16 +467,11 @@ public final class DateTimeFunctions
             @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone,
             @SqlType("varchar(x)") Slice formatString)
     {
-        return doFormatDatetime(unpackChronology(timestampWithTimeZone), session.getLocale(), unpackMillisUtc(timestampWithTimeZone), formatString);
-    }
-
-    static Slice doFormatDatetime(ISOChronology chronology, Locale locale, long timestamp, Slice formatString)
-    {
         try {
-            return utf8Slice(DateTimeFormat.forPattern(formatString.toStringUtf8())
-                    .withChronology(chronology)
-                    .withLocale(locale)
-                    .print(timestamp));
+            return utf8Slice(JodaDateTimeFormat.forPattern(formatString.toStringUtf8())
+                    .withChronology(unpackChronology(timestampWithTimeZone))
+                    .withLocale(session.getLocale())
+                    .print(unpackMillisUtc(timestampWithTimeZone)));
         }
         catch (IllegalArgumentException e) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
