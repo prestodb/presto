@@ -222,17 +222,12 @@ public class TestSequenceFunction
                 "result of sequence function must not have more than 10000 entries");
     }
 
-    private static SqlTimestamp sqlTimestamp(long millisUtc)
-    {
-        return new SqlTimestamp(millisUtc, TEST_SESSION.getTimeZoneKey());
-    }
-
     private static SqlTimestamp sqlTimestamp(String dateString)
             throws ParseException
     {
         DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
         dateFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
-        return sqlTimestamp(dateFormat.parse(dateString).getTime());
+        return new SqlTimestamp(dateFormat.parse(dateString).getTime(), TEST_SESSION.getTimeZoneKey());
     }
 
     private static SqlDate sqlDate(String dateString)

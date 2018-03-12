@@ -15,8 +15,12 @@ package com.facebook.presto.spi.type;
 
 import com.fasterxml.jackson.annotation.JsonValue;
 
+import javax.annotation.Nullable;
+
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.Objects;
 
@@ -26,20 +30,59 @@ public final class SqlTimestamp
     public static final String JSON_FORMAT = "uuuu-MM-dd HH:mm:ss.SSS";
     private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern(JSON_FORMAT);
 
-    private final long millisUtc;
+    private final long millis;
+    @Nullable
     private final TimeZoneKey sessionTimeZoneKey;
 
+    public static SqlTimestamp of(long millisLocal)
+    {
+        return new SqlTimestamp(millisLocal);
+    }
+
+    @Deprecated
+    public static SqlTimestamp ofLegacy(long millisUtc, TimeZoneKey sessionTimeZoneKey)
+    {
+        return new SqlTimestamp(millisUtc, sessionTimeZoneKey);
+    }
+
+    public SqlTimestamp(long millisLocal)
+    {
+        this.millis = millisLocal;
+        this.sessionTimeZoneKey = null;
+    }
+
+    @Deprecated
     public SqlTimestamp(long millisUtc, TimeZoneKey sessionTimeZoneKey)
     {
-        this.millisUtc = millisUtc;
+        this.millis = millisUtc;
         this.sessionTimeZoneKey = sessionTimeZoneKey;
     }
 
-    public long getMillisUtc()
+    public static SqlTimestamp of(LocalDateTime localDateTime)
     {
-        return millisUtc;
+        return new SqlTimestamp(localDateTime.toEpochSecond(ZoneOffset.UTC) * 1000 + localDateTime.getNano() / 1_000_000);
     }
 
+    public boolean isLegacy()
+    {
+        return sessionTimeZoneKey != null;
+    }
+
+    public long getMillis()
+    {
+        return millis;
+    }
+
+    @Deprecated
+    public long getMillisUtc()
+    {
+        if (!isLegacy()) {
+            throw new IllegalStateException("millisUtc is only present in legacy SqlTimestamp");
+        }
+        return millis;
+    }
+
+    @Deprecated
     public TimeZoneKey getSessionTimeZoneKey()
     {
         return sessionTimeZoneKey;
@@ -48,7 +91,7 @@ public final class SqlTimestamp
     @Override
     public int hashCode()
     {
-        return Objects.hash(millisUtc, sessionTimeZoneKey);
+        return Objects.hash(millis, sessionTimeZoneKey);
     }
 
     @Override
@@ -61,7 +104,7 @@ public final class SqlTimestamp
             return false;
         }
         SqlTimestamp other = (SqlTimestamp) obj;
-        return Objects.equals(this.millisUtc, other.millisUtc) &&
+        return Objects.equals(this.millis, other.millis) &&
                 Objects.equals(this.sessionTimeZoneKey, other.sessionTimeZoneKey);
     }
 
@@ -69,6 +112,11 @@ public final class SqlTimestamp
     @Override
     public String toString()
     {
-        return Instant.ofEpochMilli(millisUtc).atZone(ZoneId.of(sessionTimeZoneKey.getId())).format(formatter);
+        if (isLegacy()) {
+            return Instant.ofEpochMilli(millis).atZone(ZoneId.of(sessionTimeZoneKey.getId())).format(formatter);
+        }
+        else {
+            return LocalDateTime.ofEpochSecond(Math.floorDiv(millis, 1000), 1_000_000 * (int) Math.floorMod(millis, 1000), ZoneOffset.UTC).format(formatter);
+        }
     }
 }

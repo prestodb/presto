@@ -282,7 +282,7 @@ public class MaterializedResult
             type.writeLong(blockBuilder, packDateTimeWithZone(millisUtc, timeZoneKey));
         }
         else if (TIMESTAMP.equals(type)) {
-            long millisUtc = ((SqlTimestamp) value).getMillisUtc();
+            long millisUtc = ((SqlTimestamp) value).getMillis();
             type.writeLong(blockBuilder, millisUtc);
         }
         else if (TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
@@ -361,7 +361,7 @@ public class MaterializedResult
                         zone);
             }
             else if (prestoValue instanceof SqlTimestamp) {
-                convertedValue = Instant.ofEpochMilli(((SqlTimestamp) prestoValue).getMillisUtc())
+                convertedValue = Instant.ofEpochMilli(((SqlTimestamp) prestoValue).getMillis())
                         .atZone(ZoneOffset.UTC)
                         .toLocalDateTime();
             }
