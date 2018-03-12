@@ -31,6 +31,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.sql.FunctionInvoker;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
@@ -142,13 +143,13 @@ import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static com.facebook.presto.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static com.facebook.presto.type.JsonType.JSON;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
-import static com.facebook.presto.util.DateTimeUtils.parseTimestampLiteral;
 import static com.facebook.presto.util.DateTimeUtils.timeHasTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.timestampHasTimeZone;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Collections.unmodifiableSet;
@@ -160,6 +161,7 @@ public class ExpressionAnalyzer
     private static final int MAX_NUMBER_GROUPING_ARGUMENTS_INTEGER = 31;
 
     private final FunctionRegistry functionRegistry;
+    private final FunctionInvoker functionInvoker;
     private final TypeManager typeManager;
     private final Function<Node, StatementAnalyzer> statementAnalyzerFactory;
     private final Map<Symbol, Type> symbolTypes;
@@ -191,6 +193,7 @@ public class ExpressionAnalyzer
             boolean isDescribe)
     {
         this.functionRegistry = requireNonNull(functionRegistry, "functionRegistry is null");
+        this.functionInvoker = new FunctionInvoker(functionRegistry);
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.statementAnalyzerFactory = requireNonNull(statementAnalyzerFactory, "statementAnalyzerFactory is null");
         this.session = requireNonNull(session, "session is null");
@@ -707,7 +710,18 @@ public class ExpressionAnalyzer
         protected Type visitTimestampLiteral(TimestampLiteral node, StackableAstVisitorContext<Context> context)
         {
             try {
-                parseTimestampLiteral(session.getTimeZoneKey(), node.getValue());
+                try {
+                    Signature signature = functionRegistry.resolveFunction(
+                            QualifiedName.of("$internal$to_timestamp_with_time_zone_strict"),
+                            TypeSignatureProvider.fromTypes(ImmutableList.of(VARCHAR)));
+                    functionInvoker.invoke(signature, session.toConnectorSession(), ImmutableList.of(utf8Slice(node.getValue())));
+                }
+                catch (Exception e) {
+                    Signature signature = functionRegistry.resolveFunction(
+                            QualifiedName.of("$internal$to_timestamp_without_time_zone_strict"),
+                            TypeSignatureProvider.fromTypes(ImmutableList.of(VARCHAR)));
+                    functionInvoker.invoke(signature, session.toConnectorSession(), ImmutableList.of(utf8Slice(node.getValue())));
+                }
             }
             catch (Exception e) {
                 throw new SemanticException(INVALID_LITERAL, node, "'%s' is not a valid timestamp literal", node.getValue());

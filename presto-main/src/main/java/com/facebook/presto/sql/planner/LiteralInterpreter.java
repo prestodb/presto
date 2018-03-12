@@ -28,6 +28,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.sql.FunctionInvoker;
 import com.facebook.presto.sql.analyzer.SemanticException;
+import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BinaryLiteral;
@@ -66,13 +67,11 @@ import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_LITERAL;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static com.facebook.presto.type.JsonType.JSON;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.util.DateTimeUtils.parseDayTimeInterval;
 import static com.facebook.presto.util.DateTimeUtils.parseTime;
-import static com.facebook.presto.util.DateTimeUtils.parseTimestampLiteral;
 import static com.facebook.presto.util.DateTimeUtils.parseYearMonthInterval;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -318,10 +317,16 @@ public final class LiteralInterpreter
         protected Long visitTimestampLiteral(TimestampLiteral node, ConnectorSession session)
         {
             try {
-                return parseTimestampLiteral(session.getTimeZoneKey(), node.getValue());
+                Signature signature = metadata.getFunctionRegistry().resolveFunction(
+                        QualifiedName.of("$internal$to_timestamp_with_time_zone_strict"),
+                        TypeSignatureProvider.fromTypes(ImmutableList.of(VARCHAR)));
+                return (Long) functionInvoker.invoke(signature, session, ImmutableList.of(utf8Slice(node.getValue())));
             }
             catch (Exception e) {
-                throw new SemanticException(INVALID_LITERAL, node, "'%s' is not a valid timestamp literal", node.getValue());
+                Signature signature = metadata.getFunctionRegistry().resolveFunction(
+                        QualifiedName.of("$internal$to_timestamp_without_time_zone_strict"),
+                        TypeSignatureProvider.fromTypes(ImmutableList.of(VARCHAR)));
+                return (Long) functionInvoker.invoke(signature, session, ImmutableList.of(utf8Slice(node.getValue())));
             }
         }
 

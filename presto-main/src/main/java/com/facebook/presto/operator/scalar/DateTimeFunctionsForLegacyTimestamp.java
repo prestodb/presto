@@ -31,7 +31,9 @@ import static com.facebook.presto.operator.scalar.DateTimeFunctions.doFormatDate
 import static com.facebook.presto.operator.scalar.DateTimeFunctions.getTimestampField;
 import static com.facebook.presto.operator.scalar.QuarterOfYearDateTimeField.QUARTER_OF_YEAR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithoutTimeZoneStrictForLegacyTimestamp;
 import static com.facebook.presto.util.DateTimeZoneIndex.getChronology;
+import static io.airlift.slice.SliceUtf8.trim;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Math.toIntExact;
 
@@ -229,5 +231,17 @@ public final class DateTimeFunctionsForLegacyTimestamp
     public static long yearFromTimestamp(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP) long timestamp)
     {
         return getChronology(session.getTimeZoneKey()).year().get(timestamp);
+    }
+
+    @ScalarFunction("$internal$to_timestamp_without_time_zone_strict")
+    @SqlType(StandardTypes.TIMESTAMP)
+    public static long toTimestampWithoutTimeZoneStrict(ConnectorSession session, @SqlType(StandardTypes.VARCHAR) Slice value)
+    {
+        try {
+            return parseTimestampWithoutTimeZoneStrictForLegacyTimestamp(session.getTimeZoneKey(), trim(value).toStringUtf8());
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Value cannot be cast to timestamp with time zone: " + value.toStringUtf8(), e);
+        }
     }
 }

@@ -43,11 +43,13 @@ import static com.facebook.presto.spi.type.DateTimeEncoding.unpackZoneKey;
 import static com.facebook.presto.spi.type.DateTimeEncoding.updateMillisUtc;
 import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
 import static com.facebook.presto.type.DateTimeOperators.modulo24Hour;
+import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithTimeZoneStrict;
 import static com.facebook.presto.util.DateTimeZoneIndex.extractZoneOffsetMinutes;
 import static com.facebook.presto.util.DateTimeZoneIndex.getChronology;
 import static com.facebook.presto.util.DateTimeZoneIndex.packDateTimeWithZone;
 import static com.facebook.presto.util.DateTimeZoneIndex.unpackChronology;
 import static com.facebook.presto.util.Failures.checkCondition;
+import static io.airlift.slice.SliceUtf8.trim;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Math.toIntExact;
 import static java.util.Locale.ENGLISH;
@@ -912,5 +914,17 @@ public final class DateTimeFunctions
     public static long toMilliseconds(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long value)
     {
         return value;
+    }
+
+    @ScalarFunction("$internal$to_timestamp_with_time_zone_strict")
+    @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)
+    public static long toTimestampWithTimeZoneStrict(@SqlType(StandardTypes.VARCHAR) Slice value)
+    {
+        try {
+            return parseTimestampWithTimeZoneStrict(trim(value).toStringUtf8());
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Value cannot be cast to timestamp with time zone: " + value.toStringUtf8(), e);
+        }
     }
 }

@@ -1260,12 +1260,6 @@ public class TestExpressionCompiler
         assertExecute("bound_string in ('hello', " + stringValues + ")", BOOLEAN, true);
         assertExecute("bound_string in (" + stringValues + ")", BOOLEAN, false);
 
-        String timestampValues = range(0, 2_000)
-                .mapToObj(i -> format("TIMESTAMP '1970-01-01 01:01:%02d.%03d'", i / 1000, i % 1000))
-                .collect(joining(", "));
-        assertExecute("bound_timestamp_with_timezone in (" + timestampValues + ")", BOOLEAN, true);
-        assertExecute("bound_timestamp_with_timezone in (TIMESTAMP '1970-01-01 01:01:00.0+02:00')", BOOLEAN, false);
-
         Futures.allAsList(futures).get();
     }
 

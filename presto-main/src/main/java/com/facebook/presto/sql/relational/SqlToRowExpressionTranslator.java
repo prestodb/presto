@@ -86,6 +86,7 @@ import static com.facebook.presto.spi.type.CharType.createCharType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
@@ -118,8 +119,6 @@ import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
 import static com.facebook.presto.util.DateTimeUtils.parseDayTimeInterval;
 import static com.facebook.presto.util.DateTimeUtils.parseTimeWithTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.parseTimeWithoutTimeZone;
-import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithTimeZone;
-import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithoutTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.parseYearMonthInterval;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -276,15 +275,22 @@ public final class SqlToRowExpressionTranslator
         @Override
         protected RowExpression visitTimestampLiteral(TimestampLiteral node, Void context)
         {
-            long value;
-            if (getType(node).equals(TIMESTAMP_WITH_TIME_ZONE)) {
-                value = parseTimestampWithTimeZone(timeZoneKey, node.getValue());
+            Type type = getType(node);
+            if (type.equals(TIMESTAMP_WITH_TIME_ZONE)) {
+                return call(
+                        new Signature("$internal$to_timestamp_with_time_zone_strict", SCALAR, TIMESTAMP_WITH_TIME_ZONE.getTypeSignature(), VARCHAR.getTypeSignature()),
+                        TIMESTAMP_WITH_TIME_ZONE,
+                        constant(utf8Slice(node.getValue()), VARCHAR));
+            }
+            else if (type.equals(TIMESTAMP)) {
+                return call(
+                        new Signature("$internal$to_timestamp_without_time_zone_strict", SCALAR, TIMESTAMP.getTypeSignature(), VARCHAR.getTypeSignature()),
+                        TIMESTAMP,
+                        constant(utf8Slice(node.getValue()), VARCHAR));
             }
             else {
-                // parse in time zone of client
-                value = parseTimestampWithoutTimeZone(timeZoneKey, node.getValue());
+                throw new IllegalArgumentException();
             }
-            return constant(value, getType(node));
         }
 
         @Override

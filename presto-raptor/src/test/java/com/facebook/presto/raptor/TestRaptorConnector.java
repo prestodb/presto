@@ -68,7 +68,7 @@ import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKey;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.facebook.presto.util.DateTimeUtils.parseDate;
-import static com.facebook.presto.util.DateTimeUtils.parseTimestampLiteral;
+import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithoutTimeZoneForLegacyTimestamp;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static java.util.Locale.ENGLISH;
@@ -242,8 +242,8 @@ public class TestRaptorConnector
         Object timestamp1 = null;
         Object timestamp2 = null;
         if (temporalType.equals(TIMESTAMP)) {
-            timestamp1 = new SqlTimestamp(parseTimestampLiteral(getTimeZoneKey(userTimeZone), min), getTimeZoneKey(userTimeZone));
-            timestamp2 = new SqlTimestamp(parseTimestampLiteral(getTimeZoneKey(userTimeZone), max), getTimeZoneKey(userTimeZone));
+            timestamp1 = new SqlTimestamp(parseTimestampWithoutTimeZoneForLegacyTimestamp(getTimeZoneKey(userTimeZone), min), getTimeZoneKey(userTimeZone));
+            timestamp2 = new SqlTimestamp(parseTimestampWithoutTimeZoneForLegacyTimestamp(getTimeZoneKey(userTimeZone), max), getTimeZoneKey(userTimeZone));
         }
         else if (temporalType.equals(DATE)) {
             timestamp1 = new SqlDate(parseDate(min));

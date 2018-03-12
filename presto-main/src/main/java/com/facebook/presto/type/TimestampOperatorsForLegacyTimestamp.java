@@ -37,8 +37,8 @@ import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static com.facebook.presto.spi.type.StandardTypes.JSON;
 import static com.facebook.presto.spi.type.StandardTypes.TIMESTAMP;
 import static com.facebook.presto.type.DateTimeOperators.modulo24Hour;
-import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithoutTimeZone;
-import static com.facebook.presto.util.DateTimeUtils.printTimestampWithoutTimeZone;
+import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithoutTimeZoneForLegacyTimestamp;
+import static com.facebook.presto.util.DateTimeUtils.printTimestampWithoutTimeZoneForLegacyTimestamp;
 import static com.facebook.presto.util.DateTimeZoneIndex.getChronology;
 import static com.facebook.presto.util.JsonUtil.createJsonGenerator;
 import static io.airlift.slice.SliceUtf8.trim;
@@ -125,7 +125,7 @@ public final class TimestampOperatorsForLegacyTimestamp
     @SqlType("varchar(x)")
     public static Slice castToSlice(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP) long value)
     {
-        return utf8Slice(printTimestampWithoutTimeZone(session.getTimeZoneKey(), value));
+        return utf8Slice(printTimestampWithoutTimeZoneForLegacyTimestamp(session.getTimeZoneKey(), value));
     }
 
     @ScalarOperator(CAST)
@@ -134,7 +134,7 @@ public final class TimestampOperatorsForLegacyTimestamp
     public static long castFromSlice(ConnectorSession session, @SqlType("varchar(x)") Slice value)
     {
         try {
-            return parseTimestampWithoutTimeZone(session.getTimeZoneKey(), trim(value).toStringUtf8());
+            return parseTimestampWithoutTimeZoneForLegacyTimestamp(session.getTimeZoneKey(), trim(value).toStringUtf8());
         }
         catch (IllegalArgumentException e) {
             throw new PrestoException(INVALID_CAST_ARGUMENT, "Value cannot be cast to timestamp: " + value.toStringUtf8(), e);
@@ -148,7 +148,7 @@ public final class TimestampOperatorsForLegacyTimestamp
         try {
             SliceOutput output = new DynamicSliceOutput(25);
             try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_FACTORY, output)) {
-                jsonGenerator.writeString(printTimestampWithoutTimeZone(session.getTimeZoneKey(), value));
+                jsonGenerator.writeString(printTimestampWithoutTimeZoneForLegacyTimestamp(session.getTimeZoneKey(), value));
             }
             return output.slice();
         }

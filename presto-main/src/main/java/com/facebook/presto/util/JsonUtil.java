@@ -73,7 +73,7 @@ import static com.facebook.presto.type.JsonType.JSON;
 import static com.facebook.presto.type.TypeUtils.hashPosition;
 import static com.facebook.presto.type.TypeUtils.positionEqualsPosition;
 import static com.facebook.presto.util.DateTimeUtils.printDate;
-import static com.facebook.presto.util.DateTimeUtils.printTimestampWithoutTimeZone;
+import static com.facebook.presto.util.DateTimeUtils.printTimestampWithoutTimeZoneForLegacyTimestamp;
 import static com.facebook.presto.util.JsonUtil.ObjectKeyProvider.createObjectKeyProvider;
 import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
 import static com.fasterxml.jackson.core.JsonToken.END_ARRAY;
@@ -495,7 +495,7 @@ public final class JsonUtil
             }
             else {
                 long value = TIMESTAMP.getLong(block, position);
-                jsonGenerator.writeString(printTimestampWithoutTimeZone(session.getTimeZoneKey(), value));
+                jsonGenerator.writeString(printTimestampWithoutTimeZoneForLegacyTimestamp(session.getTimeZoneKey(), value));
             }
         }
     }

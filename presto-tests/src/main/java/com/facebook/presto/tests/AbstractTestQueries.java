@@ -4331,6 +4331,12 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT orderkey FROM orders WHERE orderkey IN (" + longValues + ")");
         assertQuery("SELECT orderkey FROM orders WHERE orderkey NOT IN (" + longValues + ")");
 
+        String timestampValues = range(0, 5_000)
+                .mapToObj(i -> format("TIMESTAMP '2000-01-01 01:01:%02d.%03d'", i / 1000, i % 1000))
+                .collect(joining(", "));
+        assertQuery("SELECT TIMESTAMP '2000-01-01 01:02:03.456' in (TIMESTAMP '2000-01-01 01:02:03.456', " + timestampValues + ")", "values true");
+        assertQuery("SELECT TIMESTAMP '2000-01-01 01:02:03.456' in (" + timestampValues + ")", "values false");
+
         String arrayValues = range(0, 5000)
                 .mapToObj(i -> format("ARRAY[%s, %s, %s]", i, i + 1, i + 2))
                 .collect(joining(", "));

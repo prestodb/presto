@@ -47,7 +47,7 @@ import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.util.DateTimeUtils.parseTime;
 import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithTimeZone;
-import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithoutTimeZone;
+import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithoutTimeZoneForLegacyTimestamp;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
@@ -169,7 +169,7 @@ public class RedisLoader
                 return ISO8601_FORMATTER.print(parseTime(timeZoneKey, (String) value));
             }
             if (TIMESTAMP.equals(type)) {
-                return ISO8601_FORMATTER.print(parseTimestampWithoutTimeZone(timeZoneKey, (String) value));
+                return ISO8601_FORMATTER.print(parseTimestampWithoutTimeZoneForLegacyTimestamp(timeZoneKey, (String) value));
             }
             if (TIME_WITH_TIME_ZONE.equals(type) || TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
                 return ISO8601_FORMATTER.print(unpackMillisUtc(parseTimestampWithTimeZone(timeZoneKey, (String) value)));
