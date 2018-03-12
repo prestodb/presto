@@ -104,6 +104,23 @@ STORED AS RCFILE
 TBLPROPERTIES ('RETENTION'='-1')
 ;
 
+CREATE TABLE presto_test_bucketed_by_string_int_with_disabled_bucketing (
+  t_string STRING,
+  t_tinyint TINYINT,
+  t_smallint SMALLINT,
+  t_int INT,
+  t_bigint BIGINT,
+  t_float FLOAT,
+  t_double DOUBLE,
+  t_boolean BOOLEAN
+)
+COMMENT 'Presto test bucketed table'
+PARTITIONED BY (ds STRING)
+CLUSTERED BY (t_string, t_int) INTO 32 BUCKETS
+STORED AS RCFILE
+TBLPROPERTIES ('RETENTION'='-1')
+;
+
 CREATE TABLE presto_test_partition_schema_change (
   t_data STRING,
   t_extra STRING
@@ -230,6 +247,14 @@ PARTITION (ds='2012-12-29')
 SELECT t_string, t_tinyint, t_smallint, t_int, t_bigint, t_float, t_double, t_boolean
 FROM tmp_presto_test
 ;
+
+INSERT OVERWRITE TABLE presto_test_bucketed_by_string_int_with_disabled_bucketing
+PARTITION (ds='2012-12-29')
+SELECT t_string, t_tinyint, t_smallint, t_int, t_bigint, t_float, t_double, t_boolean
+FROM tmp_presto_test
+;
+
+ALTER TABLE presto_test_bucketed_by_string_int_with_disabled_bucketing NOT CLUSTERED;
 
 DROP TABLE tmp_presto_test;
 

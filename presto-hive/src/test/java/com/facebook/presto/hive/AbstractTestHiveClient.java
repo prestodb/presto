@@ -398,6 +398,7 @@ public abstract class AbstractTestHiveClient
     protected SchemaTableName tableBucketedStringInt;
     protected SchemaTableName tableBucketedBigintBoolean;
     protected SchemaTableName tableBucketedDoubleFloat;
+    protected SchemaTableName tableBucketedStringIntWithDisabledBucketing;
     protected SchemaTableName tablePartitionSchemaChange;
     protected SchemaTableName tablePartitionSchemaChangeNonCanonical;
 
@@ -458,6 +459,7 @@ public abstract class AbstractTestHiveClient
         tableBucketedStringInt = new SchemaTableName(database, "presto_test_bucketed_by_string_int");
         tableBucketedBigintBoolean = new SchemaTableName(database, "presto_test_bucketed_by_bigint_boolean");
         tableBucketedDoubleFloat = new SchemaTableName(database, "presto_test_bucketed_by_double_float");
+        tableBucketedStringIntWithDisabledBucketing = new SchemaTableName(database, "presto_test_bucketed_by_string_int_with_disabled_bucketing");
         tablePartitionSchemaChange = new SchemaTableName(database, "presto_test_partition_schema_change");
         tablePartitionSchemaChangeNonCanonical = new SchemaTableName(database, "presto_test_partition_schema_change_non_canonical");
 
@@ -1302,6 +1304,47 @@ public abstract class AbstractTestHiveClient
             Map<String, Integer> columnIndex = indexColumns(columnHandles);
 
             assertTableIsBucketed(tableHandle);
+
+            String testString = "test";
+            Integer testInt = 13;
+            Short testSmallint = 12;
+
+            // Reverse the order of bindings as compared to bucketing order
+            ImmutableMap<ColumnHandle, NullableValue> bindings = ImmutableMap.<ColumnHandle, NullableValue>builder()
+                    .put(columnHandles.get(columnIndex.get("t_int")), NullableValue.of(INTEGER, (long) testInt))
+                    .put(columnHandles.get(columnIndex.get("t_string")), NullableValue.of(createUnboundedVarcharType(), utf8Slice(testString)))
+                    .put(columnHandles.get(columnIndex.get("t_smallint")), NullableValue.of(SMALLINT, (long) testSmallint))
+                    .build();
+
+            MaterializedResult result = readTable(transaction, tableHandle, columnHandles, session, TupleDomain.fromFixedValues(bindings), OptionalInt.of(1), Optional.empty());
+
+            boolean rowFound = false;
+            for (MaterializedRow row : result) {
+                if (testString.equals(row.getField(columnIndex.get("t_string"))) &&
+                        testInt.equals(row.getField(columnIndex.get("t_int"))) &&
+                        testSmallint.equals(row.getField(columnIndex.get("t_smallint")))) {
+                    rowFound = true;
+                }
+            }
+            assertTrue(rowFound);
+        }
+    }
+
+    @Test
+    public void testBucketedTableStringIntWithDisabledBucketing()
+            throws Exception
+    {
+        try (Transaction transaction = newTransaction()) {
+            ConnectorMetadata metadata = transaction.getMetadata();
+            ConnectorSession session = newSession();
+
+            ConnectorTableHandle tableHandle = getTableHandle(metadata, this.tableBucketedStringIntWithDisabledBucketing);
+            List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(session, tableHandle).values());
+            Map<String, Integer> columnIndex = indexColumns(columnHandles);
+
+            // the bucketed test tables should have exactly 32 splits
+            List<ConnectorSplit> splits = getAllSplits(tableHandle, TupleDomain.all());
+            assertEquals(splits.size(), 1);
 
             String testString = "test";
             Integer testInt = 13;
