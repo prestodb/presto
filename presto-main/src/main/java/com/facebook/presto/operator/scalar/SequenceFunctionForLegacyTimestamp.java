@@ -45,6 +45,8 @@ public final class SequenceFunctionForLegacyTimestamp
             @SqlType(StandardTypes.TIMESTAMP) long stop,
             @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long step)
     {
+        // This function is semantically/fundamentally broken with legacy timestamp semantics.
+        // It cannot be fixed.
         return fixedWidthSequence(start, stop, step, TIMESTAMP);
     }
 

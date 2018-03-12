@@ -30,6 +30,8 @@ public final class DateTimeOperatorsForLegacyTimestamp
     @SqlType(StandardTypes.TIMESTAMP)
     public static long timestampPlusIntervalDayToSecond(@SqlType(StandardTypes.TIMESTAMP) long left, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long right)
     {
+        // This function is semantically/fundamentally broken with legacy timestamp semantics.
+        // It cannot be fixed.
         return left + right;
     }
 
@@ -37,6 +39,8 @@ public final class DateTimeOperatorsForLegacyTimestamp
     @SqlType(StandardTypes.TIMESTAMP)
     public static long intervalDayToSecondPlusTimestamp(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long left, @SqlType(StandardTypes.TIMESTAMP) long right)
     {
+        // This function is semantically/fundamentally broken with legacy timestamp semantics.
+        // It cannot be fixed.
         return left + right;
     }
 
@@ -58,6 +62,8 @@ public final class DateTimeOperatorsForLegacyTimestamp
     @SqlType(StandardTypes.TIMESTAMP)
     public static long timestampMinusIntervalDayToSecond(@SqlType(StandardTypes.TIMESTAMP) long left, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long right)
     {
+        // This function is semantically/fundamentally broken with legacy timestamp semantics.
+        // It cannot be fixed.
         return left - right;
     }
 
