@@ -274,12 +274,13 @@ public class Driver
         long maxRuntime = duration.roundTo(TimeUnit.NANOSECONDS);
 
         Optional<ListenableFuture<?>> result = tryWithLock(100, TimeUnit.MILLISECONDS, () -> {
-            driverContext.startProcessTimer();
+            OperationTimer operationTimer = new OperationTimer();
+            driverContext.startProcessTimer(operationTimer);
             driverContext.getYieldSignal().setWithDelay(maxRuntime, driverContext.getYieldExecutor());
             try {
                 long start = System.nanoTime();
                 do {
-                    ListenableFuture<?> future = processInternal();
+                    ListenableFuture<?> future = processInternal(operationTimer);
                     if (!future.isDone()) {
                         return updateDriverBlockedFuture(future);
                     }
@@ -288,7 +289,7 @@ public class Driver
             }
             finally {
                 driverContext.getYieldSignal().reset();
-                driverContext.recordProcessed();
+                operationTimer.end();
             }
             return NOT_BLOCKED;
         });
@@ -306,8 +307,14 @@ public class Driver
         }
 
         Optional<ListenableFuture<?>> result = tryWithLock(100, TimeUnit.MILLISECONDS, () -> {
-            ListenableFuture<?> future = processInternal();
-            return updateDriverBlockedFuture(future);
+            OperationTimer operationTimer = new OperationTimer();
+            try {
+                ListenableFuture<?> future = processInternal(operationTimer);
+                return updateDriverBlockedFuture(future);
+            }
+            finally {
+                operationTimer.end();
+            }
         });
         return result.orElse(NOT_BLOCKED);
     }
@@ -336,7 +343,7 @@ public class Driver
     }
 
     @GuardedBy("exclusiveLock")
-    private ListenableFuture<?> processInternal()
+    private ListenableFuture<?> processInternal(OperationTimer operationTimer)
     {
         checkLockHeld("Lock must be held to call processInternal");
 
@@ -351,9 +358,8 @@ public class Driver
             // Note: finish should not be called on the natural source of the pipeline as this could cause the task to finish early
             if (!activeOperators.isEmpty() && activeOperators.size() != allOperators.size()) {
                 Operator rootOperator = activeOperators.get(0);
-                rootOperator.getOperatorContext().startIntervalTimer();
                 rootOperator.finish();
-                rootOperator.getOperatorContext().recordFinish();
+                rootOperator.getOperatorContext().recordFinish(operationTimer);
             }
 
             boolean movedPage = false;
@@ -369,15 +375,13 @@ public class Driver
                 // if the current operator is not finished and next operator isn't blocked and needs input...
                 if (!current.isFinished() && !getBlockedFuture(next).isPresent() && next.needsInput()) {
                     // get an output page from current operator
-                    current.getOperatorContext().startIntervalTimer();
                     Page page = current.getOutput();
-                    current.getOperatorContext().recordGetOutput(page);
+                    current.getOperatorContext().recordGetOutput(operationTimer, page);
 
                     // if we got an output page, add it to the next operator
                     if (page != null && page.getPositionCount() != 0) {
-                        next.getOperatorContext().startIntervalTimer();
                         next.addInput(page);
-                        next.getOperatorContext().recordAddInput(page);
+                        next.getOperatorContext().recordAddInput(operationTimer, page);
                         movedPage = true;
                     }
 
@@ -389,9 +393,8 @@ public class Driver
                 // if current operator is finished...
                 if (current.isFinished()) {
                     // let next operator know there will be no more data
-                    next.getOperatorContext().startIntervalTimer();
                     next.finish();
-                    next.getOperatorContext().recordFinish();
+                    next.getOperatorContext().recordFinish(operationTimer);
                 }
             }
 
@@ -408,9 +411,8 @@ public class Driver
                     // Finish the next operator, which is now the first operator.
                     if (!activeOperators.isEmpty()) {
                         Operator newRootOperator = activeOperators.get(0);
-                        newRootOperator.getOperatorContext().startIntervalTimer();
                         newRootOperator.finish();
-                        newRootOperator.getOperatorContext().recordFinish();
+                        newRootOperator.getOperatorContext().recordFinish(operationTimer);
                     }
                     break;
                 }
