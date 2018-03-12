@@ -107,13 +107,6 @@ public final class TimeWithTimeZoneOperators
     }
 
     @ScalarOperator(CAST)
-    @SqlType(StandardTypes.TIMESTAMP)
-    public static long castToTimestamp(@SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long value)
-    {
-        return unpackMillisUtc(value);
-    }
-
-    @ScalarOperator(CAST)
     @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)
     public static long castToTimestampWithTimeZone(@SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long value)
     {

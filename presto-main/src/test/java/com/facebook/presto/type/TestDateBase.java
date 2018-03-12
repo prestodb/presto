@@ -15,7 +15,6 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.facebook.presto.spi.type.SqlDate;
-import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import org.joda.time.DateTime;
@@ -27,7 +26,6 @@ import java.util.concurrent.TimeUnit;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKey;
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
@@ -121,14 +119,6 @@ public abstract class TestDateBase
         assertFunction("DATE '2001-1-22' between DATE '2001-1-11' and DATE '2001-1-12'", BOOLEAN, false);
         assertFunction("DATE '2001-1-22' between DATE '2001-1-23' and DATE '2001-1-24'", BOOLEAN, false);
         assertFunction("DATE '2001-1-22' between DATE '2001-1-23' and DATE '2001-1-11'", BOOLEAN, false);
-    }
-
-    @Test
-    public void testCastToTimestamp()
-    {
-        assertFunction("cast(DATE '2001-1-22' as timestamp)",
-                TIMESTAMP,
-                new SqlTimestamp(new DateTime(2001, 1, 22, 0, 0, 0, 0, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY));
     }
 
     @Test

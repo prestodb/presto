@@ -86,6 +86,7 @@ import com.facebook.presto.operator.scalar.CharacterStringCasts;
 import com.facebook.presto.operator.scalar.ColorFunctions;
 import com.facebook.presto.operator.scalar.CombineHashFunction;
 import com.facebook.presto.operator.scalar.DateTimeFunctions;
+import com.facebook.presto.operator.scalar.DateTimeFunctionsForLegacyTimestamp;
 import com.facebook.presto.operator.scalar.EmptyMapConstructor;
 import com.facebook.presto.operator.scalar.FailureFunction;
 import com.facebook.presto.operator.scalar.HyperLogLogFunctions;
@@ -110,6 +111,7 @@ import com.facebook.presto.operator.scalar.Re2JRegexpReplaceLambdaFunction;
 import com.facebook.presto.operator.scalar.RepeatFunction;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.operator.scalar.SequenceFunction;
+import com.facebook.presto.operator.scalar.SequenceFunctionForLegacyTimestamp;
 import com.facebook.presto.operator.scalar.SplitToMapFunction;
 import com.facebook.presto.operator.scalar.StringFunctions;
 import com.facebook.presto.operator.scalar.TryFunction;
@@ -147,6 +149,7 @@ import com.facebook.presto.type.CharOperators;
 import com.facebook.presto.type.ColorOperators;
 import com.facebook.presto.type.DateOperators;
 import com.facebook.presto.type.DateTimeOperators;
+import com.facebook.presto.type.DateTimeOperatorsForLegacyTimestamp;
 import com.facebook.presto.type.DecimalOperators;
 import com.facebook.presto.type.DoubleOperators;
 import com.facebook.presto.type.HyperLogLogOperators;
@@ -160,6 +163,7 @@ import com.facebook.presto.type.SmallintOperators;
 import com.facebook.presto.type.TimeOperators;
 import com.facebook.presto.type.TimeWithTimeZoneOperators;
 import com.facebook.presto.type.TimestampOperators;
+import com.facebook.presto.type.TimestampOperatorsForLegacyTimestamp;
 import com.facebook.presto.type.TimestampWithTimeZoneOperators;
 import com.facebook.presto.type.TinyintOperators;
 import com.facebook.presto.type.TypeRegistry;
@@ -595,6 +599,17 @@ public class FunctionRegistry
                 builder.scalars(Re2JRegexpFunctions.class);
                 builder.scalar(Re2JRegexpReplaceLambdaFunction.class);
                 break;
+        }
+
+        if (featuresConfig.isLegacyTimestamp()) {
+            builder
+                    .scalars(DateTimeFunctionsForLegacyTimestamp.class)
+                    .scalars(SequenceFunctionForLegacyTimestamp.class)
+                    .scalars(DateTimeOperatorsForLegacyTimestamp.class)
+                    .scalars(TimestampOperatorsForLegacyTimestamp.class);
+        }
+        else {
+            throw new UnsupportedOperationException("Fixed timestamp semantics isn't implemented yet");
         }
 
         addFunctions(builder.getFunctions());

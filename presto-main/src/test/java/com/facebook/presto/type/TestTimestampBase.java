@@ -26,6 +26,7 @@ import org.testng.annotations.Test;
 
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.TimeType.TIME;
@@ -37,6 +38,7 @@ import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_W
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
+import static com.facebook.presto.type.JsonType.JSON;
 import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
 import static org.joda.time.DateTimeZone.UTC;
 
@@ -208,6 +210,13 @@ public abstract class TestTimestampBase
     }
 
     @Test
+    public void testCastToJson()
+    {
+        assertFunction("cast(cast (null as timestamp) as JSON)", JSON, null);
+        assertFunction("CAST(from_unixtime(1) AS JSON)", JSON, "\"" + sqlTimestamp(1000).toString() + "\"");
+    }
+
+    @Test
     public void testCastFromSlice()
     {
         assertFunction("cast('2001-1-22 03:04:05.321' as timestamp)",
@@ -280,5 +289,42 @@ public abstract class TestTimestampBase
         assertFunction("least(TIMESTAMP '2013-03-30 01:05', TIMESTAMP '2012-03-30 01:05', TIMESTAMP '2012-05-01 01:05')",
                 TIMESTAMP,
                 new SqlTimestamp(new DateTime(2012, 3, 30, 1, 5, 0, 0, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY));
+    }
+
+    @Test
+    public void testCastFromDate()
+    {
+        assertFunction("cast(DATE '2001-1-22' as timestamp)",
+                TIMESTAMP,
+                new SqlTimestamp(new DateTime(2001, 1, 22, 0, 0, 0, 0, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY));
+    }
+
+    @Test
+    public void testCastFromTime()
+    {
+        assertFunction("cast(TIME '03:04:05.321' as timestamp)",
+                TIMESTAMP,
+                new SqlTimestamp(new DateTime(1970, 1, 1, 3, 4, 5, 321, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY));
+    }
+
+    @Test
+    public void testCastFromTimeWithTimeZone()
+    {
+        assertFunction("cast(TIME '03:04:05.321 +07:09' as timestamp)",
+                TIMESTAMP,
+                new SqlTimestamp(new DateTime(1970, 1, 1, 3, 4, 5, 321, WEIRD_ZONE).getMillis(), session.getTimeZoneKey()));
+    }
+
+    @Test
+    public void testCastFromTimestampWithTimeZone()
+    {
+        assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05.321 +07:09' as timestamp)",
+                TIMESTAMP,
+                new SqlTimestamp(new DateTime(2001, 1, 22, 3, 4, 5, 321, WEIRD_ZONE).getMillis(), session.getTimeZoneKey()));
+    }
+
+    private static SqlTimestamp sqlTimestamp(long millisUtc)
+    {
+        return new SqlTimestamp(millisUtc, TEST_SESSION.getTimeZoneKey());
     }
 }

@@ -279,7 +279,7 @@ public final class JsonUtil
                 case StandardTypes.JSON:
                     return new JsonJsonGeneratorWriter();
                 case StandardTypes.TIMESTAMP:
-                    return new TimestampJsonGeneratorWriter();
+                    return new TimestampJsonGeneratorWriterForLegacyTimestamp();
                 case StandardTypes.DATE:
                     return new DateGeneratorWriter();
                 case StandardTypes.ARRAY:
@@ -483,7 +483,7 @@ public final class JsonUtil
         }
     }
 
-    private static class TimestampJsonGeneratorWriter
+    private static class TimestampJsonGeneratorWriterForLegacyTimestamp
             implements JsonGeneratorWriter
     {
         @Override
