@@ -29,11 +29,9 @@ import io.airlift.slice.Slices;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.operator.scalar.DateTimeFunctions.diffDate;
-import static com.facebook.presto.operator.scalar.DateTimeFunctions.diffTimestamp;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static java.lang.Math.toIntExact;
 
@@ -65,16 +63,6 @@ public final class SequenceFunction
     }
 
     @ScalarFunction("sequence")
-    @SqlType("array(timestamp)")
-    public static Block sequenceTimestampDayToSecond(
-            @SqlType(StandardTypes.TIMESTAMP) long start,
-            @SqlType(StandardTypes.TIMESTAMP) long stop,
-            @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long step)
-    {
-        return fixedWidthSequence(start, stop, step, TIMESTAMP);
-    }
-
-    @ScalarFunction("sequence")
     @SqlType("array(date)")
     public static Block sequenceDateDayToSecond(
             @SqlType(StandardTypes.DATE) long start,
@@ -86,30 +74,6 @@ public final class SequenceFunction
                 INVALID_FUNCTION_ARGUMENT,
                 "sequence step must be a day interval if start and end values are dates");
         return fixedWidthSequence(start, stop, step / TimeUnit.DAYS.toMillis(1), DATE);
-    }
-
-    @ScalarFunction("sequence")
-    @SqlType("array(timestamp)")
-    public static Block sequenceTimestampYearToMonth(
-            ConnectorSession session,
-            @SqlType(StandardTypes.TIMESTAMP) long start,
-            @SqlType(StandardTypes.TIMESTAMP) long stop,
-            @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long step)
-    {
-        checkValidStep(start, stop, step);
-
-        int length = toIntExact(diffTimestamp(session, MONTH, start, stop) / step + 1);
-        checkMaxEntry(length);
-
-        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), length);
-
-        int value = 0;
-        for (int i = 0; i < length; ++i) {
-            BIGINT.writeLong(blockBuilder, DateTimeOperators.timestampPlusIntervalYearToMonth(session, start, value));
-            value += step;
-        }
-
-        return blockBuilder.build();
     }
 
     @ScalarFunction("sequence")
@@ -136,7 +100,7 @@ public final class SequenceFunction
         return blockBuilder.build();
     }
 
-    private static Block fixedWidthSequence(long start, long stop, long step, FixedWidthType type)
+    static Block fixedWidthSequence(long start, long stop, long step, FixedWidthType type)
     {
         checkValidStep(start, stop, step);
 
@@ -150,7 +114,7 @@ public final class SequenceFunction
         return blockBuilder.build();
     }
 
-    private static void checkValidStep(long start, long stop, long step)
+    static void checkValidStep(long start, long stop, long step)
     {
         checkCondition(
                 step != 0,
@@ -162,7 +126,7 @@ public final class SequenceFunction
                 "sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than or equal to start");
     }
 
-    private static void checkMaxEntry(int length)
+    static void checkMaxEntry(int length)
     {
         checkCondition(
                 length <= MAX_RESULT_ENTRIES,

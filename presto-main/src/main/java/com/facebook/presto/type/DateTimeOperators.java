@@ -89,20 +89,6 @@ public final class DateTimeOperators
     }
 
     @ScalarOperator(ADD)
-    @SqlType(StandardTypes.TIMESTAMP)
-    public static long timestampPlusIntervalDayToSecond(@SqlType(StandardTypes.TIMESTAMP) long left, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long right)
-    {
-        return left + right;
-    }
-
-    @ScalarOperator(ADD)
-    @SqlType(StandardTypes.TIMESTAMP)
-    public static long intervalDayToSecondPlusTimestamp(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long left, @SqlType(StandardTypes.TIMESTAMP) long right)
-    {
-        return left + right;
-    }
-
-    @ScalarOperator(ADD)
     @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)
     public static long timestampWithTimeZonePlusIntervalDayToSecond(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long left, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long right)
     {
@@ -161,20 +147,6 @@ public final class DateTimeOperators
     }
 
     @ScalarOperator(ADD)
-    @SqlType(StandardTypes.TIMESTAMP)
-    public static long timestampPlusIntervalYearToMonth(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP) long left, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long right)
-    {
-        return getChronology(session.getTimeZoneKey()).monthOfYear().add(left, right);
-    }
-
-    @ScalarOperator(ADD)
-    @SqlType(StandardTypes.TIMESTAMP)
-    public static long intervalYearToMonthPlusTimestamp(ConnectorSession session, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long left, @SqlType(StandardTypes.TIMESTAMP) long right)
-    {
-        return getChronology(session.getTimeZoneKey()).monthOfYear().add(right, left);
-    }
-
-    @ScalarOperator(ADD)
     @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)
     public static long timestampWithTimeZonePlusIntervalYearToMonth(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long left, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long right)
     {
@@ -213,13 +185,6 @@ public final class DateTimeOperators
     }
 
     @ScalarOperator(SUBTRACT)
-    @SqlType(StandardTypes.TIMESTAMP)
-    public static long timestampMinusIntervalDayToSecond(@SqlType(StandardTypes.TIMESTAMP) long left, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long right)
-    {
-        return left - right;
-    }
-
-    @ScalarOperator(SUBTRACT)
     @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)
     public static long timestampWithTimeZoneMinusIntervalDayToSecond(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long left, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long right)
     {
@@ -246,13 +211,6 @@ public final class DateTimeOperators
     public static long timeWithTimeZoneMinusIntervalYearToMonth(@SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long left, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long right)
     {
         return left;
-    }
-
-    @ScalarOperator(SUBTRACT)
-    @SqlType(StandardTypes.TIMESTAMP)
-    public static long timestampMinusIntervalYearToMonth(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP) long left, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long right)
-    {
-        return getChronology(session.getTimeZoneKey()).monthOfYear().add(left, -right);
     }
 
     @ScalarOperator(SUBTRACT)

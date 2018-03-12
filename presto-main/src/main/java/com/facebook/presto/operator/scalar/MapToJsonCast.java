@@ -24,6 +24,7 @@ import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
+import com.facebook.presto.util.JsonUtil.JsonGeneratorWriterFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
@@ -53,16 +54,17 @@ import static com.google.common.base.Throwables.throwIfUnchecked;
 public class MapToJsonCast
         extends SqlOperator
 {
-    public static final MapToJsonCast MAP_TO_JSON = new MapToJsonCast();
     private static final MethodHandle METHOD_HANDLE = methodHandle(MapToJsonCast.class, "toJson", ObjectKeyProvider.class, JsonGeneratorWriter.class, ConnectorSession.class, Block.class);
+    private final JsonGeneratorWriterFactory jsonGeneratorWriterFactory;
 
-    private MapToJsonCast()
+    public MapToJsonCast(JsonGeneratorWriterFactory jsonGeneratorWriterFactory)
     {
         super(OperatorType.CAST,
                 ImmutableList.of(typeVariable("K"), typeVariable("V")),
                 ImmutableList.of(),
                 parseTypeSignature(StandardTypes.JSON),
                 ImmutableList.of(parseTypeSignature("map(K,V)")));
+        this.jsonGeneratorWriterFactory = jsonGeneratorWriterFactory;
     }
 
     @Override
@@ -77,7 +79,7 @@ public class MapToJsonCast
         checkCondition(canCastToJson(mapType), INVALID_CAST_ARGUMENT, "Cannot cast %s to JSON", mapType);
 
         ObjectKeyProvider provider = ObjectKeyProvider.createObjectKeyProvider(keyType);
-        JsonGeneratorWriter writer = JsonGeneratorWriter.createJsonGeneratorWriter(valueType);
+        JsonGeneratorWriter writer = jsonGeneratorWriterFactory.createJsonGeneratorWriter(valueType);
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(provider).bindTo(writer);
 
         return new ScalarFunctionImplementation(

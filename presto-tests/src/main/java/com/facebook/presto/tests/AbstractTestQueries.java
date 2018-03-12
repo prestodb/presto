@@ -2006,7 +2006,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testNonEqalityJoinWithScalarRequiringSessionParameter()
     {
-        assertQuery("SELECT * FROM (VALUES (1,1), (1,2)) t1(a,b) LEFT OUTER JOIN (VALUES (1,1), (1,2)) t2(c,d) ON a=c AND from_unixtime(b) > current_timestamp",
+        assertQuery("SELECT * FROM (VALUES (1,1), (1,2)) t1(a,b) LEFT OUTER JOIN (VALUES (1,1), (1,2)) t2(c,d) ON a=c AND from_unixtime(b, 0, 0) > current_timestamp",
                 "VALUES (1, 1, NULL, NULL), (1, 2, NULL, NULL)");
     }
 
@@ -2019,7 +2019,7 @@ public abstract class AbstractTestQueries
 
         // use of scalar requiring session parameter within try
         assertQuery("SELECT * FROM (VALUES (1,1), (1,2)) t1(a,b) LEFT OUTER JOIN (VALUES (1,1), (1,2)) t2(c,d) " +
-                        "             ON a=c AND TRY(1 / (b-a) != 1000 OR from_unixtime(b) > current_timestamp)",
+                        "             ON a=c AND TRY(1 / (b-a) != 1000 OR from_unixtime(b, 0, 0) > current_timestamp)",
                 "VALUES (1, 1, NULL, NULL), (1, 2, 1, 1), (1, 2, 1, 2)");
     }
 
@@ -4324,6 +4324,12 @@ public abstract class AbstractTestQueries
                 .collect(joining(", "));
         assertQuery("SELECT orderkey FROM orders WHERE orderkey IN (" + longValues + ")");
         assertQuery("SELECT orderkey FROM orders WHERE orderkey NOT IN (" + longValues + ")");
+
+        String timestampValues = range(0, 5_000)
+                .mapToObj(i -> format("TIMESTAMP '2000-01-01 01:01:%02d.%03d'", i / 1000, i % 1000))
+                .collect(joining(", "));
+        assertQuery("SELECT TIMESTAMP '2000-01-01 01:02:03.456' in (TIMESTAMP '2000-01-01 01:02:03.456', " + timestampValues + ")", "values true");
+        assertQuery("SELECT TIMESTAMP '2000-01-01 01:02:03.456' in (" + timestampValues + ")", "values false");
 
         String arrayValues = range(0, 5000)
                 .mapToObj(i -> format("ARRAY[%s, %s, %s]", i, i + 1, i + 2))

@@ -20,12 +20,15 @@ import com.facebook.presto.spi.type.SqlTimeWithTimeZone;
 import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.spi.type.TimeZoneKey;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
+import java.time.LocalDateTime;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.SystemSessionProperties.LEGACY_TIMESTAMP;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.TimeType.TIME;
@@ -37,7 +40,6 @@ import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_W
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
-import static java.util.concurrent.TimeUnit.HOURS;
 import static org.joda.time.DateTimeZone.UTC;
 
 public abstract class TestDateTimeOperatorsBase
@@ -50,10 +52,13 @@ public abstract class TestDateTimeOperatorsBase
 
     protected TestDateTimeOperatorsBase(boolean legacyTimestamp)
     {
-        super(testSessionBuilder()
-                .setSystemProperty("legacy_timestamp", String.valueOf(legacyTimestamp))
-                .setTimeZoneKey(TIME_ZONE_KEY)
-                .build());
+        super(
+                testSessionBuilder()
+                        .setTimeZoneKey(TIME_ZONE_KEY)
+                        .setSystemProperty(LEGACY_TIMESTAMP, String.valueOf(legacyTimestamp))
+                        .build(),
+                new FeaturesConfig()
+                        .setLegacyTimestamp(legacyTimestamp));
     }
 
     @Test
@@ -123,28 +128,28 @@ public abstract class TestDateTimeOperatorsBase
     {
         assertFunction("TIMESTAMP '2001-1-22 03:04:05.321' + INTERVAL '3' hour",
                 TIMESTAMP,
-                new SqlTimestamp(new DateTime(2001, 1, 22, 6, 4, 5, 321, TIME_ZONE).getMillis(), TIME_ZONE_KEY));
+                toTimestamp(LocalDateTime.of(2001, 1, 22, 6, 4, 5, 321_000_000)));
         assertFunction("INTERVAL '3' hour + TIMESTAMP '2001-1-22 03:04:05.321'",
                 TIMESTAMP,
-                new SqlTimestamp(new DateTime(2001, 1, 22, 6, 4, 5, 321, TIME_ZONE).getMillis(), TIME_ZONE_KEY));
+                toTimestamp(LocalDateTime.of(2001, 1, 22, 6, 4, 5, 321_000_000)));
         assertFunction("TIMESTAMP '2001-1-22 03:04:05.321' + INTERVAL '3' day",
                 TIMESTAMP,
-                new SqlTimestamp(new DateTime(2001, 1, 25, 3, 4, 5, 321, TIME_ZONE).getMillis(), TIME_ZONE_KEY));
+                toTimestamp(LocalDateTime.of(2001, 1, 25, 3, 4, 5, 321_000_000)));
         assertFunction("INTERVAL '3' day + TIMESTAMP '2001-1-22 03:04:05.321'",
                 TIMESTAMP,
-                new SqlTimestamp(new DateTime(2001, 1, 25, 3, 4, 5, 321, TIME_ZONE).getMillis(), TIME_ZONE_KEY));
+                toTimestamp(LocalDateTime.of(2001, 1, 25, 3, 4, 5, 321_000_000)));
         assertFunction("TIMESTAMP '2001-1-22 03:04:05.321' + INTERVAL '3' month",
                 TIMESTAMP,
-                new SqlTimestamp(new DateTime(2001, 4, 22, 3, 4, 5, 321, TIME_ZONE).getMillis(), TIME_ZONE_KEY));
+                toTimestamp(LocalDateTime.of(2001, 4, 22, 3, 4, 5, 321_000_000)));
         assertFunction("INTERVAL '3' month + TIMESTAMP '2001-1-22 03:04:05.321'",
                 TIMESTAMP,
-                new SqlTimestamp(new DateTime(2001, 4, 22, 3, 4, 5, 321, TIME_ZONE).getMillis(), TIME_ZONE_KEY));
+                toTimestamp(LocalDateTime.of(2001, 4, 22, 3, 4, 5, 321_000_000)));
         assertFunction("TIMESTAMP '2001-1-22 03:04:05.321' + INTERVAL '3' year",
                 TIMESTAMP,
-                new SqlTimestamp(new DateTime(2004, 1, 22, 3, 4, 5, 321, TIME_ZONE).getMillis(), TIME_ZONE_KEY));
+                toTimestamp(LocalDateTime.of(2004, 1, 22, 3, 4, 5, 321_000_000)));
         assertFunction("INTERVAL '3' year + TIMESTAMP '2001-1-22 03:04:05.321'",
                 TIMESTAMP,
-                new SqlTimestamp(new DateTime(2004, 1, 22, 3, 4, 5, 321, TIME_ZONE).getMillis(), TIME_ZONE_KEY));
+                toTimestamp(LocalDateTime.of(2004, 1, 22, 3, 4, 5, 321_000_000)));
 
         assertFunction("TIMESTAMP '2001-1-22 03:04:05.321 +05:09' + INTERVAL '3' hour",
                 TIMESTAMP_WITH_TIME_ZONE,
@@ -212,28 +217,16 @@ public abstract class TestDateTimeOperatorsBase
     {
         assertFunction("TIMESTAMP '2001-1-22 03:04:05.321' - INTERVAL '3' day",
                 TIMESTAMP,
-                new SqlTimestamp(new DateTime(2001, 1, 19, 3, 4, 5, 321, TIME_ZONE).getMillis(), TIME_ZONE_KEY));
+                toTimestamp(LocalDateTime.of(2001, 1, 19, 3, 4, 5, 321_000_000)));
         assertFunction("TIMESTAMP '2001-1-22 03:04:05.321 +05:09' - INTERVAL '3' day",
                 TIMESTAMP_WITH_TIME_ZONE,
                 new SqlTimestampWithTimeZone(new DateTime(2001, 1, 19, 3, 4, 5, 321, WEIRD_TIME_ZONE).getMillis(), WEIRD_TIME_ZONE_KEY));
         assertFunction("TIMESTAMP '2001-1-22 03:04:05.321' - INTERVAL '3' month",
                 TIMESTAMP,
-                new SqlTimestamp(new DateTime(2000, 10, 22, 3, 4, 5, 321, TIME_ZONE).getMillis(), TIME_ZONE_KEY));
+                toTimestamp(LocalDateTime.of(2000, 10, 22, 3, 4, 5, 321_000_000)));
         assertFunction("TIMESTAMP '2001-1-22 03:04:05.321 +05:09' - INTERVAL '3' month",
                 TIMESTAMP_WITH_TIME_ZONE,
                 new SqlTimestampWithTimeZone(new DateTime(2000, 10, 22, 3, 4, 5, 321, WEIRD_TIME_ZONE).getMillis(), WEIRD_TIME_ZONE_KEY));
-    }
-
-    @Test
-    public void testTimeZoneGap()
-    {
-        assertFunction("TIMESTAMP '2013-03-31 00:05' + INTERVAL '1' hour", TIMESTAMP, new SqlTimestamp(new DateTime(2013, 3, 31, 1, 5, 0, 0, TIME_ZONE).getMillis(), TIME_ZONE_KEY));
-        assertFunction("TIMESTAMP '2013-03-31 00:05' + INTERVAL '2' hour", TIMESTAMP, new SqlTimestamp(new DateTime(2013, 3, 31, 3, 5, 0, 0, TIME_ZONE).getMillis(), TIME_ZONE_KEY));
-        assertFunction("TIMESTAMP '2013-03-31 00:05' + INTERVAL '3' hour", TIMESTAMP, new SqlTimestamp(new DateTime(2013, 3, 31, 4, 5, 0, 0, TIME_ZONE).getMillis(), TIME_ZONE_KEY));
-
-        assertFunction("TIMESTAMP '2013-03-31 04:05' - INTERVAL '3' hour", TIMESTAMP, new SqlTimestamp(new DateTime(2013, 3, 31, 0, 5, 0, 0, TIME_ZONE).getMillis(), TIME_ZONE_KEY));
-        assertFunction("TIMESTAMP '2013-03-31 03:05' - INTERVAL '2' hour", TIMESTAMP, new SqlTimestamp(new DateTime(2013, 3, 31, 0, 5, 0, 0, TIME_ZONE).getMillis(), TIME_ZONE_KEY));
-        assertFunction("TIMESTAMP '2013-03-31 01:05' - INTERVAL '1' hour", TIMESTAMP, new SqlTimestamp(new DateTime(2013, 3, 31, 0, 5, 0, 0, TIME_ZONE).getMillis(), TIME_ZONE_KEY));
     }
 
     @Test
@@ -255,41 +248,6 @@ public abstract class TestDateTimeOperatorsBase
     }
 
     @Test
-    public void testTimeZoneDuplicate()
-    {
-        assertFunction("TIMESTAMP '2013-10-27 00:05' + INTERVAL '1' hour",
-                TIMESTAMP,
-                new SqlTimestamp(new DateTime(2013, 10, 27, 1, 5, 0, 0, TIME_ZONE).getMillis(), TIME_ZONE_KEY));
-        assertFunction("TIMESTAMP '2013-10-27 00:05' + INTERVAL '2' hour",
-                TIMESTAMP,
-                new SqlTimestamp(new DateTime(2013, 10, 27, 2, 5, 0, 0, TIME_ZONE).getMillis(), TIME_ZONE_KEY));
-        // we need to manipulate millis directly here because 2 am has two representations in out time zone, and we need the second one
-        assertFunction("TIMESTAMP '2013-10-27 00:05' + INTERVAL '3' hour",
-                TIMESTAMP,
-                new SqlTimestamp(new DateTime(2013, 10, 27, 0, 5, 0, 0, TIME_ZONE).getMillis() + HOURS.toMillis(3), TIME_ZONE_KEY));
-        assertFunction("TIMESTAMP '2013-10-27 00:05' + INTERVAL '4' hour",
-                TIMESTAMP,
-                new SqlTimestamp(new DateTime(2013, 10, 27, 3, 5, 0, 0, TIME_ZONE).getMillis(), TIME_ZONE_KEY));
-
-        assertFunction("TIMESTAMP '2013-10-27 03:05' - INTERVAL '4' hour",
-                TIMESTAMP,
-                new SqlTimestamp(new DateTime(2013, 10, 27, 0, 5, 0, 0, TIME_ZONE).getMillis(), TIME_ZONE_KEY));
-        assertFunction("TIMESTAMP '2013-10-27 02:05' - INTERVAL '2' hour",
-                TIMESTAMP,
-                new SqlTimestamp(new DateTime(2013, 10, 27, 0, 5, 0, 0, TIME_ZONE).getMillis(), TIME_ZONE_KEY));
-        assertFunction("TIMESTAMP '2013-10-27 01:05' - INTERVAL '1' hour",
-                TIMESTAMP,
-                new SqlTimestamp(new DateTime(2013, 10, 27, 0, 5, 0, 0, TIME_ZONE).getMillis(), TIME_ZONE_KEY));
-
-        assertFunction("TIMESTAMP '2013-10-27 03:05' - INTERVAL '1' hour",
-                TIMESTAMP,
-                new SqlTimestamp(new DateTime(2013, 10, 27, 0, 5, 0, 0, TIME_ZONE).getMillis() + HOURS.toMillis(3), TIME_ZONE_KEY));
-        assertFunction("TIMESTAMP '2013-10-27 03:05' - INTERVAL '2' hour",
-                TIMESTAMP,
-                new SqlTimestamp(new DateTime(2013, 10, 27, 2, 5, 0, 0, TIME_ZONE).getMillis(), TIME_ZONE_KEY));
-    }
-
-    @Test
     public void testIsDistinctFrom()
     {
         assertFunction("CAST(NULL AS DATE) IS DISTINCT FROM CAST(NULL AS DATE)", BOOLEAN, false);
@@ -303,4 +261,6 @@ public abstract class TestDateTimeOperatorsBase
     {
         return new SqlDate((int) TimeUnit.MILLISECONDS.toDays(dateTime.getMillis()));
     }
+
+    protected abstract SqlTimestamp toTimestamp(LocalDateTime localDateTime);
 }

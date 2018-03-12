@@ -16,7 +16,6 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.SqlOperator;
-import com.facebook.presto.server.SliceSerializer;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.OperatorType;
@@ -25,13 +24,9 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.facebook.presto.util.JsonUtil.JsonGeneratorWriter;
+import com.facebook.presto.util.JsonUtil.JsonGeneratorWriterFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.module.SimpleModule;
-import com.google.common.base.Supplier;
-import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
-import io.airlift.json.ObjectMapperProvider;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
@@ -51,21 +46,22 @@ import static com.facebook.presto.util.JsonUtil.createJsonGenerator;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
+import static java.util.Objects.requireNonNull;
 
 public class ArrayToJsonCast
         extends SqlOperator
 {
-    public static final ArrayToJsonCast ARRAY_TO_JSON = new ArrayToJsonCast();
-    private static final Supplier<ObjectMapper> OBJECT_MAPPER = Suppliers.memoize(() -> new ObjectMapperProvider().get().registerModule(new SimpleModule().addSerializer(Slice.class, new SliceSerializer())));
     private static final MethodHandle METHOD_HANDLE = methodHandle(ArrayToJsonCast.class, "toJson", JsonGeneratorWriter.class, ConnectorSession.class, Block.class);
+    private final JsonGeneratorWriterFactory jsonGeneratorWriterFactory;
 
-    private ArrayToJsonCast()
+    public ArrayToJsonCast(JsonGeneratorWriterFactory jsonGeneratorWriterFactory)
     {
         super(OperatorType.CAST,
                 ImmutableList.of(typeVariable("T")),
                 ImmutableList.of(),
                 parseTypeSignature(StandardTypes.JSON),
                 ImmutableList.of(parseTypeSignature("array(T)")));
+        this.jsonGeneratorWriterFactory = requireNonNull(jsonGeneratorWriterFactory, "jsonGeneratorWriterFactory is null");
     }
 
     @Override
@@ -76,7 +72,7 @@ public class ArrayToJsonCast
         Type arrayType = typeManager.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(TypeSignatureParameter.of(type.getTypeSignature())));
         checkCondition(canCastToJson(arrayType), INVALID_CAST_ARGUMENT, "Cannot cast %s to JSON", arrayType);
 
-        JsonGeneratorWriter writer = JsonGeneratorWriter.createJsonGeneratorWriter(type);
+        JsonGeneratorWriter writer = jsonGeneratorWriterFactory.createJsonGeneratorWriter(type);
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(writer);
         return new ScalarFunctionImplementation(
                 false,

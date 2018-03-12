@@ -17,7 +17,6 @@ import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.RowType;
-import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.testing.MaterializedResult;
@@ -347,13 +346,6 @@ public class TestJsonOperators
     }
 
     @Test
-    public void testCastFromTimestamp()
-    {
-        assertFunction("cast(cast (null as timestamp) as JSON)", JSON, null);
-        assertFunction("CAST(from_unixtime(1) AS JSON)", JSON, "\"" + sqlTimestamp(1000).toString() + "\"");
-    }
-
-    @Test
     public void testCastWithJsonParse()
     {
         // the test is to make sure ExpressionOptimizer works with cast + json_parse
@@ -384,11 +376,6 @@ public class TestJsonOperators
                 "[  1,  {}  ]",
                 "ROW(INTEGER, ARRAY<INTEGER>)",
                 "Cannot cast to row(field0 integer,field1 array(integer)). Expected a json array, but got {\n[  1,  {}  ]");
-    }
-
-    private static SqlTimestamp sqlTimestamp(long millisUtc)
-    {
-        return new SqlTimestamp(millisUtc, TEST_SESSION.getTimeZoneKey());
     }
 
     private void assertCastWithJsonParse(String json, String castSqlType, Type expectedType, Object expected)

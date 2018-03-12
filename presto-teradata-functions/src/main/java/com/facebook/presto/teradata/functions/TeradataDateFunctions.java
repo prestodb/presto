@@ -106,6 +106,7 @@ public final class TeradataDateFunctions
             @SqlType(StandardTypes.VARCHAR) Slice dateTime,
             @SqlType(StandardTypes.VARCHAR) Slice formatString)
     {
+        // TODO! forbid this plugin from loading based on some sort of capability flag?
         return parseMillis(session, dateTime, formatString);
     }
 

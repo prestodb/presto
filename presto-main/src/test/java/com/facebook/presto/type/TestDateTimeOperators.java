@@ -14,13 +14,71 @@
 
 package com.facebook.presto.type;
 
-// TODO unignore when new semantics is implemented
-// Note: ignore done using comments because @Test(enabled = false) misbehave on subclass
+import com.facebook.presto.spi.type.SqlTimestamp;
+import org.testng.annotations.Test;
+
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+
 public class TestDateTimeOperators
-        // extends TestDateTimeOperatorsBase
+         extends TestDateTimeOperatorsBase
 {
     public TestDateTimeOperators()
     {
-        // super(false);
+        super(false);
+    }
+
+    @Test
+    public void testTimeZoneGap()
+    {
+        assertFunction("TIMESTAMP '2013-03-31 00:05' + INTERVAL '1' hour", TIMESTAMP, toTimestamp(LocalDateTime.of(2013, 3, 31, 1, 5, 0, 0)));
+        assertFunction("TIMESTAMP '2013-03-31 00:05' + INTERVAL '2' hour", TIMESTAMP, toTimestamp(LocalDateTime.of(2013, 3, 31, 2, 5, 0, 0)));
+        assertFunction("TIMESTAMP '2013-03-31 00:05' + INTERVAL '3' hour", TIMESTAMP, toTimestamp(LocalDateTime.of(2013, 3, 31, 3, 5, 0, 0)));
+
+        assertFunction("TIMESTAMP '2013-03-31 04:05' - INTERVAL '3' hour", TIMESTAMP, toTimestamp(LocalDateTime.of(2013, 3, 31, 1, 5, 0, 0)));
+        assertFunction("TIMESTAMP '2013-03-31 03:05' - INTERVAL '2' hour", TIMESTAMP, toTimestamp(LocalDateTime.of(2013, 3, 31, 1, 5, 0, 0)));
+        assertFunction("TIMESTAMP '2013-03-31 01:05' - INTERVAL '1' hour", TIMESTAMP, toTimestamp(LocalDateTime.of(2013, 3, 31, 0, 5, 0, 0)));
+    }
+
+    @Test
+    public void testTimeZoneDuplicate()
+    {
+        assertFunction("TIMESTAMP '2013-10-27 00:05' + INTERVAL '1' hour",
+                TIMESTAMP,
+                toTimestamp(LocalDateTime.of(2013, 10, 27, 1, 5, 0, 0)));
+        assertFunction("TIMESTAMP '2013-10-27 00:05' + INTERVAL '2' hour",
+                TIMESTAMP,
+                toTimestamp(LocalDateTime.of(2013, 10, 27, 2, 5, 0, 0)));
+        assertFunction("TIMESTAMP '2013-10-27 00:05' + INTERVAL '3' hour",
+                TIMESTAMP,
+                toTimestamp(LocalDateTime.of(2013, 10, 27, 3, 5, 0, 0)));
+        assertFunction("TIMESTAMP '2013-10-27 00:05' + INTERVAL '4' hour",
+                TIMESTAMP,
+                toTimestamp(LocalDateTime.of(2013, 10, 27, 4, 5, 0, 0)));
+
+        assertFunction("TIMESTAMP '2013-10-27 03:05' - INTERVAL '4' hour",
+                TIMESTAMP,
+                toTimestamp(LocalDateTime.of(2013, 10, 26, 23, 5, 0, 0)));
+        assertFunction("TIMESTAMP '2013-10-27 02:05' - INTERVAL '2' hour",
+                TIMESTAMP,
+                toTimestamp(LocalDateTime.of(2013, 10, 27, 0, 5, 0, 0)));
+        assertFunction("TIMESTAMP '2013-10-27 01:05' - INTERVAL '1' hour",
+                TIMESTAMP,
+                toTimestamp(LocalDateTime.of(2013, 10, 27, 0, 5, 0, 0)));
+
+        assertFunction("TIMESTAMP '2013-10-27 03:05' - INTERVAL '1' hour",
+                TIMESTAMP,
+                toTimestamp(LocalDateTime.of(2013, 10, 27, 2, 5, 0, 0)));
+        assertFunction("TIMESTAMP '2013-10-27 03:05' - INTERVAL '2' hour",
+                TIMESTAMP,
+                toTimestamp(LocalDateTime.of(2013, 10, 27, 1, 5, 0, 0)));
+    }
+
+    @Override
+    protected SqlTimestamp toTimestamp(LocalDateTime localDateTime)
+    {
+        return new SqlTimestamp(localDateTime.toEpochSecond(ZoneOffset.UTC) * 1000 + localDateTime.getNano() / 1_000_000);
     }
 }

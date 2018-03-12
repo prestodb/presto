@@ -21,6 +21,7 @@ import com.facebook.presto.sql.tree.IntervalLiteral.IntervalField;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.joda.time.DurationFieldType;
+import org.joda.time.LocalDateTime;
 import org.joda.time.MutablePeriod;
 import org.joda.time.Period;
 import org.joda.time.ReadWritablePeriod;
@@ -35,6 +36,9 @@ import org.joda.time.format.PeriodFormatter;
 import org.joda.time.format.PeriodFormatterBuilder;
 import org.joda.time.format.PeriodParser;
 
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -54,6 +58,8 @@ import static java.lang.String.format;
 
 public final class DateTimeUtils
 {
+    static final ISOChronology UTC_CHRONOLOGY = ISOChronology.getInstanceUTC();
+
     private DateTimeUtils()
     {
     }
@@ -117,26 +123,56 @@ public final class DateTimeUtils
                 .withOffsetParsed();
     }
 
-    public static long parseTimestampLiteral(TimeZoneKey timeZoneKey, String value)
-    {
-        try {
-            DateTime dateTime = TIMESTAMP_WITH_TIME_ZONE_FORMATTER.parseDateTime(value);
-            return packDateTimeWithZone(dateTime);
-        }
-        catch (Exception e) {
-            return TIMESTAMP_WITHOUT_TIME_ZONE_FORMATTER.withChronology(getChronology(timeZoneKey)).parseMillis(value);
-        }
-    }
-
     public static long parseTimestampWithTimeZone(TimeZoneKey timeZoneKey, String timestampWithTimeZone)
     {
         DateTime dateTime = TIMESTAMP_WITH_OR_WITHOUT_TIME_ZONE_FORMATTER.withChronology(getChronology(timeZoneKey)).withOffsetParsed().parseDateTime(timestampWithTimeZone);
         return packDateTimeWithZone(dateTime);
     }
 
-    public static long parseTimestampWithoutTimeZone(TimeZoneKey timeZoneKey, String value)
+    public static long parseTimestampWithTimeZoneStrict(String timestampWithTimeZone)
+    {
+        DateTime dateTime = TIMESTAMP_WITH_TIME_ZONE_FORMATTER.parseDateTime(timestampWithTimeZone);
+        return packDateTimeWithZone(dateTime);
+    }
+
+    private static final MethodHandle getLocalMillis;
+    static {
+        try {
+            Method getLocalMillisMethod = LocalDateTime.class.getDeclaredMethod("getLocalMillis");
+            getLocalMillisMethod.setAccessible(true);
+            getLocalMillis = MethodHandles.lookup().unreflect(getLocalMillisMethod);
+        }
+        catch (IllegalAccessException | NoSuchMethodException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static long parseTimestampWithoutTimeZoneForFixedTimestamp(String value)
+    {
+        // Ignore time zone specified in the string
+        // e.g. 2000-01-01 01:23:00 +01:23 will parse to 2000-01-01 01:23:00 (instead of 2000-01-01 00:00:00)
+        LocalDateTime localDateTime = TIMESTAMP_WITH_OR_WITHOUT_TIME_ZONE_FORMATTER.withChronology(UTC_CHRONOLOGY).parseLocalDateTime(value);
+        try {
+            return (long) getLocalMillis.invokeExact(localDateTime);
+        }
+        catch (Throwable throwable) {
+            throw new RuntimeException(throwable);
+        }
+    }
+
+    public static long parseTimestampWithoutTimeZoneForLegacyTimestamp(TimeZoneKey timeZoneKey, String value)
     {
         return TIMESTAMP_WITH_OR_WITHOUT_TIME_ZONE_FORMATTER.withChronology(getChronology(timeZoneKey)).parseMillis(value);
+    }
+
+    public static long parseTimestampWithoutTimeZoneStrictForFixedTimestamp(String value)
+    {
+        return TIMESTAMP_WITHOUT_TIME_ZONE_FORMATTER.withChronology(UTC_CHRONOLOGY).parseMillis(value);
+    }
+
+    public static long parseTimestampWithoutTimeZoneStrictForLegacyTimestamp(TimeZoneKey timeZoneKey, String value)
+    {
+        return TIMESTAMP_WITHOUT_TIME_ZONE_FORMATTER.withChronology(getChronology(timeZoneKey)).parseMillis(value);
     }
 
     public static String printTimestampWithTimeZone(long timestampWithTimeZone)
@@ -146,7 +182,12 @@ public final class DateTimeUtils
         return TIMESTAMP_WITH_TIME_ZONE_FORMATTER.withChronology(chronology).print(millis);
     }
 
-    public static String printTimestampWithoutTimeZone(TimeZoneKey timeZoneKey, long timestamp)
+    public static String printTimestampWithoutTimeZoneForFixedTimestamp(long timestamp)
+    {
+        return TIMESTAMP_WITHOUT_TIME_ZONE_FORMATTER.withChronology(UTC_CHRONOLOGY).print(timestamp);
+    }
+
+    public static String printTimestampWithoutTimeZoneForLegacyTimestamp(TimeZoneKey timeZoneKey, long timestamp)
     {
         return TIMESTAMP_WITHOUT_TIME_ZONE_FORMATTER.withChronology(getChronology(timeZoneKey)).print(timestamp);
     }

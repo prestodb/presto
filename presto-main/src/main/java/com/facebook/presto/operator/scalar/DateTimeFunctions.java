@@ -43,11 +43,13 @@ import static com.facebook.presto.spi.type.DateTimeEncoding.unpackZoneKey;
 import static com.facebook.presto.spi.type.DateTimeEncoding.updateMillisUtc;
 import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
 import static com.facebook.presto.type.DateTimeOperators.modulo24Hour;
+import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithTimeZoneStrict;
 import static com.facebook.presto.util.DateTimeZoneIndex.extractZoneOffsetMinutes;
 import static com.facebook.presto.util.DateTimeZoneIndex.getChronology;
 import static com.facebook.presto.util.DateTimeZoneIndex.packDateTimeWithZone;
 import static com.facebook.presto.util.DateTimeZoneIndex.unpackChronology;
 import static com.facebook.presto.util.Failures.checkCondition;
+import static io.airlift.slice.SliceUtf8.trim;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Math.toIntExact;
 import static java.util.Locale.ENGLISH;
@@ -56,11 +58,11 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public final class DateTimeFunctions
 {
-    private static final ThreadLocalCache<Slice, DateTimeFormatter> DATETIME_FORMATTER_CACHE =
+    static final ThreadLocalCache<Slice, DateTimeFormatter> DATETIME_FORMATTER_CACHE =
             new ThreadLocalCache<>(100, DateTimeFunctions::createDateTimeFormatter);
 
-    private static final ISOChronology UTC_CHRONOLOGY = ISOChronology.getInstanceUTC();
-    private static final DateTimeField SECOND_OF_MINUTE = UTC_CHRONOLOGY.secondOfMinute();
+    static final ISOChronology UTC_CHRONOLOGY = ISOChronology.getInstanceUTC();
+    static final DateTimeField SECOND_OF_MINUTE = UTC_CHRONOLOGY.secondOfMinute();
     private static final DateTimeField DAY_OF_WEEK = UTC_CHRONOLOGY.dayOfWeek();
     private static final DateTimeField DAY_OF_MONTH = UTC_CHRONOLOGY.dayOfMonth();
     private static final DateTimeField DAY_OF_YEAR = UTC_CHRONOLOGY.dayOfYear();
@@ -128,21 +130,6 @@ public final class DateTimeFunctions
         return packDateTimeWithZone(session.getStartTime(), session.getTimeZoneKey());
     }
 
-    @Description("current timestamp without time zone")
-    @ScalarFunction("localtimestamp")
-    @SqlType(StandardTypes.TIMESTAMP)
-    public static long localTimestamp(ConnectorSession session)
-    {
-        return session.getStartTime();
-    }
-
-    @ScalarFunction("from_unixtime")
-    @SqlType(StandardTypes.TIMESTAMP)
-    public static long fromUnixTime(@SqlType(StandardTypes.DOUBLE) double unixTime)
-    {
-        return Math.round(unixTime * 1000);
-    }
-
     @ScalarFunction("from_unixtime")
     @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)
     public static long fromUnixTime(@SqlType(StandardTypes.DOUBLE) double unixTime, @SqlType(StandardTypes.BIGINT) long hoursOffset, @SqlType(StandardTypes.BIGINT) long minutesOffset)
@@ -167,28 +154,9 @@ public final class DateTimeFunctions
 
     @ScalarFunction("to_unixtime")
     @SqlType(StandardTypes.DOUBLE)
-    public static double toUnixTime(@SqlType(StandardTypes.TIMESTAMP) long timestamp)
-    {
-        return timestamp / 1000.0;
-    }
-
-    @ScalarFunction("to_unixtime")
-    @SqlType(StandardTypes.DOUBLE)
     public static double toUnixTimeFromTimestampWithTimeZone(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone)
     {
         return unpackMillisUtc(timestampWithTimeZone) / 1000.0;
-    }
-
-    @ScalarFunction("to_iso8601")
-    @SqlType("varchar(35)")
-    // YYYY-MM-DDTHH:MM:SS.mmm+HH:MM is a standard notation, and it requires 29 characters.
-    // However extended notation with format ±(Y)+-MM-DDTHH:MM:SS.mmm+HH:MM is also acceptable and as
-    // the maximum year represented by 64bits timestamp is ~584944387 it may require up to 35 characters.
-    public static Slice toISO8601FromTimestamp(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP) long timestamp)
-    {
-        DateTimeFormatter formatter = ISODateTimeFormat.dateTime()
-                .withChronology(getChronology(session.getTimeZoneKey()));
-        return utf8Slice(formatter.print(timestamp));
     }
 
     @ScalarFunction("to_iso8601")
@@ -301,15 +269,6 @@ public final class DateTimeFunctions
         return updateMillisUtc(millis, timeWithTimeZone);
     }
 
-    @Description("truncate to the specified precision in the session timezone")
-    @ScalarFunction("date_trunc")
-    @LiteralParameters("x")
-    @SqlType(StandardTypes.TIMESTAMP)
-    public static long truncateTimestamp(ConnectorSession session, @SqlType("varchar(x)") Slice unit, @SqlType(StandardTypes.TIMESTAMP) long timestamp)
-    {
-        return getTimestampField(getChronology(session.getTimeZoneKey()), unit).roundFloor(timestamp);
-    }
-
     @Description("truncate to the specified precision")
     @ScalarFunction("date_trunc")
     @LiteralParameters("x")
@@ -352,19 +311,6 @@ public final class DateTimeFunctions
         ISOChronology chronology = unpackChronology(timeWithTimeZone);
         long millis = modulo24Hour(chronology, getTimeField(chronology, unit).add(unpackMillisUtc(timeWithTimeZone), toIntExact(value)));
         return updateMillisUtc(millis, timeWithTimeZone);
-    }
-
-    @Description("add the specified amount of time to the given timestamp")
-    @LiteralParameters("x")
-    @ScalarFunction("date_add")
-    @SqlType(StandardTypes.TIMESTAMP)
-    public static long addFieldValueTimestamp(
-            ConnectorSession session,
-            @SqlType("varchar(x)") Slice unit,
-            @SqlType(StandardTypes.BIGINT) long value,
-            @SqlType(StandardTypes.TIMESTAMP) long timestamp)
-    {
-        return getTimestampField(getChronology(session.getTimeZoneKey()), unit).add(timestamp, toIntExact(value));
     }
 
     @Description("add the specified amount of time to the given timestamp")
@@ -415,19 +361,6 @@ public final class DateTimeFunctions
     @ScalarFunction("date_diff")
     @LiteralParameters("x")
     @SqlType(StandardTypes.BIGINT)
-    public static long diffTimestamp(
-            ConnectorSession session,
-            @SqlType("varchar(x)") Slice unit,
-            @SqlType(StandardTypes.TIMESTAMP) long timestamp1,
-            @SqlType(StandardTypes.TIMESTAMP) long timestamp2)
-    {
-        return getTimestampField(getChronology(session.getTimeZoneKey()), unit).getDifferenceAsLong(timestamp2, timestamp1);
-    }
-
-    @Description("difference of the given times in the given unit")
-    @ScalarFunction("date_diff")
-    @LiteralParameters("x")
-    @SqlType(StandardTypes.BIGINT)
     public static long diffTimestampWithTimeZone(
             @SqlType("varchar(x)") Slice unit,
             @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone1,
@@ -470,7 +403,7 @@ public final class DateTimeFunctions
         throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid Time field");
     }
 
-    private static DateTimeField getTimestampField(ISOChronology chronology, Slice unit)
+    static DateTimeField getTimestampField(ISOChronology chronology, Slice unit)
     {
         String unitString = unit.toStringUtf8().toLowerCase(ENGLISH);
         switch (unitString) {
@@ -526,15 +459,6 @@ public final class DateTimeFunctions
     }
 
     @Description("formats the given time by the given format")
-    @ScalarFunction
-    @LiteralParameters("x")
-    @SqlType(StandardTypes.VARCHAR)
-    public static Slice formatDatetime(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP) long timestamp, @SqlType("varchar(x)") Slice formatString)
-    {
-        return formatDatetime(getChronology(session.getTimeZoneKey()), session.getLocale(), timestamp, formatString);
-    }
-
-    @Description("formats the given time by the given format")
     @ScalarFunction("format_datetime")
     @LiteralParameters("x")
     @SqlType(StandardTypes.VARCHAR)
@@ -543,28 +467,15 @@ public final class DateTimeFunctions
             @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone,
             @SqlType("varchar(x)") Slice formatString)
     {
-        return formatDatetime(unpackChronology(timestampWithTimeZone), session.getLocale(), unpackMillisUtc(timestampWithTimeZone), formatString);
-    }
-
-    private static Slice formatDatetime(ISOChronology chronology, Locale locale, long timestamp, Slice formatString)
-    {
         try {
-            return utf8Slice(DateTimeFormat.forPattern(formatString.toStringUtf8())
-                    .withChronology(chronology)
-                    .withLocale(locale)
-                    .print(timestamp));
+            return utf8Slice(JodaDateTimeFormat.forPattern(formatString.toStringUtf8())
+                    .withChronology(unpackChronology(timestampWithTimeZone))
+                    .withLocale(session.getLocale())
+                    .print(unpackMillisUtc(timestampWithTimeZone)));
         }
         catch (IllegalArgumentException e) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
         }
-    }
-
-    @ScalarFunction
-    @LiteralParameters("x")
-    @SqlType(StandardTypes.VARCHAR)
-    public static Slice dateFormat(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP) long timestamp, @SqlType("varchar(x)") Slice formatString)
-    {
-        return dateFormat(getChronology(session.getTimeZoneKey()), session.getLocale(), timestamp, formatString);
     }
 
     @ScalarFunction("date_format")
@@ -575,42 +486,16 @@ public final class DateTimeFunctions
             @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone,
             @SqlType("varchar(x)") Slice formatString)
     {
-        return dateFormat(unpackChronology(timestampWithTimeZone), session.getLocale(), unpackMillisUtc(timestampWithTimeZone), formatString);
+        return doDateFormat(unpackChronology(timestampWithTimeZone), session.getLocale(), unpackMillisUtc(timestampWithTimeZone), formatString);
     }
 
-    private static Slice dateFormat(ISOChronology chronology, Locale locale, long timestamp, Slice formatString)
+    static Slice doDateFormat(ISOChronology chronology, Locale locale, long timestamp, Slice formatString)
     {
         DateTimeFormatter formatter = DATETIME_FORMATTER_CACHE.get(formatString)
                 .withChronology(chronology)
                 .withLocale(locale);
 
         return utf8Slice(formatter.print(timestamp));
-    }
-
-    @ScalarFunction
-    @LiteralParameters({"x", "y"})
-    @SqlType(StandardTypes.TIMESTAMP)
-    public static long dateParse(ConnectorSession session, @SqlType("varchar(x)") Slice dateTime, @SqlType("varchar(y)") Slice formatString)
-    {
-        DateTimeFormatter formatter = DATETIME_FORMATTER_CACHE.get(formatString)
-                .withChronology(getChronology(session.getTimeZoneKey()))
-                .withLocale(session.getLocale());
-
-        try {
-            return formatter.parseMillis(dateTime.toStringUtf8());
-        }
-        catch (IllegalArgumentException e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
-        }
-    }
-
-    @Description("second of the minute of the given timestamp")
-    @ScalarFunction("second")
-    @SqlType(StandardTypes.BIGINT)
-    public static long secondFromTimestamp(@SqlType(StandardTypes.TIMESTAMP) long timestamp)
-    {
-        // Time is effectively UTC so no need for a custom chronology
-        return SECOND_OF_MINUTE.get(timestamp);
     }
 
     @Description("second of the minute of the given timestamp")
@@ -651,14 +536,6 @@ public final class DateTimeFunctions
     @Description("minute of the hour of the given timestamp")
     @ScalarFunction("minute")
     @SqlType(StandardTypes.BIGINT)
-    public static long minuteFromTimestamp(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP) long timestamp)
-    {
-        return getChronology(session.getTimeZoneKey()).minuteOfHour().get(timestamp);
-    }
-
-    @Description("minute of the hour of the given timestamp")
-    @ScalarFunction("minute")
-    @SqlType(StandardTypes.BIGINT)
     public static long minuteFromTimestampWithTimeZone(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone)
     {
         return unpackChronology(timestampWithTimeZone).minuteOfHour().get(unpackMillisUtc(timestampWithTimeZone));
@@ -686,14 +563,6 @@ public final class DateTimeFunctions
     public static long minuteFromInterval(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long milliseconds)
     {
         return (milliseconds % MILLISECONDS_IN_HOUR) / MILLISECONDS_IN_MINUTE;
-    }
-
-    @Description("hour of the day of the given timestamp")
-    @ScalarFunction("hour")
-    @SqlType(StandardTypes.BIGINT)
-    public static long hourFromTimestamp(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP) long timestamp)
-    {
-        return getChronology(session.getTimeZoneKey()).hourOfDay().get(timestamp);
     }
 
     @Description("hour of the day of the given timestamp")
@@ -731,14 +600,6 @@ public final class DateTimeFunctions
     @Description("day of the week of the given timestamp")
     @ScalarFunction(value = "day_of_week", alias = "dow")
     @SqlType(StandardTypes.BIGINT)
-    public static long dayOfWeekFromTimestamp(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP) long timestamp)
-    {
-        return getChronology(session.getTimeZoneKey()).dayOfWeek().get(timestamp);
-    }
-
-    @Description("day of the week of the given timestamp")
-    @ScalarFunction(value = "day_of_week", alias = "dow")
-    @SqlType(StandardTypes.BIGINT)
     public static long dayOfWeekFromTimestampWithTimeZone(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone)
     {
         return unpackChronology(timestampWithTimeZone).dayOfWeek().get(unpackMillisUtc(timestampWithTimeZone));
@@ -750,14 +611,6 @@ public final class DateTimeFunctions
     public static long dayOfWeekFromDate(@SqlType(StandardTypes.DATE) long date)
     {
         return DAY_OF_WEEK.get(DAYS.toMillis(date));
-    }
-
-    @Description("day of the month of the given timestamp")
-    @ScalarFunction(value = "day", alias = "day_of_month")
-    @SqlType(StandardTypes.BIGINT)
-    public static long dayFromTimestamp(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP) long timestamp)
-    {
-        return getChronology(session.getTimeZoneKey()).dayOfMonth().get(timestamp);
     }
 
     @Description("day of the month of the given timestamp")
@@ -787,14 +640,6 @@ public final class DateTimeFunctions
     @Description("day of the year of the given timestamp")
     @ScalarFunction(value = "day_of_year", alias = "doy")
     @SqlType(StandardTypes.BIGINT)
-    public static long dayOfYearFromTimestamp(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP) long timestamp)
-    {
-        return getChronology(session.getTimeZoneKey()).dayOfYear().get(timestamp);
-    }
-
-    @Description("day of the year of the given timestamp")
-    @ScalarFunction(value = "day_of_year", alias = "doy")
-    @SqlType(StandardTypes.BIGINT)
     public static long dayOfYearFromTimestampWithTimeZone(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone)
     {
         return unpackChronology(timestampWithTimeZone).dayOfYear().get(unpackMillisUtc(timestampWithTimeZone));
@@ -806,14 +651,6 @@ public final class DateTimeFunctions
     public static long dayOfYearFromDate(@SqlType(StandardTypes.DATE) long date)
     {
         return DAY_OF_YEAR.get(DAYS.toMillis(date));
-    }
-
-    @Description("week of the year of the given timestamp")
-    @ScalarFunction(value = "week", alias = "week_of_year")
-    @SqlType(StandardTypes.BIGINT)
-    public static long weekFromTimestamp(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP) long timestamp)
-    {
-        return getChronology(session.getTimeZoneKey()).weekOfWeekyear().get(timestamp);
     }
 
     @Description("week of the year of the given timestamp")
@@ -835,14 +672,6 @@ public final class DateTimeFunctions
     @Description("year of the ISO week of the given timestamp")
     @ScalarFunction(value = "year_of_week", alias = "yow")
     @SqlType(StandardTypes.BIGINT)
-    public static long yearOfWeekFromTimestamp(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP) long timestamp)
-    {
-        return getChronology(session.getTimeZoneKey()).weekyear().get(timestamp);
-    }
-
-    @Description("year of the ISO week of the given timestamp")
-    @ScalarFunction(value = "year_of_week", alias = "yow")
-    @SqlType(StandardTypes.BIGINT)
     public static long yearOfWeekFromTimestampWithTimeZone(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone)
     {
         return unpackChronology(timestampWithTimeZone).weekyear().get(unpackMillisUtc(timestampWithTimeZone));
@@ -854,14 +683,6 @@ public final class DateTimeFunctions
     public static long yearOfWeekFromDate(@SqlType(StandardTypes.DATE) long date)
     {
         return YEAR_OF_WEEK.get(DAYS.toMillis(date));
-    }
-
-    @Description("month of the year of the given timestamp")
-    @ScalarFunction("month")
-    @SqlType(StandardTypes.BIGINT)
-    public static long monthFromTimestamp(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP) long timestamp)
-    {
-        return getChronology(session.getTimeZoneKey()).monthOfYear().get(timestamp);
     }
 
     @Description("month of the year of the given timestamp")
@@ -891,14 +712,6 @@ public final class DateTimeFunctions
     @Description("quarter of the year of the given timestamp")
     @ScalarFunction("quarter")
     @SqlType(StandardTypes.BIGINT)
-    public static long quarterFromTimestamp(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP) long timestamp)
-    {
-        return QUARTER_OF_YEAR.getField(getChronology(session.getTimeZoneKey())).get(timestamp);
-    }
-
-    @Description("quarter of the year of the given timestamp")
-    @ScalarFunction("quarter")
-    @SqlType(StandardTypes.BIGINT)
     public static long quarterFromTimestampWithTimeZone(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone)
     {
         return QUARTER_OF_YEAR.getField(unpackChronology(timestampWithTimeZone)).get(unpackMillisUtc(timestampWithTimeZone));
@@ -910,14 +723,6 @@ public final class DateTimeFunctions
     public static long quarterFromDate(@SqlType(StandardTypes.DATE) long date)
     {
         return QUARTER.get(DAYS.toMillis(date));
-    }
-
-    @Description("year of the given timestamp")
-    @ScalarFunction("year")
-    @SqlType(StandardTypes.BIGINT)
-    public static long yearFromTimestamp(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP) long timestamp)
-    {
-        return getChronology(session.getTimeZoneKey()).year().get(timestamp);
     }
 
     @Description("year of the given timestamp")
@@ -1104,5 +909,17 @@ public final class DateTimeFunctions
     public static long toMilliseconds(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long value)
     {
         return value;
+    }
+
+    @ScalarFunction("$internal$to_timestamp_with_time_zone_strict")
+    @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)
+    public static long toTimestampWithTimeZoneStrict(@SqlType(StandardTypes.VARCHAR) Slice value)
+    {
+        try {
+            return parseTimestampWithTimeZoneStrict(trim(value).toStringUtf8());
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Value cannot be cast to timestamp with time zone: " + value.toStringUtf8(), e);
+        }
     }
 }

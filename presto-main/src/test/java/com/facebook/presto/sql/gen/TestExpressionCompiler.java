@@ -58,6 +58,8 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -76,7 +78,6 @@ import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
-import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
@@ -213,7 +214,7 @@ public class TestExpressionCompiler
         assertExecute("bound_string", VARCHAR, "hello");
         assertExecute("bound_double", DOUBLE, 12.34);
         assertExecute("bound_boolean", BOOLEAN, true);
-        assertExecute("bound_timestamp", BIGINT, new DateTime(2001, 8, 22, 3, 4, 5, 321, UTC).getMillis());
+        assertExecute("bound_timestamp", TIMESTAMP, new SqlTimestamp(new DateTime(2001, 8, 22, 3, 4, 5, 321, UTC).getMillis(), TimeZoneKey.UTC_KEY));
         assertExecute("bound_pattern", VARCHAR, "%el%");
         assertExecute("bound_null_string", VARCHAR, null);
         assertExecute("bound_timestamp_with_timezone", TIMESTAMP_WITH_TIME_ZONE, new SqlTimestampWithTimeZone(new DateTime(1970, 1, 1, 0, 1, 0, 999, DateTimeZone.UTC).getMillis(), TimeZoneKey.getTimeZoneKey("Z")));
@@ -822,7 +823,10 @@ public class TestExpressionCompiler
         assertExecute("try_cast('foo' as varchar)", VARCHAR, "foo");
         assertExecute("try_cast('foo' as bigint)", BIGINT, null);
         assertExecute("try_cast('foo' as integer)", INTEGER, null);
-        assertExecute("try_cast('2001-08-22' as timestamp)", TIMESTAMP, new SqlTimestamp(new DateTime(2001, 8, 22, 0, 0, 0, 0, UTC).getMillis(), UTC_KEY));
+        assertExecute(
+                "try_cast('2000-01-02 03:04:05 Asia/Shanghai' as timestamp with time zone)",
+                TIMESTAMP_WITH_TIME_ZONE,
+                SqlTimestampWithTimeZone.of(ZonedDateTime.of(2000, 1, 2, 3, 4, 5, 0, ZoneId.of("Asia/Shanghai"))));
         assertExecute("try_cast(bound_string as bigint)", BIGINT, null);
         assertExecute("try_cast(cast(null as varchar) as bigint)", BIGINT, null);
         assertExecute("try_cast(bound_long / 13  as bigint)", BIGINT, 94L);
@@ -1256,12 +1260,6 @@ public class TestExpressionCompiler
         assertExecute("bound_string in ('hello', " + stringValues + ")", BOOLEAN, true);
         assertExecute("bound_string in (" + stringValues + ")", BOOLEAN, false);
 
-        String timestampValues = range(0, 2_000)
-                .mapToObj(i -> format("TIMESTAMP '1970-01-01 01:01:0%s.%s+01:00'", i / 1000, i % 1000))
-                .collect(joining(", "));
-        assertExecute("bound_timestamp_with_timezone in (" + timestampValues + ")", BOOLEAN, true);
-        assertExecute("bound_timestamp_with_timezone in (TIMESTAMP '1970-01-01 01:01:00.0+02:00')", BOOLEAN, false);
-
         Futures.allAsList(futures).get();
     }
 
@@ -1413,31 +1411,31 @@ public class TestExpressionCompiler
     {
         switch (field) {
             case YEAR:
-                return DateTimeFunctions.yearFromTimestamp(session, value);
+                return DateTimeFunctions.yearFromTimestampWithTimeZone(packDateTimeWithZone(value, session.getTimeZoneKey()));
             case QUARTER:
-                return DateTimeFunctions.quarterFromTimestamp(session, value);
+                return DateTimeFunctions.quarterFromTimestampWithTimeZone(packDateTimeWithZone(value, session.getTimeZoneKey()));
             case MONTH:
-                return DateTimeFunctions.monthFromTimestamp(session, value);
+                return DateTimeFunctions.monthFromTimestampWithTimeZone(packDateTimeWithZone(value, session.getTimeZoneKey()));
             case WEEK:
-                return DateTimeFunctions.weekFromTimestamp(session, value);
+                return DateTimeFunctions.weekFromTimestampWithTimeZone(packDateTimeWithZone(value, session.getTimeZoneKey()));
             case DAY:
             case DAY_OF_MONTH:
-                return DateTimeFunctions.dayFromTimestamp(session, value);
+                return DateTimeFunctions.dayFromTimestampWithTimeZone(packDateTimeWithZone(value, session.getTimeZoneKey()));
             case DAY_OF_WEEK:
             case DOW:
-                return DateTimeFunctions.dayOfWeekFromTimestamp(session, value);
+                return DateTimeFunctions.dayOfWeekFromTimestampWithTimeZone(packDateTimeWithZone(value, session.getTimeZoneKey()));
             case YEAR_OF_WEEK:
             case YOW:
-                return DateTimeFunctions.yearOfWeekFromTimestamp(session, value);
+                return DateTimeFunctions.yearOfWeekFromTimestampWithTimeZone(packDateTimeWithZone(value, session.getTimeZoneKey()));
             case DAY_OF_YEAR:
             case DOY:
-                return DateTimeFunctions.dayOfYearFromTimestamp(session, value);
+                return DateTimeFunctions.dayOfYearFromTimestampWithTimeZone(packDateTimeWithZone(value, session.getTimeZoneKey()));
             case HOUR:
-                return DateTimeFunctions.hourFromTimestamp(session, value);
+                return DateTimeFunctions.hourFromTimestampWithTimeZone(packDateTimeWithZone(value, session.getTimeZoneKey()));
             case MINUTE:
-                return DateTimeFunctions.minuteFromTimestamp(session, value);
+                return DateTimeFunctions.minuteFromTimestampWithTimeZone(packDateTimeWithZone(value, session.getTimeZoneKey()));
             case SECOND:
-                return DateTimeFunctions.secondFromTimestamp(value);
+                return DateTimeFunctions.secondFromTimestampWithTimeZone(packDateTimeWithZone(value, session.getTimeZoneKey()));
             case TIMEZONE_MINUTE:
                 return DateTimeFunctions.timeZoneMinuteFromTimestampWithTimeZone(packDateTimeWithZone(value, session.getTimeZoneKey()));
             case TIMEZONE_HOUR:

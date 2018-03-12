@@ -17,7 +17,6 @@ import com.facebook.presto.annotation.UsedByGeneratedCode;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.SqlOperator;
-import com.facebook.presto.server.SliceSerializer;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.OperatorType;
@@ -25,13 +24,9 @@ import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.util.JsonUtil.JsonGeneratorWriter;
+import com.facebook.presto.util.JsonUtil.JsonGeneratorWriterFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.module.SimpleModule;
-import com.google.common.base.Supplier;
-import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
-import io.airlift.json.ObjectMapperProvider;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
@@ -48,7 +43,6 @@ import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.N
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.Failures.checkCondition;
-import static com.facebook.presto.util.JsonUtil.JsonGeneratorWriter.createJsonGeneratorWriter;
 import static com.facebook.presto.util.JsonUtil.canCastToJson;
 import static com.facebook.presto.util.JsonUtil.createJsonGenerator;
 import static com.facebook.presto.util.Reflection.methodHandle;
@@ -58,17 +52,17 @@ import static com.google.common.base.Throwables.throwIfUnchecked;
 public class RowToJsonCast
         extends SqlOperator
 {
-    public static final RowToJsonCast ROW_TO_JSON = new RowToJsonCast();
-    private static final Supplier<ObjectMapper> OBJECT_MAPPER = Suppliers.memoize(() -> new ObjectMapperProvider().get().registerModule(new SimpleModule().addSerializer(Slice.class, new SliceSerializer())));
     private static final MethodHandle METHOD_HANDLE = methodHandle(RowToJsonCast.class, "toJson", List.class, ConnectorSession.class, Block.class);
+    private final JsonGeneratorWriterFactory jsonGeneratorWriterFactory;
 
-    private RowToJsonCast()
+    public RowToJsonCast(JsonGeneratorWriterFactory jsonGeneratorWriterFactory)
     {
         super(OperatorType.CAST,
                 ImmutableList.of(withVariadicBound("T", "row")),
                 ImmutableList.of(),
                 parseTypeSignature(StandardTypes.JSON),
                 ImmutableList.of(parseTypeSignature("T")));
+        this.jsonGeneratorWriterFactory = jsonGeneratorWriterFactory;
     }
 
     @Override
@@ -81,7 +75,7 @@ public class RowToJsonCast
         List<Type> fieldTypes = type.getTypeParameters();
         List<JsonGeneratorWriter> fieldWriters = new ArrayList<>(fieldTypes.size());
         for (int i = 0; i < fieldTypes.size(); i++) {
-            fieldWriters.add(createJsonGeneratorWriter(fieldTypes.get(i)));
+            fieldWriters.add(jsonGeneratorWriterFactory.createJsonGeneratorWriter(fieldTypes.get(i)));
         }
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(fieldWriters);
 

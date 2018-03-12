@@ -73,7 +73,8 @@ import static com.facebook.presto.type.JsonType.JSON;
 import static com.facebook.presto.type.TypeUtils.hashPosition;
 import static com.facebook.presto.type.TypeUtils.positionEqualsPosition;
 import static com.facebook.presto.util.DateTimeUtils.printDate;
-import static com.facebook.presto.util.DateTimeUtils.printTimestampWithoutTimeZone;
+import static com.facebook.presto.util.DateTimeUtils.printTimestampWithoutTimeZoneForFixedTimestamp;
+import static com.facebook.presto.util.DateTimeUtils.printTimestampWithoutTimeZoneForLegacyTimestamp;
 import static com.facebook.presto.util.JsonUtil.ObjectKeyProvider.createObjectKeyProvider;
 import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
 import static com.fasterxml.jackson.core.JsonToken.END_ARRAY;
@@ -249,8 +250,18 @@ public final class JsonUtil
         // write a Json value into the JsonGenerator, provided by block and position
         void writeJsonValue(JsonGenerator jsonGenerator, Block block, int position, ConnectorSession session)
                 throws IOException;
+    }
 
-        static JsonGeneratorWriter createJsonGeneratorWriter(Type type)
+    public static class JsonGeneratorWriterFactory
+    {
+        private final boolean legacyTimestamp;
+
+        public JsonGeneratorWriterFactory(boolean legacyTimestamp)
+        {
+            this.legacyTimestamp = legacyTimestamp;
+        }
+
+        public JsonGeneratorWriter createJsonGeneratorWriter(Type type)
         {
             String baseType = type.getTypeSignature().getBase();
             switch (baseType) {
@@ -279,7 +290,12 @@ public final class JsonUtil
                 case StandardTypes.JSON:
                     return new JsonJsonGeneratorWriter();
                 case StandardTypes.TIMESTAMP:
-                    return new TimestampJsonGeneratorWriter();
+                    if (legacyTimestamp) {
+                        return new TimestampJsonGeneratorWriterForLegacyTimestamp();
+                    }
+                    else {
+                        return new TimestampJsonGeneratorWriterForFixedTimestamp();
+                    }
                 case StandardTypes.DATE:
                     return new DateGeneratorWriter();
                 case StandardTypes.ARRAY:
@@ -483,7 +499,7 @@ public final class JsonUtil
         }
     }
 
-    private static class TimestampJsonGeneratorWriter
+    private static class TimestampJsonGeneratorWriterForLegacyTimestamp
             implements JsonGeneratorWriter
     {
         @Override
@@ -495,7 +511,24 @@ public final class JsonUtil
             }
             else {
                 long value = TIMESTAMP.getLong(block, position);
-                jsonGenerator.writeString(printTimestampWithoutTimeZone(session.getTimeZoneKey(), value));
+                jsonGenerator.writeString(printTimestampWithoutTimeZoneForLegacyTimestamp(session.getTimeZoneKey(), value));
+            }
+        }
+    }
+
+    private static class TimestampJsonGeneratorWriterForFixedTimestamp
+            implements JsonGeneratorWriter
+    {
+        @Override
+        public void writeJsonValue(JsonGenerator jsonGenerator, Block block, int position, ConnectorSession session)
+                throws IOException
+        {
+            if (block.isNull(position)) {
+                jsonGenerator.writeNull();
+            }
+            else {
+                long value = TIMESTAMP.getLong(block, position);
+                jsonGenerator.writeString(printTimestampWithoutTimeZoneForFixedTimestamp(value));
             }
         }
     }
