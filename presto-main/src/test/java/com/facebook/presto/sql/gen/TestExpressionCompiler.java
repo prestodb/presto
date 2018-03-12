@@ -213,7 +213,7 @@ public class TestExpressionCompiler
         assertExecute("bound_string", VARCHAR, "hello");
         assertExecute("bound_double", DOUBLE, 12.34);
         assertExecute("bound_boolean", BOOLEAN, true);
-        assertExecute("bound_timestamp", BIGINT, new DateTime(2001, 8, 22, 3, 4, 5, 321, UTC).getMillis());
+        assertExecute("bound_timestamp", TIMESTAMP, new SqlTimestamp(new DateTime(2001, 8, 22, 3, 4, 5, 321, UTC).getMillis(), TimeZoneKey.UTC_KEY));
         assertExecute("bound_pattern", VARCHAR, "%el%");
         assertExecute("bound_null_string", VARCHAR, null);
         assertExecute("bound_timestamp_with_timezone", TIMESTAMP_WITH_TIME_ZONE, new SqlTimestampWithTimeZone(new DateTime(1970, 1, 1, 0, 1, 0, 999, DateTimeZone.UTC).getMillis(), TimeZoneKey.getTimeZoneKey("Z")));
