@@ -11,32 +11,46 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.type;
+package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.SqlTimestamp;
+import com.facebook.presto.spi.type.TimeZoneKey;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.google.common.collect.ImmutableList;
+import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
-import java.text.DateFormat;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.util.TimeZone;
-import java.util.concurrent.TimeUnit;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 
-import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.SystemSessionProperties.LEGACY_TIMESTAMP;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKey;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
 import static java.lang.Math.toIntExact;
 
-public class TestSequenceFunction
+public abstract class TestSequenceFunctionBase
         extends AbstractTestFunctions
 {
-    public TestSequenceFunction() {}
+    protected static final TimeZoneKey TIME_ZONE_KEY = getTimeZoneKey("Asia/Kathmandu");
+    protected static final DateTimeZone DATE_TIME_ZONE = getDateTimeZone(TIME_ZONE_KEY);
+
+    public TestSequenceFunctionBase(boolean legacyTimestamp)
+    {
+        super(
+                testSessionBuilder()
+                        .setTimeZoneKey(TIME_ZONE_KEY)
+                        .setSystemProperty(LEGACY_TIMESTAMP, String.valueOf(legacyTimestamp))
+                        .build(),
+                new FeaturesConfig()
+                        .setLegacyTimestamp(legacyTimestamp));
+    }
 
     @Test
     public void testSequence()
@@ -67,8 +81,7 @@ public class TestSequenceFunction
     }
 
     @Test
-    public void testSequenceDateTimeDayToSecond()
-            throws ParseException
+    public void testSequenceDateIntervalDayToSecond()
     {
         assertFunction(
                 "SEQUENCE(date '2016-04-12', date '2016-04-14', interval '1' day)",
@@ -87,7 +100,11 @@ public class TestSequenceFunction
                 "SEQUENCE(date '2016-04-16', date '2016-04-12', interval '-2' day)",
                 new ArrayType(DATE),
                 ImmutableList.of(sqlDate("2016-04-16"), sqlDate("2016-04-14"), sqlDate("2016-04-12")));
+    }
 
+    @Test
+    public void testSequenceTimestampIntervalDayToSecond()
+    {
         assertFunction(
                 "SEQUENCE(timestamp '2016-04-16 01:00:10', timestamp '2016-04-16 01:07:00', interval '3' minute)",
                 new ArrayType(TIMESTAMP),
@@ -147,8 +164,7 @@ public class TestSequenceFunction
     }
 
     @Test
-    public void testSequenceDateTimeYearToMonth()
-            throws ParseException
+    public void testSequenceDateIntervalYearToMonth()
     {
         assertFunction(
                 "SEQUENCE(date '2016-04-12', date '2016-06-12', interval '1' month)",
@@ -167,7 +183,11 @@ public class TestSequenceFunction
                 "SEQUENCE(date '2016-08-12', date '2016-04-12', interval '-2' month)",
                 new ArrayType(DATE),
                 ImmutableList.of(sqlDate("2016-08-12"), sqlDate("2016-06-12"), sqlDate("2016-04-12")));
+    }
 
+    @Test
+    public void testSequenceTimestampIntervalYearToMonth()
+    {
         assertFunction(
                 "SEQUENCE(date '2016-04-12', date '2018-04-12', interval '1' year)",
                 new ArrayType(DATE),
@@ -222,19 +242,12 @@ public class TestSequenceFunction
                 "result of sequence function must not have more than 10000 entries");
     }
 
-    private static SqlTimestamp sqlTimestamp(String dateString)
-            throws ParseException
-    {
-        DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-        dateFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
-        return new SqlTimestamp(dateFormat.parse(dateString).getTime(), TEST_SESSION.getTimeZoneKey());
-    }
+    protected abstract SqlTimestamp sqlTimestamp(String dateString);
 
-    private static SqlDate sqlDate(String dateString)
-            throws ParseException
+    private SqlDate sqlDate(String dateString)
     {
-        DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
-        dateFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
-        return new SqlDate(toIntExact(TimeUnit.MILLISECONDS.toDays(dateFormat.parse(dateString).getTime())));
+        DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+        LocalDate localDate = LocalDate.parse(dateString, dateTimeFormatter);
+        return new SqlDate(toIntExact(localDate.toEpochDay()));
     }
 }
