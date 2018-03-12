@@ -14,12 +14,14 @@
 
 package com.facebook.presto.operator.scalar;
 
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import org.joda.time.DateTime;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.DateTimeFormatterBuilder;
 
 import java.util.Locale;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * This class is a fork from org.joda.time.format.DateTimeFormat.
@@ -34,7 +36,19 @@ public class JodaDateTimeFormat
     /**
      * Maps patterns to formatters, patterns don't vary by locale. Size capped at PATTERN_CACHE_SIZE
      */
-    private static final ConcurrentHashMap<String, DateTimeFormatter> cPatternCache = new ConcurrentHashMap<String, DateTimeFormatter>();
+    private static final LoadingCache<String, DateTimeFormatter> cPatternCache = CacheBuilder.newBuilder()
+            .maximumSize(PATTERN_CACHE_SIZE)
+            .build(new CacheLoader<String, DateTimeFormatter>()
+            {
+                @Override
+                public DateTimeFormatter load(String pattern)
+                {
+                    // This method must not throw unchecked exception because the cache is invoked with getUnchecked.
+                    DateTimeFormatterBuilder builder = new DateTimeFormatterBuilder();
+                    parsePatternTo(builder, pattern);
+                    return builder.toFormatter();
+                }
+            });
 
     private JodaDateTimeFormat() {}
 
@@ -65,21 +79,7 @@ public class JodaDateTimeFormat
         if (pattern == null || pattern.length() == 0) {
             throw new IllegalArgumentException("Invalid pattern specification");
         }
-        DateTimeFormatter formatter = cPatternCache.get(pattern);
-        if (formatter == null) {
-            DateTimeFormatterBuilder builder = new DateTimeFormatterBuilder();
-            parsePatternTo(builder, pattern);
-            formatter = builder.toFormatter();
-            if (cPatternCache.size() < PATTERN_CACHE_SIZE) {
-                // the size check is not locked against concurrent access,
-                // but is accepted to be slightly off in contention scenarios.
-                DateTimeFormatter oldFormatter = cPatternCache.putIfAbsent(pattern, formatter);
-                if (oldFormatter != null) {
-                    formatter = oldFormatter;
-                }
-            }
-        }
-        return formatter;
+        return cPatternCache.getUnchecked(pattern);
     }
 
     /**
