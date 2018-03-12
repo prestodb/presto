@@ -18,6 +18,7 @@ import com.facebook.presto.memory.QueryContextVisitor;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.memory.context.MemoryTrackingContext;
+import com.facebook.presto.operator.OperationTimer.OperationTiming;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -31,8 +32,6 @@ import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
-import java.lang.management.ManagementFactory;
-import java.lang.management.ThreadMXBean;
 import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
@@ -56,26 +55,17 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
  */
 public class OperatorContext
 {
-    private static final ThreadMXBean THREAD_MX_BEAN = ManagementFactory.getThreadMXBean();
-
     private final int operatorId;
     private final PlanNodeId planNodeId;
     private final String operatorType;
     private final DriverContext driverContext;
     private final Executor executor;
 
-    private final AtomicLong intervalWallStart = new AtomicLong();
-    private final AtomicLong intervalCpuStart = new AtomicLong();
-
-    private final AtomicLong addInputCalls = new AtomicLong();
-    private final AtomicLong addInputWallNanos = new AtomicLong();
-    private final AtomicLong addInputCpuNanos = new AtomicLong();
+    private final OperationTiming addInputTiming = new OperationTiming();
     private final CounterStat inputDataSize = new CounterStat();
     private final CounterStat inputPositions = new CounterStat();
 
-    private final AtomicLong getOutputCalls = new AtomicLong();
-    private final AtomicLong getOutputWallNanos = new AtomicLong();
-    private final AtomicLong getOutputCpuNanos = new AtomicLong();
+    private final OperationTiming getOutputTiming = new OperationTiming();
     private final CounterStat outputDataSize = new CounterStat();
     private final CounterStat outputPositions = new CounterStat();
 
@@ -86,13 +76,10 @@ public class OperatorContext
     private final AtomicReference<BlockedMonitor> blockedMonitor = new AtomicReference<>();
     private final AtomicLong blockedWallNanos = new AtomicLong();
 
-    private final AtomicLong finishCalls = new AtomicLong();
-    private final AtomicLong finishWallNanos = new AtomicLong();
-    private final AtomicLong finishCpuNanos = new AtomicLong();
+    private final OperationTiming finishTiming = new OperationTiming();
 
     private final SpillContext spillContext;
     private final AtomicReference<Supplier<OperatorInfo>> infoSupplier = new AtomicReference<>();
-    private final boolean collectTimings;
 
     private final AtomicLong peakUserMemoryReservation = new AtomicLong();
     private final AtomicLong peakSystemMemoryReservation = new AtomicLong();
@@ -128,8 +115,6 @@ public class OperatorContext
         this.revocableMemoryFuture.get().set(null);
         this.operatorMemoryContext = requireNonNull(operatorMemoryContext, "operatorMemoryContext is null");
         operatorMemoryContext.initializeLocalMemoryContexts(operatorType);
-
-        collectTimings = driverContext.isCpuTimerEnabled() && driverContext.isPerOperatorCpuTimerEnabled();
     }
 
     public int getOperatorId()
@@ -157,18 +142,9 @@ public class OperatorContext
         return driverContext.isDone();
     }
 
-    void startIntervalTimer()
+    void recordAddInput(OperationTimer operationTimer, Page page)
     {
-        intervalWallStart.set(System.nanoTime());
-        intervalCpuStart.set(currentThreadCpuTime());
-    }
-
-    void recordAddInput(Page page)
-    {
-        addInputCalls.incrementAndGet();
-        recordInputWallNanos(nanosBetween(intervalWallStart.get(), System.nanoTime()));
-        addInputCpuNanos.getAndAdd(nanosBetween(intervalCpuStart.get(), currentThreadCpuTime()));
-
+        operationTimer.recordOperationComplete(addInputTiming);
         if (page != null) {
             inputDataSize.update(page.getSizeInBytes());
             inputPositions.update(page.getPositionCount());
@@ -184,20 +160,12 @@ public class OperatorContext
     {
         inputDataSize.update(sizeInBytes);
         inputPositions.update(positions);
-        recordInputWallNanos(readNanos);
+        addInputTiming.record(readNanos, 0);
     }
 
-    private long recordInputWallNanos(long readNanos)
+    void recordGetOutput(OperationTimer operationTimer, Page page)
     {
-        return addInputWallNanos.getAndAdd(readNanos);
-    }
-
-    void recordGetOutput(Page page)
-    {
-        getOutputCalls.incrementAndGet();
-        getOutputWallNanos.getAndAdd(nanosBetween(intervalWallStart.get(), System.nanoTime()));
-        getOutputCpuNanos.getAndAdd(nanosBetween(intervalCpuStart.get(), currentThreadCpuTime()));
-
+        operationTimer.recordOperationComplete(getOutputTiming);
         if (page != null) {
             outputDataSize.update(page.getSizeInBytes());
             outputPositions.update(page.getPositionCount());
@@ -230,11 +198,9 @@ public class OperatorContext
         // Do not register blocked with driver context.  The driver handles this directly.
     }
 
-    void recordFinish()
+    void recordFinish(OperationTimer operationTimer)
     {
-        finishCalls.incrementAndGet();
-        finishWallNanos.getAndAdd(nanosBetween(intervalWallStart.get(), System.nanoTime()));
-        finishCpuNanos.getAndAdd(nanosBetween(intervalCpuStart.get(), currentThreadCpuTime()));
+        operationTimer.recordOperationComplete(finishTiming);
     }
 
     public ListenableFuture<?> isWaitingForMemory()
@@ -462,16 +428,16 @@ public class OperatorContext
 
                 1,
 
-                addInputCalls.get(),
-                new Duration(addInputWallNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                new Duration(addInputCpuNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
+                addInputTiming.getCalls(),
+                new Duration(addInputTiming.getWallNanos(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
+                new Duration(addInputTiming.getCpuNanos(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 succinctBytes(inputDataSize.getTotalCount()),
                 inputPositionsCount,
                 (double) inputPositionsCount * inputPositionsCount,
 
-                getOutputCalls.get(),
-                new Duration(getOutputWallNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                new Duration(getOutputCpuNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
+                getOutputTiming.getCalls(),
+                new Duration(getOutputTiming.getWallNanos(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
+                new Duration(getOutputTiming.getCpuNanos(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 succinctBytes(outputDataSize.getTotalCount()),
                 outputPositions.getTotalCount(),
 
@@ -479,9 +445,9 @@ public class OperatorContext
 
                 new Duration(blockedWallNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
 
-                finishCalls.get(),
-                new Duration(finishWallNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                new Duration(finishCpuNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
+                finishTiming.getCalls(),
+                new Duration(finishTiming.getWallNanos(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
+                new Duration(finishTiming.getCpuNanos(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
 
                 succinctBytes(operatorMemoryContext.getUserMemory()),
                 succinctBytes(getReservedRevocableBytes()),
@@ -498,14 +464,6 @@ public class OperatorContext
     public <C, R> R accept(QueryContextVisitor<C, R> visitor, C context)
     {
         return visitor.visitOperatorContext(this, context);
-    }
-
-    private long currentThreadCpuTime()
-    {
-        if (!collectTimings) {
-            return 0;
-        }
-        return THREAD_MX_BEAN.getCurrentThreadCpuTime();
     }
 
     private static long nanosBetween(long start, long end)
