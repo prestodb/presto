@@ -439,6 +439,7 @@ public class OrcTester
     public void assertRoundTrip(Type type, List<?> readValues, boolean verifyWithHiveReader)
             throws Exception
     {
+        OrcWriterStats stats = new OrcWriterStats();
         for (Format format : formats) {
             if (!format.supportsType(type)) {
                 return;
@@ -458,7 +459,7 @@ public class OrcTester
 
                 // write Presto, read Hive and Presto
                 try (TempFile tempFile = new TempFile()) {
-                    writeOrcColumnPresto(tempFile.getFile(), format, compression, type, readValues.iterator());
+                    writeOrcColumnPresto(tempFile.getFile(), format, compression, type, readValues.iterator(), stats);
 
                     if (verifyWithHiveReader && hiveSupported) {
                         assertFileContentsHive(type, tempFile, format, readValues);
@@ -476,6 +477,8 @@ public class OrcTester
                 }
             }
         }
+
+        assertEquals(stats.getWriterSizeInBytes(), 0);
     }
 
     private static void assertFileContentsPresto(
@@ -614,7 +617,7 @@ public class OrcTester
         return orcReader.createRecordReader(ImmutableMap.of(0, type), predicate, HIVE_STORAGE_TIME_ZONE, newSimpleAggregatedMemoryContext());
     }
 
-    private static void writeOrcColumnPresto(File outputFile, Format format, CompressionKind compression, Type type, Iterator<?> values)
+    private static void writeOrcColumnPresto(File outputFile, Format format, CompressionKind compression, Type type, Iterator<?> values, OrcWriterStats stats)
             throws Exception
     {
         ImmutableMap.Builder<String, String> metadata = ImmutableMap.builder();
@@ -632,7 +635,7 @@ public class OrcTester
                 ImmutableMap.of(),
                 HIVE_STORAGE_TIME_ZONE,
                 true,
-                new OrcWriterStats());
+                stats);
 
         BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), 1024);
         while (values.hasNext()) {
