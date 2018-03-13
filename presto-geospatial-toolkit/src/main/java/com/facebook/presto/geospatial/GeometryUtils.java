@@ -17,7 +17,6 @@ import com.esri.core.geometry.Envelope;
 import com.esri.core.geometry.Geometry;
 import com.esri.core.geometry.GeometryCursor;
 import com.esri.core.geometry.GeometryMemorySizeUtilsPackageWorkaround;
-import com.esri.core.geometry.SpatialReference;
 import com.esri.core.geometry.ogc.OGCConcreteGeometryCollection;
 import com.esri.core.geometry.ogc.OGCGeometry;
 import com.google.common.base.Verify;
@@ -44,7 +43,25 @@ public final class GeometryUtils
 
     public enum GeometryTypeName
     {
-        POINT, MULTI_POINT, LINE_STRING, MULTI_LINE_STRING, POLYGON, MULTI_POLYGON, GEOMETRY_COLLECTION
+        POINT(0),
+        MULTI_POINT(1),
+        LINE_STRING(2),
+        MULTI_LINE_STRING(3),
+        POLYGON(4),
+        MULTI_POLYGON(5),
+        GEOMETRY_COLLECTION(6);
+
+        private final int code;
+
+        GeometryTypeName(int code)
+        {
+            this.code = code;
+        }
+
+        public int code()
+        {
+            return code;
+        }
     }
 
     public static final String POINT = "Point";
@@ -104,40 +121,42 @@ public final class GeometryUtils
         }
         BasicSliceInput input = shape.getInput();
 
-        input.readInt(); // spatial reference ID
-
         Envelope overallEnvelope = null;
-        while (input.available() > 0) {
-            int length = input.readInt();
-            ByteBuffer buffer = input.readSlice(length).toByteBuffer().order(LITTLE_ENDIAN);
-            int type = buffer.getInt();
-            Envelope envelope = null;
-            if (type == POINT_TYPE) {    // point
-                double x = buffer.getDouble();
-                double y = buffer.getDouble();
-                if (!isEsriNaN(x)) {
-                    Verify.verify(!isEsriNaN(y));
-                    envelope = new Envelope(x, y, x, y);
-                }
-            }
-            else {
-                double xMin = buffer.getDouble();
-                double yMin = buffer.getDouble();
-                double xMax = buffer.getDouble();
-                double yMax = buffer.getDouble();
-                if (!isEsriNaN(xMin)) {
-                    Verify.verify(!isEsriNaN(xMax));
-                    Verify.verify(!isEsriNaN(yMin));
-                    Verify.verify(!isEsriNaN(yMax));
-                    envelope = new Envelope(xMin, yMin, xMax, yMax);
-                }
-            }
-            if (envelope != null) {
-                if (overallEnvelope == null) {
-                    overallEnvelope = envelope;
+        if (input.available() > 0) {
+            byte code = input.readByte();
+            boolean isGeometryCollection = (code == GeometryTypeName.GEOMETRY_COLLECTION.code());
+            while (input.available() > 0) {
+                int length = isGeometryCollection ? input.readInt() : input.available();
+                ByteBuffer buffer = input.readSlice(length).toByteBuffer().order(LITTLE_ENDIAN);
+                int type = buffer.getInt();
+                Envelope envelope = null;
+                if (type == POINT_TYPE) {    // point
+                    double x = buffer.getDouble();
+                    double y = buffer.getDouble();
+                    if (!isEsriNaN(x)) {
+                        Verify.verify(!isEsriNaN(y));
+                        envelope = new Envelope(x, y, x, y);
+                    }
                 }
                 else {
-                    overallEnvelope.merge(envelope);
+                    double xMin = buffer.getDouble();
+                    double yMin = buffer.getDouble();
+                    double xMax = buffer.getDouble();
+                    double yMax = buffer.getDouble();
+                    if (!isEsriNaN(xMin)) {
+                        Verify.verify(!isEsriNaN(xMax));
+                        Verify.verify(!isEsriNaN(yMin));
+                        Verify.verify(!isEsriNaN(yMax));
+                        envelope = new Envelope(xMin, yMin, xMax, yMax);
+                    }
+                }
+                if (envelope != null) {
+                    if (overallEnvelope == null) {
+                        overallEnvelope = envelope;
+                    }
+                    else {
+                        overallEnvelope.merge(envelope);
+                    }
                 }
             }
         }
@@ -152,45 +171,50 @@ public final class GeometryUtils
         }
         BasicSliceInput input = shape.getInput();
 
-        int spatialReferenceId = input.readInt();
-        SpatialReference spatialReference = null;
-        if (spatialReferenceId != SPATIAL_REFERENCE_UNKNOWN) {
-            spatialReference = SpatialReference.create(spatialReferenceId);
-        }
-
-        // GeometryCollection: spatialReferenceId|len-of-shape1|bytes-of-shape1|len-of-shape2|bytes-of-shape2...
+        // GeometryCollection: geometryType|len-of-shape1|bytes-of-shape1|len-of-shape2|bytes-of-shape2...
         List<OGCGeometry> geometries = new ArrayList<>();
-        while (input.available() > 0) {
-            int length = input.readInt();
-            ByteBuffer buffer = input.readSlice(length).toByteBuffer().slice().order(LITTLE_ENDIAN);
-            Geometry esriGeometry = local().execute(0, Unknown, buffer);
-            OGCGeometry geometry = createFromEsriGeometry(esriGeometry, spatialReference);
-            geometries.add(geometry);
+
+        if (input.available() > 0) {
+            byte code = input.readByte();
+            boolean isGeometryCollection = (code == GeometryTypeName.GEOMETRY_COLLECTION.code());
+            while (input.available() > 0) {
+                geometries.add(readGeometry(isGeometryCollection, input));
+            }
         }
 
         if (geometries.isEmpty()) {
-            return new OGCConcreteGeometryCollection(emptyList(), spatialReference);
+            return new OGCConcreteGeometryCollection(emptyList(), null);
         }
         else if (geometries.size() == 1) {
             return geometries.get(0);
         }
-        return new OGCConcreteGeometryCollection(geometries, spatialReference);
+        return new OGCConcreteGeometryCollection(geometries, null);
+    }
+
+    private static OGCGeometry readGeometry(boolean isGeometryCollection, BasicSliceInput input)
+    {
+        int length = isGeometryCollection ? input.readInt() : input.available();
+        ByteBuffer buffer = input.readSlice(length).toByteBuffer().slice().order(LITTLE_ENDIAN);
+        Geometry esriGeometry = local().execute(0, Unknown, buffer);
+        return createFromEsriGeometry(esriGeometry, null);
     }
 
     public static Slice serialize(OGCGeometry input)
     {
-        int spatialReferenceId = input.SRID();
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(100);
-        sliceOutput.appendInt(spatialReferenceId);
 
+        sliceOutput.appendByte(valueOf(input.geometryType()).code());
         GeometryCursor cursor = input.getEsriGeometryCursor();
+        boolean isGeometryCollection = input.geometryType().equals(GEOMETRY_COLLECTION);
         while (true) {
             Geometry geometry = cursor.next();
             if (geometry == null) {
                 break;
             }
             byte[] shape = geometryToEsriShape(geometry);
-            sliceOutput.appendInt(shape.length);
+            if (isGeometryCollection) {
+                sliceOutput.appendInt(shape.length);
+            }
             sliceOutput.appendBytes(shape);
         }
         return sliceOutput.slice();
