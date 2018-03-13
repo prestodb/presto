@@ -14,6 +14,7 @@
 package com.facebook.presto.resourceGroups.db;
 
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import com.facebook.presto.spi.resourceGroups.SelectionContext;
 import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -55,10 +56,10 @@ public class TestDbSourceExactMatchSelector
                 selector.match(new SelectionCriteria(true, "testuser", Optional.of("@test@test_pipeline"), ImmutableSet.of("tag"), 1, Optional.empty())),
                 Optional.empty());
         assertEquals(
-                selector.match(new SelectionCriteria(true, "testuser", Optional.of("@test@test_pipeline"), ImmutableSet.of("tag"), 1, Optional.of(INSERT.name()))),
+                selector.match(new SelectionCriteria(true, "testuser", Optional.of("@test@test_pipeline"), ImmutableSet.of("tag"), 1, Optional.of(INSERT.name()))).map(SelectionContext::getResourceGroupId),
                 Optional.of(resourceGroupId1));
         assertEquals(
-                selector.match(new SelectionCriteria(true, "testuser", Optional.of("@test@test_pipeline"), ImmutableSet.of("tag"), 1, Optional.of(SELECT.name()))),
+                selector.match(new SelectionCriteria(true, "testuser", Optional.of("@test@test_pipeline"), ImmutableSet.of("tag"), 1, Optional.of(SELECT.name()))).map(SelectionContext::getResourceGroupId),
                 Optional.of(resourceGroupId2));
         assertEquals(
                 selector.match(new SelectionCriteria(true, "testuser", Optional.of("@test@test_pipeline"), ImmutableSet.of("tag"), 1, Optional.of(DELETE.name()))),

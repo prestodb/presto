@@ -13,11 +13,26 @@
  */
 package com.facebook.presto.spi.resourceGroups;
 
-import java.util.Map;
+import static java.util.Objects.requireNonNull;
 
-public interface ResourceGroupConfigurationManagerFactory
+public final class SelectionContext<T>
 {
-    String getName();
+    private final ResourceGroupId resourceGroupId;
+    private final T context;
 
-    ResourceGroupConfigurationManager<?> create(Map<String, String> config, ResourceGroupConfigurationManagerContext context);
+    public SelectionContext(ResourceGroupId resourceGroupId, T context)
+    {
+        this.resourceGroupId = requireNonNull(resourceGroupId, "resourceGroupId is null");
+        this.context = requireNonNull(context, "context is null");
+    }
+
+    public ResourceGroupId getResourceGroupId()
+    {
+        return resourceGroupId;
+    }
+
+    public T getContext()
+    {
+        return context;
+    }
 }

@@ -14,6 +14,7 @@
 package com.facebook.presto.resourceGroups;
 
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import com.facebook.presto.spi.resourceGroups.SelectionContext;
 import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -32,8 +33,8 @@ public class TestStaticSelector
     {
         ResourceGroupId resourceGroupId = new ResourceGroupId(new ResourceGroupId("global"), "foo");
         StaticSelector selector = new StaticSelector(Optional.of(Pattern.compile("user.*")), Optional.empty(), Optional.empty(), Optional.empty(), new ResourceGroupIdTemplate("global.foo"));
-        assertEquals(selector.match(newSelectionCritera("userA", null, ImmutableSet.of("tag1"))), Optional.of(resourceGroupId));
-        assertEquals(selector.match(newSelectionCritera("userB", "source", ImmutableSet.of())), Optional.of(resourceGroupId));
+        assertEquals(selector.match(newSelectionCritera("userA", null, ImmutableSet.of("tag1"))).map(SelectionContext::getResourceGroupId), Optional.of(resourceGroupId));
+        assertEquals(selector.match(newSelectionCritera("userB", "source", ImmutableSet.of())).map(SelectionContext::getResourceGroupId), Optional.of(resourceGroupId));
         assertEquals(selector.match(newSelectionCritera("A.user", null, ImmutableSet.of("tag1"))), Optional.empty());
     }
 
@@ -43,8 +44,8 @@ public class TestStaticSelector
         ResourceGroupId resourceGroupId = new ResourceGroupId(new ResourceGroupId("global"), "foo");
         StaticSelector selector = new StaticSelector(Optional.empty(), Optional.of(Pattern.compile(".*source.*")), Optional.empty(), Optional.empty(), new ResourceGroupIdTemplate("global.foo"));
         assertEquals(selector.match(newSelectionCritera("userA", null, ImmutableSet.of("tag1"))), Optional.empty());
-        assertEquals(selector.match(newSelectionCritera("userB", "source", ImmutableSet.of())), Optional.of(resourceGroupId));
-        assertEquals(selector.match(newSelectionCritera("A.user", "a source b", ImmutableSet.of("tag1"))), Optional.of(resourceGroupId));
+        assertEquals(selector.match(newSelectionCritera("userB", "source", ImmutableSet.of())).map(SelectionContext::getResourceGroupId), Optional.of(resourceGroupId));
+        assertEquals(selector.match(newSelectionCritera("A.user", "a source b", ImmutableSet.of("tag1"))).map(SelectionContext::getResourceGroupId), Optional.of(resourceGroupId));
     }
 
     @Test
@@ -52,10 +53,10 @@ public class TestStaticSelector
     {
         ResourceGroupId resourceGroupId = new ResourceGroupId(new ResourceGroupId("global"), "foo");
         StaticSelector selector = new StaticSelector(Optional.empty(), Optional.empty(), Optional.of(ImmutableList.of("tag1", "tag2")), Optional.empty(), new ResourceGroupIdTemplate("global.foo"));
-        assertEquals(selector.match(newSelectionCritera("userA", null, ImmutableSet.of("tag1", "tag2"))), Optional.of(resourceGroupId));
+        assertEquals(selector.match(newSelectionCritera("userA", null, ImmutableSet.of("tag1", "tag2"))).map(SelectionContext::getResourceGroupId), Optional.of(resourceGroupId));
         assertEquals(selector.match(newSelectionCritera("userB", "source", ImmutableSet.of())), Optional.empty());
         assertEquals(selector.match(newSelectionCritera("A.user", "a source b", ImmutableSet.of("tag1"))), Optional.empty());
-        assertEquals(selector.match(newSelectionCritera("A.user", "a source b", ImmutableSet.of("tag1", "tag2", "tag3"))), Optional.of(resourceGroupId));
+        assertEquals(selector.match(newSelectionCritera("A.user", "a source b", ImmutableSet.of("tag1", "tag2", "tag3"))).map(SelectionContext::getResourceGroupId), Optional.of(resourceGroupId));
     }
 
     private SelectionCriteria newSelectionCritera(String user, String source, Set<String> tags)
