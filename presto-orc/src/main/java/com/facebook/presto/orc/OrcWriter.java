@@ -111,6 +111,7 @@ public class OrcWriter
     private long columnWritersRetainedBytes;
     private long closedStripesRetainedBytes;
     private long validatorRetainedBytes;
+    private long previouslyRecordedSizeInBytes;
     private boolean closed;
 
     @Nullable
@@ -195,6 +196,9 @@ public class OrcWriter
         }
 
         this.validatorRetainedBytes = validationBuilder == null ? 0 : VALIDATOR_INSTANCE_SIZE;
+
+        this.previouslyRecordedSizeInBytes = getRetainedBytes();
+        stats.updateSizeInBytes(previouslyRecordedSizeInBytes);
     }
 
     public int getBufferedBytes()
@@ -235,6 +239,10 @@ public class OrcWriter
             }
             writeChunk(chunk);
         }
+
+        long recordedSizeInBytes = getRetainedBytes();
+        stats.updateSizeInBytes(recordedSizeInBytes - previouslyRecordedSizeInBytes);
+        previouslyRecordedSizeInBytes = recordedSizeInBytes;
     }
 
     private void writeChunk(Page chunk)
@@ -383,6 +391,8 @@ public class OrcWriter
             return;
         }
         closed = true;
+        stats.updateSizeInBytes(-previouslyRecordedSizeInBytes);
+        previouslyRecordedSizeInBytes = 0;
 
         writeStripe(CLOSED);
 
