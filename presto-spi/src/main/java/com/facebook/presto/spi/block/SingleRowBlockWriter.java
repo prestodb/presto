@@ -207,10 +207,10 @@ public class SingleRowBlockWriter
     public String toString()
     {
         if (!fieldBlockBuilderReturned) {
-            return format("RowBlock{SingleRowBlockWriter=%d, fieldBlockBuilderReturned=false, positionCount=%d}", fieldBlockBuilders.length, getPositionCount());
+            return format("SingleRowBlockWriter{numFields=%d, fieldBlockBuilderReturned=false, positionCount=%d}", fieldBlockBuilders.length, getPositionCount());
         }
         else {
-            return format("RowBlock{SingleRowBlockWriter=%d, fieldBlockBuilderReturned=true}", fieldBlockBuilders.length);
+            return format("SingleRowBlockWriter{numFields=%d, fieldBlockBuilderReturned=true}", fieldBlockBuilders.length);
         }
     }
 

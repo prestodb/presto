@@ -26,6 +26,7 @@ import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.block.AbstractMapBlock.HASH_MULTIPLIER;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.SizeOf.sizeOfIntArray;
+import static java.lang.String.format;
 
 public class SingleMapBlock
         extends AbstractSingleMapBlock
@@ -104,6 +105,12 @@ public class SingleMapBlock
     Block getValueBlock()
     {
         return valueBlock;
+    }
+
+    @Override
+    public String toString()
+    {
+        return format("SingleMapBlock{positionCount=%d}", getPositionCount());
     }
 
     int[] getHashTable()
