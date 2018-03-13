@@ -36,7 +36,7 @@ public class SingleArrayBlockWriter
     }
 
     @Override
-    protected BlockBuilder getBlock()
+    protected Block getBlock()
     {
         return blockBuilder;
     }
