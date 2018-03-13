@@ -18,6 +18,8 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.util.function.BiConsumer;
 
+import static java.lang.String.format;
+
 public class SingleMapBlockWriter
         extends AbstractSingleMapBlock
         implements BlockBuilder
@@ -222,9 +224,6 @@ public class SingleMapBlockWriter
     @Override
     public String toString()
     {
-        StringBuilder sb = new StringBuilder("SingleMapBlockWriter{");
-        sb.append("positionCount=").append(getPositionCount());
-        sb.append('}');
-        return sb.toString();
+        return format("SingleMapBlockWriter{positionCount=%d}", getPositionCount());
     }
 }
