@@ -19,6 +19,7 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManager;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerContext;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerFactory;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import com.facebook.presto.spi.resourceGroups.SelectionContext;
 import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
 
 import javax.inject.Inject;
@@ -51,16 +52,16 @@ public class LegacyResourceGroupConfigurationManagerFactory
     }
 
     @Override
-    public ResourceGroupConfigurationManager create(Map<String, String> config, ResourceGroupConfigurationManagerContext context)
+    public ResourceGroupConfigurationManager<VoidContext> create(Map<String, String> config, ResourceGroupConfigurationManagerContext context)
     {
         return new LegacyResourceGroupConfigurationManager();
     }
 
     public class LegacyResourceGroupConfigurationManager
-            implements ResourceGroupConfigurationManager
+            implements ResourceGroupConfigurationManager<VoidContext>
     {
         @Override
-        public void configure(ResourceGroup group, SelectionCriteria criteria)
+        public void configure(ResourceGroup group, SelectionContext<VoidContext> criteria)
         {
             checkArgument(group.getId().equals(GLOBAL), "Unexpected resource group: %s", group.getId());
             group.setMaxQueuedQueries(maxQueued);
@@ -68,9 +69,11 @@ public class LegacyResourceGroupConfigurationManagerFactory
         }
 
         @Override
-        public Optional<ResourceGroupId> match(SelectionCriteria criteria)
+        public Optional<SelectionContext<VoidContext>> match(SelectionCriteria criteria)
         {
-            return Optional.of(GLOBAL);
+            return Optional.of(new SelectionContext<>(GLOBAL, VoidContext.NONE));
         }
     }
+
+    private enum VoidContext { NONE }
 }

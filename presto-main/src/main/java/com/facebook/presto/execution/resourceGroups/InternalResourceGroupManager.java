@@ -19,11 +19,12 @@ import com.facebook.presto.execution.resourceGroups.InternalResourceGroup.RootIn
 import com.facebook.presto.server.ResourceGroupInfo;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
-import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManager;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerContext;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerFactory;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import com.facebook.presto.spi.resourceGroups.SelectionContext;
+import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
@@ -68,7 +69,7 @@ import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 @ThreadSafe
-public final class InternalResourceGroupManager
+public final class InternalResourceGroupManager<C>
         implements ResourceGroupManager
 {
     private static final Logger log = Logger.get(InternalResourceGroupManager.class);
@@ -78,7 +79,7 @@ public final class InternalResourceGroupManager
     private final ScheduledExecutorService refreshExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("ResourceGroupManager"));
     private final List<RootInternalResourceGroup> rootGroups = new CopyOnWriteArrayList<>();
     private final ConcurrentMap<ResourceGroupId, InternalResourceGroup> groups = new ConcurrentHashMap<>();
-    private final AtomicReference<ResourceGroupConfigurationManager> configurationManager = new AtomicReference<>();
+    private final AtomicReference<ResourceGroupConfigurationManager<C>> configurationManager = new AtomicReference<>();
     private final ResourceGroupConfigurationManagerContext configurationManagerContext;
     private final MBeanExporter exporter;
     private final AtomicBoolean started = new AtomicBoolean();
@@ -105,7 +106,7 @@ public final class InternalResourceGroupManager
     public void submit(Statement statement, QueryExecution queryExecution, Executor executor)
     {
         checkState(configurationManager.get() != null, "configurationManager not set");
-        ResourceGroupId group;
+        SelectionContext<C> group;
         try {
             group = selectGroup(queryExecution);
         }
@@ -113,8 +114,8 @@ public final class InternalResourceGroupManager
             queryExecution.fail(e);
             return;
         }
-        createGroupIfNecessary(group, queryExecution, executor);
-        groups.get(group).run(queryExecution);
+        createGroupIfNecessary(group, executor);
+        groups.get(group.getResourceGroupId()).run(queryExecution);
     }
 
     @Override
@@ -154,14 +155,15 @@ public final class InternalResourceGroupManager
         ResourceGroupConfigurationManagerFactory configurationManagerFactory = configurationManagerFactories.get(name);
         checkState(configurationManagerFactory != null, "Resource group configuration manager %s is not registered", name);
 
-        ResourceGroupConfigurationManager configurationManager = configurationManagerFactory.create(ImmutableMap.copyOf(properties), configurationManagerContext);
+        @SuppressWarnings("unchecked")
+        ResourceGroupConfigurationManager<C> configurationManager = (ResourceGroupConfigurationManager<C>) configurationManagerFactory.create(ImmutableMap.copyOf(properties), configurationManagerContext);
         checkState(this.configurationManager.compareAndSet(null, configurationManager), "configurationManager already set");
 
         log.info("-- Loaded resource group configuration manager %s --", name);
     }
 
     @VisibleForTesting
-    public ResourceGroupConfigurationManager getConfigurationManager()
+    public ResourceGroupConfigurationManager<C> getConfigurationManager()
     {
         return configurationManager.get();
     }
@@ -210,20 +212,13 @@ public final class InternalResourceGroupManager
         }
     }
 
-    private synchronized void createGroupIfNecessary(ResourceGroupId id, QueryExecution queryExecution, Executor executor)
+    private synchronized void createGroupIfNecessary(SelectionContext<C> context, Executor executor)
     {
-        Session session = queryExecution.getSession();
-        SelectionCriteria context = new SelectionCriteria(
-                session.getIdentity().getPrincipal().isPresent(),
-                session.getUser(),
-                session.getSource(),
-                session.getClientTags(),
-                getQueryPriority(session),
-                determineQueryType(queryExecution));
+        ResourceGroupId id = context.getResourceGroupId();
         if (!groups.containsKey(id)) {
             InternalResourceGroup group;
             if (id.getParent().isPresent()) {
-                createGroupIfNecessary(id.getParent().get(), queryExecution, executor);
+                createGroupIfNecessary(new SelectionContext<>(id.getParent().get(), context.getContext()), executor);
                 InternalResourceGroup parent = groups.get(id.getParent().get());
                 requireNonNull(parent, "parent is null");
                 group = parent.getOrCreateSubGroup(id.getLastSegment());
@@ -254,7 +249,7 @@ public final class InternalResourceGroupManager
         }
     }
 
-    private ResourceGroupId selectGroup(QueryExecution queryExecution)
+    private SelectionContext<C> selectGroup(QueryExecution queryExecution)
     {
         Session session = queryExecution.getSession();
         SelectionCriteria context = new SelectionCriteria(

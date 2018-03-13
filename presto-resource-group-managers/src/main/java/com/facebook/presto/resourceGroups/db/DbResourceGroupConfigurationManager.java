@@ -19,11 +19,13 @@ import com.facebook.presto.resourceGroups.ResourceGroupIdTemplate;
 import com.facebook.presto.resourceGroups.ResourceGroupSelector;
 import com.facebook.presto.resourceGroups.ResourceGroupSpec;
 import com.facebook.presto.resourceGroups.SelectorSpec;
+import com.facebook.presto.resourceGroups.VariableMap;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
-import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
 import com.facebook.presto.spi.resourceGroups.ResourceGroup;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import com.facebook.presto.spi.resourceGroups.SelectionContext;
+import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -139,7 +141,7 @@ public class DbResourceGroupConfigurationManager
     }
 
     @Override
-    public void configure(ResourceGroup group, SelectionCriteria criteria)
+    public void configure(ResourceGroup group, SelectionContext<VariableMap> criteria)
     {
         Map.Entry<ResourceGroupIdTemplate, ResourceGroupSpec> entry = getMatchingSpec(group, criteria);
         if (groups.putIfAbsent(group.getId(), group) == null) {
@@ -152,7 +154,7 @@ public class DbResourceGroupConfigurationManager
     }
 
     @Override
-    public Optional<ResourceGroupId> match(SelectionCriteria criteria)
+    public Optional<SelectionContext<VariableMap>> match(SelectionCriteria criteria)
     {
         if (lastRefresh.get() == 0) {
             throw new PrestoException(CONFIGURATION_UNAVAILABLE, "Selectors cannot be fetched from database");

@@ -13,10 +13,12 @@
  */
 package com.facebook.presto.resourceGroups;
 
-import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
 import com.facebook.presto.spi.resourceGroups.ResourceGroup;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManager;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import com.facebook.presto.spi.resourceGroups.SelectionContext;
+import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -47,14 +49,7 @@ public class TestFileResourceGroupConfigurationManager
         assertFails("resource_groups_config_unused_field.json", "Unknown property at line 8:6: maxFoo");
         assertFails("resource_groups_config_bad_query_priority_scheduling_policy.json",
                 "Must use 'weighted' or 'weighted_fair' scheduling policy if specifying scheduling weight for 'requests'");
-    }
-
-    @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "No matching configuration found for: missing")
-    public void testMissing()
-    {
-        ResourceGroupConfigurationManager manager = parse("resource_groups_config.json");
-        ResourceGroup missing = new TestingResourceGroup(new ResourceGroupId("missing"));
-        manager.configure(missing, new SelectionCriteria(true, "user", Optional.empty(), ImmutableSet.of(), 1, Optional.empty()));
+        assertFails("resource_groups_config_bad_extract_variable.json", "Invalid resource group name.*");
     }
 
     @Test
@@ -87,9 +82,9 @@ public class TestFileResourceGroupConfigurationManager
     private Optional<ResourceGroupId> tryMatch(List<ResourceGroupSelector> selectors, SelectionCriteria context)
     {
         for (ResourceGroupSelector selector : selectors) {
-            Optional<ResourceGroupId> group = selector.match(context);
+            Optional<SelectionContext<VariableMap>> group = selector.match(context);
             if (group.isPresent()) {
-                return group;
+                return group.map(SelectionContext::getResourceGroupId);
             }
         }
         return Optional.empty();
@@ -98,9 +93,10 @@ public class TestFileResourceGroupConfigurationManager
     @Test
     public void testConfiguration()
     {
-        ResourceGroupConfigurationManager manager = parse("resource_groups_config.json");
-        ResourceGroup global = new TestingResourceGroup(new ResourceGroupId("global"));
-        manager.configure(global, new SelectionCriteria(true, "user", Optional.empty(), ImmutableSet.of(), 1, Optional.empty()));
+        ResourceGroupConfigurationManager<VariableMap> manager = parse("resource_groups_config.json");
+        ResourceGroupId globalId = new ResourceGroupId("global");
+        ResourceGroup global = new TestingResourceGroup(globalId);
+        manager.configure(global, new SelectionContext<>(globalId, new VariableMap(ImmutableMap.of("USER", "user"))));
         assertEquals(global.getSoftMemoryLimit(), new DataSize(1, MEGABYTE));
         assertEquals(global.getSoftCpuLimit(), new Duration(1, HOURS));
         assertEquals(global.getHardCpuLimit(), new Duration(1, DAYS));
@@ -113,8 +109,9 @@ public class TestFileResourceGroupConfigurationManager
         assertEquals(global.getQueuedTimeLimit(), new Duration(1, HOURS));
         assertEquals(global.getRunningTimeLimit(), new Duration(1, HOURS));
 
-        ResourceGroup sub = new TestingResourceGroup(new ResourceGroupId(new ResourceGroupId("global"), "sub"));
-        manager.configure(sub, new SelectionCriteria(true, "user", Optional.empty(), ImmutableSet.of(), 1, Optional.empty()));
+        ResourceGroupId subId = new ResourceGroupId(globalId, "sub");
+        ResourceGroup sub = new TestingResourceGroup(subId);
+        manager.configure(sub, new SelectionContext<>(subId, new VariableMap(ImmutableMap.of("USER", "user"))));
         assertEquals(sub.getSoftMemoryLimit(), new DataSize(2, MEGABYTE));
         assertEquals(sub.getHardConcurrencyLimit(), 3);
         assertEquals(sub.getMaxQueuedQueries(), 4);
@@ -126,11 +123,29 @@ public class TestFileResourceGroupConfigurationManager
     }
 
     @Test
+    public void testExtractVariableConfiguration()
+    {
+        ResourceGroupConfigurationManager<VariableMap> manager = parse("resource_groups_config_extract_variable.json");
+
+        VariableMap variableMap = new VariableMap(ImmutableMap.of("USER", "user", "domain", "prestodb", "region", "us_east", "cluster", "12"));
+
+        ResourceGroupId globalId = new ResourceGroupId("global");
+        manager.configure(new TestingResourceGroup(globalId), new SelectionContext<>(globalId, variableMap));
+
+        ResourceGroupId childId = new ResourceGroupId(new ResourceGroupId("global"), "prestodb:us_east:12");
+        TestingResourceGroup child = new TestingResourceGroup(childId);
+        manager.configure(child, new SelectionContext<>(childId, variableMap));
+
+        assertEquals(child.getHardConcurrencyLimit(), 3);
+    }
+
+    @Test
     public void testLegacyConfiguration()
     {
-        ResourceGroupConfigurationManager manager = parse("resource_groups_config_legacy.json");
-        ResourceGroup global = new TestingResourceGroup(new ResourceGroupId("global"));
-        manager.configure(global, new SelectionCriteria(true, "user", Optional.empty(), ImmutableSet.of(), 1, Optional.empty()));
+        ResourceGroupConfigurationManager<VariableMap> manager = parse("resource_groups_config_legacy.json");
+        ResourceGroupId globalId = new ResourceGroupId("global");
+        ResourceGroup global = new TestingResourceGroup(globalId);
+        manager.configure(global, new SelectionContext<>(globalId, new VariableMap(ImmutableMap.of("USER", "user"))));
         assertEquals(global.getSoftMemoryLimit(), new DataSize(3, MEGABYTE));
         assertEquals(global.getMaxQueuedQueries(), 99);
         assertEquals(global.getHardConcurrencyLimit(), 42);
