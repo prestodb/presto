@@ -790,7 +790,11 @@ public class MetadataManager
                     viewName.asSchemaTableName().toSchemaTablePrefix());
             ConnectorViewDefinition view = views.get(viewName.asSchemaTableName());
             if (view != null) {
-                return Optional.of(deserializeView(view.getViewData()));
+                ViewDefinition definition = deserializeView(view.getViewData());
+                if (view.getOwner().isPresent()) {
+                    definition = definition.withOwner(view.getOwner().get());
+                }
+                return Optional.of(definition);
             }
         }
         return Optional.empty();
