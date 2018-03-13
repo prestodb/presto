@@ -25,7 +25,7 @@ public abstract class AbstractSingleArrayBlock
         this.start = start;
     }
 
-    protected abstract BlockBuilder getBlock();
+    protected abstract Block getBlock();
 
     private void checkReadablePosition(int position)
     {
