@@ -2986,7 +2986,7 @@ public abstract class AbstractTestHiveClient
                     }
                 }
 
-                // STRUCT<s_string: STRING, s_double:DOUBLE>
+                // STRUCT<s_string: STRING, s_double:DOUBLE, s_boolean:BOOLEAN>
                 index = columnIndex.get("t_struct");
                 if (index != null) {
                     if ((rowNumber % 31) == 0) {
@@ -2995,9 +2995,10 @@ public abstract class AbstractTestHiveClient
                     else {
                         assertTrue(row.getField(index) instanceof List);
                         List values = (List) row.getField(index);
-                        assertEquals(values.size(), 2);
+                        assertEquals(values.size(), 3);
                         assertEquals(values.get(0), "test abc");
                         assertEquals(values.get(1), 0.1);
+                        assertNull(values.get(2));
                     }
                 }
 
