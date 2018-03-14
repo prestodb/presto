@@ -65,7 +65,6 @@ public class FeaturesConfig
     private DataSize writerMinSize = new DataSize(32, DataSize.Unit.MEGABYTE);
     private boolean optimizeMetadataQueries;
     private boolean optimizeHashGeneration = true;
-    private boolean optimizeSingleDistinct = true;
     private boolean enableIntermediateAggregations;
     private boolean pushTableWriteThroughUnion = true;
     private boolean exchangeCompressionEnabled;
@@ -345,18 +344,6 @@ public class FeaturesConfig
     public FeaturesConfig setOptimizeHashGeneration(boolean optimizeHashGeneration)
     {
         this.optimizeHashGeneration = optimizeHashGeneration;
-        return this;
-    }
-
-    public boolean isOptimizeSingleDistinct()
-    {
-        return optimizeSingleDistinct;
-    }
-
-    @Config("optimizer.optimize-single-distinct")
-    public FeaturesConfig setOptimizeSingleDistinct(boolean optimizeSingleDistinct)
-    {
-        this.optimizeSingleDistinct = optimizeSingleDistinct;
         return this;
     }
 

@@ -41,6 +41,7 @@ import com.facebook.presto.sql.planner.iterative.rule.MergeLimitWithDistinct;
 import com.facebook.presto.sql.planner.iterative.rule.MergeLimitWithSort;
 import com.facebook.presto.sql.planner.iterative.rule.MergeLimitWithTopN;
 import com.facebook.presto.sql.planner.iterative.rule.MergeLimits;
+import com.facebook.presto.sql.planner.iterative.rule.MultipleDistinctAggregationToMarkDistinct;
 import com.facebook.presto.sql.planner.iterative.rule.PickTableLayout;
 import com.facebook.presto.sql.planner.iterative.rule.PruneAggregationColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneAggregationSourceColumns;
@@ -78,7 +79,7 @@ import com.facebook.presto.sql.planner.iterative.rule.RemoveUnreferencedScalarAp
 import com.facebook.presto.sql.planner.iterative.rule.RemoveUnreferencedScalarLateralNodes;
 import com.facebook.presto.sql.planner.iterative.rule.SimplifyCountOverConstant;
 import com.facebook.presto.sql.planner.iterative.rule.SimplifyExpressions;
-import com.facebook.presto.sql.planner.iterative.rule.SingleMarkDistinctToGroupBy;
+import com.facebook.presto.sql.planner.iterative.rule.SingleDistinctAggregationToGroupBy;
 import com.facebook.presto.sql.planner.iterative.rule.TransformCorrelatedInPredicateToJoin;
 import com.facebook.presto.sql.planner.iterative.rule.TransformCorrelatedScalarAggregationToJoin;
 import com.facebook.presto.sql.planner.iterative.rule.TransformExistsApplyToLateralNode;
@@ -253,6 +254,8 @@ public class PlanOptimizers
                                         new PushLimitThroughSemiJoin(),
                                         new RemoveTrivialFilters(),
                                         new ImplementFilteredAggregations(),
+                                        new SingleDistinctAggregationToGroupBy(),
+                                        new MultipleDistinctAggregationToMarkDistinct(),
                                         new ImplementBernoulliSampleAsFilter(),
                                         new MergeLimitWithDistinct(),
                                         new PruneCountAggregationOverScalar(),
@@ -351,16 +354,6 @@ public class PlanOptimizers
                         estimatedExchangesCostCalculator,
                         new PickTableLayout(metadata).rules()),
                 projectionPushDown);
-
-        if (featuresConfig.isOptimizeSingleDistinct()) {
-            builder.add(
-                    new IterativeOptimizer(
-                            stats,
-                            statsCalculator,
-                            estimatedExchangesCostCalculator,
-                            ImmutableSet.of(new SingleMarkDistinctToGroupBy())),
-                    new PruneUnreferencedOutputs());
-        }
 
         builder.add(new OptimizeMixedDistinctAggregations(metadata));
         builder.add(new IterativeOptimizer(

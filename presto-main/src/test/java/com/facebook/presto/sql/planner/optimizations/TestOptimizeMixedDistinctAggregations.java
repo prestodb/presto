@@ -19,7 +19,9 @@ import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.assertions.ExpectedValueProvider;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
+import com.facebook.presto.sql.planner.iterative.rule.MultipleDistinctAggregationToMarkDistinct;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
+import com.facebook.presto.sql.planner.iterative.rule.SingleDistinctAggregationToGroupBy;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -116,7 +118,10 @@ public class TestOptimizeMixedDistinctAggregations
                         new StatsRecorder(),
                         getQueryRunner().getStatsCalculator(),
                         getQueryRunner().getEstimatedExchangesCostCalculator(),
-                        ImmutableSet.of(new RemoveRedundantIdentityProjections())),
+                        ImmutableSet.of(
+                                new RemoveRedundantIdentityProjections(),
+                                new SingleDistinctAggregationToGroupBy(),
+                                new MultipleDistinctAggregationToMarkDistinct())),
                 new OptimizeMixedDistinctAggregations(getQueryRunner().getMetadata()),
                 new PruneUnreferencedOutputs());
         assertPlan(sql, pattern, optimizers);
