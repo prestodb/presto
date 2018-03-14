@@ -128,8 +128,6 @@ SELECT
 FROM presto_test_types_textfile
 ;
 
-ALTER TABLE presto_test_types_parquet CHANGE COLUMN t_struct t_struct STRUCT<s_string:STRING, s_double:DOUBLE, s_boolean:BOOLEAN>;
-
 ALTER TABLE presto_test_types_textfile ADD COLUMNS (new_column INT);
 ALTER TABLE presto_test_types_sequencefile ADD COLUMNS (new_column INT);
 ALTER TABLE presto_test_types_rctext ADD COLUMNS (new_column INT);
