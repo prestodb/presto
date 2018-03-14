@@ -1039,7 +1039,14 @@ public class TestHashJoinOperator
                 .map(function -> (session, addresses, channels) -> new StandardJoinFilterFunction(function, addresses, channels));
 
         int partitionCount = parallelBuild ? PARTITION_COUNT : 1;
-        LocalExchangeFactory localExchangeFactory = new LocalExchangeFactory(FIXED_HASH_DISTRIBUTION, partitionCount, buildPages.getTypes(), hashChannels, buildPages.getHashChannel(), UNGROUPED_EXECUTION);
+        LocalExchangeFactory localExchangeFactory = new LocalExchangeFactory(
+                FIXED_HASH_DISTRIBUTION,
+                partitionCount,
+                buildPages.getTypes(),
+                hashChannels,
+                buildPages.getHashChannel(),
+                UNGROUPED_EXECUTION,
+                new DataSize(32, DataSize.Unit.MEGABYTE));
         LocalExchangeSinkFactoryId localExchangeSinkFactoryId = localExchangeFactory.newSinkFactoryId();
         localExchangeFactory.noMoreSinkFactories();
 

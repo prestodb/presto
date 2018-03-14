@@ -42,6 +42,7 @@ public class TaskManagerConfig
     private boolean verboseStats;
     private boolean taskCpuTimerEnabled = true;
     private DataSize maxPartialAggregationMemoryUsage = new DataSize(16, Unit.MEGABYTE);
+    private DataSize maxLocalExchangeBufferSize = new DataSize(32, Unit.MEGABYTE);
     private DataSize maxIndexMemoryUsage = new DataSize(64, Unit.MEGABYTE);
     private boolean shareIndexLoading;
     private int maxWorkerThreads = Runtime.getRuntime().availableProcessors() * 2;
@@ -136,6 +137,19 @@ public class TaskManagerConfig
     public TaskManagerConfig setMaxPartialAggregationMemoryUsage(DataSize maxPartialAggregationMemoryUsage)
     {
         this.maxPartialAggregationMemoryUsage = maxPartialAggregationMemoryUsage;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getMaxLocalExchangeBufferSize()
+    {
+        return maxLocalExchangeBufferSize;
+    }
+
+    @Config("task.max-local-exchange-buffer-size")
+    public TaskManagerConfig setMaxLocalExchangeBufferSize(DataSize size)
+    {
+        this.maxLocalExchangeBufferSize = size;
         return this;
     }
 
