@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.esri.core.geometry.ogc.OGCGeometry;
 import com.facebook.presto.Session;
+import com.facebook.presto.operator.SpatialIndexBuilderOperator.SpatialPredicate;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
@@ -29,11 +30,12 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.function.BiPredicate;
+import java.util.OptionalDouble;
 
 import static com.facebook.presto.geospatial.GeometryUtils.deserialize;
 import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
@@ -47,7 +49,8 @@ public class PagesRTreeIndex
     private final List<Integer> outputChannels;
     private final List<List<Block>> channels;
     private final STRtree rtree;
-    private final BiPredicate<OGCGeometry, OGCGeometry> spatialRelationshipTest;
+    private final int radiusChannel;
+    private final SpatialPredicate spatialRelationshipTest;
     private final JoinFilterFunction filterFunction;
 
     public static final class GeometryWithPosition
@@ -75,7 +78,8 @@ public class PagesRTreeIndex
             List<Integer> outputChannels,
             List<List<Block>> channels,
             STRtree rtree,
-            BiPredicate<OGCGeometry, OGCGeometry> spatialRelationshipTest,
+            Optional<Integer> radiusChannel,
+            SpatialPredicate spatialRelationshipTest,
             Optional<JoinFilterFunctionFactory> filterFunctionFactory)
     {
         this.addresses = requireNonNull(addresses, "addresses is null");
@@ -83,6 +87,7 @@ public class PagesRTreeIndex
         this.outputChannels = outputChannels;
         this.channels = requireNonNull(channels, "channels is null");
         this.rtree = requireNonNull(rtree, "rtree is null");
+        this.radiusChannel = radiusChannel.orElse(-1);
         this.spatialRelationshipTest = requireNonNull(spatialRelationshipTest, "spatial relationship is null");
         this.filterFunction = filterFunctionFactory.map(factory -> factory.create(session.toConnectorSession(), addresses, channels)).orElse(null);
     }
@@ -120,14 +125,33 @@ public class PagesRTreeIndex
         IntArrayList matchingPositions = new IntArrayList();
 
         Envelope envelope = getEnvelope(probeGeometry);
-        rtree.query(envelope, item -> {
-            GeometryWithPosition geometryWithPosition = (GeometryWithPosition) item;
-            if (spatialRelationshipTest.test(geometryWithPosition.ogcGeometry, probeGeometry)) {
-                matchingPositions.add(geometryWithPosition.position);
-            }
-        });
+        if (radiusChannel == -1) {
+            rtree.query(envelope, item -> {
+                GeometryWithPosition geometryWithPosition = (GeometryWithPosition) item;
+                if (spatialRelationshipTest.apply(geometryWithPosition.ogcGeometry, probeGeometry, OptionalDouble.empty())) {
+                    matchingPositions.add(geometryWithPosition.position);
+                }
+            });
+        }
+        else {
+            rtree.query(envelope, item -> {
+                GeometryWithPosition geometryWithPosition = (GeometryWithPosition) item;
+                if (spatialRelationshipTest.apply(geometryWithPosition.ogcGeometry, probeGeometry, OptionalDouble.of(getRadius(geometryWithPosition.position)))) {
+                    matchingPositions.add(geometryWithPosition.position);
+                }
+            });
+        }
 
         return matchingPositions.toIntArray(null);
+    }
+
+    private double getRadius(int joinPosition)
+    {
+        long joinAddress = addresses.getLong(joinPosition);
+        int blockIndex = decodeSliceIndex(joinAddress);
+        int blockPosition = decodePosition(joinAddress);
+
+        return DOUBLE.getDouble(channels.get(radiusChannel).get(blockIndex), blockPosition);
     }
 
     @Override

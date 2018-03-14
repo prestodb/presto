@@ -24,7 +24,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.function.BiPredicate;
+import java.util.OptionalDouble;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -33,6 +33,12 @@ import static java.util.Objects.requireNonNull;
 public class SpatialIndexBuilderOperator
         implements Operator
 {
+    @FunctionalInterface
+    public interface SpatialPredicate
+    {
+        boolean apply(OGCGeometry probe, OGCGeometry build, OptionalDouble radius);
+    }
+
     public static final class SpatialIndexBuilderOperatorFactory
             implements OperatorFactory
     {
@@ -41,7 +47,8 @@ public class SpatialIndexBuilderOperator
         private final PagesSpatialIndexFactory pagesSpatialIndexFactory;
         private final List<Integer> outputChannels;
         private final int indexChannel;
-        private final BiPredicate<OGCGeometry, OGCGeometry> spatialRelationshipTest;
+        private final Optional<Integer> radiusChannel;
+        private final SpatialPredicate spatialRelationshipTest;
         private final Optional<JoinFilterFunctionFactory> filterFunctionFactory;
         private final PagesIndex.Factory pagesIndexFactory;
 
@@ -55,7 +62,8 @@ public class SpatialIndexBuilderOperator
                 List<Type> types,
                 List<Integer> outputChannels,
                 int indexChannel,
-                BiPredicate<OGCGeometry, OGCGeometry> spatialRelationshipTest,
+                Optional<Integer> radiusChannel,
+                SpatialPredicate spatialRelationshipTest,
                 Optional<JoinFilterFunctionFactory> filterFunctionFactory,
                 int expectedPositions,
                 PagesIndex.Factory pagesIndexFactory)
@@ -70,6 +78,7 @@ public class SpatialIndexBuilderOperator
             pagesSpatialIndexFactory = new PagesSpatialIndexFactory(types, outputTypes);
 
             this.indexChannel = indexChannel;
+            this.radiusChannel = radiusChannel;
             this.spatialRelationshipTest = spatialRelationshipTest;
             this.filterFunctionFactory = requireNonNull(filterFunctionFactory, "filterFunctionFactory is null");
             this.pagesIndexFactory = pagesIndexFactory;
@@ -97,6 +106,7 @@ public class SpatialIndexBuilderOperator
                     pagesSpatialIndexFactory,
                     outputChannels,
                     indexChannel,
+                    radiusChannel,
                     spatialRelationshipTest,
                     filterFunctionFactory,
                     expectedPositions,
@@ -122,7 +132,8 @@ public class SpatialIndexBuilderOperator
 
     private final List<Integer> outputChannels;
     private final int indexChannel;
-    private final BiPredicate<OGCGeometry, OGCGeometry> spatialRelationshipTest;
+    private final Optional<Integer> radiusChannel;
+    private final SpatialPredicate spatialRelationshipTest;
     private final Optional<JoinFilterFunctionFactory> filterFunctionFactory;
 
     private final PagesIndex index;
@@ -136,7 +147,8 @@ public class SpatialIndexBuilderOperator
             PagesSpatialIndexFactory pagesSpatialIndexFactory,
             List<Integer> outputChannels,
             int indexChannel,
-            BiPredicate<OGCGeometry, OGCGeometry> spatialRelationshipTest,
+            Optional<Integer> radiusChannel,
+            SpatialPredicate spatialRelationshipTest,
             Optional<JoinFilterFunctionFactory> filterFunctionFactory,
             int expectedPositions,
             PagesIndex.Factory pagesIndexFactory)
@@ -151,6 +163,7 @@ public class SpatialIndexBuilderOperator
 
         this.outputChannels = requireNonNull(outputChannels, "outputChannels is null");
         this.indexChannel = indexChannel;
+        this.radiusChannel = radiusChannel;
     }
 
     @Override
@@ -210,7 +223,7 @@ public class SpatialIndexBuilderOperator
         }
 
         finishing = true;
-        PagesSpatialIndexSupplier spatialIndex = index.createPagesSpatialIndex(operatorContext.getSession(), indexChannel, spatialRelationshipTest, filterFunctionFactory, outputChannels);
+        PagesSpatialIndexSupplier spatialIndex = index.createPagesSpatialIndex(operatorContext.getSession(), indexChannel, radiusChannel, spatialRelationshipTest, filterFunctionFactory, outputChannels);
         localUserMemoryContext.setBytes(index.getEstimatedSize().toBytes() + spatialIndex.getEstimatedSize().toBytes());
         indexNotNeeded = pagesSpatialIndexFactory.lendPagesSpatialIndex(spatialIndex);
     }

@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.esri.core.geometry.ogc.OGCGeometry;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.cost.CostCalculator;
@@ -63,6 +62,7 @@ import com.facebook.presto.operator.SetBuilderOperator.SetBuilderOperatorFactory
 import com.facebook.presto.operator.SetBuilderOperator.SetSupplier;
 import com.facebook.presto.operator.SourceOperatorFactory;
 import com.facebook.presto.operator.SpatialIndexBuilderOperator.SpatialIndexBuilderOperatorFactory;
+import com.facebook.presto.operator.SpatialIndexBuilderOperator.SpatialPredicate;
 import com.facebook.presto.operator.SpatialJoinOperator.SpatialJoinOperatorFactory;
 import com.facebook.presto.operator.TableScanOperator.TableScanOperatorFactory;
 import com.facebook.presto.operator.TaskContext;
@@ -151,6 +151,8 @@ import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.planner.plan.WindowNode.Frame;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
+import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -186,7 +188,6 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.BiPredicate;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -227,8 +228,12 @@ import static com.facebook.presto.sql.planner.plan.TableWriterNode.CreateHandle;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.InsertHandle;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static com.facebook.presto.sql.tree.ComparisonExpressionType.LESS_THAN;
+import static com.facebook.presto.sql.tree.ComparisonExpressionType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.util.SpatialJoinUtils.ST_CONTAINS;
+import static com.facebook.presto.util.SpatialJoinUtils.ST_DISTANCE;
 import static com.facebook.presto.util.SpatialJoinUtils.ST_INTERSECTS;
+import static com.facebook.presto.util.SpatialJoinUtils.extractSupportedSpatialComparisons;
 import static com.facebook.presto.util.SpatialJoinUtils.extractSupportedSpatialFunctions;
 import static com.google.common.base.Functions.forMap;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -1530,67 +1535,109 @@ public class LocalExecutionPlanner
             Expression filterExpression = node.getFilter().get();
             List<FunctionCall> spatialFunctions = extractSupportedSpatialFunctions(filterExpression);
             for (FunctionCall spatialFunction : spatialFunctions) {
-                List<Expression> arguments = spatialFunction.getArguments();
-                verify(arguments.size() == 2);
-
-                if (!(arguments.get(0) instanceof SymbolReference) || !(arguments.get(1) instanceof SymbolReference)) {
-                    continue;
+                Optional<PhysicalOperation> operation = tryCreateSpatialJoin(context, node, removeExpressionFromFilter(filterExpression, spatialFunction), spatialFunction, Optional.empty(), Optional.empty());
+                if (operation.isPresent()) {
+                    return operation.get();
                 }
+            }
 
-                SymbolReference firstSymbol = (SymbolReference) arguments.get(0);
-                SymbolReference secondSymbol = (SymbolReference) arguments.get(1);
-
-                PlanNode probeNode = node.getLeft();
-                Set<SymbolReference> probeSymbols = getSymbolReferences(probeNode.getOutputSymbols());
-
-                PlanNode buildNode = node.getRight();
-                Set<SymbolReference> buildSymbols = getSymbolReferences(buildNode.getOutputSymbols());
-
-                if (probeSymbols.contains(firstSymbol) && buildSymbols.contains(secondSymbol)) {
-                    return createSpatialLookupJoin(
-                            node,
-                            probeNode,
-                            Symbol.from(firstSymbol),
-                            buildNode,
-                            Symbol.from(secondSymbol),
-                            spatialTest(spatialFunction, true),
-                            removeExpressionFromFilter(filterExpression, spatialFunction),
-                            context);
-                }
-                else if (probeSymbols.contains(secondSymbol) && buildSymbols.contains(firstSymbol)) {
-                    return createSpatialLookupJoin(
-                            node,
-                            probeNode,
-                            Symbol.from(secondSymbol),
-                            buildNode,
-                            Symbol.from(firstSymbol),
-                            spatialTest(spatialFunction, false),
-                            removeExpressionFromFilter(filterExpression, spatialFunction),
-                            context);
+            List<ComparisonExpression> spatialComparisons = extractSupportedSpatialComparisons(filterExpression);
+            for (ComparisonExpression spatialComparison : spatialComparisons) {
+                if (spatialComparison.getType() == LESS_THAN || spatialComparison.getType() == LESS_THAN_OR_EQUAL) {
+                    // ST_Distance(a, b) <= r
+                    Expression radius = spatialComparison.getRight();
+                    if (radius instanceof SymbolReference && getSymbolReferences(node.getRight().getOutputSymbols()).contains(radius)) {
+                        FunctionCall spatialFunction = (FunctionCall) spatialComparison.getLeft();
+                        Optional<PhysicalOperation> operation = tryCreateSpatialJoin(context, node, removeExpressionFromFilter(filterExpression, spatialComparison), spatialFunction, Optional.of(radius), Optional.of(spatialComparison.getType()));
+                        if (operation.isPresent()) {
+                            return operation.get();
+                        }
+                    }
                 }
             }
 
             throw new VerifyException("No valid spatial relationship found for spatial join");
         }
 
-        private Optional<Expression> removeExpressionFromFilter(Expression filter, FunctionCall expression)
+        private Optional<PhysicalOperation> tryCreateSpatialJoin(
+                LocalExecutionPlanContext context,
+                JoinNode node,
+                Optional<Expression> filterExpression,
+                FunctionCall spatialFunction,
+                Optional<Expression> radius,
+                Optional<ComparisonExpressionType> comparisonType)
+        {
+            List<Expression> arguments = spatialFunction.getArguments();
+            verify(arguments.size() == 2);
+
+            if (!(arguments.get(0) instanceof SymbolReference) || !(arguments.get(1) instanceof SymbolReference)) {
+                return Optional.empty();
+            }
+
+            SymbolReference firstSymbol = (SymbolReference) arguments.get(0);
+            SymbolReference secondSymbol = (SymbolReference) arguments.get(1);
+
+            PlanNode probeNode = node.getLeft();
+            Set<SymbolReference> probeSymbols = getSymbolReferences(probeNode.getOutputSymbols());
+
+            PlanNode buildNode = node.getRight();
+            Set<SymbolReference> buildSymbols = getSymbolReferences(buildNode.getOutputSymbols());
+
+            if (probeSymbols.contains(firstSymbol) && buildSymbols.contains(secondSymbol)) {
+                return Optional.of(createSpatialLookupJoin(
+                        node,
+                        probeNode,
+                        Symbol.from(firstSymbol),
+                        buildNode,
+                        Symbol.from(secondSymbol),
+                        radius.map(Symbol::from),
+                        spatialTest(spatialFunction, true, comparisonType),
+                        filterExpression,
+                        context));
+            }
+            else if (probeSymbols.contains(secondSymbol) && buildSymbols.contains(firstSymbol)) {
+                return Optional.of(createSpatialLookupJoin(
+                        node,
+                        probeNode,
+                        Symbol.from(secondSymbol),
+                        buildNode,
+                        Symbol.from(firstSymbol),
+                        radius.map(Symbol::from),
+                        spatialTest(spatialFunction, false, comparisonType),
+                        filterExpression,
+                        context));
+            }
+            return Optional.empty();
+        }
+
+        private Optional<Expression> removeExpressionFromFilter(Expression filter, Expression expression)
         {
             Expression updatedJoinFilter = replaceExpression(filter, ImmutableMap.of(expression, TRUE_LITERAL));
             return updatedJoinFilter == TRUE_LITERAL ? Optional.empty() : Optional.of(updatedJoinFilter);
         }
 
-        private BiPredicate<OGCGeometry, OGCGeometry> spatialTest(FunctionCall functionCall, boolean probeFirst)
+        private SpatialPredicate spatialTest(FunctionCall functionCall, boolean probeFirst, Optional<ComparisonExpressionType> comparisonType)
         {
             switch (functionCall.getName().toString().toLowerCase()) {
                 case ST_CONTAINS:
                     if (probeFirst) {
-                        return (buildGeometry, probeGeometry) -> probeGeometry.contains(buildGeometry);
+                        return (buildGeometry, probeGeometry, radius) -> probeGeometry.contains(buildGeometry);
                     }
                     else {
-                        return (buildGeometry, probeGeometry) -> buildGeometry.contains(probeGeometry);
+                        return (buildGeometry, probeGeometry, radius) -> buildGeometry.contains(probeGeometry);
                     }
                 case ST_INTERSECTS:
-                    return (buildGeometry, probeGeometry) -> buildGeometry.intersects(probeGeometry);
+                    return (buildGeometry, probeGeometry, radius) -> buildGeometry.intersects(probeGeometry);
+                case ST_DISTANCE:
+                    if (comparisonType.get() == LESS_THAN) {
+                        return (buildGeometry, probeGeometry, radius) -> buildGeometry.distance(probeGeometry) < radius.getAsDouble();
+                    }
+                    else if (comparisonType.get() == LESS_THAN_OR_EQUAL) {
+                        return (buildGeometry, probeGeometry, radius) -> buildGeometry.distance(probeGeometry) <= radius.getAsDouble();
+                    }
+                    else {
+                        throw new UnsupportedOperationException("Unsupported comparison type: " + comparisonType.get());
+                    }
                 default:
                     throw new UnsupportedOperationException("Unsupported spatial function: " + functionCall.getName());
             }
@@ -1648,7 +1695,8 @@ public class LocalExecutionPlanner
                 Symbol probeSymbol,
                 PlanNode buildNode,
                 Symbol buildSymbol,
-                BiPredicate<OGCGeometry, OGCGeometry> spatialRelationshipTest,
+                Optional<Symbol> radiusSymbol,
+                SpatialPredicate spatialRelationshipTest,
                 Optional<Expression> joinFilter,
                 LocalExecutionPlanContext context)
         {
@@ -1659,6 +1707,7 @@ public class LocalExecutionPlanner
             PagesSpatialIndexFactory pagesSpatialIndexFactory = createPagesSpatialIndexFactory(node,
                     buildNode,
                     buildSymbol,
+                    radiusSymbol,
                     probeSource.getLayout(),
                     spatialRelationshipTest,
                     joinFilter,
@@ -1703,8 +1752,9 @@ public class LocalExecutionPlanner
                 JoinNode node,
                 PlanNode buildNode,
                 Symbol buildSymbol,
+                Optional<Symbol> radiusSymbol,
                 Map<Symbol, Integer> probeLayout,
-                BiPredicate<OGCGeometry, OGCGeometry> spatialRelationshipTest,
+                SpatialPredicate spatialRelationshipTest,
                 Optional<Expression> joinFilter,
                 LocalExecutionPlanContext context)
         {
@@ -1715,7 +1765,9 @@ public class LocalExecutionPlanner
                     .collect(toImmutableList());
             Map<Symbol, Integer> buildLayout = buildSource.getLayout();
             List<Integer> buildOutputChannels = ImmutableList.copyOf(getChannelsForSymbols(buildOutputSymbols, buildLayout));
-            Integer buildChannel = channelGetter(buildSource).apply(buildSymbol);
+            Function<Symbol, Integer> buildChannelGetter = channelGetter(buildSource);
+            Integer buildChannel = buildChannelGetter.apply(buildSymbol);
+            Optional<Integer> radiusChannel = radiusSymbol.map(buildChannelGetter::apply);
 
             Optional<JoinFilterFunctionFactory> filterFunctionFactory = joinFilter
                     .map(filterExpression -> compileJoinFilterFunction(
@@ -1731,6 +1783,7 @@ public class LocalExecutionPlanner
                     buildSource.getTypes(),
                     buildOutputChannels,
                     buildChannel,
+                    radiusChannel,
                     spatialRelationshipTest,
                     filterFunctionFactory,
                     10_000,
