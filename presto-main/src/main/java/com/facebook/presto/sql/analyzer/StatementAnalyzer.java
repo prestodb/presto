@@ -1038,19 +1038,26 @@ class StatementAnalyzer
                 int descFieldSize = relationType.getVisibleFields().size();
                 String setOperationName = node.getClass().getSimpleName().toUpperCase(ENGLISH);
                 if (outputFieldSize != descFieldSize) {
-                    throw new SemanticException(MISMATCHED_SET_COLUMN_TYPES,
+                    throw new SemanticException(
+                            MISMATCHED_SET_COLUMN_TYPES,
                             node,
                             "%s query has different number of fields: %d, %d",
-                            setOperationName, outputFieldSize, descFieldSize);
+                            setOperationName,
+                            outputFieldSize,
+                            descFieldSize);
                 }
                 for (int i = 0; i < descFieldSize; i++) {
                     Type descFieldType = relationType.getFieldByIndex(i).getType();
                     Optional<Type> commonSuperType = metadata.getTypeManager().getCommonSuperType(outputFieldTypes[i], descFieldType);
                     if (!commonSuperType.isPresent()) {
-                        throw new SemanticException(TYPE_MISMATCH,
+                        throw new SemanticException(
+                                TYPE_MISMATCH,
                                 node,
                                 "column %d in %s query has incompatible types: %s, %s",
-                                i, setOperationName, outputFieldTypes[i].getDisplayName(), descFieldType.getDisplayName());
+                                i,
+                                setOperationName,
+                                outputFieldTypes[i].getDisplayName(),
+                                descFieldType.getDisplayName());
                     }
                     outputFieldTypes[i] = commonSuperType.get();
                 }
