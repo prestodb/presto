@@ -33,6 +33,7 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 public abstract class AbstractTestHiveClientLocal
         extends AbstractTestHiveClient
 {
+    private static final String TEST_DB_NAME = "test";
     private File tempDir;
 
     protected abstract ExtendedHiveMetastore createMetastore(File tempDir);
@@ -45,7 +46,7 @@ public abstract class AbstractTestHiveClientLocal
         ExtendedHiveMetastore metastore = createMetastore(tempDir);
 
         metastore.createDatabase(Database.builder()
-                .setDatabaseName("test")
+                .setDatabaseName(TEST_DB_NAME)
                 .setOwnerName("public")
                 .setOwnerType(PrincipalType.ROLE)
                 .build());
@@ -53,14 +54,19 @@ public abstract class AbstractTestHiveClientLocal
         HiveClientConfig hiveConfig = new HiveClientConfig()
                 .setTimeZone("America/Los_Angeles");
 
-        setup("test", hiveConfig, metastore);
+        setup(TEST_DB_NAME, hiveConfig, metastore);
     }
 
     @AfterClass(alwaysRun = true)
     public void cleanup()
             throws IOException
     {
-        deleteRecursively(tempDir.toPath(), ALLOW_INSECURE);
+        try {
+            getMetastoreClient(TEST_DB_NAME).dropDatabase(TEST_DB_NAME);
+        }
+        finally {
+            deleteRecursively(tempDir.toPath(), ALLOW_INSECURE);
+        }
     }
 
     @Override
