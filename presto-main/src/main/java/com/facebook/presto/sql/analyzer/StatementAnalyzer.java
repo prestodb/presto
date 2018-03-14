@@ -1054,7 +1054,7 @@ class StatementAnalyzer
                                 TYPE_MISMATCH,
                                 node,
                                 "column %d in %s query has incompatible types: %s, %s",
-                                i,
+                                i + 1,
                                 setOperationName,
                                 outputFieldTypes[i].getDisplayName(),
                                 descFieldType.getDisplayName());
