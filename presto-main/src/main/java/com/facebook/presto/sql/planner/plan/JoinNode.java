@@ -58,7 +58,6 @@ public class JoinNode
     private final Optional<Symbol> leftHashSymbol;
     private final Optional<Symbol> rightHashSymbol;
     private final Optional<DistributionType> distributionType;
-    private final boolean spatialJoin;
 
     @JsonCreator
     public JoinNode(@JsonProperty("id") PlanNodeId id,
@@ -92,7 +91,6 @@ public class JoinNode
         this.leftHashSymbol = leftHashSymbol;
         this.rightHashSymbol = rightHashSymbol;
         this.distributionType = distributionType;
-        this.spatialJoin = type == INNER && criteria.isEmpty() && filter.isPresent() && isSpatialJoinFilter(left, right, filter.get());
 
         List<Symbol> inputSymbols = ImmutableList.<Symbol>builder()
                 .addAll(left.getOutputSymbols())
@@ -248,7 +246,7 @@ public class JoinNode
 
     public boolean isSpatialJoin()
     {
-        return spatialJoin;
+        return type == INNER && criteria.isEmpty() && filter.isPresent() && isSpatialJoinFilter(left, right, filter.get());
     }
 
     public static class EquiJoinClause

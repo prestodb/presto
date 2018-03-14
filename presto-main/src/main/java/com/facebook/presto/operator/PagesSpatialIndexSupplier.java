@@ -16,6 +16,7 @@ package com.facebook.presto.operator;
 import com.esri.core.geometry.ogc.OGCGeometry;
 import com.facebook.presto.Session;
 import com.facebook.presto.operator.PagesRTreeIndex.GeometryWithPosition;
+import com.facebook.presto.operator.SpatialIndexBuilderOperator.SpatialPredicate;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler;
@@ -30,13 +31,13 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.function.BiPredicate;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.geospatial.GeometryUtils.deserialize;
 import static com.facebook.presto.operator.PagesSpatialIndex.EMPTY_INDEX;
 import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.units.DataSize.Unit.BYTE;
 
@@ -53,7 +54,8 @@ public class PagesSpatialIndexSupplier
     private final List<Type> types;
     private final List<Integer> outputChannels;
     private final List<List<Block>> channels;
-    private final BiPredicate<OGCGeometry, OGCGeometry> spatialRelationshipTest;
+    private final Optional<Integer> radiusChannel;
+    private final SpatialPredicate spatialRelationshipTest;
     private final Optional<JoinFilterFunctionCompiler.JoinFilterFunctionFactory> filterFunctionFactory;
     private final STRtree rtree;
     private final long memorySizeInBytes;
@@ -65,7 +67,8 @@ public class PagesSpatialIndexSupplier
             List<Integer> outputChannels,
             List<List<Block>> channels,
             int geometryChannel,
-            BiPredicate<OGCGeometry, OGCGeometry> spatialRelationshipTest,
+            Optional<Integer> radiusChannel,
+            SpatialPredicate spatialRelationshipTest,
             Optional<JoinFilterFunctionCompiler.JoinFilterFunctionFactory> filterFunctionFactory)
     {
         this.session = session;
@@ -76,12 +79,13 @@ public class PagesSpatialIndexSupplier
         this.spatialRelationshipTest = spatialRelationshipTest;
         this.filterFunctionFactory = filterFunctionFactory;
 
-        this.rtree = buildRTree(addresses, channels, geometryChannel);
+        this.rtree = buildRTree(addresses, channels, geometryChannel, radiusChannel);
+        this.radiusChannel = radiusChannel;
         this.memorySizeInBytes = INSTANCE_SIZE +
                 (rtree.isEmpty() ? 0 : STRTREE_INSTANCE_SIZE + computeMemorySizeInBytes(rtree.getRoot()));
     }
 
-    private static STRtree buildRTree(LongArrayList addresses, List<List<Block>> channels, int geometryChannel)
+    private static STRtree buildRTree(LongArrayList addresses, List<List<Block>> channels, int geometryChannel, Optional<Integer> radiusChannel)
     {
         STRtree rtree = new STRtree();
 
@@ -103,19 +107,24 @@ public class PagesSpatialIndexSupplier
                 continue;
             }
 
-            rtree.insert(getEnvelope(ogcGeometry), new GeometryWithPosition(ogcGeometry, position));
+            double radius = radiusChannel.map(channel -> DOUBLE.getDouble(channels.get(channel).get(blockIndex), blockPosition)).orElse(0.0);
+            if (radius < 0) {
+                continue;
+            }
+
+            rtree.insert(getEnvelope(ogcGeometry, radius), new GeometryWithPosition(ogcGeometry, position));
         }
 
         rtree.build();
         return rtree;
     }
 
-    private static Envelope getEnvelope(OGCGeometry ogcGeometry)
+    private static Envelope getEnvelope(OGCGeometry ogcGeometry, double radius)
     {
         com.esri.core.geometry.Envelope envelope = new com.esri.core.geometry.Envelope();
         ogcGeometry.getEsriGeometry().queryEnvelope(envelope);
 
-        return new Envelope(envelope.getXMin(), envelope.getXMax(), envelope.getYMin(), envelope.getYMax());
+        return new Envelope(envelope.getXMin() - radius, envelope.getXMax() + radius, envelope.getYMin() - radius, envelope.getYMax() + radius);
     }
 
     private long computeMemorySizeInBytes(AbstractNode root)
@@ -143,6 +152,6 @@ public class PagesSpatialIndexSupplier
         if (rtree.isEmpty()) {
             return EMPTY_INDEX;
         }
-        return new PagesRTreeIndex(session, addresses, types, outputChannels, channels, rtree, spatialRelationshipTest, filterFunctionFactory);
+        return new PagesRTreeIndex(session, addresses, types, outputChannels, channels, rtree, radiusChannel, spatialRelationshipTest, filterFunctionFactory);
     }
 }

@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.plugin.geospatial;
 
-import com.esri.core.geometry.ogc.OGCGeometry;
 import com.facebook.presto.RowPagesBuilder;
 import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.DriverContext;
@@ -24,6 +23,7 @@ import com.facebook.presto.operator.PagesIndex.TestingFactory;
 import com.facebook.presto.operator.PagesSpatialIndex;
 import com.facebook.presto.operator.PagesSpatialIndexFactory;
 import com.facebook.presto.operator.SpatialIndexBuilderOperator.SpatialIndexBuilderOperatorFactory;
+import com.facebook.presto.operator.SpatialIndexBuilderOperator.SpatialPredicate;
 import com.facebook.presto.operator.SpatialJoinOperator.SpatialJoinOperatorFactory;
 import com.facebook.presto.operator.StandardJoinFilterFunction;
 import com.facebook.presto.operator.TaskContext;
@@ -50,7 +50,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.BiPredicate;
 
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
@@ -58,6 +57,7 @@ import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEqual
 import static com.facebook.presto.plugin.geospatial.GeoFunctions.stGeometryFromText;
 import static com.facebook.presto.plugin.geospatial.GeoFunctions.stPoint;
 import static com.facebook.presto.plugin.geospatial.GeometryType.GEOMETRY;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -122,7 +122,7 @@ public class TestSpatialJoinOperator
                 .row(null, "null")
                 .pageBreak()
                 .row(POLYGON_B, "B");
-        PagesSpatialIndexFactory pagesSpatialIndexFactory = buildIndex(driverContext, (build, probe) -> build.contains(probe), Optional.empty(), buildPages);
+        PagesSpatialIndexFactory pagesSpatialIndexFactory = buildIndex(driverContext, (build, probe, r) -> build.contains(probe), Optional.empty(), Optional.empty(), buildPages);
 
         RowPagesBuilder probePages = rowPagesBuilder(ImmutableList.of(GEOMETRY, VARCHAR))
                 .row(POINT_X, "x")
@@ -151,7 +151,7 @@ public class TestSpatialJoinOperator
         DriverContext driverContext = taskContext.addPipelineContext(0, true, true).addDriverContext();
 
         RowPagesBuilder buildPages = rowPagesBuilder(ImmutableList.of(GEOMETRY, VARCHAR));
-        PagesSpatialIndexFactory pagesSpatialIndexFactory = buildIndex(driverContext, (build, probe) -> build.contains(probe), Optional.empty(), buildPages);
+        PagesSpatialIndexFactory pagesSpatialIndexFactory = buildIndex(driverContext, (build, probe, r) -> build.contains(probe), Optional.empty(), Optional.empty(), buildPages);
 
         RowPagesBuilder probePages = rowPagesBuilder(ImmutableList.of(GEOMETRY, VARCHAR))
                 .row(POINT_X, "x")
@@ -179,7 +179,7 @@ public class TestSpatialJoinOperator
                 .row(null, "null")
                 .pageBreak()
                 .row(POLYGON_B, "B");
-        PagesSpatialIndexFactory pagesSpatialIndexFactory = buildIndex(driverContext, (build, probe) -> build.contains(probe), Optional.empty(), buildPages);
+        PagesSpatialIndexFactory pagesSpatialIndexFactory = buildIndex(driverContext, (build, probe, r) -> build.contains(probe), Optional.empty(), Optional.empty(), buildPages);
 
         RowPagesBuilder probePages = rowPagesBuilder(ImmutableList.of(GEOMETRY, VARCHAR));
         OperatorFactory joinOperatorFactory = new SpatialJoinOperatorFactory(2, new PlanNodeId("test"), probePages.getTypes(), Ints.asList(1), 0, pagesSpatialIndexFactory);
@@ -211,7 +211,7 @@ public class TestSpatialJoinOperator
                 .row(POLYGON_A, "A")
                 .pageBreak()
                 .row(POLYGON_B, "B");
-        PagesSpatialIndexFactory pagesSpatialIndexFactory = buildIndex(driverContext, (build, probe) -> build.contains(probe), Optional.of(filterFunction), buildPages);
+        PagesSpatialIndexFactory pagesSpatialIndexFactory = buildIndex(driverContext, (build, probe, r) -> build.contains(probe), Optional.empty(), Optional.of(filterFunction), buildPages);
 
         // 10 points in polygon A (x0...x9)
         // 10 points in polygons A and B (y0...y9)
@@ -252,7 +252,45 @@ public class TestSpatialJoinOperator
         assertEquals(output.getPositionCount(), 40);
     }
 
-    private PagesSpatialIndexFactory buildIndex(DriverContext driverContext, BiPredicate<OGCGeometry, OGCGeometry> spatialRelationshipTest, Optional<InternalJoinFilterFunction> filterFunction, RowPagesBuilder buildPages)
+    @Test
+    public void testDistanceQuery()
+    {
+        TaskContext taskContext = createTaskContext();
+        DriverContext driverContext = taskContext.addPipelineContext(0, true, true).addDriverContext();
+
+        RowPagesBuilder buildPages = rowPagesBuilder(ImmutableList.of(GEOMETRY, VARCHAR, DOUBLE))
+                .row(stPoint(0, 0), "0_0", 1.5)
+                .row(null, "null", 1.5)
+                .row(stPoint(1, 0), "1_0", 1.5)
+                .pageBreak()
+                .row(stPoint(3, 0), "3_0", 1.5)
+                .pageBreak()
+                .row(stPoint(10, 0), "10_0", 1.5);
+        PagesSpatialIndexFactory pagesSpatialIndexFactory = buildIndex(driverContext, (build, probe, r) -> build.distance(probe) <= r.getAsDouble(), Optional.of(2), Optional.empty(), buildPages);
+
+        RowPagesBuilder probePages = rowPagesBuilder(ImmutableList.of(GEOMETRY, VARCHAR))
+                .row(stPoint(0, 1), "0_1")
+                .row(null, "null")
+                .row(stPoint(1, 1), "1_1")
+                .pageBreak()
+                .row(stPoint(3, 1), "3_1")
+                .pageBreak()
+                .row(stPoint(10, 1), "10_1");
+        OperatorFactory joinOperatorFactory = new SpatialJoinOperatorFactory(2, new PlanNodeId("test"), probePages.getTypes(), Ints.asList(1), 0, pagesSpatialIndexFactory);
+
+        MaterializedResult expected = resultBuilder(taskContext.getSession(), ImmutableList.of(VARCHAR, VARCHAR))
+                .row("0_1", "0_0")
+                .row("0_1", "1_0")
+                .row("1_1", "0_0")
+                .row("1_1", "1_0")
+                .row("3_1", "3_0")
+                .row("10_1", "10_0")
+                .build();
+
+        assertOperatorEquals(joinOperatorFactory, driverContext, probePages.build(), expected);
+    }
+
+    private PagesSpatialIndexFactory buildIndex(DriverContext driverContext, SpatialPredicate spatialRelationshipTest, Optional<Integer> radiusChannel, Optional<InternalJoinFilterFunction> filterFunction, RowPagesBuilder buildPages)
     {
         Optional<JoinFilterFunctionCompiler.JoinFilterFunctionFactory> filterFunctionFactory = filterFunction
                 .map(function -> (session, addresses, channels) -> new StandardJoinFilterFunction(function, addresses, channels));
@@ -264,6 +302,7 @@ public class TestSpatialJoinOperator
                 buildPages.getTypes(),
                 Ints.asList(1),
                 0,
+                radiusChannel,
                 spatialRelationshipTest,
                 filterFunctionFactory,
                 10_000,

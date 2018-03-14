@@ -88,6 +88,26 @@ public class TestSpatialJoinPlanning
     }
 
     @Test
+    public void testDistanceQuery()
+    {
+        assertPlan("SELECT b.name, a.name " +
+                        "FROM (VALUES (2.1, 2.1, 'x')) AS a (lng, lat, name), (VALUES (2.1, 2.1, 'x')) AS b (lng, lat, name) " +
+                        "WHERE ST_Distance(ST_Point(a.lng, a.lat), ST_Point(b.lng, b.lat)) <= 3.1",
+                anyTree(
+                        spatialJoin("st_distance(st_point_a, st_point_b) <= radius",
+                                project(ImmutableMap.of("st_point_a", expression("ST_Point(cast(a_lng as double), cast(a_lat as double))")), anyTree(values(ImmutableMap.of("a_lng", 0, "a_lat", 1)))),
+                                anyTree(project(ImmutableMap.of("st_point_b", expression("ST_Point(cast(b_lng as double), cast(b_lat as double))"), "radius", expression("3.1e0")), anyTree(values(ImmutableMap.of("b_lng", 0, "b_lat", 1))))))));
+
+        assertPlan("SELECT b.name, a.name " +
+                        "FROM (VALUES (2.1, 2.1, 'x')) AS a (lng, lat, name), (VALUES (2.1, 2.1, 'x')) AS b (lng, lat, name) " +
+                        "WHERE ST_Distance(ST_Point(a.lng, a.lat), ST_Point(b.lng, b.lat)) <= 300 / (111321 * cos(radians(b.lat)))",
+                anyTree(
+                        spatialJoin("st_distance(st_point_a, st_point_b) <= radius",
+                                project(ImmutableMap.of("st_point_a", expression("ST_Point(cast(a_lng as double), cast(a_lat as double))")), anyTree(values(ImmutableMap.of("a_lng", 0, "a_lat", 1)))),
+                                anyTree(project(ImmutableMap.of("st_point_b", expression("ST_Point(cast(b_lng as double), cast(b_lat as double))"), "radius", expression("3e2 / (111.321e3 * cos(radians(cast(b_lat as double))))")), anyTree(values(ImmutableMap.of("b_lng", 0, "b_lat", 1))))))));
+    }
+
+    @Test
     public void testNotContains()
     {
         assertPlan("SELECT b.name, a.name " +
