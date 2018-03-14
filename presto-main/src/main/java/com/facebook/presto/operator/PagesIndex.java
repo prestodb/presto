@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.operator;
 
-import com.esri.core.geometry.ogc.OGCGeometry;
 import com.facebook.presto.Session;
+import com.facebook.presto.operator.SpatialIndexBuilderOperator.SpatialPredicate;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
@@ -43,7 +43,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.function.BiPredicate;
 import java.util.function.IntUnaryOperator;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
@@ -443,13 +442,14 @@ public class PagesIndex
     public PagesSpatialIndexSupplier createPagesSpatialIndex(
             Session session,
             int geometryChannel,
-            BiPredicate<OGCGeometry, OGCGeometry> spatialRelationshipTest,
+            Optional<Integer> radiusChannel,
+            SpatialPredicate spatialRelationshipTest,
             Optional<JoinFilterFunctionFactory> filterFunctionFactory,
             List<Integer> outputChannels)
     {
         // TODO probably shouldn't copy to reduce memory and for memory accounting's sake
         List<List<Block>> channels = ImmutableList.copyOf(this.channels);
-        return new PagesSpatialIndexSupplier(session, valueAddresses, types, outputChannels, channels, geometryChannel, spatialRelationshipTest, filterFunctionFactory);
+        return new PagesSpatialIndexSupplier(session, valueAddresses, types, outputChannels, channels, geometryChannel, radiusChannel, spatialRelationshipTest, filterFunctionFactory);
     }
 
     public LookupSourceSupplier createLookupSourceSupplier(

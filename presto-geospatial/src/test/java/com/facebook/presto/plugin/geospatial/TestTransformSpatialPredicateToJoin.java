@@ -65,6 +65,146 @@ public class TestTransformSpatialPredicateToJoin
                                         p.values(p.symbol("wkt", VARCHAR), p.symbol("name_1")),
                                         p.values(p.symbol("point", GEOMETRY), p.symbol("name_2")))))
                 .doesNotFire();
+
+        // ST_Distance(...) > r
+        assertRuleApplication()
+                .on(p ->
+                        p.filter(PlanBuilder.expression("ST_Distance(a, b) > 5"),
+                                p.join(INNER,
+                                        p.values(p.symbol("a", GEOMETRY)),
+                                        p.values(p.symbol("b", GEOMETRY)))))
+                .doesNotFire();
+    }
+
+    @Test
+    public void testDistanceQueries()
+    {
+        testSimpleDistanceQuery("ST_Distance(a, b) <= r", "ST_Distance(a, b) <= r");
+        testSimpleDistanceQuery("ST_Distance(b, a) <= r", "ST_Distance(b, a) <= r");
+        testSimpleDistanceQuery("r >= ST_Distance(a, b)", "ST_Distance(a, b) <= r");
+        testSimpleDistanceQuery("r >= ST_Distance(b, a)", "ST_Distance(b, a) <= r");
+
+        testSimpleDistanceQuery("ST_Distance(a, b) < r", "ST_Distance(a, b) < r");
+        testSimpleDistanceQuery("ST_Distance(b, a) < r", "ST_Distance(b, a) < r");
+        testSimpleDistanceQuery("r > ST_Distance(a, b)", "ST_Distance(a, b) < r");
+        testSimpleDistanceQuery("r > ST_Distance(b, a)", "ST_Distance(b, a) < r");
+
+        testSimpleDistanceQuery("ST_Distance(a, b) <= r AND name_a != name_b", "ST_Distance(a, b) <= r AND name_a != name_b");
+        testSimpleDistanceQuery("r > ST_Distance(a, b) AND name_a != name_b", "ST_Distance(a, b) < r AND name_a != name_b");
+
+        testRadiusExpressionInDistanceQuery("ST_Distance(a, b) <= decimal '1.2'", "ST_Distance(a, b) <= radius", "decimal '1.2'");
+        testRadiusExpressionInDistanceQuery("ST_Distance(b, a) <= decimal '1.2'", "ST_Distance(b, a) <= radius", "decimal '1.2'");
+        testRadiusExpressionInDistanceQuery("decimal '1.2' >= ST_Distance(a, b)", "ST_Distance(a, b) <= radius", "decimal '1.2'");
+        testRadiusExpressionInDistanceQuery("decimal '1.2' >= ST_Distance(b, a)", "ST_Distance(b, a) <= radius", "decimal '1.2'");
+
+        testRadiusExpressionInDistanceQuery("ST_Distance(a, b) < decimal '1.2'", "ST_Distance(a, b) < radius", "decimal '1.2'");
+        testRadiusExpressionInDistanceQuery("ST_Distance(b, a) < decimal '1.2'", "ST_Distance(b, a) < radius", "decimal '1.2'");
+        testRadiusExpressionInDistanceQuery("decimal '1.2' > ST_Distance(a, b)", "ST_Distance(a, b) < radius", "decimal '1.2'");
+        testRadiusExpressionInDistanceQuery("decimal '1.2' > ST_Distance(b, a)", "ST_Distance(b, a) < radius", "decimal '1.2'");
+
+        testRadiusExpressionInDistanceQuery("ST_Distance(a, b) <= decimal '1.2' AND name_a != name_b", "ST_Distance(a, b) <= radius AND name_a != name_b", "decimal '1.2'");
+        testRadiusExpressionInDistanceQuery("decimal '1.2' > ST_Distance(a, b) AND name_a != name_b", "ST_Distance(a, b) < radius AND name_a != name_b", "decimal '1.2'");
+
+        testRadiusExpressionInDistanceQuery("ST_Distance(a, b) <= 2 * r", "ST_Distance(a, b) <= radius", "2 * r");
+        testRadiusExpressionInDistanceQuery("ST_Distance(b, a) <= 2 * r", "ST_Distance(b, a) <= radius", "2 * r");
+        testRadiusExpressionInDistanceQuery("2 * r >= ST_Distance(a, b)", "ST_Distance(a, b) <= radius", "2 * r");
+        testRadiusExpressionInDistanceQuery("2 * r >= ST_Distance(b, a)", "ST_Distance(b, a) <= radius", "2 * r");
+
+        testRadiusExpressionInDistanceQuery("ST_Distance(a, b) < 2 * r", "ST_Distance(a, b) < radius", "2 * r");
+        testRadiusExpressionInDistanceQuery("ST_Distance(b, a) < 2 * r", "ST_Distance(b, a) < radius", "2 * r");
+        testRadiusExpressionInDistanceQuery("2 * r > ST_Distance(a, b)", "ST_Distance(a, b) < radius", "2 * r");
+        testRadiusExpressionInDistanceQuery("2 * r > ST_Distance(b, a)", "ST_Distance(b, a) < radius", "2 * r");
+
+        testRadiusExpressionInDistanceQuery("ST_Distance(a, b) <= 2 * r AND name_a != name_b", "ST_Distance(a, b) <= radius AND name_a != name_b", "2 * r");
+        testRadiusExpressionInDistanceQuery("2 * r > ST_Distance(a, b) AND name_a != name_b", "ST_Distance(a, b) < radius AND name_a != name_b", "2 * r");
+
+        testPointExpressionsInDistanceQuery("ST_Distance(ST_Point(lng_a, lat_a), ST_Point(lng_b, lat_b)) <= 5", "ST_Distance(point_a, point_b) <= radius", "5");
+        testPointExpressionsInDistanceQuery("ST_Distance(ST_Point(lng_b, lat_b), ST_Point(lng_a, lat_a)) <= 5", "ST_Distance(point_b, point_a) <= radius", "5");
+        testPointExpressionsInDistanceQuery("5 >= ST_Distance(ST_Point(lng_a, lat_a), ST_Point(lng_b, lat_b))", "ST_Distance(point_a, point_b) <= radius", "5");
+        testPointExpressionsInDistanceQuery("5 >= ST_Distance(ST_Point(lng_b, lat_b), ST_Point(lng_a, lat_a))", "ST_Distance(point_b, point_a) <= radius", "5");
+
+        testPointExpressionsInDistanceQuery("ST_Distance(ST_Point(lng_a, lat_a), ST_Point(lng_b, lat_b)) < 5", "ST_Distance(point_a, point_b) < radius", "5");
+        testPointExpressionsInDistanceQuery("ST_Distance(ST_Point(lng_b, lat_b), ST_Point(lng_a, lat_a)) < 5", "ST_Distance(point_b, point_a) < radius", "5");
+        testPointExpressionsInDistanceQuery("5 > ST_Distance(ST_Point(lng_a, lat_a), ST_Point(lng_b, lat_b))", "ST_Distance(point_a, point_b) < radius", "5");
+        testPointExpressionsInDistanceQuery("5 > ST_Distance(ST_Point(lng_b, lat_b), ST_Point(lng_a, lat_a))", "ST_Distance(point_b, point_a) < radius", "5");
+
+        testPointExpressionsInDistanceQuery("ST_Distance(ST_Point(lng_a, lat_a), ST_Point(lng_b, lat_b)) <= 5 AND name_a != name_b", "ST_Distance(point_a, point_b) <= radius AND name_a != name_b", "5");
+        testPointExpressionsInDistanceQuery("5 > ST_Distance(ST_Point(lng_a, lat_a), ST_Point(lng_b, lat_b)) AND name_a != name_b", "ST_Distance(point_a, point_b) < radius AND name_a != name_b", "5");
+
+        testPointAndRadiusExpressionsInDistanceQuery("ST_Distance(ST_Point(lng_a, lat_a), ST_Point(lng_b, lat_b)) <= 500 / (111000 * cos(lat_b))", "ST_Distance(point_a, point_b) <= radius", "500 / (111000 * cos(lat_b))");
+        testPointAndRadiusExpressionsInDistanceQuery("ST_Distance(ST_Point(lng_b, lat_b), ST_Point(lng_a, lat_a)) <= 500 / (111000 * cos(lat_b))", "ST_Distance(point_b, point_a) <= radius", "500 / (111000 * cos(lat_b))");
+        testPointAndRadiusExpressionsInDistanceQuery("500 / (111000 * cos(lat_b)) >= ST_Distance(ST_Point(lng_a, lat_a), ST_Point(lng_b, lat_b))", "ST_Distance(point_a, point_b) <= radius", "500 / (111000 * cos(lat_b))");
+        testPointAndRadiusExpressionsInDistanceQuery("500 / (111000 * cos(lat_b)) >= ST_Distance(ST_Point(lng_b, lat_b), ST_Point(lng_a, lat_a))", "ST_Distance(point_b, point_a) <= radius", "500 / (111000 * cos(lat_b))");
+
+        testPointAndRadiusExpressionsInDistanceQuery("ST_Distance(ST_Point(lng_a, lat_a), ST_Point(lng_b, lat_b)) < 500 / (111000 * cos(lat_b))", "ST_Distance(point_a, point_b) < radius", "500 / (111000 * cos(lat_b))");
+        testPointAndRadiusExpressionsInDistanceQuery("ST_Distance(ST_Point(lng_b, lat_b), ST_Point(lng_a, lat_a)) < 500 / (111000 * cos(lat_b))", "ST_Distance(point_b, point_a) < radius", "500 / (111000 * cos(lat_b))");
+        testPointAndRadiusExpressionsInDistanceQuery("500 / (111000 * cos(lat_b)) > ST_Distance(ST_Point(lng_a, lat_a), ST_Point(lng_b, lat_b))", "ST_Distance(point_a, point_b) < radius", "500 / (111000 * cos(lat_b))");
+        testPointAndRadiusExpressionsInDistanceQuery("500 / (111000 * cos(lat_b)) > ST_Distance(ST_Point(lng_b, lat_b), ST_Point(lng_a, lat_a))", "ST_Distance(point_b, point_a) < radius", "500 / (111000 * cos(lat_b))");
+
+        testPointAndRadiusExpressionsInDistanceQuery("ST_Distance(ST_Point(lng_a, lat_a), ST_Point(lng_b, lat_b)) <= 500 / (111000 * cos(lat_b)) AND name_a != name_b", "ST_Distance(point_a, point_b) <= radius AND name_a != name_b", "500 / (111000 * cos(lat_b))");
+        testPointAndRadiusExpressionsInDistanceQuery("500 / (111000 * cos(lat_b)) > ST_Distance(ST_Point(lng_a, lat_a), ST_Point(lng_b, lat_b)) AND name_a != name_b", "ST_Distance(point_a, point_b) < radius AND name_a != name_b", "500 / (111000 * cos(lat_b))");
+    }
+
+    private void testSimpleDistanceQuery(String filter, String newFilter)
+    {
+        assertRuleApplication()
+                .on(p ->
+                        p.filter(PlanBuilder.expression(filter),
+                                p.join(INNER,
+                                        p.values(p.symbol("a"), p.symbol("name_a")),
+                                        p.values(p.symbol("b"), p.symbol("name_b"), p.symbol("r")))))
+                .matches(
+                        spatialJoin(newFilter,
+                                values(ImmutableMap.of("a", 0, "name_a", 1)),
+                                values(ImmutableMap.of("b", 0, "name_b", 1, "r", 2))));
+    }
+
+    private void testRadiusExpressionInDistanceQuery(String filter, String newFilter, String radiusExpression)
+    {
+        assertRuleApplication()
+                .on(p ->
+                        p.filter(PlanBuilder.expression(filter),
+                                p.join(INNER,
+                                        p.values(p.symbol("a"), p.symbol("name_a")),
+                                        p.values(p.symbol("b"), p.symbol("name_b"), p.symbol("r")))))
+                .matches(
+                        spatialJoin(newFilter,
+                                values(ImmutableMap.of("a", 0, "name_a", 1)),
+                                project(ImmutableMap.of("radius", expression(radiusExpression)),
+                                        values(ImmutableMap.of("b", 0, "name_b", 1, "r", 2)))));
+    }
+
+    private void testPointExpressionsInDistanceQuery(String filter, String newFilter, String radiusExpression)
+    {
+        assertRuleApplication()
+                .on(p ->
+                        p.filter(PlanBuilder.expression(filter),
+                                p.join(INNER,
+                                        p.values(p.symbol("lat_a"), p.symbol("lng_a"), p.symbol("name_a")),
+                                        p.values(p.symbol("lat_b"), p.symbol("lng_b"), p.symbol("name_b")))))
+                .matches(
+                        spatialJoin(newFilter,
+                                project(ImmutableMap.of("point_a", expression("ST_Point(lng_a, lat_a)")),
+                                        values(ImmutableMap.of("lat_a", 0, "lng_a", 1, "name_a", 2))),
+                                project(ImmutableMap.of("point_b", expression("ST_Point(lng_b, lat_b)")),
+                                        project(ImmutableMap.of("radius", expression(radiusExpression)), values(ImmutableMap.of("lat_b", 0, "lng_b", 1, "name_b", 2))))));
+    }
+
+    private void testPointAndRadiusExpressionsInDistanceQuery(String filter, String newFilter, String radiusExpression)
+    {
+        assertRuleApplication()
+                .on(p ->
+                        p.filter(PlanBuilder.expression(filter),
+                                p.join(INNER,
+                                        p.values(p.symbol("lat_a"), p.symbol("lng_a"), p.symbol("name_a")),
+                                        p.values(p.symbol("lat_b"), p.symbol("lng_b"), p.symbol("name_b")))))
+                .matches(
+                        spatialJoin(newFilter,
+                                project(ImmutableMap.of("point_a", expression("ST_Point(lng_a, lat_a)")),
+                                        values(ImmutableMap.of("lat_a", 0, "lng_a", 1, "name_a", 2))),
+                                project(ImmutableMap.of("point_b", expression("ST_Point(lng_b, lat_b)")),
+                                        project(ImmutableMap.of("radius", expression(radiusExpression)),
+                                                values(ImmutableMap.of("lat_b", 0, "lng_b", 1, "name_b", 2))))));
     }
 
     @Test
