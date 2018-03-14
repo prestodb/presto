@@ -19,13 +19,11 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManager;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerContext;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerFactory;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupSelector;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
-import com.google.common.collect.ImmutableList;
+import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
 
 import javax.inject.Inject;
 
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -54,16 +52,16 @@ public class LegacyResourceGroupConfigurationManagerFactory
     }
 
     @Override
-    public ResourceGroupConfigurationManager create(Map<String, String> config, ResourceGroupConfigurationManagerContext context)
+    public ResourceGroupConfigurationManager<VoidContext> create(Map<String, String> config, ResourceGroupConfigurationManagerContext context)
     {
         return new LegacyResourceGroupConfigurationManager();
     }
 
     public class LegacyResourceGroupConfigurationManager
-            implements ResourceGroupConfigurationManager
+            implements ResourceGroupConfigurationManager<VoidContext>
     {
         @Override
-        public void configure(ResourceGroup group, SelectionContext context)
+        public void configure(ResourceGroup group, SelectionContext<VoidContext> criteria)
         {
             checkArgument(group.getId().equals(GLOBAL), "Unexpected resource group: %s", group.getId());
             group.setMaxQueuedQueries(maxQueued);
@@ -71,9 +69,11 @@ public class LegacyResourceGroupConfigurationManagerFactory
         }
 
         @Override
-        public List<ResourceGroupSelector> getSelectors()
+        public Optional<SelectionContext<VoidContext>> match(SelectionCriteria criteria)
         {
-            return ImmutableList.of(context -> Optional.of(GLOBAL));
+            return Optional.of(new SelectionContext<>(GLOBAL, VoidContext.NONE));
         }
     }
+
+    private enum VoidContext { NONE }
 }

@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableList;
 import javax.inject.Inject;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
+import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.QueryParam;
@@ -33,6 +34,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.NoSuchElementException;
 
+import static com.facebook.presto.connector.system.KillQueryProcedure.createKillQueryException;
+import static com.facebook.presto.spi.StandardErrorCode.ADMINISTRATIVELY_KILLED;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -82,6 +85,36 @@ public class QueryResource
     {
         requireNonNull(queryId, "queryId is null");
         queryManager.cancelQuery(queryId);
+    }
+
+    @PUT
+    @Path("{queryId}/killed")
+    public Response killQuery(@PathParam("queryId") QueryId queryId, String message)
+    {
+        requireNonNull(queryId, "queryId is null");
+
+        try {
+            QueryInfo queryInfo = queryManager.getQueryInfo(queryId);
+
+            // check before killing to provide the proper error code (this is racy)
+            if (queryInfo.getState().isDone()) {
+                return Response.status(Status.CONFLICT).build();
+            }
+
+            queryManager.failQuery(queryId, createKillQueryException(message));
+
+            // verify if the query was killed (if not, we lost the race)
+            queryInfo = queryManager.getQueryInfo(queryId);
+            if ((queryInfo.getState() != QueryState.FAILED) ||
+                    !ADMINISTRATIVELY_KILLED.toErrorCode().equals(queryInfo.getErrorCode())) {
+                return Response.status(Status.CONFLICT).build();
+            }
+
+            return Response.status(Status.OK).build();
+        }
+        catch (NoSuchElementException e) {
+            return Response.status(Status.GONE).build();
+        }
     }
 
     @DELETE

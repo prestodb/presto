@@ -11,11 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi.resourceGroups;
+package com.facebook.presto.resourceGroups;
+
+import com.facebook.presto.spi.resourceGroups.SelectionContext;
+import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
 
 import java.util.Optional;
 
 public interface ResourceGroupSelector
 {
-    Optional<ResourceGroupId> match(SelectionContext context);
+    Optional<SelectionContext<VariableMap>> match(SelectionCriteria criteria);
 }

@@ -102,13 +102,6 @@ public class InternalResourceGroup
     @GuardedBy("root")
     private long cpuQuotaGenerationMillisPerSecond = Long.MAX_VALUE;
     @GuardedBy("root")
-    private int descendantRunningQueries;
-    @GuardedBy("root")
-    private int descendantQueuedQueries;
-    // Memory usage is cached because it changes very rapidly while queries are running, and would be expensive to track continuously
-    @GuardedBy("root")
-    private long cachedMemoryUsageBytes;
-    @GuardedBy("root")
     private int schedulingWeight = DEFAULT_WEIGHT;
     @GuardedBy("root")
     private SchedulingPolicy schedulingPolicy = FAIR;
@@ -134,6 +127,13 @@ public class InternalResourceGroup
     private UpdateablePriorityQueue<QueryExecution> queuedQueries = new FifoQueue<>();
     @GuardedBy("root")
     private final Set<QueryExecution> runningQueries = new HashSet<>();
+    @GuardedBy("root")
+    private int descendantRunningQueries;
+    @GuardedBy("root")
+    private int descendantQueuedQueries;
+    // Memory usage is cached because it changes very rapidly while queries are running, and would be expensive to track continuously
+    @GuardedBy("root")
+    private long cachedMemoryUsageBytes;
     @GuardedBy("root")
     private long cpuUsageMillis;
     @GuardedBy("root")

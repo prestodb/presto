@@ -18,7 +18,6 @@ import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.spi.resourceGroups.ResourceGroup;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManager;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupSelector;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
@@ -42,7 +41,7 @@ import static java.lang.String.format;
 import static java.util.function.Predicate.isEqual;
 
 public abstract class AbstractResourceConfigurationManager
-        implements ResourceGroupConfigurationManager
+        implements ResourceGroupConfigurationManager<VariableMap>
 {
     @GuardedBy("generalPoolMemoryFraction")
     private final Map<ResourceGroup, Double> generalPoolMemoryFraction = new HashMap<>();
@@ -148,7 +147,7 @@ public abstract class AbstractResourceConfigurationManager
         });
     }
 
-    protected Map.Entry<ResourceGroupIdTemplate, ResourceGroupSpec> getMatchingSpec(ResourceGroup group, SelectionContext context)
+    protected Map.Entry<ResourceGroupIdTemplate, ResourceGroupSpec> getMatchingSpec(ResourceGroup group, SelectionContext<VariableMap> context)
     {
         List<ResourceGroupSpec> candidates = getRootGroups();
         List<String> segments = group.getId().getSegments();
@@ -158,7 +157,7 @@ public abstract class AbstractResourceConfigurationManager
             List<ResourceGroupSpec> nextCandidates = null;
             ResourceGroupSpec nextCandidatesParent = null;
             for (ResourceGroupSpec candidate : candidates) {
-                if (candidate.getName().expandTemplate(context).equals(segments.get(i))) {
+                if (candidate.getName().expandTemplate(context.getContext()).equals(segments.get(i))) {
                     templateId.add(candidate.getName());
                     if (i == segments.size() - 1) {
                         if (match != null) {
