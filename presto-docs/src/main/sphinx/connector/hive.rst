@@ -385,6 +385,49 @@ as Hive. For example, converting the string ``'foo'`` to a number,
 or converting the string ``'1234'`` to a ``tinyint`` (which has a
 maximum value of ``127``).
 
+Avro Schema Evolution
+---------------------
+
+Presto supports querying and manipulating Hive tables with Avro storage format which has the schema set
+based on an Avro schema file/literal. It is also possible to create tables in Presto which infers the schema
+from a valid Avro schema file located locally or remotely in HDFS/Web server.
+
+To specify that Avro schema should be used for interpreting table's data one must use ``avro_schema_url`` table property.
+The schema can be placed remotely in
+HDFS (e.g. ``avro_schema_url = 'hdfs://user/avro/schema/avro_data.avsc'``),
+S3 (e.g. ``avro_schema_url = 's3n:///schema_bucket/schema/avro_data.avsc'``),
+a web server (e.g. ``avro_schema_url = 'http://example.org/schema/avro_data.avsc'``)
+as well as local file system. This url where the schema is located, must be accessible from the
+Hive metastore and Presto coordinator/worker nodes.
+
+The table created in Presto using ``avro_schema_url`` behaves the same way as a Hive table with ``avro.schema.url`` or ``avro.schema.literal`` set.
+
+Example::
+
+   CREATE TABLE hive.avro.avro_data (
+      id bigint
+    )
+   WITH (
+      format = 'AVRO',
+      avro_schema_url = '/usr/local/avro_data.avsc'
+   )
+
+The columns listed in the DDL (``id`` in the above example) will be ignored if ``avro_schema_url`` is specified.
+The table schema will match the schema in the Avro schema file. Before any read operation, the Avro schema is
+accessed so query result reflects any changes in schema. Thus Presto takes advantage of Avro's backward compatibility abilities.
+
+If the schema of the table changes in the Avro schema file, the user can use still use the new schema to read old
+data. The schema evolution behavior follows the rules :doc:`here </connector/avro-schema-evolution>`.
+
+Limitations
+^^^^^^^^^^^
+
+The following operations are not supported when ``avro_schema_url`` is set:
+
+* ``CREATE TABLE AS`` is not supported.
+* Using partitioning(``partitioned_by``) or bucketing(``bucketed_by``) columns are not supported in ``CREATE TABLE``.
+* ``ALTER TABLE`` commands modifying columns are not supported.
+
 Examples
 --------
 
