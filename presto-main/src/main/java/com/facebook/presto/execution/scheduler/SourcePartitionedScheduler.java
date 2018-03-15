@@ -296,10 +296,6 @@ public class SourcePartitionedScheduler
                     splitSource.close();
                     // fall through
                 case NO_MORE_SPLITS:
-                    if (!scheduleGroups.isEmpty()) {
-                        // we are blocked on split assignment
-                        break;
-                    }
                     state = State.FINISHED;
                     whenFinishedOrNewLifespanAdded.set(null);
                     // fall through
@@ -345,6 +341,11 @@ public class SourcePartitionedScheduler
 
     public synchronized List<Lifespan> drainCompletedLifespans()
     {
+        if (scheduleGroups.isEmpty()) {
+            // Invoking splitSource.isFinished would fail if it was already closed, which is possible if scheduleGroups is empty.
+            return ImmutableList.of();
+        }
+
         ImmutableList.Builder<Lifespan> result = ImmutableList.builder();
         Iterator<Entry<Lifespan, ScheduleGroup>> entryIterator = scheduleGroups.entrySet().iterator();
         while (entryIterator.hasNext()) {
@@ -355,11 +356,11 @@ public class SourcePartitionedScheduler
             }
         }
 
-        if (scheduleGroups.isEmpty()) {
-            if (state == State.NO_MORE_SPLITS) {
-                state = State.FINISHED;
-                whenFinishedOrNewLifespanAdded.set(null);
-            }
+        if (scheduleGroups.isEmpty() && splitSource.isFinished()) {
+            // Wake up blocked caller so that it will invoke schedule() right away.
+            // Once schedule is invoked, state will be transitioned to FINISHED.
+            whenFinishedOrNewLifespanAdded.set(null);
+            whenFinishedOrNewLifespanAdded = SettableFuture.create();
         }
 
         return result.build();
