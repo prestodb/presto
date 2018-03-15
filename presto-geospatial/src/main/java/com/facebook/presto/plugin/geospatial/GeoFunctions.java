@@ -60,6 +60,7 @@ import static com.facebook.presto.spi.type.StandardTypes.DOUBLE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;
+import static org.locationtech.jts.simplify.TopologyPreservingSimplifier.simplify;
 
 public final class GeoFunctions
 {
@@ -385,6 +386,27 @@ public final class GeoFunctions
         MultiPath lines = (MultiPath) geometry.getEsriGeometry();
         SpatialReference reference = geometry.getEsriSpatialReference();
         return serialize(createFromEsriGeometry(lines.getPoint(0), reference));
+    }
+
+    @Description("Returns a \"simplified\" version of the given geometry")
+    @ScalarFunction("simplify_geometry")
+    @SqlType(GEOMETRY_TYPE_NAME)
+    public static Slice simplifyGeometry(@SqlType(GEOMETRY_TYPE_NAME) Slice input,
+                                         @SqlType(DOUBLE) double distanceTolerance)
+    {
+        if (Double.isNaN(distanceTolerance)) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "distanceTolerance is NaN");
+        }
+
+        if (distanceTolerance < 0) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "distanceTolerance is negative");
+        }
+
+        if (distanceTolerance == 0) {
+            return input;
+        }
+
+        return JtsGeometryUtils.serialize(simplify(JtsGeometryUtils.deserialize(input), distanceTolerance));
     }
 
     @SqlNullable

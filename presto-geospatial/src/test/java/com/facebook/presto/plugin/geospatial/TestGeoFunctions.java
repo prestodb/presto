@@ -191,6 +191,20 @@ public class TestGeoFunctions
     }
 
     @Test
+    public void testSimplifyGeometry()
+    {
+        // Eliminate unnecessary points on the same line.
+        assertFunction("ST_AsText(simplify_geometry(ST_GeometryFromText('POLYGON ((1 0, 2 1, 3 1, 3 1, 4 1, 1 0))'), 1.5))", VARCHAR, "POLYGON ((1 0, 4 1, 2 1, 1 0))");
+
+        // Use distanceTolerance to control fidelity.
+        assertFunction("ST_AsText(simplify_geometry(ST_GeometryFromText('POLYGON ((1 0, 1 1, 2 1, 2 3, 3 3, 3 1, 4 1, 4 0, 1 0))'), 1.0))", VARCHAR, "POLYGON ((1 0, 4 0, 3 3, 2 3, 1 0))");
+        assertFunction("ST_AsText(simplify_geometry(ST_GeometryFromText('POLYGON ((1 0, 1 1, 2 1, 2 3, 3 3, 3 1, 4 1, 4 0, 1 0))'), 0.5))", VARCHAR, "POLYGON ((1 0, 4 0, 4 1, 3 1, 3 3, 2 3, 2 1, 1 1, 1 0))");
+
+        // Negative distance tolerance is invalid.
+        assertInvalidFunction("ST_AsText(simplify_geometry(ST_GeometryFromText('" + "POLYGON ((1 0, 1 1, 2 1, 2 3, 3 3, 3 1, 4 1, 4 0, 1 0))" + "'), -0.5))", "distanceTolerance is negative");
+    }
+
+    @Test
     public void testSTIsValid()
     {
         // empty geometries are valid
