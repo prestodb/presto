@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.plugin.geospatial;
 
+import com.facebook.presto.geospatial.GeometryUtils;
 import com.facebook.presto.geospatial.JtsGeometryUtils;
 import io.airlift.slice.Slice;
 import org.locationtech.jts.geom.Geometry;
@@ -103,5 +104,15 @@ public class TestJtsGeometryUtils
         else {
             assertEquals(actual, expected);
         }
+
+        // Test serialization
+        Slice jtsSerializedGeometry = JtsGeometryUtils.serialize(expected);
+        if (expected.isEmpty()) {
+            assertTrue(JtsGeometryUtils.deserialize(jtsSerializedGeometry).isEmpty());
+        }
+        else {
+            assertEquals(JtsGeometryUtils.deserialize(jtsSerializedGeometry), expected);
+        }
+        assertEquals(GeometryUtils.deserialize(jtsSerializedGeometry).asText(), (GeometryUtils.deserialize(geometry)).asText());
     }
 }
