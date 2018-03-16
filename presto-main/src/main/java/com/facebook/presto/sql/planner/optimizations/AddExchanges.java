@@ -98,10 +98,8 @@ import java.util.function.Function;
 import static com.facebook.presto.SystemSessionProperties.isColocatedJoinEnabled;
 import static com.facebook.presto.SystemSessionProperties.isForceSingleNodeOutput;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
-import static com.facebook.presto.sql.ExpressionUtils.filterConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.filterDeterministicConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.filterNonDeterministicConjuncts;
-import static com.facebook.presto.sql.ExpressionUtils.referencesAny;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.planner.FragmentTableScanCounter.countSources;
 import static com.facebook.presto.sql.planner.FragmentTableScanCounter.hasMultipleSources;
@@ -126,7 +124,6 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
-import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 public class AddExchanges
@@ -144,7 +141,7 @@ public class AddExchanges
     @Override
     public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
-        Context context = new Context(PreferredProperties.any(), ImmutableList.of());
+        Context context = new Context(PreferredProperties.any());
         PlanWithProperties result = plan.accept(new Rewriter(idAllocator, symbolAllocator, session), context);
         return result.getNode();
     }
@@ -152,27 +149,20 @@ public class AddExchanges
     private static class Context
     {
         private final PreferredProperties preferredProperties;
-        private final List<Symbol> correlations;
 
-        Context(PreferredProperties preferredProperties, List<Symbol> correlations)
+        Context(PreferredProperties preferredProperties)
         {
             this.preferredProperties = preferredProperties;
-            this.correlations = ImmutableList.copyOf(requireNonNull(correlations, "correlations is null"));
         }
 
         Context withPreferredProperties(PreferredProperties preferredProperties)
         {
-            return new Context(preferredProperties, correlations);
+            return new Context(preferredProperties);
         }
 
         PreferredProperties getPreferredProperties()
         {
             return preferredProperties;
-        }
-
-        List<Symbol> getCorrelations()
-        {
-            return correlations;
         }
     }
 
@@ -593,7 +583,7 @@ public class AddExchanges
                     session,
                     symbolAllocator.getTypes(),
                     node.getAssignments(),
-                    filterConjuncts(constraint, conjunct -> !referencesAny(conjunct, context.getCorrelations())));
+                    constraint);
 
             // Layouts will be returned in order of the connector's preference
             List<TableLayoutResult> layouts = metadata.getLayouts(
