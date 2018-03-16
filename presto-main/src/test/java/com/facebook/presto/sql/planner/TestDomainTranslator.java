@@ -900,12 +900,11 @@ public class TestDomainTranslator
         assertEquals(result.getRemainingExpression(), not(equal(cast(C_SMALLINT, BIGINT), toExpression(null, BIGINT))));
         assertEquals(result.getTupleDomain(), TupleDomain.all());
 
-        originalExpression = new InPredicate(
-                C_BIGINT.toSymbolReference(),
-                new InListExpression(ImmutableList.of(cast(toExpression(null, SMALLINT), BIGINT), toExpression(1L, BIGINT))));
-        result = fromPredicate(originalExpression);
-        assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 1L)), false))));
+        assertPredicateTranslates(
+                new InPredicate(
+                        C_BIGINT.toSymbolReference(),
+                        new InListExpression(ImmutableList.of(cast(toExpression(null, SMALLINT), BIGINT), toExpression(1L, BIGINT)))),
+                withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 1L)), false))));
 
         assertPredicateIsAlwaysFalse(not(new InPredicate(
                 C_BIGINT.toSymbolReference(),
