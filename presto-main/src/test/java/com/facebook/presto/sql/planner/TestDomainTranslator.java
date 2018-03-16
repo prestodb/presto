@@ -797,26 +797,11 @@ public class TestDomainTranslator
     @Test
     public void testFromUnprocessableInPredicate()
     {
-        Expression originalExpression = new InPredicate(unprocessableExpression1(C_BIGINT), new InListExpression(ImmutableList.of(TRUE_LITERAL)));
-        ExtractionResult result = fromPredicate(originalExpression);
-        assertEquals(result.getRemainingExpression(), equal(unprocessableExpression1(C_BIGINT), TRUE_LITERAL));
-        assertTrue(result.getTupleDomain().isAll());
-
-        originalExpression = new InPredicate(C_BOOLEAN.toSymbolReference(), new InListExpression(ImmutableList.of(unprocessableExpression1(C_BOOLEAN))));
-        result = fromPredicate(originalExpression);
-        assertEquals(result.getRemainingExpression(), equal(C_BOOLEAN, unprocessableExpression1(C_BOOLEAN)));
-        assertTrue(result.getTupleDomain().isAll());
-
-        originalExpression = new InPredicate(C_BOOLEAN.toSymbolReference(), new InListExpression(ImmutableList.of(TRUE_LITERAL, unprocessableExpression1(C_BOOLEAN))));
-        result = fromPredicate(originalExpression);
-        assertEquals(result.getRemainingExpression(), or(equal(C_BOOLEAN, TRUE_LITERAL), equal(C_BOOLEAN, unprocessableExpression1(C_BOOLEAN))));
-        assertTrue(result.getTupleDomain().isAll());
-
-        // Test complement
-        originalExpression = not(new InPredicate(C_BOOLEAN.toSymbolReference(), new InListExpression(ImmutableList.of(unprocessableExpression1(C_BOOLEAN)))));
-        result = fromPredicate(originalExpression);
-        assertEquals(result.getRemainingExpression(), not(equal(C_BOOLEAN, unprocessableExpression1(C_BOOLEAN))));
-        assertTrue(result.getTupleDomain().isAll());
+        assertUnsupportedPredicate(new InPredicate(unprocessableExpression1(C_BIGINT), new InListExpression(ImmutableList.of(TRUE_LITERAL))));
+        assertUnsupportedPredicate(new InPredicate(C_BOOLEAN.toSymbolReference(), new InListExpression(ImmutableList.of(unprocessableExpression1(C_BOOLEAN)))));
+        assertUnsupportedPredicate(
+                new InPredicate(C_BOOLEAN.toSymbolReference(), new InListExpression(ImmutableList.of(TRUE_LITERAL, unprocessableExpression1(C_BOOLEAN)))));
+        assertUnsupportedPredicate(not(new InPredicate(C_BOOLEAN.toSymbolReference(), new InListExpression(ImmutableList.of(unprocessableExpression1(C_BOOLEAN))))));
     }
 
     @Test
@@ -879,11 +864,9 @@ public class TestDomainTranslator
                         new InListExpression(ImmutableList.of(toExpression(1L, BIGINT)))),
                 withColumnDomains(ImmutableMap.of(C_SMALLINT, Domain.singleValue(SMALLINT, 1L))));
 
-        ExtractionResult result = fromPredicate(new InPredicate(
+        assertUnsupportedPredicate(new InPredicate(
                 cast(C_BIGINT, INTEGER),
                 new InListExpression(ImmutableList.of(toExpression(1L, INTEGER)))));
-        assertEquals(result.getRemainingExpression(), equal(cast(C_BIGINT, INTEGER), toExpression(1L, INTEGER)));
-        assertEquals(result.getTupleDomain(), TupleDomain.all());
     }
 
     @Test
@@ -893,19 +876,15 @@ public class TestDomainTranslator
                 C_BIGINT.toSymbolReference(),
                 new InListExpression(ImmutableList.of(cast(toExpression(null, SMALLINT), BIGINT)))));
 
-        Expression originalExpression = not(new InPredicate(
+        assertUnsupportedPredicate(not(new InPredicate(
                 cast(C_SMALLINT, BIGINT),
-                new InListExpression(ImmutableList.of(toExpression(null, BIGINT)))));
-        ExtractionResult result = fromPredicate(originalExpression);
-        assertEquals(result.getRemainingExpression(), not(equal(cast(C_SMALLINT, BIGINT), toExpression(null, BIGINT))));
-        assertEquals(result.getTupleDomain(), TupleDomain.all());
+                new InListExpression(ImmutableList.of(toExpression(null, BIGINT))))));
 
-        originalExpression = new InPredicate(
-                C_BIGINT.toSymbolReference(),
-                new InListExpression(ImmutableList.of(cast(toExpression(null, SMALLINT), BIGINT), toExpression(1L, BIGINT))));
-        result = fromPredicate(originalExpression);
-        assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 1L)), false))));
+        assertPredicateTranslates(
+                new InPredicate(
+                        C_BIGINT.toSymbolReference(),
+                        new InListExpression(ImmutableList.of(cast(toExpression(null, SMALLINT), BIGINT), toExpression(1L, BIGINT)))),
+                withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 1L)), false))));
 
         assertPredicateIsAlwaysFalse(not(new InPredicate(
                 C_BIGINT.toSymbolReference(),

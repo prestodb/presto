@@ -698,7 +698,17 @@ public final class DomainTranslator
             for (Expression expression : valueList.getValues()) {
                 disjuncts.add(new ComparisonExpression(EQUAL, node.getValue(), expression));
             }
-            return process(or(disjuncts.build()), complement);
+            ExtractionResult extractionResult = process(or(disjuncts.build()), complement);
+
+            // preserver original IN predicate as remaining predicate
+            if (extractionResult.tupleDomain.isAll()) {
+                Expression originalPredicate = node;
+                if (complement) {
+                    originalPredicate = new NotExpression(originalPredicate);
+                }
+                return new ExtractionResult(extractionResult.tupleDomain, originalPredicate);
+            }
+            return extractionResult;
         }
 
         @Override
