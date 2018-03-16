@@ -137,6 +137,11 @@ Array Functions
 
     Generate a sequence of integers from ``start`` to ``stop``, incrementing by ``step``.
 
+.. function:: sequence(start, stop, step) -> array<date>
+
+    Generate a sequence of dates from ``start`` to ``stop``, incrementing by ``step``.
+    The type of ``step`` can be either ``INTERVAL DAY TO SECOND`` or ``INTERVAL YEAR TO MONTH``.
+
 .. function:: sequence(start, stop, step) -> array<timestamp>
 
     Generate a sequence of timestamps from ``start`` to ``stop``, incrementing by ``step``.
