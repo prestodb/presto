@@ -38,6 +38,7 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.sql.Date;
 import java.sql.Timestamp;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
@@ -45,7 +46,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -559,9 +559,7 @@ public abstract class AbstractTestParquetReader
         if (input == null) {
             return null;
         }
-        Date date = new Date(0);
-        date.setTime(TimeUnit.DAYS.toMillis(input));
-        return date;
+        return Date.valueOf(LocalDate.ofEpochDay(input));
     }
 
     private static SqlDate intToSqlDate(Integer input)
