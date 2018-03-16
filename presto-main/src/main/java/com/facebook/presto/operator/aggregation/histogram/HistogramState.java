@@ -28,12 +28,6 @@ public interface HistogramState
      */
     TypedHistogram get();
 
-    /**
-     * used only in combine() for efficiency
-     * @param typedHistogram
-     */
-    void set(TypedHistogram typedHistogram);
-
     void addMemoryUsage(long memory);
 
     void deserialize(Block block, Type type, int expectedSize);

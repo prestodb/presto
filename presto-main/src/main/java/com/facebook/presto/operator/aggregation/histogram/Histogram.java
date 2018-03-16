@@ -42,6 +42,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.Objects.requireNonNull;
 
 public class Histogram
         extends SqlAggregationFunction
@@ -125,16 +126,16 @@ public class Histogram
 
     public static void combine(HistogramState state, HistogramState otherState)
     {
-        if (state.get() != null && otherState.get() != null) {
-            TypedHistogram typedHistogram = state.get();
-            long startSize = typedHistogram.getEstimatedSize();
-            typedHistogram.addAll(otherState.get());
-            state.addMemoryUsage(typedHistogram.getEstimatedSize() - startSize);
-        }
-        else if (state.get() == null && otherState.get() != null) {
-            TypedHistogram otherTypedHistogram = otherState.get();
-            state.set(otherTypedHistogram);
-        }
+        // NOTE: state = current merged state; otherState = scratchState (new data to be added)
+        // for grouped histograms and single histograms, we have a single histogram object. In neither case, can otherState.get() return null.
+        // Semantically, a histogram object will be returned even if the group is empty.
+        // In that case, the histogram object will represent an empty histogram until we call add() on
+        // it.
+        requireNonNull(otherState.get() != null, "scratch state should always be non-null");
+        TypedHistogram typedHistogram = state.get();
+        long startSize = typedHistogram.getEstimatedSize();
+        typedHistogram.addAll(otherState.get());
+        state.addMemoryUsage(typedHistogram.getEstimatedSize() - startSize);
     }
 
     public static void output(Type type, HistogramState state, BlockBuilder out)
