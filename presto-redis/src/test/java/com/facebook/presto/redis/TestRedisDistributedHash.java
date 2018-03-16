@@ -44,4 +44,10 @@ public class TestRedisDistributedHash
     {
         embeddedRedis.close();
     }
+
+    @Override
+    public void testShowTablesLikeWithEscape()
+    {
+        // Redis connector currently does not support create table
+    }
 }

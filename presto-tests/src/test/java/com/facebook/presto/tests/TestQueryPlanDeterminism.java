@@ -214,4 +214,10 @@ public class TestQueryPlanDeterminism
         determinismChecker.checkPlanIsDeterministic(sql);
         return super.computeExpected(sql, resultTypes);
     }
+
+    @Override
+    public void testShowTablesLikeWithEscape()
+    {
+        // Local connector currently does not support create table
+    }
 }

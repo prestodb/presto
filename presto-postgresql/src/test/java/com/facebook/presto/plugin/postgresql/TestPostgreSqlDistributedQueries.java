@@ -48,5 +48,11 @@ public class TestPostgreSqlDistributedQueries
         postgreSqlServer.close();
     }
 
+    @Override
+    public void testShowTablesLikeWithEscape()
+    {
+        // PostgreSQL connector currently does not support create table
+    }
+
     // PostgreSQL specific tests should normally go in TestPostgreSqlIntegrationSmokeTest
 }

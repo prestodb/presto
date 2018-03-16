@@ -91,6 +91,7 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -4642,6 +4643,20 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testShowSchemasLikeWithEscape()
+    {
+        assertQueryFails("SHOW SCHEMAS IN foo LIKE '%$_%' ESCAPE", "line 1:39: no viable alternative at input '<EOF>'");
+        assertQueryFails("SHOW SCHEMAS LIKE 't$_%' ESCAPE ''", "Escape string must be a single character");
+        assertQueryFails("SHOW SCHEMAS LIKE 't$_%' ESCAPE '$$'", "Escape string must be a single character");
+
+        Set<Object> allSchemas = computeActual("SHOW SCHEMAS").getOnlyColumnAsSet();
+        assertEquals(allSchemas, computeActual("SHOW SCHEMAS LIKE '%_%'").getOnlyColumnAsSet());
+        Set<Object> result = computeActual("SHOW SCHEMAS LIKE '%$_%' ESCAPE '$'").getOnlyColumnAsSet();
+        assertNotEquals(allSchemas, result);
+        assertThat(result).contains("information_schema").allMatch(schemaName -> ((String) schemaName).contains("_"));
+    }
+
+    @Test
     public void testShowTables()
     {
         Set<String> expectedTables = ImmutableSet.copyOf(transform(TpchTable.getTables(), TpchTable::getTableName));
@@ -4693,6 +4708,23 @@ public abstract class AbstractTestQueries
         assertThat(computeActual("SHOW TABLES LIKE 'or%'").getOnlyColumnAsSet())
                 .contains("orders")
                 .allMatch(tableName -> ((String) tableName).startsWith("or"));
+    }
+
+    @Test
+    public void testShowTablesLikeWithEscape()
+    {
+        assertQueryFails("SHOW TABLES IN a LIKE '%$_%' ESCAPE", "line 1:36: no viable alternative at input '<EOF>'");
+        assertQueryFails("SHOW TABLES LIKE 't$_%' ESCAPE ''", "Escape string must be a single character");
+        assertQueryFails("SHOW TABLES LIKE 't$_%' ESCAPE '$$'", "Escape string must be a single character");
+
+        assertUpdate("CREATE TABLE test_escape_1 (a bigint)");
+        assertUpdate("CREATE TABLE test_escape11 (a bigint)");
+
+        assertQuery("SHOW TABLES LIKE 'test_escape_%'", "VALUES 'test_escape_1', 'test_escape11'");
+        assertQuery("SHOW TABLES LIKE 'test_escape\\_%' ESCAPE '\\'", "VALUES 'test_escape_1'");
+
+        assertUpdate("DROP TABLE test_escape_1");
+        assertUpdate("DROP TABLE test_escape11");
     }
 
     @Test

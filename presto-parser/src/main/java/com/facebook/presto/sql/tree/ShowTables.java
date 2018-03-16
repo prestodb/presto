@@ -27,25 +27,28 @@ public class ShowTables
 {
     private final Optional<QualifiedName> schema;
     private final Optional<String> likePattern;
+    private final Optional<String> escape;
 
-    public ShowTables(Optional<QualifiedName> schema, Optional<String> likePattern)
+    public ShowTables(Optional<QualifiedName> schema, Optional<String> likePattern, Optional<String> escape)
     {
-        this(Optional.empty(), schema, likePattern);
+        this(Optional.empty(), schema, likePattern, escape);
     }
 
-    public ShowTables(NodeLocation location, Optional<QualifiedName> schema, Optional<String> likePattern)
+    public ShowTables(NodeLocation location, Optional<QualifiedName> schema, Optional<String> likePattern, Optional<String> escape)
     {
-        this(Optional.of(location), schema, likePattern);
+        this(Optional.of(location), schema, likePattern, escape);
     }
 
-    private ShowTables(Optional<NodeLocation> location, Optional<QualifiedName> schema, Optional<String> likePattern)
+    private ShowTables(Optional<NodeLocation> location, Optional<QualifiedName> schema, Optional<String> likePattern, Optional<String> escape)
     {
         super(location);
         requireNonNull(schema, "schema is null");
         requireNonNull(likePattern, "likePattern is null");
+        requireNonNull(escape, "escape is null");
 
         this.schema = schema;
         this.likePattern = likePattern;
+        this.escape = escape;
     }
 
     public Optional<QualifiedName> getSchema()
@@ -56,6 +59,11 @@ public class ShowTables
     public Optional<String> getLikePattern()
     {
         return likePattern;
+    }
+
+    public Optional<String> getEscape()
+    {
+        return escape;
     }
 
     @Override
@@ -73,7 +81,7 @@ public class ShowTables
     @Override
     public int hashCode()
     {
-        return Objects.hash(schema, likePattern);
+        return Objects.hash(schema, likePattern, escape);
     }
 
     @Override
@@ -87,7 +95,8 @@ public class ShowTables
         }
         ShowTables o = (ShowTables) obj;
         return Objects.equals(schema, o.schema) &&
-                Objects.equals(likePattern, o.likePattern);
+                Objects.equals(likePattern, o.likePattern) &&
+                Objects.equals(escape, o.escape);
     }
 
     @Override
@@ -96,6 +105,7 @@ public class ShowTables
         return toStringHelper(this)
                 .add("schema", schema)
                 .add("likePattern", likePattern)
+                .add("escape", escape)
                 .toString();
     }
 }
