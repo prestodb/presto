@@ -30,4 +30,10 @@ public class TestJdbcDistributedQueries
     public void testLargeIn()
     {
     }
+
+    @Override
+    public void testShowTablesLikeWithEscape()
+    {
+        // Tpch connector currently does not support create table
+    }
 }

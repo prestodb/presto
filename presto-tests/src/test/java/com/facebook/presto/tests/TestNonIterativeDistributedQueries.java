@@ -25,4 +25,10 @@ public class TestNonIterativeDistributedQueries
     {
         super(() -> TpchQueryRunnerBuilder.builder().setSingleExtraProperty("experimental.iterative-optimizer-enabled", "false").build());
     }
+
+    @Override
+    public void testShowTablesLikeWithEscape()
+    {
+        // Tpch connector currently does not support create table
+    }
 }

@@ -129,4 +129,10 @@ public class TestCassandraDistributed
     {
         // Cassandra connector currently does not support create table nor insert
     }
+
+    @Override
+    public void testShowTablesLikeWithEscape()
+    {
+        // Cassandra connector currently does not support create table
+    }
 }

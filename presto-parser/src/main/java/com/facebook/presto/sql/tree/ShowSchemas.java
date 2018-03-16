@@ -27,22 +27,24 @@ public class ShowSchemas
 {
     private final Optional<Identifier> catalog;
     private final Optional<String> likePattern;
+    private final Optional<String> escape;
 
-    public ShowSchemas(Optional<Identifier> catalog, Optional<String> likePattern)
+    public ShowSchemas(Optional<Identifier> catalog, Optional<String> likePattern, Optional<String> escape)
     {
-        this(Optional.empty(), catalog, likePattern);
+        this(Optional.empty(), catalog, likePattern, escape);
     }
 
-    public ShowSchemas(NodeLocation location, Optional<Identifier> catalog, Optional<String> likePattern)
+    public ShowSchemas(NodeLocation location, Optional<Identifier> catalog, Optional<String> likePattern, Optional<String> escape)
     {
-        this(Optional.of(location), catalog, likePattern);
+        this(Optional.of(location), catalog, likePattern, escape);
     }
 
-    private ShowSchemas(Optional<NodeLocation> location, Optional<Identifier> catalog, Optional<String> likePattern)
+    private ShowSchemas(Optional<NodeLocation> location, Optional<Identifier> catalog, Optional<String> likePattern, Optional<String> escape)
     {
         super(location);
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.likePattern = requireNonNull(likePattern, "likePattern is null");
+        this.escape = requireNonNull(escape, "escape is null");
     }
 
     public Optional<Identifier> getCatalog()
@@ -53,6 +55,11 @@ public class ShowSchemas
     public Optional<String> getLikePattern()
     {
         return likePattern;
+    }
+
+    public Optional<String> getEscape()
+    {
+        return escape;
     }
 
     @Override
@@ -70,7 +77,7 @@ public class ShowSchemas
     @Override
     public int hashCode()
     {
-        return catalog.hashCode();
+        return Objects.hash(catalog, likePattern, escape);
     }
 
     @Override
@@ -83,7 +90,9 @@ public class ShowSchemas
             return false;
         }
         ShowSchemas o = (ShowSchemas) obj;
-        return Objects.equals(catalog, o.catalog);
+        return Objects.equals(catalog, o.catalog) &&
+                Objects.equals(likePattern, o.likePattern) &&
+                Objects.equals(escape, o.escape);
     }
 
     @Override
@@ -91,6 +100,8 @@ public class ShowSchemas
     {
         return toStringHelper(this)
                 .add("catalog", catalog)
+                .add("likePattern", likePattern)
+                .add("escape", escape)
                 .toString();
     }
 }

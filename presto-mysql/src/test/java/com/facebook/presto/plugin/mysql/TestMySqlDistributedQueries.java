@@ -81,5 +81,11 @@ public class TestMySqlDistributedQueries
         // this connector uses a non-canonical type for varchar columns in tpch
     }
 
+    @Override
+    public void testShowTablesLikeWithEscape()
+    {
+        // Mysql connector currently does not support create table
+    }
+
     // MySQL specific tests should normally go in TestMySqlIntegrationSmokeTest
 }
