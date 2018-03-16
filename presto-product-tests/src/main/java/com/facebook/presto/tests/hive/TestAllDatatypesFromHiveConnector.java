@@ -32,6 +32,7 @@ import java.sql.Connection;
 import java.sql.Date;
 
 import static com.facebook.presto.tests.TemptoProductTestRunner.PRODUCT_TESTS_TIME_ZONE;
+import static com.facebook.presto.tests.TestGroups.BIG_QUERY;
 import static com.facebook.presto.tests.TestGroups.HIVE_CONNECTOR;
 import static com.facebook.presto.tests.TestGroups.JDBC;
 import static com.facebook.presto.tests.TestGroups.POST_HIVE_1_0_1;
@@ -223,7 +224,7 @@ public class TestAllDatatypesFromHiveConnector
     }
 
     @Requires(AvroRequirements.class)
-    @Test(groups = {HIVE_CONNECTOR, JDBC, SKIP_ON_CDH})
+    @Test(groups = {HIVE_CONNECTOR, JDBC, SKIP_ON_CDH, BIG_QUERY})
     public void testSelectAllDatatypesAvro()
     {
         String tableName = mutableTableInstanceOf(ALL_HIVE_SIMPLE_TYPES_AVRO).getNameInDatabase();
