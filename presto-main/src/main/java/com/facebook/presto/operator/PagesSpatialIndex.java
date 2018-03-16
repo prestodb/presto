@@ -18,30 +18,30 @@ import com.facebook.presto.spi.PageBuilder;
 
 public interface PagesSpatialIndex
 {
-    long[] findJoinAddresses(int probePosition, Page probe, int probeGeometryChannel);
+    int[] findJoinPositions(int probePosition, Page probe, int probeGeometryChannel);
 
-    boolean isJoinAddressEligible(long joinPosition, int probePosition, Page probe);
+    boolean isJoinPositionEligible(int joinPosition, int probePosition, Page probe);
 
-    void appendTo(long joinAddress, PageBuilder pageBuilder, int outputChannelOffset);
+    void appendTo(int joinPosition, PageBuilder pageBuilder, int outputChannelOffset);
 
     PagesSpatialIndex EMPTY_INDEX = new PagesSpatialIndex()
     {
-        private final long[] emptyAddresses = new long[0];
+        private final int[] emptyAddresses = new int[0];
 
         @Override
-        public long[] findJoinAddresses(int probePosition, Page probe, int probeGeometryChannel)
+        public int[] findJoinPositions(int probePosition, Page probe, int probeGeometryChannel)
         {
             return emptyAddresses;
         }
 
         @Override
-        public boolean isJoinAddressEligible(long joinPosition, int probePosition, Page probe)
+        public boolean isJoinPositionEligible(int joinPosition, int probePosition, Page probe)
         {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public void appendTo(long joinAddress, PageBuilder pageBuilder, int outputChannelOffset)
+        public void appendTo(int joinPosition, PageBuilder pageBuilder, int outputChannelOffset)
         {
             throw new UnsupportedOperationException();
         }

@@ -130,8 +130,8 @@ public class SpatialJoinOperator
     // filled up pageBuilder before processing all records in a probe page.
     private int probePosition;
     @Nullable
-    private long[] joinAddresses;
-    private int nextJoinAddressIndex;
+    private int[] joinPositions;
+    private int nextJoinPositionIndex;
 
     private boolean finishing;
     private boolean finished;
@@ -180,7 +180,7 @@ public class SpatialJoinOperator
         probe = page;
         probePosition = 0;
 
-        joinAddresses = null;
+        joinPositions = null;
     }
 
     @Override
@@ -219,23 +219,23 @@ public class SpatialJoinOperator
         PagesSpatialIndex pagesSpatialIndex = getDone(pagesSpatialIndexFuture);
         DriverYieldSignal yieldSignal = operatorContext.getDriverContext().getYieldSignal();
         while (probePosition < probe.getPositionCount()) {
-            if (joinAddresses == null) {
-                joinAddresses = pagesSpatialIndex.findJoinAddresses(probePosition, probe, probeGeometryChannel);
-                localUserMemoryContext.setBytes(sizeOf(joinAddresses));
-                nextJoinAddressIndex = 0;
+            if (joinPositions == null) {
+                joinPositions = pagesSpatialIndex.findJoinPositions(probePosition, probe, probeGeometryChannel);
+                localUserMemoryContext.setBytes(sizeOf(joinPositions));
+                nextJoinPositionIndex = 0;
                 if (yieldSignal.isSet()) {
                     return;
                 }
             }
 
-            while (nextJoinAddressIndex < joinAddresses.length) {
+            while (nextJoinPositionIndex < joinPositions.length) {
                 if (pageBuilder.isFull()) {
                     return;
                 }
 
-                long joinAddress = joinAddresses[nextJoinAddressIndex];
+                int joinPosition = joinPositions[nextJoinPositionIndex];
 
-                if (pagesSpatialIndex.isJoinAddressEligible(joinAddress, probePosition, probe)) {
+                if (pagesSpatialIndex.isJoinPositionEligible(joinPosition, probePosition, probe)) {
                     pageBuilder.declarePosition();
                     int outputChannelOffset = 0;
                     for (int outputIndex : probeOutputChannels) {
@@ -244,17 +244,17 @@ public class SpatialJoinOperator
                         type.appendTo(block, probePosition, pageBuilder.getBlockBuilder(outputChannelOffset));
                         outputChannelOffset++;
                     }
-                    pagesSpatialIndex.appendTo(joinAddress, pageBuilder, outputChannelOffset);
+                    pagesSpatialIndex.appendTo(joinPosition, pageBuilder, outputChannelOffset);
                 }
 
-                nextJoinAddressIndex++;
+                nextJoinPositionIndex++;
 
                 if (yieldSignal.isSet()) {
                     return;
                 }
             }
 
-            joinAddresses = null;
+            joinPositions = null;
             localUserMemoryContext.setBytes(0);
             probePosition++;
         }
