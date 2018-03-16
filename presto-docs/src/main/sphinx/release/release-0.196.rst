@@ -2,8 +2,8 @@
 Release 0.196
 =============
 
-General
---------
+General Changes
+---------------
 
 * Fix behavior of ``JOIN ... USING`` to conform to standard SQL semantics.
   The old behavior can be restored by setting the ``deprecated.legacy-join-using``
@@ -33,7 +33,7 @@ Security
   to enforce a specific matching between authentication credentials and a
   executing username.
 
-Hive changes
+Hive Changes
 ------------
 
 * Fix a correctness issue where non-null values can be treated as null values
