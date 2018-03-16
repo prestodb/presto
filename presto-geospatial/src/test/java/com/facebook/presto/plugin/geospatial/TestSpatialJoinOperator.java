@@ -210,6 +210,7 @@ public class TestSpatialJoinOperator
 
         RowPagesBuilder buildPages = rowPagesBuilder(ImmutableList.of(GEOMETRY, VARCHAR))
                 .row(POLYGON_A, "A")
+                .pageBreak()
                 .row(POLYGON_B, "B");
         PagesSpatialIndexFactory pagesSpatialIndexFactory = buildIndex(driverContext, (build, probe) -> build.contains(probe), Optional.of(filterFunction), buildPages);
 

@@ -15,7 +15,7 @@ package com.facebook.presto.operator;
 
 import com.esri.core.geometry.ogc.OGCGeometry;
 import com.facebook.presto.Session;
-import com.facebook.presto.operator.PagesRTreeIndex.GeometryWithAddress;
+import com.facebook.presto.operator.PagesRTreeIndex.GeometryWithPosition;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler;
@@ -103,7 +103,7 @@ public class PagesSpatialIndexSupplier
                 continue;
             }
 
-            rtree.insert(getEnvelope(ogcGeometry), new GeometryWithAddress(ogcGeometry, pageAddress));
+            rtree.insert(getEnvelope(ogcGeometry), new GeometryWithPosition(ogcGeometry, position));
         }
 
         rtree.build();
@@ -128,7 +128,7 @@ public class PagesSpatialIndexSupplier
 
     private long computeMemorySizeInBytes(ItemBoundable item)
     {
-        return ENVELOPE_INSTANCE_SIZE + ((GeometryWithAddress) item.getItem()).getEstimatedMemorySizeInBytes();
+        return ENVELOPE_INSTANCE_SIZE + ((GeometryWithPosition) item.getItem()).getEstimatedMemorySizeInBytes();
     }
 
     // doesn't include memory used by channels and addresses which are shared with PagesIndex
