@@ -18,8 +18,6 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
-import static com.google.common.base.Preconditions.checkArgument;
-
 public class SingleHistogramState
         implements HistogramState
 {
@@ -36,13 +34,6 @@ public class SingleHistogramState
     public TypedHistogram get()
     {
         return typedHistogram;
-    }
-
-    @Override
-    public void set(TypedHistogram value)
-    {
-        checkArgument(value instanceof SingleTypedHistogram, "set must be called with class type % only. Received %s", this.getClass(), value.getClass());
-        typedHistogram = (SingleTypedHistogram) value;
     }
 
     @Override
