@@ -54,9 +54,9 @@ public class StandardJoinFilterFunction
     }
 
     @Override
-    public boolean filter(int leftAddress, int rightPosition, Page rightPage)
+    public boolean filter(int leftPosition, int rightPosition, Page rightPage)
     {
-        long pageAddress = addresses.getLong(leftAddress);
+        long pageAddress = addresses.getLong(leftPosition);
         int blockIndex = decodeSliceIndex(pageAddress);
         int blockPosition = decodePosition(pageAddress);
 
