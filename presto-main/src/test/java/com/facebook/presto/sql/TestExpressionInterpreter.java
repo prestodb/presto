@@ -1331,7 +1331,7 @@ public class TestExpressionInterpreter
         Expression predicate = new LikePredicate(
                 rawStringLiteral(Slices.wrappedBuffer(value)),
                 new StringLiteral(pattern),
-                null);
+                Optional.empty());
         assertEquals(evaluate(predicate), expected);
     }
 
