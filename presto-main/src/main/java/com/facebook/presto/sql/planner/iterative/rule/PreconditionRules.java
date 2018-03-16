@@ -28,10 +28,10 @@ public final class PreconditionRules
 
     public static Rule<ExchangeNode> checkRulesAreFiredBeforeAddExchangesRule()
     {
-        return checkPlanDoNotMatch(exchange(), "Expected rules to be fired before 'AddExchanges' optimizer");
+        return checkNoPlanNodeMatches(exchange(), "Expected rules to be fired before 'AddExchanges' optimizer");
     }
 
-    public static <T extends PlanNode> Rule<T> checkPlanDoNotMatch(Pattern<T> pattern, String message)
+    private static <T extends PlanNode> Rule<T> checkNoPlanNodeMatches(Pattern<T> pattern, String message)
     {
         return new CheckNoPlanNodeMatchesRule<>(pattern, message);
     }
