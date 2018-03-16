@@ -14,6 +14,7 @@
 package com.facebook.presto.jdbc;
 
 import com.facebook.presto.client.ServerInfo;
+import com.facebook.presto.server.ServerType;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
 import okhttp3.OkHttpClient;
@@ -57,7 +58,7 @@ public class TestQueryExecutor
     public void testGetServerInfo()
             throws Exception
     {
-        ServerInfo expected = new ServerInfo(UNKNOWN, "test", true, Optional.of(Duration.valueOf("2m")));
+        ServerInfo expected = new ServerInfo(UNKNOWN, "test", ServerType.COORDINATOR.toString(), Optional.of(Duration.valueOf("2m")));
 
         server.enqueue(new MockResponse()
                 .addHeader(CONTENT_TYPE, "application/json")

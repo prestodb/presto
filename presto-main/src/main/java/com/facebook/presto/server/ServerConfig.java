@@ -20,21 +20,21 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class ServerConfig
 {
-    private boolean coordinator = true;
+    private ServerType serverType = ServerType.COORDINATOR;
     private String prestoVersion;
     private String dataSources;
     private boolean includeExceptionInResponse = true;
     private Duration gracePeriod = new Duration(2, MINUTES);
 
-    public boolean isCoordinator()
+    public ServerType getServerType()
     {
-        return coordinator;
+        return serverType;
     }
 
-    @Config("coordinator")
-    public ServerConfig setCoordinator(boolean coordinator)
+    @Config("server-type")
+    public ServerConfig setServerType(ServerType serverType)
     {
-        this.coordinator = coordinator;
+        this.serverType = serverType;
         return this;
     }
 

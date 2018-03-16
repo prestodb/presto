@@ -11,27 +11,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.metadata;
+package com.facebook.presto.server;
 
-import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.spi.Node;
-import com.facebook.presto.spi.NodeState;
+import javax.inject.Qualifier;
 
-import java.util.Set;
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
 
-public interface InternalNodeManager
+import static java.lang.annotation.ElementType.FIELD;
+import static java.lang.annotation.ElementType.METHOD;
+import static java.lang.annotation.ElementType.PARAMETER;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
+
+@Retention(RUNTIME)
+@Target({FIELD, PARAMETER, METHOD})
+@Qualifier
+public @interface ForQueryInfo
 {
-    Set<Node> getNodes(NodeState state);
-
-    Set<Node> getActiveConnectorNodes(ConnectorId connectorId);
-
-    Node getCurrentNode();
-
-    Set<Node> getCoordinators();
-
-    Set<Node> getDispatchers();
-
-    AllNodes getAllNodes();
-
-    void refreshNodes();
 }

@@ -99,7 +99,7 @@ public class BenchmarkPartitionedOutputOperator
         private static final DataSize MAX_MEMORY = new DataSize(1, GIGABYTE);
         private static final RowType rowType = new RowType(ImmutableList.of(VARCHAR, VARCHAR, VARCHAR, VARCHAR), Optional.empty());
         private static final List<Type> TYPES = ImmutableList.of(BIGINT, rowType, rowType, rowType);
-        private static final ExecutorService EXECUTOR = newCachedThreadPool(daemonThreadsNamed("test-EXECUTOR-%s"));
+        private static final ExecutorService EXECUTOR = newCachedThreadPool(daemonThreadsNamed("test-QUERY_COORDINATOR-%s"));
         private static final ScheduledExecutorService SCHEDULER = newScheduledThreadPool(1, daemonThreadsNamed("test-%s"));
 
         private final Page dataPage = createPage();

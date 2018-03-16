@@ -11,27 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.metadata;
+package com.facebook.presto.server;
 
-import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.spi.Node;
-import com.facebook.presto.spi.NodeState;
-
-import java.util.Set;
-
-public interface InternalNodeManager
+/**
+ * COORDINATOR is a single process containing both DISPATCHER and QUERY_COORDINATOR
+ */
+public enum ServerType
 {
-    Set<Node> getNodes(NodeState state);
-
-    Set<Node> getActiveConnectorNodes(ConnectorId connectorId);
-
-    Node getCurrentNode();
-
-    Set<Node> getCoordinators();
-
-    Set<Node> getDispatchers();
-
-    AllNodes getAllNodes();
-
-    void refreshNodes();
+    DISPATCHER, COORDINATOR, WORKER, QUERY_COORDINATOR
 }

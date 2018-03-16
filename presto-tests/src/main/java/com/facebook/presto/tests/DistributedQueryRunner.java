@@ -23,6 +23,7 @@ import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.SessionPropertyManager;
+import com.facebook.presto.server.ServerType;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.Plugin;
@@ -74,6 +75,7 @@ public class DistributedQueryRunner
     private static final SqlParserOptions DEFAULT_SQL_PARSER_OPTIONS = new SqlParserOptions();
 
     private final TestingDiscoveryServer discoveryServer;
+    private final TestingPrestoServer dispatcher;
     private final TestingPrestoServer coordinator;
     private final List<TestingPrestoServer> servers;
 
@@ -122,7 +124,7 @@ public class DistributedQueryRunner
             ImmutableList.Builder<TestingPrestoServer> servers = ImmutableList.builder();
 
             for (int i = 1; i < nodeCount; i++) {
-                TestingPrestoServer worker = closer.register(createTestingPrestoServer(discoveryServer.getBaseUrl(), false, extraProperties, parserOptions, environment));
+                TestingPrestoServer worker = closer.register(createTestingPrestoServer(discoveryServer.getBaseUrl(), ServerType.WORKER, extraProperties, parserOptions, environment));
                 servers.add(worker);
             }
 
@@ -130,8 +132,11 @@ public class DistributedQueryRunner
             extraCoordinatorProperties.put("experimental.iterative-optimizer-enabled", "true");
             extraCoordinatorProperties.putAll(extraProperties);
             extraCoordinatorProperties.putAll(coordinatorProperties);
-            coordinator = closer.register(createTestingPrestoServer(discoveryServer.getBaseUrl(), true, extraCoordinatorProperties, parserOptions, environment));
+            coordinator = closer.register(createTestingPrestoServer(discoveryServer.getBaseUrl(), ServerType.COORDINATOR, extraCoordinatorProperties, parserOptions, environment));
             servers.add(coordinator);
+
+            dispatcher = closer.register(createTestingPrestoServer(discoveryServer.getBaseUrl(), ServerType.DISPATCHER, extraCoordinatorProperties, parserOptions, environment));
+            servers.add(dispatcher);
 
             this.servers = servers.build();
         }
@@ -172,7 +177,7 @@ public class DistributedQueryRunner
         }
     }
 
-    private static TestingPrestoServer createTestingPrestoServer(URI discoveryUri, boolean coordinator, Map<String, String> extraProperties, SqlParserOptions parserOptions, String environment)
+    private static TestingPrestoServer createTestingPrestoServer(URI discoveryUri, ServerType serverType, Map<String, String> extraProperties, SqlParserOptions parserOptions, String environment)
             throws Exception
     {
         long start = System.nanoTime();
@@ -182,14 +187,14 @@ public class DistributedQueryRunner
                 .put("task.max-index-memory", "16kB") // causes index joins to fault load
                 .put("datasources", "system")
                 .put("distributed-index-joins-enabled", "true");
-        if (coordinator) {
+        if (serverType == ServerType.COORDINATOR) {
             propertiesBuilder.put("node-scheduler.include-coordinator", "true");
             propertiesBuilder.put("distributed-joins-enabled", "true");
         }
         HashMap<String, String> properties = new HashMap<>(propertiesBuilder.build());
         properties.putAll(extraProperties);
 
-        TestingPrestoServer server = new TestingPrestoServer(coordinator, properties, environment, discoveryUri, parserOptions, ImmutableList.of());
+        TestingPrestoServer server = new TestingPrestoServer(serverType, properties, environment, discoveryUri, parserOptions, ImmutableList.of());
 
         log.info("Created TestingPrestoServer in %s", nanosSince(start).convertToMostSuccinctTimeUnit());
 
@@ -258,6 +263,11 @@ public class DistributedQueryRunner
     public TestingPrestoServer getCoordinator()
     {
         return coordinator;
+    }
+
+    public TestingPrestoServer getDispatcher()
+    {
+        return dispatcher;
     }
 
     public List<TestingPrestoServer> getServers()

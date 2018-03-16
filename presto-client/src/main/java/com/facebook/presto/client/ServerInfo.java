@@ -30,7 +30,7 @@ public class ServerInfo
 {
     private final NodeVersion nodeVersion;
     private final String environment;
-    private final boolean coordinator;
+    private final String serverType;
 
     // optional to maintain compatibility with older servers
     private final Optional<Duration> uptime;
@@ -39,12 +39,12 @@ public class ServerInfo
     public ServerInfo(
             @JsonProperty("nodeVersion") NodeVersion nodeVersion,
             @JsonProperty("environment") String environment,
-            @JsonProperty("coordinator") boolean coordinator,
+            @JsonProperty("coordinator") String serverType,
             @JsonProperty("uptime") Optional<Duration> uptime)
     {
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         this.environment = requireNonNull(environment, "environment is null");
-        this.coordinator = requireNonNull(coordinator, "coordinator is null");
+        this.serverType = requireNonNull(serverType, "serverType is null");
         this.uptime = requireNonNull(uptime, "uptime is null");
     }
 
@@ -61,9 +61,9 @@ public class ServerInfo
     }
 
     @JsonProperty
-    public boolean isCoordinator()
+    public String getServerType()
     {
-        return coordinator;
+        return serverType;
     }
 
     @JsonProperty
@@ -99,7 +99,7 @@ public class ServerInfo
         return toStringHelper(this)
                 .add("nodeVersion", nodeVersion)
                 .add("environment", environment)
-                .add("coordinator", coordinator)
+                .add("serverType", serverType)
                 .add("uptime", uptime.orElse(null))
                 .omitNullValues()
                 .toString();

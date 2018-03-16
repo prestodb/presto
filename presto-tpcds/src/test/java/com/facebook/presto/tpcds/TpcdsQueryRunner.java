@@ -69,10 +69,10 @@ public final class TpcdsQueryRunner
             throws Exception
     {
         Logging.initialize();
-        DistributedQueryRunner queryRunner = createQueryRunner(ImmutableMap.of("http-server.http.port", "8080"));
+        DistributedQueryRunner queryRunner = createQueryRunner(ImmutableMap.of("http-server.http.port", "8080", "dispatcher.http.port", "8081"));
         Thread.sleep(10);
         Logger log = Logger.get(TpcdsQueryRunner.class);
         log.info("======== SERVER STARTED ========");
-        log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
+        log.info("\n====\ndispatcher:\t%s\ncoordinator:\t%s\n====", queryRunner.getCoordinator().getBaseUrl(), queryRunner.getDispatcher().getBaseUrl());
     }
 }

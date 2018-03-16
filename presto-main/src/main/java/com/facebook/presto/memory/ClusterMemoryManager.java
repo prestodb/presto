@@ -19,6 +19,7 @@ import com.facebook.presto.execution.QueryIdGenerator;
 import com.facebook.presto.memory.LowMemoryKiller.QueryMemoryInfo;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.server.ServerConfig;
+import com.facebook.presto.server.ServerType;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
@@ -131,7 +132,8 @@ public class ClusterMemoryManager
         this.lowMemoryKiller = requireNonNull(lowMemoryKiller, "lowMemoryKiller is null");
         this.maxQueryMemory = config.getMaxQueryMemory();
         this.coordinatorId = queryIdGenerator.getCoordinatorId();
-        this.enabled = serverConfig.isCoordinator();
+        // TODO: fix ServerType
+        this.enabled = serverConfig.getServerType() == ServerType.COORDINATOR;
         this.killOnOutOfMemoryDelay = config.getKillOnOutOfMemoryDelay();
     }
 

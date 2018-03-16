@@ -20,6 +20,7 @@ import com.facebook.presto.metadata.AllNodes;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.SessionPropertyManager;
+import com.facebook.presto.server.ServerType;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.Plugin;
@@ -247,6 +248,6 @@ public final class StandaloneQueryRunner
                 .put("node-scheduler.min-candidates", "1")
                 .put("datasources", "system");
 
-        return new TestingPrestoServer(true, properties.build(), null, null, new SqlParserOptions(), ImmutableList.of());
+        return new TestingPrestoServer(ServerType.COORDINATOR, properties.build(), null, null, new SqlParserOptions(), ImmutableList.of());
     }
 }

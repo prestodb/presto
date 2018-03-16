@@ -18,6 +18,8 @@ import com.facebook.presto.execution.QueryIdGenerator;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.server.ForStatementResource;
 import com.facebook.presto.server.HttpRequestSessionContext;
+import com.facebook.presto.server.ServerConfig;
+import com.facebook.presto.server.ServerType;
 import com.facebook.presto.server.SessionContext;
 import com.facebook.presto.server.protocol.Query.QueryFactory;
 import com.facebook.presto.spi.QueryId;
@@ -64,6 +66,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_CATALOG;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_SCHEMA;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_STARTED_TRANSACTION_ID;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.http.server.AsyncResponseHandler.bindAsyncResponse;
@@ -82,6 +85,7 @@ public class StatementResource
     private final QueryIdGenerator queryIdGenerator;
     private final Executor responseExecutor;
 
+    private final ServerType serverType;
     private final ConcurrentMap<QueryId, Query> queries = new ConcurrentHashMap<>();
     private final ScheduledExecutorService queryPurger = newSingleThreadScheduledExecutor(threadsNamed("query-purger"));
 
@@ -90,11 +94,13 @@ public class StatementResource
             QueryManager queryManager,
             QueryFactory queryFactory,
             QueryIdGenerator queryIdGenerator,
-            @ForStatementResource BoundedExecutor responseExecutor)
+            @ForStatementResource BoundedExecutor responseExecutor,
+            ServerConfig serverConfig)
     {
         this.queryFactory = requireNonNull(queryFactory, "queryFactory is null");
         this.queryIdGenerator = requireNonNull(queryIdGenerator, "queryIdGenerator is null");
         this.responseExecutor = requireNonNull(responseExecutor, "responseExecutor is null");
+        this.serverType = requireNonNull(serverConfig, "serverConfig is null").getServerType();
 
         queryPurger.scheduleWithFixedDelay(new PurgeQueriesRunnable(queries, queryManager), 200, 200, MILLISECONDS);
     }
@@ -122,12 +128,16 @@ public class StatementResource
         }
 
         SessionContext sessionContext = new HttpRequestSessionContext(servletRequest);
+        QueryId queryId = sessionContext.getQueryId();
+        if (queryId == null) {
+            checkState(serverType == ServerType.COORDINATOR || serverType == ServerType.DISPATCHER);
+            queryId = queryIdGenerator.createNextQueryId();
+        }
+        else {
+            checkState(serverType == ServerType.QUERY_COORDINATOR);
+        }
 
-        // TODO: wire in server type (dispatcher vs coordinator) to assert the existence of query ID.
-        Query query = queryFactory.create(
-                sessionContext.getQueryId() == null ? queryIdGenerator.createNextQueryId() : sessionContext.getQueryId(),
-                statement,
-                sessionContext);
+        Query query = queryFactory.create(queryId, statement, sessionContext);
         queries.put(query.getQueryId(), query);
 
         asyncQueryResults(query, OptionalLong.empty(), new Duration(1, MILLISECONDS), uriInfo, asyncResponse);
