@@ -68,6 +68,7 @@ public class TestBroadcastOutputBuffer
     private static final ImmutableList<BigintType> TYPES = ImmutableList.of(BIGINT);
     private static final OutputBufferId FIRST = new OutputBufferId(0);
     private static final OutputBufferId SECOND = new OutputBufferId(1);
+    private static final OutputBufferId THIRD = new OutputBufferId(2);
 
     private ScheduledExecutorService stateNotificationExecutor;
 
@@ -388,26 +389,15 @@ public class TestBroadcastOutputBuffer
 
         // tell buffer no more queues will be added
         buffer.setOutputBuffers(createInitialEmptyOutputBuffers(BROADCAST).withNoMoreBufferIds());
-        assertFalse(buffer.isFinished());
+        assertTrue(buffer.isFinished());
 
         // set no more queues a second time to assure that we don't get an exception or such
         buffer.setOutputBuffers(createInitialEmptyOutputBuffers(BROADCAST).withNoMoreBufferIds());
-        assertFalse(buffer.isFinished());
+        assertTrue(buffer.isFinished());
 
         // set no more queues a third time to assure that we don't get an exception or such
         buffer.setOutputBuffers(createInitialEmptyOutputBuffers(BROADCAST).withNoMoreBufferIds());
-        assertFalse(buffer.isFinished());
-
-        try {
-            OutputBuffers outputBuffers = createInitialEmptyOutputBuffers(BROADCAST)
-                    .withBuffer(FIRST, BROADCAST_PARTITION_ID)
-                    .withNoMoreBufferIds();
-
-            buffer.setOutputBuffers(outputBuffers);
-            fail("Expected IllegalStateException from addQueue after noMoreQueues has been called");
-        }
-        catch (IllegalArgumentException ignored) {
-        }
+        assertTrue(buffer.isFinished());
     }
 
     @Test
@@ -943,6 +933,33 @@ public class TestBroadcastOutputBuffer
         assertTrue(buffer.isFinished());
     }
 
+    @Test
+    public void testBufferFinishesWhenClientBuffersDestroyed()
+    {
+        BroadcastOutputBuffer buffer = createBroadcastBuffer(
+                createInitialEmptyOutputBuffers(BROADCAST)
+                        .withBuffer(FIRST, BROADCAST_PARTITION_ID)
+                        .withBuffer(SECOND, BROADCAST_PARTITION_ID)
+                        .withBuffer(THIRD, BROADCAST_PARTITION_ID)
+                        .withNoMoreBufferIds(),
+                sizeOfPages(5));
+
+        // add pages before closing the buffers to make sure
+        // that the buffers close even if there are pending pages
+        for (int i = 0; i < 5; i++) {
+            addPage(buffer, createPage(i));
+        }
+
+        // the buffer is in the NO_MORE_BUFFERS state now
+        // and if we abort all the buffers it should destroy itself
+        // and move to the FINISHED state
+        buffer.abort(FIRST);
+        assertFalse(buffer.isFinished());
+        buffer.abort(SECOND);
+        assertFalse(buffer.isFinished());
+        buffer.abort(THIRD);
+        assertTrue(buffer.isFinished());
+    }
     private BroadcastOutputBuffer createBroadcastBuffer(OutputBuffers outputBuffers, DataSize dataSize)
     {
         BroadcastOutputBuffer buffer = new BroadcastOutputBuffer(

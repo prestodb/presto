@@ -66,6 +66,7 @@ public class TestPartitionedOutputBuffer
     private static final ImmutableList<BigintType> TYPES = ImmutableList.of(BIGINT);
     private static final OutputBufferId FIRST = new OutputBufferId(0);
     private static final OutputBufferId SECOND = new OutputBufferId(1);
+    private static final OutputBufferId THIRD = new OutputBufferId(2);
 
     private ScheduledExecutorService stateNotificationExecutor;
 
@@ -768,6 +769,34 @@ public class TestPartitionedOutputBuffer
         buffer.abort(FIRST);
 
         // verify that the buffer is finished
+        assertTrue(buffer.isFinished());
+    }
+
+    @Test
+    public void testBufferFinishesWhenClientBuffersDestroyed()
+    {
+        PartitionedOutputBuffer buffer = createPartitionedBuffer(
+                createInitialEmptyOutputBuffers(PARTITIONED)
+                        .withBuffer(FIRST, 0)
+                        .withBuffer(SECOND, 1)
+                        .withBuffer(THIRD, 2)
+                        .withNoMoreBufferIds(),
+                sizeOfPages(5));
+
+        // add a page to each partition before closing the buffers to make sure
+        // that the buffers close even if there are pending pages
+        for (int i = 0; i < 3; i++) {
+            addPage(buffer, createPage(i), i);
+        }
+
+        // the buffer is in the NO_MORE_BUFFERS state now
+        // and if we abort all the buffers it should destroy itself
+        // and move to the FINISHED state
+        buffer.abort(FIRST);
+        assertFalse(buffer.isFinished());
+        buffer.abort(SECOND);
+        assertFalse(buffer.isFinished());
+        buffer.abort(THIRD);
         assertTrue(buffer.isFinished());
     }
 
