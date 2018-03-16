@@ -16,6 +16,8 @@ package com.facebook.presto.sql.tree;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
 import static org.testng.Assert.assertEquals;
 
 public class TestLikePredicate
@@ -28,6 +30,6 @@ public class TestLikePredicate
         StringLiteral escape = new StringLiteral("c");
 
         assertEquals(new LikePredicate(value, pattern, escape).getChildren(), ImmutableList.of(value, pattern, escape));
-        assertEquals(new LikePredicate(value, pattern, null).getChildren(), ImmutableList.of(value, pattern));
+        assertEquals(new LikePredicate(value, pattern, Optional.empty()).getChildren(), ImmutableList.of(value, pattern));
     }
 }

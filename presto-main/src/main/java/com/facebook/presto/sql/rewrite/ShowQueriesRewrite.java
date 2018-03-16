@@ -215,7 +215,7 @@ final class ShowQueriesRewrite
 
             Optional<String> likePattern = showTables.getLikePattern();
             if (likePattern.isPresent()) {
-                Expression likePredicate = new LikePredicate(identifier("table_name"), new StringLiteral(likePattern.get()), null);
+                Expression likePredicate = new LikePredicate(identifier("table_name"), new StringLiteral(likePattern.get()), Optional.empty());
                 predicate = logicalAnd(predicate, likePredicate);
             }
 
@@ -286,7 +286,7 @@ final class ShowQueriesRewrite
             Optional<Expression> predicate = Optional.empty();
             Optional<String> likePattern = node.getLikePattern();
             if (likePattern.isPresent()) {
-                predicate = Optional.of(new LikePredicate(identifier("schema_name"), new StringLiteral(likePattern.get()), null));
+                predicate = Optional.of(new LikePredicate(identifier("schema_name"), new StringLiteral(likePattern.get()), Optional.empty()));
             }
 
             return simpleQuery(
@@ -306,7 +306,7 @@ final class ShowQueriesRewrite
             Optional<Expression> predicate = Optional.empty();
             Optional<String> likePattern = node.getLikePattern();
             if (likePattern.isPresent()) {
-                predicate = Optional.of(new LikePredicate(identifier("Catalog"), new StringLiteral(likePattern.get()), null));
+                predicate = Optional.of(new LikePredicate(identifier("Catalog"), new StringLiteral(likePattern.get()), Optional.empty()));
             }
 
             return simpleQuery(

@@ -38,6 +38,12 @@ public class LikePredicate
         this(Optional.of(location), value, pattern, escape);
     }
 
+    // TODO cleanup LikePredicate so that escape is always passed using Optional
+    public LikePredicate(Expression value, Expression pattern, Optional<Expression> escape)
+    {
+        this(Optional.empty(), value, pattern, requireNonNull(escape, "escape is null").isPresent() ? escape.get() : null);
+    }
+
     private LikePredicate(Optional<NodeLocation> location, Expression value, Expression pattern, Expression escape)
     {
         super(location);
