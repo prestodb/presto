@@ -19,9 +19,6 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static java.util.Objects.requireNonNull;
-
 /**
  * state object that uses a single histogram for all groups. See {@link GroupedTypedHistogram}
  */
@@ -48,18 +45,6 @@ public class GroupedHistogramState
     public TypedHistogram get()
     {
         return typedHistogram.setGroupId(getGroupId());
-    }
-
-    @Override
-    public void set(TypedHistogram value)
-    {
-        checkArgument(value instanceof GroupedTypedHistogram, "only class %s supported, passed %s", GroupedTypedHistogram.class, typedHistogram.getClass());
-        // mostly a check to make sure no one breaks things in the constructor since we can't make this final
-        requireNonNull(typedHistogram != null, "this.typedHistogram should always be non-null");
-        // directly setting means we need to adjust size based on delta, effectively. size shrinks by old, goes up by new
-        size -= typedHistogram.getEstimatedSize();
-        size += value.getEstimatedSize();
-        typedHistogram = value;
     }
 
     @Override
