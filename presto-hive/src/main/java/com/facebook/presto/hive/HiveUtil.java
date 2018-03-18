@@ -90,6 +90,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_VIEW_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_SERDE_NOT_FOUND;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static com.facebook.presto.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
 import static com.facebook.presto.hive.util.ConfigurationUtils.toJobConf;
@@ -228,7 +229,7 @@ public final class HiveUtil
             return ReflectionUtils.newInstance(inputFormatClass, jobConf);
         }
         catch (ClassNotFoundException | RuntimeException e) {
-            throw new RuntimeException("Unable to create input format " + inputFormatName, e);
+            throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, "Unable to create input format " + inputFormatName, e);
         }
     }
 
