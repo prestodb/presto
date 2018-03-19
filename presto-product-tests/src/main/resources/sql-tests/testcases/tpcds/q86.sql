@@ -15,4 +15,3 @@ WHERE ("d1"."d_month_seq" BETWEEN 1200 AND (1200 + 11))
 GROUP BY ROLLUP (i_category, i_class)
 ORDER BY "lochierarchy" DESC, (CASE WHEN ("lochierarchy" = 0) THEN "i_category" END) ASC, "rank_within_parent" ASC
 LIMIT 100
-;
