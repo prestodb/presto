@@ -14,20 +14,22 @@
 package com.facebook.presto.plugin.geospatial;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.net.URL;
 import java.util.List;
+
+import static com.google.common.io.Resources.readLines;
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Objects.requireNonNull;
 
 public class GeometryBenchmarkUtils
 {
     private GeometryBenchmarkUtils() {}
 
-    public static String loadPolygon(String fileName)
+    public static String loadPolygon(String path)
             throws IOException
     {
-        Path filePath = Paths.get(GeometryBenchmarkUtils.class.getClassLoader().getResource(fileName).getPath());
-        List<String> lines = Files.readAllLines(filePath);
+        URL resource = requireNonNull(GeometryBenchmarkUtils.class.getClassLoader().getResource(path), "resource not found: " + path);
+        List<String> lines = readLines(resource, UTF_8);
         String line = lines.get(0);
         String[] parts = line.split("\\|");
         return parts[0];
