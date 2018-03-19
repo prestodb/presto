@@ -19,9 +19,9 @@ FROM
       AND ("ss_sold_date_sk" = "d_date_sk")
       AND ("ss_store_sk" = "s_store_sk")
       AND ("d_year" IN (1999))
-      AND ((("i_category" IN ('Books'         , 'Electronics'         , 'Sports'))
+      AND ((("i_category" IN ('Books                                             '         , 'Electronics                                       '         , 'Sports                                            '))
             AND ("i_class" IN ('computers                                         '         , 'stereo                                            '         , 'football                                           ')))
-         OR (("i_category" IN ('Men'         , 'Jewelry'         , 'Women'))
+         OR (("i_category" IN ('Men                                               '         , 'Jewelry                                           '         , 'Women                                             '))
             AND ("i_class" IN ('shirts                                            '         , 'birdal                                            '         , 'dresses                                           '))))
    GROUP BY "i_category", "i_class", "i_brand", "s_store_name", "s_company_name", "d_moy"
 )  tmp1
