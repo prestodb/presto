@@ -31,4 +31,3 @@ WHERE ("ss_sold_date_sk" = "d_date_sk")
 GROUP BY ROLLUP (i_item_id, s_state)
 ORDER BY "i_item_id" ASC, "s_state" ASC
 LIMIT 100
-;
