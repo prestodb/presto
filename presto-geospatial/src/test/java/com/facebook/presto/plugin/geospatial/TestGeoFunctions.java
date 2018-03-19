@@ -452,6 +452,9 @@ public class TestGeoFunctions
         assertFunction("ST_Intersects(ST_GeometryFromText('MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))'), ST_GeometryFromText('MULTILINESTRING ((3 4, 6 4), (5 0, 5 4))'))", BOOLEAN, true);
         assertFunction("ST_Intersects(ST_GeometryFromText('POLYGON ((1 1, 1 3, 3 3, 3 1))'), ST_GeometryFromText('POLYGON ((4 4, 4 5, 5 5, 5 4))'))", BOOLEAN, false);
         assertFunction("ST_Intersects(ST_GeometryFromText('MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1)), ((0 0, 0 2, 2 2, 2 0)))'), ST_GeometryFromText('POLYGON ((0 1, 3 1, 3 3, 0 3))'))", BOOLEAN, true);
+        assertFunction("ST_Intersects(ST_GeometryFromText('POLYGON ((16.5 54, 16.5 54.1, 16.51 54.1, 16.8 54))'), ST_GeometryFromText('LINESTRING (16.6 53, 16.6 56)'))", BOOLEAN, true);
+        assertFunction("ST_Intersects(ST_GeometryFromText('POLYGON ((16.5 54, 16.5 54.1, 16.51 54.1, 16.8 54))'), ST_GeometryFromText('LINESTRING (16.6667 54.05, 16.8667 54.05)'))", BOOLEAN, false);
+        assertFunction("ST_Intersects(ST_GeometryFromText('POLYGON ((16.5 54, 16.5 54.1, 16.51 54.1, 16.8 54))'), ST_GeometryFromText('LINESTRING (16.6667 54.25, 16.8667 54.25)'))", BOOLEAN, false);
     }
 
     @Test
