@@ -224,6 +224,10 @@ Accessors
     Returns the reason for why the input geometry is not valid.
     Returns null if the input is valid.
 
+.. function:: great_circle_distance(latitude1, longitude1, latitude2, longitude2) -> double
+
+    Returns the great-circle distance between two points on Earth's surface in kilometers.
+
 Bing Tiles
 ----------
 
