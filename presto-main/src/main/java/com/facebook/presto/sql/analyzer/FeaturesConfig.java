@@ -74,6 +74,7 @@ public class FeaturesConfig
     private boolean legacyOrderBy;
     private boolean legacyTimestamp = true;
     private boolean legacyMapSubscript;
+    private boolean legacyRoundNBigint;
     private boolean legacyJoinUsing;
     private boolean optimizeMixedDistinctAggregations;
     private boolean forceSingleNodeOutput = true;
@@ -155,6 +156,18 @@ public class FeaturesConfig
     public boolean isDistributedJoinsEnabled()
     {
         return distributedJoinsEnabled;
+    }
+
+    @Config("deprecated.legacy-round-n-bigint")
+    public FeaturesConfig setLegacyRoundNBigint(boolean legacyRoundNBigint)
+    {
+        this.legacyRoundNBigint = legacyRoundNBigint;
+        return this;
+    }
+
+    public boolean isLegacyRoundNBigint()
+    {
+        return legacyRoundNBigint;
     }
 
     @Config("deprecated.legacy-join-using")
