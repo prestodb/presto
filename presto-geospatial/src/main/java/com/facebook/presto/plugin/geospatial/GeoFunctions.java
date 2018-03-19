@@ -59,6 +59,11 @@ import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMEN
 import static com.facebook.presto.spi.type.StandardTypes.DOUBLE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
+import static java.lang.Math.atan2;
+import static java.lang.Math.cos;
+import static java.lang.Math.sin;
+import static java.lang.Math.sqrt;
+import static java.lang.Math.toRadians;
 import static java.lang.String.format;
 import static org.locationtech.jts.simplify.TopologyPreservingSimplifier.simplify;
 
@@ -66,6 +71,7 @@ public final class GeoFunctions
 {
     private static final Joiner OR_JOINER = Joiner.on(" or ");
     private static final Slice EMPTY_POLYGON = serialize(createFromEsriGeometry(new Polygon(), null));
+    private static final double EARTH_RADIUS_KM = 6371.01;
 
     private GeoFunctions() {}
 
@@ -651,6 +657,51 @@ public final class GeoFunctions
         return leftGeometry.within(rightGeometry);
     }
 
+    @ScalarFunction
+    @Description("Calculates the great-circle distance between two points on the Earth's surface in kilometers")
+    @SqlType(StandardTypes.DOUBLE)
+    public static double greatCircleDistance(
+            @SqlType(StandardTypes.DOUBLE) double latitude1,
+            @SqlType(StandardTypes.DOUBLE) double longitude1,
+            @SqlType(StandardTypes.DOUBLE) double latitude2,
+            @SqlType(StandardTypes.DOUBLE) double longitude2)
+    {
+        checkLatitude(latitude1);
+        checkLongitude(longitude1);
+        checkLatitude(latitude2);
+        checkLongitude(longitude2);
+
+        double radianLatitude1 = toRadians(latitude1);
+        double radianLatitude2 = toRadians(latitude2);
+
+        double sin1 = sin(radianLatitude1);
+        double cos1 = cos(radianLatitude1);
+        double sin2 = sin(radianLatitude2);
+        double cos2 = cos(radianLatitude2);
+
+        double deltaLongitude = toRadians(longitude1) - toRadians(longitude2);
+        double cosDeltaLongitude = cos(deltaLongitude);
+
+        double t1 = cos2 * sin(deltaLongitude);
+        double t2 = cos1 * sin2 - sin1 * cos2 * cosDeltaLongitude;
+        double t3 = sin1 * sin2 + cos1 * cos2 * cosDeltaLongitude;
+        return atan2(sqrt(t1 * t1 + t2 * t2), t3) * EARTH_RADIUS_KM;
+    }
+
+    private static void checkLatitude(double latitude)
+    {
+        if (Double.isNaN(latitude) || Double.isInfinite(latitude) || latitude < -90 || latitude > 90) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Latitude must be between -90 and 90");
+        }
+    }
+
+    private static void checkLongitude(double longitude)
+    {
+        if (Double.isNaN(longitude) || Double.isInfinite(longitude) || longitude < -180 || longitude > 180) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Longitude must be between -180 and 180");
+        }
+    }
+
     private static OGCGeometry geometryFromText(Slice input)
     {
         OGCGeometry geometry;
@@ -701,7 +752,7 @@ public final class GeoFunctions
             Point endPoint = polyline.getPoint(polyline.getPathEnd(i) - 1);
             double dx = endPoint.getX() - startPoint.getX();
             double dy = endPoint.getY() - startPoint.getY();
-            double length = Math.sqrt(dx * dx + dy * dy);
+            double length = sqrt(dx * dx + dy * dy);
             weightSum += length;
             xSum += (startPoint.getX() + endPoint.getX()) * length / 2;
             ySum += (startPoint.getY() + endPoint.getY()) * length / 2;
