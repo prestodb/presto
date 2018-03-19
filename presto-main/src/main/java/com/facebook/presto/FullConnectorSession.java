@@ -39,6 +39,7 @@ public class FullConnectorSession
     private final String catalog;
     private final SessionPropertyManager sessionPropertyManager;
     private final boolean isLegacyTimestamp;
+    private final boolean isLegacyRoundNBigint;
 
     public FullConnectorSession(Session session)
     {
@@ -48,6 +49,7 @@ public class FullConnectorSession
         this.catalog = null;
         this.sessionPropertyManager = null;
         this.isLegacyTimestamp = SystemSessionProperties.isLegacyTimestamp(session);
+        this.isLegacyRoundNBigint = SystemSessionProperties.isLegacyRoundNBigint(session);
     }
 
     public FullConnectorSession(
@@ -63,6 +65,7 @@ public class FullConnectorSession
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.isLegacyTimestamp = SystemSessionProperties.isLegacyTimestamp(session);
+        this.isLegacyRoundNBigint = SystemSessionProperties.isLegacyRoundNBigint(session);
     }
 
     public Session getSession()
@@ -110,6 +113,12 @@ public class FullConnectorSession
     public boolean isLegacyTimestamp()
     {
         return isLegacyTimestamp;
+    }
+
+    @Override
+    public boolean isLegacyRoundNBigint()
+    {
+        return isLegacyRoundNBigint;
     }
 
     @Override
