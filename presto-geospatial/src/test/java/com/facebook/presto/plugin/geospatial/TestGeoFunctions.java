@@ -570,4 +570,27 @@ public class TestGeoFunctions
         assertInvalidFunction("ST_GeometryFromText('POLYGON(0 0)')", INVALID_FUNCTION_ARGUMENT, "Invalid WKT: POLYGON(0 0)");
         assertInvalidFunction("ST_Polygon('POLYGON(-1 1, 1 -1)')", INVALID_FUNCTION_ARGUMENT, "Invalid WKT: POLYGON(-1 1, 1 -1)");
     }
+
+    @Test
+    public void testGreatCircleDistance()
+    {
+        assertFunction("great_circle_distance(36.12, -86.67, 33.94, -118.40)", DOUBLE, 2886.448973436703);
+        assertFunction("great_circle_distance(33.94, -118.40, 36.12, -86.67)", DOUBLE, 2886.448973436703);
+        assertFunction("great_circle_distance(42.3601, -71.0589, 42.4430, -71.2290)", DOUBLE, 16.73469743457461);
+        assertFunction("great_circle_distance(36.12, -86.67, 36.12, -86.67)", DOUBLE, 0.0);
+
+        assertInvalidFunction("great_circle_distance(100, 20, 30, 40)", "Latitude must be between -90 and 90");
+        assertInvalidFunction("great_circle_distance(10, 20, 300, 40)", "Latitude must be between -90 and 90");
+        assertInvalidFunction("great_circle_distance(10, 200, 30, 40)", "Longitude must be between -180 and 180");
+        assertInvalidFunction("great_circle_distance(10, 20, 30, 400)", "Longitude must be between -180 and 180");
+
+        assertInvalidFunction("great_circle_distance(nan(), -86.67, 33.94, -118.40)", "Latitude must be between -90 and 90");
+        assertInvalidFunction("great_circle_distance(infinity(), -86.67, 33.94, -118.40)", "Latitude must be between -90 and 90");
+        assertInvalidFunction("great_circle_distance(36.12, nan(), 33.94, -118.40)", "Longitude must be between -180 and 180");
+        assertInvalidFunction("great_circle_distance(36.12, infinity(), 33.94, -118.40)", "Longitude must be between -180 and 180");
+        assertInvalidFunction("great_circle_distance(36.12, -86.67, nan(), -118.40)", "Latitude must be between -90 and 90");
+        assertInvalidFunction("great_circle_distance(36.12, -86.67, infinity(), -118.40)", "Latitude must be between -90 and 90");
+        assertInvalidFunction("great_circle_distance(36.12, -86.67, 33.94, nan())", "Longitude must be between -180 and 180");
+        assertInvalidFunction("great_circle_distance(36.12, -86.67, 33.94, infinity())", "Longitude must be between -180 and 180");
+    }
 }
