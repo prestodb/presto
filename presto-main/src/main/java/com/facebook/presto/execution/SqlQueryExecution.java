@@ -117,7 +117,6 @@ public final class SqlQueryExecution
 
     private final Statement statement;
     private final Metadata metadata;
-    private final AccessControl accessControl;
     private final SqlParser sqlParser;
     private final SplitManager splitManager;
     private final NodePartitioningManager nodePartitioningManager;
@@ -130,14 +129,13 @@ public final class SqlQueryExecution
     private final ScheduledExecutorService schedulerExecutor;
     private final FailureDetector failureDetector;
 
-    private final QueryExplainer queryExplainer;
     private final PlanFlattener planFlattener;
     private final AtomicReference<SqlQueryScheduler> queryScheduler = new AtomicReference<>();
     private final AtomicReference<Plan> queryPlan = new AtomicReference<>();
     private final NodeTaskMap nodeTaskMap;
     private final ExecutionPolicy executionPolicy;
-    private final List<Expression> parameters;
     private final SplitSchedulerStats schedulerStats;
+    private final Analysis analysis;
 
     public SqlQueryExecution(QueryId queryId,
             String query,
@@ -168,7 +166,6 @@ public final class SqlQueryExecution
         try (SetThreadName ignored = new SetThreadName("Query-%s", queryId)) {
             this.statement = requireNonNull(statement, "statement is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
-            this.accessControl = requireNonNull(accessControl, "accessControl is null");
             this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
             this.splitManager = requireNonNull(splitManager, "splitManager is null");
             this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
@@ -180,9 +177,7 @@ public final class SqlQueryExecution
             this.failureDetector = requireNonNull(failureDetector, "failureDetector is null");
             this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
             this.executionPolicy = requireNonNull(executionPolicy, "executionPolicy is null");
-            this.queryExplainer = requireNonNull(queryExplainer, "queryExplainer is null");
             this.planFlattener = requireNonNull(planFlattener, "planFlattener is null");
-            this.parameters = requireNonNull(parameters);
             this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
 
             checkArgument(scheduleSplitBatchSize > 0, "scheduleSplitBatchSize must be greater than 0");
@@ -193,6 +188,12 @@ public final class SqlQueryExecution
             requireNonNull(session, "session is null");
             requireNonNull(self, "self is null");
             this.stateMachine = QueryStateMachine.begin(queryId, query, session, self, false, transactionManager, accessControl, queryExecutor, metadata);
+
+            // analyze query
+            Analyzer analyzer = new Analyzer(stateMachine.getSession(), metadata, sqlParser, accessControl, Optional.of(queryExplainer), parameters);
+            this.analysis = analyzer.analyze(statement);
+
+            stateMachine.setUpdateType(analysis.getUpdateType());
 
             // when the query finishes cache the final query info, and clear the reference to the output stage
             stateMachine.addStateChangeListener(state -> {
@@ -351,12 +352,6 @@ public final class SqlQueryExecution
     {
         // time analysis phase
         long analysisStart = System.nanoTime();
-
-        // analyze query
-        Analyzer analyzer = new Analyzer(stateMachine.getSession(), metadata, sqlParser, accessControl, Optional.of(queryExplainer), parameters);
-        Analysis analysis = analyzer.analyze(statement);
-
-        stateMachine.setUpdateType(analysis.getUpdateType());
 
         // plan query
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
