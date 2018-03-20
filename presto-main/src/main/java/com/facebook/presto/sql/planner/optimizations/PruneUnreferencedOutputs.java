@@ -128,6 +128,10 @@ public class PruneUnreferencedOutputs
             node.getPartitioningScheme().getPartitioning().getColumns().stream()
                     .forEach(expectedOutputSymbols::add);
 
+            if (node.getOrderingScheme().isPresent()) {
+                expectedOutputSymbols.addAll(node.getOrderingScheme().get().getOrderBy());
+            }
+
             List<List<Symbol>> inputsBySource = new ArrayList<>(node.getInputs().size());
             for (int i = 0; i < node.getInputs().size(); i++) {
                 inputsBySource.add(new ArrayList<>());
@@ -168,7 +172,8 @@ public class PruneUnreferencedOutputs
                     node.getScope(),
                     partitioningScheme,
                     rewrittenSources.build(),
-                    inputsBySource);
+                    inputsBySource,
+                    node.getOrderingScheme());
         }
 
         @Override

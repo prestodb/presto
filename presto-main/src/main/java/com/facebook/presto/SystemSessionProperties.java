@@ -86,6 +86,9 @@ public final class SystemSessionProperties
     public static final String FORCE_SINGLE_NODE_OUTPUT = "force_single_node_output";
     public static final String FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_SIZE = "filter_and_project_min_output_page_size";
     public static final String FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_ROW_COUNT = "filter_and_project_min_output_page_row_count";
+    public static final String DISTRIBUTED_SORT = "distributed_sort";
+    public static final String REDISTRIBUTE_SORT = "redistribute_sort";
+    public static final String LOCAL_DISTRIBUTED_SORT = "local_distributed_sort";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -403,6 +406,21 @@ public final class SystemSessionProperties
                         FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_ROW_COUNT,
                         "Experimental: Minimum output page row count for filter and project operators",
                         featuresConfig.getFilterAndProjectMinOutputPageRowCount(),
+                        false),
+                booleanSessionProperty(
+                        DISTRIBUTED_SORT,
+                        "Experimental: Parallelize sort across multiple nodes",
+                        featuresConfig.isDistributedSortEnabled(),
+                        false),
+                booleanSessionProperty(
+                        REDISTRIBUTE_SORT,
+                        "Experimental: Force data redistribution across multiple nodes before partial sort",
+                        featuresConfig.isRedistributeSort(),
+                        false),
+                booleanSessionProperty(
+                        LOCAL_DISTRIBUTED_SORT,
+                        "Experimental: Parallelize local sort",
+                        featuresConfig.isLocalDistributedSortEnabled(),
                         false));
     }
 
@@ -651,5 +669,20 @@ public final class SystemSessionProperties
     public static int getFilterAndProjectMinOutputPageRowCount(Session session)
     {
         return session.getSystemProperty(FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_ROW_COUNT, Integer.class);
+    }
+
+    public static boolean isDistributedSortEnabled(Session session)
+    {
+        return session.getSystemProperty(DISTRIBUTED_SORT, Boolean.class);
+    }
+
+    public static boolean isRedistributeSort(Session session)
+    {
+        return session.getSystemProperty(REDISTRIBUTE_SORT, Boolean.class);
+    }
+
+    public static boolean isLocalDistributedSortEnabled(Session session)
+    {
+        return session.getSystemProperty(LOCAL_DISTRIBUTED_SORT, Boolean.class);
     }
 }

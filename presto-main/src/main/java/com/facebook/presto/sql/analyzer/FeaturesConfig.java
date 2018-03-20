@@ -76,6 +76,9 @@ public class FeaturesConfig
     private boolean optimizeMixedDistinctAggregations;
     private boolean forceSingleNodeOutput = true;
     private boolean pagesIndexEagerCompactionEnabled;
+    private boolean distributedSort;
+    private boolean redistributeSort = true;
+    private boolean localDistributedSort = true;
 
     private boolean dictionaryAggregation;
     private boolean resourceGroups;
@@ -663,5 +666,41 @@ public class FeaturesConfig
     public HistogramGroupImplementation getHistogramGroupImplementation()
     {
         return histogramGroupImplementation;
+    }
+
+    public boolean isDistributedSortEnabled()
+    {
+        return distributedSort;
+    }
+
+    @Config("experimental.distributed-sort")
+    public FeaturesConfig setDistributedSortEnabled(boolean enabled)
+    {
+        distributedSort = enabled;
+        return this;
+    }
+
+    public boolean isRedistributeSort()
+    {
+        return redistributeSort;
+    }
+
+    @Config("experimental.redistribute-sort")
+    public FeaturesConfig setRedistributeSort(boolean redistributeSort)
+    {
+        this.redistributeSort = redistributeSort;
+        return this;
+    }
+
+    public boolean isLocalDistributedSortEnabled()
+    {
+        return localDistributedSort;
+    }
+
+    @Config("experimental.local-distributed-sort")
+    public FeaturesConfig setLocalDistributedSortEnabled(boolean enabled)
+    {
+        localDistributedSort = enabled;
+        return this;
     }
 }

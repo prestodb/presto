@@ -466,6 +466,7 @@ public class PlanBuilder
     {
         private ExchangeNode.Type type = ExchangeNode.Type.GATHER;
         private ExchangeNode.Scope scope = ExchangeNode.Scope.REMOTE;
+        private OrderingScheme orderingScheme;
         private PartitioningScheme partitioningScheme;
         private List<PlanNode> sources = new ArrayList<>();
         private List<List<Symbol>> inputs = new ArrayList<>();
@@ -532,9 +533,15 @@ public class PlanBuilder
             return this;
         }
 
+        public ExchangeBuilder orderingScheme(OrderingScheme orderingScheme)
+        {
+            this.orderingScheme = orderingScheme;
+            return this;
+        }
+
         protected ExchangeNode build()
         {
-            return new ExchangeNode(idAllocator.getNextId(), type, scope, partitioningScheme, sources, inputs);
+            return new ExchangeNode(idAllocator.getNextId(), type, scope, partitioningScheme, sources, inputs, Optional.ofNullable(orderingScheme));
         }
     }
 

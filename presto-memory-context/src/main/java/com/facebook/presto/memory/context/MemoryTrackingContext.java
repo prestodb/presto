@@ -111,6 +111,11 @@ public final class MemoryTrackingContext
         return systemAggregateMemoryContext.newAggregatedMemoryContext();
     }
 
+    public AggregatedMemoryContext newAggregateUserMemoryContext()
+    {
+        return userAggregateMemoryContext.newAggregatedMemoryContext();
+    }
+
     public long getUserMemory()
     {
         return userAggregateMemoryContext.getBytes();
