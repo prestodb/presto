@@ -21,7 +21,6 @@ import com.facebook.presto.execution.QueryExecution.QueryExecutionFactory;
 import com.facebook.presto.execution.QueryExecution.QueryOutputInfo;
 import com.facebook.presto.execution.SqlQueryExecution.SqlQueryExecutionFactory;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
-import com.facebook.presto.execution.resourceGroups.QueryQueueFullException;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.memory.ClusterMemoryManager;
 import com.facebook.presto.metadata.InternalNodeManager;
@@ -411,11 +410,16 @@ public class SqlQueryManager
                         .setIdentity(sessionContext.getIdentity())
                         .build();
             }
-            Optional<ResourceGroupId> resourceGroup = Optional.empty();
-            if (e instanceof QueryQueueFullException) {
-                resourceGroup = Optional.of(((QueryQueueFullException) e).getResourceGroup());
-            }
-            QueryExecution execution = new FailedQueryExecution(queryId, query, resourceGroup, session, self, transactionManager, queryExecutor, metadata, e);
+            QueryExecution execution = new FailedQueryExecution(
+                    queryId,
+                    query,
+                    Optional.empty(),
+                    session,
+                    self,
+                    transactionManager,
+                    queryExecutor,
+                    metadata,
+                    e);
 
             QueryInfo queryInfo = null;
             try {
