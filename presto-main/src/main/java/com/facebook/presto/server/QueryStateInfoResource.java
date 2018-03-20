@@ -17,6 +17,7 @@ import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 
 import javax.inject.Inject;
 import javax.ws.rs.GET;
@@ -29,9 +30,12 @@ import javax.ws.rs.core.MediaType;
 
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 import java.util.regex.Pattern;
 
+import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.server.QueryStateInfo.createQueryStateInfo;
+import static com.facebook.presto.server.QueryStateInfo.createQueuedQueryStateInfo;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
@@ -66,8 +70,20 @@ public class QueryStateInfoResource
 
         return queryInfos.stream()
                 .filter(queryInfo -> !queryInfo.getState().isDone())
-                .map(queryInfo -> createQueryStateInfo(queryInfo, queryManager.getQueryResourceGroup(queryInfo.getQueryId()).map(resourceGroupManager::getResourceGroupInfo)))
+                .map(this::getQueryStateInfo)
                 .collect(toImmutableList());
+    }
+
+    private QueryStateInfo getQueryStateInfo(QueryInfo queryInfo)
+    {
+        Optional<ResourceGroupId> groupId = queryManager.getQueryResourceGroup(queryInfo.getQueryId());
+        if (queryInfo.getState() == QUEUED) {
+            return createQueuedQueryStateInfo(
+                    queryInfo,
+                    groupId,
+                    groupId.map(resourceGroupManager::getPathToRoot));
+        }
+        return createQueryStateInfo(queryInfo, groupId);
     }
 
     @GET
@@ -77,8 +93,7 @@ public class QueryStateInfoResource
             throws WebApplicationException
     {
         try {
-            QueryInfo queryInfo = queryManager.getQueryInfo(new QueryId(queryId));
-            return createQueryStateInfo(queryInfo, queryManager.getQueryResourceGroup(queryInfo.getQueryId()).map(resourceGroupManager::getResourceGroupInfo));
+            return getQueryStateInfo(queryManager.getQueryInfo(new QueryId(queryId)));
         }
         catch (NoSuchElementException e) {
             throw new WebApplicationException(NOT_FOUND);

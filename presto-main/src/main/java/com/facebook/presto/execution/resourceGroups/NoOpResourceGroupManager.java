@@ -19,6 +19,7 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerF
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.sql.tree.Statement;
 
+import java.util.List;
 import java.util.concurrent.Executor;
 
 /**
@@ -35,6 +36,12 @@ public final class NoOpResourceGroupManager
 
     @Override
     public ResourceGroupInfo getResourceGroupInfo(ResourceGroupId id)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public List<ResourceGroupInfo> getPathToRoot(ResourceGroupId id)
     {
         throw new UnsupportedOperationException();
     }

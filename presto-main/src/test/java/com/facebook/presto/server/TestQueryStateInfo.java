@@ -34,7 +34,7 @@ import java.util.Optional;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.operator.BlockedReason.WAITING_FOR_MEMORY;
-import static com.facebook.presto.server.QueryStateInfo.createQueryStateInfo;
+import static com.facebook.presto.server.QueryStateInfo.createQueuedQueryStateInfo;
 import static com.facebook.presto.spi.resourceGroups.SchedulingPolicy.WEIGHTED;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -62,7 +62,11 @@ public class TestQueryStateInfo
         rootAX.setHardConcurrencyLimit(0);
 
         // Verify QueryStateInfo for query queued on resource group root.a.y
-        QueryStateInfo query = createQueryStateInfo(createQueryInfo("query_root_a_x", QUEUED, "SELECT 1"), Optional.of(rootAX.getInfo()));
+        QueryStateInfo query = createQueuedQueryStateInfo(
+                createQueryInfo("query_root_a_x", QUEUED, "SELECT 1"),
+                Optional.of(rootAX.getId()),
+                Optional.of(ImmutableList.of(rootAX.getInfo(), rootA.getInfo(), root.getInfo())));
+
         assertEquals(query.getQuery(), "SELECT 1");
         assertEquals(query.getQueryId().toString(), "query_root_a_x");
         assertEquals(query.getQueryState(), QUEUED);

@@ -18,10 +18,14 @@ import com.facebook.presto.server.ResourceGroupInfo;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerFactory;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 
+import java.util.List;
+
 public interface ResourceGroupManager
         extends QueryQueueManager
 {
     ResourceGroupInfo getResourceGroupInfo(ResourceGroupId id);
+
+    List<ResourceGroupInfo> getPathToRoot(ResourceGroupId id);
 
     void addConfigurationManagerFactory(ResourceGroupConfigurationManagerFactory factory);
 

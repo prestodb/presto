@@ -99,7 +99,14 @@ public final class InternalResourceGroupManager<C>
     public ResourceGroupInfo getResourceGroupInfo(ResourceGroupId id)
     {
         checkArgument(groups.containsKey(id), "Group %s does not exist", id);
-        return groups.get(id).getInfo();
+        return groups.get(id).getFullInfo();
+    }
+
+    @Override
+    public List<ResourceGroupInfo> getPathToRoot(ResourceGroupId id)
+    {
+        checkArgument(groups.containsKey(id), "Group %s does not exist", id);
+        return groups.get(id).getPathToRoot();
     }
 
     @Override
