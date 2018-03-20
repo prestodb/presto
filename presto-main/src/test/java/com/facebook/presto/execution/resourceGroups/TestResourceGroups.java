@@ -658,12 +658,7 @@ public class TestResourceGroups
         queries.addAll(fillGroupTo(rootAY, ImmutableSet.of(), 5, false));
         queries.addAll(fillGroupTo(rootB, ImmutableSet.of(), 10, true));
 
-        ResourceGroupInfo rootAYInfo = rootAY.getInfo();
-        assertGroupInfoEquals(rootAYInfo.getPathToRoot().get(0), rootAY.getInfo());
-        assertGroupInfoEquals(rootAYInfo.getPathToRoot().get(1), rootA.getInfo());
-        assertGroupInfoEquals(rootAYInfo.getPathToRoot().get(2), root.getInfo());
-
-        ResourceGroupInfo rootInfo = root.getInfo();
+        ResourceGroupInfo rootInfo = root.getFullInfo();
         assertEquals(rootInfo.getId(), root.getId());
         assertEquals(rootInfo.getState(), CAN_RUN);
         assertEquals(rootInfo.getSoftMemoryLimit(), root.getSoftMemoryLimit());
