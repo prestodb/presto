@@ -60,7 +60,7 @@ import static org.testng.Assert.assertTrue;
 
 // run single threaded to avoid creating multiple query runners at once
 @Test(singleThreaded = true)
-public class TestQueues
+public class TestQueuesDb
 {
     // Copy of TestQueues with tests for db reconfiguration of resource groups
     private static final String LONG_LASTING_QUERY = "SELECT COUNT(*) FROM lineitem";
