@@ -26,7 +26,6 @@ import com.esri.core.geometry.ogc.OGCMultiPolygon;
 import com.esri.core.geometry.ogc.OGCPoint;
 import com.esri.core.geometry.ogc.OGCPolygon;
 import com.facebook.presto.geospatial.GeometryType;
-import com.facebook.presto.geospatial.GeometryUtils;
 import com.facebook.presto.geospatial.JtsGeometryUtils;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.Description;
@@ -163,7 +162,7 @@ public final class GeoFunctions
     {
         OGCGeometry geometry = deserialize(input);
         validateType("ST_Centroid", geometry, EnumSet.of(POINT, MULTI_POINT, LINE_STRING, MULTI_LINE_STRING, POLYGON, MULTI_POLYGON));
-        GeometryType geometryType = GeometryUtils.valueOf(geometry.geometryType());
+        GeometryType geometryType = GeometryType.getForEsriGeometryType(geometry.geometryType());
         if (geometryType == POINT) {
             return input;
         }
@@ -360,7 +359,7 @@ public final class GeoFunctions
         if (geometry.getEsriGeometry().isEmpty()) {
             return 0;
         }
-        else if (GeometryUtils.valueOf(geometry.geometryType()) == POINT) {
+        else if (GeometryType.getForEsriGeometryType(geometry.geometryType()) == POINT) {
             return 1;
         }
         return ((MultiVertexGeometry) geometry.getEsriGeometry()).getPointCount();
@@ -717,7 +716,7 @@ public final class GeoFunctions
 
     private static void validateType(String function, OGCGeometry geometry, Set<GeometryType> validTypes)
     {
-        GeometryType type = GeometryUtils.valueOf(geometry.geometryType());
+        GeometryType type = GeometryType.getForEsriGeometryType(geometry.geometryType());
         if (!validTypes.contains(type)) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("%s only applies to %s. Input type is: %s", function, OR_JOINER.join(validTypes), type));
         }

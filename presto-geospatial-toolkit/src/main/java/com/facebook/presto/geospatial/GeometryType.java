@@ -34,4 +34,26 @@ public enum GeometryType
     {
         return code;
     }
+
+    public static GeometryType getForEsriGeometryType(String type)
+    {
+        switch (type) {
+            case "Point":
+                return POINT;
+            case "MultiPoint":
+                return MULTI_POINT;
+            case "LineString":
+                return LINE_STRING;
+            case "MultiLineString":
+                return MULTI_LINE_STRING;
+            case "Polygon":
+                return POLYGON;
+            case "MultiPolygon":
+                return MULTI_POLYGON;
+            case "GeometryCollection":
+                return GEOMETRY_COLLECTION;
+            default:
+                throw new IllegalArgumentException("Invalid Geometry Type: " + type);
+        }
+    }
 }
