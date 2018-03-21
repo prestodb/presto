@@ -30,7 +30,6 @@ import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.ValuesOperator;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.MaterializedResult;
@@ -202,7 +201,7 @@ public class TestSpatialJoinOperator
         // force a yield for every match
         AtomicInteger filterFunctionCalls = new AtomicInteger();
         InternalJoinFilterFunction filterFunction = new TestInternalJoinFilterFunction((
-                (leftPosition, leftBlocks, rightPosition, rightBlocks) -> {
+                (leftPosition, leftPage, rightPosition, rightPage) -> {
                     filterFunctionCalls.incrementAndGet();
                     driverContext.getYieldSignal().forceYieldForTesting();
                     return true;
@@ -314,7 +313,7 @@ public class TestSpatialJoinOperator
     {
         public interface Lambda
         {
-            boolean filter(int leftPosition, Block[] leftBlocks, int rightPosition, Block[] rightBlocks);
+            boolean filter(int leftPosition, Page leftPage, int rightPosition, Page rightPage);
         }
 
         private final TestInternalJoinFilterFunction.Lambda lambda;
@@ -325,9 +324,9 @@ public class TestSpatialJoinOperator
         }
 
         @Override
-        public boolean filter(int leftPosition, Block[] leftBlocks, int rightPosition, Block[] rightBlocks)
+        public boolean filter(int leftPosition, Page leftPage, int rightPosition, Page rightPage)
         {
-            return lambda.filter(leftPosition, leftBlocks, rightPosition, rightBlocks);
+            return lambda.filter(leftPosition, leftPage, rightPosition, rightPage);
         }
     }
 }
