@@ -20,6 +20,7 @@ import com.esri.core.geometry.OperatorImportFromESRIShape;
 import com.esri.core.geometry.Point;
 import com.esri.core.geometry.Polygon;
 import com.esri.core.geometry.Polyline;
+import com.esri.core.geometry.VertexDescription;
 import com.esri.core.geometry.ogc.OGCConcreteGeometryCollection;
 import com.esri.core.geometry.ogc.OGCGeometry;
 import com.esri.core.geometry.ogc.OGCGeometryCollection;
@@ -43,6 +44,8 @@ import static com.esri.core.geometry.Geometry.Type.Unknown;
 import static com.esri.core.geometry.GeometryEngine.geometryToEsriShape;
 import static com.facebook.presto.geospatial.GeometryUtils.isEsriNaN;
 import static com.google.common.base.Verify.verify;
+import static java.lang.Double.NaN;
+import static java.lang.Double.isNaN;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -63,6 +66,8 @@ public class GeometrySerde
         GeometryType type = GeometryType.getForEsriGeometryType(geometry.geometryType());
         switch (type) {
             case POINT:
+                writePoint(output, geometry);
+                break;
             case MULTI_POINT:
             case LINE_STRING:
             case MULTI_LINE_STRING:
@@ -106,6 +111,26 @@ public class GeometrySerde
         output.appendBytes(shape);
     }
 
+    private static void writePoint(DynamicSliceOutput output, OGCGeometry geometry)
+    {
+        Geometry esriGeometry = geometry.getEsriGeometry();
+        verify(esriGeometry instanceof Point, "geometry is expected to be an instance of Point");
+        Point point = (Point) esriGeometry;
+        verify(!point.hasAttribute(VertexDescription.Semantics.Z) &&
+                        !point.hasAttribute(VertexDescription.Semantics.M) &&
+                        !point.hasAttribute(VertexDescription.Semantics.ID),
+                "Only 2D points with no ID nor M attribute are supported");
+        output.appendByte(GeometryType.POINT.code());
+        if (!point.isEmpty()) {
+            output.appendDouble(point.getX());
+            output.appendDouble(point.getY());
+        }
+        else {
+            output.appendDouble(NaN);
+            output.appendDouble(NaN);
+        }
+    }
+
     public static OGCGeometry deserialize(Slice shape)
     {
         requireNonNull(shape, "shape is null");
@@ -120,6 +145,7 @@ public class GeometrySerde
     {
         switch (type) {
             case POINT:
+                return readPoint(input);
             case MULTI_POINT:
             case LINE_STRING:
             case MULTI_LINE_STRING:
@@ -190,6 +216,20 @@ public class GeometrySerde
         }
     }
 
+    private static OGCPoint readPoint(BasicSliceInput input)
+    {
+        double x = input.readDouble();
+        double y = input.readDouble();
+        Point point;
+        if (isNaN(x) || isNaN(y)) {
+            point = new Point();
+        }
+        else {
+            point = new Point(x, y);
+        }
+        return new OGCPoint(point, null);
+    }
+
     @Nullable
     public static Envelope deserializeEnvelope(Slice shape)
     {
@@ -257,12 +297,9 @@ public class GeometrySerde
 
     private static Envelope getPointEnvelope(BasicSliceInput input)
     {
-        // skip type injected by esri
-        input.readInt();
-
         double x = input.readDouble();
         double y = input.readDouble();
-        if (isEsriNaN(x) || isEsriNaN(y)) {
+        if (isNaN(x) || isNaN(y)) {
             // TODO: isn't it better to return empty envelope instead?
             return null;
         }
