@@ -40,38 +40,7 @@ public final class GeometryUtils
 {
     private static final int POINT_TYPE = 1;
 
-    public static final String POINT = "Point";
-    public static final String LINE_STRING = "LineString";
-    public static final String POLYGON = "Polygon";
-    public static final String MULTI_POINT = "MultiPoint";
-    public static final String MULTI_LINE_STRING = "MultiLineString";
-    public static final String MULTI_POLYGON = "MultiPolygon";
-    public static final String GEOMETRY_COLLECTION = "GeometryCollection";
-    public static final int SPATIAL_REFERENCE_UNKNOWN = 0;
-
     private GeometryUtils() {}
-
-    public static GeometryType valueOf(String type)
-    {
-        switch (type) {
-            case POINT:
-                return GeometryType.POINT;
-            case MULTI_POINT:
-                return GeometryType.MULTI_POINT;
-            case LINE_STRING:
-                return GeometryType.LINE_STRING;
-            case MULTI_LINE_STRING:
-                return GeometryType.MULTI_LINE_STRING;
-            case POLYGON:
-                return GeometryType.POLYGON;
-            case MULTI_POLYGON:
-                return GeometryType.MULTI_POLYGON;
-            case GEOMETRY_COLLECTION:
-                return GeometryType.GEOMETRY_COLLECTION;
-            default:
-                throw new IllegalArgumentException("Invalid Geometry Type: " + type);
-        }
-    }
 
     /**
      * Copy of com.esri.core.geometry.Interop.translateFromAVNaN
@@ -179,16 +148,16 @@ public final class GeometryUtils
     {
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(100);
 
-        sliceOutput.appendByte(valueOf(input.geometryType()).code());
+        GeometryType type = GeometryType.getForEsriGeometryType(input.geometryType());
+        sliceOutput.appendByte(type.code());
         GeometryCursor cursor = input.getEsriGeometryCursor();
-        boolean isGeometryCollection = input.geometryType().equals(GEOMETRY_COLLECTION);
         while (true) {
             Geometry geometry = cursor.next();
             if (geometry == null) {
                 break;
             }
             byte[] shape = geometryToEsriShape(geometry);
-            if (isGeometryCollection) {
+            if (type == GeometryType.GEOMETRY_COLLECTION) {
                 sliceOutput.appendInt(shape.length);
             }
             sliceOutput.appendBytes(shape);
