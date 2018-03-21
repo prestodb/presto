@@ -41,15 +41,13 @@ import java.util.List;
 
 import static com.esri.core.geometry.Geometry.Type.Unknown;
 import static com.esri.core.geometry.GeometryEngine.geometryToEsriShape;
+import static com.facebook.presto.geospatial.GeometryUtils.isEsriNaN;
 import static com.google.common.base.Verify.verify;
 import static java.lang.Math.toIntExact;
-import static java.nio.ByteOrder.LITTLE_ENDIAN;
 import static java.util.Objects.requireNonNull;
 
 public class GeometrySerde
 {
-    private static final int POINT_TYPE = 1;
-
     private GeometrySerde() {}
 
     public static Slice serialize(OGCGeometry input)
@@ -195,51 +193,94 @@ public class GeometrySerde
     @Nullable
     public static Envelope deserializeEnvelope(Slice shape)
     {
-        if (shape == null) {
-            return null;
-        }
+        requireNonNull(shape, "shape is null");
         BasicSliceInput input = shape.getInput();
 
-        Envelope overallEnvelope = null;
-        if (input.available() > 0) {
-            byte code = input.readByte();
-            boolean isGeometryCollection = (code == GeometryType.GEOMETRY_COLLECTION.code());
-            while (input.available() > 0) {
-                int length = isGeometryCollection ? input.readInt() : input.available();
-                ByteBuffer buffer = input.readSlice(length).toByteBuffer().order(LITTLE_ENDIAN);
-                int type = buffer.getInt();
-                Envelope envelope = null;
-                if (type == POINT_TYPE) {    // point
-                    double x = buffer.getDouble();
-                    double y = buffer.getDouble();
-                    if (!GeometryUtils.isEsriNaN(x)) {
-                        verify(!GeometryUtils.isEsriNaN(y));
-                        envelope = new Envelope(x, y, x, y);
-                    }
-                }
-                else {
-                    double xMin = buffer.getDouble();
-                    double yMin = buffer.getDouble();
-                    double xMax = buffer.getDouble();
-                    double yMax = buffer.getDouble();
-                    if (!GeometryUtils.isEsriNaN(xMin)) {
-                        verify(!GeometryUtils.isEsriNaN(xMax));
-                        verify(!GeometryUtils.isEsriNaN(yMin));
-                        verify(!GeometryUtils.isEsriNaN(yMax));
-                        envelope = new Envelope(xMin, yMin, xMax, yMax);
-                    }
-                }
-                if (envelope != null) {
-                    if (overallEnvelope == null) {
-                        overallEnvelope = envelope;
-                    }
-                    else {
-                        overallEnvelope.merge(envelope);
-                    }
-                }
-            }
+        if (input.available() == 0) {
+            return null;
         }
 
+        int length = input.available() - 1;
+        GeometryType type = GeometryType.getForCode(input.readByte());
+        return getEnvelope(input, type, length);
+    }
+
+    private static Envelope getEnvelope(BasicSliceInput input, GeometryType type, int length)
+    {
+        switch (type) {
+            case POINT:
+                return getPointEnvelope(input);
+            case MULTI_POINT:
+            case LINE_STRING:
+            case MULTI_LINE_STRING:
+            case POLYGON:
+            case MULTI_POLYGON:
+                return getSimpleGeometryEnvelope(input, length);
+            case GEOMETRY_COLLECTION:
+                return getGeometryCollectionOverallEnvelope(input);
+            default:
+                throw new IllegalArgumentException("Unexpected type: " + type);
+        }
+    }
+
+    private static Envelope getGeometryCollectionOverallEnvelope(BasicSliceInput input)
+    {
+        Envelope overallEnvelope = null;
+        while (input.available() > 0) {
+            int length = input.readInt() - 1;
+            GeometryType type = GeometryType.getForCode(input.readByte());
+            Envelope envelope = getEnvelope(input, type, length);
+            overallEnvelope = merge(overallEnvelope, envelope);
+        }
         return overallEnvelope;
+    }
+
+    private static Envelope getSimpleGeometryEnvelope(BasicSliceInput input, int length)
+    {
+        // skip type injected by esri
+        input.readInt();
+
+        double xMin = input.readDouble();
+        double yMin = input.readDouble();
+        double xMax = input.readDouble();
+        double yMax = input.readDouble();
+
+        int skipLength = length - (4 * Double.BYTES) - Integer.BYTES;
+        verify(input.skip(skipLength) == skipLength);
+
+        if (isEsriNaN(xMin) || isEsriNaN(yMin) || isEsriNaN(xMax) || isEsriNaN(yMax)) {
+            // TODO: isn't it better to return empty envelope instead?
+            return null;
+        }
+        return new Envelope(xMin, yMin, xMax, yMax);
+    }
+
+    private static Envelope getPointEnvelope(BasicSliceInput input)
+    {
+        // skip type injected by esri
+        input.readInt();
+
+        double x = input.readDouble();
+        double y = input.readDouble();
+        if (isEsriNaN(x) || isEsriNaN(y)) {
+            // TODO: isn't it better to return empty envelope instead?
+            return null;
+        }
+        return new Envelope(x, y, x, y);
+    }
+
+    @Nullable
+    private static Envelope merge(@Nullable Envelope left, @Nullable Envelope right)
+    {
+        if (left == null) {
+            return right;
+        }
+        else if (right == null) {
+            return left;
+        }
+        else {
+            right.merge(left);
+        }
+        return right;
     }
 }
