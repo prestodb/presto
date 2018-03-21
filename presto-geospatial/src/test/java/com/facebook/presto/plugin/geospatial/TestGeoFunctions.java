@@ -23,7 +23,7 @@ import io.airlift.slice.Slices;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.geospatial.GeometryUtils.deserializeEnvelope;
+import static com.facebook.presto.geospatial.GeometrySerde.deserializeEnvelope;
 import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
 import static com.facebook.presto.plugin.geospatial.GeoFunctions.stGeometryFromText;
 import static com.facebook.presto.plugin.geospatial.GeometryType.GEOMETRY;

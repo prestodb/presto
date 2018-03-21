@@ -36,8 +36,8 @@ import io.airlift.slice.Slice;
 import java.util.HashSet;
 import java.util.Set;
 
-import static com.facebook.presto.geospatial.GeometryUtils.deserialize;
-import static com.facebook.presto.geospatial.GeometryUtils.serialize;
+import static com.facebook.presto.geospatial.GeometrySerde.deserialize;
+import static com.facebook.presto.geospatial.GeometrySerde.serialize;
 import static com.facebook.presto.plugin.geospatial.BingTile.MAX_ZOOM_LEVEL;
 import static com.facebook.presto.plugin.geospatial.GeometryType.GEOMETRY_TYPE_NAME;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;

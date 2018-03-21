@@ -40,9 +40,9 @@ import static com.facebook.presto.geospatial.BenchmarkGeometrySerializationData.
 import static com.facebook.presto.geospatial.BenchmarkGeometrySerializationData.POINT;
 import static com.facebook.presto.geospatial.BenchmarkGeometrySerializationData.POLYGON;
 import static com.facebook.presto.geospatial.BenchmarkGeometrySerializationData.readResource;
-import static com.facebook.presto.geospatial.GeometryUtils.deserialize;
-import static com.facebook.presto.geospatial.GeometryUtils.deserializeEnvelope;
-import static com.facebook.presto.geospatial.GeometryUtils.serialize;
+import static com.facebook.presto.geospatial.GeometrySerde.deserialize;
+import static com.facebook.presto.geospatial.GeometrySerde.deserializeEnvelope;
+import static com.facebook.presto.geospatial.GeometrySerde.serialize;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.openjdk.jmh.annotations.Mode.Throughput;
 

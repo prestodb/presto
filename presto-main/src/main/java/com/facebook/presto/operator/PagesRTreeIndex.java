@@ -32,7 +32,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalDouble;
 
-import static com.facebook.presto.geospatial.GeometryUtils.deserialize;
+import static com.facebook.presto.geospatial.GeometrySerde.deserialize;
 import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
