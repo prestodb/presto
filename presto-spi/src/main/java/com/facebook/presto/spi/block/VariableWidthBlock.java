@@ -26,7 +26,6 @@ import static com.facebook.presto.spi.block.BlockUtil.compactArray;
 import static com.facebook.presto.spi.block.BlockUtil.compactOffsets;
 import static com.facebook.presto.spi.block.BlockUtil.compactSlice;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static java.util.Arrays.stream;
 
 public class VariableWidthBlock
         extends AbstractVariableWidthBlock
@@ -134,9 +133,10 @@ public class VariableWidthBlock
     {
         checkArrayRange(positions, offset, length);
 
-        int finalLength = stream(positions, offset, offset + length)
-                .map(this::getSliceLength)
-                .sum();
+        int finalLength = 0;
+        for (int i = offset; i < offset + length; i++) {
+            finalLength += getSliceLength(positions[i]);
+        }
         SliceOutput newSlice = Slices.allocate(finalLength).getOutput();
         int[] newOffsets = new int[length + 1];
         boolean[] newValueIsNull = new boolean[length];
