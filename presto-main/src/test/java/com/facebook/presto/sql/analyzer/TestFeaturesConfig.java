@@ -85,6 +85,7 @@ public class TestFeaturesConfig
                 .setPagesIndexEagerCompactionEnabled(false)
                 .setFilterAndProjectMinOutputPageSize(new DataSize(25, KILOBYTE))
                 .setFilterAndProjectMinOutputPageRowCount(256)
+                .setUseMarkDistinct(true)
                 .setHistogramGroupImplementation(NEW));
     }
 
@@ -136,6 +137,7 @@ public class TestFeaturesConfig
                 .put("experimental.filter-and-project-min-output-page-size", "1MB")
                 .put("experimental.filter-and-project-min-output-page-row-count", "2048")
                 .put("histogram.implemenation", "LEGACY")
+                .put("optimizer.use-mark-distinct", "false")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -182,6 +184,7 @@ public class TestFeaturesConfig
                 .setPagesIndexEagerCompactionEnabled(true)
                 .setFilterAndProjectMinOutputPageSize(new DataSize(1, MEGABYTE))
                 .setFilterAndProjectMinOutputPageRowCount(2048)
+                .setUseMarkDistinct(false)
                 .setHistogramGroupImplementation(LEGACY);
         assertFullMapping(properties, expected);
     }

@@ -11,23 +11,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator.aggregation;
+package com.facebook.presto.sql.query;
 
-import java.util.List;
+import org.testng.annotations.BeforeClass;
 
-public interface AccumulatorFactory
+import static com.facebook.presto.SystemSessionProperties.USE_MARK_DISTINCT;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+
+public class TestDistinctAggregationsNoMarkDistinct
+        extends TestDistinctAggregations
 {
-    List<Integer> getInputChannels();
-
-    Accumulator createAccumulator();
-
-    Accumulator createIntermediateAccumulator();
-
-    GroupedAccumulator createGroupedAccumulator();
-
-    GroupedAccumulator createGroupedIntermediateAccumulator();
-
-    boolean hasOrderBy();
-
-    boolean hasDistinct();
+    @BeforeClass
+    public void init()
+    {
+        assertions = new QueryAssertions(testSessionBuilder()
+                .setSystemProperty(USE_MARK_DISTINCT, "false")
+                .build());
+    }
 }
