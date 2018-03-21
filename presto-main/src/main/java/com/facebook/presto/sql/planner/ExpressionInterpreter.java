@@ -21,6 +21,7 @@ import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.scalar.ArraySubscriptOperator;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.block.Block;
@@ -89,7 +90,6 @@ import com.facebook.presto.type.FunctionType;
 import com.facebook.presto.type.LikeFunctions;
 import com.facebook.presto.util.Failures;
 import com.facebook.presto.util.FastutilSetHelper;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -231,7 +231,7 @@ public class ExpressionInterpreter
         analyzer.analyze(canonicalized, Scope.create());
 
         // evaluate the expression
-        Object result = expressionInterpreter(canonicalized, metadata, session, analyzer.getExpressionTypes()).evaluate(0);
+        Object result = expressionInterpreter(canonicalized, metadata, session, analyzer.getExpressionTypes()).evaluate();
         verify(!(result instanceof Expression), "Expression interpreter returned an unresolved expression");
         return result;
     }
@@ -259,22 +259,16 @@ public class ExpressionInterpreter
         return expressionTypes.get(NodeRef.of(expression));
     }
 
-    public Object evaluate(RecordCursor inputs)
+    public Object evaluate()
     {
-        checkState(!optimize, "evaluate(RecordCursor) not allowed for optimizer");
-        return visitor.process(expression, inputs);
+        checkState(!optimize, "evaluate() not allowed for optimizer");
+        return visitor.process(expression, new NoPagePositionContext());
     }
 
-    public Object evaluate(int position, Block... inputs)
+    public Object evaluate(int position, Page page)
     {
-        checkState(!optimize, "evaluate(int, Block...) not allowed for optimizer");
-        return visitor.process(expression, new SinglePagePositionContext(position, inputs));
-    }
-
-    public Object evaluate(int leftPosition, Block[] leftBlocks, int rightPosition, Block[] rightBlocks)
-    {
-        checkState(!optimize, "evaluate(int, Block[], int, Block[]) not allowed for optimizer");
-        return visitor.process(expression, new TwoPagesPositionContext(leftPosition, leftBlocks, rightPosition, rightBlocks));
+        checkState(!optimize, "evaluate(int, Page) not allowed for optimizer");
+        return visitor.process(expression, new SinglePagePositionContext(position, page));
     }
 
     public Object optimize(SymbolResolver inputs)
@@ -1285,22 +1279,38 @@ public class ExpressionInterpreter
         int getPosition(int channel);
     }
 
+    private static class NoPagePositionContext
+            implements PagePositionContext
+    {
+        @Override
+        public Block getBlock(int channel)
+        {
+            throw new IllegalArgumentException("Context does not contain any blocks");
+        }
+
+        @Override
+        public int getPosition(int channel)
+        {
+            throw new IllegalArgumentException("Context does not have a position");
+        }
+    }
+
     private static class SinglePagePositionContext
             implements PagePositionContext
     {
         private final int position;
-        private final Block[] blocks;
+        private final Page page;
 
-        private SinglePagePositionContext(int position, Block[] blocks)
+        private SinglePagePositionContext(int position, Page page)
         {
             this.position = position;
-            this.blocks = blocks;
+            this.page = page;
         }
 
         @Override
         public Block getBlock(int channel)
         {
-            return blocks[channel];
+            return page.getBlock(channel);
         }
 
         @Override
@@ -1310,47 +1320,7 @@ public class ExpressionInterpreter
         }
     }
 
-    private static class TwoPagesPositionContext
-            implements PagePositionContext
-    {
-        private final int leftPosition;
-        private final int rightPosition;
-        private final Block[] leftBlocks;
-        private final Block[] rightBlocks;
-
-        private TwoPagesPositionContext(int leftPosition, Block[] leftBlocks, int rightPosition, Block[] rightBlocks)
-        {
-            this.leftPosition = leftPosition;
-            this.rightPosition = rightPosition;
-            this.leftBlocks = leftBlocks;
-            this.rightBlocks = rightBlocks;
-        }
-
-        @Override
-        public Block getBlock(int channel)
-        {
-            if (channel < leftBlocks.length) {
-                return leftBlocks[channel];
-            }
-            else {
-                return rightBlocks[channel - leftBlocks.length];
-            }
-        }
-
-        @Override
-        public int getPosition(int channel)
-        {
-            if (channel < leftBlocks.length) {
-                return leftPosition;
-            }
-            else {
-                return rightPosition;
-            }
-        }
-    }
-
-    @VisibleForTesting
-    public static Expression createFailureFunction(RuntimeException exception, Type type)
+    private static Expression createFailureFunction(RuntimeException exception, Type type)
     {
         requireNonNull(exception, "Exception is null");
 
