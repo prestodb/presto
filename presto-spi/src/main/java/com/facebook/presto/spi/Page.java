@@ -284,6 +284,19 @@ public class Page
         return new Page(length, blocks);
     }
 
+    public Page prependColumn(Block column)
+    {
+        if (column.getPositionCount() != positionCount) {
+            throw new IllegalArgumentException(String.format("Column does not have same position count (%s) as page (%s)", column.getPositionCount(), positionCount));
+        }
+
+        Block[] result = new Block[blocks.length + 1];
+        result[0] = column;
+        System.arraycopy(blocks, 0, result, 1, blocks.length);
+
+        return new Page(positionCount, result);
+    }
+
     private static class DictionaryBlockIndexes
     {
         private final List<DictionaryBlock> blocks = new ArrayList<>();

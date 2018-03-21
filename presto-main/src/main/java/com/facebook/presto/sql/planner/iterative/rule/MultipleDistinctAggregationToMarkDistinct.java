@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.Symbol;
@@ -99,6 +100,10 @@ public class MultipleDistinctAggregationToMarkDistinct
     @Override
     public Result apply(AggregationNode parent, Captures captures, Context context)
     {
+        if (!SystemSessionProperties.useMarkDistinct(context.getSession())) {
+            return Result.empty();
+        }
+
         // the distinct marker for the given set of input columns
         Map<Set<Symbol>, Symbol> markers = new HashMap<>();
 

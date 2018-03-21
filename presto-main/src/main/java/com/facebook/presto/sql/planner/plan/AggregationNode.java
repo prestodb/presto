@@ -190,11 +190,21 @@ public class AggregationNode
 
     public boolean isDecomposable(FunctionRegistry functionRegistry)
     {
-        return (getAggregations().entrySet().stream()
-                .map(entry -> functionRegistry.getAggregateFunctionImplementation(entry.getValue().getSignature()))
-                .allMatch(InternalAggregationFunction::isDecomposable)) &&
-                getAggregations().entrySet().stream()
-                        .allMatch(entry -> !entry.getValue().getCall().getOrderBy().isPresent());
+        boolean hasOrderBy = getAggregations().values().stream()
+                .map(Aggregation::getCall)
+                .map(FunctionCall::getOrderBy)
+                .anyMatch(Optional::isPresent);
+
+        boolean hasDistinct = getAggregations().values().stream()
+                .map(Aggregation::getCall)
+                .anyMatch(FunctionCall::isDistinct);
+
+        boolean decomposableFunctions = getAggregations().values().stream()
+                .map(Aggregation::getSignature)
+                .map(functionRegistry::getAggregateFunctionImplementation)
+                .allMatch(InternalAggregationFunction::isDecomposable);
+
+        return !hasOrderBy && !hasDistinct && decomposableFunctions;
     }
 
     public boolean hasSingleNodeExecutionPreference(FunctionRegistry functionRegistry)

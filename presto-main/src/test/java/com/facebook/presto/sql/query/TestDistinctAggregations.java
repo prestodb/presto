@@ -19,7 +19,7 @@ import org.testng.annotations.Test;
 
 public class TestDistinctAggregations
 {
-    private QueryAssertions assertions;
+    protected QueryAssertions assertions;
 
     @BeforeClass
     public void init()
