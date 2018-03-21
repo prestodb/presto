@@ -39,25 +39,26 @@ public final class AggregationTestUtils
 
     public static void assertAggregation(InternalAggregationFunction function, Object expectedValue, Block... blocks)
     {
-        int positions = blocks[0].getPositionCount();
-        for (int i = 1; i < blocks.length; i++) {
-            assertEquals(positions, blocks[i].getPositionCount(), "input blocks provided are not equal in position count");
+        assertAggregation(function, expectedValue, new Page(blocks));
+    }
+
+    public static void assertAggregation(InternalAggregationFunction function, Object expectedValue, Page page)
+    {
+        int positions = page.getPositionCount();
+        for (int i = 1; i < page.getChannelCount(); i++) {
+            assertEquals(positions, page.getBlock(i).getPositionCount(), "input blocks provided are not equal in position count");
         }
         if (positions == 0) {
-            assertAggregation(function, expectedValue, new Page[] {});
+            assertAggregationInternal(function, expectedValue, new Page[] {});
         }
         else if (positions == 1) {
-            assertAggregation(function, expectedValue, new Page(positions, blocks));
+            assertAggregationInternal(function, expectedValue, page);
         }
         else {
             int split = positions / 2; // [0, split - 1] goes to first list of blocks; [split, positions - 1] goes to second list of blocks.
-            Block[] blockArray1 = new Block[blocks.length];
-            Block[] blockArray2 = new Block[blocks.length];
-            for (int i = 0; i < blocks.length; i++) {
-                blockArray1[i] = blocks[i].getRegion(0, split);
-                blockArray2[i] = blocks[i].getRegion(split, positions - split);
-            }
-            assertAggregation(function, expectedValue, new Page(blockArray1), new Page(blockArray2));
+            Page page1 = page.getRegion(0, split);
+            Page page2 = page.getRegion(split, positions - split);
+            assertAggregationInternal(function, expectedValue, page1, page2);
         }
     }
 
@@ -89,7 +90,7 @@ public final class AggregationTestUtils
         return blockBuilder.build();
     }
 
-    private static void assertAggregation(InternalAggregationFunction function, Object expectedValue, Page... pages)
+    private static void assertAggregationInternal(InternalAggregationFunction function, Object expectedValue, Page... pages)
     {
         BiConsumer<Object, Object> equalAssertion = (actual, expected) -> {
             assertEquals(actual, expected);
