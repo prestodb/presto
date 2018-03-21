@@ -222,23 +222,4 @@ public class TestDistinctAggregations
                         "   (3, 30, 300)) t(x, y, z)",
                 "VALUES (BIGINT '6', BIGINT '60', BIGINT '900')");
     }
-
-    @Test
-    public void testFilter()
-    {
-        assertions.assertFails(
-                "SELECT count(DISTINCT x) FILTER (WHERE x > 0) " +
-                "FROM (VALUES 1,2,3) t(x)",
-                ".*Filtered aggregations not supported with DISTINCT:.*");
-
-        assertions.assertFails(
-                "SELECT count(DISTINCT x) FILTER (WHERE x > 0), sum(DISTINCT x) " +
-                        "FROM (VALUES 1,2,3) t(x)",
-                ".*Filtered aggregations not supported with DISTINCT:.*");
-
-        assertions.assertQuery(
-                "SELECT count(x) FILTER (WHERE x > 1), sum(DISTINCT x) " +
-                        "FROM (VALUES 1,2,3,3) t(x)",
-                "VALUES (BIGINT '3', BIGINT '6')");
-    }
 }
