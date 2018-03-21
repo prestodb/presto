@@ -15,7 +15,6 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.operator.SetBuilderOperator.SetSupplier;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -193,13 +192,7 @@ public class HashSemiJoinOperator
         }
 
         // add the new boolean column to the page
-        Block[] sourceBlocks = page.getBlocks();
-        Block[] outputBlocks = new Block[sourceBlocks.length + 1]; // +1 for the single boolean output channel
-
-        System.arraycopy(sourceBlocks, 0, outputBlocks, 0, sourceBlocks.length);
-        outputBlocks[sourceBlocks.length] = blockBuilder.build();
-
-        outputPage = new Page(outputBlocks);
+        outputPage = page.appendColumn(blockBuilder.build());
     }
 
     @Override

@@ -121,6 +121,18 @@ public class Page
         return new Page(length, slicedBlocks);
     }
 
+    public Page appendColumn(Block block)
+    {
+        requireNonNull(block, "block is null");
+        if (positionCount != block.getPositionCount()) {
+            throw new IllegalArgumentException("Block does not have same position count");
+        }
+
+        Block[] newBlocks = Arrays.copyOf(blocks, blocks.length + 1);
+        newBlocks[blocks.length] = block;
+        return new Page(newBlocks);
+    }
+
     public void compact()
     {
         if (getRetainedSizeInBytes() <= getSizeInBytes()) {
