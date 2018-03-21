@@ -25,8 +25,8 @@ import com.esri.core.geometry.ogc.OGCLineString;
 import com.esri.core.geometry.ogc.OGCMultiPolygon;
 import com.esri.core.geometry.ogc.OGCPoint;
 import com.esri.core.geometry.ogc.OGCPolygon;
+import com.facebook.presto.geospatial.GeometryType;
 import com.facebook.presto.geospatial.GeometryUtils;
-import com.facebook.presto.geospatial.GeometryUtils.GeometryTypeName;
 import com.facebook.presto.geospatial.JtsGeometryUtils;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.Description;
@@ -45,12 +45,12 @@ import java.util.Objects;
 import java.util.Set;
 
 import static com.esri.core.geometry.ogc.OGCGeometry.createFromEsriGeometry;
-import static com.facebook.presto.geospatial.GeometryUtils.GeometryTypeName.LINE_STRING;
-import static com.facebook.presto.geospatial.GeometryUtils.GeometryTypeName.MULTI_LINE_STRING;
-import static com.facebook.presto.geospatial.GeometryUtils.GeometryTypeName.MULTI_POINT;
-import static com.facebook.presto.geospatial.GeometryUtils.GeometryTypeName.MULTI_POLYGON;
-import static com.facebook.presto.geospatial.GeometryUtils.GeometryTypeName.POINT;
-import static com.facebook.presto.geospatial.GeometryUtils.GeometryTypeName.POLYGON;
+import static com.facebook.presto.geospatial.GeometryType.LINE_STRING;
+import static com.facebook.presto.geospatial.GeometryType.MULTI_LINE_STRING;
+import static com.facebook.presto.geospatial.GeometryType.MULTI_POINT;
+import static com.facebook.presto.geospatial.GeometryType.MULTI_POLYGON;
+import static com.facebook.presto.geospatial.GeometryType.POINT;
+import static com.facebook.presto.geospatial.GeometryType.POLYGON;
 import static com.facebook.presto.geospatial.GeometryUtils.deserialize;
 import static com.facebook.presto.geospatial.GeometryUtils.deserializeEnvelope;
 import static com.facebook.presto.geospatial.GeometryUtils.serialize;
@@ -163,8 +163,8 @@ public final class GeoFunctions
     {
         OGCGeometry geometry = deserialize(input);
         validateType("ST_Centroid", geometry, EnumSet.of(POINT, MULTI_POINT, LINE_STRING, MULTI_LINE_STRING, POLYGON, MULTI_POLYGON));
-        GeometryTypeName typeName = GeometryUtils.valueOf(geometry.geometryType());
-        if (typeName == POINT) {
+        GeometryType geometryType = GeometryUtils.valueOf(geometry.geometryType());
+        if (geometryType == POINT) {
             return input;
         }
 
@@ -174,7 +174,7 @@ public final class GeoFunctions
         }
 
         Point centroid;
-        switch (typeName) {
+        switch (geometryType) {
             case MULTI_POINT:
                 centroid = computePointsCentroid((MultiVertexGeometry) geometry.getEsriGeometry());
                 break;
@@ -189,7 +189,7 @@ public final class GeoFunctions
                 centroid = computeMultiPolygonCentroid((OGCMultiPolygon) geometry);
                 break;
             default:
-                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid typeName: " + typeName);
+                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Unexpected geometry type: " + geometryType);
         }
         return serialize(createFromEsriGeometry(centroid, geometry.getEsriSpatialReference()));
     }
@@ -715,9 +715,9 @@ public final class GeoFunctions
         return geometry;
     }
 
-    private static void validateType(String function, OGCGeometry geometry, Set<GeometryTypeName> validTypes)
+    private static void validateType(String function, OGCGeometry geometry, Set<GeometryType> validTypes)
     {
-        GeometryTypeName type = GeometryUtils.valueOf(geometry.geometryType());
+        GeometryType type = GeometryUtils.valueOf(geometry.geometryType());
         if (!validTypes.contains(type)) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("%s only applies to %s. Input type is: %s", function, OR_JOINER.join(validTypes), type));
         }
