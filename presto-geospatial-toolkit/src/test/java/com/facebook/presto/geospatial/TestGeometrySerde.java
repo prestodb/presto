@@ -13,10 +13,13 @@
  */
 package com.facebook.presto.geospatial;
 
+import com.esri.core.geometry.Envelope;
 import com.esri.core.geometry.ogc.OGCGeometry;
+import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.geospatial.GeometrySerde.deserialize;
+import static com.facebook.presto.geospatial.GeometrySerde.deserializeEnvelope;
 import static com.facebook.presto.geospatial.GeometrySerde.serialize;
 import static org.testng.Assert.assertEquals;
 
@@ -88,11 +91,34 @@ public class TestGeometrySerde
         testSerialization("GEOMETRYCOLLECTION (MULTIPOLYGON (((30 20, 45 40, 10 40, 30 20))), GEOMETRYCOLLECTION (MULTIPOLYGON (((30 20, 45 40, 10 40, 30 20)))))");
     }
 
+    @Test
+    public void testDeserializeEnvelope()
+    {
+        assertDeserializeEnvelope("MULTIPOINT (20 20, 25 25)", new Envelope(20, 20, 25, 25));
+        assertDeserializeEnvelope("MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))", new Envelope(1, 1, 5, 4));
+        assertDeserializeEnvelope("POLYGON ((0 0, 0 4, 4 0))", new Envelope(0, 0, 4, 4));
+        assertDeserializeEnvelope("MULTIPOLYGON (((0 0 , 0 2, 2 2, 2 0)), ((2 2, 2 4, 4 4, 4 2)))", new Envelope(0, 0, 4, 4));
+        assertDeserializeEnvelope("GEOMETRYCOLLECTION (POINT (3 7), LINESTRING (4 6, 7 10))", new Envelope(3, 6, 7, 10));
+        assertDeserializeEnvelope("POLYGON EMPTY", null);
+        assertDeserializeEnvelope("POINT (1 2)", new Envelope(1, 2, 1, 2));
+        assertDeserializeEnvelope("POINT EMPTY", null);
+    }
+
     private static void testSerialization(String wkt)
     {
         OGCGeometry geometry = OGCGeometry.fromText(wkt);
         OGCGeometry deserializedGeometry = deserialize(serialize(geometry));
         assertGeometryEquals(geometry, deserializedGeometry);
+    }
+
+    private static void assertDeserializeEnvelope(String geometry, Envelope expectedEnvelope)
+    {
+        assertEquals(deserializeEnvelope(geometryFromText(geometry)), expectedEnvelope);
+    }
+
+    private static Slice geometryFromText(String wkt)
+    {
+        return serialize(OGCGeometry.fromText(wkt));
     }
 
     private static void assertGeometryEquals(OGCGeometry actual, OGCGeometry expected)

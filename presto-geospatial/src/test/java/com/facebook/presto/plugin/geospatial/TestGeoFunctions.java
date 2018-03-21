@@ -13,19 +13,15 @@
  */
 package com.facebook.presto.plugin.geospatial;
 
-import com.esri.core.geometry.Envelope;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
-import io.airlift.slice.Slices;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.geospatial.GeometrySerde.deserializeEnvelope;
 import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
-import static com.facebook.presto.plugin.geospatial.GeoFunctions.stGeometryFromText;
 import static com.facebook.presto.plugin.geospatial.GeometryType.GEOMETRY;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -431,20 +427,6 @@ public class TestGeoFunctions
         assertFunction("ST_AsText(ST_SymDifference(ST_GeometryFromText('MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))'), ST_GeometryFromText('MULTILINESTRING ((3 4, 6 4), (5 0, 5 4))')))", VARCHAR, "MULTILINESTRING ((5 0, 5 1), (1 1, 5 1), (5 1, 5 4), (2 4, 3 4), (4 4, 5 4), (5 4, 6 4))");
         assertFunction("ST_AsText(ST_SymDifference(ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 4, 4 1))'), ST_GeometryFromText('POLYGON ((2 2, 2 5, 5 5, 5 2))')))", VARCHAR, "MULTIPOLYGON (((1 1, 4 1, 4 2, 2 2, 2 4, 1 4, 1 1)), ((4 2, 5 2, 5 5, 2 5, 2 4, 4 4, 4 2)))");
         assertFunction("ST_AsText(ST_SymDifference(ST_GeometryFromText('MULTIPOLYGON (((0 0 , 0 2, 2 2, 2 0)), ((2 2, 2 4, 4 4, 4 2)))'), ST_GeometryFromText('POLYGON ((0 0, 0 3, 3 3, 3 0))')))", VARCHAR, "MULTIPOLYGON (((2 0, 3 0, 3 2, 2 2, 2 0)), ((0 2, 2 2, 2 3, 0 3, 0 2)), ((3 2, 4 2, 4 4, 2 4, 2 3, 3 3, 3 2)))");
-    }
-
-    @Test
-    public void testDeserializeEnvelope()
-    {
-        assertEquals(deserializeEnvelope(stGeometryFromText(Slices.utf8Slice("POINT (1 2)"))), new Envelope(1, 2, 1, 2));
-        assertEquals(deserializeEnvelope(stGeometryFromText(Slices.utf8Slice("MULTIPOINT (20 20, 25 25)"))), new Envelope(20, 20, 25, 25));
-        assertEquals(deserializeEnvelope(stGeometryFromText(Slices.utf8Slice("LINESTRING (20 20, 30 30)"))), new Envelope(20, 20, 30, 30));
-        assertEquals(deserializeEnvelope(stGeometryFromText(Slices.utf8Slice("MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))"))), new Envelope(1, 1, 5, 4));
-        assertEquals(deserializeEnvelope(stGeometryFromText(Slices.utf8Slice("POLYGON ((0 0, 0 4, 4 0))"))), new Envelope(0, 0, 4, 4));
-        assertEquals(deserializeEnvelope(stGeometryFromText(Slices.utf8Slice("MULTIPOLYGON (((0 0 , 0 2, 2 2, 2 0)), ((2 2, 2 4, 4 4, 4 2)))"))), new Envelope(0, 0, 4, 4));
-        assertEquals(deserializeEnvelope(stGeometryFromText(Slices.utf8Slice("GEOMETRYCOLLECTION (POINT (3 7), LINESTRING (4 6, 7 10))"))), new Envelope(3, 6, 7, 10));
-        assertEquals(deserializeEnvelope(stGeometryFromText(Slices.utf8Slice("POLYGON EMPTY"))), null);
-        assertEquals(deserializeEnvelope(stGeometryFromText(Slices.utf8Slice("POINT EMPTY"))), null);
     }
 
     @Test
