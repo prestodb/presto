@@ -84,9 +84,12 @@ public class Page
         return retainedSizeInBytes;
     }
 
+    /**
+     * Do not modify the returned array.
+     */
     public Block[] getBlocks()
     {
-        return blocks.clone();
+        return blocks;
     }
 
     public Block getBlock(int channel)
