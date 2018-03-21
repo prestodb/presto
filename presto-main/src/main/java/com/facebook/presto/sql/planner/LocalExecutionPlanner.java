@@ -2295,7 +2295,7 @@ public class LocalExecutionPlanner
             return metadata
                     .getFunctionRegistry()
                     .getAggregateFunctionImplementation(aggregation.getSignature())
-                    .bind(arguments, maskChannel, source.getTypes(), getChannelsForSymbols(sortKeys, source.getLayout()), sortOrders, pagesIndexFactory);
+                    .bind(arguments, maskChannel, source.getTypes(), getChannelsForSymbols(sortKeys, source.getLayout()), sortOrders, pagesIndexFactory, aggregation.getCall().isDistinct(), joinCompiler, session);
         }
 
         private PhysicalOperation planGlobalAggregation(int operatorId, AggregationNode node, PhysicalOperation source)

@@ -95,6 +95,7 @@ public class FeaturesConfig
     private double memoryRevokingTarget = 0.5;
     private double memoryRevokingThreshold = 0.9;
     private boolean parseDecimalLiteralsAsDouble;
+    private boolean useMarkDistinct = true;
 
     private Duration iterativeOptimizerTimeout = new Duration(3, MINUTES); // by default let optimizer wait a long time in case it retrieves some data from ConnectorMetadata
 
@@ -320,6 +321,18 @@ public class FeaturesConfig
     public FeaturesConfig setOptimizeMetadataQueries(boolean optimizeMetadataQueries)
     {
         this.optimizeMetadataQueries = optimizeMetadataQueries;
+        return this;
+    }
+
+    public boolean isUseMarkDistinct()
+    {
+        return useMarkDistinct;
+    }
+
+    @Config("optimizer.use-mark-distinct")
+    public FeaturesConfig setUseMarkDistinct(boolean value)
+    {
+        this.useMarkDistinct = value;
         return this;
     }
 

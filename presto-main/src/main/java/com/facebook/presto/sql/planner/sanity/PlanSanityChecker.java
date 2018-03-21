@@ -46,8 +46,7 @@ public final class PlanSanityChecker
                     new NoSubqueryExpressionLeftChecker(),
                     new NoIdentifierLeftChecker(),
                     new VerifyOnlyOneOutputNode(),
-                    new VerifyNoFilteredAggregations(),
-                    new VerifyNoDistinctAggregations())
+                    new VerifyNoFilteredAggregations())
             .build();
 
     private PlanSanityChecker() {}
