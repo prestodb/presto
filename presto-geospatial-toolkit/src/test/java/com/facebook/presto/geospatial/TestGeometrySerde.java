@@ -16,12 +16,12 @@ package com.facebook.presto.geospatial;
 import com.esri.core.geometry.ogc.OGCGeometry;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.geospatial.GeometryUtils.deserialize;
-import static com.facebook.presto.geospatial.GeometryUtils.serialize;
+import static com.facebook.presto.geospatial.GeometrySerde.deserialize;
+import static com.facebook.presto.geospatial.GeometrySerde.serialize;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
-public class TestGeometrySerialization
+public class TestGeometrySerde
 {
     @Test
     public void testPoint()

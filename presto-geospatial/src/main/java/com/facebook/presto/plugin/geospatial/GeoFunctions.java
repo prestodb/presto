@@ -44,15 +44,15 @@ import java.util.Objects;
 import java.util.Set;
 
 import static com.esri.core.geometry.ogc.OGCGeometry.createFromEsriGeometry;
+import static com.facebook.presto.geospatial.GeometrySerde.deserialize;
+import static com.facebook.presto.geospatial.GeometrySerde.deserializeEnvelope;
+import static com.facebook.presto.geospatial.GeometrySerde.serialize;
 import static com.facebook.presto.geospatial.GeometryType.LINE_STRING;
 import static com.facebook.presto.geospatial.GeometryType.MULTI_LINE_STRING;
 import static com.facebook.presto.geospatial.GeometryType.MULTI_POINT;
 import static com.facebook.presto.geospatial.GeometryType.MULTI_POLYGON;
 import static com.facebook.presto.geospatial.GeometryType.POINT;
 import static com.facebook.presto.geospatial.GeometryType.POLYGON;
-import static com.facebook.presto.geospatial.GeometryUtils.deserialize;
-import static com.facebook.presto.geospatial.GeometryUtils.deserializeEnvelope;
-import static com.facebook.presto.geospatial.GeometryUtils.serialize;
 import static com.facebook.presto.plugin.geospatial.GeometryType.GEOMETRY_TYPE_NAME;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.StandardTypes.DOUBLE;
