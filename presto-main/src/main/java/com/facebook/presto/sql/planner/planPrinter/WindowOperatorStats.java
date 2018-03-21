@@ -53,13 +53,13 @@ class WindowOperatorStats
                 .filter(windowInfo -> windowInfo.getTotalRowsCount() > 0)
                 .mapToLong(DriverWindowInfo::getNumberOfIndexes)
                 .average()
-                .getAsDouble();
+                .orElse(Double.NaN);
 
         double averageNumberOfRows = info.getWindowInfos().stream()
                 .filter(windowInfo -> windowInfo.getTotalRowsCount() > 0)
                 .mapToLong(DriverWindowInfo::getTotalRowsCount)
                 .average()
-                .getAsDouble();
+                .orElse(Double.NaN);
 
         for (DriverWindowInfo driverWindowInfo : info.getWindowInfos()) {
             long driverTotalRowsCount = driverWindowInfo.getTotalRowsCount();
