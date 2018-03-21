@@ -293,6 +293,8 @@ public abstract class AbstractTestDistributedQueries
     public void testExplainAnalyzeVerbose()
     {
         assertExplainAnalyze("EXPLAIN ANALYZE VERBOSE SELECT * FROM orders");
+        assertExplainAnalyze("EXPLAIN ANALYZE VERBOSE SELECT rank() OVER (PARTITION BY orderkey ORDER BY clerk DESC) FROM orders");
+        assertExplainAnalyze("EXPLAIN ANALYZE VERBOSE SELECT rank() OVER (PARTITION BY orderkey ORDER BY clerk DESC) FROM orders WHERE orderkey < 0");
     }
 
     @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "EXPLAIN ANALYZE only supported for statements that are queries")
