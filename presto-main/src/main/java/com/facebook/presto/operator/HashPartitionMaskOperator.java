@@ -220,12 +220,13 @@ public class HashPartitionMaskOperator
         }
 
         // build output page
-        Block[] sourceBlocks = page.getBlocks();
-        Block[] outputBlocks = new Block[sourceBlocks.length + 1]; // +1 for the single boolean output channel
-        System.arraycopy(sourceBlocks, 0, outputBlocks, 0, sourceBlocks.length);
+        Block[] outputBlocks = new Block[page.getChannelCount() + 1]; // +1 for the single boolean output channel
+        for (int channel = 0; channel < page.getChannelCount(); channel++) {
+            outputBlocks[channel] = page.getBlock(channel);
+        }
 
         // add the new boolean column to the page
-        outputBlocks[sourceBlocks.length] = activePositions.build();
+        outputBlocks[page.getChannelCount()] = activePositions.build();
 
         // replace mask blocks
         for (int i = 0; i < maskBuilders.length; i++) {

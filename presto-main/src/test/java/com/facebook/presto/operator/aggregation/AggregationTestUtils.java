@@ -22,7 +22,6 @@ import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.google.common.primitives.Ints;
 
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Optional;
 import java.util.function.BiConsumer;
@@ -346,8 +345,10 @@ public final class AggregationTestUtils
                 newPages[i] = page;
             }
             else {
-                Block[] newBlocks = Arrays.copyOf(page.getBlocks(), page.getChannelCount());
-                Collections.reverse(Arrays.asList(newBlocks));
+                Block[] newBlocks = new Block[page.getChannelCount()];
+                for (int channel = 0; channel < page.getChannelCount(); channel++) {
+                    newBlocks[channel] = page.getBlock(page.getChannelCount() - channel - 1);
+                }
                 newPages[i] = new Page(page.getPositionCount(), newBlocks);
             }
         }
@@ -363,7 +364,7 @@ public final class AggregationTestUtils
             for (int channel = 0; channel < offset; channel++) {
                 newBlocks[channel] = createNullRLEBlock(page.getPositionCount());
             }
-            for (int channel = 0; channel < page.getBlocks().length; channel++) {
+            for (int channel = 0; channel < page.getChannelCount(); channel++) {
                 newBlocks[channel + offset] = page.getBlock(channel);
             }
             newPages[i] = new Page(page.getPositionCount(), newBlocks);
