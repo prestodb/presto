@@ -1425,7 +1425,7 @@ public class TestExpressionInterpreter
         Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(TEST_SESSION, METADATA, SQL_PARSER, SYMBOL_TYPES, expression, emptyList());
         ExpressionInterpreter interpreter = expressionInterpreter(expression, METADATA, TEST_SESSION, expressionTypes);
 
-        return interpreter.evaluate(null);
+        return interpreter.evaluate();
     }
 
     private static class FailedFunctionRewriter
