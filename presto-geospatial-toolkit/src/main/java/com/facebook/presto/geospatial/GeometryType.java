@@ -13,21 +13,25 @@
  */
 package com.facebook.presto.geospatial;
 
+import static java.util.Objects.requireNonNull;
+
 public enum GeometryType
 {
-    POINT(0),
-    MULTI_POINT(1),
-    LINE_STRING(2),
-    MULTI_LINE_STRING(3),
-    POLYGON(4),
-    MULTI_POLYGON(5),
-    GEOMETRY_COLLECTION(6);
+    POINT(0, false),
+    MULTI_POINT(1, true),
+    LINE_STRING(2, false),
+    MULTI_LINE_STRING(3, true),
+    POLYGON(4, false),
+    MULTI_POLYGON(5, true),
+    GEOMETRY_COLLECTION(6, true);
 
     private final int code;
+    private final boolean multitype;
 
-    GeometryType(int code)
+    GeometryType(int code, boolean multitype)
     {
         this.code = code;
+        this.multitype = multitype;
     }
 
     public int code()
@@ -35,8 +39,14 @@ public enum GeometryType
         return code;
     }
 
+    public boolean isMultitype()
+    {
+        return multitype;
+    }
+
     public static GeometryType getForEsriGeometryType(String type)
     {
+        requireNonNull(type, "type is null");
         switch (type) {
             case "Point":
                 return POINT;
@@ -54,6 +64,28 @@ public enum GeometryType
                 return GEOMETRY_COLLECTION;
             default:
                 throw new IllegalArgumentException("Invalid Geometry Type: " + type);
+        }
+    }
+
+    public static GeometryType getForCode(int code)
+    {
+        switch (code) {
+            case 0:
+                return POINT;
+            case 1:
+                return MULTI_POINT;
+            case 2:
+                return LINE_STRING;
+            case 3:
+                return MULTI_LINE_STRING;
+            case 4:
+                return POLYGON;
+            case 5:
+                return MULTI_POLYGON;
+            case 6:
+                return GEOMETRY_COLLECTION;
+            default:
+                throw new IllegalArgumentException("Invalid type code: " + code);
         }
     }
 }
