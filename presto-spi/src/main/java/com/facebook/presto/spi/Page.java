@@ -16,6 +16,7 @@ package com.facebook.presto.spi;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.block.DictionaryId;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -25,12 +26,16 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.spi.block.DictionaryId.randomDictionaryId;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class Page
 {
+    public static final int INSTANCE_SIZE = ClassLayout.parseClass(Page.class).instanceSize() +
+            (2 * ClassLayout.parseClass(AtomicLong.class).instanceSize());
+
     private final Block[] blocks;
     private final int positionCount;
     private final AtomicLong sizeInBytes = new AtomicLong(-1);
@@ -75,7 +80,7 @@ public class Page
     {
         long retainedSizeInBytes = this.retainedSizeInBytes.get();
         if (retainedSizeInBytes < 0) {
-            retainedSizeInBytes = 0;
+            retainedSizeInBytes = INSTANCE_SIZE + sizeOf(blocks);
             for (Block block : blocks) {
                 retainedSizeInBytes += block.getRetainedSizeInBytes();
             }
