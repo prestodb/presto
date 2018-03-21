@@ -84,11 +84,6 @@ public class Page
         return retainedSizeInBytes;
     }
 
-    public Block[] getBlocks()
-    {
-        return blocks.clone();
-    }
-
     public Block getBlock(int channel)
     {
         return blocks[channel];
