@@ -68,7 +68,7 @@ public class TestGeoFunctions
     @Test
     public void testSTLineFromText()
     {
-        assertFunction("ST_AsText(ST_LineFromText('LINESTRING EMPTY'))", VARCHAR, "MULTILINESTRING EMPTY");
+        assertFunction("ST_AsText(ST_LineFromText('LINESTRING EMPTY'))", VARCHAR, "LINESTRING EMPTY");
         assertFunction("ST_AsText(ST_LineFromText('LINESTRING (1 1, 2 2, 1 3)'))", VARCHAR, "LINESTRING (1 1, 2 2, 1 3)");
         assertInvalidFunction("ST_AsText(ST_LineFromText('MULTILINESTRING EMPTY'))", "ST_LineFromText only applies to LINE_STRING. Input type is: MULTI_LINE_STRING");
         assertInvalidFunction("ST_AsText(ST_LineFromText('POLYGON ((1 1, 1 4, 4 4, 4 1))'))", "ST_LineFromText only applies to LINE_STRING. Input type is: POLYGON");
@@ -77,7 +77,7 @@ public class TestGeoFunctions
     @Test
     public void testSTPolygon()
     {
-        assertFunction("ST_AsText(ST_Polygon('POLYGON EMPTY'))", VARCHAR, "MULTIPOLYGON EMPTY");
+        assertFunction("ST_AsText(ST_Polygon('POLYGON EMPTY'))", VARCHAR, "POLYGON EMPTY");
         assertFunction("ST_AsText(ST_Polygon('POLYGON ((1 1, 1 4, 4 4, 4 1))'))", VARCHAR, "POLYGON ((1 1, 4 1, 4 4, 1 4, 1 1))");
         assertInvalidFunction("ST_AsText(ST_Polygon('LINESTRING (1 1, 2 2, 1 3)'))", "ST_Polygon only applies to POLYGON. Input type is: LINE_STRING");
     }
@@ -353,13 +353,13 @@ public class TestGeoFunctions
     @Test
     public void testSTBoundary()
     {
-        assertFunction("ST_AsText(ST_Boundary(ST_GeometryFromText('POINT (1 2)')))", VARCHAR, "POINT EMPTY");
-        assertFunction("ST_AsText(ST_Boundary(ST_GeometryFromText('MULTIPOINT (1 2, 2 4, 3 6, 4 8)')))", VARCHAR, "POINT EMPTY");
-        assertFunction("ST_AsText(ST_Boundary(ST_GeometryFromText('LINESTRING EMPTY')))", VARCHAR, "POINT EMPTY");
+        assertFunction("ST_AsText(ST_Boundary(ST_GeometryFromText('POINT (1 2)')))", VARCHAR, "MULTIPOINT EMPTY");
+        assertFunction("ST_AsText(ST_Boundary(ST_GeometryFromText('MULTIPOINT (1 2, 2 4, 3 6, 4 8)')))", VARCHAR, "MULTIPOINT EMPTY");
+        assertFunction("ST_AsText(ST_Boundary(ST_GeometryFromText('LINESTRING EMPTY')))", VARCHAR, "MULTIPOINT EMPTY");
         assertFunction("ST_AsText(ST_Boundary(ST_GeometryFromText('LINESTRING (8 4, 5 7)')))", VARCHAR, "MULTIPOINT ((8 4), (5 7))");
         assertFunction("ST_AsText(ST_Boundary(ST_GeometryFromText('LINESTRING (100 150,50 60, 70 80, 160 170)')))", VARCHAR, "MULTIPOINT ((100 150), (160 170))");
         assertFunction("ST_AsText(ST_Boundary(ST_GeometryFromText('MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))')))", VARCHAR, "MULTIPOINT ((1 1), (5 1), (2 4), (4 4))");
-        assertFunction("ST_AsText(ST_Boundary(ST_GeometryFromText('POLYGON ((1 1, 4 1, 1 4))')))", VARCHAR, "LINESTRING (1 1, 4 1, 1 4, 1 1)");
+        assertFunction("ST_AsText(ST_Boundary(ST_GeometryFromText('POLYGON ((1 1, 4 1, 1 4))')))", VARCHAR, "MULTILINESTRING ((1 1, 4 1, 1 4, 1 1))");
         assertFunction("ST_AsText(ST_Boundary(ST_GeometryFromText('MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1)), ((0 0, 0 2, 2 2, 2 0)))')))", VARCHAR, "MULTILINESTRING ((1 1, 3 1, 3 3, 1 3, 1 1), (0 0, 2 0, 2 2, 0 2, 0 0))");
     }
 

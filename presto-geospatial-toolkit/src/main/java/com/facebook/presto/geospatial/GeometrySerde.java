@@ -15,10 +15,20 @@ package com.facebook.presto.geospatial;
 
 import com.esri.core.geometry.Envelope;
 import com.esri.core.geometry.Geometry;
-import com.esri.core.geometry.GeometryCursor;
+import com.esri.core.geometry.MultiPoint;
+import com.esri.core.geometry.OperatorImportFromESRIShape;
+import com.esri.core.geometry.Point;
+import com.esri.core.geometry.Polygon;
+import com.esri.core.geometry.Polyline;
 import com.esri.core.geometry.ogc.OGCConcreteGeometryCollection;
 import com.esri.core.geometry.ogc.OGCGeometry;
-import com.google.common.base.Verify;
+import com.esri.core.geometry.ogc.OGCGeometryCollection;
+import com.esri.core.geometry.ogc.OGCLineString;
+import com.esri.core.geometry.ogc.OGCMultiLineString;
+import com.esri.core.geometry.ogc.OGCMultiPoint;
+import com.esri.core.geometry.ogc.OGCMultiPolygon;
+import com.esri.core.geometry.ogc.OGCPoint;
+import com.esri.core.geometry.ogc.OGCPolygon;
 import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
@@ -31,10 +41,10 @@ import java.util.List;
 
 import static com.esri.core.geometry.Geometry.Type.Unknown;
 import static com.esri.core.geometry.GeometryEngine.geometryToEsriShape;
-import static com.esri.core.geometry.OperatorImportFromESRIShape.local;
-import static com.esri.core.geometry.ogc.OGCGeometry.createFromEsriGeometry;
+import static com.google.common.base.Verify.verify;
+import static java.lang.Math.toIntExact;
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
-import static java.util.Collections.emptyList;
+import static java.util.Objects.requireNonNull;
 
 public class GeometrySerde
 {
@@ -44,58 +54,142 @@ public class GeometrySerde
 
     public static Slice serialize(OGCGeometry input)
     {
-        DynamicSliceOutput sliceOutput = new DynamicSliceOutput(100);
+        requireNonNull(input, "input is null");
+        DynamicSliceOutput output = new DynamicSliceOutput(100);
+        writeGeometry(output, input);
+        return output.slice();
+    }
 
-        GeometryType type = GeometryType.getForEsriGeometryType(input.geometryType());
-        sliceOutput.appendByte(type.code());
-        GeometryCursor cursor = input.getEsriGeometryCursor();
-        while (true) {
-            Geometry geometry = cursor.next();
-            if (geometry == null) {
+    private static void writeGeometry(DynamicSliceOutput output, OGCGeometry geometry)
+    {
+        GeometryType type = GeometryType.getForEsriGeometryType(geometry.geometryType());
+        switch (type) {
+            case POINT:
+            case MULTI_POINT:
+            case LINE_STRING:
+            case MULTI_LINE_STRING:
+            case POLYGON:
+            case MULTI_POLYGON:
+                writeSimpleGeometry(output, type, geometry);
+                break;
+            case GEOMETRY_COLLECTION: {
+                verify(geometry instanceof OGCConcreteGeometryCollection);
+                writeGeometryCollection(output, (OGCConcreteGeometryCollection) geometry);
                 break;
             }
-            byte[] shape = geometryToEsriShape(geometry);
-            if (type == GeometryType.GEOMETRY_COLLECTION) {
-                sliceOutput.appendInt(shape.length);
-            }
-            sliceOutput.appendBytes(shape);
+            default:
+                throw new IllegalArgumentException("Unexpected type: " + type);
         }
-        return sliceOutput.slice();
+    }
+
+    private static void writeGeometryCollection(DynamicSliceOutput output, OGCGeometryCollection collection)
+    {
+        output.appendByte(GeometryType.GEOMETRY_COLLECTION.code());
+        for (int geometryIndex = 0; geometryIndex < collection.numGeometries(); geometryIndex++) {
+            OGCGeometry geometry = collection.geometryN(geometryIndex);
+            int startPosition = output.size();
+
+            // leave 4 bytes for the shape length
+            output.appendInt(0);
+            writeGeometry(output, geometry);
+
+            int endPosition = output.size();
+            int length = endPosition - startPosition - Integer.BYTES;
+
+            output.getUnderlyingSlice().setInt(startPosition, length);
+        }
+    }
+
+    private static void writeSimpleGeometry(DynamicSliceOutput output, GeometryType type, OGCGeometry geometry)
+    {
+        output.appendByte(type.code());
+        Geometry esriGeometry = requireNonNull(geometry.getEsriGeometry(), "esriGeometry is null");
+        byte[] shape = geometryToEsriShape(esriGeometry);
+        output.appendBytes(shape);
     }
 
     public static OGCGeometry deserialize(Slice shape)
     {
-        if (shape == null) {
-            return null;
-        }
+        requireNonNull(shape, "shape is null");
         BasicSliceInput input = shape.getInput();
+        verify(input.available() > 0);
+        int length = input.available() - 1;
+        GeometryType type = GeometryType.getForCode(input.readByte());
+        return readGeometry(input, shape, type, length);
+    }
 
+    private static OGCGeometry readGeometry(BasicSliceInput input, Slice inputSlice, GeometryType type, int length)
+    {
+        switch (type) {
+            case POINT:
+            case MULTI_POINT:
+            case LINE_STRING:
+            case MULTI_LINE_STRING:
+            case POLYGON:
+            case MULTI_POLYGON:
+                return readSimpleGeometry(input, inputSlice, type, length);
+            case GEOMETRY_COLLECTION:
+                return readGeometryCollection(input, inputSlice);
+            default:
+                throw new IllegalArgumentException("Unexpected type: " + type);
+        }
+    }
+
+    private static OGCConcreteGeometryCollection readGeometryCollection(BasicSliceInput input, Slice inputSlice)
+    {
         // GeometryCollection: geometryType|len-of-shape1|bytes-of-shape1|len-of-shape2|bytes-of-shape2...
         List<OGCGeometry> geometries = new ArrayList<>();
-
-        if (input.available() > 0) {
-            byte code = input.readByte();
-            boolean isGeometryCollection = (code == GeometryType.GEOMETRY_COLLECTION.code());
-            while (input.available() > 0) {
-                geometries.add(readGeometry(isGeometryCollection, input));
-            }
-        }
-
-        if (geometries.isEmpty()) {
-            return new OGCConcreteGeometryCollection(emptyList(), null);
-        }
-        else if (geometries.size() == 1) {
-            return geometries.get(0);
+        while (input.available() > 0) {
+            int length = input.readInt() - 1;
+            GeometryType type = GeometryType.getForCode(input.readByte());
+            geometries.add(readGeometry(input, inputSlice, type, length));
         }
         return new OGCConcreteGeometryCollection(geometries, null);
     }
 
-    private static OGCGeometry readGeometry(boolean isGeometryCollection, BasicSliceInput input)
+    private static OGCGeometry readSimpleGeometry(BasicSliceInput input, Slice inputSlice, GeometryType type, int length)
     {
-        int length = isGeometryCollection ? input.readInt() : input.available();
-        ByteBuffer buffer = input.readSlice(length).toByteBuffer().slice().order(LITTLE_ENDIAN);
-        Geometry esriGeometry = local().execute(0, Unknown, buffer);
-        return createFromEsriGeometry(esriGeometry, null);
+        int currentPosition = toIntExact(input.position());
+        ByteBuffer geometryBuffer = inputSlice.toByteBuffer(currentPosition, length).slice();
+        input.setPosition(currentPosition + length);
+        Geometry esriGeometry = OperatorImportFromESRIShape.local().execute(0, Unknown, geometryBuffer);
+        return createFromEsriGeometry(esriGeometry, type.isMultitype());
+    }
+
+    private static OGCGeometry createFromEsriGeometry(Geometry geometry, boolean multiType)
+    {
+        Geometry.Type type = geometry.getType();
+        switch (type) {
+            case Polygon: {
+                if (!multiType && ((Polygon) geometry).getExteriorRingCount() <= 1) {
+                    return new OGCPolygon((Polygon) geometry, null);
+                }
+                return new OGCMultiPolygon((Polygon) geometry, null);
+            }
+            case Polyline: {
+                if (!multiType && ((Polyline) geometry).getPathCount() <= 1) {
+                    return new OGCLineString((Polyline) geometry, 0, null);
+                }
+                return new OGCMultiLineString((Polyline) geometry, null);
+            }
+            case MultiPoint: {
+                if (!multiType && ((MultiPoint) geometry).getPointCount() <= 1) {
+                    if (geometry.isEmpty()) {
+                        return new OGCPoint(new Point(), null);
+                    }
+                    return new OGCPoint(((MultiPoint) geometry).getPoint(0), null);
+                }
+                return new OGCMultiPoint((MultiPoint) geometry, null);
+            }
+            case Point: {
+                if (!multiType) {
+                    return new OGCPoint((Point) geometry, null);
+                }
+                return new OGCMultiPoint((Point) geometry, null);
+            }
+            default:
+                throw new IllegalArgumentException("Unexpected geometry type: " + type);
+        }
     }
 
     @Nullable
@@ -119,7 +213,7 @@ public class GeometrySerde
                     double x = buffer.getDouble();
                     double y = buffer.getDouble();
                     if (!GeometryUtils.isEsriNaN(x)) {
-                        Verify.verify(!GeometryUtils.isEsriNaN(y));
+                        verify(!GeometryUtils.isEsriNaN(y));
                         envelope = new Envelope(x, y, x, y);
                     }
                 }
@@ -129,9 +223,9 @@ public class GeometrySerde
                     double xMax = buffer.getDouble();
                     double yMax = buffer.getDouble();
                     if (!GeometryUtils.isEsriNaN(xMin)) {
-                        Verify.verify(!GeometryUtils.isEsriNaN(xMax));
-                        Verify.verify(!GeometryUtils.isEsriNaN(yMin));
-                        Verify.verify(!GeometryUtils.isEsriNaN(yMax));
+                        verify(!GeometryUtils.isEsriNaN(xMax));
+                        verify(!GeometryUtils.isEsriNaN(yMin));
+                        verify(!GeometryUtils.isEsriNaN(yMax));
                         envelope = new Envelope(xMin, yMin, xMax, yMax);
                     }
                 }

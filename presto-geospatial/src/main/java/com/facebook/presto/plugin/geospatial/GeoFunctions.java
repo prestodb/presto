@@ -15,6 +15,7 @@ package com.facebook.presto.plugin.geospatial;
 
 import com.esri.core.geometry.Envelope;
 import com.esri.core.geometry.MultiPath;
+import com.esri.core.geometry.MultiPoint;
 import com.esri.core.geometry.MultiVertexGeometry;
 import com.esri.core.geometry.Point;
 import com.esri.core.geometry.Polygon;
@@ -70,6 +71,7 @@ public final class GeoFunctions
 {
     private static final Joiner OR_JOINER = Joiner.on(" or ");
     private static final Slice EMPTY_POLYGON = serialize(createFromEsriGeometry(new Polygon(), null));
+    private static final Slice EMPTY_MULTIPOINT = serialize(createFromEsriGeometry(new MultiPoint(), null, true));
     private static final double EARTH_RADIUS_KM = 6371.01;
 
     private GeoFunctions() {}
@@ -464,6 +466,10 @@ public final class GeoFunctions
     public static Slice stBoundary(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
     {
         OGCGeometry geometry = deserialize(input);
+        if (geometry.isEmpty() && GeometryType.getForEsriGeometryType(geometry.geometryType()) == LINE_STRING) {
+            // OCGGeometry#boundary crashes with NPE for LINESTRING EMPTY
+            return EMPTY_MULTIPOINT;
+        }
         return serialize(geometry.boundary());
     }
 
