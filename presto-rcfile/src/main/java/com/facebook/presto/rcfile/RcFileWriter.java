@@ -249,9 +249,8 @@ public class RcFileWriter
         bufferedRows += page.getPositionCount();
 
         bufferedSize = 0;
-        Block[] blocks = page.getBlocks();
-        for (int i = 0; i < blocks.length; i++) {
-            Block block = blocks[i];
+        for (int i = 0; i < page.getChannelCount(); i++) {
+            Block block = page.getBlock(i);
             columnEncoders[i].writeBlock(block);
             bufferedSize += columnEncoders[i].getBufferedSize();
         }

@@ -133,11 +133,10 @@ public class MemoryPagesStore
 
     private static Page getColumns(Page page, List<Integer> columnIndexes)
     {
-        Block[] blocks = page.getBlocks();
         Block[] outputBlocks = new Block[columnIndexes.size()];
 
         for (int i = 0; i < columnIndexes.size(); i++) {
-            outputBlocks[i] = blocks[columnIndexes.get(i)];
+            outputBlocks[i] = page.getBlock(columnIndexes.get(i));
         }
 
         return new Page(page.getPositionCount(), outputBlocks);

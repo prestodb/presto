@@ -210,11 +210,11 @@ public class TestShardCompactor
         }
 
         // extract the sortIndexes and reorder the blocks by sort indexes (useful for debugging)
-        Block[] blocks = pageBuilder.build().getBlocks();
-        Block[] outputBlocks = new Block[blocks.length];
+        Page buildPage = pageBuilder.build();
+        Block[] outputBlocks = new Block[buildPage.getChannelCount()];
 
         for (int i = 0; i < sortIndexes.size(); i++) {
-            outputBlocks[i] = blocks[sortIndexes.get(i)];
+            outputBlocks[i] = buildPage.getBlock(sortIndexes.get(i));
         }
 
         MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(SESSION, sortTypes);

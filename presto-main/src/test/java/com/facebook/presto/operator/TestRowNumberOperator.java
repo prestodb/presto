@@ -31,7 +31,6 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
@@ -391,8 +390,11 @@ public class TestRowNumberOperator
     {
         return input.stream()
                 .map(page -> {
-                    Block[] blocks = Arrays.copyOf(page.getBlocks(), page.getChannelCount() - 1);
-                    return new Page(blocks);
+                    Block[] blocks = new Block[page.getChannelCount() - 1];
+                    for (int i = 0; i < page.getChannelCount() - 1; i++) {
+                        blocks[i] = page.getBlock(i);
+                    }
+                    return new Page(page.getPositionCount(), blocks);
                 })
                 .collect(toImmutableList());
     }
