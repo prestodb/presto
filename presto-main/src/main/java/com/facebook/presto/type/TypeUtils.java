@@ -28,7 +28,6 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
-import java.util.Arrays;
 import java.util.List;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -144,17 +143,15 @@ public final class TypeUtils
 
     public static Page getHashPage(Page page, List<? extends Type> types, List<Integer> hashChannels)
     {
-        Block[] blocks = Arrays.copyOf(page.getBlocks(), page.getChannelCount() + 1);
         ImmutableList.Builder<Type> hashTypes = ImmutableList.builder();
         Block[] hashBlocks = new Block[hashChannels.size()];
         int hashBlockIndex = 0;
 
         for (int channel : hashChannels) {
             hashTypes.add(types.get(channel));
-            hashBlocks[hashBlockIndex++] = blocks[channel];
+            hashBlocks[hashBlockIndex++] = page.getBlock(channel);
         }
-        blocks[page.getChannelCount()] = getHashBlock(hashTypes.build(), hashBlocks);
-        return new Page(blocks);
+        return page.appendColumn(getHashBlock(hashTypes.build(), hashBlocks));
     }
 
     public static void checkElementNotNull(boolean isNull, String errorMsg)

@@ -139,13 +139,7 @@ public final class AggregationTestUtils
             for (int j = 0; j < page.getPositionCount(); j++) {
                 BOOLEAN.writeBoolean(blockBuilder, maskValue);
             }
-            Block[] sourceBlocks = page.getBlocks();
-            Block[] outputBlocks = new Block[sourceBlocks.length + 1]; // +1 for the single boolean output channel
-
-            System.arraycopy(sourceBlocks, 0, outputBlocks, 0, sourceBlocks.length);
-            outputBlocks[sourceBlocks.length] = blockBuilder.build();
-
-            maskedPages[i] = new Page(outputBlocks);
+            maskedPages[i] = page.appendColumn(blockBuilder.build());
         }
 
         return maskedPages;
