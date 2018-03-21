@@ -289,6 +289,12 @@ public abstract class AbstractTestDistributedQueries
         assertExplainAnalyze("EXPLAIN ANALYZE SHOW SESSION");
     }
 
+    @Test
+    public void testExplainAnalyzeVerbose()
+    {
+        assertExplainAnalyze("EXPLAIN ANALYZE VERBOSE SELECT * FROM orders");
+    }
+
     @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "EXPLAIN ANALYZE only supported for statements that are queries")
     public void testExplainAnalyzeDDL()
     {
