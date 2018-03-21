@@ -14,7 +14,6 @@
 package com.facebook.presto.operator.index;
 
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.concurrent.MoreFutures;
 
@@ -26,20 +25,12 @@ import static java.util.Objects.requireNonNull;
 @ThreadSafe
 class UpdateRequest
 {
-    private final Block[] blocks;
     private final SettableFuture<IndexSnapshot> indexSnapshotFuture = SettableFuture.create();
     private final Page page;
 
-    public UpdateRequest(Block... blocks)
+    public UpdateRequest(Page page)
     {
-        this.blocks = requireNonNull(blocks, "blocks is null");
-        this.page = new Page(blocks);
-    }
-
-    @Deprecated
-    public Block[] getBlocks()
-    {
-        return blocks;
+        this.page = requireNonNull(page, "page is null");
     }
 
     public Page getPage()

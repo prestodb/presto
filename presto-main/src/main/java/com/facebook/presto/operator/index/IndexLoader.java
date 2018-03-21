@@ -25,7 +25,6 @@ import com.facebook.presto.operator.PipelineContext;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinCompiler;
@@ -152,26 +151,17 @@ public class IndexLoader
         return indexSnapshotReference.get();
     }
 
-    private static Block[] sliceBlocks(Block[] indexBlocks, int startPosition, int length)
-    {
-        Block[] slicedIndexBlocks = new Block[indexBlocks.length];
-        for (int i = 0; i < indexBlocks.length; i++) {
-            slicedIndexBlocks[i] = indexBlocks[i].getRegion(startPosition, length);
-        }
-        return slicedIndexBlocks;
-    }
-
-    public IndexedData getIndexedDataForKeys(int position, Block[] indexBlocks)
+    public IndexedData getIndexedDataForKeys(int position, Page indexPage)
     {
         // Normalize the indexBlocks so that they only encompass the unloaded positions
-        int totalPositions = indexBlocks[0].getPositionCount();
+        int totalPositions = indexPage.getPositionCount();
         int remainingPositions = totalPositions - position;
-        return getIndexedDataForKeys(sliceBlocks(indexBlocks, position, remainingPositions));
+        return getIndexedDataForKeys(indexPage.getRegion(position, remainingPositions));
     }
 
-    private IndexedData getIndexedDataForKeys(Block[] indexBlocks)
+    private IndexedData getIndexedDataForKeys(Page indexPage)
     {
-        UpdateRequest myUpdateRequest = new UpdateRequest(indexBlocks);
+        UpdateRequest myUpdateRequest = new UpdateRequest(indexPage);
         updateRequests.add(myUpdateRequest);
 
         synchronized (this) {
@@ -218,10 +208,10 @@ public class IndexLoader
                 }
 
                 // Repeatedly decrease the number of rows to load by a factor of 10
-                int totalPositions = indexBlocks[0].getPositionCount();
+                int totalPositions = indexPage.getPositionCount();
                 int attemptedPositions = totalPositions / 10;
                 while (attemptedPositions > 1) {
-                    myUpdateRequest = new UpdateRequest(sliceBlocks(indexBlocks, 0, attemptedPositions));
+                    myUpdateRequest = new UpdateRequest(indexPage.getRegion(0, attemptedPositions));
                     if (indexSnapshotLoader.load(ImmutableList.of(myUpdateRequest))) {
                         stats.recordSuccessfulIndexJoinLookupByLimitedRequest();
                         return myUpdateRequest.getFinishedIndexSnapshot();
@@ -241,7 +231,7 @@ public class IndexLoader
 
     public IndexedData streamIndexDataForSingleKey(UpdateRequest updateRequest)
     {
-        Page indexKeyTuple = new Page(sliceBlocks(updateRequest.getBlocks(), 0, 1));
+        Page indexKeyTuple = updateRequest.getPage().getRegion(0, 1);
 
         PageBuffer pageBuffer = new PageBuffer(100);
         DriverFactory driverFactory = indexBuildDriverFactoryProvider.createStreaming(pageBuffer, indexKeyTuple);
