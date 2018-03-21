@@ -40,29 +40,6 @@ public final class GeometryUtils
 {
     private static final int POINT_TYPE = 1;
 
-    public enum GeometryTypeName
-    {
-        POINT(0),
-        MULTI_POINT(1),
-        LINE_STRING(2),
-        MULTI_LINE_STRING(3),
-        POLYGON(4),
-        MULTI_POLYGON(5),
-        GEOMETRY_COLLECTION(6);
-
-        private final int code;
-
-        GeometryTypeName(int code)
-        {
-            this.code = code;
-        }
-
-        public int code()
-        {
-            return code;
-        }
-    }
-
     public static final String POINT = "Point";
     public static final String LINE_STRING = "LineString";
     public static final String POLYGON = "Polygon";
@@ -74,23 +51,23 @@ public final class GeometryUtils
 
     private GeometryUtils() {}
 
-    public static GeometryTypeName valueOf(String type)
+    public static GeometryType valueOf(String type)
     {
         switch (type) {
             case POINT:
-                return GeometryTypeName.POINT;
+                return GeometryType.POINT;
             case MULTI_POINT:
-                return GeometryTypeName.MULTI_POINT;
+                return GeometryType.MULTI_POINT;
             case LINE_STRING:
-                return GeometryTypeName.LINE_STRING;
+                return GeometryType.LINE_STRING;
             case MULTI_LINE_STRING:
-                return GeometryTypeName.MULTI_LINE_STRING;
+                return GeometryType.MULTI_LINE_STRING;
             case POLYGON:
-                return GeometryTypeName.POLYGON;
+                return GeometryType.POLYGON;
             case MULTI_POLYGON:
-                return GeometryTypeName.MULTI_POLYGON;
+                return GeometryType.MULTI_POLYGON;
             case GEOMETRY_COLLECTION:
-                return GeometryTypeName.GEOMETRY_COLLECTION;
+                return GeometryType.GEOMETRY_COLLECTION;
             default:
                 throw new IllegalArgumentException("Invalid Geometry Type: " + type);
         }
@@ -123,7 +100,7 @@ public final class GeometryUtils
         Envelope overallEnvelope = null;
         if (input.available() > 0) {
             byte code = input.readByte();
-            boolean isGeometryCollection = (code == GeometryTypeName.GEOMETRY_COLLECTION.code());
+            boolean isGeometryCollection = (code == GeometryType.GEOMETRY_COLLECTION.code());
             while (input.available() > 0) {
                 int length = isGeometryCollection ? input.readInt() : input.available();
                 ByteBuffer buffer = input.readSlice(length).toByteBuffer().order(LITTLE_ENDIAN);
@@ -175,7 +152,7 @@ public final class GeometryUtils
 
         if (input.available() > 0) {
             byte code = input.readByte();
-            boolean isGeometryCollection = (code == GeometryTypeName.GEOMETRY_COLLECTION.code());
+            boolean isGeometryCollection = (code == GeometryType.GEOMETRY_COLLECTION.code());
             while (input.available() > 0) {
                 geometries.add(readGeometry(isGeometryCollection, input));
             }

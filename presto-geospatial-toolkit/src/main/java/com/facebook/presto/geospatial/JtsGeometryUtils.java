@@ -97,7 +97,7 @@ public class JtsGeometryUtils
 
         BasicSliceInput input = shape.getInput();
         int geometryType = input.readByte();
-        if (geometryType != GeometryUtils.GeometryTypeName.GEOMETRY_COLLECTION.code()) {
+        if (geometryType != GeometryType.GEOMETRY_COLLECTION.code()) {
             return readGeometry(input);
         }
 
@@ -124,7 +124,7 @@ public class JtsGeometryUtils
 
         boolean inGeometryCollection = geometry.getGeometryType().equals(JTS_GEOMETRY_COLLECTION);
         if (inGeometryCollection) {
-            output.writeByte(GeometryUtils.GeometryTypeName.GEOMETRY_COLLECTION.code());
+            output.writeByte(GeometryType.GEOMETRY_COLLECTION.code());
             for (int i = 0; i < geometry.getNumGeometries(); i++) {
                 writeGeometry(geometry.getGeometryN(i), output, true);
             }
@@ -192,7 +192,7 @@ public class JtsGeometryUtils
             output.writeInt(SIZE_OF_DOUBLE * 2 + SIZE_OF_INT);
         }
         else {
-            output.writeByte(GeometryUtils.GeometryTypeName.POINT.code());
+            output.writeByte(GeometryType.POINT.code());
         }
 
         output.writeInt(EsriShapeType.POINT.code);
@@ -248,7 +248,7 @@ public class JtsGeometryUtils
             output.writeInt(SIZE_OF_INT + SIZE_OF_DOUBLE * 4 + SIZE_OF_INT + SIZE_OF_DOUBLE * 2 * numPoints);
         }
         else {
-            output.writeByte(GeometryUtils.GeometryTypeName.MULTI_POINT.code());
+            output.writeByte(GeometryType.MULTI_POINT.code());
         }
 
         output.writeInt(EsriShapeType.MULTI_POINT.code);
@@ -321,10 +321,10 @@ public class JtsGeometryUtils
         else {
             switch (geometry.getGeometryType()) {
                 case JTS_LINESTRING:
-                    output.writeByte(GeometryUtils.GeometryTypeName.LINE_STRING.code());
+                    output.writeByte(GeometryType.LINE_STRING.code());
                     break;
                 case JTS_MULTI_LINESTRING:
-                    output.writeByte(GeometryUtils.GeometryTypeName.MULTI_LINE_STRING.code());
+                    output.writeByte(GeometryType.MULTI_LINE_STRING.code());
                     break;
             }
         }
@@ -430,10 +430,10 @@ public class JtsGeometryUtils
         else {
             switch (geometry.getGeometryType()) {
                 case JTS_MULTI_POLYGON:
-                    output.writeByte(GeometryUtils.GeometryTypeName.MULTI_POLYGON.code());
+                    output.writeByte(GeometryType.MULTI_POLYGON.code());
                     break;
                 case JTS_POLYGON:
-                    output.writeByte(GeometryUtils.GeometryTypeName.POLYGON.code());
+                    output.writeByte(GeometryType.POLYGON.code());
                     break;
             }
         }
