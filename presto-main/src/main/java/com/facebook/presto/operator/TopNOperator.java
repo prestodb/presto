@@ -22,7 +22,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
-import io.airlift.units.DataSize;
 
 import java.util.Iterator;
 import java.util.List;
@@ -105,7 +104,6 @@ public class TopNOperator
     }
 
     private static final int MAX_INITIAL_PRIORITY_QUEUE_SIZE = 10000;
-    private static final DataSize OVERHEAD_PER_VALUE = new DataSize(100, DataSize.Unit.BYTE); // for estimating in-memory size. This is a completely arbitrary number
 
     private final OperatorContext operatorContext;
     private final List<Type> types;
@@ -119,7 +117,7 @@ public class TopNOperator
     private TopNBuilder topNBuilder;
     private boolean finishing;
 
-    private Iterator<Block[]> outputIterator;
+    private Iterator<Page> outputIterator;
 
     public TopNOperator(
             OperatorContext operatorContext,
@@ -208,11 +206,11 @@ public class TopNOperator
 
         pageBuilder.reset();
         while (!pageBuilder.isFull() && outputIterator.hasNext()) {
-            Block[] next = outputIterator.next();
+            Page next = outputIterator.next();
             pageBuilder.declarePosition();
-            for (int i = 0; i < next.length; i++) {
+            for (int i = 0; i < next.getChannelCount(); i++) {
                 Type type = types.get(i);
-                type.appendTo(next[i], 0, pageBuilder.getBlockBuilder(i));
+                type.appendTo(next.getBlock(i), 0, pageBuilder.getBlockBuilder(i));
             }
         }
 
@@ -225,7 +223,7 @@ public class TopNOperator
         private final List<Type> sortTypes;
         private final List<Integer> sortChannels;
         private final List<SortOrder> sortOrders;
-        private final PriorityQueue<Block[]> globalCandidates;
+        private final PriorityQueue<Page> globalCandidates;
         private final LocalMemoryContext localUserMemoryContext;
 
         private long memorySize;
@@ -244,7 +242,7 @@ public class TopNOperator
 
             this.localUserMemoryContext = requireNonNull(localUserMemoryContext, "localUserMemoryContext is null");
 
-            Ordering<Block[]> comparator = Ordering.from(new RowComparator(sortTypes, sortChannels, sortOrders)).reverse();
+            Ordering<Page> comparator = Ordering.from(new RowComparator(sortTypes, sortChannels, sortOrders)).reverse();
             this.globalCandidates = new PriorityQueue<>(Math.min(n, MAX_INITIAL_PRIORITY_QUEUE_SIZE), comparator);
         }
 
@@ -259,9 +257,8 @@ public class TopNOperator
         {
             long sizeDelta = 0;
 
-            Block[] blocks = page.getBlocks();
             for (int position = 0; position < page.getPositionCount(); position++) {
-                if (globalCandidates.size() < n || compare(position, blocks, globalCandidates.peek()) < 0) {
+                if (globalCandidates.size() < n || compare(position, page, globalCandidates.peek()) < 0) {
                     sizeDelta += addRow(position, page);
                 }
             }
@@ -269,15 +266,15 @@ public class TopNOperator
             return sizeDelta;
         }
 
-        private int compare(int position, Block[] blocks, Block[] currentMax)
+        private int compare(int position, Page page, Page currentMax)
         {
             for (int i = 0; i < sortChannels.size(); i++) {
                 Type type = sortTypes.get(i);
                 int sortChannel = sortChannels.get(i);
                 SortOrder sortOrder = sortOrders.get(i);
 
-                Block block = blocks[sortChannel];
-                Block currentMaxValue = currentMax[sortChannel];
+                Block block = page.getBlock(sortChannel);
+                Block currentMaxValue = currentMax.getBlock(sortChannel);
 
                 // compare the right value to the left block but negate the result since we are evaluating in the opposite order
                 int compare = -sortOrder.compareBlockValue(type, currentMaxValue, 0, block, position);
@@ -291,32 +288,23 @@ public class TopNOperator
         private long addRow(int position, Page page)
         {
             long sizeDelta = 0;
-            Block[] row = page.getSingleValuePage(position).getBlocks();
+            Page row = page.getSingleValuePage(position);
 
-            sizeDelta += sizeOfRow(row);
+            sizeDelta += row.getRetainedSizeInBytes();
             globalCandidates.add(row);
 
             while (globalCandidates.size() > n) {
-                Block[] previous = globalCandidates.remove();
-                sizeDelta -= sizeOfRow(previous);
+                Page previous = globalCandidates.remove();
+                sizeDelta -= previous.getRetainedSizeInBytes();
             }
             return sizeDelta;
         }
 
-        private static long sizeOfRow(Block[] row)
+        public Iterator<Page> build()
         {
-            long size = OVERHEAD_PER_VALUE.toBytes();
-            for (Block value : row) {
-                size += value.getRetainedSizeInBytes();
-            }
-            return size;
-        }
-
-        public Iterator<Block[]> build()
-        {
-            ImmutableList.Builder<Block[]> minSortedGlobalCandidates = ImmutableList.builder();
+            ImmutableList.Builder<Page> minSortedGlobalCandidates = ImmutableList.builder();
             while (!globalCandidates.isEmpty()) {
-                Block[] row = globalCandidates.remove();
+                Page row = globalCandidates.remove();
                 minSortedGlobalCandidates.add(row);
             }
             return minSortedGlobalCandidates.build().reverse().iterator();
