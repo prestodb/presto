@@ -31,11 +31,12 @@ import org.locationtech.jts.geom.Polygon;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.facebook.presto.geospatial.GeometryUtils.isEsriNaN;
 import static com.facebook.presto.geospatial.GeometryUtils.translateToAVNaN;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
+import static java.lang.Double.NaN;
+import static java.lang.Double.isNaN;
 import static java.util.Objects.requireNonNull;
 
 public class JtsGeometrySerde
@@ -58,7 +59,7 @@ public class JtsGeometrySerde
     {
         switch (type) {
             case POINT:
-                return readPoint(input, true);
+                return readPoint(input);
             case MULTI_POINT:
                 return readMultiPoint(input);
             case LINE_STRING:
@@ -76,13 +77,10 @@ public class JtsGeometrySerde
         }
     }
 
-    private static Point readPoint(SliceInput input, boolean skipType)
+    private static Point readPoint(SliceInput input)
     {
-        if (skipType) {
-            skipEsriType(input);
-        }
         Coordinate coordinates = readCoordinate(input);
-        if (isEsriNaN(coordinates.x) || isEsriNaN(coordinates.y)) {
+        if (isNaN(coordinates.x) || isNaN(coordinates.y)) {
             return GEOMETRY_FACTORY.createPoint();
         }
         return GEOMETRY_FACTORY.createPoint(coordinates);
@@ -95,7 +93,7 @@ public class JtsGeometrySerde
         int pointCount = input.readInt();
         Point[] points = new Point[pointCount];
         for (int i = 0; i < pointCount; i++) {
-            points[i] = readPoint(input, false);
+            points[i] = readPoint(input);
         }
         return GEOMETRY_FACTORY.createMultiPoint(points);
     }
@@ -280,12 +278,12 @@ public class JtsGeometrySerde
     private static void writePoint(Point point, SliceOutput output)
     {
         output.writeByte(GeometryType.POINT.code());
-        output.writeInt(EsriShapeType.POINT.code);
         if (!point.isEmpty()) {
             writeCoordinate(point.getCoordinate(), output);
         }
         else {
-            writeCoordinate(new Coordinate(translateToAVNaN(Double.NaN), translateToAVNaN(Double.NaN)), output);
+            output.writeDouble(NaN);
+            output.writeDouble(NaN);
         }
     }
 
@@ -425,7 +423,7 @@ public class JtsGeometrySerde
     {
         if (geometry.isEmpty()) {
             for (int i = 0; i < 4; i++) {
-                output.writeDouble(Double.NaN);
+                output.writeDouble(NaN);
             }
             return;
         }
