@@ -13,10 +13,8 @@
  */
 package com.facebook.presto.matching;
 
-import com.google.common.collect.ObjectArrays;
-
+import static com.google.common.base.Strings.repeat;
 import static java.lang.String.format;
-import static java.util.Collections.nCopies;
 
 public class Util
 {
@@ -24,12 +22,6 @@ public class Util
 
     public static String indent(int indentLevel, String template, Object... args)
     {
-        Object[] newArgs = ObjectArrays.concat(padding(indentLevel), args);
-        return format("%s" + template, newArgs);
-    }
-
-    private static String padding(int level)
-    {
-        return String.join("", nCopies(level, "\t"));
+        return repeat("\t", indentLevel) + format(template, args);
     }
 }
