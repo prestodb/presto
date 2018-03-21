@@ -127,6 +127,6 @@ public class TestMultimapAggAggregation
             builder.row(expectedKeys.get(i), expectedValues.get(i));
         }
 
-        assertAggregation(aggFunc, map.isEmpty() ? null : map, builder.build().getBlocks());
+        assertAggregation(aggFunc, map.isEmpty() ? null : map, builder.build());
     }
 }
