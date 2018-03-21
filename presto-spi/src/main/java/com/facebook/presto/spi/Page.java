@@ -267,9 +267,8 @@ public class Page
     {
         requireNonNull(retainedPositions, "retainedPositions is null");
 
-        Block[] blocks = Arrays.stream(getBlocks())
-                .map(block -> block.getPositions(retainedPositions, offset, length))
-                .toArray(Block[]::new);
+        Block[] blocks = new Block[this.blocks.length];
+        Arrays.setAll(blocks, i -> this.blocks[i].getPositions(retainedPositions, offset, length));
         return new Page(length, blocks);
     }
 

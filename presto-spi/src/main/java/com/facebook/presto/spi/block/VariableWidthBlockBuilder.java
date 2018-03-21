@@ -39,7 +39,6 @@ import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.SIZE_OF_SHORT;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Math.min;
-import static java.util.Arrays.stream;
 
 public class VariableWidthBlockBuilder
         extends AbstractVariableWidthBlock
@@ -140,9 +139,10 @@ public class VariableWidthBlockBuilder
     {
         checkArrayRange(positions, offset, length);
 
-        int finalLength = stream(positions, offset, offset + length)
-                .map(this::getSliceLength)
-                .sum();
+        int finalLength = 0;
+        for (int i = offset; i < offset + length; i++) {
+            finalLength += getSliceLength(positions[i]);
+        }
         SliceOutput newSlice = Slices.allocate(finalLength).getOutput();
         int[] newOffsets = new int[length + 1];
         boolean[] newValueIsNull = new boolean[length];
