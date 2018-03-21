@@ -308,7 +308,8 @@ public class OrcWriteValidation
             // expectedStringStatistics (or the min/max of it) could be null while the actual one might not because
             // expectedStringStatistics is calculated by merging all row group stats in the stripe but the actual one is by scanning each row in the stripe on disk.
             // Merging row group stats can produce nulls given we have string stats limit.
-            if (actualStringStatistics.getSum() != expectedStringStatistics.getSum() ||
+            if (actualStringStatistics == null ||
+                    actualStringStatistics.getSum() != expectedStringStatistics.getSum() ||
                     (expectedStringStatistics.getMax() != null && !Objects.equals(actualStringStatistics.getMax(), expectedStringStatistics.getMax())) ||
                     (expectedStringStatistics.getMin() != null && !Objects.equals(actualStringStatistics.getMin(), expectedStringStatistics.getMin()))) {
                 throw new OrcCorruptionException(orcDataSourceId, "Write validation failed: unexpected string range in %s statistics", name);
