@@ -37,7 +37,7 @@ import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static java.util.Objects.requireNonNull;
 
-public class JtsGeometryUtils
+public class JtsGeometrySerde
 {
     /**
      * Shape type codes from ERSI's specification
@@ -82,7 +82,7 @@ public class JtsGeometryUtils
 
     private static final GeometryFactory GEOMETRY_FACTORY = new GeometryFactory();
 
-    private JtsGeometryUtils() {}
+    private JtsGeometrySerde() {}
 
     /**
      * Deserializes ESRI shape as described in

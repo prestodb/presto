@@ -27,7 +27,7 @@ import com.esri.core.geometry.ogc.OGCMultiPolygon;
 import com.esri.core.geometry.ogc.OGCPoint;
 import com.esri.core.geometry.ogc.OGCPolygon;
 import com.facebook.presto.geospatial.GeometryType;
-import com.facebook.presto.geospatial.JtsGeometryUtils;
+import com.facebook.presto.geospatial.JtsGeometrySerde;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
@@ -254,7 +254,7 @@ public final class GeoFunctions
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean stIsValid(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
     {
-        return JtsGeometryUtils.deserialize(input).isValid();
+        return JtsGeometrySerde.deserialize(input).isValid();
     }
 
     @Description("Returns the reason for why the input geometry is not valid. Returns null if the input is valid.")
@@ -263,7 +263,7 @@ public final class GeoFunctions
     @SqlNullable
     public static Slice invalidReason(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
     {
-        Geometry geometry = JtsGeometryUtils.deserialize(input);
+        Geometry geometry = JtsGeometrySerde.deserialize(input);
         if (geometry == null) {
             return null;
         }
@@ -413,7 +413,7 @@ public final class GeoFunctions
             return input;
         }
 
-        return JtsGeometryUtils.serialize(simplify(JtsGeometryUtils.deserialize(input), distanceTolerance));
+        return JtsGeometrySerde.serialize(simplify(JtsGeometrySerde.deserialize(input), distanceTolerance));
     }
 
     @SqlNullable

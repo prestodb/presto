@@ -11,9 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.plugin.geospatial;
+package com.facebook.presto.geospatial;
 
-import com.facebook.presto.geospatial.JtsGeometryUtils;
+import com.esri.core.geometry.ogc.OGCGeometry;
 import io.airlift.slice.Slice;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.io.ParseException;
@@ -21,12 +21,10 @@ import org.locationtech.jts.io.WKTReader;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.geospatial.GeometrySerde.deserialize;
-import static com.facebook.presto.plugin.geospatial.GeoFunctions.stGeometryFromText;
-import static com.facebook.presto.testing.assertions.Assert.assertEquals;
-import static io.airlift.slice.Slices.utf8Slice;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
-public class TestJtsGeometryUtils
+public class TestJtsGeometrySerde
 {
     @Test
     public void testPoint()
@@ -89,9 +87,9 @@ public class TestJtsGeometryUtils
     private static void assertGeometry(String wkt)
             throws ParseException
     {
-        Slice geometry = stGeometryFromText(utf8Slice(wkt));
+        Slice geometry = GeometrySerde.serialize(OGCGeometry.fromText(wkt));
         Geometry expected = new WKTReader().read(wkt);
-        Geometry actual = JtsGeometryUtils.deserialize(geometry);
+        Geometry actual = JtsGeometrySerde.deserialize(geometry);
 
         // ESRI shape serialization format doesn't contain enough information
         // to distinguish between empty LineString and MultiLineString or
@@ -104,12 +102,12 @@ public class TestJtsGeometryUtils
         }
 
         // Test serialization
-        Slice jtsSerializedGeometry = JtsGeometryUtils.serialize(expected);
+        Slice jtsSerializedGeometry = JtsGeometrySerde.serialize(expected);
         if (expected.isEmpty()) {
-            assertTrue(JtsGeometryUtils.deserialize(jtsSerializedGeometry).isEmpty());
+            assertTrue(JtsGeometrySerde.deserialize(jtsSerializedGeometry).isEmpty());
         }
         else {
-            assertEquals(JtsGeometryUtils.deserialize(jtsSerializedGeometry), expected);
+            assertEquals(JtsGeometrySerde.deserialize(jtsSerializedGeometry), expected);
         }
         assertEquals(deserialize(jtsSerializedGeometry), deserialize(geometry));
     }
