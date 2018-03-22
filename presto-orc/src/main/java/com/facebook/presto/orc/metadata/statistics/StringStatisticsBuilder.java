@@ -19,13 +19,11 @@ import io.airlift.slice.Slices;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.orc.OrcWriterOptions.DEFAULT_MAX_STRING_STATISTICS_LIMIT;
 import static com.facebook.presto.orc.metadata.statistics.StringStatistics.STRING_VALUE_BYTES_OVERHEAD;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static java.lang.Math.addExact;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class StringStatisticsBuilder
@@ -38,9 +36,9 @@ public class StringStatisticsBuilder
     private Slice maximum;
     private long sum;
 
-    public StringStatisticsBuilder()
+    public StringStatisticsBuilder(int stringStatisticsLimitInBytes)
     {
-        this(toIntExact(DEFAULT_MAX_STRING_STATISTICS_LIMIT.toBytes()), 0, null, null, 0);
+        this(stringStatisticsLimitInBytes, 0, null, null, 0);
     }
 
     private StringStatisticsBuilder(int stringStatisticsLimitInBytes, long nonNullValueCount, Slice minimum, Slice maximum, long sum)
@@ -148,7 +146,7 @@ public class StringStatisticsBuilder
     public static Optional<StringStatistics> mergeStringStatistics(List<ColumnStatistics> stats)
     {
         // no need to set the stats limit for the builder given we assume the given stats are within the same limit
-        StringStatisticsBuilder stringStatisticsBuilder = new StringStatisticsBuilder();
+        StringStatisticsBuilder stringStatisticsBuilder = new StringStatisticsBuilder(Integer.MAX_VALUE);
         for (ColumnStatistics columnStatistics : stats) {
             StringStatistics partialStatistics = columnStatistics.getStringStatistics();
             if (columnStatistics.getNumberOfValues() > 0) {

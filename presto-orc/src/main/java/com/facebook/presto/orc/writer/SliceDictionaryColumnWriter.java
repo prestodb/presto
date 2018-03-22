@@ -492,7 +492,7 @@ public class SliceDictionaryColumnWriter
 
     private StringStatisticsBuilder newStringStatisticsBuilder()
     {
-        return new StringStatisticsBuilder().withStringStatisticsLimit(stringStatisticsLimitInBytes);
+        return new StringStatisticsBuilder(stringStatisticsLimitInBytes);
     }
 
     private static class DictionaryRowGroup
