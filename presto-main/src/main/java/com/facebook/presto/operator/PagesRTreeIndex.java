@@ -15,7 +15,6 @@ package com.facebook.presto.operator;
 
 import com.esri.core.geometry.ogc.OGCGeometry;
 import com.facebook.presto.Session;
-import com.facebook.presto.geospatial.GeometryUtils;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
@@ -65,7 +64,7 @@ public class PagesRTreeIndex
 
         public long getEstimatedMemorySizeInBytes()
         {
-            return INSTANCE_SIZE + GeometryUtils.getEstimatedMemorySizeInBytes(ogcGeometry);
+            return INSTANCE_SIZE + ogcGeometry.estimateMemorySize();
         }
     }
 
