@@ -113,12 +113,6 @@ public class InCodeGenerator
 
         List<RowExpression> values = arguments.subList(1, arguments.size());
 
-        ImmutableList.Builder<BytecodeNode> valuesBytecode = ImmutableList.builder();
-        for (int i = 1; i < arguments.size(); i++) {
-            BytecodeNode testNode = generatorContext.generate(arguments.get(i));
-            valuesBytecode.add(testNode);
-        }
-
         Type type = arguments.get(0).getType();
         Class<?> javaType = type.getJavaType();
 
