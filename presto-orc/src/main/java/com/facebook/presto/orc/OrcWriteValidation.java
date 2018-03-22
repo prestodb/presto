@@ -90,6 +90,7 @@ public class OrcWriteValidation
     private final Map<Long, List<RowGroupStatistics>> rowGroupStatistics;
     private final Map<Long, StripeStatistics> stripeStatistics;
     private final List<ColumnStatistics> fileStatistics;
+    private final int stringStatisticsLimitInBytes;
 
     private OrcWriteValidation(
             List<Integer> version,
@@ -100,7 +101,8 @@ public class OrcWriteValidation
             WriteChecksum checksum,
             Map<Long, List<RowGroupStatistics>> rowGroupStatistics,
             Map<Long, StripeStatistics> stripeStatistics,
-            List<ColumnStatistics> fileStatistics)
+            List<ColumnStatistics> fileStatistics,
+            int stringStatisticsLimitInBytes)
     {
         this.version = version;
         this.compression = compression;
@@ -111,6 +113,7 @@ public class OrcWriteValidation
         this.rowGroupStatistics = rowGroupStatistics;
         this.stripeStatistics = stripeStatistics;
         this.fileStatistics = fileStatistics;
+        this.stringStatisticsLimitInBytes = stringStatisticsLimitInBytes;
     }
 
     public List<Integer> getVersion()
@@ -251,6 +254,24 @@ public class OrcWriteValidation
         actual = actual.subList(1, actual.size());
 
         validateColumnStatisticsEquivalent(orcDataSourceId, "Row group " + rowGroupIndex + " in stripe at offset " + stripeOffset, actual, expected);
+    }
+
+    public StatisticsValidation createWriteStatisticsBuilder(Map<Integer, Type> readColumns)
+    {
+        requireNonNull(readColumns, "readColumns is null");
+        checkArgument(!readColumns.isEmpty(), "readColumns is empty");
+        int columnCount = readColumns.keySet().stream()
+                .mapToInt(Integer::intValue)
+                .max().getAsInt() + 1;
+        checkArgument(readColumns.size() == columnCount, "statistics validation requires all columns to be read");
+
+        ImmutableList.Builder<Type> types = ImmutableList.builder();
+        for (int column = 0; column < columnCount; column++) {
+            Type type = readColumns.get(column);
+            checkArgument(type != null, "statistics validation requires all columns to be read");
+            types.add(type);
+        }
+        return new StatisticsValidation(types.build());
     }
 
     private static void validateColumnStatisticsEquivalent(
@@ -474,7 +495,7 @@ public class OrcWriteValidation
         }
     }
 
-    public static class StatisticsValidation
+    public class StatisticsValidation
     {
         private final List<Type> types;
         private List<ColumnStatisticsValidation> columnStatisticsValidations;
@@ -486,24 +507,6 @@ public class OrcWriteValidation
             columnStatisticsValidations = types.stream()
                     .map(ColumnStatisticsValidation::new)
                     .collect(toImmutableList());
-        }
-
-        public static StatisticsValidation createWriteStatisticsBuilder(Map<Integer, Type> readColumns)
-        {
-            requireNonNull(readColumns, "readColumns is null");
-            checkArgument(!readColumns.isEmpty(), "readColumns is empty");
-            int columnCount = readColumns.keySet().stream()
-                    .mapToInt(Integer::intValue)
-                    .max().getAsInt() + 1;
-            checkArgument(readColumns.size() == columnCount, "statistics validation requires all columns to be read");
-
-            ImmutableList.Builder<Type> types = ImmutableList.builder();
-            for (int column = 0; column < columnCount; column++) {
-                Type type = readColumns.get(column);
-                checkArgument(type != null, "statistics validation requires all columns to be read");
-                types.add(type);
-            }
-            return new StatisticsValidation(types.build());
         }
 
         public void reset()
@@ -534,7 +537,7 @@ public class OrcWriteValidation
         }
     }
 
-    private static class ColumnStatisticsValidation
+    private class ColumnStatisticsValidation
     {
         private final Type type;
         private final StatisticsBuilder statisticsBuilder;
@@ -581,12 +584,12 @@ public class OrcWriteValidation
                 fieldBuilders = ImmutableList.of();
             }
             else if (type instanceof VarcharType) {
-                statisticsBuilder = new StringStatisticsBuilder();
+                statisticsBuilder = new StringStatisticsBuilder(stringStatisticsLimitInBytes);
                 fieldExtractor = ignored -> ImmutableList.of();
                 fieldBuilders = ImmutableList.of();
             }
             else if (type instanceof CharType) {
-                statisticsBuilder = new StringStatisticsBuilder();
+                statisticsBuilder = new StringStatisticsBuilder(stringStatisticsLimitInBytes);
                 fieldExtractor = ignored -> ImmutableList.of();
                 fieldBuilders = ImmutableList.of();
             }
@@ -709,6 +712,7 @@ public class OrcWriteValidation
         private List<Integer> version;
         private CompressionKind compression;
         private int rowGroupMaxRowCount;
+        private int stringStatisticsLimitInBytes;
         private List<String> columnNames;
         private final Map<String, Slice> metadata = new HashMap<>();
         private final WriteChecksumBuilder checksum;
@@ -736,6 +740,12 @@ public class OrcWriteValidation
         public void setRowGroupMaxRowCount(int rowGroupMaxRowCount)
         {
             this.rowGroupMaxRowCount = rowGroupMaxRowCount;
+        }
+
+        public OrcWriteValidationBuilder setStringStatisticsLimitInBytes(int stringStatisticsLimitInBytes)
+        {
+            this.stringStatisticsLimitInBytes = stringStatisticsLimitInBytes;
+            return this;
         }
 
         public OrcWriteValidationBuilder setColumnNames(List<String> columnNames)
@@ -790,7 +800,8 @@ public class OrcWriteValidation
                     checksum.build(),
                     rowGroupStatisticsByStripe,
                     stripeStatistics,
-                    fileStatistics);
+                    fileStatistics,
+                    stringStatisticsLimitInBytes);
         }
     }
 }
