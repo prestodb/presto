@@ -136,9 +136,9 @@ ALTER TABLE presto_test_types_orc ADD COLUMNS (new_column INT);
 ALTER TABLE presto_test_types_parquet ADD COLUMNS (new_column INT);
 
 
-ALTER TABLE presto_test_types_textfile ADD COLUMNS t_struct t_struct STRUCT<s_string:STRING, s_double:DOUBLE, s_boolean:BOOLEAN>;
-ALTER TABLE presto_test_types_sequencefile ADD COLUMNS t_struct t_struct STRUCT<s_string:STRING, s_double:DOUBLE, s_boolean:BOOLEAN>;
-ALTER TABLE presto_test_types_rctext ADD COLUMNS t_struct t_struct STRUCT<s_string:STRING, s_double:DOUBLE, s_boolean:BOOLEAN>;
-ALTER TABLE presto_test_types_rcbinary ADD COLUMNS t_struct t_struct STRUCT<s_string:STRING, s_double:DOUBLE, s_boolean:BOOLEAN>;
-ALTER TABLE presto_test_types_orc ADD COLUMNS t_struct t_struct STRUCT<s_string:STRING, s_double:DOUBLE, s_boolean:BOOLEAN>;
-ALTER TABLE presto_test_types_parquet ADD COLUMNS t_struct t_struct STRUCT<s_string:STRING, s_double:DOUBLE, s_boolean:BOOLEAN>;
+ALTER TABLE presto_test_types_textfile CHANGE COLUMNS t_struct t_struct STRUCT<s_string:STRING, s_double:DOUBLE, s_boolean:BOOLEAN>;
+ALTER TABLE presto_test_types_sequencefile CHANGE COLUMNS t_struct t_struct STRUCT<s_string:STRING, s_double:DOUBLE, s_boolean:BOOLEAN>;
+ALTER TABLE presto_test_types_rctext CHANGE COLUMNS t_struct t_struct STRUCT<s_string:STRING, s_double:DOUBLE, s_boolean:BOOLEAN>;
+ALTER TABLE presto_test_types_rcbinary CHANGE COLUMNS t_struct t_struct STRUCT<s_string:STRING, s_double:DOUBLE, s_boolean:BOOLEAN>;
+ALTER TABLE presto_test_types_orc CHANGE COLUMNS t_struct t_struct STRUCT<s_string:STRING, s_double:DOUBLE, s_boolean:BOOLEAN>;
+ALTER TABLE presto_test_types_parquet CHANGE COLUMN t_struct t_struct STRUCT<s_string:STRING, s_double:DOUBLE, s_boolean:BOOLEAN>;
