@@ -27,6 +27,7 @@ import com.facebook.presto.spi.type.NamedTypeSignature;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
+import com.google.common.annotations.VisibleForTesting;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 import parquet.column.ColumnDescriptor;
@@ -58,7 +59,10 @@ public class ParquetReader
         implements Closeable
 {
     private static final int MAX_VECTOR_LENGTH = 1024;
-    private static final String MAP_TYPE_NAME = "map";
+    //Per Parquet documentation - "Some existing data incorrectly used MAP in place of MAP_KEY_VALUE. For backward-compatibility,
+    // a group annotated with MAP_KEY_VALUE that is not contained by a MAP-annotated group should be handled as a MAP-annotated group."
+    private static final String LEGACY_MAP_TYPE_NAME = "map";
+    private static final String MAP_TYPE_NAME = "key_value";
     private static final String MAP_KEY_NAME = "key";
     private static final String MAP_VALUE_NAME = "value";
     private static final String ARRAY_TYPE_NAME = "bag";
@@ -193,10 +197,12 @@ public class ParquetReader
 
         IntList keyOffsets = new IntArrayList();
         IntList valueOffsets = new IntArrayList();
-        path.add(MAP_TYPE_NAME);
+
+        String effectiveMapKeyName = getMapKeyPath(path);
+        path.add(effectiveMapKeyName);
         blocks[0] = readBlock(MAP_KEY_NAME, parameters.get(0), path, keyOffsets);
         blocks[1] = readBlock(MAP_VALUE_NAME, parameters.get(1), path, valueOffsets);
-        path.remove(MAP_TYPE_NAME);
+        path.remove(effectiveMapKeyName);
 
         if (blocks[0].getPositionCount() == 0) {
             for (int i = 0; i < batchSize; i++) {
@@ -317,5 +323,32 @@ public class ParquetReader
         }
         path.remove(name);
         return block;
+    }
+
+    /**
+     * Helper used to determine the appropriate group annotation processing markers to use based on the schema of the parquet file being read.
+     *
+     * @param path The path to the parent column. This should be a map column.
+     * @return The value to use for the map group annotation in the column path.
+     */
+    @VisibleForTesting
+    String getMapKeyPath(List<String> path)
+    {
+        Optional<RichColumnDescriptor> descriptor = getDescriptor(fileSchema, requestedSchema, path);
+
+        if (!descriptor.isPresent()) {
+            return LEGACY_MAP_TYPE_NAME;
+        }
+
+        //Find the offset of the key portion of the path, this is two from the end. e.g. col0,key_value,key for legacy map schemas.
+        String[] descriptorPath = descriptor.get().getPath();
+        int keyPathOffset = descriptorPath.length - 2;
+
+        //Detect if this parquet file's schema was written using a legacy implementation.
+        if (keyPathOffset > 0 && MAP_TYPE_NAME.equalsIgnoreCase(descriptorPath[keyPathOffset])) {
+            return MAP_TYPE_NAME;
+        }
+
+        return LEGACY_MAP_TYPE_NAME;
     }
 }
