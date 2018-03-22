@@ -137,14 +137,13 @@ public class JoinFilterFunctionCompiler
         PreGeneratedExpressions preGeneratedExpressions = generateMethodsForLambdaAndTry(classDefinition, callSiteBinder, cachedInstanceBinder, leftBlocksSize, filter);
         generateFilterMethod(classDefinition, callSiteBinder, cachedInstanceBinder, preGeneratedExpressions, filter, leftBlocksSize, sessionField);
 
-        generateConstructor(classDefinition, sessionField, cachedInstanceBinder, preGeneratedExpressions);
+        generateConstructor(classDefinition, sessionField, cachedInstanceBinder);
     }
 
     private static void generateConstructor(
             ClassDefinition classDefinition,
             FieldDefinition sessionField,
-            CachedInstanceBinder cachedInstanceBinder,
-            PreGeneratedExpressions preGeneratedExpressions)
+            CachedInstanceBinder cachedInstanceBinder)
     {
         Parameter sessionParameter = arg("session", ConnectorSession.class);
         MethodDefinition constructorDefinition = classDefinition.declareConstructor(a(PUBLIC), sessionParameter);
