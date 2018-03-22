@@ -74,12 +74,13 @@ public class TestGeometrySerialization
     private static void testSerialization(String wkt)
     {
         OGCGeometry geometry = OGCGeometry.fromText(wkt);
+        geometry.setSpatialReference(null);
         OGCGeometry deserializedGeometry = deserialize(serialize(geometry));
         if (geometry.isEmpty()) {
             assertTrue(deserializedGeometry.isEmpty());
         }
         else {
-            assertEquals(geometry.asText(), deserializedGeometry.asText());
+            assertEquals(geometry, deserializedGeometry);
         }
     }
 }
