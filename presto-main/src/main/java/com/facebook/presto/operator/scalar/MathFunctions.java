@@ -1180,7 +1180,9 @@ public final class MathFunctions
             index = (lower + upper) / 2;
             bin = DOUBLE.getDouble(bins, index);
 
-            checkCondition(isFinite(bin), INVALID_FUNCTION_ARGUMENT, format("Bin value must be finite, got %s", bin));
+            if (!isFinite(bin)) {
+                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Bin value must be finite, got " + bin);
+            }
 
             if (operand < bin) {
                 upper = index;
