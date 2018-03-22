@@ -159,12 +159,14 @@ public class QueryBuilder
             }
             else if (typeAndValue.getType().equals(TimeWithTimeZoneType.TIME_WITH_TIME_ZONE)) {
                 statement.setTime(i + 1, new Time(unpackMillisUtc((long) typeAndValue.getValue())));
+                //statement.setObject(i + 1, OffsetTime.of(typeAndValue.getValue()));
             }
             else if (typeAndValue.getType().equals(TimestampType.TIMESTAMP)) {
                 statement.setTimestamp(i + 1, new Timestamp((long) typeAndValue.getValue()));
             }
             else if (typeAndValue.getType().equals(TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE)) {
                 statement.setTimestamp(i + 1, new Timestamp(unpackMillisUtc((long) typeAndValue.getValue())));
+                //statement.setObject(i + 1, ZonedDateTime.of());
             }
             else if (typeAndValue.getType() instanceof VarcharType) {
                 statement.setString(i + 1, ((Slice) typeAndValue.getValue()).toStringUtf8());
