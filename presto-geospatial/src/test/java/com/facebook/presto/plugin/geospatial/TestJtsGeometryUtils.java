@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.plugin.geospatial;
 
-import com.facebook.presto.geospatial.GeometryUtils;
 import com.facebook.presto.geospatial.JtsGeometryUtils;
 import io.airlift.slice.Slice;
 import org.locationtech.jts.geom.Geometry;
@@ -21,6 +20,7 @@ import org.locationtech.jts.io.ParseException;
 import org.locationtech.jts.io.WKTReader;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.geospatial.GeometryUtils.deserialize;
 import static com.facebook.presto.plugin.geospatial.GeoFunctions.stGeometryFromText;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -113,6 +113,6 @@ public class TestJtsGeometryUtils
         else {
             assertEquals(JtsGeometryUtils.deserialize(jtsSerializedGeometry), expected);
         }
-        assertEquals(GeometryUtils.deserialize(jtsSerializedGeometry).asText(), (GeometryUtils.deserialize(geometry)).asText());
+        assertEquals(deserialize(jtsSerializedGeometry), deserialize(geometry));
     }
 }
