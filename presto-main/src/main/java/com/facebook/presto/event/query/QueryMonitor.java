@@ -79,7 +79,7 @@ public class QueryMonitor
     private final String serverVersion;
     private final String serverAddress;
     private final String environment;
-    private final QueryMonitorConfig config;
+    private final int maxJsonLimit;
 
     @Inject
     public QueryMonitor(
@@ -96,7 +96,7 @@ public class QueryMonitor
         this.serverVersion = requireNonNull(nodeVersion, "nodeVersion is null").toString();
         this.serverAddress = requireNonNull(nodeInfo, "nodeInfo is null").getExternalAddress();
         this.environment = requireNonNull(nodeInfo, "nodeInfo is null").getEnvironment();
-        this.config = requireNonNull(config, "config is null");
+        this.maxJsonLimit = toIntExact(requireNonNull(config, "config is null").getMaxOutputStageJsonSize().toBytes());
     }
 
     public void queryCreatedEvent(QueryInfo queryInfo)
@@ -205,7 +205,7 @@ public class QueryMonitor
                                     queryInfo.getState().toString(),
                                     queryInfo.getSelf(),
                                     plan,
-                                    queryInfo.getOutputStage().flatMap(stage -> stageInfoCodec.toJsonWithLengthLimit(stage, toIntExact(config.getMaxOutputStageJsonSize().toBytes())))),
+                                    queryInfo.getOutputStage().flatMap(stage -> stageInfoCodec.toJsonWithLengthLimit(stage, maxJsonLimit))),
                             new QueryStatistics(
                                     ofMillis(queryStats.getTotalCpuTime().toMillis()),
                                     ofMillis(queryStats.getTotalScheduledTime().toMillis()),
