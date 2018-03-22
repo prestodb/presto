@@ -495,7 +495,10 @@ public class ShardCleaner
             }
 
             try {
-                result.add(queue.poll(remainingNanos, NANOSECONDS));
+                T value = queue.poll(remainingNanos, NANOSECONDS);
+                if (value != null) {
+                    result.add(value);
+                }
             }
             catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
