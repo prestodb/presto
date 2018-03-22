@@ -133,6 +133,6 @@ public class TestCassandraDistributed
     @Override
     public void testShowTablesLikeWithEscape()
     {
-        // Cassandra connector currently does not support create table, so we run empty test
+        // Cassandra connector currently does not support create table
     }
 }

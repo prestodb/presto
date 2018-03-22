@@ -51,4 +51,10 @@ public class TestTpchDistributedQueries
         }
         assertTrue(sampleSizeFound, "Table sample returned unexpected number of rows");
     }
+
+    @Override
+    public void testShowTablesLikeWithEscape()
+    {
+        // Tpch connector currently does not support create table
+    }
 }

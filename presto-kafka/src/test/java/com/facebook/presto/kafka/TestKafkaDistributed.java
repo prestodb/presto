@@ -48,4 +48,10 @@ public class TestKafkaDistributed
     {
         embeddedKafka.close();
     }
+
+    @Override
+    public void testShowTablesLikeWithEscape()
+    {
+        // Kafka connector currently does not support create table
+    }
 }

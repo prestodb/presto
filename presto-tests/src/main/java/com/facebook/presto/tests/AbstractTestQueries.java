@@ -4713,17 +4713,9 @@ public abstract class AbstractTestQueries
         assertQueryFails("SHOW TABLES IN a LIKE '%$_%' ESCAPE", "line 1:36: no viable alternative at input '<EOF>'");
         assertQueryFails("SHOW TABLES LIKE 't$_%' ESCAPE ''", "Escape string must be a single character");
         assertQueryFails("SHOW TABLES LIKE 't$_%' ESCAPE '$$'", "Escape string must be a single character");
-
-        try {
-            assertUpdate("CREATE TABLE test_escape_1 (a bigint)");
-            assertUpdate("CREATE TABLE test_escape11 (a bigint)");
-        }
-        catch (RuntimeException e) {
-            assertTrue(ImmutableSet.of("This connector does not support creating tables",
-                    "Unsupported statement type CreateTable")
-                    .contains(e.getMessage()));
-            return;
-        }
+ 
+        assertUpdate("CREATE TABLE test_escape_1 (a bigint)");
+        assertUpdate("CREATE TABLE test_escape11 (a bigint)");
 
         assertQuery("SHOW TABLES LIKE 'test_escape_%'", "VALUES 'test_escape_1', 'test_escape11'");
         assertQuery("SHOW TABLES LIKE 'test_escape\\_%' ESCAPE '\\'", "VALUES 'test_escape_1'");
