@@ -226,7 +226,7 @@ public class OrcOutputBuffer
         // Write huge chunks direct to OutputStream
         if (length >= DIRECT_FLUSH_SIZE) {
             flushBufferToOutputStream();
-            writeDirectlyToOutputStream((byte[]) source.getBase(), sourceIndex + (int) (slice.getAddress() - ARRAY_BYTE_BASE_OFFSET), length);
+            writeDirectlyToOutputStream((byte[]) source.getBase(), sourceIndex + (int) (source.getAddress() - ARRAY_BYTE_BASE_OFFSET), length);
             bufferOffset += length;
         }
         else {
