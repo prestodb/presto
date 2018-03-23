@@ -270,7 +270,7 @@ public abstract class AbstractTestHiveClientS3
     public void testGetFileStatus()
             throws Exception
     {
-        Path basePath = new Path("s3://presto-test-hive/");
+        Path basePath = new Path(format("s3://%s/", writableBucket));
         Path tablePath = new Path(basePath, "presto_test_s3");
         Path filePath = new Path(tablePath, "test1.csv");
         FileSystem fs = hdfsEnvironment.getFileSystem(TESTING_CONTEXT, basePath);
