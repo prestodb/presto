@@ -16,11 +16,7 @@ package com.facebook.presto.execution;
 import com.facebook.presto.OutputBuffers.OutputBufferId;
 import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.TaskSource;
-import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.event.query.QueryMonitor;
-import com.facebook.presto.event.query.QueryMonitorConfig;
-import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.execution.buffer.BufferState;
 import com.facebook.presto.execution.buffer.OutputBuffer;
@@ -64,8 +60,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-import io.airlift.json.ObjectMapperProvider;
-import io.airlift.node.NodeInfo;
 import io.airlift.stats.TestingGcMonitor;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -94,6 +88,7 @@ import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.block.BlockAssertions.createStringSequenceBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.execution.TaskTestUtils.TABLE_SCAN_NODE_ID;
+import static com.facebook.presto.execution.TaskTestUtils.createTestQueryMonitor;
 import static com.facebook.presto.execution.buffer.BufferState.OPEN;
 import static com.facebook.presto.execution.buffer.BufferState.TERMINAL_BUFFER_STATES;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
@@ -104,7 +99,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.threadsNamed;
-import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Objects.requireNonNull;
@@ -180,7 +174,7 @@ public class TestSqlTaskExecution
                     localExecutionPlan,
                     taskExecutor,
                     taskNotificationExecutor,
-                    new QueryMonitor(new ObjectMapperProvider().get(), jsonCodec(StageInfo.class), new EventListenerManager(), new NodeInfo("test"), new NodeVersion("testVersion"), new QueryMonitorConfig()));
+                    createTestQueryMonitor());
 
             //
             // test body
@@ -432,7 +426,7 @@ public class TestSqlTaskExecution
                     localExecutionPlan,
                     taskExecutor,
                     taskNotificationExecutor,
-                    new QueryMonitor(new ObjectMapperProvider().get(), jsonCodec(StageInfo.class), new EventListenerManager(), new NodeInfo("test"), new NodeVersion("testVersion"), new QueryMonitorConfig()));
+                    createTestQueryMonitor());
 
             //
             // test body

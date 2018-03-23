@@ -167,12 +167,13 @@ public class ExplainAnalyzeOperator
 
         QueryInfo queryInfo = queryPerformanceFetcher.getQueryInfo(operatorContext.getDriverContext().getTaskId().getQueryId());
         checkState(queryInfo.getOutputStage().isPresent(), "Output stage is missing");
+        checkState(queryInfo.getOutputStage().get().getSubStages().size() == 1, "Expected one sub stage of explain node");
 
         if (!hasFinalStageInfo(queryInfo.getOutputStage().get())) {
             return null;
         }
 
-        String plan = textDistributedPlan(queryInfo.getOutputStage().get(), functionRegistry, statsCalculator, costCalculator, operatorContext.getSession(), verbose);
+        String plan = textDistributedPlan(queryInfo.getOutputStage().get().getSubStages().get(0), functionRegistry, statsCalculator, costCalculator, operatorContext.getSession(), verbose);
         BlockBuilder builder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 1);
         VARCHAR.writeString(builder, plan);
 
