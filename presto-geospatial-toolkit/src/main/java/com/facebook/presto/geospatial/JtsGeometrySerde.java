@@ -32,152 +32,55 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static com.facebook.presto.geospatial.GeometryUtils.isEsriNaN;
+import static com.facebook.presto.geospatial.GeometryUtils.translateToAVNaN;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
-import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static java.util.Objects.requireNonNull;
 
 public class JtsGeometrySerde
 {
-    /**
-     * Shape type codes from ERSI's specification
-     * https://www.esri.com/library/whitepapers/pdfs/shapefile.pdf
-     */
-    private enum EsriShapeType
-    {
-        POINT(1),
-        POLYLINE(3),
-        POLYGON(5),
-        MULTI_POINT(8);
-
-        final int code;
-
-        EsriShapeType(int code)
-        {
-            this.code = code;
-        }
-
-        static EsriShapeType valueOf(int code)
-        {
-            for (EsriShapeType type : values()) {
-                if (type.code == code) {
-                    return type;
-                }
-            }
-
-            throw new IllegalArgumentException("Unsupported ESRI shape code: " + code);
-        }
-    }
-
-    /**
-     * Shape types defined by JTS.
-     */
-    private static final String JTS_POINT = "Point";
-    private static final String JTS_POLYGON = "Polygon";
-    private static final String JTS_LINESTRING = "LineString";
-    private static final String JTS_MULTI_POINT = "MultiPoint";
-    private static final String JTS_MULTI_POLYGON = "MultiPolygon";
-    private static final String JTS_MULTI_LINESTRING = "MultiLineString";
-    private static final String JTS_GEOMETRY_COLLECTION = "GeometryCollection";
-
+    // TODO: Are we sure this is thread safe?
     private static final GeometryFactory GEOMETRY_FACTORY = new GeometryFactory();
 
     private JtsGeometrySerde() {}
 
-    /**
-     * Deserializes ESRI shape as described in
-     * https://www.esri.com/library/whitepapers/pdfs/shapefile.pdf
-     * into JTS Geometry object.
-     */
     public static Geometry deserialize(Slice shape)
     {
-        if (shape == null) {
-            return null;
-        }
-
+        requireNonNull(shape, "shape is null");
         BasicSliceInput input = shape.getInput();
-        int geometryType = input.readByte();
-        if (geometryType != GeometryType.GEOMETRY_COLLECTION.code()) {
-            return readGeometry(input);
-        }
-
-        if (input.available() == 0) {
-            return GEOMETRY_FACTORY.createGeometryCollection();
-        }
-
-        // GeometryCollection: geometry-type|len-of-shape1|bytes-of-shape1|len-of-shape2|bytes-of-shape2...
-        List<Geometry> geometries = new ArrayList<>();
-        while (input.available() > 0) {
-            int length = input.readInt();
-            geometries.add(readGeometry(input.readSlice(length).getInput()));
-        }
-
-        return GEOMETRY_FACTORY.createGeometryCollection(geometries.toArray(new Geometry[0]));
+        verify(input.available() > 0);
+        GeometryType type = GeometryType.getForCode(input.readByte());
+        return readGeometry(input, type);
     }
 
-    /**
-     * Serialize JTS {@link Geometry} shape into an ESRI shape
-     */
-    public static Slice serialize(Geometry geometry)
+    private static Geometry readGeometry(BasicSliceInput input, GeometryType type)
     {
-        SliceOutput output = new DynamicSliceOutput(100);
-
-        boolean inGeometryCollection = geometry.getGeometryType().equals(JTS_GEOMETRY_COLLECTION);
-        if (inGeometryCollection) {
-            output.writeByte(GeometryType.GEOMETRY_COLLECTION.code());
-            for (int i = 0; i < geometry.getNumGeometries(); i++) {
-                writeGeometry(geometry.getGeometryN(i), output, true);
-            }
-        }
-        else {
-            writeGeometry(geometry, output, false);
-        }
-        return output.slice();
-    }
-
-    private static void writeGeometry(Geometry geometry, SliceOutput output, boolean inGeometryCollection)
-    {
-        switch (geometry.getGeometryType()) {
-            case JTS_POINT:
-                writePoint((Point) geometry, output, inGeometryCollection);
-                break;
-            case JTS_MULTI_POINT:
-                writeMultiPoint((MultiPoint) geometry, output, inGeometryCollection);
-                break;
-            case JTS_LINESTRING:
-            case JTS_MULTI_LINESTRING:
-                writePolyline(geometry, output, inGeometryCollection);
-                break;
-            case JTS_POLYGON:
-            case JTS_MULTI_POLYGON:
-                writePolygon(geometry, output, inGeometryCollection);
-                break;
-            default:
-                throw new IllegalArgumentException("Unsupported geometry type : " + geometry.getGeometryType());
-        }
-    }
-
-    private static Geometry readGeometry(SliceInput input)
-    {
-        requireNonNull(input, "input is null");
-        int geometryType = input.readInt();
-        switch (EsriShapeType.valueOf(geometryType)) {
+        switch (type) {
             case POINT:
-                return readPoint(input);
-            case POLYLINE:
-                return readPolyline(input);
-            case POLYGON:
-                return readPolygon(input);
+                return readPoint(input, true);
             case MULTI_POINT:
                 return readMultiPoint(input);
+            case LINE_STRING:
+                return readPolyline(input, false);
+            case MULTI_LINE_STRING:
+                return readPolyline(input, true);
+            case POLYGON:
+                return readPolygon(input, false);
+            case MULTI_POLYGON:
+                return readPolygon(input, true);
+            case GEOMETRY_COLLECTION:
+                return readGeometryCollection(input);
             default:
-                throw new UnsupportedOperationException("Invalid geometry type: " + geometryType);
+                throw new UnsupportedOperationException("Unexpected type: " + type);
         }
     }
 
-    private static Point readPoint(SliceInput input)
+    private static Point readPoint(SliceInput input, boolean skipType)
     {
-        requireNonNull(input, "input is null");
+        if (skipType) {
+            skipEsriType(input);
+        }
         Coordinate coordinates = readCoordinate(input);
         if (isEsriNaN(coordinates.x) || isEsriNaN(coordinates.y)) {
             return GEOMETRY_FACTORY.createPoint();
@@ -185,185 +88,67 @@ public class JtsGeometrySerde
         return GEOMETRY_FACTORY.createPoint(coordinates);
     }
 
-    private static void writePoint(Point point, SliceOutput output, boolean inGeometryCollection)
-    {
-        requireNonNull(output, "output is null");
-        if (inGeometryCollection) {
-            output.writeInt(SIZE_OF_DOUBLE * 2 + SIZE_OF_INT);
-        }
-        else {
-            output.writeByte(GeometryType.POINT.code());
-        }
-
-        output.writeInt(EsriShapeType.POINT.code);
-        if (!point.isEmpty()) {
-            writeCoordinate(point.getCoordinate(), output);
-        }
-        else {
-            writeCoordinate(new Coordinate(Double.NaN, Double.NaN), output);
-        }
-    }
-
-    private static Coordinate readCoordinate(SliceInput input)
-    {
-        requireNonNull(input, "input is null");
-        return new Coordinate(input.readDouble(), input.readDouble());
-    }
-
-    private static void writeCoordinate(Coordinate coordinate, SliceOutput output)
-    {
-        requireNonNull(output, "output is null");
-        output.writeDouble(coordinate.x);
-        output.writeDouble(coordinate.y);
-    }
-
-    private static void writeCoordinates(Coordinate[] coordinates, SliceOutput output)
-    {
-        requireNonNull(coordinates, "coordinates is null");
-        requireNonNull(output, "output is null");
-        for (Coordinate coordinate : coordinates) {
-            writeCoordinate(coordinate, output);
-        }
-    }
-
     private static Geometry readMultiPoint(SliceInput input)
     {
-        requireNonNull(input, "input is null");
+        skipEsriType(input);
         skipEnvelope(input);
         int pointCount = input.readInt();
         Point[] points = new Point[pointCount];
         for (int i = 0; i < pointCount; i++) {
-            points[i] = readPoint(input);
+            points[i] = readPoint(input, false);
         }
         return GEOMETRY_FACTORY.createMultiPoint(points);
     }
 
-    private static void writeMultiPoint(MultiPoint geometry, SliceOutput output, boolean inGeometryCollection)
+    private static Geometry readPolyline(SliceInput input, boolean multitype)
     {
-        requireNonNull(geometry, "geometry is null");
-        requireNonNull(output, "output is null");
-
-        int numPoints = geometry.getNumPoints();
-        if (inGeometryCollection) {
-            output.writeInt(SIZE_OF_INT + SIZE_OF_DOUBLE * 4 + SIZE_OF_INT + SIZE_OF_DOUBLE * 2 * numPoints);
-        }
-        else {
-            output.writeByte(GeometryType.MULTI_POINT.code());
-        }
-
-        output.writeInt(EsriShapeType.MULTI_POINT.code);
-
-        writeEnvelope(geometry.getEnvelopeInternal(), output);
-
-        output.writeInt(numPoints);
-        for (Coordinate coordinate : geometry.getCoordinates()) {
-            writeCoordinate(coordinate, output);
-        }
-    }
-
-    private static Geometry readPolyline(SliceInput input)
-    {
-        requireNonNull(input, "input is null");
+        skipEsriType(input);
         skipEnvelope(input);
         int partCount = input.readInt();
         if (partCount == 0) {
+            if (multitype) {
+                return GEOMETRY_FACTORY.createMultiLineString();
+            }
             return GEOMETRY_FACTORY.createLineString();
         }
 
         int pointCount = input.readInt();
-        LineString[] lineStrings = new LineString[partCount];
+        int[] startIndexes = new int[partCount];
+        for (int i = 0; i < partCount; i++) {
+            startIndexes[i] = input.readInt();
+        }
 
         int[] partLengths = new int[partCount];
-        input.readInt();    // skip first index; it is always 0
         if (partCount > 1) {
-            partLengths[0] = input.readInt();
+            partLengths[0] = startIndexes[1];
             for (int i = 1; i < partCount - 1; i++) {
-                partLengths[i] = input.readInt() - partLengths[i - 1];
+                partLengths[i] = startIndexes[i + 1] - startIndexes[i];
             }
-            partLengths[partCount - 1] = pointCount - partLengths[partCount - 2];
         }
-        else {
-            partLengths[0] = pointCount;
-        }
+        partLengths[partCount - 1] = pointCount - startIndexes[partCount - 1];
+
+        LineString[] lineStrings = new LineString[partCount];
 
         for (int i = 0; i < partCount; i++) {
             lineStrings[i] = GEOMETRY_FACTORY.createLineString(readCoordinates(input, partLengths[i]));
         }
 
-        if (lineStrings.length == 1) {
-            return lineStrings[0];
+        if (multitype) {
+            return GEOMETRY_FACTORY.createMultiLineString(lineStrings);
         }
-        return GEOMETRY_FACTORY.createMultiLineString(lineStrings);
+        verify(lineStrings.length == 1);
+        return lineStrings[0];
     }
 
-    private static void writePolyline(Geometry geometry, SliceOutput output, boolean inGeometryCollection)
+    private static Geometry readPolygon(SliceInput input, boolean multitype)
     {
-        requireNonNull(geometry, "polyline is null");
-        requireNonNull(output, "output is null");
-
-        int numParts;
-        int numPoints = geometry.getNumPoints();
-        switch (geometry.getGeometryType()) {
-            case JTS_MULTI_LINESTRING:
-                numParts = geometry.getNumGeometries();
-                break;
-            case JTS_LINESTRING:
-                numParts = numPoints > 0 ? 1 : 0;
-                break;
-            default:
-                throw new IllegalArgumentException("Expected LineString or MultiLineString, but got " + geometry.getGeometryType());
-        }
-
-        if (inGeometryCollection) {
-            output.writeInt(SIZE_OF_INT + SIZE_OF_DOUBLE * 4 + SIZE_OF_INT * 2 + SIZE_OF_INT * numParts +
-                    SIZE_OF_DOUBLE * 2 * numPoints);
-        }
-        else {
-            switch (geometry.getGeometryType()) {
-                case JTS_LINESTRING:
-                    output.writeByte(GeometryType.LINE_STRING.code());
-                    break;
-                case JTS_MULTI_LINESTRING:
-                    output.writeByte(GeometryType.MULTI_LINE_STRING.code());
-                    break;
-            }
-        }
-
-        output.writeInt(EsriShapeType.POLYLINE.code);
-
-        writeEnvelope(geometry.getEnvelopeInternal(), output);
-
-        output.writeInt(numParts);
-
-        output.writeInt(numPoints);
-
-        if (numParts > 0) {
-            output.writeInt(0);
-            for (int i = 0; i < numParts - 1; i++) {
-                output.writeInt(geometry.getGeometryN(i).getNumPoints());
-            }
-        }
-
-        writeCoordinates(geometry.getCoordinates(), output);
-    }
-
-    private static Coordinate[] readCoordinates(SliceInput input, int count)
-    {
-        requireNonNull(input, "input is null");
-        verify(count > 0);
-        Coordinate[] coordinates = new Coordinate[count];
-        for (int i = 0; i < count; i++) {
-            coordinates[i] = readCoordinate(input);
-        }
-        return coordinates;
-    }
-
-    private static Geometry readPolygon(SliceInput input)
-    {
-        requireNonNull(input, "input is null");
+        skipEsriType(input);
         skipEnvelope(input);
         int partCount = input.readInt();
         if (partCount == 0) {
+            if (multitype) {
+                return GEOMETRY_FACTORY.createMultiPolygon();
+            }
             return GEOMETRY_FACTORY.createPolygon();
         }
 
@@ -387,32 +172,165 @@ public class JtsGeometrySerde
         List<Polygon> polygons = new ArrayList<>();
         for (int i = 0; i < partCount; i++) {
             Coordinate[] coordinates = readCoordinates(input, partLengths[i]);
-            if (!isClockwise(coordinates)) {
+            if (isClockwise(coordinates)) {
+                // next polygon has started
+                if (shell != null) {
+                    polygons.add(GEOMETRY_FACTORY.createPolygon(shell, holes.toArray(new LinearRing[0])));
+                    holes.clear();
+                }
+                else {
+                    verify(holes.isEmpty(), "shell is null but holes found");
+                }
+                shell = GEOMETRY_FACTORY.createLinearRing(coordinates);
+            }
+            else {
+                verify(shell != null, "shell is null but hole found");
                 holes.add(GEOMETRY_FACTORY.createLinearRing(coordinates));
-                continue;
             }
-            if (shell != null) {
-                polygons.add(GEOMETRY_FACTORY.createPolygon(shell, holes.toArray(new LinearRing[0])));
-            }
-            shell = GEOMETRY_FACTORY.createLinearRing(coordinates);
-            holes.clear();
         }
         polygons.add(GEOMETRY_FACTORY.createPolygon(shell, holes.toArray(new LinearRing[0])));
 
-        if (polygons.size() == 1) {
-            return polygons.get(0);
+        if (multitype) {
+            return GEOMETRY_FACTORY.createMultiPolygon(polygons.toArray(new Polygon[0]));
         }
-        return GEOMETRY_FACTORY.createMultiPolygon(polygons.toArray(new Polygon[0]));
+        return getOnlyElement(polygons);
     }
 
-    private static void writePolygon(Geometry geometry, SliceOutput output, boolean inGeometryCollection)
+    private static Geometry readGeometryCollection(BasicSliceInput input)
     {
-        requireNonNull(geometry, "geometry is null");
-        requireNonNull(output, "output is null");
-        if (!geometry.getGeometryType().equals(JTS_POLYGON) && !geometry.getGeometryType().equals(JTS_MULTI_POLYGON)) {
-            throw new IllegalArgumentException("Expected LineString or MultiLineString, but got " + geometry.getGeometryType());
+        List<Geometry> geometries = new ArrayList<>();
+        while (input.available() > 0) {
+            // skip length
+            input.readInt();
+            GeometryType type = GeometryType.getForCode(input.readByte());
+            geometries.add(readGeometry(input, type));
+        }
+        return GEOMETRY_FACTORY.createGeometryCollection(geometries.toArray(new Geometry[0]));
+    }
+
+    private static void skipEsriType(SliceInput input)
+    {
+        input.readInt();
+    }
+
+    private static void skipEnvelope(SliceInput input)
+    {
+        requireNonNull(input, "input is null");
+        int skipLength = 4 * SIZE_OF_DOUBLE;
+        verify(input.skip(skipLength) == skipLength);
+    }
+
+    private static Coordinate readCoordinate(SliceInput input)
+    {
+        requireNonNull(input, "input is null");
+        return new Coordinate(input.readDouble(), input.readDouble());
+    }
+
+    private static Coordinate[] readCoordinates(SliceInput input, int count)
+    {
+        requireNonNull(input, "input is null");
+        verify(count > 0);
+        Coordinate[] coordinates = new Coordinate[count];
+        for (int i = 0; i < count; i++) {
+            coordinates[i] = readCoordinate(input);
+        }
+        return coordinates;
+    }
+
+    /**
+     * Serialize JTS {@link Geometry} shape into an ESRI shape
+     */
+    public static Slice serialize(Geometry geometry)
+    {
+        requireNonNull(geometry, "input is null");
+        DynamicSliceOutput output = new DynamicSliceOutput(100);
+        writeGeometry(geometry, output);
+        return output.slice();
+    }
+
+    private static void writeGeometry(Geometry geometry, DynamicSliceOutput output)
+    {
+        switch (geometry.getGeometryType()) {
+            case "Point":
+                writePoint((Point) geometry, output);
+                break;
+            case "MultiPoint":
+                writeMultiPoint((MultiPoint) geometry, output);
+                break;
+            case "LineString":
+                writePolyline(geometry, output, false);
+                break;
+            case "MultiLineString":
+                writePolyline(geometry, output, true);
+                break;
+            case "Polygon":
+                writePolygon(geometry, output, false);
+                break;
+            case "MultiPolygon":
+                writePolygon(geometry, output, true);
+                break;
+            case "GeometryCollection":
+                writeGeometryCollection(geometry, output);
+                break;
+            default:
+                throw new IllegalArgumentException("Unsupported geometry type : " + geometry.getGeometryType());
+        }
+    }
+
+    private static void writePoint(Point point, SliceOutput output)
+    {
+        output.writeByte(GeometryType.POINT.code());
+        output.writeInt(EsriShapeType.POINT.code);
+        if (!point.isEmpty()) {
+            writeCoordinate(point.getCoordinate(), output);
+        }
+        else {
+            writeCoordinate(new Coordinate(translateToAVNaN(Double.NaN), translateToAVNaN(Double.NaN)), output);
+        }
+    }
+
+    private static void writeMultiPoint(MultiPoint geometry, SliceOutput output)
+    {
+        output.writeByte(GeometryType.MULTI_POINT.code());
+        output.writeInt(EsriShapeType.MULTI_POINT.code);
+        writeEnvelope(geometry, output);
+        output.writeInt(geometry.getNumPoints());
+        for (Coordinate coordinate : geometry.getCoordinates()) {
+            writeCoordinate(coordinate, output);
+        }
+    }
+
+    private static void writePolyline(Geometry geometry, SliceOutput output, boolean multitype)
+    {
+        int numParts;
+        int numPoints = geometry.getNumPoints();
+        if (multitype) {
+            numParts = geometry.getNumGeometries();
+            output.writeByte(GeometryType.MULTI_LINE_STRING.code());
+        }
+        else {
+            numParts = numPoints > 0 ? 1 : 0;
+            output.writeByte(GeometryType.LINE_STRING.code());
         }
 
+        output.writeInt(EsriShapeType.POLYLINE.code);
+
+        writeEnvelope(geometry, output);
+
+        output.writeInt(numParts);
+        output.writeInt(numPoints);
+
+        int partIndex = 0;
+        for (int i = 0; i < numParts; i++) {
+            output.writeInt(partIndex);
+            partIndex += geometry.getGeometryN(i).getNumPoints();
+        }
+
+        writeCoordinates(geometry.getCoordinates(), output);
+    }
+
+    private static void writePolygon(Geometry geometry, SliceOutput output, boolean multitype)
+    {
         int numGeometries = geometry.getNumGeometries();
         int numParts = 0;
         int numPoints = geometry.getNumPoints();
@@ -423,89 +341,166 @@ public class JtsGeometrySerde
             }
         }
 
-        if (inGeometryCollection) {
-            output.writeInt(SIZE_OF_INT + SIZE_OF_DOUBLE * 4 + SIZE_OF_INT * (2 + numParts)
-                    + SIZE_OF_DOUBLE * 2 * numPoints);
+        if (multitype) {
+            output.writeByte(GeometryType.MULTI_POLYGON.code());
         }
         else {
-            switch (geometry.getGeometryType()) {
-                case JTS_MULTI_POLYGON:
-                    output.writeByte(GeometryType.MULTI_POLYGON.code());
-                    break;
-                case JTS_POLYGON:
-                    output.writeByte(GeometryType.POLYGON.code());
-                    break;
-            }
+            output.writeByte(GeometryType.POLYGON.code());
         }
 
         output.writeInt(EsriShapeType.POLYGON.code);
 
-        writeEnvelope(geometry.getEnvelopeInternal(), output);
+        writeEnvelope(geometry, output);
 
         output.writeInt(numParts);
-
         output.writeInt(numPoints);
 
-        // Index of first point in part
-        if (numParts > 0) {
-            int partIndex = 0;
-            output.writeInt(partIndex);
-            for (int i = 0; i < numGeometries; i++) {
-                Polygon polygon = (Polygon) geometry.getGeometryN(i);
-                if (polygon.getNumPoints() <= 0) {
-                    continue;
-                }
+        if (numParts == 0) {
+            return;
+        }
 
-                int numInteriorRing = polygon.getNumInteriorRing();
+        int[] partIndexes = new int[numParts];
+        boolean[] shellPart = new boolean[numParts];
 
-                if (i == numGeometries - 1 && numInteriorRing == 0) {
-                    // this is the last part
-                    break;
-                }
-                partIndex += polygon.getExteriorRing().getNumPoints();
-                output.writeInt(partIndex);
+        int currentPart = 0;
+        int currentPoint = 0;
+        for (int i = 0; i < numGeometries; i++) {
+            Polygon polygon = (Polygon) geometry.getGeometryN(i);
 
-                for (int j = 0; j < numInteriorRing; j++) {
-                    if (i == numGeometries - 1 && j == numInteriorRing - 1) {
-                        // this is the last part
-                        break;
-                    }
-                    partIndex += polygon.getInteriorRingN(j).getNumPoints();
-                    output.writeInt(partIndex);
-                }
+            partIndexes[currentPart] = currentPoint;
+            shellPart[currentPart] = true;
+            currentPart++;
+            currentPoint += polygon.getExteriorRing().getNumPoints();
+
+            int holesCount = polygon.getNumInteriorRing();
+            for (int holeIndex = 0; holeIndex < holesCount; holeIndex++) {
+                partIndexes[currentPart] = currentPoint;
+                shellPart[currentPart] = false;
+                currentPart++;
+                currentPoint += polygon.getInteriorRingN(holeIndex).getNumPoints();
             }
         }
 
-        writeCoordinates(geometry.getCoordinates(), output);
+        for (int partIndex : partIndexes) {
+            output.writeInt(partIndex);
+        }
+
+        Coordinate[] coordinates = geometry.getCoordinates();
+        canonicalizePolygonCoordinates(coordinates, partIndexes, shellPart);
+        writeCoordinates(coordinates, output);
     }
 
-    private static void skipEnvelope(SliceInput input)
+    private static void writeGeometryCollection(Geometry collection, DynamicSliceOutput output)
     {
-        requireNonNull(input, "input is null");
-        input.skip(4 * SIZE_OF_DOUBLE);
+        output.appendByte(GeometryType.GEOMETRY_COLLECTION.code());
+        for (int geometryIndex = 0; geometryIndex < collection.getNumGeometries(); geometryIndex++) {
+            Geometry geometry = collection.getGeometryN(geometryIndex);
+            int startPosition = output.size();
+
+            // leave 4 bytes for the shape length
+            output.appendInt(0);
+            writeGeometry(geometry, output);
+
+            int endPosition = output.size();
+            int length = endPosition - startPosition - Integer.BYTES;
+
+            output.getUnderlyingSlice().setInt(startPosition, length);
+        }
     }
 
-    private static void writeEnvelope(Envelope envelope, SliceOutput output)
+    private static void writeCoordinate(Coordinate coordinate, SliceOutput output)
     {
-        requireNonNull(envelope, "envelope is null");
-        requireNonNull(output, "output is null");
+        output.writeDouble(translateToAVNaN(coordinate.x));
+        output.writeDouble(translateToAVNaN(coordinate.y));
+    }
 
+    private static void writeCoordinates(Coordinate[] coordinates, SliceOutput output)
+    {
+        for (Coordinate coordinate : coordinates) {
+            writeCoordinate(coordinate, output);
+        }
+    }
+
+    private static void writeEnvelope(Geometry geometry, SliceOutput output)
+    {
+        if (geometry.isEmpty()) {
+            for (int i = 0; i < 4; i++) {
+                output.writeDouble(Double.NaN);
+            }
+            return;
+        }
+
+        Envelope envelope = geometry.getEnvelopeInternal();
         output.writeDouble(envelope.getMinX());
         output.writeDouble(envelope.getMinY());
         output.writeDouble(envelope.getMaxX());
         output.writeDouble(envelope.getMaxY());
     }
 
+    private static void canonicalizePolygonCoordinates(Coordinate[] coordinates, int[] partIndexes, boolean[] shellPart)
+    {
+        for (int part = 0; part < partIndexes.length - 1; part++) {
+            canonicalizePolygonCoordinates(coordinates, partIndexes[part], partIndexes[part + 1], shellPart[part]);
+        }
+        if (partIndexes.length > 0) {
+            canonicalizePolygonCoordinates(coordinates, partIndexes[partIndexes.length - 1], coordinates.length, shellPart[partIndexes.length - 1]);
+        }
+    }
+
+    private static void canonicalizePolygonCoordinates(Coordinate[] coordinates, int start, int end, boolean isShell)
+    {
+        boolean isClockwise = isClockwise(coordinates, start, end);
+
+        if ((isShell && !isClockwise) || (!isShell && isClockwise)) {
+            // shell has to be counter clockwise
+            reverse(coordinates, start, end);
+        }
+    }
+
     private static boolean isClockwise(Coordinate[] coordinates)
+    {
+        return isClockwise(coordinates, 0, coordinates.length);
+    }
+
+    private static boolean isClockwise(Coordinate[] coordinates, int start, int end)
     {
         // Sum over the edges: (x2 − x1) * (y2 + y1).
         // If the result is positive the curve is clockwise,
         // if it's negative the curve is counter-clockwise.
         double area = 0;
-        for (int i = 1; i < coordinates.length; i++) {
+        for (int i = start + 1; i < end; i++) {
             area += (coordinates[i].x - coordinates[i - 1].x) * (coordinates[i].y + coordinates[i - 1].y);
         }
-        area += (coordinates[0].x - coordinates[coordinates.length - 1].x) * (coordinates[0].y + coordinates[coordinates.length - 1].y);
+        area += (coordinates[start].x - coordinates[end - 1].x) * (coordinates[start].y + coordinates[end - 1].y);
         return area > 0;
+    }
+
+    private static void reverse(Coordinate[] coordinates, int start, int end)
+    {
+        verify(start <= end, "start must be less or equal than end");
+        for (int i = start; i < start + ((end - start) / 2); i++) {
+            Coordinate buffer = coordinates[i];
+            coordinates[i] = coordinates[start + end - i - 1];
+            coordinates[start + end - i - 1] = buffer;
+        }
+    }
+
+    /**
+     * Shape type codes from ERSI's specification
+     * https://www.esri.com/library/whitepapers/pdfs/shapefile.pdf
+     */
+    private enum EsriShapeType
+    {
+        POINT(1),
+        POLYLINE(3),
+        POLYGON(5),
+        MULTI_POINT(8);
+
+        final int code;
+
+        EsriShapeType(int code)
+        {
+            this.code = code;
+        }
     }
 }
