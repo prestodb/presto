@@ -16,10 +16,14 @@ package com.facebook.presto.execution;
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.TaskSource;
+import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.cost.CoefficientBasedStatsCalculator;
 import com.facebook.presto.cost.CostCalculatorUsingExchanges;
 import com.facebook.presto.cost.SelectingStatsCalculator;
+import com.facebook.presto.event.query.QueryMonitor;
+import com.facebook.presto.event.query.QueryMonitorConfig;
+import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.TestSqlTaskManager.MockExchangeClientSupplier;
 import com.facebook.presto.execution.scheduler.LegacyNetworkTopology;
 import com.facebook.presto.execution.scheduler.NodeScheduler;
@@ -27,6 +31,7 @@ import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.operator.LookupJoinOperators;
@@ -61,6 +66,8 @@ import com.facebook.presto.testing.TestingTransactionHandle;
 import com.facebook.presto.util.FinalizerService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.json.ObjectMapperProvider;
+import io.airlift.node.NodeInfo;
 
 import java.util.List;
 import java.util.Optional;
@@ -71,6 +78,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
+import static io.airlift.json.JsonCodec.jsonCodec;
 
 public final class TaskTestUtils
 {
@@ -162,5 +170,19 @@ public final class TaskTestUtils
     public static TaskInfo updateTask(SqlTask sqlTask, List<TaskSource> taskSources, OutputBuffers outputBuffers)
     {
         return sqlTask.updateTask(TEST_SESSION, Optional.of(PLAN_FRAGMENT), taskSources, outputBuffers);
+    }
+
+    public static QueryMonitor createTestQueryMonitor()
+    {
+        MetadataManager metadata = MetadataManager.createTestMetadataManager();
+        return new QueryMonitor(
+                new ObjectMapperProvider().get(),
+                jsonCodec(StageInfo.class),
+                new EventListenerManager(),
+                new NodeInfo("test"),
+                new NodeVersion("testVersion"),
+                new SessionPropertyManager(),
+                metadata,
+                new QueryMonitorConfig());
     }
 }

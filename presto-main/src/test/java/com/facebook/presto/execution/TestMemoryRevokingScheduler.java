@@ -15,10 +15,6 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.client.NodeVersion;
-import com.facebook.presto.event.query.QueryMonitor;
-import com.facebook.presto.event.query.QueryMonitorConfig;
-import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.executor.TaskExecutor;
 import com.facebook.presto.memory.MemoryPool;
 import com.facebook.presto.memory.QueryContext;
@@ -37,8 +33,6 @@ import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
-import io.airlift.json.ObjectMapperProvider;
-import io.airlift.node.NodeInfo;
 import io.airlift.stats.TestingGcMonitor;
 import io.airlift.units.DataSize;
 import org.testng.annotations.AfterMethod;
@@ -53,11 +47,11 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static com.facebook.presto.execution.TaskTestUtils.createTestQueryMonitor;
 import static com.facebook.presto.execution.TaskTestUtils.createTestingPlanner;
 import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
 import static com.facebook.presto.memory.LocalMemoryManager.SYSTEM_POOL;
 import static io.airlift.concurrent.Threads.threadsNamed;
-import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -100,7 +94,7 @@ public class TestMemoryRevokingScheduler
                 executor,
                 taskExecutor,
                 planner,
-                new QueryMonitor(new ObjectMapperProvider().get(), jsonCodec(StageInfo.class), new EventListenerManager(), new NodeInfo("test"), new NodeVersion("testVersion"), new QueryMonitorConfig()),
+                createTestQueryMonitor(),
                 new TaskManagerConfig());
 
         allOperatorContexts = null;

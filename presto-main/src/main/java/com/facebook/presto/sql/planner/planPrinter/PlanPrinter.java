@@ -28,7 +28,6 @@ import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.OperatorNotFoundException;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TableHandle;
-import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.predicate.Domain;
@@ -264,17 +263,10 @@ public class PlanPrinter
         return new PlanPrinter(plan, types, functionRegistry, statsCalculator, costCalculator, session, stats, indent, verbose).toString();
     }
 
-    public static String textDistributedPlan(StageInfo outputStageInfo, FunctionRegistry functionRegistry, StatsCalculator statsCalculator, CostCalculator costCalculator, Session session)
-    {
-        return textDistributedPlan(outputStageInfo, functionRegistry, statsCalculator, costCalculator, session, false);
-    }
-
     public static String textDistributedPlan(StageInfo outputStageInfo, FunctionRegistry functionRegistry, StatsCalculator statsCalculator, CostCalculator costCalculator, Session session, boolean verbose)
     {
         StringBuilder builder = new StringBuilder();
-        List<StageInfo> allStages = outputStageInfo.getSubStages().stream()
-                .flatMap(stage -> getAllStages(Optional.of(stage)).stream())
-                .collect(toImmutableList());
+        List<StageInfo> allStages = getAllStages(Optional.of(outputStageInfo));
         for (StageInfo stageInfo : allStages) {
             Map<PlanNodeId, PlanNodeStats> aggregatedStats = aggregatePlanNodeStats(stageInfo);
             builder.append(formatFragment(functionRegistry, statsCalculator, costCalculator, session, stageInfo.getPlan(), Optional.of(stageInfo), Optional.of(aggregatedStats), verbose));
@@ -1018,11 +1010,6 @@ public class PlanPrinter
         {
             TableHandle table = node.getTable();
 
-            TupleDomain<ColumnHandle> predicate = node.getLayout()
-                    .map(layoutHandle -> metadata.getLayout(session, layoutHandle))
-                    .map(TableLayout::getPredicate)
-                    .orElse(TupleDomain.all());
-
             if (node.getLayout().isPresent()) {
                 // TODO: find a better way to do this
                 ConnectorTableLayoutHandle layout = node.getLayout().get().getConnectorHandle();
@@ -1031,6 +1018,7 @@ public class PlanPrinter
                 }
             }
 
+            TupleDomain<ColumnHandle> predicate = node.getCurrentConstraint();
             if (predicate.isNone()) {
                 print(indent + 2, ":: NONE");
             }
