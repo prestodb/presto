@@ -233,7 +233,7 @@ public class ExpressionOptimizer
                                 call.getType(),
                                 innerCall.getArguments());
                     }
-                    else if (returnType.getBase().equals(MAP)) {
+                    if (returnType.getBase().equals(MAP)) {
                         return call(
                                 internalScalarFunction(
                                         JSON_STRING_TO_MAP_NAME,
@@ -242,7 +242,7 @@ public class ExpressionOptimizer
                                 call.getType(),
                                 innerCall.getArguments());
                     }
-                    else if (returnType.getBase().equals(ROW)) {
+                    if (returnType.getBase().equals(ROW)) {
                         return call(
                                 internalScalarFunction(
                                         JSON_STRING_TO_ROW_NAME,

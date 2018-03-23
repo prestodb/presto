@@ -146,15 +146,13 @@ public final class LiteralInterpreter
             if (value.isNaN()) {
                 return new FunctionCall(QualifiedName.of("nan"), ImmutableList.of());
             }
-            else if (value.equals(Double.NEGATIVE_INFINITY)) {
+            if (value.equals(Double.NEGATIVE_INFINITY)) {
                 return ArithmeticUnaryExpression.negative(new FunctionCall(QualifiedName.of("infinity"), ImmutableList.of()));
             }
-            else if (value.equals(Double.POSITIVE_INFINITY)) {
+            if (value.equals(Double.POSITIVE_INFINITY)) {
                 return new FunctionCall(QualifiedName.of("infinity"), ImmutableList.of());
             }
-            else {
-                return new DoubleLiteral(object.toString());
-            }
+            return new DoubleLiteral(object.toString());
         }
 
         if (type.equals(REAL)) {
@@ -163,15 +161,13 @@ public final class LiteralInterpreter
             if (value.isNaN()) {
                 return new Cast(new FunctionCall(QualifiedName.of("nan"), ImmutableList.of()), StandardTypes.REAL);
             }
-            else if (value.equals(Float.NEGATIVE_INFINITY)) {
+            if (value.equals(Float.NEGATIVE_INFINITY)) {
                 return ArithmeticUnaryExpression.negative(new Cast(new FunctionCall(QualifiedName.of("infinity"), ImmutableList.of()), StandardTypes.REAL));
             }
-            else if (value.equals(Float.POSITIVE_INFINITY)) {
+            if (value.equals(Float.POSITIVE_INFINITY)) {
                 return new Cast(new FunctionCall(QualifiedName.of("infinity"), ImmutableList.of()), StandardTypes.REAL);
             }
-            else {
-                return new GenericLiteral("REAL", value.toString());
-            }
+            return new GenericLiteral("REAL", value.toString());
         }
 
         if (type instanceof DecimalType) {
