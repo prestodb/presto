@@ -62,6 +62,36 @@ Array Functions
     Sorts and returns the array ``x``. The elements of ``x`` must be orderable.
     Null elements will be placed at the end of the returned array.
 
+.. function:: array_sort(array<T>, function<T,T,int>) -> array<T>
+
+    Sorts and returns the ``array`` based on the given comparator ``function``. The comparator will take
+    two nullable arguments representing two nullable elements of the ``array``. It returns -1, 0, or 1
+    as the first nullable element is less than, equal to, or greater than the second nullable element.
+    If the comparator function returns other values (including ``NULL``), the query will fail and raise an error ::
+
+        SELECT array_sort(ARRAY [3, 2, 5, 1, 2], (x, y) -> IF(x < y, 1, IF(x = y, 0, -1))); -- [5, 3, 2, 2, 1]
+        SELECT array_sort(ARRAY ['bc', 'ab', 'dc'], (x, y) -> IF(x < y, 1, IF(x = y, 0, -1))); -- ['dc', 'bc', 'ab']
+        SELECT array_sort(ARRAY [3, 2, null, 5, null, 1, 2], -- sort null first with descending order
+                          (x, y) -> CASE WHEN x IS NULL THEN -1
+                                         WHEN y IS NULL THEN 1
+                                         WHEN x < y THEN 1
+                                         WHEN x = y THEN 0
+                                         ELSE -1 END); -- [null, null, 5, 3, 2, 2, 1]
+        SELECT array_sort(ARRAY [3, 2, null, 5, null, 1, 2], -- sort null last with descending order
+                          (x, y) -> CASE WHEN x IS NULL THEN 1
+                                         WHEN y IS NULL THEN -1
+                                         WHEN x < y THEN 1
+                                         WHEN x = y THEN 0
+                                         ELSE -1 END); -- [5, 3, 2, 2, 1, null, null]
+        SELECT array_sort(ARRAY ['a', 'abcd', 'abc'], -- sort by string length
+                          (x, y) -> IF(length(x) < length(y),
+                                       -1,
+                                       IF(length(x) = length(y), 0, 1))); -- ['a', 'abc', 'abcd']
+        SELECT array_sort(ARRAY [ARRAY[2, 3, 1], ARRAY[4, 2, 1, 4], ARRAY[1, 2]], -- sort by array length
+                          (x, y) -> IF(cardinality(x) < cardinality(y),
+                                       -1,
+                                       IF(cardinality(x) = cardinality(y), 0, 1))); -- [[1, 2], [2, 3, 1], [4, 2, 1, 4]]
+
 .. function:: arrays_overlap(x, y) -> boolean
 
     Tests if arrays ``x`` and ``y`` have any any non-null elements in common.
