@@ -49,6 +49,7 @@ public final class DecimalSaturatedFloorCasts
                     .argumentTypes(parseTypeSignature("decimal(source_precision,source_scale)", ImmutableSet.of("source_precision", "source_scale")))
                     .returnType(parseTypeSignature("decimal(result_precision,result_scale)", ImmutableSet.of("result_precision", "result_scale")))
                     .build())
+            .deterministic(true)
             .implementation(b -> b
                     .methods("shortDecimalToShortDecimal", "shortDecimalToLongDecimal", "longDecimalToShortDecimal", "longDecimalToLongDecimal")
                     .withExtraParameters((context) -> {
@@ -118,6 +119,7 @@ public final class DecimalSaturatedFloorCasts
                         .argumentTypes(parseTypeSignature("decimal(source_precision,source_scale)", ImmutableSet.of("source_precision", "source_scale")))
                         .returnType(type.getTypeSignature())
                         .build())
+                .deterministic(true)
                 .implementation(b -> b
                         .methods("shortDecimalToGenericIntegerType", "longDecimalToGenericIntegerType")
                         .withExtraParameters((context) -> {
@@ -166,6 +168,7 @@ public final class DecimalSaturatedFloorCasts
                         .argumentTypes(integerType.getTypeSignature())
                         .returnType(parseTypeSignature("decimal(result_precision,result_scale)", ImmutableSet.of("result_precision", "result_scale")))
                         .build())
+                .deterministic(true)
                 .implementation(b -> b
                         .methods("genericIntegerTypeToShortDecimal", "genericIntegerTypeToLongDecimal")
                         .withExtraParameters((context) -> {
