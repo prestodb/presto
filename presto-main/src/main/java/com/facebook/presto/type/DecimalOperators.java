@@ -90,6 +90,7 @@ public final class DecimalOperators
                 .build();
         return SqlScalarFunction.builder(DecimalOperators.class)
                 .signature(signature)
+                .deterministic(true)
                 .implementation(b -> b
                         .methods("addShortShortShort")
                         .withExtraParameters(DecimalOperators::calculateShortRescaleParameters))
@@ -170,6 +171,7 @@ public final class DecimalOperators
                 .build();
         return SqlScalarFunction.builder(DecimalOperators.class)
                 .signature(signature)
+                .deterministic(true)
                 .implementation(b -> b
                         .methods("subtractShortShortShort")
                         .withExtraParameters(DecimalOperators::calculateShortRescaleParameters))
@@ -246,6 +248,7 @@ public final class DecimalOperators
                 .build();
         return SqlScalarFunction.builder(DecimalOperators.class)
                 .signature(signature)
+                .deterministic(true)
                 .implementation(b -> b.methods("multiplyShortShortShort", "multiplyShortShortLong", "multiplyLongLongLong", "multiplyShortLongLong", "multiplyLongShortLong"))
                 .build();
     }
@@ -308,6 +311,7 @@ public final class DecimalOperators
                 .build();
         return SqlScalarFunction.builder(DecimalOperators.class)
                 .signature(signature)
+                .deterministic(true)
                 .implementation(b -> b
                         .methods("divideShortShortShort", "divideShortLongShort", "divideLongShortShort", "divideShortShortLong", "divideLongLongLong", "divideShortLongLong", "divideLongShortLong")
                         .withExtraParameters(DecimalOperators::divideRescaleFactor))
@@ -447,6 +451,7 @@ public final class DecimalOperators
     {
         return SqlScalarFunction.builder(DecimalOperators.class)
                 .signature(signature)
+                .deterministic(true)
                 .implementation(b -> b
                         .methods("modulusShortShortShort", "modulusLongLongLong", "modulusShortLongLong", "modulusShortLongShort", "modulusLongShortShort", "modulusLongShortLong")
                         .withExtraParameters(DecimalOperators::modulusRescaleParameters))
