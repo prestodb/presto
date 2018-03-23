@@ -71,11 +71,22 @@ public class PushPartialAggregationThroughExchange
     @Override
     public Result apply(AggregationNode aggregationNode, Captures captures, Context context)
     {
+        PlanNode childNode = context.getLookup().resolve(aggregationNode.getSource());
+        if (!(childNode instanceof ExchangeNode)) {
+            return Result.empty();
+        }
+
+        ExchangeNode exchangeNode = (ExchangeNode) childNode;
+
         boolean decomposable = aggregationNode.isDecomposable(functionRegistry);
 
         if (aggregationNode.getStep().equals(SINGLE) &&
                 aggregationNode.hasEmptyGroupingSet() &&
-                aggregationNode.hasNonEmptyGroupingSet()) {
+                aggregationNode.hasNonEmptyGroupingSet() &&
+                exchangeNode.getType() == REPARTITION) {
+            // single-step aggregation w/ empty grouping sets in a partitioned stage, so we need a partial that will produce
+            // the default intermediates for the empty grouping set that will be routed to the appropriate final aggregation.
+            // TODO: technically, AddExchanges generates a broken plan that this rule "fixes"
             checkState(
                     decomposable,
                     "Distributed aggregation with empty grouping set requires partial but functions are not decomposable");
@@ -85,13 +96,6 @@ public class PushPartialAggregationThroughExchange
         if (!decomposable) {
             return Result.empty();
         }
-
-        PlanNode childNode = context.getLookup().resolve(aggregationNode.getSource());
-        if (!(childNode instanceof ExchangeNode)) {
-            return Result.empty();
-        }
-
-        ExchangeNode exchangeNode = (ExchangeNode) childNode;
 
         // partial aggregation can only be pushed through exchange that doesn't change
         // the cardinality of the stream (i.e., gather or repartition)
