@@ -134,6 +134,7 @@ public final class DecimalCasts
                 .build();
         return SqlScalarFunction.builder(DecimalCasts.class)
                 .signature(signature)
+                .deterministic(true)
                 .implementation(b -> b
                         .methods(methodNames)
                         .withExtraParameters((context) -> {
@@ -166,6 +167,7 @@ public final class DecimalCasts
                 .build();
         return SqlScalarFunction.builder(DecimalCasts.class)
                 .signature(signature)
+                .deterministic(true)
                 .implementation(b -> b
                         .methods(methodNames)
                         .withExtraParameters((context) -> {

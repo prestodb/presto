@@ -21,6 +21,8 @@ import java.math.BigDecimal;
 
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
+import static java.util.stream.Collectors.joining;
+import static java.util.stream.IntStream.range;
 
 public class TestTpcds
         extends AbstractTestQueryFramework
@@ -53,5 +55,25 @@ public class TestTpcds
                 .row("James               ", "Brown                         ")
                 .build();
         assertEquals(expected, actual);
+    }
+
+    @Test
+    public void testLargeInWithShortDecimal()
+    {
+        // TODO add a test with long decimal
+        String longValues = range(0, 5000)
+                .mapToObj(Integer::toString)
+                .collect(joining(", "));
+
+        assertQuery("SELECT typeof(i_current_price) FROM item LIMIT 1", "VALUES 'decimal(7,2)'"); // decimal(7,2) is a short decimal
+        assertQuerySucceeds("SELECT i_current_price FROM item WHERE i_current_price IN (" + longValues + ")");
+        assertQuerySucceeds("SELECT i_current_price FROM item WHERE i_current_price NOT IN (" + longValues + ")");
+        assertQuerySucceeds("SELECT i_current_price FROM item WHERE i_current_price IN (i_wholesale_cost, " + longValues + ")");
+        assertQuerySucceeds("SELECT i_current_price FROM item WHERE i_current_price NOT IN (i_wholesale_cost, " + longValues + ")");
+    }
+
+    private void assertQuerySucceeds(String sql)
+    {
+        computeActual(sql);
     }
 }
