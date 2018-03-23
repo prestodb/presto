@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.esri.core.geometry.Envelope2D;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Metadata;
@@ -460,11 +461,12 @@ public class PagesIndex
             Optional<Integer> radiusChannel,
             SpatialPredicate spatialRelationshipTest,
             Optional<JoinFilterFunctionFactory> filterFunctionFactory,
-            List<Integer> outputChannels)
+            List<Integer> outputChannels,
+            List<Envelope2D> extents)
     {
         // TODO probably shouldn't copy to reduce memory and for memory accounting's sake
         List<List<Block>> channels = ImmutableList.copyOf(this.channels);
-        return new PagesSpatialIndexSupplier(session, valueAddresses, types, outputChannels, channels, geometryChannel, radiusChannel, spatialRelationshipTest, filterFunctionFactory);
+        return new PagesSpatialIndexSupplier(session, valueAddresses, types, outputChannels, channels, geometryChannel, radiusChannel, spatialRelationshipTest, filterFunctionFactory, extents);
     }
 
     public LookupSourceSupplier createLookupSourceSupplier(

@@ -359,6 +359,7 @@ public class TestSpatialJoinOperator
                 0,
                 radiusChannel,
                 spatialRelationshipTest,
+                Optional.empty(),
                 filterFunctionFactory,
                 10_000,
                 new TestingFactory(false));

@@ -13,12 +13,19 @@
  */
 package com.facebook.presto.plugin.geospatial;
 
+import com.facebook.presto.sql.planner.iterative.rule.TransformSpatialPredicates;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tests.DistributedQueryRunner;
+import com.google.common.io.Resources;
 import org.testng.annotations.Test;
+
+import java.io.IOException;
+import java.net.URL;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Objects.requireNonNull;
 
 public class TestSpatialJoins
         extends AbstractTestQueryFramework
@@ -190,28 +197,51 @@ public class TestSpatialJoins
                 "SELECT * FROM VALUES ('a', 'c'), ('b', 'c')");
     }
 
+    private static String getKdbTree()
+    {
+        URL resource = requireNonNull(TransformSpatialPredicates.class.getClassLoader().getResource("kdb_tree.json"), "resource not found: kdb_tree.json");
+        try {
+            return Resources.toString(resource, UTF_8);
+        }
+        catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     @Test
     public void testBroadcastDistanceQuery()
     {
+        testDistanceQuery(false);
+    }
+
+    @Test
+    public void testDistributedDistanceQuery()
+    {
+        testDistanceQuery(true);
+    }
+
+    private void testDistanceQuery(boolean distributed)
+    {
+        String thirdArgument = distributed ? ", '" + getKdbTree() + "'" : "";
+
         // ST_Distance(probe, build)
         assertQuery("SELECT a.name, b.name " +
                         "FROM (VALUES (0, 0, '0_0'), (1, 0, '1_0'), (3, 0, '3_0'), (10, 0, '10_0')) as a (x, y, name), " +
-                            "(VALUES (0, 1, '0_1'), (1, 1, '1_1'), (3, 1, '3_1'), (10, 1, '10_1')) as b (x, y, name) " +
-                        "WHERE ST_Distance(ST_Point(a.x, a.y), ST_Point(b.x, b.y)) <= 1.5",
-                    "SELECT * FROM VALUES ('0_0', '0_1'), ('0_0', '1_1'), ('1_0', '0_1'), ('1_0', '1_1'), ('3_0', '3_1'), ('10_0', '10_1')");
+                        "(VALUES (0, 1, '0_1'), (1, 1, '1_1'), (3, 1, '3_1'), (10, 1, '10_1')) as b (x, y, name) " +
+                        "WHERE ST_Distance(ST_Point(a.x, a.y), ST_Point(b.x, b.y)" + thirdArgument + ") <= 1.5",
+                "SELECT * FROM VALUES ('0_0', '0_1'), ('0_0', '1_1'), ('1_0', '0_1'), ('1_0', '1_1'), ('3_0', '3_1'), ('10_0', '10_1')");
 
         // ST_Distance(build, probe)
         assertQuery("SELECT a.name, b.name " +
                         "FROM (VALUES (0, 0, '0_0'), (1, 0, '1_0'), (3, 0, '3_0'), (10, 0, '10_0')) as a (x, y, name), " +
                         "(VALUES (0, 1, '0_1'), (1, 1, '1_1'), (3, 1, '3_1'), (10, 1, '10_1')) as b (x, y, name) " +
-                        "WHERE ST_Distance(ST_Point(b.x, b.y), ST_Point(a.x, a.y)) <= 1.5",
+                        "WHERE ST_Distance(ST_Point(b.x, b.y), ST_Point(a.x, a.y)" + thirdArgument + ") <= 1.5",
                 "SELECT * FROM VALUES ('0_0', '0_1'), ('0_0', '1_1'), ('1_0', '0_1'), ('1_0', '1_1'), ('3_0', '3_1'), ('10_0', '10_1')");
 
         // radius expression
-        assertQuery("SELECT a.name, b.name " +
-                        "FROM (VALUES (0, 0, '0_0'), (1, 0, '1_0'), (3, 0, '3_0'), (10, 0, '10_0')) as a (x, y, name), " +
+        assertQuery("SELECT a.name, b.name " + "FROM (VALUES (0, 0, '0_0'), (1, 0, '1_0'), (3, 0, '3_0'), (10, 0, '10_0')) as a (x, y, name), " +
                         "(VALUES (0, 1, '0_1'), (1, 1, '1_1'), (3, 1, '3_1'), (10, 1, '10_1')) as b (x, y, name) " +
-                        "WHERE ST_Distance(ST_Point(a.x, a.y), ST_Point(b.x, b.y)) <= sqrt(b.x * b.x + b.y * b.y)",
+                        "WHERE ST_Distance(ST_Point(a.x, a.y), ST_Point(b.x, b.y)" + thirdArgument + ") <= sqrt(b.x * b.x + b.y * b.y)",
                 "SELECT * FROM VALUES ('0_0', '0_1'), ('0_0', '1_1'), ('0_0', '3_1'), ('0_0', '10_1'), ('1_0', '1_1'), ('1_0', '3_1'), ('1_0', '10_1'), ('3_0', '3_1'), ('3_0', '10_1'), ('10_0', '10_1')");
     }
 
