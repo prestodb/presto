@@ -183,6 +183,14 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testAggregationOverUnknown()
+    {
+        assertQuery("SELECT clerk, min(totalprice), max(totalprice), min(nullvalue), max(nullvalue) " +
+                "FROM (SELECT clerk, totalprice, null AS nullvalue FROM orders) " +
+                "GROUP BY clerk");
+    }
+
+    @Test
     public void testLimitIntMax()
     {
         assertQuery("SELECT orderkey FROM orders LIMIT " + Integer.MAX_VALUE);
