@@ -298,7 +298,6 @@ public class PrestoCliTests
             requireNonNull(kerberosServiceName, "databases.presto.cli_kerberos_service_name is null");
             requireNonNull(kerberosConfigPath, "databases.presto.cli_kerberos_config_path is null");
 
-            prestoClientOptions.add("--enable-authentication");
             prestoClientOptions.add("--krb5-principal", kerberosPrincipal);
             prestoClientOptions.add("--krb5-keytab-path", kerberosKeytab);
             prestoClientOptions.add("--krb5-remote-service-name", kerberosServiceName);
