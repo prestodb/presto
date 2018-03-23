@@ -100,7 +100,7 @@ script:
     fi
   - |
     if [[ -v HIVE_TESTS ]]; then
-      presto-hive-hadoop2/bin/run_on_docker.sh
+      presto-hive-hadoop2/bin/run_hive_tests.sh
     fi
 
 before_cache:
