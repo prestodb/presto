@@ -684,7 +684,7 @@ public class LocalExecutionPlanner
                     context.getNextOperatorId(),
                     node.getId(),
                     queryPerformanceFetcher.get(),
-                    metadata,
+                    metadata.getFunctionRegistry(),
                     statsCalculator,
                     costCalculator,
                     node.isVerbose());
