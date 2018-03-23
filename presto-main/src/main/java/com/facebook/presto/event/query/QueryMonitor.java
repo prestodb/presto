@@ -113,15 +113,6 @@ public class QueryMonitor
 
     public void queryCreatedEvent(QueryInfo queryInfo)
     {
-        Optional<String> plan = Optional.empty();
-        try {
-            if (queryInfo.getPlan().isPresent()) {
-                plan = Optional.of(objectMapper.writeValueAsString(queryInfo.getPlan().get()));
-            }
-        }
-        catch (JsonProcessingException ignored) {
-        }
-
         eventListenerManager.queryCreated(
                 new QueryCreatedEvent(
                         queryInfo.getQueryStats().getCreateTime().toDate().toInstant(),
@@ -146,7 +137,7 @@ public class QueryMonitor
                                 queryInfo.getQuery(),
                                 queryInfo.getState().toString(),
                                 queryInfo.getSelf(),
-                                plan,
+                                Optional.empty(),
                                 Optional.empty())));
     }
 
@@ -214,9 +205,6 @@ public class QueryMonitor
                             (node, stats, lookup, session, types) -> UNKNOWN_COST,
                             queryInfo.getSession().toSession(sessionPropertyManager),
                             false));
-                }
-                if (!plan.isPresent() && queryInfo.getPlan().isPresent()) {
-                    plan = Optional.of(objectMapper.writeValueAsString(queryInfo.getPlan().get()));
                 }
             }
             catch (Exception e) {
