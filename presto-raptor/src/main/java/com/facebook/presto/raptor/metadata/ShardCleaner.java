@@ -495,7 +495,12 @@ public class ShardCleaner
             }
 
             try {
-                result.add(queue.poll(remainingNanos, NANOSECONDS));
+                T element = queue.poll(remainingNanos, NANOSECONDS);
+                // adding a null element causes a NPE later on when removeAll()
+                // is called with the result as an argument in cleanBackupShards()
+                if (element != null) {
+                    result.add(element);
+                }
             }
             catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
