@@ -26,7 +26,6 @@ import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.RelationId;
 import com.facebook.presto.sql.analyzer.RelationType;
 import com.facebook.presto.sql.analyzer.Scope;
-import com.facebook.presto.sql.analyzer.SemanticExceptions;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.Assignments;
@@ -565,14 +564,6 @@ class QueryPlanner
                 AggregationNode.Step.SINGLE,
                 Optional.empty(),
                 groupIdSymbol);
-
-        if (aggregationNode.hasEmptyGroupingSet() && aggregationNode.hasNonEmptyGroupingSet() && aggregationNode.hasOrderings()) {
-            // Having both empty grouping set and non-empty grouping set will require partial aggregation.
-            // Since aggregation with ORDER BY does not support partial aggregation, we can not allow queries to have both.
-            throw SemanticExceptions.notSupportedException(
-                    node,
-                    "ORDER BY in aggregate function with at least one empty grouping set and at least one non-empty grouping set");
-        }
 
         subPlan = new PlanBuilder(aggregationTranslations, aggregationNode, analysis.getParameters());
 

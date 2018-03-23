@@ -103,14 +103,6 @@ public class TestOrderedAggregation
                 "VALUES (1, NULL, ARRAY[1, 3]), (2, NULL, ARRAY[3, 4]), (1, 2, ARRAY[1, 3]), (2, 1, ARRAY[3, 4])");
 
         assertions.assertFails(
-                "SELECT x, array_agg(z ORDER BY z) FROM (VALUES (1, 2, 3), (1, 2, 1), (2, 1, 3), (2, 1, 4)) t(x, y, z) GROUP BY ROLLUP (x)",
-                ".* ORDER BY in aggregate function with at least one empty grouping set and at least one non-empty grouping set is not supported");
-
-        assertions.assertFails(
-                "SELECT x, y, array_agg(z ORDER BY z) FROM (VALUES (1, 2, 3), (1, 2, 1), (2, 1, 3), (2, 1, 4)) t(x, y, z) GROUP BY CUBE (x, y)",
-                ".* ORDER BY in aggregate function with at least one empty grouping set and at least one non-empty grouping set is not supported");
-
-        assertions.assertFails(
                 "SELECT array_agg(z ORDER BY z) OVER (PARTITION BY x) FROM (VALUES (1, 2, 3), (1, 2, 1), (2, 1, 3), (2, 1, 4)) t(x, y, z) GROUP BY x, z",
                 ".* Window function with ORDER BY is not supported");
 
@@ -125,5 +117,36 @@ public class TestOrderedAggregation
         assertions.assertFails(
                 "SELECT x, array_agg(DISTINCT y ORDER BY z + y DESC) FROM (VALUES (1, 2, 2), (2, 2, 3), (2, 4, 5), (3, 4, 4), (3, 2, 1), (1, 1, 1)) t(x, y, z) GROUP BY x",
                 ".* For aggregate function with DISTINCT, ORDER BY expressions must appear in arguments");
+    }
+
+    @Test
+    public void testGroupingSets()
+    {
+        assertions.assertQuery(
+                "SELECT x, array_agg(y ORDER BY y), array_agg(y ORDER BY y) FILTER (WHERE y > 1), count(*) FROM (" +
+                        "VALUES " +
+                        "   (1, 3), " +
+                        "   (1, 1), " +
+                        "   (2, 3), " +
+                        "   (2, 4)) t(x, y) " +
+                        "GROUP BY GROUPING SETS ((), (x))",
+                "VALUES " +
+                        "   (1, ARRAY[1, 3], ARRAY[3], BIGINT '2'), " +
+                        "   (2, ARRAY[3, 4], ARRAY[3, 4], BIGINT '2'), " +
+                        "   (NULL, ARRAY[1, 3, 3, 4], ARRAY[3, 3, 4], BIGINT '4')");
+
+        assertions.assertQuery(
+                "SELECT x, array_agg(DISTINCT y ORDER BY y), count(*) FROM (" +
+                        "VALUES " +
+                        "   (1, 3), " +
+                        "   (1, 1), " +
+                        "   (1, 3), " +
+                        "   (2, 3), " +
+                        "   (2, 4)) t(x, y) " +
+                        "GROUP BY GROUPING SETS ((), (x))",
+                "VALUES " +
+                        "   (1, ARRAY[1, 3], BIGINT '3'), " +
+                        "   (2, ARRAY[3, 4], BIGINT '2'), " +
+                        "   (NULL, ARRAY[1, 3, 4], BIGINT '5')");
     }
 }

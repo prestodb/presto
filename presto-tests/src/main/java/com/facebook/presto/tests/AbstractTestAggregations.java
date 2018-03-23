@@ -1085,4 +1085,23 @@ public abstract class AbstractTestAggregations
                         "SELECT orderkey, partkey, suppkey, NULL, SUM(CAST(quantity AS BIGINT)) FROM lineitem GROUP BY orderkey, partkey, suppkey UNION ALL " +
                         "SELECT orderkey, partkey, NULL, NULL, SUM(CAST(quantity AS BIGINT)) FROM lineitem GROUP BY orderkey, partkey");
     }
+
+    @Test
+    public void testOrderedAggregations()
+    {
+        assertQuery(
+                "SELECT orderpriority, custkey, array_agg(orderstatus ORDER BY orderstatus) FILTER (WHERE custkey > 500)" +
+                        "FROM orders " +
+                        "WHERE orderkey IN (1, 2, 3, 4, 5) " +
+                        "GROUP BY GROUPING SETS ((), (orderpriority), (orderpriority, custkey))",
+                "VALUES " +
+                        "(NULL, NULL , ('F', 'O', 'O'))," +
+                        "('5-LOW', NULL , ('F', 'O'))," +
+                        "('1-URGENT', NULL , ('O'))," +
+                        "('5-LOW', 370 , NULL)," +
+                        "('5-LOW', 1234, ('F'))," +
+                        "('5-LOW', 1369, ('O'))," +
+                        "('5-LOW', 445 , NULL)," +
+                        "('1-URGENT', 781 , ('O'))");
+    }
 }
