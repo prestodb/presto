@@ -77,6 +77,8 @@ public class QueryRunner
         setupBasicAuth(builder, session, user, password);
 
         if (kerberosRemoteServiceName.isPresent()) {
+            checkArgument(session.getServer().getScheme().equalsIgnoreCase("https"),
+                    "Authentication using Kerberos requires HTTPS to be enabled");
             setupKerberos(
                     builder,
                     kerberosRemoteServiceName.get(),
