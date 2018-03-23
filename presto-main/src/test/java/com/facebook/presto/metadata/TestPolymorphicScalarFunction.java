@@ -60,6 +60,7 @@ public class TestPolymorphicScalarFunction
     {
         SqlScalarFunction function = SqlScalarFunction.builder(TestMethods.class)
                 .signature(SIGNATURE)
+                .deterministic(true)
                 .implementation(b -> b.methods("bigintToBigintReturnExtraParameter"))
                 .implementation(b -> b
                         .methods("varcharToBigintReturnExtraParameter")
@@ -76,6 +77,7 @@ public class TestPolymorphicScalarFunction
     {
         SqlScalarFunction function = SqlScalarFunction.builder(TestMethods.class)
                 .signature(SIGNATURE)
+                .deterministic(true)
                 .implementation(b -> b.methods("varcharToVarcharCreateSliceWithExtraParameterLength"))
                 .implementation(b -> b
                         .methods("varcharToBigintReturnExtraParameter")
@@ -93,6 +95,7 @@ public class TestPolymorphicScalarFunction
     {
         SqlScalarFunction function = SqlScalarFunction.builder(TestMethods.class)
                 .signature(SIGNATURE)
+                .deterministic(true)
                 .implementation(b -> b
                         .methods("varcharToBigint")
                         .withPredicate(context -> true))
@@ -110,6 +113,7 @@ public class TestPolymorphicScalarFunction
     {
         SqlScalarFunction function = SqlScalarFunction.builder(TestMethods.class)
                 .signature(SIGNATURE)
+                .deterministic(true)
                 .implementation(b -> b
                         .methods("varcharToBigintReturnExtraParameter")
                         .withPredicate(context -> false))
@@ -134,6 +138,7 @@ public class TestPolymorphicScalarFunction
 
         SqlScalarFunction function = SqlScalarFunction.builder(TestMethods.class)
                 .signature(signature)
+                .deterministic(true)
                 .implementation(b -> b.methods("varcharToVarchar"))
                 .build();
 
@@ -156,6 +161,7 @@ public class TestPolymorphicScalarFunction
 
         SqlScalarFunction function = SqlScalarFunction.builder(TestMethods.class)
                 .signature(signature)
+                .deterministic(true)
                 .implementation(b -> b.methods("varcharToVarchar"))
                 .build();
 
@@ -176,6 +182,7 @@ public class TestPolymorphicScalarFunction
 
         SqlScalarFunction function = SqlScalarFunction.builder(TestMethods.class)
                 .signature(signature)
+                .deterministic(true)
                 .implementation(b -> b.methods("varcharToVarchar"))
                 .build();
 
@@ -188,6 +195,7 @@ public class TestPolymorphicScalarFunction
     {
         SqlScalarFunction.builder(TestMethods.class)
                 .signature(SIGNATURE)
+                .deterministic(true)
                 .implementation(b -> b.methods("bigintToBigintReturnExtraParameter"))
                 .implementation(b -> b.methods("foo"))
                 .build();
@@ -199,6 +207,7 @@ public class TestPolymorphicScalarFunction
     {
         SqlScalarFunction.builder(TestMethods.class)
                 .signature(SIGNATURE)
+                .deterministic(true)
                 .implementation(b -> b
                         .withExtraParameters(context -> ImmutableList.of(42)))
                 .build();
@@ -210,6 +219,7 @@ public class TestPolymorphicScalarFunction
     {
         SqlScalarFunction function = SqlScalarFunction.builder(TestMethods.class)
                 .signature(SIGNATURE)
+                .deterministic(true)
                 .implementation(b -> b.methods("varcharToBigintReturnFirstExtraParameter"))
                 .implementation(b -> b.methods("varcharToBigintReturnExtraParameter"))
                 .build();
@@ -223,6 +233,7 @@ public class TestPolymorphicScalarFunction
     {
         SqlScalarFunction function = SqlScalarFunction.builder(TestMethods.class)
                 .signature(SIGNATURE)
+                .deterministic(true)
                 .implementation(b -> b
                         .methods("varcharToBigintReturnFirstExtraParameter")
                         .withPredicate(context -> true))
