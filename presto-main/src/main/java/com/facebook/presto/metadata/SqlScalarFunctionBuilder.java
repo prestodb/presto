@@ -42,7 +42,7 @@ public final class SqlScalarFunctionBuilder
     private Signature signature;
     private String description;
     private Optional<Boolean> hidden = Optional.empty();
-    private boolean deterministic;
+    private Boolean deterministic;
     private boolean nullableResult;
     private List<ArgumentProperty> argumentProperties = emptyList();
     private List<MethodsGroup> methodsGroups = new ArrayList<>();
@@ -108,6 +108,7 @@ public final class SqlScalarFunctionBuilder
     public SqlScalarFunction build()
     {
         checkState(signature != null, "signature is null");
+        checkState(deterministic != null, "deterministic is null");
 
         if (argumentProperties.isEmpty()) {
             argumentProperties = Collections.nCopies(signature.getArgumentTypes().size(), valueTypeArgumentProperty(RETURN_NULL_ON_NULL));
