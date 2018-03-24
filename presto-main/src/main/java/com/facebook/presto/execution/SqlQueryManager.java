@@ -17,6 +17,7 @@ import com.facebook.presto.ExceededCpuLimitException;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.event.query.QueryMonitor;
+import com.facebook.presto.execution.DataDefinitionExecution.DataDefinitionExecutionFactory;
 import com.facebook.presto.execution.QueryExecution.QueryExecutionFactory;
 import com.facebook.presto.execution.QueryExecution.QueryOutputInfo;
 import com.facebook.presto.execution.SqlQueryExecution.SqlQueryExecutionFactory;
@@ -33,13 +34,32 @@ import com.facebook.presto.server.SessionSupplier;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import com.facebook.presto.spi.resourceGroups.SelectionContext;
+import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.parser.ParsingException;
+import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Plan;
+import com.facebook.presto.sql.tree.CreateTableAsSelect;
+import com.facebook.presto.sql.tree.Delete;
+import com.facebook.presto.sql.tree.DescribeInput;
+import com.facebook.presto.sql.tree.DescribeOutput;
 import com.facebook.presto.sql.tree.Execute;
 import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.Insert;
+import com.facebook.presto.sql.tree.Query;
+import com.facebook.presto.sql.tree.ShowCatalogs;
+import com.facebook.presto.sql.tree.ShowColumns;
+import com.facebook.presto.sql.tree.ShowCreate;
+import com.facebook.presto.sql.tree.ShowFunctions;
+import com.facebook.presto.sql.tree.ShowGrants;
+import com.facebook.presto.sql.tree.ShowPartitions;
+import com.facebook.presto.sql.tree.ShowSchemas;
+import com.facebook.presto.sql.tree.ShowSession;
+import com.facebook.presto.sql.tree.ShowStats;
+import com.facebook.presto.sql.tree.ShowTables;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.Ordering;
@@ -85,8 +105,15 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_TEXT_TOO_LARGE;
 import static com.facebook.presto.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
 import static com.facebook.presto.spi.StandardErrorCode.SERVER_STARTING_UP;
+import static com.facebook.presto.spi.resourceGroups.QueryType.DATA_DEFINITION;
+import static com.facebook.presto.spi.resourceGroups.QueryType.DELETE;
+import static com.facebook.presto.spi.resourceGroups.QueryType.DESCRIBE;
+import static com.facebook.presto.spi.resourceGroups.QueryType.EXPLAIN;
+import static com.facebook.presto.spi.resourceGroups.QueryType.INSERT;
+import static com.facebook.presto.spi.resourceGroups.QueryType.SELECT;
 import static com.facebook.presto.sql.ParsingUtil.createParsingOptions;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PARAMETER_USAGE;
+import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DECIMAL;
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.verifyExpressionIsConstant;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -362,6 +389,7 @@ public class SqlQueryManager
         QueryId queryId = queryIdGenerator.createNextQueryId();
 
         Session session = null;
+        SelectionContext<?> group;
         QueryExecution queryExecution;
         Statement statement;
         try {
@@ -378,12 +406,20 @@ public class SqlQueryManager
                 acceptQueries.set(true);
             }
 
-            session = sessionSupplier.createSession(queryId, sessionContext);
             if (query.length() > maxQueryLength) {
                 int queryLength = query.length();
                 query = query.substring(0, maxQueryLength);
                 throw new PrestoException(QUERY_TEXT_TOO_LARGE, format("Query text length (%s) exceeds the maximum length (%s)", queryLength, maxQueryLength));
             }
+
+            group = resourceGroupManager.selectGroup(new SelectionCriteria(
+                    sessionContext.getIdentity().getPrincipal().isPresent(),
+                    sessionContext.getIdentity().getUser(),
+                    Optional.ofNullable(sessionContext.getSource()),
+                    sessionContext.getClientTags(),
+                    getQueryType(query)));
+
+            session = sessionSupplier.createSession(queryId, sessionContext, group.getResourceGroupId());
             Statement wrappedStatement = sqlParser.createStatement(query, createParsingOptions(session));
             statement = unwrapExecuteStatement(wrappedStatement, sqlParser, session);
             List<Expression> parameters = wrappedStatement instanceof Execute ? ((Execute) wrappedStatement).getParameters() : emptyList();
@@ -398,6 +434,7 @@ public class SqlQueryManager
                     throw new PrestoException(NOT_SUPPORTED, "EXPLAIN ANALYZE only supported for statements that are queries");
                 }
             }
+
             queryExecution = queryExecutionFactory.createQueryExecution(queryId, query, session, statement, parameters);
         }
         catch (ParsingException | PrestoException | SemanticException e) {
@@ -458,9 +495,42 @@ public class SqlQueryManager
         queries.put(queryId, queryExecution);
 
         // start the query in the background
-        resourceGroupManager.submit(statement, queryExecution, queryExecutor);
+        resourceGroupManager.submit(statement, queryExecution, group, queryExecutor);
 
         return queryInfo;
+    }
+
+    private Optional<String> getQueryType(String query)
+    {
+        Statement statement = sqlParser.createStatement(query, new ParsingOptions(AS_DECIMAL));
+        QueryExecutionFactory<?> queryExecutionFactory = executionFactories.get(statement.getClass());
+
+        if (queryExecutionFactory instanceof DataDefinitionExecutionFactory) {
+            return Optional.of(DATA_DEFINITION.name());
+        }
+
+        if (queryExecutionFactory instanceof SqlQueryExecutionFactory) {
+            if (statement instanceof Query) {
+                return Optional.of(SELECT.name());
+            }
+            else if (statement instanceof Explain) {
+                return Optional.of(EXPLAIN.name());
+            }
+            else if (statement instanceof ShowCatalogs || statement instanceof ShowCreate || statement instanceof ShowFunctions ||
+                    statement instanceof ShowGrants || statement instanceof ShowPartitions || statement instanceof ShowSchemas ||
+                    statement instanceof ShowSession || statement instanceof ShowStats || statement instanceof ShowTables ||
+                    statement instanceof ShowColumns || statement instanceof DescribeInput || statement instanceof DescribeOutput) {
+                return Optional.of(DESCRIBE.name());
+            }
+            else if (statement instanceof CreateTableAsSelect || statement instanceof Insert) {
+                return Optional.of(INSERT.name());
+            }
+            else if (statement instanceof Delete) {
+                return Optional.of(DELETE.name());
+            }
+        }
+
+        return Optional.empty();
     }
 
     public static Statement unwrapExecuteStatement(Statement statement, SqlParser sqlParser, Session session)

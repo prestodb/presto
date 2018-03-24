@@ -14,10 +14,11 @@
 package com.facebook.presto.execution.resourceGroups;
 
 import com.facebook.presto.execution.QueryExecution;
-import com.facebook.presto.execution.QueryQueueManager;
 import com.facebook.presto.server.ResourceGroupInfo;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerFactory;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import com.facebook.presto.spi.resourceGroups.SelectionContext;
+import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
 import com.facebook.presto.sql.tree.Statement;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -30,9 +31,11 @@ import java.util.concurrent.Executor;
  * may be called concurrently from any thread.
  */
 @ThreadSafe
-public interface ResourceGroupManager
+public interface ResourceGroupManager<C>
 {
-    void submit(Statement statement, QueryExecution queryExecution, Executor executor);
+    void submit(Statement statement, QueryExecution queryExecution, SelectionContext<C> group, Executor executor);
+
+    SelectionContext<C> selectGroup(SelectionCriteria criteria);
 
     ResourceGroupInfo getResourceGroupInfo(ResourceGroupId id);
 
