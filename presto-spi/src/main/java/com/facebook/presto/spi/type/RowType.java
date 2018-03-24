@@ -126,7 +126,7 @@ public class RowType
             blockBuilder.appendNull();
         }
         else {
-            blockBuilder.writeObject(block.getObject(position, Block.class));
+            block.writePositionTo(position, blockBuilder);
             blockBuilder.closeEntry();
         }
     }
