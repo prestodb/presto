@@ -20,7 +20,6 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.tree.Expression;
@@ -43,7 +42,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
-import static com.facebook.presto.spi.resourceGroups.QueryType.DATA_DEFINITION;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -162,12 +160,6 @@ public class DataDefinitionExecution<T extends Statement>
     public void addFinalQueryInfoListener(StateChangeListener<QueryInfo> stateChangeListener)
     {
         stateMachine.addQueryInfoStateChangeListener(stateChangeListener);
-    }
-
-    @Override
-    public Optional<QueryType> getQueryType()
-    {
-        return Optional.of(DATA_DEFINITION);
     }
 
     @Override
