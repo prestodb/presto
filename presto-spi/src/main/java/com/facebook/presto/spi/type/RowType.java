@@ -140,7 +140,7 @@ public class RowType
     @Override
     public void writeObject(BlockBuilder blockBuilder, Object value)
     {
-        blockBuilder.appendSingleStructure(value);
+        blockBuilder.appendSingleStructure((Block) value);
     }
 
     @Override

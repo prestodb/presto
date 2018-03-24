@@ -261,14 +261,16 @@ public class MapBlockBuilder
     }
 
     @Override
-    public BlockBuilder appendSingleStructure(Object value)
+    public BlockBuilder appendSingleStructure(Block block)
     {
+        if (!(block instanceof SingleMapBlock)) {
+            throw new IllegalStateException("Expected AbstractSingleMapBlock");
+        }
         if (currentEntryOpened) {
             throw new IllegalStateException("Expected current entry to be closed but was opened");
         }
         currentEntryOpened = true;
 
-        Block block = (Block) value;
         int blockPositionCount = block.getPositionCount();
         if (blockPositionCount % 2 != 0) {
             throw new IllegalArgumentException(format("block position count is not even: %s", blockPositionCount));

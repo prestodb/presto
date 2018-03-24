@@ -138,10 +138,10 @@ public class SingleRowBlockWriter
     }
 
     @Override
-    public BlockBuilder appendSingleStructure(Object value)
+    public BlockBuilder appendSingleStructure(Block block)
     {
         checkFieldIndexToWrite();
-        fieldBlockBuilders[currentFieldIndexToWrite].appendSingleStructure(value);
+        fieldBlockBuilders[currentFieldIndexToWrite].appendSingleStructure(block);
         entryAdded();
         return this;
     }
