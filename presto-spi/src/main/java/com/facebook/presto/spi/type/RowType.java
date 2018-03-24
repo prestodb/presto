@@ -127,7 +127,6 @@ public class RowType
         }
         else {
             block.writePositionTo(position, blockBuilder);
-            blockBuilder.closeEntry();
         }
     }
 

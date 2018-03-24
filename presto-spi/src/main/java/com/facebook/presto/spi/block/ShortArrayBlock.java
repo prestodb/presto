@@ -119,6 +119,7 @@ public class ShortArrayBlock
     {
         checkReadablePosition(position);
         blockBuilder.writeShort(values[position + arrayOffset]);
+        blockBuilder.closeEntry();
     }
 
     @Override

@@ -156,9 +156,9 @@ public abstract class AbstractRowBlock
             }
             else {
                 getFieldBlocks()[i].writePositionTo(fieldBlockOffset, entryBuilder);
-                entryBuilder.closeEntry();
             }
         }
+        blockBuilder.closeEntry();
     }
 
     @Override

@@ -180,6 +180,7 @@ public class IntArrayBlockBuilder
     {
         checkReadablePosition(position);
         blockBuilder.writeInt(values[position]);
+        blockBuilder.closeEntry();
     }
 
     @Override

@@ -179,6 +179,7 @@ public class ByteArrayBlockBuilder
     {
         checkReadablePosition(position);
         blockBuilder.writeByte(values[position]);
+        blockBuilder.closeEntry();
     }
 
     @Override

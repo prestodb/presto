@@ -281,14 +281,12 @@ public class MapBlockBuilder
             }
             else {
                 block.writePositionTo(i, keyBlockBuilder);
-                keyBlockBuilder.closeEntry();
             }
             if (block.isNull(i + 1)) {
                 valueBlockBuilder.appendNull();
             }
             else {
                 block.writePositionTo(i + 1, valueBlockBuilder);
-                valueBlockBuilder.closeEntry();
             }
         }
 

@@ -110,7 +110,7 @@ public interface Block
     }
 
     /**
-     * Appends the value at {@code position} to {@code blockBuilder}.
+     * Appends the value at {@code position} to {@code blockBuilder} and close the entry.
      */
     void writePositionTo(int position, BlockBuilder blockBuilder);
 
