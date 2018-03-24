@@ -25,16 +25,14 @@ public final class SelectionCriteria
     private final String user;
     private final Optional<String> source;
     private final Set<String> clientTags;
-    private final int queryPriority;
     private final Optional<String> queryType;
 
-    public SelectionCriteria(boolean authenticated, String user, Optional<String> source, Set<String> clientTags, int queryPriority, Optional<String> queryType)
+    public SelectionCriteria(boolean authenticated, String user, Optional<String> source, Set<String> clientTags, Optional<String> queryType)
     {
         this.authenticated = authenticated;
         this.user = requireNonNull(user, "user is null");
         this.source = requireNonNull(source, "source is null");
         this.clientTags = unmodifiableSet(requireNonNull(clientTags, "tags is null"));
-        this.queryPriority = queryPriority;
         this.queryType = requireNonNull(queryType, "queryType is null");
     }
 
@@ -56,11 +54,6 @@ public final class SelectionCriteria
     public Set<String> getTags()
     {
         return clientTags;
-    }
-
-    public int getQueryPriority()
-    {
-        return queryPriority;
     }
 
     public Optional<String> getQueryType()
