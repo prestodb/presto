@@ -18,6 +18,7 @@ import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.session.SessionPropertyConfigurationManagerFactory;
 import com.facebook.presto.spi.session.TestingSessionPropertyConfigurationManagerFactory;
 import com.google.common.collect.ImmutableListMultimap;
@@ -28,6 +29,7 @@ import org.testng.annotations.Test;
 import javax.servlet.http.HttpServletRequest;
 
 import java.util.Locale;
+import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.DISTRIBUTED_JOIN;
 import static com.facebook.presto.SystemSessionProperties.HASH_PARTITION_COUNT;
@@ -63,6 +65,7 @@ public class TestQuerySessionSupplier
                     .put(PRESTO_PREPARED_STATEMENT, "query1=select * from foo,query2=select * from bar")
                     .build(),
             "testRemote");
+    private static final ResourceGroupId TEST_RESOURCE_GROUP_ID = new ResourceGroupId("test");
 
     @Test
     public void testCreateSession()
@@ -72,7 +75,7 @@ public class TestQuerySessionSupplier
                 createTestTransactionManager(),
                 new AllowAllAccessControl(),
                 new SessionPropertyManager());
-        Session session = sessionSupplier.createSession(new QueryId("test_query_id"), context);
+        Session session = sessionSupplier.createSession(new QueryId("test_query_id"), context, Optional.empty(), TEST_RESOURCE_GROUP_ID);
 
         assertEquals(session.getQueryId(), new QueryId("test_query_id"));
         assertEquals(session.getUser(), "testUser");
@@ -108,7 +111,7 @@ public class TestQuerySessionSupplier
                 ImmutableMap.of("testCatalog", ImmutableMap.of("key1", "10")));
         sessionSupplier.addConfigurationManager(factory);
         sessionSupplier.setConfigurationManager(factory.getName(), ImmutableMap.of());
-        Session session = sessionSupplier.createSession(new QueryId("test_query_id"), context);
+        Session session = sessionSupplier.createSession(new QueryId("test_query_id"), context, Optional.empty(), TEST_RESOURCE_GROUP_ID);
         assertEquals(session.getSystemProperties(), ImmutableMap.<String, String>builder()
                 .put(QUERY_MAX_MEMORY, "1GB")
                 .put(DISTRIBUTED_JOIN, "true")
@@ -154,6 +157,6 @@ public class TestQuerySessionSupplier
                 createTestTransactionManager(),
                 new AllowAllAccessControl(),
                 new SessionPropertyManager());
-        sessionSupplier.createSession(new QueryId("test_query_id"), context);
+        sessionSupplier.createSession(new QueryId("test_query_id"), context, Optional.empty(), TEST_RESOURCE_GROUP_ID);
     }
 }
