@@ -256,6 +256,10 @@ public final class PartitionedLookupSourceFactory
             checkState(partitionsSet == partitions.length, "Not all set yet");
             checkState(this.lookupSourceSupplier == null, "Already supplied");
 
+            if (partitionsNoLongerNeeded.isDone()) {
+                return;
+            }
+
             if (partitionsSet != 1) {
                 List<Supplier<LookupSource>> partitions = ImmutableList.copyOf(this.partitions);
                 this.lookupSourceSupplier = createPartitionedLookupSourceSupplier(partitions, hashChannelTypes, outer);
