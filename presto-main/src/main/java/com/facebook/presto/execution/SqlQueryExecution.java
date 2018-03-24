@@ -31,7 +31,6 @@ import com.facebook.presto.operator.ForScheduler;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.split.SplitSource;
@@ -53,24 +52,8 @@ import com.facebook.presto.sql.planner.PlanOptimizers;
 import com.facebook.presto.sql.planner.StageExecutionPlan;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
-import com.facebook.presto.sql.tree.CreateTableAsSelect;
-import com.facebook.presto.sql.tree.Delete;
-import com.facebook.presto.sql.tree.DescribeInput;
-import com.facebook.presto.sql.tree.DescribeOutput;
 import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.Insert;
-import com.facebook.presto.sql.tree.Query;
-import com.facebook.presto.sql.tree.ShowCatalogs;
-import com.facebook.presto.sql.tree.ShowColumns;
-import com.facebook.presto.sql.tree.ShowCreate;
-import com.facebook.presto.sql.tree.ShowFunctions;
-import com.facebook.presto.sql.tree.ShowGrants;
-import com.facebook.presto.sql.tree.ShowPartitions;
-import com.facebook.presto.sql.tree.ShowSchemas;
-import com.facebook.presto.sql.tree.ShowSession;
-import com.facebook.presto.sql.tree.ShowStats;
-import com.facebook.presto.sql.tree.ShowTables;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableSet;
@@ -95,11 +78,6 @@ import java.util.function.Consumer;
 import static com.facebook.presto.OutputBuffers.BROADCAST_PARTITION_ID;
 import static com.facebook.presto.OutputBuffers.createInitialEmptyOutputBuffers;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static com.facebook.presto.spi.resourceGroups.QueryType.DELETE;
-import static com.facebook.presto.spi.resourceGroups.QueryType.DESCRIBE;
-import static com.facebook.presto.spi.resourceGroups.QueryType.EXPLAIN;
-import static com.facebook.presto.spi.resourceGroups.QueryType.INSERT;
-import static com.facebook.presto.spi.resourceGroups.QueryType.SELECT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static java.util.Objects.requireNonNull;
@@ -309,30 +287,6 @@ public final class SqlQueryExecution
     public void addFinalQueryInfoListener(StateChangeListener<QueryInfo> stateChangeListener)
     {
         stateMachine.addQueryInfoStateChangeListener(stateChangeListener);
-    }
-
-    @Override
-    public Optional<QueryType> getQueryType()
-    {
-        if (statement instanceof Query) {
-            return Optional.of(SELECT);
-        }
-        else if (statement instanceof Explain) {
-            return Optional.of(EXPLAIN);
-        }
-        else if (statement instanceof ShowCatalogs || statement instanceof ShowCreate || statement instanceof ShowFunctions ||
-                statement instanceof ShowGrants || statement instanceof ShowPartitions || statement instanceof ShowSchemas ||
-                statement instanceof ShowSession || statement instanceof ShowStats || statement instanceof ShowTables ||
-                statement instanceof ShowColumns || statement instanceof DescribeInput || statement instanceof DescribeOutput) {
-            return Optional.of(DESCRIBE);
-        }
-        else if (statement instanceof CreateTableAsSelect || statement instanceof Insert) {
-            return Optional.of(INSERT);
-        }
-        else if (statement instanceof Delete) {
-            return Optional.of(DELETE);
-        }
-        return Optional.empty();
     }
 
     private PlanRoot analyzeQuery()
