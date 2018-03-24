@@ -18,7 +18,6 @@ import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
-import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.sql.planner.Plan;
 import com.google.common.collect.ImmutableList;
@@ -291,12 +290,6 @@ public class MockQueryExecution
     public void addFinalQueryInfoListener(StateChangeListener<QueryInfo> stateChangeListener)
     {
         throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Optional<QueryType> getQueryType()
-    {
-        return Optional.empty();
     }
 
     private void fireStateChange()
