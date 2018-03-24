@@ -57,13 +57,13 @@ public class TestFileResourceGroupConfigurationManager
     {
         FileResourceGroupConfigurationManager manager = parse("resource_groups_config_query_type.json");
         List<ResourceGroupSelector> selectors = manager.getSelectors();
-        assertMatch(selectors, new SelectionCriteria(true, "test_user", Optional.empty(), ImmutableSet.of(), 1, Optional.of("select")), "global.select");
-        assertMatch(selectors, new SelectionCriteria(true, "test_user", Optional.empty(), ImmutableSet.of(), 1, Optional.of("explain")), "global.explain");
-        assertMatch(selectors, new SelectionCriteria(true, "test_user", Optional.empty(), ImmutableSet.of(), 1, Optional.of("insert")), "global.insert");
-        assertMatch(selectors, new SelectionCriteria(true, "test_user", Optional.empty(), ImmutableSet.of(), 1, Optional.of("delete")), "global.delete");
-        assertMatch(selectors, new SelectionCriteria(true, "test_user", Optional.empty(), ImmutableSet.of(), 1, Optional.of("describe")), "global.describe");
-        assertMatch(selectors, new SelectionCriteria(true, "test_user", Optional.empty(), ImmutableSet.of(), 1, Optional.of("data_definition")), "global.data_definition");
-        assertMatch(selectors, new SelectionCriteria(true, "test_user", Optional.empty(), ImmutableSet.of(), 1, Optional.of("sth_else")), "global.other");
+        assertMatch(selectors, new SelectionCriteria(true, "test_user", Optional.empty(), ImmutableSet.of(), Optional.of("select")), "global.select");
+        assertMatch(selectors, new SelectionCriteria(true, "test_user", Optional.empty(), ImmutableSet.of(), Optional.of("explain")), "global.explain");
+        assertMatch(selectors, new SelectionCriteria(true, "test_user", Optional.empty(), ImmutableSet.of(), Optional.of("insert")), "global.insert");
+        assertMatch(selectors, new SelectionCriteria(true, "test_user", Optional.empty(), ImmutableSet.of(), Optional.of("delete")), "global.delete");
+        assertMatch(selectors, new SelectionCriteria(true, "test_user", Optional.empty(), ImmutableSet.of(), Optional.of("describe")), "global.describe");
+        assertMatch(selectors, new SelectionCriteria(true, "test_user", Optional.empty(), ImmutableSet.of(), Optional.of("data_definition")), "global.data_definition");
+        assertMatch(selectors, new SelectionCriteria(true, "test_user", Optional.empty(), ImmutableSet.of(), Optional.of("sth_else")), "global.other");
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Selector specifies an invalid query type: invalid_query_type")
