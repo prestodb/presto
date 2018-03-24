@@ -212,14 +212,16 @@ public class RowBlockBuilder
     }
 
     @Override
-    public BlockBuilder appendStructure(Object value)
+    public BlockBuilder appendStructure(Block block)
     {
+        if (!(block instanceof AbstractSingleRowBlock)) {
+            throw new IllegalStateException("Expected AbstractSingleRowBlock");
+        }
         if (currentEntryOpened) {
             throw new IllegalStateException("Expected current entry to be closed but was opened");
         }
         currentEntryOpened = true;
 
-        Block block = (Block) value;
         int blockPositionCount = block.getPositionCount();
         if (blockPositionCount != numFields) {
             throw new IllegalArgumentException(format("block position count (%s) is not equal to number of fields (%s)", blockPositionCount, numFields));

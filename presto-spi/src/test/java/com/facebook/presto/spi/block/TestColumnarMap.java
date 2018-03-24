@@ -130,21 +130,22 @@ public class TestColumnarMap
                 blockBuilder.appendNull();
             }
             else {
-                BlockBuilder elementBlockBuilder = VARCHAR.createBlockBuilder(null, expectedMap.length);
+                BlockBuilder entryBuilder = blockBuilder.beginBlockEntry();
+                VARCHAR.createBlockBuilder(null, expectedMap.length);
                 for (Slice[] entry : expectedMap) {
                     Slice key = entry[0];
                     assertNotNull(key);
-                    VARCHAR.writeSlice(elementBlockBuilder, key);
+                    VARCHAR.writeSlice(entryBuilder, key);
 
                     Slice value = entry[1];
                     if (value == null) {
-                        elementBlockBuilder.appendNull();
+                        entryBuilder.appendNull();
                     }
                     else {
-                        VARCHAR.writeSlice(elementBlockBuilder, value);
+                        VARCHAR.writeSlice(entryBuilder, value);
                     }
                 }
-                blockBuilder.appendStructure(elementBlockBuilder.build());
+                blockBuilder.closeEntry();
             }
         }
         return blockBuilder;

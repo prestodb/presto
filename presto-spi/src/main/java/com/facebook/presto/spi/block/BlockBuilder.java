@@ -89,7 +89,7 @@ public interface BlockBuilder
     /**
      * Append a struct to the block and close the entry.
      */
-    default BlockBuilder appendStructure(Object value)
+    default BlockBuilder appendStructure(Block value)
     {
         throw new UnsupportedOperationException(getClass().getName());
     }

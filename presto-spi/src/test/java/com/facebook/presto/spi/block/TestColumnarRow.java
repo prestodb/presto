@@ -118,16 +118,16 @@ public class TestColumnarRow
                 blockBuilder.appendNull();
             }
             else {
-                BlockBuilder elementBlockBuilder = VARCHAR.createBlockBuilder(null, expectedValue.length);
+                BlockBuilder entryBuilder = blockBuilder.beginBlockEntry();
                 for (Slice v : expectedValue) {
                     if (v == null) {
-                        elementBlockBuilder.appendNull();
+                        entryBuilder.appendNull();
                     }
                     else {
-                        VARCHAR.writeSlice(elementBlockBuilder, v);
+                        VARCHAR.writeSlice(entryBuilder, v);
                     }
                 }
-                blockBuilder.appendStructure(elementBlockBuilder.build());
+                blockBuilder.closeEntry();
             }
         }
         return blockBuilder;

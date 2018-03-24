@@ -98,9 +98,9 @@ public class SingleArrayBlockWriter
     }
 
     @Override
-    public BlockBuilder appendStructure(Object value)
+    public BlockBuilder appendStructure(Block block)
     {
-        blockBuilder.appendStructure(value);
+        blockBuilder.appendStructure(block);
         entryAdded();
         return this;
     }

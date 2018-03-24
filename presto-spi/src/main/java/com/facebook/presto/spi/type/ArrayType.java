@@ -187,7 +187,7 @@ public class ArrayType
     @Override
     public void writeObject(BlockBuilder blockBuilder, Object value)
     {
-        blockBuilder.appendStructure(value);
+        blockBuilder.appendStructure((Block) value);
     }
 
     @Override
