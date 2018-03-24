@@ -295,6 +295,37 @@ public class MapBlockBuilder
     }
 
     @Override
+    public BlockBuilder appendStructure(Block block, int position)
+    {
+        if (!(block instanceof AbstractMapBlock)) {
+            throw new IllegalArgumentException();
+        }
+
+        beginBlockEntry();
+
+        AbstractMapBlock mapBlock = (AbstractMapBlock) block;
+        int startValueOffset = mapBlock.getOffset(position);
+        int endValueOffset = mapBlock.getOffset(position + 1);
+        for (int i = startValueOffset; i < endValueOffset; i++) {
+            if (mapBlock.getKeys().isNull(i)) {
+                entryBuilder.appendNull();
+            }
+            else {
+                mapBlock.getKeys().writePositionTo(i, keyBlockBuilder);
+            }
+            if (mapBlock.getValues().isNull(i)) {
+                valueBlockBuilder.appendNull();
+            }
+            else {
+                mapBlock.getValues().writePositionTo(i, valueBlockBuilder);
+            }
+        }
+
+        closeEntry();
+        return this;
+    }
+
+    @Override
     public BlockBuilder newBlockBuilderLike(BlockBuilderStatus blockBuilderStatus)
     {
         int newSize = calculateBlockResetSize(getPositionCount());

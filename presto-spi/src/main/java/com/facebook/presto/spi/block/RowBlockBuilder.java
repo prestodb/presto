@@ -239,6 +239,30 @@ public class RowBlockBuilder
     }
 
     @Override
+    public BlockBuilder appendStructure(Block block, int position)
+    {
+        if (!(block instanceof AbstractRowBlock)) {
+            throw new IllegalArgumentException();
+        }
+
+        AbstractRowBlock rowBlock = (AbstractRowBlock) block;
+        BlockBuilder entryBuilder = this.beginBlockEntry();
+
+        int fieldBlockOffset = rowBlock.getFieldBlockOffset(position);
+        for (int i = 0; i < rowBlock.numFields; i++) {
+            if (rowBlock.getFieldBlocks()[i].isNull(fieldBlockOffset)) {
+                entryBuilder.appendNull();
+            }
+            else {
+                rowBlock.getFieldBlocks()[i].writePositionTo(fieldBlockOffset, entryBuilder);
+            }
+        }
+
+        closeEntry();
+        return this;
+    }
+
+    @Override
     public BlockBuilder newBlockBuilderLike(BlockBuilderStatus blockBuilderStatus)
     {
         int newSize = calculateBlockResetSize(getPositionCount());

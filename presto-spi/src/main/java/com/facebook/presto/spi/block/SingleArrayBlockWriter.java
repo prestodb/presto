@@ -106,6 +106,14 @@ public class SingleArrayBlockWriter
     }
 
     @Override
+    public BlockBuilder appendStructure(Block block, int position)
+    {
+        blockBuilder.appendStructure(block, position);
+        entryAdded();
+        return this;
+    }
+
+    @Override
     public BlockBuilder beginBlockEntry()
     {
         return blockBuilder.beginBlockEntry();

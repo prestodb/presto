@@ -94,6 +94,14 @@ public interface BlockBuilder
         throw new UnsupportedOperationException(getClass().getName());
     }
 
+    /**q
+     * Do not use this interface outside block package.
+     */
+    default BlockBuilder appendStructure(Block block, int position)
+    {
+        throw new UnsupportedOperationException(getClass().getName());
+    }
+
     /**
      * Builds the block. This method can be called multiple times.
      */

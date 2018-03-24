@@ -214,24 +214,7 @@ public abstract class AbstractMapBlock
     public void writePositionTo(int position, BlockBuilder blockBuilder)
     {
         checkReadablePosition(position);
-        BlockBuilder entryBuilder = blockBuilder.beginBlockEntry();
-        int startValueOffset = getOffset(position);
-        int endValueOffset = getOffset(position + 1);
-        for (int i = startValueOffset; i < endValueOffset; i++) {
-            if (getKeys().isNull(i)) {
-                entryBuilder.appendNull();
-            }
-            else {
-                getKeys().writePositionTo(i, entryBuilder);
-            }
-            if (getValues().isNull(i)) {
-                entryBuilder.appendNull();
-            }
-            else {
-                getValues().writePositionTo(i, entryBuilder);
-            }
-        }
-        blockBuilder.closeEntry();
+        blockBuilder.appendStructure(this, position);
     }
 
     @Override

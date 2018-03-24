@@ -159,6 +159,31 @@ public class ArrayBlockBuilder
     }
 
     @Override
+    public BlockBuilder appendStructure(Block block, int position)
+    {
+        if (!(block instanceof AbstractArrayBlock)) {
+            throw new IllegalArgumentException();
+        }
+
+        AbstractArrayBlock arrayBlock = (AbstractArrayBlock) block;
+        BlockBuilder entryBuilder = beginBlockEntry();
+
+        int startValueOffset = arrayBlock.getOffset(position);
+        int endValueOffset = arrayBlock.getOffset(position + 1);
+        for (int i = startValueOffset; i < endValueOffset; i++) {
+            if (arrayBlock.getValues().isNull(i)) {
+                entryBuilder.appendNull();
+            }
+            else {
+                arrayBlock.getValues().writePositionTo(i, entryBuilder);
+            }
+        }
+
+        closeEntry();
+        return this;
+    }
+
+    @Override
     public SingleArrayBlockWriter beginBlockEntry()
     {
         if (currentEntryOpened) {
