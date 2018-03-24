@@ -145,9 +145,9 @@ public abstract class AbstractArrayBlock
             }
             else {
                 getValues().writePositionTo(i, entryBuilder);
-                entryBuilder.closeEntry();
             }
         }
+        blockBuilder.closeEntry();
     }
 
     @Override

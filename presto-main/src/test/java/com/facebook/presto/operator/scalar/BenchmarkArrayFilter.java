@@ -246,7 +246,6 @@ public class BenchmarkArrayFilter
                 }
                 if (TRUE.equals(keep)) {
                     block.writePositionTo(position, resultBuilder);
-                    resultBuilder.closeEntry();
                 }
             }
             return resultBuilder.build();

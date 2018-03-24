@@ -156,7 +156,6 @@ public class ArrayType
         }
         else {
             block.writePositionTo(position, blockBuilder);
-            blockBuilder.closeEntry();
         }
     }
 

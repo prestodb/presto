@@ -152,7 +152,6 @@ public class ArrayBlockBuilder
             }
             else {
                 block.writePositionTo(i, values);
-                values.closeEntry();
             }
         }
 

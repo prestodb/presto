@@ -124,6 +124,7 @@ public abstract class AbstractVariableWidthBlock
     public void writePositionTo(int position, BlockBuilder blockBuilder)
     {
         writeBytesTo(position, 0, getSliceLength(position), blockBuilder);
+        blockBuilder.closeEntry();
     }
 
     @Override

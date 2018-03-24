@@ -119,6 +119,7 @@ public class ByteArrayBlock
     {
         checkReadablePosition(position);
         blockBuilder.writeByte(values[position + arrayOffset]);
+        blockBuilder.closeEntry();
     }
 
     @Override

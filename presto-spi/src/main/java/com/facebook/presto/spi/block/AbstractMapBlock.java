@@ -224,16 +224,15 @@ public abstract class AbstractMapBlock
             }
             else {
                 getKeys().writePositionTo(i, entryBuilder);
-                entryBuilder.closeEntry();
             }
             if (getValues().isNull(i)) {
                 entryBuilder.appendNull();
             }
             else {
                 getValues().writePositionTo(i, entryBuilder);
-                entryBuilder.closeEntry();
             }
         }
+        blockBuilder.closeEntry();
     }
 
     @Override
