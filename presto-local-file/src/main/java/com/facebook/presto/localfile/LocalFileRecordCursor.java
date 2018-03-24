@@ -68,7 +68,8 @@ public class LocalFileRecordCursor
 
     // TODO This should be a config option as it may be different for different log files
     public static final DateTimeFormatter ISO_FORMATTER = new DateTimeFormatterBuilder()
-            .append(ISODateTimeFormat.dateHourMinuteSecondFraction())
+            .append(ISODateTimeFormat.dateHourMinuteSecond())
+            .appendOptional(new DateTimeFormatterBuilder().appendLiteral('.').appendFractionOfSecond(3, 3).toParser())
             .appendTimeZoneOffset("Z", true, 2, 2)
             .toFormatter();
 
