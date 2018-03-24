@@ -147,6 +147,15 @@ public class SingleRowBlockWriter
     }
 
     @Override
+    public BlockBuilder appendStructureInternal(Block block, int position)
+    {
+        checkFieldIndexToWrite();
+        fieldBlockBuilders[currentFieldIndexToWrite].appendStructureInternal(block, position);
+        entryAdded();
+        return this;
+    }
+
+    @Override
     public BlockBuilder beginBlockEntry()
     {
         checkFieldIndexToWrite();

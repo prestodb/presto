@@ -154,6 +154,19 @@ public class SingleMapBlockWriter
     }
 
     @Override
+    public BlockBuilder appendStructureInternal(Block block, int position)
+    {
+        if (writeToValueNext) {
+            valueBlockBuilder.appendStructureInternal(block, position);
+        }
+        else {
+            keyBlockBuilder.appendStructureInternal(block, position);
+        }
+        entryAdded();
+        return this;
+    }
+
+    @Override
     public BlockBuilder beginBlockEntry()
     {
         BlockBuilder result;

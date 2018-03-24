@@ -95,6 +95,15 @@ public interface BlockBuilder
     }
 
     /**
+     * Do not use this interface outside block package.
+     * Instead, use Block.writePositionTo(BlockBuilder, position)
+     */
+    default BlockBuilder appendStructureInternal(Block block, int position)
+    {
+        throw new UnsupportedOperationException(getClass().getName());
+    }
+
+    /**
      * Builds the block. This method can be called multiple times.
      */
     Block build();
