@@ -175,6 +175,9 @@ Property Name                                      Description                  
 ``hive.non-managed-table-writes-enabled``          Enable writes to non-managed (external) Hive tables.         ``false``
 
 ``hive.non-managed-table-creates-enabled``         Enable creating non-managed (external) Hive tables.          ``true``
+``hive.recursive-directories``                     Enable recursively walk hive partition directory during      ``false``
+                                                   querying. You should avoid to enable this when there're some
+                                                   Hive ACID tables in your database.                                                   
 ================================================== ============================================================ ==========
 
 Amazon S3 Configuration
