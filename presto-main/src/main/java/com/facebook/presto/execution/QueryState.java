@@ -21,9 +21,21 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 public enum QueryState
 {
     /**
-     * Query has been accepted and is awaiting execution.
+     * Query has been accepted and is awaiting execution or submission to a coordinator.
      */
     QUEUED(false),
+    /**
+     * Query is being submitted to a coordinator.
+     */
+    SUBMITTING(false),
+    /**
+     * Query has been accepted by the coordinator.
+     */
+    ACCEPTED(false),
+    /**
+     * Query has been acknowledged by the client on the coordinator.
+     */
+    ACKNOWLEDGED(true),
     /**
      * Query is being planned.
      */

@@ -19,7 +19,6 @@ import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.execution.QueryExecution.QueryExecutionFactory;
 import com.facebook.presto.execution.QueryExecution.QueryOutputInfo;
-import com.facebook.presto.execution.SqlQueryExecution.SqlQueryExecutionFactory;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.resourceGroups.QueryQueueFullException;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
@@ -75,6 +74,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxCpuTime;
+import static com.facebook.presto.execution.AbstractQueryExecution.getSqlQueryType;
 import static com.facebook.presto.execution.ParameterExtractor.getParameterCount;
 import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.spi.NodeState.ACTIVE;
@@ -388,7 +388,7 @@ public class SqlQueryManager
             }
             if (statement instanceof Explain && ((Explain) statement).isAnalyze()) {
                 Statement innerStatement = ((Explain) statement).getStatement();
-                if (!(executionFactories.get(innerStatement.getClass()) instanceof SqlQueryExecutionFactory)) {
+                if (!getSqlQueryType(innerStatement).isPresent()) {
                     throw new PrestoException(NOT_SUPPORTED, "EXPLAIN ANALYZE only supported for statements that are queries");
                 }
             }
