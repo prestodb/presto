@@ -266,27 +266,26 @@ public class MapBlockBuilder
         if (!(block instanceof SingleMapBlock)) {
             throw new IllegalStateException("Expected AbstractSingleMapBlock");
         }
-        if (currentEntryOpened) {
-            throw new IllegalStateException("Expected current entry to be closed but was opened");
-        }
-        currentEntryOpened = true;
 
-        int blockPositionCount = block.getPositionCount();
+        beginBlockEntry();
+
+        SingleMapBlock singleMapBlock = (SingleMapBlock) block;
+        int blockPositionCount = singleMapBlock.getPositionCount();
         if (blockPositionCount % 2 != 0) {
             throw new IllegalArgumentException(format("block position count is not even: %s", blockPositionCount));
         }
         for (int i = 0; i < blockPositionCount; i += 2) {
-            if (block.isNull(i)) {
+            if (singleMapBlock.isNull(i)) {
                 throw new IllegalArgumentException("Map keys must not be null");
             }
             else {
-                block.writePositionTo(i, keyBlockBuilder);
+                singleMapBlock.writePositionTo(i, keyBlockBuilder);
             }
-            if (block.isNull(i + 1)) {
+            if (singleMapBlock.isNull(i + 1)) {
                 valueBlockBuilder.appendNull();
             }
             else {
-                block.writePositionTo(i + 1, valueBlockBuilder);
+                singleMapBlock.writePositionTo(i + 1, valueBlockBuilder);
             }
         }
 
@@ -308,7 +307,7 @@ public class MapBlockBuilder
         int endValueOffset = mapBlock.getOffset(position + 1);
         for (int i = startValueOffset; i < endValueOffset; i++) {
             if (mapBlock.getKeys().isNull(i)) {
-                entryBuilder.appendNull();
+                throw new IllegalArgumentException("Map keys must not be null");
             }
             else {
                 mapBlock.getKeys().writePositionTo(i, keyBlockBuilder);
