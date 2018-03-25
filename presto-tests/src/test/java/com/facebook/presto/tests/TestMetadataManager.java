@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.tests;
 
+import com.facebook.presto.execution.QueryIdGenerator;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.TestingSessionContext;
@@ -40,6 +41,7 @@ public class TestMetadataManager
 {
     private DistributedQueryRunner queryRunner;
     private MetadataManager metadataManager;
+    private QueryIdGenerator queryIdGenerator;
 
     @BeforeClass
     public void setUp()
@@ -47,6 +49,7 @@ public class TestMetadataManager
     {
         queryRunner = TpchQueryRunnerBuilder.builder().build();
         metadataManager = (MetadataManager) queryRunner.getMetadata();
+        queryIdGenerator = new QueryIdGenerator();
     }
 
     @AfterClass(alwaysRun = true)
@@ -83,8 +86,8 @@ public class TestMetadataManager
             throws Exception
     {
         QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
-        QueryId queryId = queryManager.createQuery(new TestingSessionContext(TEST_SESSION),
-                "SELECT * FROM lineitem").getQueryId();
+        QueryId queryId = queryIdGenerator.createNextQueryId();
+        queryManager.createQuery(queryId, new TestingSessionContext(TEST_SESSION), "SELECT * FROM lineitem");
 
         // wait until query starts running
         while (true) {

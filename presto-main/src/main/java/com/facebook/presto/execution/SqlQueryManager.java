@@ -134,8 +134,6 @@ public class SqlQueryManager
     private final Metadata metadata;
     private final TransactionManager transactionManager;
 
-    private final QueryIdGenerator queryIdGenerator;
-
     private final SessionSupplier sessionSupplier;
 
     private final InternalNodeManager internalNodeManager;
@@ -156,7 +154,6 @@ public class SqlQueryManager
             ClusterMemoryManager memoryManager,
             LocationFactory locationFactory,
             TransactionManager transactionManager,
-            QueryIdGenerator queryIdGenerator,
             SessionSupplier sessionSupplier,
             InternalNodeManager internalNodeManager,
             Map<Class<? extends Statement>, QueryExecutionFactory<?>> executionFactories,
@@ -179,8 +176,6 @@ public class SqlQueryManager
 
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.metadata = requireNonNull(metadata, "transactionManager is null");
-
-        this.queryIdGenerator = requireNonNull(queryIdGenerator, "queryIdGenerator is null");
 
         this.sessionSupplier = requireNonNull(sessionSupplier, "sessionSupplier is null");
 
@@ -352,13 +347,13 @@ public class SqlQueryManager
     }
 
     @Override
-    public QueryInfo createQuery(SessionContext sessionContext, String query)
+    public QueryInfo createQuery(QueryId queryId, SessionContext sessionContext, String query)
     {
+        requireNonNull(queryId, "queryId is null");
         requireNonNull(sessionContext, "sessionFactory is null");
         requireNonNull(query, "query is null");
         checkArgument(!query.isEmpty(), "query must not be empty string");
-
-        QueryId queryId = queryIdGenerator.createNextQueryId();
+        checkArgument(!queries.containsKey(queryId), format("query %s already exists", queryId));
 
         Session session = null;
         QueryExecution queryExecution;

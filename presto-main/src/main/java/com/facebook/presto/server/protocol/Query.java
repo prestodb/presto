@@ -73,6 +73,7 @@ import static com.facebook.presto.SystemSessionProperties.isExchangeCompressionE
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.airlift.concurrent.MoreFutures.addTimeout;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -140,6 +141,7 @@ class Query
     private Long updateCount;
 
     public static Query create(
+            QueryId queryId,
             SessionContext sessionContext,
             String query,
             QueryManager queryManager,
@@ -149,7 +151,7 @@ class Query
             ScheduledExecutorService timeoutExecutor,
             BlockEncodingSerde blockEncodingSerde)
     {
-        Query result = new Query(sessionContext, query, queryManager, sessionPropertyManager, exchangeClient, dataProcessorExecutor, timeoutExecutor, blockEncodingSerde);
+        Query result = new Query(queryId, sessionContext, query, queryManager, sessionPropertyManager, exchangeClient, dataProcessorExecutor, timeoutExecutor, blockEncodingSerde);
 
         result.queryManager.addOutputInfoListener(result.getQueryId(), result::setQueryOutputInfo);
 
@@ -164,6 +166,7 @@ class Query
     }
 
     private Query(
+            QueryId queryId,
             SessionContext sessionContext,
             String query,
             QueryManager queryManager,
@@ -173,6 +176,7 @@ class Query
             ScheduledExecutorService timeoutExecutor,
             BlockEncodingSerde blockEncodingSerde)
     {
+        requireNonNull(queryId, "queryId is null");
         requireNonNull(sessionContext, "sessionContext is null");
         requireNonNull(query, "query is null");
         requireNonNull(queryManager, "queryManager is null");
@@ -182,9 +186,10 @@ class Query
 
         this.queryManager = queryManager;
 
-        QueryInfo queryInfo = queryManager.createQuery(sessionContext, query);
-        queryId = queryInfo.getQueryId();
-        session = queryInfo.getSession().toSession(sessionPropertyManager);
+        QueryInfo queryInfo = queryManager.createQuery(queryId, sessionContext, query);
+        checkState(queryInfo.getQueryId().equals(queryId));
+        this.queryId = queryInfo.getQueryId();
+        this.session = queryInfo.getSession().toSession(sessionPropertyManager);
         this.exchangeClient = exchangeClient;
         this.resultsProcessorExecutor = resultsProcessorExecutor;
         this.timeoutExecutor = timeoutExecutor;

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.ParsingOptions;
@@ -45,6 +46,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_INFO;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_TAGS;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_LANGUAGE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PREPARED_STATEMENT;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_QUERY_ID;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SCHEMA;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SOURCE;
@@ -64,6 +66,7 @@ public final class HttpRequestSessionContext
 {
     private static final Splitter DOT_SPLITTER = Splitter.on('.');
 
+    private final QueryId queryId;
     private final String catalog;
     private final String schema;
 
@@ -88,6 +91,9 @@ public final class HttpRequestSessionContext
     public HttpRequestSessionContext(HttpServletRequest servletRequest)
             throws WebApplicationException
     {
+        String queryId = trimEmptyToNull(servletRequest.getHeader(PRESTO_QUERY_ID));
+        this.queryId = queryId == null ? null : new QueryId(queryId);
+
         catalog = trimEmptyToNull(servletRequest.getHeader(PRESTO_CATALOG));
         schema = trimEmptyToNull(servletRequest.getHeader(PRESTO_SCHEMA));
         assertRequest((catalog != null) || (schema == null), "Schema is set but catalog is not");
@@ -142,6 +148,12 @@ public final class HttpRequestSessionContext
         String transactionIdHeader = servletRequest.getHeader(PRESTO_TRANSACTION_ID);
         clientTransactionSupport = transactionIdHeader != null;
         transactionId = parseTransactionId(transactionIdHeader);
+    }
+
+    @Override
+    public QueryId getQueryId()
+    {
+        return queryId;
     }
 
     @Override
