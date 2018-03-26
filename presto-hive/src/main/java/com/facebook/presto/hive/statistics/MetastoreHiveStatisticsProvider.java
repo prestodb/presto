@@ -225,6 +225,13 @@ public class MetastoreHiveStatisticsProvider
 
     private Estimate calculateNullsFraction(Map<String, PartitionStatistics> statisticsSample, int totalPartitionsCount, String column, Estimate totalRowsCount)
     {
+        if (totalRowsCount.isValueUnknown()) {
+            return Estimate.unknownValue();
+        }
+        if (totalRowsCount.getValue() == 0.0) {
+            return Estimate.zeroValue();
+        }
+
         Estimate totalNullsCount = summarizePartitionStatistics(
                 statisticsSample.values(),
                 column,
@@ -252,13 +259,9 @@ public class MetastoreHiveStatisticsProvider
                     }
                 });
 
-        if (totalNullsCount.isValueUnknown() || totalRowsCount.isValueUnknown()) {
+        if (totalNullsCount.isValueUnknown()) {
             return Estimate.unknownValue();
         }
-        if (totalRowsCount.getValue() == 0.0) {
-            return Estimate.zeroValue();
-        }
-
         return new Estimate(totalNullsCount.getValue() / totalRowsCount.getValue());
     }
 

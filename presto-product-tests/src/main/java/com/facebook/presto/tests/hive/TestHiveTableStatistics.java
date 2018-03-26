@@ -169,10 +169,10 @@ public class TestHiveTableStatistics
         // table not analyzed
 
         assertThat(query(showStatsWholeTable)).containsOnly(
-                row("n_nationkey", null, null, null, null, null, null),
-                row("n_name", null, null, null, null, null, null),
-                row("n_regionkey", null, null, null, null, null, null),
-                row("n_comment", null, null, null, null, null, null),
+                row("n_nationkey", null, null, anyOf(null, 0.0), null, null, null),
+                row("n_name", null, null, anyOf(null, 0.0), null, null, null),
+                row("n_regionkey", null, null, anyOf(null, 0.0), null, null, null),
+                row("n_comment", null, null, anyOf(null, 0.0), null, null, null),
                 row(null, null, null, null, anyOf(null, 0.0), null, null)); // anyOf because of different behaviour on HDP (hive 1.2) and CDH (hive 1.1)
 
         // basic analysis
@@ -383,21 +383,21 @@ public class TestHiveTableStatistics
         onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " COMPUTE STATISTICS");
 
         assertThat(query("SHOW STATS FOR " + tableNameInDatabase)).containsOnly(
-                row("c_tinyint", null, null, null, null, null, null),
-                row("c_smallint", null, null, null, null, null, null),
-                row("c_int", null, null, null, null, null, null),
-                row("c_bigint", null, null, null, null, null, null),
-                row("c_float", null, null, null, null, null, null),
-                row("c_double", null, null, null, null, null, null),
-                row("c_decimal", null, null, null, null, null, null),
-                row("c_decimal_w_params", null, null, null, null, null, null),
-                row("c_timestamp", null, null, null, null, null, null),
-                row("c_date", null, null, null, null, null, null),
-                row("c_string", null, null, null, null, null, null),
-                row("c_varchar", null, null, null, null, null, null),
-                row("c_char", null, null, null, null, null, null),
-                row("c_boolean", null, null, null, null, null, null),
-                row("c_binary", null, null, null, null, null, null),
+                row("c_tinyint", null, null, 0.0, null, null, null),
+                row("c_smallint", null, null, 0.0, null, null, null),
+                row("c_int", null, null, 0.0, null, null, null),
+                row("c_bigint", null, null, 0.0, null, null, null),
+                row("c_float", null, null, 0.0, null, null, null),
+                row("c_double", null, null, 0.0, null, null, null),
+                row("c_decimal", null, null, 0.0, null, null, null),
+                row("c_decimal_w_params", null, null, 0.0, null, null, null),
+                row("c_timestamp", null, null, 0.0, null, null, null),
+                row("c_date", null, null, 0.0, null, null, null),
+                row("c_string", null, null, 0.0, null, null, null),
+                row("c_varchar", null, null, 0.0, null, null, null),
+                row("c_char", null, null, 0.0, null, null, null),
+                row("c_boolean", null, null, 0.0, null, null, null),
+                row("c_binary", null, null, 0.0, null, null, null),
                 row(null, null, null, null, 0.0, null, null));
 
         onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " COMPUTE STATISTICS FOR COLUMNS");
