@@ -73,6 +73,7 @@ import static com.facebook.presto.sql.planner.optimizations.StreamPreferredPrope
 import static com.facebook.presto.sql.planner.optimizations.StreamPreferredProperties.fixedParallelism;
 import static com.facebook.presto.sql.planner.optimizations.StreamPreferredProperties.singleStream;
 import static com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.SINGLE;
+import static com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.derivePropertiesRecursively;
 import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
@@ -502,7 +503,7 @@ public class AddLocalExchanges
                     parentPreferences.constrainTo(node.getProbeSource().getOutputSymbols()).withDefaultParallelism(session));
 
             // index source does not support local parallel and must produce a single stream
-            StreamProperties indexStreamProperties = derivePropertiesRecursively(node.getIndexSource());
+            StreamProperties indexStreamProperties = derivePropertiesRecursively(node.getIndexSource(), metadata, session, types, parser);
             checkArgument(indexStreamProperties.getDistribution() == SINGLE, "index source must be single stream");
             PlanWithProperties index = new PlanWithProperties(node.getIndexSource(), indexStreamProperties);
 
@@ -609,14 +610,6 @@ public class AddLocalExchanges
         private PlanWithProperties deriveProperties(PlanNode result, List<StreamProperties> inputProperties)
         {
             return new PlanWithProperties(result, StreamPropertyDerivations.deriveProperties(result, inputProperties, metadata, session, types, parser));
-        }
-
-        private StreamProperties derivePropertiesRecursively(PlanNode node)
-        {
-            List<StreamProperties> inputProperties = node.getSources().stream()
-                    .map(this::derivePropertiesRecursively)
-                    .collect(toImmutableList());
-            return StreamPropertyDerivations.deriveProperties(node, inputProperties, metadata, session, types, parser);
         }
     }
 

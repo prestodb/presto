@@ -89,9 +89,17 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
-final class StreamPropertyDerivations
+public final class StreamPropertyDerivations
 {
     private StreamPropertyDerivations() {}
+
+    public static StreamProperties derivePropertiesRecursively(PlanNode node, Metadata metadata, Session session, Map<Symbol, Type> types, SqlParser parser)
+    {
+        List<StreamProperties> inputProperties = node.getSources().stream()
+                .map(source -> derivePropertiesRecursively(source, metadata, session, types, parser))
+                .collect(toImmutableList());
+        return StreamPropertyDerivations.deriveProperties(node, inputProperties, metadata, session, types, parser);
+    }
 
     public static StreamProperties deriveProperties(PlanNode node, StreamProperties inputProperties, Metadata metadata, Session session, Map<Symbol, Type> types, SqlParser parser)
     {
