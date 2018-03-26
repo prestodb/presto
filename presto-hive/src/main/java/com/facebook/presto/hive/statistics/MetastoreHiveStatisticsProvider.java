@@ -236,12 +236,10 @@ public class MetastoreHiveStatisticsProvider
                 statisticsSample.values(),
                 column,
                 columnStatistics -> {
-                    if (columnStatistics.getNullsCount().isPresent()) {
-                        return OptionalDouble.of(columnStatistics.getNullsCount().getAsLong());
-                    }
-                    else {
+                    if (!columnStatistics.getNullsCount().isPresent()) {
                         return OptionalDouble.empty();
                     }
+                    return OptionalDouble.of(columnStatistics.getNullsCount().getAsLong());
                 },
                 nullsCountStream -> {
                     double nullsCount = 0;
@@ -254,9 +252,7 @@ public class MetastoreHiveStatisticsProvider
                     if (partitionsWithStatisticsCount == 0) {
                         return OptionalDouble.empty();
                     }
-                    else {
-                        return OptionalDouble.of(totalPartitionsCount / partitionsWithStatisticsCount * nullsCount);
-                    }
+                    return OptionalDouble.of(totalPartitionsCount / partitionsWithStatisticsCount * nullsCount);
                 });
 
         if (totalNullsCount.isValueUnknown()) {
@@ -314,12 +310,10 @@ public class MetastoreHiveStatisticsProvider
 
         OptionalDouble statisticsValue = valueAggregateFunction.apply(intermediateStream);
 
-        if (statisticsValue.isPresent()) {
-            return new Estimate(statisticsValue.getAsDouble());
-        }
-        else {
+        if (!statisticsValue.isPresent()) {
             return Estimate.unknownValue();
         }
+        return new Estimate(statisticsValue.getAsDouble());
     }
 
     private Map<String, PartitionStatistics> getPartitionsStatistics(HiveTableHandle tableHandle, List<HivePartition> hivePartitions)
