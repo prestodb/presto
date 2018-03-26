@@ -17,6 +17,8 @@ package com.facebook.presto.block;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.ByteArrayBlock;
+import com.facebook.presto.spi.block.RowBlock;
 import com.facebook.presto.spi.block.RowBlockBuilder;
 import com.facebook.presto.spi.block.SingleRowBlock;
 import com.facebook.presto.spi.type.Type;
@@ -29,6 +31,7 @@ import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;
@@ -50,9 +53,72 @@ public class TestRowBlock
         testWith(fieldTypes, (List<Object>[]) alternatingNullValues(testRows));
     }
 
+    public void testCompactBlock()
+    {
+        // Test Constructor
+        Block emptyBlock = new ByteArrayBlock(0, new boolean[0], new byte[0]);
+        Block fieldBlock1 = new ByteArrayBlock(16, new boolean[16], createExpectedValue(16).getBytes());
+        Block fieldBlock2 = new ByteArrayBlock(16, new boolean[16], createExpectedValue(16).getBytes());
+        Block largerFieldBlock1 = new ByteArrayBlock(20, new boolean[20], createExpectedValue(20).getBytes());
+        Block largerFieldBlock2 = new ByteArrayBlock(20, new boolean[20], createExpectedValue(20).getBytes());
+        int[] offsets = {0, 1, 1, 2, 4, 8, 16};
+        boolean[] valueIsNull = {false, true, false, false, false, false};
+
+        assertCompact(new RowBlock(0, 0, new boolean[0], new int[1], new Block[] {emptyBlock, emptyBlock}));
+        assertCompact(new RowBlock(0, valueIsNull.length, valueIsNull, offsets, new Block[] {fieldBlock1, fieldBlock2}));
+
+        assertNotCompact(new RowBlock(0, valueIsNull.length - 1, valueIsNull, offsets, new Block[] {fieldBlock1, fieldBlock2}));
+        assertNotCompact(new RowBlock(1, valueIsNull.length - 1, valueIsNull, offsets, new Block[] {fieldBlock1, fieldBlock2}));
+        assertNotCompact(new RowBlock(0, valueIsNull.length, valueIsNull, offsets, new Block[] {largerFieldBlock1, largerFieldBlock2}));
+        assertNotCompact(new RowBlock(
+                0,
+                valueIsNull.length,
+                valueIsNull, offsets,
+                new Block[] {largerFieldBlock1.getRegion(0, 16), largerFieldBlock2.getRegion(0, 16)}));
+
+        // Test getRegion and copyRegion
+        Block block = new RowBlock(0, valueIsNull.length, valueIsNull, offsets, new Block[] {fieldBlock1, fieldBlock2});
+        assertGetRegionCompactness(block);
+        assertCopyRegionCompactness(block);
+        assertCopyRegionCompactness(new RowBlock(0, valueIsNull.length, valueIsNull, offsets, new Block[] {largerFieldBlock1, largerFieldBlock2}));
+        assertCopyRegionCompactness(new RowBlock(
+                0,
+                valueIsNull.length,
+                valueIsNull, offsets,
+                new Block[] {largerFieldBlock1.getRegion(0, 16), largerFieldBlock2.getRegion(0, 16)}));
+
+        // Test BlockBuilder
+        BlockBuilder emptyBlockBuilder = new RowBlockBuilder(
+                ImmutableList.of(TINYINT, TINYINT),
+                new BlockBuilderStatus(),
+                0);
+        assertNotCompact(emptyBlockBuilder);
+        assertCompact(emptyBlockBuilder.build());
+
+        List<Object>[] rows = new List[17];
+        for (int i = 0; i < 17; i++) {
+            rows[i] = ImmutableList.of(Byte.valueOf((byte) i), Byte.valueOf((byte) (i * 2)));
+        }
+
+        BlockBuilder nonFullBlockBuilder = createBlockBuilderWithValues(ImmutableList.of(TINYINT, TINYINT), rows, false);
+        assertNotCompact(nonFullBlockBuilder);
+        assertNotCompact(nonFullBlockBuilder.build());
+        assertCopyRegionCompactness(nonFullBlockBuilder);
+
+        BlockBuilder fullBlockBuilder = createBlockBuilderWithValues(ImmutableList.of(TINYINT, TINYINT), rows, true);
+        assertNotCompact(fullBlockBuilder);
+        assertCompact(fullBlockBuilder.build());
+        assertCopyRegionCompactness(fullBlockBuilder);
+
+        // NOTE: RowBlockBuilder will return itself if getRegion() is called to slice the whole block.
+        // assertCompact(fullBlockBuilder.getRegion(0, fullBlockBuilder.getPositionCount()));
+        assertNotCompact(fullBlockBuilder.getRegion(0, fullBlockBuilder.getPositionCount() - 1));
+        assertNotCompact(fullBlockBuilder.getRegion(1, fullBlockBuilder.getPositionCount() - 1));
+    }
+
     private void testWith(List<Type> fieldTypes, List<Object>[] expectedValues)
     {
-        BlockBuilder blockBuilder = createBlockBuilderWithValues(fieldTypes, expectedValues);
+        BlockBuilder blockBuilder = createBlockBuilderWithValues(fieldTypes, expectedValues, false);
 
         assertBlock(blockBuilder, expectedValues);
         assertBlock(blockBuilder.build(), expectedValues);
@@ -62,22 +128,26 @@ public class TestRowBlock
         assertBlockFilteredPositions(expectedValues, blockBuilder.build(), positionList.toIntArray());
     }
 
-    private BlockBuilder createBlockBuilderWithValues(List<Type> fieldTypes, List<Object>[] rows)
+    private BlockBuilder createBlockBuilderWithValues(List<Type> fieldTypes, List<Object>[] rows, boolean useAccurateCapacityEstimation)
     {
-        BlockBuilder rowBlockBuilder = new RowBlockBuilder(fieldTypes, new BlockBuilderStatus(), 1);
+        BlockBuilder rowBlockBuilder = new RowBlockBuilder(fieldTypes, new BlockBuilderStatus(), useAccurateCapacityEstimation ? rows.length : rows.length * 2);
         for (List<Object> row : rows) {
             if (row == null) {
                 rowBlockBuilder.appendNull();
             }
             else {
                 BlockBuilder singleRowBlockWriter = rowBlockBuilder.beginBlockEntry();
-                for (Object fieldValue : row) {
+                for (int i = 0; i < row.size(); i++) {
+                    Object fieldValue = row.get(i);
                     if (fieldValue == null) {
                         singleRowBlockWriter.appendNull();
                     }
                     else {
                         if (fieldValue instanceof Long) {
                             BIGINT.writeLong(singleRowBlockWriter, ((Long) fieldValue).longValue());
+                        }
+                        else if (fieldValue instanceof Byte && fieldTypes.get(i) == TINYINT) {
+                            TINYINT.writeLong(singleRowBlockWriter, ((Byte) fieldValue).byteValue());
                         }
                         else if (fieldValue instanceof String) {
                             VARCHAR.writeSlice(singleRowBlockWriter, utf8Slice((String) fieldValue));
