@@ -63,6 +63,7 @@ import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Maps.immutableEntry;
@@ -354,23 +355,23 @@ public class MetastoreHiveStatisticsProvider
 
         int samplesLeft = sampleSize;
 
+        HivePartition min = partitions.get(0);
+        HivePartition max = partitions.get(0);
+        for (HivePartition partition : partitions) {
+            if (partition.getPartitionId().compareTo(min.getPartitionId()) < 0) {
+                min = partition;
+            }
+            else if (partition.getPartitionId().compareTo(max.getPartitionId()) > 0) {
+                max = partition;
+            }
+        }
+
+        verify(samplesLeft > 0);
+        result.add(min);
+        samplesLeft--;
         if (samplesLeft > 0) {
-            HivePartition min = partitions.get(0);
-            HivePartition max = partitions.get(0);
-            for (HivePartition partition : partitions) {
-                if (partition.getPartitionId().compareTo(min.getPartitionId()) < 0) {
-                    min = partition;
-                }
-                else if (partition.getPartitionId().compareTo(max.getPartitionId()) > 0) {
-                    max = partition;
-                }
-            }
-            result.add(min);
+            result.add(max);
             samplesLeft--;
-            if (samplesLeft > 0) {
-                result.add(max);
-                samplesLeft--;
-            }
         }
 
         if (samplesLeft > 0) {
