@@ -477,14 +477,24 @@ public class PropertyDerivations
                     .collect(toMap(Map.Entry::getKey, Map.Entry::getValue));
 
             // Local exchanges are only created in AddLocalExchanges, at the end of optimization, and
-            // local exchanges do not produce global properties as represented by ActualProperties.
+            // local exchanges do not produce all global properties as represented by ActualProperties.
             // This is acceptable because AddLocalExchanges does not use global properties and is only
             // interested in the local properties.
+            // However, for the purpose of validation, some global properties (single-node vs distributed)
+            // are computed for local exchanges.
             // TODO: implement full properties for local exchanges
             if (node.getScope() == LOCAL) {
-                return ActualProperties.builder()
-                        .constants(constants)
-                        .build();
+                ActualProperties.Builder builder = ActualProperties.builder();
+                builder.constants(constants);
+
+                if (inputProperties.stream().anyMatch(ActualProperties::isCoordinatorOnly)) {
+                    builder.global(coordinatorSingleStreamPartition());
+                }
+                else if (inputProperties.stream().anyMatch(ActualProperties::isSingleNode)) {
+                    builder.global(coordinatorSingleStreamPartition());
+                }
+
+                return builder.build();
             }
 
             switch (node.getType()) {
