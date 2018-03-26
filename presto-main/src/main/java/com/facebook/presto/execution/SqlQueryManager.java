@@ -22,6 +22,7 @@ import com.facebook.presto.execution.QueryExecution.QueryOutputInfo;
 import com.facebook.presto.execution.SqlQueryExecution.SqlQueryExecutionFactory;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.resourceGroups.QueryQueueFullException;
+import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.memory.ClusterMemoryManager;
 import com.facebook.presto.metadata.InternalNodeManager;
@@ -108,7 +109,7 @@ public class SqlQueryManager
 
     private final ExecutorService queryExecutor;
     private final ThreadPoolExecutorMBean queryExecutorMBean;
-    private final QueryQueueManager queueManager;
+    private final ResourceGroupManager resourceGroupManager;
     private final ClusterMemoryManager memoryManager;
 
     private final boolean isIncludeCoordinator;
@@ -152,7 +153,7 @@ public class SqlQueryManager
             NodeSchedulerConfig nodeSchedulerConfig,
             QueryManagerConfig queryManagerConfig,
             QueryMonitor queryMonitor,
-            QueryQueueManager queueManager,
+            ResourceGroupManager resourceGroupManager,
             ClusterMemoryManager memoryManager,
             LocationFactory locationFactory,
             TransactionManager transactionManager,
@@ -171,7 +172,7 @@ public class SqlQueryManager
 
         requireNonNull(nodeSchedulerConfig, "nodeSchedulerConfig is null");
         requireNonNull(queryManagerConfig, "queryManagerConfig is null");
-        this.queueManager = requireNonNull(queueManager, "queueManager is null");
+        this.resourceGroupManager = requireNonNull(resourceGroupManager, "resourceGroupManager is null");
         this.memoryManager = requireNonNull(memoryManager, "memoryManager is null");
 
         this.queryMonitor = requireNonNull(queryMonitor, "queryMonitor is null");
@@ -457,7 +458,7 @@ public class SqlQueryManager
         queries.put(queryId, queryExecution);
 
         // start the query in the background
-        queueManager.submit(statement, queryExecution, queryExecutor);
+        resourceGroupManager.submit(statement, queryExecution, queryExecutor);
 
         return queryInfo;
     }
