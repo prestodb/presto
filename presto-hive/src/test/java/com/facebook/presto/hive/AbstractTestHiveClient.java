@@ -1322,7 +1322,11 @@ public abstract class AbstractTestHiveClient
 
             assertEquals(columnsStatistics.keySet(), expectedColumnStatsColumns, "columns with statistics");
 
+            Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
             columnsStatistics.forEach((columnName, columnStatistics) -> {
+                ColumnHandle columnHandle = columnHandles.get(columnName);
+                Type columnType = metadata.getColumnMetadata(session, tableHandle, columnHandle).getType();
+
                 assertFalse(
                         columnStatistics.getNullsFraction().isValueUnknown(),
                         "unknown nulls fraction for " + columnName);
@@ -1334,6 +1338,17 @@ public abstract class AbstractTestHiveClient
                 assertFalse(
                         rangeColumnStatistics.getFraction().isValueUnknown(),
                         "unknown range non-null fraction for " + columnName);
+
+                if (isVarcharType(columnType)) {
+                    assertFalse(
+                            rangeColumnStatistics.getDataSize().isValueUnknown(),
+                            "unknown range data size for " + columnName);
+                }
+                else {
+                    assertTrue(
+                            rangeColumnStatistics.getDataSize().isValueUnknown(),
+                            "known range data size for" + columnName);
+                }
             });
         }
     }
