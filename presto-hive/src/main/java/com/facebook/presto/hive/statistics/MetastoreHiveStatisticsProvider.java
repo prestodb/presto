@@ -270,7 +270,10 @@ public class MetastoreHiveStatisticsProvider
                 .count());
     }
 
-    private Estimate calculateNullsFractionForPartitioningKey(HiveColumnHandle partitionColumn, List<HivePartition> partitions, Map<String, PartitionStatistics> statisticsSample)
+    private Estimate calculateNullsFractionForPartitioningKey(
+            HiveColumnHandle partitionColumn,
+            List<HivePartition> queriedPartitions,
+            Map<String, PartitionStatistics> statisticsSample)
     {
         OptionalDouble rowsPerPartition = statisticsSample.values().stream()
                 .map(stats -> stats.getBasicStatistics().getRowCount())
@@ -282,11 +285,11 @@ public class MetastoreHiveStatisticsProvider
             return Estimate.unknownValue();
         }
 
-        double estimatedTotalRowsCount = rowsPerPartition.getAsDouble() * partitions.size();
+        double estimatedTotalRowsCount = rowsPerPartition.getAsDouble() * queriedPartitions.size();
         if (estimatedTotalRowsCount == 0.0) {
             return Estimate.zeroValue();
         }
-        double estimatedNullsCount = partitions.stream()
+        double estimatedNullsCount = queriedPartitions.stream()
                 .filter(partition -> partition.getKeys().get(partitionColumn).isNull())
                 .map(HivePartition::getPartitionId)
                 .mapToLong(partitionId -> statisticsSample.get(partitionId).getBasicStatistics().getRowCount().orElse((long) rowsPerPartition.getAsDouble()))
