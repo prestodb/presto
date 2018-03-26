@@ -55,7 +55,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -249,22 +248,30 @@ public class AddLocalExchanges
         @Override
         public PlanWithProperties visitAggregation(AggregationNode node, StreamPreferredProperties parentPreferences)
         {
-            StreamPreferredProperties requiredProperties;
-
             checkState(node.getStep() == AggregationNode.Step.SINGLE, "step of aggregation is expected to be SINGLE, but it is %s", node.getStep());
 
-            // aggregations would benefit from the finals being hash partitioned on groupId, however, we need to gather because the final HashAggregationOperator
-            // needs to know whether input was received at the query level.
-            if (node.getGroupingSets().stream().anyMatch(List::isEmpty)) {
+            if (node.hasSingleNodeExecutionPreference(metadata.getFunctionRegistry())) {
                 return planAndEnforceChildren(node, singleStream(), defaultParallelism(session));
             }
 
-            HashSet<Symbol> partitioningRequirement = new HashSet<>(node.getGroupingSets().get(0));
-            for (int i = 1; i < node.getGroupingSets().size(); i++) {
-                partitioningRequirement.retainAll(node.getGroupingSets().get(i));
+            StreamPreferredProperties requiredProperties = parentPreferences.withDefaultParallelism(session).withPartitioning(node.getGroupingKeys());
+            if (node.hasDefaultOutput()) {
+                checkState(node.isDecomposable(metadata.getFunctionRegistry()));
+
+                // Put fixed local exchange directly below final aggregation to ensure that final and partial aggregations are separated by exchange (in a local runner mode)
+                // This is required so that default outputs from multiple instances of partial aggregations are passed to a single final aggregation.
+                PlanWithProperties child = planAndEnforce(node.getSource(), any(), defaultParallelism(session));
+                PlanWithProperties exchange = deriveProperties(
+                        partitionedExchange(
+                                idAllocator.getNextId(),
+                                LOCAL,
+                                child.getNode(),
+                                node.getGroupingKeys(),
+                                Optional.empty()),
+                        child.getProperties());
+                return rebaseAndDeriveProperties(node, ImmutableList.of(exchange));
             }
 
-            requiredProperties = parentPreferences.withDefaultParallelism(session).withPartitioning(partitioningRequirement);
             return planAndEnforceChildren(node, requiredProperties, requiredProperties);
         }
 
