@@ -67,27 +67,24 @@ public class StatisticsEstimator
 
     private TableStatisticsData addPartitionStats(TableStatisticsData left, TableStatisticsData right, TpchColumn<?> partitionColumn)
     {
-        return new TableStatisticsData(
-                left.getRowCount() + right.getRowCount(),
-                addPartitionStats(left.getColumns(), right.getColumns(), partitionColumn));
-    }
-
-    private Map<String, ColumnStatisticsData> addPartitionStats(Map<String, ColumnStatisticsData> leftColumns, Map<String, ColumnStatisticsData> rightColumns, TpchColumn<?> partitionColumn)
-    {
-        return leftColumns.entrySet().stream().collect(toImmutableMap(
+        Map<String, ColumnStatisticsData> combinedColumnStats = left.getColumns().entrySet().stream().collect(toImmutableMap(
                 Map.Entry::getKey,
                 entry -> {
                     String columnName = entry.getKey();
                     ColumnStatisticsData leftStats = entry.getValue();
-                    ColumnStatisticsData rightStats = rightColumns.get(columnName);
-                    return new ColumnStatisticsData(
-                            addUniqueValuesCount(partitionColumn, columnName, leftStats, rightStats),
-                            combine(leftStats.getMin(), rightStats.getMin(), this::min),
-                            combine(leftStats.getMax(), rightStats.getMax(), this::max));
+                    ColumnStatisticsData rightStats = right.getColumns().get(columnName);
+                    Optional<Long> ndv = addDistinctValuesCount(partitionColumn, columnName, leftStats, rightStats);
+                    Optional<Object> min = combine(leftStats.getMin(), rightStats.getMin(), this::min);
+                    Optional<Object> max = combine(leftStats.getMax(), rightStats.getMax(), this::max);
+                    return new ColumnStatisticsData(ndv, min, max);
                 }));
+
+        return new TableStatisticsData(
+                left.getRowCount() + right.getRowCount(),
+                combinedColumnStats);
     }
 
-    private Optional<Long> addUniqueValuesCount(TpchColumn<?> partitionColumn, String columnName, ColumnStatisticsData leftStats, ColumnStatisticsData rightStats)
+    private Optional<Long> addDistinctValuesCount(TpchColumn<?> partitionColumn, String columnName, ColumnStatisticsData leftStats, ColumnStatisticsData rightStats)
     {
         //unique values count can't be added between different partitions
         //for columns other than the partition column (because almost certainly there are duplicates)
