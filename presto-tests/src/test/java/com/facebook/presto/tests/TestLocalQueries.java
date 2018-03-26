@@ -74,8 +74,8 @@ public class TestLocalQueries
         MaterializedResult expectedStatistics =
                 resultBuilder(getSession(), VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
                         .row("regionkey", null, 5.0, 0.0, null, "0", "4")
-                        .row("name", null, 25.0, 0.0, null, "ALGERIA", "VIETNAM")
-                        .row("comment", null, 25.0, 0.0, null, " haggle. carefully final deposit...", "y final packages. slow foxes caj...")
+                        .row("name", 177.0, 25.0, 0.0, null, "ALGERIA", "VIETNAM")
+                        .row("comment", 1857.0, 25.0, 0.0, null, " haggle. carefully final deposit...", "y final packages. slow foxes caj...")
                         .row("nationkey", null, 25.0, 0.0, null, "0", "24")
                         .row(null, null, null, null, 25.0, null, null)
                         .build();

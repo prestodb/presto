@@ -76,7 +76,10 @@ public class StatisticsEstimator
                     Optional<Long> ndv = addDistinctValuesCount(partitionColumn, columnName, leftStats, rightStats);
                     Optional<Object> min = combine(leftStats.getMin(), rightStats.getMin(), this::min);
                     Optional<Object> max = combine(leftStats.getMax(), rightStats.getMax(), this::max);
-                    return new ColumnStatisticsData(ndv, min, max);
+                    // Sum data sizes only if both known
+                    Optional<Long> dataSize = leftStats.getDataSize()
+                            .flatMap(leftDataSize -> rightStats.getDataSize().map(rightDataSize -> leftDataSize + rightDataSize));
+                    return new ColumnStatisticsData(ndv, min, max, dataSize);
                 }));
 
         return new TableStatisticsData(
