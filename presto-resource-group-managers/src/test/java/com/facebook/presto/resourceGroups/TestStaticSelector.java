@@ -61,6 +61,6 @@ public class TestStaticSelector
 
     private SelectionCriteria newSelectionCritera(String user, String source, Set<String> tags)
     {
-        return new SelectionCriteria(true, user, Optional.ofNullable(source), tags, 1, Optional.empty());
+        return new SelectionCriteria(true, user, Optional.ofNullable(source), tags, Optional.empty());
     }
 }
