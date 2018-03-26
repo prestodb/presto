@@ -13,16 +13,27 @@
  */
 package com.facebook.presto.execution.resourceGroups;
 
+import com.facebook.presto.execution.QueryExecution;
 import com.facebook.presto.execution.QueryQueueManager;
 import com.facebook.presto.server.ResourceGroupInfo;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerFactory;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import com.facebook.presto.sql.tree.Statement;
+
+import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.List;
+import java.util.concurrent.Executor;
 
+/**
+ * Classes implementing this interface must be thread safe. That is, all the methods listed below
+ * may be called concurrently from any thread.
+ */
+@ThreadSafe
 public interface ResourceGroupManager
-        extends QueryQueueManager
 {
+    void submit(Statement statement, QueryExecution queryExecution, Executor executor);
+
     ResourceGroupInfo getResourceGroupInfo(ResourceGroupId id);
 
     List<ResourceGroupInfo> getPathToRoot(ResourceGroupId id);
