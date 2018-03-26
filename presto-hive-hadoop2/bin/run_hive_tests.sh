@@ -31,10 +31,7 @@ set +e
   -Dsun.net.spi.nameservice.provider.2=dns,dnsjava \
   -Ddns.server=${PROXY} \
   -Ddns.port=55353 \
-  -Ddns.search=. &
-PRODUCT_TESTS_PROCESS_ID=$!
-
-wait ${PRODUCT_TESTS_PROCESS_ID}
+  -Ddns.search=.
 EXIT_CODE=$?
 set -e
 popd
