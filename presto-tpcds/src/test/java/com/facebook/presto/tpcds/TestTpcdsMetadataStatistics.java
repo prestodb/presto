@@ -206,28 +206,12 @@ public class TestTpcdsMetadataStatistics
 
     private void assertColumnStatistics(ColumnStatistics actual, ColumnStatistics expected)
     {
-        estimateAssertion.assertClose(actual.getNullsFraction(), expected.getNullsFraction(), "Null fraction does not match");
-
+        estimateAssertion.assertClose(actual.getNullsFraction(), expected.getNullsFraction(), "Nulls fraction");
         RangeColumnStatistics actualRange = actual.getOnlyRangeColumnStatistics();
         RangeColumnStatistics expectedRange = expected.getOnlyRangeColumnStatistics();
-        if (expectedRange.getFraction().isValueUnknown()) {
-            assertTrue(actualRange.getFraction().isValueUnknown());
-        }
-        else {
-            estimateAssertion.assertClose(actualRange.getFraction(), expectedRange.getFraction(), "Fraction does not match");
-        }
-        if (expectedRange.getDataSize().isValueUnknown()) {
-            assertTrue(actualRange.getDataSize().isValueUnknown());
-        }
-        else {
-            estimateAssertion.assertClose(actualRange.getDataSize(), expectedRange.getDataSize(), "Data size does not match");
-        }
-        if (expectedRange.getDistinctValuesCount().isValueUnknown()) {
-            assertTrue(actualRange.getDistinctValuesCount().isValueUnknown());
-        }
-        else {
-            estimateAssertion.assertClose(actualRange.getDistinctValuesCount(), expectedRange.getDistinctValuesCount(), "Distinct values count does not match");
-        }
+        estimateAssertion.assertClose(actualRange.getFraction(), expectedRange.getFraction(), "Fraction");
+        estimateAssertion.assertClose(actualRange.getDataSize(), expectedRange.getDataSize(), "Data size");
+        estimateAssertion.assertClose(actualRange.getDistinctValuesCount(), expectedRange.getDistinctValuesCount(), "Distinct values count");
         assertEquals(actualRange.getLowValue(), expectedRange.getLowValue());
         assertEquals(actualRange.getHighValue(), expectedRange.getHighValue());
     }
