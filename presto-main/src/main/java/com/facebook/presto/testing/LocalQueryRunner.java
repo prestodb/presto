@@ -144,6 +144,7 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.planPrinter.PlanPrinter;
+import com.facebook.presto.sql.planner.sanity.PlanSanityChecker;
 import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateView;
@@ -831,7 +832,7 @@ public class LocalQueryRunner
                 dataDefinitionTask);
         Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.of(queryExplainer), parameters);
 
-        LogicalPlanner logicalPlanner = new LogicalPlanner(session, optimizers, idAllocator, metadata, sqlParser);
+        LogicalPlanner logicalPlanner = new LogicalPlanner(session, optimizers, new PlanSanityChecker(true), idAllocator, metadata, sqlParser);
 
         Analysis analysis = analyzer.analyze(statement);
         return logicalPlanner.plan(analysis, stage);
