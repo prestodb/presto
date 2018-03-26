@@ -125,6 +125,7 @@ public class TestTpcdsMetadataStatistics
                                 .setDistinctValuesCount(new Estimate(3))
                                 .setLowValue(Optional.of(Slices.utf8Slice("AAAAAAAABAAAAAAA")))
                                 .setHighValue(Optional.of(Slices.utf8Slice("AAAAAAAAEAAAAAAA")))
+                                .setDataSize(new Estimate(48.0))
                                 .build())
                         .build());
 
@@ -138,6 +139,7 @@ public class TestTpcdsMetadataStatistics
                                 .setDistinctValuesCount(new Estimate(1))
                                 .setLowValue(Optional.of(Slices.utf8Slice("31904")))
                                 .setHighValue(Optional.of(Slices.utf8Slice("31904")))
+                                .setDataSize(new Estimate(5.0))
                                 .build())
                         .build());
 
