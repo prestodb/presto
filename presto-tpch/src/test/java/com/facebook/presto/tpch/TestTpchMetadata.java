@@ -249,23 +249,23 @@ public class TestTpchMetadata
         estimateAssertion.assertClose(
                 actual.getOnlyRangeColumnStatistics().getDistinctValuesCount(),
                 expected.getOnlyRangeColumnStatistics().getDistinctValuesCount(),
-                "distinctValuesCount-s differ");
+                "distinctValuesCount");
         estimateAssertion.assertClose(
                 actual.getOnlyRangeColumnStatistics().getDataSize(),
                 expected.getOnlyRangeColumnStatistics().getDataSize(),
-                "dataSize-s differ");
+                "dataSize");
         estimateAssertion.assertClose(
                 actual.getNullsFraction(),
                 expected.getNullsFraction(),
-                "nullsFraction-s differ");
+                "nullsFraction");
         estimateAssertion.assertClose(
                 actual.getOnlyRangeColumnStatistics().getLowValue(),
                 expected.getOnlyRangeColumnStatistics().getLowValue(),
-                "lowValue-s differ");
+                "lowValue");
         estimateAssertion.assertClose(
                 actual.getOnlyRangeColumnStatistics().getHighValue(),
                 expected.getOnlyRangeColumnStatistics().getHighValue(),
-                "highValue-s differ");
+                "highValue");
     }
 
     @Test
