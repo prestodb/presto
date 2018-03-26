@@ -113,11 +113,6 @@ public class PropertyDerivations
         return deriveProperties(node, inputProperties, metadata, session, types, parser);
     }
 
-    public static ActualProperties deriveProperties(PlanNode node, ActualProperties inputProperties, Metadata metadata, Session session, Map<Symbol, Type> types, SqlParser parser)
-    {
-        return deriveProperties(node, ImmutableList.of(inputProperties), metadata, session, types, parser);
-    }
-
     public static ActualProperties deriveProperties(PlanNode node, List<ActualProperties> inputProperties, Metadata metadata, Session session, Map<Symbol, Type> types, SqlParser parser)
     {
         ActualProperties output = node.accept(new Visitor(metadata, session, types, parser), inputProperties);
@@ -132,11 +127,6 @@ public class PropertyDerivations
                 .collect(Collectors.toSet());
 
         verify(node.getOutputSymbols().containsAll(localPropertyColumns), "Node-level local properties contain columns not present in node's output");
-
-        // TODO: ideally this logic would be somehow moved to PlanSanityChecker
-        verify(node instanceof SemiJoinNode || inputProperties.stream().noneMatch(ActualProperties::isNullsAndAnyReplicated) || output.isNullsAndAnyReplicated(),
-                "SemiJoinNode is the only node that can strip null replication");
-
         return output;
     }
 
