@@ -24,10 +24,4 @@ public class TestDistributedQueriesNoHashGeneration
                 .setSingleCoordinatorProperty("optimizer.optimize-hash-generation", "false")
                 .build());
     }
-
-    @Override
-    public void testShowTablesLikeWithEscape()
-    {
-        // Tpch connector currently does not support create table
-    }
 }

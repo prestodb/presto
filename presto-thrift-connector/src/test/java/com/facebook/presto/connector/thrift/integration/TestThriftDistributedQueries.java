@@ -30,10 +30,4 @@ public class TestThriftDistributedQueries
     {
         // this test can take a long time
     }
-
-    @Override
-    public void testShowTablesLikeWithEscape()
-    {
-        // Thrift connector currently does not support create table
-    }
 }
