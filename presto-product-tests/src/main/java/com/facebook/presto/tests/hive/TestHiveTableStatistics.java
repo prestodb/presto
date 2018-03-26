@@ -102,11 +102,11 @@ public class TestHiveTableStatistics
             row("c_decimal_w_params", null, 2.0, 0.0, null, "345.67100", "345.67800"),
             row("c_timestamp", null, 2.0, 0.0, null, "2015-05-10 12:15:31.000", "2015-05-10 12:15:35.000"),
             row("c_date", null, 2.0, 0.0, null, "2015-05-09", "2015-06-10"),
-            row("c_string", null, 2.0, 0.0, null, null, null),
-            row("c_varchar", null, 2.0, 0.0, null, null, null),
-            row("c_char", null, 2.0, 0.0, null, null, null),
+            row("c_string", 0.0, 2.0, 0.0, null, null, null),
+            row("c_varchar", 0.0, 2.0, 0.0, null, null, null),
+            row("c_char", 0.0, 2.0, 0.0, null, null, null),
             row("c_boolean", null, 2.0, 0.0, null, null, null),
-            row("c_binary", null, null, 0.0, null, null, null),
+            row("c_binary", 0.0, null, 0.0, null, null, null),
             row(null, null, null, null, 2.0, null, null));
 
     private static final List<Row> ALL_TYPES_ALL_NULL_TABLE_STATISTICS = ImmutableList.of(
@@ -120,11 +120,11 @@ public class TestHiveTableStatistics
             row("c_decimal_w_params", null, 0.0, 1.0, null, null, null),
             row("c_timestamp", null, 0.0, 1.0, null, null, null),
             row("c_date", null, 0.0, 1.0, null, null, null),
-            row("c_string", null, 0.0, 1.0, null, null, null),
-            row("c_varchar", null, 0.0, 1.0, null, null, null),
-            row("c_char", null, 0.0, 1.0, null, null, null),
+            row("c_string", 0.0, 0.0, 1.0, null, null, null),
+            row("c_varchar", 0.0, 0.0, 1.0, null, null, null),
+            row("c_char", 0.0, 0.0, 1.0, null, null, null),
             row("c_boolean", null, 0.0, 1.0, null, null, null),
-            row("c_binary", null, null, 1.0, null, null, null),
+            row("c_binary", 0.0, null, 1.0, null, null, null),
             row(null, null, null, null, 1.0, null, null));
 
     private static final List<Row> ALL_TYPES_EMPTY_TABLE_STATISTICS = ImmutableList.of(
@@ -138,11 +138,11 @@ public class TestHiveTableStatistics
             row("c_decimal_w_params", null, 0.0, 0.0, null, null, null),
             row("c_timestamp", null, 0.0, 0.0, null, null, null),
             row("c_date", null, 0.0, 0.0, null, null, null),
-            row("c_string", null, 0.0, 0.0, null, null, null),
-            row("c_varchar", null, 0.0, 0.0, null, null, null),
-            row("c_char", null, 0.0, 0.0, null, null, null),
+            row("c_string", 0.0, 0.0, 0.0, null, null, null),
+            row("c_varchar", 0.0, 0.0, 0.0, null, null, null),
+            row("c_char", 0.0, 0.0, 0.0, null, null, null),
             row("c_boolean", null, 0.0, 0.0, null, null, null),
-            row("c_binary", null, null, 0.0, null, null, null),
+            row("c_binary", 0.0, null, 0.0, null, null, null),
             row(null, null, null, null, 0.0, null, null));
 
     private static final class AllTypesTable
@@ -192,9 +192,9 @@ public class TestHiveTableStatistics
 
         assertThat(query(showStatsWholeTable)).containsOnly(
                 row("n_nationkey", null, 19.0, 0.0, null, "0", "24"),
-                row("n_name", null, 24.0, 0.0, null, null, null),
+                row("n_name", 177.0, 24.0, 0.0, null, null, null),
                 row("n_regionkey", null, 5.0, 0.0, null, "0", "4"),
-                row("n_comment", null, 31.0, 0.0, null, null, null),
+                row("n_comment", 1857.0, 31.0, 0.0, null, null, null),
                 row(null, null, null, null, 25.0, null, null));
     }
 
@@ -280,16 +280,16 @@ public class TestHiveTableStatistics
 
         assertThat(query(showStatsWholeTable)).containsOnly(
                 row("p_nationkey", null, 5.0, 0.0, null, "1", "24"),
-                row("p_name", null, 6.0, 0.0, null, null, null),
+                row("p_name", 114.0, 6.0, 0.0, null, null, null),
                 row("p_regionkey", null, 3.0, 0.0, null, "1", "3"),
-                row("p_comment", null, 7.0, 0.0, null, null, null),
+                row("p_comment", 1497.0, 7.0, 0.0, null, null, null),
                 row(null, null, null, null, 15.0, null, null));
 
         assertThat(query(showStatsPartitionOne)).containsOnly(
                 row("p_nationkey", null, 5.0, 0.0, null, "1", "24"),
-                row("p_name", null, 6.0, 0.0, null, null, null),
+                row("p_name", 38.0, 6.0, 0.0, null, null, null),
                 row("p_regionkey", null, 1.0, 0.0, null, "1", "1"),
-                row("p_comment", null, 7.0, 0.0, null, null, null),
+                row("p_comment", 499.0, 7.0, 0.0, null, null, null),
                 row(null, null, null, null, 5.0, null, null));
 
         assertThat(query(showStatsPartitionTwo)).containsOnly(
@@ -305,23 +305,23 @@ public class TestHiveTableStatistics
 
         assertThat(query(showStatsWholeTable)).containsOnly(
                 row("p_nationkey", null, 5.0, 0.0, null, "1", "24"),
-                row("p_name", null, 6.0, 0.0, null, null, null),
+                row("p_name", 109.0, 6.0, 0.0, null, null, null),
                 row("p_regionkey", null, 3.0, 0.0, null, "1", "3"),
-                row("p_comment", null, 7.0, 0.0, null, null, null),
+                row("p_comment", 1197.0, 7.0, 0.0, null, null, null),
                 row(null, null, null, null, 15.0, null, null));
 
         assertThat(query(showStatsPartitionOne)).containsOnly(
                 row("p_nationkey", null, 5.0, 0.0, null, "1", "24"),
-                row("p_name", null, 6.0, 0.0, null, null, null),
+                row("p_name", 38.0, 6.0, 0.0, null, null, null),
                 row("p_regionkey", null, 1.0, 0.0, null, "1", "1"),
-                row("p_comment", null, 7.0, 0.0, null, null, null),
+                row("p_comment", 499.0, 7.0, 0.0, null, null, null),
                 row(null, null, null, null, 5.0, null, null));
 
         assertThat(query(showStatsPartitionTwo)).containsOnly(
                 row("p_nationkey", null, 4.0, 0.0, null, "8", "21"),
-                row("p_name", null, 6.0, 0.0, null, null, null),
+                row("p_name", 31.0, 6.0, 0.0, null, null, null),
                 row("p_regionkey", null, 1.0, 0.0, null, "2", "2"),
-                row("p_comment", null, 5.0, 0.0, null, null, null),
+                row("p_comment", 351.0, 5.0, 0.0, null, null, null),
                 row(null, null, null, null, 5.0, null, null));
     }
 
@@ -366,11 +366,11 @@ public class TestHiveTableStatistics
                 row("c_decimal_w_params", null, 2.0, 0.0, null, "345.67100", "345.67800"),
                 row("c_timestamp", null, 2.0, 0.0, null, "2015-05-10 06:30:31.000", "2015-05-10 06:30:35.000"), // timestamp is shifted by hive.time-zone on read
                 row("c_date", null, 2.0, 0.0, null, "2015-05-09", "2015-06-10"),
-                row("c_string", null, 2.0, 0.0, null, null, null),
-                row("c_varchar", null, 2.0, 0.0, null, null, null),
-                row("c_char", null, 2.0, 0.0, null, null, null),
+                row("c_string", 22.0, 2.0, 0.0, null, null, null),
+                row("c_varchar", 20.0, 2.0, 0.0, null, null, null),
+                row("c_char", 12.0, 2.0, 0.0, null, null, null),
                 row("c_boolean", null, 2.0, 0.0, null, null, null),
-                row("c_binary", null, null, 0.0, null, null, null),
+                row("c_binary", 23.0, null, 0.0, null, null, null),
                 row(null, null, null, null, 2.0, null, null));
     }
 
@@ -413,11 +413,11 @@ public class TestHiveTableStatistics
                 row("c_decimal_w_params", null, 0.0, 0.0, null, null, null),
                 row("c_timestamp", null, 0.0, 0.0, null, null, null),
                 row("c_date", null, 0.0, 0.0, null, null, null),
-                row("c_string", null, 0.0, 0.0, null, null, null),
-                row("c_varchar", null, 0.0, 0.0, null, null, null),
-                row("c_char", null, 0.0, 0.0, null, null, null),
+                row("c_string", 0.0, 0.0, 0.0, null, null, null),
+                row("c_varchar", 0.0, 0.0, 0.0, null, null, null),
+                row("c_char", 0.0, 0.0, 0.0, null, null, null),
                 row("c_boolean", null, 0.0, 0.0, null, null, null),
-                row("c_binary", null, null, 0.0, null, null, null),
+                row("c_binary", 0.0, null, 0.0, null, null, null),
                 row(null, null, null, null, 0.0, null, null));
     }
 
@@ -461,11 +461,11 @@ public class TestHiveTableStatistics
                 row("c_decimal_w_params", null, 0.0, 1.0, null, null, null),
                 row("c_timestamp", null, 0.0, 1.0, null, null, null),
                 row("c_date", null, 0.0, 1.0, null, null, null),
-                row("c_string", null, 0.0, 1.0, null, null, null),
-                row("c_varchar", null, 0.0, 1.0, null, null, null),
-                row("c_char", null, 0.0, 1.0, null, null, null),
+                row("c_string", 0.0, 0.0, 1.0, null, null, null),
+                row("c_varchar", 0.0, 0.0, 1.0, null, null, null),
+                row("c_char", 0.0, 0.0, 1.0, null, null, null),
                 row("c_boolean", null, 0.0, 1.0, null, null, null),
-                row("c_binary", null, null, 1.0, null, null, null),
+                row("c_binary", 0.0, null, 1.0, null, null, null),
                 row(null, null, null, null, 1.0, null, null));
     }
 
@@ -512,11 +512,11 @@ public class TestHiveTableStatistics
                     row("c_decimal_w_params", null, 2.0, 0.5, null, "345.67100", "345.67800"),
                     row("c_timestamp", null, 2.0, 0.5, null, "2015-05-10 12:15:31.000", "2015-05-10 12:15:35.000"),
                     row("c_date", null, 2.0, 0.5, null, "2015-05-09", "2015-06-10"),
-                    row("c_string", null, 2.0, 0.5, null, null, null),
-                    row("c_varchar", null, 2.0, 0.5, null, null, null),
-                    row("c_char", null, 2.0, 0.5, null, null, null),
+                    row("c_string", 0.0, 2.0, 0.5, null, null, null),
+                    row("c_varchar", 0.0, 2.0, 0.5, null, null, null),
+                    row("c_char", 0.0, 2.0, 0.5, null, null, null),
                     row("c_boolean", null, 2.0, 0.5, null, null, null),
-                    row("c_binary", null, null, 0.5, null, null, null),
+                    row("c_binary", 0.0, null, 0.5, null, null, null),
                     row(null, null, null, null, 4.0, null, null));
 
             query(format("INSERT INTO %s VALUES( " +
@@ -547,11 +547,11 @@ public class TestHiveTableStatistics
                     row("c_decimal_w_params", null, 2.0, 0.4, null, "345.67000", "345.67800"),
                     row("c_timestamp", null, 2.0, 0.4, null, "2015-05-10 12:15:30.000", "2015-05-10 12:15:35.000"),
                     row("c_date", null, 2.0, 0.4, null, "2015-05-08", "2015-06-10"),
-                    row("c_string", null, 2.0, 0.4, null, null, null),
-                    row("c_varchar", null, 2.0, 0.4, null, null, null),
-                    row("c_char", null, 2.0, 0.4, null, null, null),
+                    row("c_string", 0.0, 2.0, 0.4, null, null, null),
+                    row("c_varchar", 0.0, 2.0, 0.4, null, null, null),
+                    row("c_char", 0.0, 2.0, 0.4, null, null, null),
                     row("c_boolean", null, 2.0, 0.4, null, null, null),
-                    row("c_binary", null, null, 0.4, null, null, null),
+                    row("c_binary", 0.0, null, 0.4, null, null, null),
                     row(null, null, null, null, 5.0, null, null)));
         }
         finally {
@@ -623,13 +623,13 @@ public class TestHiveTableStatistics
                     row("c_decimal_w_params", null, 1.0, 0.5, null, "345.67000", "345.67000"),
                     row("c_timestamp", null, 1.0, 0.5, null, "2015-05-10 12:15:30.000", "2015-05-10 12:15:30.000"),
                     row("c_date", null, 1.0, 0.5, null, "2015-05-08", "2015-05-08"),
-                    row("c_string", null, 1.0, 0.5, null, null, null),
-                    row("c_varchar", null, 1.0, 0.5, null, null, null),
-                    row("c_char", null, 1.0, 0.5, null, null, null),
+                    row("c_string", 0.0, 1.0, 0.5, null, null, null),
+                    row("c_varchar", 0.0, 1.0, 0.5, null, null, null),
+                    row("c_char", 0.0, 1.0, 0.5, null, null, null),
                     row("c_boolean", null, 1.0, 0.5, null, null, null),
-                    row("c_binary", null, null, 0.5, null, null, null),
+                    row("c_binary", 0.0, null, 0.5, null, null, null),
                     row("p_bigint", null, 1.0, 0.0, null, "1", "1"),
-                    row("p_varchar", null, 1.0, 0.0, null, null, null),
+                    row("p_varchar", 20.0, 1.0, 0.0, null, null, null),
                     row(null, null, null, null, 2.0, null, null)));
 
             assertThat(query(format("SHOW STATS FOR (SELECT * FROM %s WHERE p_bigint = 2 AND p_varchar = 'partition2')", tableName))).containsOnly(ImmutableList.of(
@@ -643,13 +643,13 @@ public class TestHiveTableStatistics
                     row("c_decimal_w_params", null, 1.0, 0.5, null, "999.67000", "999.67000"),
                     row("c_timestamp", null, 1.0, 0.5, null, "2015-05-10 12:45:30.000", "2015-05-10 12:45:30.000"),
                     row("c_date", null, 1.0, 0.5, null, "2015-05-09", "2015-05-09"),
-                    row("c_string", null, 1.0, 0.5, null, null, null),
-                    row("c_varchar", null, 1.0, 0.5, null, null, null),
-                    row("c_char", null, 1.0, 0.5, null, null, null),
+                    row("c_string", 0.0, 1.0, 0.5, null, null, null),
+                    row("c_varchar", 0.0, 1.0, 0.5, null, null, null),
+                    row("c_char", 0.0, 1.0, 0.5, null, null, null),
                     row("c_boolean", null, 1.0, 0.5, null, null, null),
-                    row("c_binary", null, null, 0.5, null, null, null),
+                    row("c_binary", 0.0, null, 0.5, null, null, null),
                     row("p_bigint", null, 1.0, 0.0, null, "2", "2"),
-                    row("p_varchar", null, 1.0, 0.0, null, null, null),
+                    row("p_varchar", 20.0, 1.0, 0.0, null, null, null),
                     row(null, null, null, null, 2.0, null, null)));
         }
         finally {
@@ -709,13 +709,13 @@ public class TestHiveTableStatistics
                     row("c_decimal_w_params", null, 1.0, 0.5, null, "345.67000", "345.67000"),
                     row("c_timestamp", null, 1.0, 0.5, null, "2015-05-10 12:15:30.000", "2015-05-10 12:15:30.000"),
                     row("c_date", null, 1.0, 0.5, null, "2015-05-08", "2015-05-08"),
-                    row("c_string", null, 1.0, 0.5, null, null, null),
-                    row("c_varchar", null, 1.0, 0.5, null, null, null),
-                    row("c_char", null, 1.0, 0.5, null, null, null),
+                    row("c_string", 0.0, 1.0, 0.5, null, null, null),
+                    row("c_varchar", 0.0, 1.0, 0.5, null, null, null),
+                    row("c_char", 0.0, 1.0, 0.5, null, null, null),
                     row("c_boolean", null, 1.0, 0.5, null, null, null),
-                    row("c_binary", null, null, 0.5, null, null, null),
+                    row("c_binary", 0.0, null, 0.5, null, null, null),
                     row("p_bigint", null, 1.0, 0.0, null, "1", "1"),
-                    row("p_varchar", null, 1.0, 0.0, null, null, null),
+                    row("p_varchar", 20.0, 1.0, 0.0, null, null, null),
                     row(null, null, null, null, 2.0, null, null)));
 
             assertThat(query(showStatsPartitionTwo)).containsOnly(ImmutableList.of(
@@ -729,13 +729,13 @@ public class TestHiveTableStatistics
                     row("c_decimal_w_params", null, 1.0, 0.5, null, "999.67000", "999.67000"),
                     row("c_timestamp", null, 1.0, 0.5, null, "2015-05-10 12:45:30.000", "2015-05-10 12:45:30.000"),
                     row("c_date", null, 1.0, 0.5, null, "2015-05-09", "2015-05-09"),
-                    row("c_string", null, 1.0, 0.5, null, null, null),
-                    row("c_varchar", null, 1.0, 0.5, null, null, null),
-                    row("c_char", null, 1.0, 0.5, null, null, null),
+                    row("c_string", 0.0, 1.0, 0.5, null, null, null),
+                    row("c_varchar", 0.0, 1.0, 0.5, null, null, null),
+                    row("c_char", 0.0, 1.0, 0.5, null, null, null),
                     row("c_boolean", null, 1.0, 0.5, null, null, null),
-                    row("c_binary", null, null, 0.5, null, null, null),
+                    row("c_binary", 0.0, null, 0.5, null, null, null),
                     row("p_bigint", null, 1.0, 0.0, null, "2", "2"),
-                    row("p_varchar", null, 1.0, 0.0, null, null, null),
+                    row("p_varchar", 20.0, 1.0, 0.0, null, null, null),
                     row(null, null, null, null, 2.0, null, null)));
 
             query(format("INSERT INTO %s VALUES( TINYINT '119', SMALLINT '32759', INTEGER '2147483639', BIGINT '9223372036854775799', REAL '122.340', DOUBLE '233.560', CAST(342.0 AS DECIMAL(10, 0)), CAST(344.670 AS DECIMAL(10, 5)), TIMESTAMP '2015-05-10 12:15:29', DATE '2015-05-07', 'p1 varchar', CAST('p1 varchar10' AS VARCHAR(10)), CAST('p1 char10' AS CHAR(10)), true, CAST('p1 binary' as VARBINARY), BIGINT '1', 'partition1')", tableName));
@@ -752,13 +752,13 @@ public class TestHiveTableStatistics
                     row("c_decimal_w_params", null, 1.0, 0.5, null, "344.67000", "345.67000"),
                     row("c_timestamp", null, 1.0, 0.5, null, "2015-05-10 12:15:29.000", "2015-05-10 12:15:30.000"),
                     row("c_date", null, 1.0, 0.5, null, "2015-05-07", "2015-05-08"),
-                    row("c_string", null, 1.0, 0.5, null, null, null),
-                    row("c_varchar", null, 1.0, 0.5, null, null, null),
-                    row("c_char", null, 1.0, 0.5, null, null, null),
+                    row("c_string", 0.0, 1.0, 0.5, null, null, null),
+                    row("c_varchar", 0.0, 1.0, 0.5, null, null, null),
+                    row("c_char", 0.0, 1.0, 0.5, null, null, null),
                     row("c_boolean", null, 2.0, 0.5, null, null, null),
-                    row("c_binary", null, null, 0.5, null, null, null),
+                    row("c_binary", 0.0, null, 0.5, null, null, null),
                     row("p_bigint", null, 1.0, 0.0, null, "1", "1"),
-                    row("p_varchar", null, 1.0, 0.0, null, null, null),
+                    row("p_varchar", 40.0, 1.0, 0.0, null, null, null),
                     row(null, null, null, null, 4.0, null, null)));
 
             query(format("INSERT INTO %s VALUES( TINYINT '100', SMALLINT '334', INTEGER '445', BIGINT '556', REAL '667.340', DOUBLE '778.560', CAST(889.0 AS DECIMAL(10, 0)), CAST(1000.670 AS DECIMAL(10, 5)), TIMESTAMP '2015-05-10 12:45:31', DATE '2015-05-10', CAST('p2 varchar' AS VARCHAR), CAST('p2 varchar10' AS VARCHAR(10)), CAST('p2 char10' AS CHAR(10)), true, CAST('p2 binary' as VARBINARY), BIGINT '2', 'partition2')", tableName));
@@ -775,13 +775,13 @@ public class TestHiveTableStatistics
                     row("c_decimal_w_params", null, 1.0, 0.5, null, "999.67000", "1000.67000"),
                     row("c_timestamp", null, 1.0, 0.5, null, "2015-05-10 12:45:30.000", "2015-05-10 12:45:31.000"),
                     row("c_date", null, 1.0, 0.5, null, "2015-05-09", "2015-05-10"),
-                    row("c_string", null, 1.0, 0.5, null, null, null),
-                    row("c_varchar", null, 1.0, 0.5, null, null, null),
-                    row("c_char", null, 1.0, 0.5, null, null, null),
+                    row("c_string", 0.0, 1.0, 0.5, null, null, null),
+                    row("c_varchar", 0.0, 1.0, 0.5, null, null, null),
+                    row("c_char", 0.0, 1.0, 0.5, null, null, null),
                     row("c_boolean", null, 1.0, 0.5, null, null, null),
-                    row("c_binary", null, null, 0.5, null, null, null),
+                    row("c_binary", 0.0, null, 0.5, null, null, null),
                     row("p_bigint", null, 1.0, 0.0, null, "2", "2"),
-                    row("p_varchar", null, 1.0, 0.0, null, null, null),
+                    row("p_varchar", 40.0, 1.0, 0.0, null, null, null),
                     row(null, null, null, null, 4.0, null, null)));
         }
         finally {
