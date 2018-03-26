@@ -23,6 +23,7 @@ import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.Estimate;
+import com.facebook.presto.spi.statistics.RangeColumnStatistics;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.tpch.util.PredicateUtils;
 import com.google.common.base.Preconditions;
@@ -245,27 +246,14 @@ public class TestTpchMetadata
         ColumnStatistics actual = tableStatistics.getColumnStatistics().get(columnHandle);
 
         EstimateAssertion estimateAssertion = new EstimateAssertion(TOLERANCE);
+        RangeColumnStatistics actualRange = actual.getOnlyRangeColumnStatistics();
+        RangeColumnStatistics expectedRange = expected.getOnlyRangeColumnStatistics();
 
-        estimateAssertion.assertClose(
-                actual.getOnlyRangeColumnStatistics().getDistinctValuesCount(),
-                expected.getOnlyRangeColumnStatistics().getDistinctValuesCount(),
-                "distinctValuesCount");
-        estimateAssertion.assertClose(
-                actual.getOnlyRangeColumnStatistics().getDataSize(),
-                expected.getOnlyRangeColumnStatistics().getDataSize(),
-                "dataSize");
-        estimateAssertion.assertClose(
-                actual.getNullsFraction(),
-                expected.getNullsFraction(),
-                "nullsFraction");
-        estimateAssertion.assertClose(
-                actual.getOnlyRangeColumnStatistics().getLowValue(),
-                expected.getOnlyRangeColumnStatistics().getLowValue(),
-                "lowValue");
-        estimateAssertion.assertClose(
-                actual.getOnlyRangeColumnStatistics().getHighValue(),
-                expected.getOnlyRangeColumnStatistics().getHighValue(),
-                "highValue");
+        estimateAssertion.assertClose(actualRange.getDistinctValuesCount(), expectedRange.getDistinctValuesCount(), "distinctValuesCount");
+        estimateAssertion.assertClose(actualRange.getDataSize(), expectedRange.getDataSize(), "dataSize");
+        estimateAssertion.assertClose(actual.getNullsFraction(), expected.getNullsFraction(), "nullsFraction");
+        estimateAssertion.assertClose(actualRange.getLowValue(), expectedRange.getLowValue(), "lowValue");
+        estimateAssertion.assertClose(actualRange.getHighValue(), expectedRange.getHighValue(), "highValue");
     }
 
     @Test
