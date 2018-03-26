@@ -68,10 +68,4 @@ public class TestDistributedSpilledQueries
         // TODO: disabled until https://github.com/prestodb/presto/issues/8926 is resolved
         //       due to long running query test created many spill files on disk.
     }
-
-    @Override
-    public void testShowTablesLikeWithEscape()
-    {
-        // Tpch connector currently does not support create table
-    }
 }

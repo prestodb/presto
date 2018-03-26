@@ -100,10 +100,4 @@ public class TestLocalQueries
         assertQuery("SELECT 1.", "SELECT CAST('1.0' AS DECIMAL)");
         assertQuery("SELECT 0.1", "SELECT CAST('0.1' AS DECIMAL)");
     }
-
-    @Override
-    public void testShowTablesLikeWithEscape()
-    {
-        // Local connector currently does not support create table
-    }
 }

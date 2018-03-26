@@ -4717,14 +4717,11 @@ public abstract class AbstractTestQueries
         assertQueryFails("SHOW TABLES LIKE 't$_%' ESCAPE ''", "Escape string must be a single character");
         assertQueryFails("SHOW TABLES LIKE 't$_%' ESCAPE '$$'", "Escape string must be a single character");
 
-        assertUpdate("CREATE TABLE test_escape_1 (a bigint)");
-        assertUpdate("CREATE TABLE test_escape11 (a bigint)");
-
-        assertQuery("SHOW TABLES LIKE 'test_escape_%'", "VALUES 'test_escape_1', 'test_escape11'");
-        assertQuery("SHOW TABLES LIKE 'test_escape\\_%' ESCAPE '\\'", "VALUES 'test_escape_1'");
-
-        assertUpdate("DROP TABLE test_escape_1");
-        assertUpdate("DROP TABLE test_escape11");
+        Set<Object> allTables = computeActual("SHOW TABLES FROM information_schema").getOnlyColumnAsSet();
+        assertEquals(allTables, computeActual("SHOW TABLES FROM information_schema LIKE '%_%'").getOnlyColumnAsSet());
+        Set<Object> result = computeActual("SHOW TABLES FROM information_schema LIKE '%$_%' ESCAPE '$'").getOnlyColumnAsSet();
+        assertNotEquals(allTables, result);
+        assertThat(result).contains("table_privileges").allMatch(schemaName -> ((String) schemaName).contains("_"));
     }
 
     @Test
