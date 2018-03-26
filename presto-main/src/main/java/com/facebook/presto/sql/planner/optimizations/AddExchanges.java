@@ -217,9 +217,7 @@ public class AddExchanges
         {
             Set<Symbol> partitioningRequirement = ImmutableSet.copyOf(node.getGroupingKeys());
 
-            boolean preferSingleNode = (node.hasEmptyGroupingSet() && !node.hasNonEmptyGroupingSet()) ||
-                    (node.hasDefaultOutput() && !node.isDecomposable(metadata.getFunctionRegistry()));
-
+            boolean preferSingleNode = node.hasSingleNodeExecutionPreference(metadata.getFunctionRegistry());
             PreferredProperties preferredProperties = preferSingleNode ? PreferredProperties.undistributed() : PreferredProperties.any();
 
             if (!node.getGroupingKeys().isEmpty()) {
@@ -235,14 +233,6 @@ public class AddExchanges
             }
 
             if (preferSingleNode) {
-                // For queries with only empty grouping sets like
-                //
-                // SELECT count(*) FROM lineitem;
-                //
-                // there is no need for distributed aggregation. Single node FINAL aggregation will suffice,
-                // since all input have to be aggregated into one line output.
-                //
-                // If aggregation must produce default output and it is not decomposable, we can not distribute it
                 child = withDerivedProperties(
                         gatheringExchange(idAllocator.getNextId(), REMOTE, child.getNode()),
                         child.getProperties());
