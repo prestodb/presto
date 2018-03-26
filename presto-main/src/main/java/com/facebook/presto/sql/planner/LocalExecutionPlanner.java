@@ -1231,7 +1231,7 @@ public class LocalExecutionPlanner
                 return new PhysicalOperation(operatorFactory, makeLayout(node), UNGROUPED_EXECUTION);
             }
 
-            PageBuilder pageBuilder = new PageBuilder(outputTypes);
+            PageBuilder pageBuilder = new PageBuilder(node.getRows().size(), outputTypes);
             for (List<Expression> row : node.getRows()) {
                 pageBuilder.declarePosition();
                 Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(
