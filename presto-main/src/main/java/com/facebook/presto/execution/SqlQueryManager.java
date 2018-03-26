@@ -16,6 +16,7 @@ package com.facebook.presto.execution;
 import com.facebook.presto.ExceededCpuLimitException;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.execution.QueryExecution.QueryExecutionFactory;
 import com.facebook.presto.execution.QueryExecution.QueryOutputInfo;
@@ -303,6 +304,12 @@ public class SqlQueryManager
         requireNonNull(listener, "listener is null");
 
         getQuery(queryId).addStateChangeListener(listener);
+    }
+
+    @Override
+    public void addRedirectResultsListener(QueryId queryId, Consumer<QueryResults> listener)
+    {
+        getQuery(queryId).addRedirectResultsListner(requireNonNull(listener, "listener is null"));
     }
 
     @Override

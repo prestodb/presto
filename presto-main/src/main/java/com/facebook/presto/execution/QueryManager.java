@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.execution.QueryExecution.QueryOutputInfo;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.server.SessionContext;
@@ -32,6 +33,8 @@ public interface QueryManager
     void addOutputInfoListener(QueryId queryId, Consumer<QueryOutputInfo> listener);
 
     void addStateChangeListener(QueryId queryId, StateChangeListener<QueryState> listener);
+
+    void addRedirectResultsListener(QueryId queryId, Consumer<QueryResults> listener);
 
     ListenableFuture<QueryState> getStateChange(QueryId queryId, QueryState currentState);
 

@@ -66,6 +66,9 @@ import com.facebook.presto.memory.NoneLowMemoryKiller;
 import com.facebook.presto.memory.TotalReservationLowMemoryKiller;
 import com.facebook.presto.memory.TotalReservationOnBlockedNodesLowMemoryKiller;
 import com.facebook.presto.operator.ForScheduler;
+import com.facebook.presto.server.protocol.DispatchQuery.DispatchQueryFactory;
+import com.facebook.presto.server.protocol.Query.QueryFactory;
+import com.facebook.presto.server.protocol.SqlQuery.SqlQueryFactory;
 import com.facebook.presto.server.protocol.StatementResource;
 import com.facebook.presto.server.remotetask.RemoteTaskStats;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
@@ -230,9 +233,13 @@ public class CoordinatorModule
         newExporter(binder).export(SplitSchedulerStats.class).withGeneratedName();
         // TODO: update the condition once the dispatcher module is ready
         if (true) {
+            binder.bind(QueryFactory.class).to(SqlQueryFactory.class).in(Scopes.SINGLETON);
+
             bindSqlQueryExecutionFactory(binder, SqlQueryExecutionFactory.class, executionBinder);
         }
         else {
+            binder.bind(QueryFactory.class).to(DispatchQueryFactory.class).in(Scopes.SINGLETON);
+
             httpClientBinder(binder).bindHttpClient("sqlQueryDispatchingFactory", ForQueryExecution.class)
                     .withTracing()
                     .withConfigDefaults(config -> {
