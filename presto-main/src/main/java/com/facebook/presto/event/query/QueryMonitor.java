@@ -230,6 +230,7 @@ public class QueryMonitor
                                     Optional.ofNullable(queryStats.getDistributedPlanningTime()).map(duration -> ofMillis(duration.toMillis())),
                                     queryStats.getPeakUserMemoryReservation().toBytes(),
                                     queryStats.getPeakTotalMemoryReservation().toBytes(),
+                                    queryStats.getPeakTaskTotalMemory().toBytes(),
                                     queryStats.getRawInputDataSize().toBytes(),
                                     queryStats.getRawInputPositions(),
                                     queryStats.getOutputDataSize().toBytes(),

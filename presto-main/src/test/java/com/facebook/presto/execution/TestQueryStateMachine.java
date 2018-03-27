@@ -275,6 +275,32 @@ public class TestQueryStateMachine
         assertTrue(queryStats.getTotalPlanningTime().toMillis() == 500);
     }
 
+    @Test
+    public void testUpdateMemoryUsage()
+    {
+        QueryStateMachine stateMachine = createQueryStateMachine();
+
+        stateMachine.updateMemoryUsage(5, 10, 3);
+        assertEquals(stateMachine.getPeakUserMemoryInBytes(), 5);
+        assertEquals(stateMachine.getPeakTotalMemoryInBytes(), 10);
+        assertEquals(stateMachine.getPeakTaskTotalMemory(), 3);
+
+        stateMachine.updateMemoryUsage(0, 0, 2);
+        assertEquals(stateMachine.getPeakUserMemoryInBytes(), 5);
+        assertEquals(stateMachine.getPeakTotalMemoryInBytes(), 10);
+        assertEquals(stateMachine.getPeakTaskTotalMemory(), 3);
+
+        stateMachine.updateMemoryUsage(1, 1, 5);
+        assertEquals(stateMachine.getPeakUserMemoryInBytes(), 6);
+        assertEquals(stateMachine.getPeakTotalMemoryInBytes(), 11);
+        assertEquals(stateMachine.getPeakTaskTotalMemory(), 5);
+
+        stateMachine.updateMemoryUsage(3, 3, 2);
+        assertEquals(stateMachine.getPeakUserMemoryInBytes(), 9);
+        assertEquals(stateMachine.getPeakTotalMemoryInBytes(), 14);
+        assertEquals(stateMachine.getPeakTaskTotalMemory(), 5);
+    }
+
     private static void assertFinalState(QueryStateMachine stateMachine, QueryState expectedState)
     {
         assertFinalState(stateMachine, expectedState, null);

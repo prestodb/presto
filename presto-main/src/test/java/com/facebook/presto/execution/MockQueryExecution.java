@@ -131,6 +131,7 @@ public class MockQueryExecution
                         new DataSize(18, BYTE),
                         new DataSize(19, BYTE),
                         new DataSize(20, BYTE),
+                        new DataSize(21, BYTE),
 
                         true,
                         new Duration(20, NANOSECONDS),
