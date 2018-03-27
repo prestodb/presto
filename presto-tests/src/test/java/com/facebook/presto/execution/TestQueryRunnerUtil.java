@@ -27,11 +27,12 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public final class TestQueryRunnerUtil
 {
+    private static final QueryIdGenerator QUERY_ID_GENERATOR = new QueryIdGenerator();
     private TestQueryRunnerUtil() {}
 
     public static QueryId createQuery(DistributedQueryRunner queryRunner, Session session, String sql)
     {
-        return queryRunner.getCoordinator().getQueryManager().createQuery(new TestingSessionContext(session), sql).getQueryId();
+        return queryRunner.getCoordinator().getQueryManager().createQuery(QUERY_ID_GENERATOR.createNextQueryId(), new TestingSessionContext(session), sql).getQueryId();
     }
 
     public static void cancelQuery(DistributedQueryRunner queryRunner, QueryId queryId)

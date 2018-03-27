@@ -187,10 +187,11 @@ let DisplayedQueriesList = React.createClass({
 
 const FILTER_TYPE = {
     RUNNING_BLOCKED: function (query) {
-        return query.state === "PLANNING" || query.state === "STARTING" || query.state === "RUNNING" || query.state === "FINISHING";
+        return query.state === "PLANNING" || query.state === "STARTING" || query.state === "RUNNING" ||
+            query.state === "FINISHING" || query.state === "SUBMITTING" || query.state === "ACCEPTED
     },
     QUEUED: function (query) { return query.state === "QUEUED"},
-    FINISHED: function (query) { return query.state === "FINISHED"},
+    FINISHED: function (query) { return query.state === "FINISHED" || query.state === "ACKNOWLEDGED"},
     FAILED: function (query) { return query.state === "FAILED" && query.errorType !== "USER_ERROR"},
     USER_ERROR: function (query) { return query.state === "FAILED" && query.errorType === "USER_ERROR"},
 };

@@ -211,7 +211,7 @@ public class ServerMainModule
     {
         ServerConfig serverConfig = buildConfigObject(ServerConfig.class);
 
-        if (serverConfig.isCoordinator()) {
+        if (serverConfig.getServerType() != ServerType.WORKER) {
             install(new CoordinatorModule());
             binder.bind(new TypeLiteral<Optional<QueryPerformanceFetcher>>() {}).toProvider(QueryPerformanceFetcherProvider.class).in(Scopes.SINGLETON);
         }
@@ -245,7 +245,7 @@ public class ServerMainModule
         binder.bind(SqlParser.class).in(Scopes.SINGLETON);
         binder.bind(SqlParserOptions.class).toInstance(sqlParserOptions);
 
-        bindFailureDetector(binder, serverConfig.isCoordinator());
+        bindFailureDetector(binder, serverConfig.getServerType() == ServerType.COORDINATOR);
 
         jaxrsBinder(binder).bind(ThrowableMapper.class);
 
@@ -449,7 +449,7 @@ public class ServerMainModule
         // presto announcement
         discoveryBinder(binder).bindHttpAnnouncement("presto")
                 .addProperty("node_version", nodeVersion.toString())
-                .addProperty("coordinator", String.valueOf(serverConfig.isCoordinator()))
+                .addProperty("server_type", String.valueOf(serverConfig.getServerType()))
                 .addProperty("connectorIds", nullToEmpty(serverConfig.getDataSources()));
 
         // server info resource

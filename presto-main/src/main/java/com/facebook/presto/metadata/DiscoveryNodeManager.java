@@ -18,6 +18,7 @@ import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.connector.system.GlobalSystemConnector;
 import com.facebook.presto.failureDetector.FailureDetector;
 import com.facebook.presto.server.InternalCommunicationConfig;
+import com.facebook.presto.server.ServerType;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeState;
 import com.google.common.base.Splitter;
@@ -91,6 +92,9 @@ public final class DiscoveryNodeManager
 
     @GuardedBy("this")
     private Set<Node> coordinators;
+
+    @GuardedBy("this")
+    private Set<Node> dispatchers;
 
     @Inject
     public DiscoveryNodeManager(
@@ -173,14 +177,16 @@ public final class DiscoveryNodeManager
         ImmutableSet.Builder<Node> inactiveNodesBuilder = ImmutableSet.builder();
         ImmutableSet.Builder<Node> shuttingDownNodesBuilder = ImmutableSet.builder();
         ImmutableSet.Builder<Node> coordinatorsBuilder = ImmutableSet.builder();
+        ImmutableSet.Builder<Node> dispatcherBuilder = ImmutableSet.builder();
         ImmutableSetMultimap.Builder<ConnectorId, Node> byConnectorIdBuilder = ImmutableSetMultimap.builder();
 
         for (ServiceDescriptor service : services) {
             URI uri = getHttpUri(service);
             NodeVersion nodeVersion = getNodeVersion(service);
-            boolean coordinator = isCoordinator(service);
+            ServerType serverType = getServerType(service);
             if (uri != null && nodeVersion != null) {
-                PrestoNode node = new PrestoNode(service.getNodeId(), uri, nodeVersion, coordinator);
+                // TODO: fix node coordinator option
+                PrestoNode node = new PrestoNode(service.getNodeId(), uri, nodeVersion, serverType == ServerType.COORDINATOR);
                 NodeState nodeState = getNodeState(node);
 
                 // record current node
@@ -192,8 +198,11 @@ public final class DiscoveryNodeManager
                 switch (nodeState) {
                     case ACTIVE:
                         activeNodesBuilder.add(node);
-                        if (coordinator) {
+                        if (serverType == ServerType.COORDINATOR) {
                             coordinatorsBuilder.add(node);
+                        }
+                        else if (serverType == ServerType.DISPATCHER) {
+                            dispatcherBuilder.add(node);
                         }
 
                         // record available active nodes organized by connector id
@@ -231,6 +240,7 @@ public final class DiscoveryNodeManager
         allNodes = new AllNodes(activeNodesBuilder.build(), inactiveNodesBuilder.build(), shuttingDownNodesBuilder.build());
         activeNodesByConnectorId = byConnectorIdBuilder.build();
         coordinators = coordinatorsBuilder.build();
+        dispatchers = dispatcherBuilder.build();
 
         checkState(currentNode != null, "INVARIANT: current node not returned from service selector");
         return currentNode;
@@ -326,6 +336,13 @@ public final class DiscoveryNodeManager
         return coordinators;
     }
 
+    @Override
+    public synchronized Set<Node> getDispatchers()
+    {
+        refreshIfNecessary();
+        return dispatchers;
+    }
+
     private URI getHttpUri(ServiceDescriptor descriptor)
     {
         String url = descriptor.getProperties().get(httpsRequired ? "https" : "http");
@@ -345,8 +362,8 @@ public final class DiscoveryNodeManager
         return nodeVersion == null ? null : new NodeVersion(nodeVersion);
     }
 
-    private static boolean isCoordinator(ServiceDescriptor service)
+    private static ServerType getServerType(ServiceDescriptor service)
     {
-        return Boolean.parseBoolean(service.getProperties().get("coordinator"));
+        return ServerType.valueOf(service.getProperties().get("server_type"));
     }
 }

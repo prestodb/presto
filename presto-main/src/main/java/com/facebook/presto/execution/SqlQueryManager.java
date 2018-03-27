@@ -16,10 +16,10 @@ package com.facebook.presto.execution;
 import com.facebook.presto.ExceededCpuLimitException;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.execution.QueryExecution.QueryExecutionFactory;
 import com.facebook.presto.execution.QueryExecution.QueryOutputInfo;
-import com.facebook.presto.execution.SqlQueryExecution.SqlQueryExecutionFactory;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.resourceGroups.QueryQueueFullException;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
@@ -75,6 +75,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxCpuTime;
+import static com.facebook.presto.execution.AbstractQueryExecution.getSqlQueryType;
 import static com.facebook.presto.execution.ParameterExtractor.getParameterCount;
 import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.spi.NodeState.ACTIVE;
@@ -134,8 +135,6 @@ public class SqlQueryManager
     private final Metadata metadata;
     private final TransactionManager transactionManager;
 
-    private final QueryIdGenerator queryIdGenerator;
-
     private final SessionSupplier sessionSupplier;
 
     private final InternalNodeManager internalNodeManager;
@@ -156,7 +155,6 @@ public class SqlQueryManager
             ClusterMemoryManager memoryManager,
             LocationFactory locationFactory,
             TransactionManager transactionManager,
-            QueryIdGenerator queryIdGenerator,
             SessionSupplier sessionSupplier,
             InternalNodeManager internalNodeManager,
             Map<Class<? extends Statement>, QueryExecutionFactory<?>> executionFactories,
@@ -179,8 +177,6 @@ public class SqlQueryManager
 
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.metadata = requireNonNull(metadata, "transactionManager is null");
-
-        this.queryIdGenerator = requireNonNull(queryIdGenerator, "queryIdGenerator is null");
 
         this.sessionSupplier = requireNonNull(sessionSupplier, "sessionSupplier is null");
 
@@ -311,6 +307,12 @@ public class SqlQueryManager
     }
 
     @Override
+    public void addRedirectResultsListener(QueryId queryId, Consumer<QueryResults> listener)
+    {
+        getQuery(queryId).addRedirectResultsListner(requireNonNull(listener, "listener is null"));
+    }
+
+    @Override
     public ListenableFuture<QueryState> getStateChange(QueryId queryId, QueryState currentState)
     {
         return tryGetQuery(queryId)
@@ -352,13 +354,13 @@ public class SqlQueryManager
     }
 
     @Override
-    public QueryInfo createQuery(SessionContext sessionContext, String query)
+    public QueryInfo createQuery(QueryId queryId, SessionContext sessionContext, String query)
     {
+        requireNonNull(queryId, "queryId is null");
         requireNonNull(sessionContext, "sessionFactory is null");
         requireNonNull(query, "query is null");
         checkArgument(!query.isEmpty(), "query must not be empty string");
-
-        QueryId queryId = queryIdGenerator.createNextQueryId();
+        checkArgument(!queries.containsKey(queryId), format("query %s already exists", queryId));
 
         Session session = null;
         QueryExecution queryExecution;
@@ -393,7 +395,7 @@ public class SqlQueryManager
             }
             if (statement instanceof Explain && ((Explain) statement).isAnalyze()) {
                 Statement innerStatement = ((Explain) statement).getStatement();
-                if (!(executionFactories.get(innerStatement.getClass()) instanceof SqlQueryExecutionFactory)) {
+                if (!getSqlQueryType(innerStatement).isPresent()) {
                     throw new PrestoException(NOT_SUPPORTED, "EXPLAIN ANALYZE only supported for statements that are queries");
                 }
             }

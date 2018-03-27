@@ -160,7 +160,8 @@ public class PrestoServer
         if (connectorIds.isEmpty()) {
             List<Catalog> catalogs = metadata.getCatalogs();
             // if this is a dedicated coordinator, only add jmx
-            if (serverConfig.isCoordinator() && !schedulerConfig.isIncludeCoordinator()) {
+            // TODO: fix server type
+            if (serverConfig.getServerType() == ServerType.COORDINATOR && !schedulerConfig.isIncludeCoordinator()) {
                 catalogs.stream()
                         .map(Catalog::getConnectorId)
                         .filter(connectorId -> connectorId.getCatalogName().equals("jmx"))

@@ -32,6 +32,7 @@ import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.server.GracefulShutdownHandler;
 import com.facebook.presto.server.PluginManager;
 import com.facebook.presto.server.ServerMainModule;
+import com.facebook.presto.server.ServerType;
 import com.facebook.presto.server.ShutdownAction;
 import com.facebook.presto.server.security.ServerSecurityModule;
 import com.facebook.presto.spi.Node;
@@ -123,7 +124,7 @@ public class TestingPrestoServer
     private final TaskManager taskManager;
     private final GracefulShutdownHandler gracefulShutdownHandler;
     private final ShutdownAction shutdownAction;
-    private final boolean coordinator;
+    private final ServerType serverType;
 
     public static class TestShutdownAction
             implements ShutdownAction
@@ -161,10 +162,10 @@ public class TestingPrestoServer
     public TestingPrestoServer(List<Module> additionalModules)
             throws Exception
     {
-        this(true, ImmutableMap.of(), null, null, new SqlParserOptions(), additionalModules);
+        this(ServerType.COORDINATOR, ImmutableMap.of(), null, null, new SqlParserOptions(), additionalModules);
     }
 
-    public TestingPrestoServer(boolean coordinator,
+    public TestingPrestoServer(ServerType serverType,
             Map<String, String> properties,
             String environment,
             URI discoveryUri,
@@ -172,7 +173,7 @@ public class TestingPrestoServer
             List<Module> additionalModules)
             throws Exception
     {
-        this.coordinator = coordinator;
+        this.serverType = serverType;
         baseDataDir = Files.createTempDirectory("PrestoTest");
 
         properties = new HashMap<>(properties);
@@ -180,10 +181,22 @@ public class TestingPrestoServer
         if (coordinatorPort == null) {
             coordinatorPort = "0";
         }
+        String dispatcherPort = properties.remove("dispatcher.http.port");
+        if (dispatcherPort == null) {
+            dispatcherPort = "0";
+        }
+
+        String httpPort = "0";
+        if (serverType == ServerType.COORDINATOR) {
+            httpPort = coordinatorPort;
+        }
+        else if (serverType == ServerType.DISPATCHER) {
+            httpPort = dispatcherPort;
+        }
 
         ImmutableMap.Builder<String, String> serverProperties = ImmutableMap.<String, String>builder()
                 .putAll(properties)
-                .put("coordinator", String.valueOf(coordinator))
+                .put("server-type", String.valueOf(serverType))
                 .put("presto.version", "testversion")
                 .put("task.concurrency", "4")
                 .put("task.max-worker-threads", "4")
@@ -193,14 +206,14 @@ public class TestingPrestoServer
             serverProperties.put("query.max-memory-per-node", "512MB");
         }
 
-        if (coordinator) {
+        if (serverType == ServerType.COORDINATOR) {
             // TODO: enable failure detector
             serverProperties.put("failure-detector.enabled", "false");
         }
 
         ImmutableList.Builder<Module> modules = ImmutableList.<Module>builder()
                 .add(new TestingNodeModule(Optional.ofNullable(environment)))
-                .add(new TestingHttpServerModule(parseInt(coordinator ? coordinatorPort : "0")))
+                .add(new TestingHttpServerModule(parseInt(httpPort)))
                 .add(new JsonModule())
                 .add(new JaxrsModule(true))
                 .add(new MBeanModule())
@@ -264,7 +277,7 @@ public class TestingPrestoServer
         accessControl = injector.getInstance(TestingAccessControlManager.class);
         procedureTester = injector.getInstance(ProcedureTester.class);
         splitManager = injector.getInstance(SplitManager.class);
-        if (coordinator) {
+        if (serverType != ServerType.WORKER) {
             resourceGroupManager = Optional.of((InternalResourceGroupManager) injector.getInstance(ResourceGroupManager.class));
             nodePartitioningManager = injector.getInstance(NodePartitioningManager.class);
             clusterMemoryManager = injector.getInstance(ClusterMemoryManager.class);
@@ -400,7 +413,7 @@ public class TestingPrestoServer
 
     public ClusterMemoryManager getClusterMemoryManager()
     {
-        checkState(coordinator, "not a coordinator");
+        checkState(serverType != ServerType.WORKER, "not a coordinator");
         return clusterMemoryManager;
     }
 
@@ -421,7 +434,7 @@ public class TestingPrestoServer
 
     public boolean isCoordinator()
     {
-        return coordinator;
+        return serverType == ServerType.COORDINATOR;
     }
 
     public final AllNodes refreshNodes()

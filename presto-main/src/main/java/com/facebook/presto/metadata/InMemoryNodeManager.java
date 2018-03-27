@@ -101,6 +101,13 @@ public class InMemoryNodeManager
     }
 
     @Override
+    public Set<Node> getDispatchers()
+    {
+        // always use localNode as dispatcher
+        return ImmutableSet.of(localNode);
+    }
+
+    @Override
     public void refreshNodes()
     {
         // no-op

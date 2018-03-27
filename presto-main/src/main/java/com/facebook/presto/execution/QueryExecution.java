@@ -14,6 +14,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.spi.QueryId;
@@ -87,6 +88,22 @@ public interface QueryExecution
     }
 
     Optional<QueryType> getQueryType();
+
+    /**
+     * This method is for dispatcher to set the coordinator to execute the query.
+     */
+    default void setTargetCoordinator(URI uri)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    /**
+     * This method is for dispatcher to redirect the client to fetch query results from the coordinator.
+     */
+    default void addRedirectResultsListner(Consumer<QueryResults> listener)
+    {
+        throw new UnsupportedOperationException();
+    }
 
     /**
      * Output schema and buffer URIs for query.  The info will always contain column names and types.  Buffer locations will always

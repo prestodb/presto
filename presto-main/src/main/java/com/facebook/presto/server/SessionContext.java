@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.transaction.TransactionId;
 
@@ -24,6 +25,9 @@ import java.util.Set;
 
 public interface SessionContext
 {
+    @Nullable
+    QueryId getQueryId();
+
     Identity getIdentity();
 
     @Nullable

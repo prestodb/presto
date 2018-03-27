@@ -30,7 +30,7 @@ public class TestServerConfig
     public void testDefaults()
     {
         assertRecordedDefaults(ConfigAssertions.recordDefaults(ServerConfig.class)
-                .setCoordinator(true)
+                .setServerType(ServerType.COORDINATOR)
                 .setPrestoVersion(null)
                 .setDataSources(null)
                 .setIncludeExceptionInResponse(true)
@@ -41,7 +41,7 @@ public class TestServerConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("coordinator", "false")
+                .put("server-type", "worker")
                 .put("presto.version", "test")
                 .put("datasources", "jmx")
                 .put("http.include-exception-in-response", "false")
@@ -49,7 +49,7 @@ public class TestServerConfig
                 .build();
 
         ServerConfig expected = new ServerConfig()
-                .setCoordinator(false)
+                .setServerType(ServerType.WORKER)
                 .setPrestoVersion("test")
                 .setDataSources("jmx")
                 .setIncludeExceptionInResponse(false)

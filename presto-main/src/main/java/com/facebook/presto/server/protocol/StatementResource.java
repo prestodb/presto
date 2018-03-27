@@ -14,16 +14,15 @@
 package com.facebook.presto.server.protocol;
 
 import com.facebook.presto.client.QueryResults;
+import com.facebook.presto.execution.QueryIdGenerator;
 import com.facebook.presto.execution.QueryManager;
-import com.facebook.presto.memory.context.SimpleLocalMemoryContext;
-import com.facebook.presto.metadata.SessionPropertyManager;
-import com.facebook.presto.operator.ExchangeClient;
-import com.facebook.presto.operator.ExchangeClientSupplier;
 import com.facebook.presto.server.ForStatementResource;
 import com.facebook.presto.server.HttpRequestSessionContext;
+import com.facebook.presto.server.ServerConfig;
+import com.facebook.presto.server.ServerType;
 import com.facebook.presto.server.SessionContext;
+import com.facebook.presto.server.protocol.Query.QueryFactory;
 import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -56,6 +55,7 @@ import java.util.Map.Entry;
 import java.util.OptionalLong;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_ADDED_PREPARE;
@@ -66,7 +66,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_CATALOG;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_SCHEMA;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_STARTED_TRANSACTION_ID;
-import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.http.server.AsyncResponseHandler.bindAsyncResponse;
@@ -81,31 +81,26 @@ public class StatementResource
     private static final Duration MAX_WAIT_TIME = new Duration(1, SECONDS);
     private static final Ordering<Comparable<Duration>> WAIT_ORDERING = Ordering.natural().nullsLast();
 
-    private final QueryManager queryManager;
-    private final SessionPropertyManager sessionPropertyManager;
-    private final ExchangeClientSupplier exchangeClientSupplier;
-    private final BlockEncodingSerde blockEncodingSerde;
-    private final BoundedExecutor responseExecutor;
-    private final ScheduledExecutorService timeoutExecutor;
+    private final QueryFactory queryFactory;
+    private final QueryIdGenerator queryIdGenerator;
+    private final Executor responseExecutor;
 
+    private final ServerType serverType;
     private final ConcurrentMap<QueryId, Query> queries = new ConcurrentHashMap<>();
     private final ScheduledExecutorService queryPurger = newSingleThreadScheduledExecutor(threadsNamed("query-purger"));
 
     @Inject
     public StatementResource(
             QueryManager queryManager,
-            SessionPropertyManager sessionPropertyManager,
-            ExchangeClientSupplier exchangeClientSupplier,
-            BlockEncodingSerde blockEncodingSerde,
+            QueryFactory queryFactory,
+            QueryIdGenerator queryIdGenerator,
             @ForStatementResource BoundedExecutor responseExecutor,
-            @ForStatementResource ScheduledExecutorService timeoutExecutor)
+            ServerConfig serverConfig)
     {
-        this.queryManager = requireNonNull(queryManager, "queryManager is null");
-        this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
-        this.exchangeClientSupplier = requireNonNull(exchangeClientSupplier, "exchangeClientSupplier is null");
-        this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
+        this.queryFactory = requireNonNull(queryFactory, "queryFactory is null");
+        this.queryIdGenerator = requireNonNull(queryIdGenerator, "queryIdGenerator is null");
         this.responseExecutor = requireNonNull(responseExecutor, "responseExecutor is null");
-        this.timeoutExecutor = requireNonNull(timeoutExecutor, "timeoutExecutor is null");
+        this.serverType = requireNonNull(serverConfig, "serverConfig is null").getServerType();
 
         queryPurger.scheduleWithFixedDelay(new PurgeQueriesRunnable(queries, queryManager), 200, 200, MILLISECONDS);
     }
@@ -133,17 +128,16 @@ public class StatementResource
         }
 
         SessionContext sessionContext = new HttpRequestSessionContext(servletRequest);
+        QueryId queryId = sessionContext.getQueryId();
+        if (queryId == null) {
+            checkState(serverType == ServerType.COORDINATOR || serverType == ServerType.DISPATCHER);
+            queryId = queryIdGenerator.createNextQueryId();
+        }
+        else {
+            checkState(serverType == ServerType.QUERY_COORDINATOR);
+        }
 
-        ExchangeClient exchangeClient = exchangeClientSupplier.get(new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext()));
-        Query query = Query.create(
-                sessionContext,
-                statement,
-                queryManager,
-                sessionPropertyManager,
-                exchangeClient,
-                responseExecutor,
-                timeoutExecutor,
-                blockEncodingSerde);
+        Query query = queryFactory.create(queryId, statement, sessionContext);
         queries.put(query.getQueryId(), query);
 
         asyncQueryResults(query, OptionalLong.empty(), new Duration(1, MILLISECONDS), uriInfo, asyncResponse);
