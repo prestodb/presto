@@ -11,12 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator.aggregation;
+package com.facebook.presto.spi.function;
 
-import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.GroupByIdBlock;
 import com.facebook.presto.spi.type.Type;
 
 public interface GroupedAccumulator

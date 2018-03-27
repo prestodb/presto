@@ -14,10 +14,10 @@
 package com.facebook.presto.operator.window;
 
 import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.operator.aggregation.Accumulator;
 import com.facebook.presto.operator.aggregation.AccumulatorFactory;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.function.Accumulator;
 import com.facebook.presto.spi.function.WindowFunction;
 import com.facebook.presto.spi.function.WindowIndex;
 import com.google.common.collect.ImmutableList;

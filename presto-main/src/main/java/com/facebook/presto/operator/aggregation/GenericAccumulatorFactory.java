@@ -14,7 +14,6 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.operator.MarkDistinctHash;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.UpdateMemory;
@@ -22,9 +21,12 @@ import com.facebook.presto.operator.Work;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.GroupByIdBlock;
 import com.facebook.presto.spi.block.SortOrder;
+import com.facebook.presto.spi.function.Accumulator;
 import com.facebook.presto.spi.function.AccumulatorStateFactory;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
+import com.facebook.presto.spi.function.GroupedAccumulator;
 import com.facebook.presto.spi.function.WindowIndex;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinCompiler;

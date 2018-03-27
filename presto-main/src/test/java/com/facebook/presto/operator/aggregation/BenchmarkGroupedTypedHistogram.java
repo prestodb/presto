@@ -15,11 +15,12 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.operator.aggregation.groupByAggregations.GroupByAggregationTestUtils;
 import com.facebook.presto.operator.aggregation.histogram.HistogramGroupImplementation;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.GroupByIdBlock;
+import com.facebook.presto.spi.function.GroupedAccumulator;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;

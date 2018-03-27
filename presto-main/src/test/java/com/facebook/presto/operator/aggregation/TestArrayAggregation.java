@@ -21,6 +21,7 @@ import com.facebook.presto.operator.aggregation.groupByAggregations.AggregationT
 import com.facebook.presto.operator.aggregation.groupByAggregations.GroupByAggregationTestUtils;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.function.GroupedAccumulator;
 import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.google.common.collect.ImmutableList;

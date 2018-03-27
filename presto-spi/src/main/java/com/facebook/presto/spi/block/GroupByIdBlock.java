@@ -11,17 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator;
+package com.facebook.presto.spi.block;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
 import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.function.BiConsumer;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class GroupByIdBlock
@@ -209,10 +206,11 @@ public class GroupByIdBlock
     @Override
     public String toString()
     {
-        return toStringHelper(this)
-                .add("groupCount", groupCount)
-                .add("positionCount", getPositionCount())
-                .toString();
+        StringBuilder sb = new StringBuilder("GroupByIdBlock{");
+        sb.append("groupCount=").append(groupCount);
+        sb.append(",positionCount=").append(getPositionCount());
+        sb.append('}');
+        return sb.toString();
     }
 
     @Override

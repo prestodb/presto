@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.spi.function.Accumulator;
+import com.facebook.presto.spi.function.GroupedAccumulator;
+
 import java.util.List;
 
 public interface AccumulatorFactory

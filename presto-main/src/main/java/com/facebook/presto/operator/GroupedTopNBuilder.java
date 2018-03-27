@@ -17,6 +17,7 @@ import com.facebook.presto.array.ObjectBigArray;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.GroupByIdBlock;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.AbstractIterator;
