@@ -27,7 +27,7 @@ import java.util.Set;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 
-public class GlueExpressionUtil
+public final class GlueExpressionUtil
 {
     private static final Joiner JOINER = Joiner.on(" AND ");
     private static final Set<String> QUOTED_TYPES = ImmutableSet.of("string", "char", "varchar", "date", "timestamp", "binary", "varbinary");
@@ -35,9 +35,8 @@ public class GlueExpressionUtil
     private GlueExpressionUtil() {}
 
     /**
-     * <pre>
      * Build an expression string used for partition filtering in {@link GetPartitionsRequest}
-     *
+     * <pre>
      * Ex: partition keys: ['a', 'b']
      *     partition values: ['1', '2']
      *     expression: (a='1') AND (b='2')
@@ -46,10 +45,11 @@ public class GlueExpressionUtil
      *      partition values: ['', '2']
      *      expression: (b='2')
      * </pre>
-     * @param partitionKeys
+     *
+     * @param partitionKeys List of partition keys to filter on
      * @param partitionValues Full or partial list of partition values to filter on. Keys without filter should be empty string.
      */
-    public static String buildExpression(List<Column> partitionKeys, List<String> partitionValues)
+    public static String buildGlueExpression(List<Column> partitionKeys, List<String> partitionValues)
     {
         if (partitionValues == null || partitionValues.isEmpty()) {
             return null;
