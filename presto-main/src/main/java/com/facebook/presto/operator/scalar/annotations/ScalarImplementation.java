@@ -30,6 +30,7 @@ import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.type.CodePointsType;
 import com.facebook.presto.type.FunctionType;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -335,6 +336,12 @@ public class ScalarImplementation
                             nullableArgument = true;
                             hasNullFlag = true;
                         }
+                    }
+
+                    // skip argument type check for CodePoints
+                    if (!type.value().equals(CodePointsType.NAME)) {
+                        checkArgument(!parameter.isVarArgs(), "Method [%s] has a vararg argument", method);
+                        checkArgument(!parameter.getType().isArray(), "Method [%s] has an array argument", method);
                     }
 
                     if (Primitives.isWrapperType(parameterType)) {

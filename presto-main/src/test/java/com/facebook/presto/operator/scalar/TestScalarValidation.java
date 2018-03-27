@@ -22,6 +22,7 @@ import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
+import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
 import javax.annotation.Nullable;
@@ -335,6 +336,38 @@ public class TestScalarValidation
         public static long bad(@TypeParameter("E(VARCHAR)") Type type, @SqlType(StandardTypes.BIGINT) long value)
         {
             return value;
+        }
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Method .* has an array argument")
+    public void testInvalidArrayArgument()
+    {
+        extractScalars(InvalidArrayArgument.class);
+    }
+
+    public static final class InvalidArrayArgument
+    {
+        @ScalarFunction
+        @SqlType(StandardTypes.VARCHAR)
+        public static Slice bad(@SqlType(StandardTypes.ARRAY) Slice[] input)
+        {
+            return input[0];
+        }
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Method .* has a vararg argument")
+    public void testInvalidVarargsArgument()
+    {
+        extractScalars(InvalidVarargsArgument.class);
+    }
+
+    public static final class InvalidVarargsArgument
+    {
+        @ScalarFunction
+        @SqlType(StandardTypes.VARCHAR)
+        public static Slice bad(@SqlType(StandardTypes.ARRAY) Slice... input)
+        {
+            return input[0];
         }
     }
 
