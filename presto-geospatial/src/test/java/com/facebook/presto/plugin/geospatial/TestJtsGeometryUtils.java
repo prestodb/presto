@@ -28,8 +28,6 @@ import static org.testng.Assert.assertTrue;
 
 public class TestJtsGeometryUtils
 {
-    private static final WKTReader WKT_READER = new WKTReader();
-
     @Test
     public void testPoint()
             throws Exception
@@ -92,7 +90,7 @@ public class TestJtsGeometryUtils
             throws ParseException
     {
         Slice geometry = stGeometryFromText(utf8Slice(wkt));
-        Geometry expected = WKT_READER.read(wkt);
+        Geometry expected = new WKTReader().read(wkt);
         Geometry actual = JtsGeometryUtils.deserialize(geometry);
 
         // ESRI shape serialization format doesn't contain enough information
