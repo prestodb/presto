@@ -65,13 +65,12 @@ public final class SequenceFunction
     }
 
     @ScalarFunction("sequence")
-    @SqlType("array(timestamp)")
-    public static Block sequenceTimestampDayToSecond(
-            @SqlType(StandardTypes.TIMESTAMP) long start,
-            @SqlType(StandardTypes.TIMESTAMP) long stop,
-            @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long step)
+    @SqlType("array(date)")
+    public static Block sequenceDateDefaultStep(
+            @SqlType(StandardTypes.DATE) long start,
+            @SqlType(StandardTypes.DATE) long stop)
     {
-        return fixedWidthSequence(start, stop, step, TIMESTAMP);
+        return fixedWidthSequence(start, stop, stop >= start ? 1 : -1, DATE);
     }
 
     @ScalarFunction("sequence")
@@ -86,30 +85,6 @@ public final class SequenceFunction
                 INVALID_FUNCTION_ARGUMENT,
                 "sequence step must be a day interval if start and end values are dates");
         return fixedWidthSequence(start, stop, step / TimeUnit.DAYS.toMillis(1), DATE);
-    }
-
-    @ScalarFunction("sequence")
-    @SqlType("array(timestamp)")
-    public static Block sequenceTimestampYearToMonth(
-            ConnectorSession session,
-            @SqlType(StandardTypes.TIMESTAMP) long start,
-            @SqlType(StandardTypes.TIMESTAMP) long stop,
-            @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long step)
-    {
-        checkValidStep(start, stop, step);
-
-        int length = toIntExact(diffTimestamp(session, MONTH, start, stop) / step + 1);
-        checkMaxEntry(length);
-
-        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), length);
-
-        int value = 0;
-        for (int i = 0; i < length; ++i) {
-            BIGINT.writeLong(blockBuilder, DateTimeOperators.timestampPlusIntervalYearToMonth(session, start, value));
-            value += step;
-        }
-
-        return blockBuilder.build();
     }
 
     @ScalarFunction("sequence")
@@ -130,6 +105,40 @@ public final class SequenceFunction
         int value = 0;
         for (int i = 0; i < length; ++i) {
             DATE.writeLong(blockBuilder, DateTimeOperators.datePlusIntervalYearToMonth(start, value));
+            value += step;
+        }
+
+        return blockBuilder.build();
+    }
+
+    @ScalarFunction("sequence")
+    @SqlType("array(timestamp)")
+    public static Block sequenceTimestampDayToSecond(
+            @SqlType(StandardTypes.TIMESTAMP) long start,
+            @SqlType(StandardTypes.TIMESTAMP) long stop,
+            @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long step)
+    {
+        return fixedWidthSequence(start, stop, step, TIMESTAMP);
+    }
+
+    @ScalarFunction("sequence")
+    @SqlType("array(timestamp)")
+    public static Block sequenceTimestampYearToMonth(
+            ConnectorSession session,
+            @SqlType(StandardTypes.TIMESTAMP) long start,
+            @SqlType(StandardTypes.TIMESTAMP) long stop,
+            @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long step)
+    {
+        checkValidStep(start, stop, step);
+
+        int length = toIntExact(diffTimestamp(session, MONTH, start, stop) / step + 1);
+        checkMaxEntry(length);
+
+        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), length);
+
+        int value = 0;
+        for (int i = 0; i < length; ++i) {
+            BIGINT.writeLong(blockBuilder, DateTimeOperators.timestampPlusIntervalYearToMonth(session, start, value));
             value += step;
         }
 
