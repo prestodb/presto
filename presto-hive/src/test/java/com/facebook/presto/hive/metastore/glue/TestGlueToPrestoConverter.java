@@ -23,7 +23,7 @@ import com.facebook.presto.hive.metastore.PrincipalType;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.glue.converter.GlueToPrestoConverter;
 import com.google.common.collect.ImmutableList;
-import org.testng.annotations.BeforeClass;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -33,6 +33,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
+@Test(singleThreaded = true)
 public class TestGlueToPrestoConverter
 {
     private static final String PUBLIC_OWNER = "PUBLIC";
@@ -41,7 +42,7 @@ public class TestGlueToPrestoConverter
     private Table testTbl;
     private Partition testPartition;
 
-    @BeforeClass
+    @BeforeMethod
     public void setup()
     {
         testDb = TestMetastoreObjects.getGlueTestDatabase();
