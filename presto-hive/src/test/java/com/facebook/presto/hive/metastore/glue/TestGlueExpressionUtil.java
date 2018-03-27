@@ -22,12 +22,13 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.hive.metastore.glue.GlueExpressionUtil.buildGlueExpression;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
 
 public class TestGlueExpressionUtil
 {
-    private static final List<Column> partitionKeys = ImmutableList.of(
+    private static final List<Column> PARTITION_KEYS = ImmutableList.of(
             getColumn("name", "string"),
             getColumn("birthday", "date"),
             getColumn("age", "int"));
@@ -41,11 +42,11 @@ public class TestGlueExpressionUtil
     public void testBuildExpression()
     {
         List<String> partitionValues = ImmutableList.of("foo", "2018-01-02", "99");
-        String expression = GlueExpressionUtil.buildExpression(partitionKeys, partitionValues);
+        String expression = buildGlueExpression(PARTITION_KEYS, partitionValues);
         assertEquals(expression, "(name='foo') AND (birthday='2018-01-02') AND (age=99)");
 
         partitionValues = ImmutableList.of("foo", "2018-01-02", "");
-        expression = GlueExpressionUtil.buildExpression(partitionKeys, partitionValues);
+        expression = buildGlueExpression(PARTITION_KEYS, partitionValues);
         assertEquals(expression, "(name='foo') AND (birthday='2018-01-02')");
     }
 
@@ -53,32 +54,32 @@ public class TestGlueExpressionUtil
     public void testBuildExpressionFromPartialSpecification()
     {
         List<String> partitionValues = ImmutableList.of("", "2018-01-02", "");
-        String expression = GlueExpressionUtil.buildExpression(partitionKeys, partitionValues);
+        String expression = buildGlueExpression(PARTITION_KEYS, partitionValues);
         assertEquals(expression, "(birthday='2018-01-02')");
 
         partitionValues = ImmutableList.of("foo", "", "99");
-        expression = GlueExpressionUtil.buildExpression(partitionKeys, partitionValues);
+        expression = buildGlueExpression(PARTITION_KEYS, partitionValues);
         assertEquals(expression, "(name='foo') AND (age=99)");
     }
 
     @Test
     public void testBuildExpressionNullOrEmptyValues()
     {
-        assertNull(GlueExpressionUtil.buildExpression(partitionKeys, ImmutableList.of()));
-        assertNull(GlueExpressionUtil.buildExpression(partitionKeys, null));
+        assertNull(buildGlueExpression(PARTITION_KEYS, ImmutableList.of()));
+        assertNull(buildGlueExpression(PARTITION_KEYS, null));
     }
 
     @Test(expectedExceptions = PrestoException.class)
     public void testBuildExpressionInvalidPartitionValueListSize()
     {
         List<String> partitionValues = ImmutableList.of("foo", "2017-01-02", "99", "extra");
-        GlueExpressionUtil.buildExpression(partitionKeys, partitionValues);
+        buildGlueExpression(PARTITION_KEYS, partitionValues);
     }
 
     @Test(expectedExceptions = PrestoException.class)
     public void testBuildExpressionNullPartitionKeys()
     {
         List<String> partitionValues = ImmutableList.of("foo", "2018-01-02", "99");
-        GlueExpressionUtil.buildExpression(null, partitionValues);
+        buildGlueExpression(null, partitionValues);
     }
 }

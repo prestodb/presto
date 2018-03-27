@@ -29,6 +29,10 @@ import org.testng.annotations.Test;
 import java.util.List;
 
 import static com.amazonaws.util.CollectionUtils.isNullOrEmpty;
+import static com.facebook.presto.hive.metastore.glue.TestingMetastoreObjects.getGlueTestColumn;
+import static com.facebook.presto.hive.metastore.glue.TestingMetastoreObjects.getGlueTestDatabase;
+import static com.facebook.presto.hive.metastore.glue.TestingMetastoreObjects.getGlueTestPartition;
+import static com.facebook.presto.hive.metastore.glue.TestingMetastoreObjects.getGlueTestTable;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
@@ -45,9 +49,9 @@ public class TestGlueToPrestoConverter
     @BeforeMethod
     public void setup()
     {
-        testDb = TestMetastoreObjects.getGlueTestDatabase();
-        testTbl = TestMetastoreObjects.getGlueTestTable(testDb.getName());
-        testPartition = TestMetastoreObjects.getGlueTestPartition(testDb.getName(), testTbl.getName(), ImmutableList.of("val1"));
+        testDb = getGlueTestDatabase();
+        testTbl = getGlueTestTable(testDb.getName());
+        testPartition = getGlueTestPartition(testDb.getName(), testTbl.getName(), ImmutableList.of("val1"));
     }
 
     @Test
@@ -89,7 +93,7 @@ public class TestGlueToPrestoConverter
     @Test
     public void testConvertTableUppercaseColumnType()
     {
-        com.amazonaws.services.glue.model.Column uppercaseCol = TestMetastoreObjects.getGlueTestColumn().withType("String");
+        com.amazonaws.services.glue.model.Column uppercaseCol = getGlueTestColumn().withType("String");
         testTbl.getStorageDescriptor().setColumns(ImmutableList.of(uppercaseCol));
         GlueToPrestoConverter.convertTable(testTbl, testDb.getName());
     }

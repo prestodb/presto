@@ -32,9 +32,9 @@ import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Consumer;
 
-public class TestMetastoreObjects
+public final class TestingMetastoreObjects
 {
-    private TestMetastoreObjects() {}
+    private TestingMetastoreObjects() {}
 
     // --------------- Glue Objects ---------------
 
