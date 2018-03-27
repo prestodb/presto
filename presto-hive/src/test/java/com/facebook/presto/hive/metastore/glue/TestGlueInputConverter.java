@@ -25,27 +25,21 @@ import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.hive.metastore.glue.converter.GlueInputConverter;
 import com.google.common.collect.ImmutableList;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
 
+import static com.facebook.presto.hive.metastore.glue.TestingMetastoreObjects.getPrestoTestDatabase;
+import static com.facebook.presto.hive.metastore.glue.TestingMetastoreObjects.getPrestoTestPartition;
+import static com.facebook.presto.hive.metastore.glue.TestingMetastoreObjects.getPrestoTestTable;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
 
 public class TestGlueInputConverter
 {
-    private Database testDb;
-    private Table testTbl;
-    private Partition testPartition;
-
-    @BeforeClass
-    public void setup()
-    {
-        testDb = TestMetastoreObjects.getPrestoTestDatabase();
-        testTbl = TestMetastoreObjects.getPrestoTestTable(testDb.getDatabaseName());
-        testPartition = TestMetastoreObjects.getPrestoTestPartition(testDb.getDatabaseName(), testTbl.getTableName(), ImmutableList.of("val1"));
-    }
+    private final Database testDb = getPrestoTestDatabase();
+    private final Table testTbl = getPrestoTestTable(testDb.getDatabaseName());
+    private final Partition testPartition = getPrestoTestPartition(testDb.getDatabaseName(), testTbl.getTableName(), ImmutableList.of("val1"));
 
     @Test
     public void testConvertDatabase()

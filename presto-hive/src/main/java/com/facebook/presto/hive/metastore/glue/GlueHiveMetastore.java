@@ -96,6 +96,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static com.facebook.presto.hive.HiveUtil.toPartitionValues;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.makePartName;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.verifyCanDropColumn;
+import static com.facebook.presto.hive.metastore.glue.GlueExpressionUtil.buildGlueExpression;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -180,7 +181,7 @@ public class GlueHiveMetastore
             do {
                 GetDatabasesResult result = glueClient.getDatabases(new GetDatabasesRequest().withNextToken(nextToken));
                 nextToken = result.getNextToken();
-                result.getDatabaseList().stream().forEach(database -> databaseNames.add(database.getName()));
+                result.getDatabaseList().forEach(database -> databaseNames.add(database.getName()));
             }
             while (nextToken != null);
 
@@ -237,7 +238,7 @@ public class GlueHiveMetastore
                 GetTablesResult result = glueClient.getTables(new GetTablesRequest()
                         .withDatabaseName(databaseName)
                         .withNextToken(nextToken));
-                result.getTableList().stream().forEach(table -> tableNames.add(table.getName()));
+                result.getTableList().forEach(table -> tableNames.add(table.getName()));
                 nextToken = result.getNextToken();
             }
             while (nextToken != null);
@@ -464,7 +465,7 @@ public class GlueHiveMetastore
         ImmutableList.Builder<Column> newDataColumns = ImmutableList.builder();
         oldTable.getDataColumns().stream()
                 .filter(fieldSchema -> !fieldSchema.getName().equals(columnName))
-                .forEach(fieldSchema -> newDataColumns.add(fieldSchema));
+                .forEach(newDataColumns::add);
 
         Table newTable = Table.builder(oldTable)
                 .setDataColumns(newDataColumns.build())
@@ -512,7 +513,7 @@ public class GlueHiveMetastore
     public Optional<List<String>> getPartitionNamesByParts(String databaseName, String tableName, List<String> parts)
     {
         Table table = getTableOrElseThrow(databaseName, tableName);
-        String expression = GlueExpressionUtil.buildExpression(table.getPartitionColumns(), parts);
+        String expression = buildGlueExpression(table.getPartitionColumns(), parts);
         List<Partition> partitions = getPartitions(databaseName, tableName, expression);
         return Optional.of(buildPartitionNames(table.getPartitionColumns(), partitions));
     }
@@ -529,7 +530,7 @@ public class GlueHiveMetastore
                         .withTableName(tableName)
                         .withExpression(expression)
                         .withNextToken(nextToken));
-                result.getPartitions().stream()
+                result.getPartitions()
                         .forEach(partition -> partitions.add(GlueToPrestoConverter.convertPartition(partition)));
                 nextToken = result.getNextToken();
             }
@@ -542,11 +543,11 @@ public class GlueHiveMetastore
         }
     }
 
-    private List<String> buildPartitionNames(List<Column> partitionColumns, List<Partition> partitions)
+    private static List<String> buildPartitionNames(List<Column> partitionColumns, List<Partition> partitions)
     {
-        List<String> partitionNames = new ArrayList<>();
-        partitions.stream().forEach(partition -> partitionNames.add(makePartName(partitionColumns, partition.getValues())));
-        return partitionNames;
+        return partitions.stream()
+                .map(partition -> makePartName(partitionColumns, partition.getValues()))
+                .collect(toList());
     }
 
     /**
@@ -598,8 +599,8 @@ public class GlueHiveMetastore
             }
 
             for (Future<BatchGetPartitionResult> future : batchGetPartitionFutures) {
-                BatchGetPartitionResult batchResult = future.get();
-                batchResult.getPartitions().stream().forEach(partition -> result.add(GlueToPrestoConverter.convertPartition(partition)));
+                future.get().getPartitions()
+                        .forEach(partition -> result.add(GlueToPrestoConverter.convertPartition(partition)));
             }
 
             return result;
@@ -640,7 +641,7 @@ public class GlueHiveMetastore
         }
     }
 
-    private void propagatePartitionErrorToPrestoException(String databaseName, String tableName, List<PartitionError> partitionErrors)
+    private static void propagatePartitionErrorToPrestoException(String databaseName, String tableName, List<PartitionError> partitionErrors)
     {
         if (partitionErrors != null && !partitionErrors.isEmpty()) {
             ErrorDetail errorDetail = partitionErrors.get(0).getErrorDetail();
