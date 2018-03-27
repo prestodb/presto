@@ -30,6 +30,7 @@ public class QueryStatistics
     private final long peakUserMemoryBytes;
     // peak of user + system memory
     private final long peakTotalNonRevocableMemoryBytes;
+    private final long peakTaskTotalMemory;
     private final long totalBytes;
     private final long totalRows;
     private final long outputBytes;
@@ -56,6 +57,7 @@ public class QueryStatistics
             Optional<Duration> distributedPlanningTime,
             long peakUserMemoryBytes,
             long peakTotalNonRevocableMemoryBytes,
+            long peakTaskTotalMemory,
             long totalBytes,
             long totalRows,
             long outputBytes,
@@ -76,6 +78,7 @@ public class QueryStatistics
         this.distributedPlanningTime = requireNonNull(distributedPlanningTime, "distributedPlanningTime is null");
         this.peakUserMemoryBytes = peakUserMemoryBytes;
         this.peakTotalNonRevocableMemoryBytes = peakTotalNonRevocableMemoryBytes;
+        this.peakTaskTotalMemory = peakTaskTotalMemory;
         this.totalBytes = totalBytes;
         this.totalRows = totalRows;
         this.outputBytes = outputBytes;
@@ -123,6 +126,11 @@ public class QueryStatistics
     public long getPeakTotalNonRevocableMemoryBytes()
     {
         return peakTotalNonRevocableMemoryBytes;
+    }
+
+    public long peakTaskTotalMemory()
+    {
+        return peakTaskTotalMemory;
     }
 
     public long getTotalBytes()

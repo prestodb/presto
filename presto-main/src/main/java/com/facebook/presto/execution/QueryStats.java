@@ -66,6 +66,7 @@ public class QueryStats
     private final DataSize userMemoryReservation;
     private final DataSize peakUserMemoryReservation;
     private final DataSize peakTotalMemoryReservation;
+    private final DataSize peakTaskTotalMemory;
 
     private final boolean scheduled;
     private final Duration totalScheduledTime;
@@ -115,6 +116,7 @@ public class QueryStats
         this.userMemoryReservation = null;
         this.peakUserMemoryReservation = null;
         this.peakTotalMemoryReservation = null;
+        this.peakTaskTotalMemory = null;
         this.scheduled = false;
         this.totalScheduledTime = null;
         this.totalCpuTime = null;
@@ -161,6 +163,7 @@ public class QueryStats
             @JsonProperty("userMemoryReservation") DataSize userMemoryReservation,
             @JsonProperty("peakUserMemoryReservation") DataSize peakUserMemoryReservation,
             @JsonProperty("peakTotalMemoryReservation") DataSize peakTotalMemoryReservation,
+            @JsonProperty("peakTaskTotalMemory") DataSize peakTaskTotalMemory,
 
             @JsonProperty("scheduled") boolean scheduled,
             @JsonProperty("totalScheduledTime") Duration totalScheduledTime,
@@ -219,6 +222,7 @@ public class QueryStats
         this.userMemoryReservation = requireNonNull(userMemoryReservation, "userMemoryReservation is null");
         this.peakUserMemoryReservation = requireNonNull(peakUserMemoryReservation, "peakUserMemoryReservation is null");
         this.peakTotalMemoryReservation = requireNonNull(peakTotalMemoryReservation, "peakTotalMemoryReservation is null");
+        this.peakTaskTotalMemory = requireNonNull(peakTaskTotalMemory, "peakTaskTotalMemory is null");
         this.scheduled = scheduled;
         this.totalScheduledTime = requireNonNull(totalScheduledTime, "totalScheduledTime is null");
         this.totalCpuTime = requireNonNull(totalCpuTime, "totalCpuTime is null");
@@ -391,6 +395,12 @@ public class QueryStats
     public DataSize getPeakTotalMemoryReservation()
     {
         return peakTotalMemoryReservation;
+    }
+
+    @JsonProperty
+    public DataSize getPeakTaskTotalMemory()
+    {
+        return peakTaskTotalMemory;
     }
 
     @JsonProperty

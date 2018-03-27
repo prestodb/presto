@@ -77,11 +77,12 @@ public class MemoryTrackingRemoteTaskFactory
         {
             long currentUserMemory = newStatus.getMemoryReservation().toBytes();
             long currentSystemMemory = newStatus.getSystemMemoryReservation().toBytes();
+            long currentTotalMemory = currentUserMemory + currentSystemMemory;
             long deltaUserMemoryInBytes = currentUserMemory - previousUserMemory;
-            long deltaTotalMemoryInBytes = (currentUserMemory + currentSystemMemory) - (previousUserMemory + previousSystemMemory);
+            long deltaTotalMemoryInBytes = currentTotalMemory - (previousUserMemory + previousSystemMemory);
             previousUserMemory = currentUserMemory;
             previousSystemMemory = currentSystemMemory;
-            stateMachine.updateMemoryUsage(deltaUserMemoryInBytes, deltaTotalMemoryInBytes);
+            stateMachine.updateMemoryUsage(deltaUserMemoryInBytes, deltaTotalMemoryInBytes, currentTotalMemory);
         }
     }
 }
