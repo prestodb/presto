@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.block;
 
+import static com.facebook.presto.spi.block.ArrayBlock.createArrayBlockInternal;
 import static com.facebook.presto.spi.block.BlockUtil.checkArrayRange;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidRegion;
 import static com.facebook.presto.spi.block.BlockUtil.compactArray;
@@ -70,7 +71,7 @@ public abstract class AbstractArrayBlock
             newPosition++;
         }
         Block newValues = getValues().copyPositions(valuesPositions.elements(), 0, valuesPositions.size());
-        return new ArrayBlock(length, newValueIsNull, newOffsets, newValues);
+        return createArrayBlockInternal(0, length, newValueIsNull, newOffsets, newValues);
     }
 
     @Override
@@ -79,7 +80,7 @@ public abstract class AbstractArrayBlock
         int positionCount = getPositionCount();
         checkValidRegion(positionCount, position, length);
 
-        return new ArrayBlock(
+        return createArrayBlockInternal(
                 position + getOffsetBase(),
                 length,
                 getValueIsNull(),
@@ -115,7 +116,7 @@ public abstract class AbstractArrayBlock
         if (newValues == getValues() && newOffsets == getOffsets() && newValueIsNull == getValueIsNull()) {
             return this;
         }
-        return new ArrayBlock(length, newValueIsNull, newOffsets, newValues);
+        return createArrayBlockInternal(0, length, newValueIsNull, newOffsets, newValues);
     }
 
     @Override
@@ -158,7 +159,8 @@ public abstract class AbstractArrayBlock
         int valueLength = getOffset(position + 1) - startValueOffset;
         Block newValues = getValues().copyRegion(startValueOffset, valueLength);
 
-        return new ArrayBlock(
+        return createArrayBlockInternal(
+                0,
                 1,
                 new boolean[] {isNull(position)},
                 new int[] {0, valueLength},

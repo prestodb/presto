@@ -93,7 +93,7 @@ public final class PrestoThriftBigintArray
         checkArgument(desiredType.getTypeParameters().size() == 1 && BIGINT.equals(desiredType.getTypeParameters().get(0)),
                 "type doesn't match: %s", desiredType);
         int numberOfRecords = numberOfRecords();
-        return new ArrayBlock(
+        return ArrayBlock.fromElementBlock(
                 numberOfRecords,
                 nulls == null ? new boolean[numberOfRecords] : nulls,
                 calculateOffsets(sizes, nulls, numberOfRecords),

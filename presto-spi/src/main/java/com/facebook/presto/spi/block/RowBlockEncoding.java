@@ -18,6 +18,7 @@ import com.facebook.presto.spi.type.TypeManager;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 
+import static com.facebook.presto.spi.block.RowBlock.createRowBlockInternal;
 import static io.airlift.slice.Slices.wrappedIntArray;
 import static java.util.Objects.requireNonNull;
 
@@ -80,7 +81,7 @@ public class RowBlockEncoding
         int[] fieldBlockOffsets = new int[positionCount + 1];
         sliceInput.readBytes(wrappedIntArray(fieldBlockOffsets));
         boolean[] rowIsNull = EncoderUtil.decodeNullBits(sliceInput, positionCount);
-        return new RowBlock(0, positionCount, rowIsNull, fieldBlockOffsets, fieldBlocks);
+        return createRowBlockInternal(0, positionCount, rowIsNull, fieldBlockOffsets, fieldBlocks);
     }
 
     @Override

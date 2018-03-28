@@ -197,6 +197,9 @@ public class MapBlock
             if (keyCount < 0) {
                 throw new IllegalArgumentException(format("Offset is not monotonically ascending. offsets[%s]=%s, offsets[%s]=%s", i, offsets[i], i + 1, offsets[i + 1]));
             }
+            if (mapIsNull[i] && keyCount != 0) {
+                throw new IllegalArgumentException("A null map must have zero entries");
+            }
             buildHashTable(keyBlock, keyOffset, keyCount, keyBlockHashCode, hashTables, keyOffset * HASH_MULTIPLIER, keyCount * HASH_MULTIPLIER);
         }
 

@@ -234,7 +234,7 @@ public class MapType
         return "map(" + keyType.getDisplayName() + ", " + valueType.getDisplayName() + ")";
     }
 
-    public MapBlock createBlockFromKeyValue(boolean[] mapIsNull, int[] offsets, Block keyBlock, Block valueBlock)
+    public Block createBlockFromKeyValue(boolean[] mapIsNull, int[] offsets, Block keyBlock, Block valueBlock)
     {
         return MapBlock.fromKeyValueBlock(
                 mapIsNull,
