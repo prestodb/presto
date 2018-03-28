@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.cli;
 
-import com.facebook.presto.client.ClientException;
 import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.client.StatementClient;
 import com.google.common.net.HostAndPort;
@@ -62,8 +61,7 @@ public class QueryRunner
             Optional<String> kerberosConfigPath,
             Optional<String> kerberosKeytabPath,
             Optional<String> kerberosCredentialCachePath,
-            boolean kerberosUseCanonicalHostname,
-            boolean kerberosEnabled)
+            boolean kerberosUseCanonicalHostname)
     {
         this.session = new AtomicReference<>(requireNonNull(session, "session is null"));
         this.debug = debug;
@@ -78,10 +76,12 @@ public class QueryRunner
         setupHttpProxy(builder, httpProxy);
         setupBasicAuth(builder, session, user, password);
 
-        if (kerberosEnabled) {
+        if (kerberosRemoteServiceName.isPresent()) {
+            checkArgument(session.getServer().getScheme().equalsIgnoreCase("https"),
+                    "Authentication using Kerberos requires HTTPS to be enabled");
             setupKerberos(
                     builder,
-                    kerberosRemoteServiceName.orElseThrow(() -> new ClientException("Kerberos remote service name must be set")),
+                    kerberosRemoteServiceName.get(),
                     kerberosUseCanonicalHostname,
                     kerberosPrincipal,
                     kerberosConfigPath.map(File::new),

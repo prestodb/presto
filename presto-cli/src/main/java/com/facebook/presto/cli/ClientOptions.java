@@ -47,9 +47,6 @@ public class ClientOptions
     @Option(name = "--server", title = "server", description = "Presto server location (default: localhost:8080)")
     public String server = "localhost:8080";
 
-    @Option(name = "--enable-authentication", title = "enable authentication", description = "Enable client authentication")
-    public boolean authenticationEnabled;
-
     @Option(name = "--krb5-remote-service-name", title = "krb5 remote service name", description = "Remote peer's kerberos service name")
     public String krb5RemoteServiceName;
 
