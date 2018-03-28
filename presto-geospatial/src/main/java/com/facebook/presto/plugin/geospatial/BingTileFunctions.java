@@ -175,11 +175,11 @@ public class BingTileFunctions
         BingTile rightLowerTile = getTileCoveringLowerRightCorner(envelope, zoomLevel);
 
         // XY coordinates start at (0,0) in the left upper corner and increase left to right and top to bottom
-        int tileCount = toIntExact((rightLowerTile.getX() - leftUpperTile.getX() + 1) * (rightLowerTile.getY() - leftUpperTile.getY() + 1));
+        long tileCount = (long) (rightLowerTile.getX() - leftUpperTile.getX() + 1) * (rightLowerTile.getY() - leftUpperTile.getY() + 1);
 
         checkGeometryToBingTilesLimits(geometry, pointOrRectangle, tileCount);
 
-        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, tileCount);
+        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, toIntExact(tileCount));
         if (pointOrRectangle || zoomLevel <= OPTIMIZED_TILING_MIN_ZOOM_LEVEL) {
             // Collect tiles covering the bounding box and check each tile for intersection with the geometry.
             // Skip intersection check if geometry is a point or rectangle. In these cases, by definition,
@@ -233,14 +233,22 @@ public class BingTileFunctions
         return tile;
     }
 
-    private static void checkGeometryToBingTilesLimits(OGCGeometry geometry, boolean pointOrRectangle, int tileCount)
+    private static void checkGeometryToBingTilesLimits(OGCGeometry geometry, boolean pointOrRectangle, long tileCount)
     {
         if (pointOrRectangle) {
-            checkCondition(tileCount <= 1_000_000, "The number of input tiles is too large (more than 1M) to compute a set of covering bing tiles.");
+            checkCondition(tileCount <= 1_000_000, "The number of input tiles is too large (more than 1M) to compute a set of covering Bing tiles.");
         }
         else {
-            long complexity = ((long) tileCount) * getPointCount(geometry.getEsriGeometry());
-            checkCondition(complexity <= 25_000_000, "The zoom level is too high or the geometry is too complex to compute a set of covering bing tiles. " +
+            checkCondition((int) tileCount == tileCount, "The zoom level is too high to compute a set of covering Bing tiles.");
+            long complexity = 0;
+            try {
+                complexity = Math.multiplyExact(tileCount, getPointCount(geometry.getEsriGeometry()));
+            }
+            catch (ArithmeticException e) {
+                checkCondition(false, "The zoom level is too high or the geometry is too complex to compute a set of covering Bing tiles. " +
+                        "Please use a lower zoom level or convert the geometry to its bounding box using the ST_Envelope function.");
+            }
+            checkCondition(complexity <= 25_000_000, "The zoom level is too high or the geometry is too complex to compute a set of covering Bing tiles. " +
                     "Please use a lower zoom level or convert the geometry to its bounding box using the ST_Envelope function.");
         }
     }
