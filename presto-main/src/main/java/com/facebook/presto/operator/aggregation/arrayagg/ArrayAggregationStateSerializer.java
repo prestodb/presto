@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator.aggregation.state;
+package com.facebook.presto.operator.aggregation.arrayagg;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
@@ -40,24 +40,23 @@ public class ArrayAggregationStateSerializer
     @Override
     public void serialize(ArrayAggregationState state, BlockBuilder out)
     {
-        if (state.getBlockBuilder() == null) {
+        if (state.isEmpty()) {
             out.appendNull();
         }
         else {
-            Block stateBlock = state.getBlockBuilder().build();
-            arrayType.writeObject(out, stateBlock);
+            BlockBuilder entryBuilder = out.beginBlockEntry();
+            state.forEach((block, position) -> elementType.appendTo(block, position, entryBuilder));
+            out.closeEntry();
         }
     }
 
     @Override
     public void deserialize(Block block, int index, ArrayAggregationState state)
     {
+        state.reset();
         Block stateBlock = (Block) arrayType.getObject(block, index);
-        int positionCount = stateBlock.getPositionCount();
-        BlockBuilder blockBuilder = elementType.createBlockBuilder(null, positionCount);
-        for (int i = 0; i < positionCount; i++) {
-            elementType.appendTo(stateBlock, i, blockBuilder);
+        for (int i = 0; i < stateBlock.getPositionCount(); i++) {
+            state.add(stateBlock, i);
         }
-        state.setBlockBuilder(blockBuilder);
     }
 }
