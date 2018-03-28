@@ -130,7 +130,7 @@ public class StructStreamReader
         }
 
         // Struct is represented as a row block
-        RowBlock rowBlock = new RowBlock(0, nextBatchSize, nullVector, offsets, blocks);
+        Block rowBlock = RowBlock.fromFieldBlocks(nextBatchSize, nullVector, offsets, blocks);
 
         readOffset = 0;
         nextBatchSize = 0;

@@ -21,6 +21,7 @@ import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.function.BiConsumer;
 
+import static com.facebook.presto.spi.block.ArrayBlock.createArrayBlockInternal;
 import static com.facebook.presto.spi.block.BlockUtil.calculateBlockResetSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Math.max;
@@ -236,7 +237,7 @@ public class ArrayBlockBuilder
         if (currentEntryOpened) {
             throw new IllegalStateException("Current entry must be closed before the block can be built");
         }
-        return new ArrayBlock(positionCount, valueIsNull, offsets, values.build());
+        return createArrayBlockInternal(0, positionCount, valueIsNull, offsets, values.build());
     }
 
     @Override

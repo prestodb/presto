@@ -175,7 +175,7 @@ public class ParquetReader
         for (int i = 1; i < offsets.length; i++) {
             offsets[i] = offsets[i - 1] + elementOffsets.getInt(i - 1);
         }
-        return new ArrayBlock(batchSize, new boolean[batchSize], offsets, block);
+        return ArrayBlock.fromElementBlock(batchSize, new boolean[batchSize], offsets, block);
     }
 
     public Block readMap(Type type, List<String> path)
@@ -237,7 +237,7 @@ public class ParquetReader
             elementOffsets.add(parameters.size());
             offsets[i] = i;
         }
-        return new RowBlock(0, blockSize, new boolean[blockSize], offsets, blocks);
+        return RowBlock.fromFieldBlocks(blockSize, new boolean[blockSize], offsets, blocks);
     }
 
     public Block readPrimitive(ColumnDescriptor columnDescriptor, Type type)

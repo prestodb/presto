@@ -479,7 +479,7 @@ public class HivePageSource
                 valueIsNull[i] = arrayBlock.isNull(i);
                 offsets[i + 1] = offsets[i] + arrayBlock.getLength(i);
             }
-            return new ArrayBlock(arrayBlock.getPositionCount(), valueIsNull, offsets, elementsBlock);
+            return ArrayBlock.fromElementBlock(arrayBlock.getPositionCount(), valueIsNull, offsets, elementsBlock);
         }
     }
 
@@ -568,7 +568,7 @@ public class HivePageSource
                 valueIsNull[i] = rowBlock.isNull(i);
                 offsets[i + 1] = offsets[i] + (valueIsNull[i] ? 0 : 1);
             }
-            return new RowBlock(0, rowBlock.getPositionCount(), valueIsNull, offsets, fields);
+            return RowBlock.fromFieldBlocks(rowBlock.getPositionCount(), valueIsNull, offsets, fields);
         }
     }
 

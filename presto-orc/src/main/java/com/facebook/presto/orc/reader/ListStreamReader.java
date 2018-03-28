@@ -136,7 +136,7 @@ public class ListStreamReader
         else {
             elements = elementType.createBlockBuilder(new BlockBuilderStatus(), 0).build();
         }
-        ArrayBlock arrayBlock = new ArrayBlock(nextBatchSize, nullVector, offsets, elements);
+        Block arrayBlock = ArrayBlock.fromElementBlock(nextBatchSize, nullVector, offsets, elements);
 
         readOffset = 0;
         nextBatchSize = 0;

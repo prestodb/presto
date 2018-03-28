@@ -18,6 +18,7 @@ import static com.facebook.presto.spi.block.BlockUtil.checkArrayRange;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidRegion;
 import static com.facebook.presto.spi.block.BlockUtil.compactArray;
 import static com.facebook.presto.spi.block.BlockUtil.compactOffsets;
+import static com.facebook.presto.spi.block.RowBlock.createRowBlockInternal;
 
 public abstract class AbstractRowBlock
         implements Block
@@ -81,7 +82,7 @@ public abstract class AbstractRowBlock
         for (int i = 0; i < numFields; i++) {
             newBlocks[i] = getFieldBlocks()[i].copyPositions(fieldBlockPositions.elements(), 0, fieldBlockPositions.size());
         }
-        return new RowBlock(0, length, newRowIsNull, newOffsets, newBlocks);
+        return createRowBlockInternal(0, length, newRowIsNull, newOffsets, newBlocks);
     }
 
     @Override
@@ -90,7 +91,7 @@ public abstract class AbstractRowBlock
         int positionCount = getPositionCount();
         checkValidRegion(positionCount, position, length);
 
-        return new RowBlock(position + getOffsetBase(), length, getRowIsNull(), getFieldBlockOffsets(), getFieldBlocks());
+        return createRowBlockInternal(position + getOffsetBase(), length, getRowIsNull(), getFieldBlockOffsets(), getFieldBlocks());
     }
 
     @Override
@@ -130,7 +131,7 @@ public abstract class AbstractRowBlock
         if (arraySame(newBlocks, getFieldBlocks()) && newOffsets == getFieldBlockOffsets() && newRowIsNull == getRowIsNull()) {
             return this;
         }
-        return new RowBlock(0, length, newRowIsNull, newOffsets, newBlocks);
+        return createRowBlockInternal(0, length, newRowIsNull, newOffsets, newBlocks);
     }
 
     @Override
@@ -176,7 +177,7 @@ public abstract class AbstractRowBlock
         boolean[] newRowIsNull = new boolean[] {isNull(position)};
         int[] newOffsets = new int[] {0, fieldBlockLength};
 
-        return new RowBlock(0, 1, newRowIsNull, newOffsets, newBlocks);
+        return createRowBlockInternal(0, 1, newRowIsNull, newOffsets, newBlocks);
     }
 
     @Override
