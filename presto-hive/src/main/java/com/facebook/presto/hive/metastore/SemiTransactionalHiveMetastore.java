@@ -454,7 +454,7 @@ public class SemiTransactionalHiveMetastore
                     partitionNameResult = delegate.getPartitionNames(databaseName, tableName);
                 }
                 if (!partitionNameResult.isPresent()) {
-                    throw new PrestoException(TRANSACTION_CONFLICT, "Table %s.%s was dropped by another transaction");
+                    throw new PrestoException(TRANSACTION_CONFLICT, format("Table %s.%s was dropped by another transaction", databaseName, tableName));
                 }
                 partitionNames = partitionNameResult.get();
                 break;
