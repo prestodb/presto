@@ -23,6 +23,7 @@ import static com.facebook.presto.spi.block.BlockUtil.checkArrayRange;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidRegion;
 import static com.facebook.presto.spi.block.BlockUtil.compactArray;
 import static com.facebook.presto.spi.block.BlockUtil.compactOffsets;
+import static com.facebook.presto.spi.block.MapBlock.createMapBlockInternal;
 import static java.util.Objects.requireNonNull;
 
 public abstract class AbstractMapBlock
@@ -120,7 +121,7 @@ public abstract class AbstractMapBlock
 
         Block newKeys = getKeys().copyPositions(entriesPositions.elements(), 0, entriesPositions.size());
         Block newValues = getValues().copyPositions(entriesPositions.elements(), 0, entriesPositions.size());
-        return new MapBlock(0, length, newMapIsNull, newOffsets, newKeys, newValues, newHashTable, keyType, keyBlockNativeEquals, keyNativeHashCode);
+        return createMapBlockInternal(0, length, newMapIsNull, newOffsets, newKeys, newValues, newHashTable, keyType, keyBlockNativeEquals, keyNativeHashCode);
     }
 
     @Override
@@ -129,7 +130,7 @@ public abstract class AbstractMapBlock
         int positionCount = getPositionCount();
         checkValidRegion(positionCount, position, length);
 
-        return new MapBlock(
+        return createMapBlockInternal(
                 position + getOffsetBase(),
                 length,
                 getMapIsNull(),
@@ -176,7 +177,7 @@ public abstract class AbstractMapBlock
         if (newKeys == getKeys() && newValues == getValues() && newOffsets == getOffsets() && newMapIsNull == getMapIsNull() && newHashTable == getHashTables()) {
             return this;
         }
-        return new MapBlock(
+        return createMapBlockInternal(
                 0,
                 length,
                 newMapIsNull,
@@ -247,7 +248,7 @@ public abstract class AbstractMapBlock
         Block newValues = getValues().copyRegion(startValueOffset, valueLength);
         int[] newHashTable = Arrays.copyOfRange(getHashTables(), startValueOffset * HASH_MULTIPLIER, endValueOffset * HASH_MULTIPLIER);
 
-        return new MapBlock(
+        return createMapBlockInternal(
                 0,
                 1,
                 new boolean[] {isNull(position)},
