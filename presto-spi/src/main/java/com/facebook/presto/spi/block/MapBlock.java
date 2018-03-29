@@ -44,6 +44,14 @@ public class MapBlock
     private volatile long sizeInBytes;
     private final long retainedSizeInBytes;
 
+    /**
+     * Create a map block directly from columnar nulls, keys, values, and offsets into the keys and values.
+     * A null map must have no entries.
+     *
+     * @param mapType key type K
+     * @param keyBlockNativeEquals equality between key stack type and a block+position; signature is (K, Block, int)boolean
+     * @param keyNativeHashCode hash of a key stack type; signature is (K)long
+     */
     public static MapBlock fromKeyValueBlock(
             boolean[] mapIsNull,
             int[] offsets,
@@ -87,6 +95,10 @@ public class MapBlock
 
     /**
      * Create a map block directly without per element validations.
+     *
+     * @param keyType key type K
+     * @param keyBlockNativeEquals equality between key stack type and a block+position; signature is (K, Block, int)boolean
+     * @param keyNativeHashCode hash of a key stack type; signature is (K)long
      */
     static MapBlock createMapBlockInternal(
             int startOffset,

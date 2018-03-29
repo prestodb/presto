@@ -36,6 +36,10 @@ public class RowBlock
     private volatile long sizeInBytes;
     private final long retainedSizeInBytes;
 
+    /**
+     * Create an row block directly from columnar nulls, field blocks, and offsets into the fields.
+     * A null row must have no entries.
+     */
     public static Block fromFieldBlocks(int positionCount, boolean[] rowIsNull, int[] fieldBlockOffsets, Block[] fieldBlocks)
     {
         validateConstructorArguments(0, positionCount, rowIsNull, fieldBlockOffsets, fieldBlocks);
