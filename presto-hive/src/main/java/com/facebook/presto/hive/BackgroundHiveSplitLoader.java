@@ -68,6 +68,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_TABLE_BUCKET_COUNT_MISMATCH;
 import static com.facebook.presto.hive.HiveSessionProperties.isForceLocalScheduling;
 import static com.facebook.presto.hive.HiveUtil.checkCondition;
 import static com.facebook.presto.hive.HiveUtil.getInputFormat;
@@ -374,8 +375,9 @@ public class BackgroundHiveSplitLoader
         // verify we found one file per bucket
         if (files.size() != bucketCount) {
             throw new PrestoException(
-                    HIVE_INVALID_BUCKET_FILES,
-                    format("Hive table '%s' is corrupt. The number of files in the directory (%s) does not match the declared bucket count (%s) for partition: %s",
+                    HIVE_TABLE_BUCKET_COUNT_MISMATCH,
+                    format("Bucket count mismatch for hive table '%s'. The number of files in the directory (%s) does not match the declared bucket count (%s) for partition: %s. " +
+                            "Resolution is to recreate the table with the specified number of buckets",
                             new SchemaTableName(table.getDatabaseName(), table.getTableName()),
                             files.size(),
                             bucketCount,
