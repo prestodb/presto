@@ -387,7 +387,7 @@ public class TestResourceGroups
     }
 
     @Test(timeOut = 10_000)
-    public void testWeightedSharesScheduling()
+    public void testWeightedFairScheduling()
     {
         RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor());
         root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
@@ -430,7 +430,7 @@ public class TestResourceGroups
     }
 
     @Test(timeOut = 10_000)
-    public void testWeightedSharesSchedulingEqualWeights()
+    public void testWeightedFairSchedulingEqualWeights()
     {
         RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor());
         root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
@@ -489,7 +489,7 @@ public class TestResourceGroups
     }
 
     @Test(timeOut = 10_000)
-    public void testWeightedSharesNoStarvation()
+    public void testWeightedFairSchedulingNoStarvation()
     {
         RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor());
         root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
