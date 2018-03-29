@@ -122,7 +122,7 @@ public class TestPrestoDriver
         executorService = newCachedThreadPool(daemonThreadsNamed("test-%s"));
     }
 
-    private static void waitForNodeRefresh(TestingPrestoServer server)
+    static void waitForNodeRefresh(TestingPrestoServer server)
             throws InterruptedException
     {
         long start = System.nanoTime();

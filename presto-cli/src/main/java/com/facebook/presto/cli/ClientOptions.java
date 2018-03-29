@@ -77,6 +77,9 @@ public class ClientOptions
     @Option(name = "--truststore-password", title = "truststore password", description = "Truststore password")
     public String truststorePassword;
 
+    @Option(name = "--access-token", title = "access token", description = "Access token")
+    public String accessToken;
+
     @Option(name = "--user", title = "user", description = "Username")
     public String user = System.getProperty("user.name");
 
