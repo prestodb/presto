@@ -525,12 +525,8 @@ public class TestResourceGroups
             group2Queries = fillGroupTo(group2, group2Queries, 4);
         }
 
-        // group 1 should run approximately 1/2 the number of queries of group 2
-        BinomialDistribution binomial = new BinomialDistribution(2000, 1.0 / 3.0);
-        int lowerBound = binomial.inverseCumulativeProbability(0.000001);
-        int upperBound = binomial.inverseCumulativeProbability(0.999999);
-
-        assertBetweenInclusive(group1Ran, lowerBound, upperBound);
+        assertEquals(group1Ran, 1000);
+        assertEquals(group1Ran, 1000);
     }
 
     @Test
