@@ -15,13 +15,11 @@ package com.facebook.presto.execution.scheduler;
 
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.execution.NodeTaskMap;
-import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.planner.NodePartitionMap;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
@@ -52,14 +50,11 @@ import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType;
 import static com.facebook.presto.spi.NodeState.ACTIVE;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_ENOUGH_ACTIVE_NODES;
-import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.airlift.concurrent.MoreFutures.whenAnyCompleteCancelOthers;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class NodeScheduler
@@ -74,17 +69,11 @@ public class NodeScheduler
     private final int maxPendingSplitsPerTask;
     private final NodeTaskMap nodeTaskMap;
     private final boolean useNetworkTopology;
-    private final int minRequiredWorkers;
 
     @Inject
-    public NodeScheduler(
-            NetworkTopology networkTopology,
-            InternalNodeManager nodeManager,
-            NodeSchedulerConfig config,
-            NodeTaskMap nodeTaskMap,
-            QueryManagerConfig queryManagerConfig)
+    public NodeScheduler(NetworkTopology networkTopology, InternalNodeManager nodeManager, NodeSchedulerConfig config, NodeTaskMap nodeTaskMap)
     {
-        this(new NetworkLocationCache(networkTopology), networkTopology, nodeManager, config, nodeTaskMap, queryManagerConfig);
+        this(new NetworkLocationCache(networkTopology), networkTopology, nodeManager, config, nodeTaskMap);
     }
 
     public NodeScheduler(
@@ -92,8 +81,7 @@ public class NodeScheduler
             NetworkTopology networkTopology,
             InternalNodeManager nodeManager,
             NodeSchedulerConfig config,
-            NodeTaskMap nodeTaskMap,
-            QueryManagerConfig queryManagerConfig)
+            NodeTaskMap nodeTaskMap)
     {
         this.networkLocationCache = networkLocationCache;
         this.nodeManager = nodeManager;
@@ -104,8 +92,6 @@ public class NodeScheduler
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
         checkArgument(maxSplitsPerNode > maxPendingSplitsPerTask, "maxSplitsPerNode must be > maxPendingSplitsPerTask");
         this.useNetworkTopology = !config.getNetworkTopology().equals(NetworkTopologyType.LEGACY);
-        requireNonNull(queryManagerConfig, "queryManagerConfig is null");
-        this.minRequiredWorkers = queryManagerConfig.getInitializationRequiredWorkers();
 
         ImmutableList.Builder<CounterStat> builder = ImmutableList.builder();
         if (useNetworkTopology) {
@@ -150,14 +136,6 @@ public class NodeScheduler
             }
             else {
                 nodes = nodeManager.getNodes(ACTIVE);
-            }
-
-            if (nodes.size() == 0) {
-                throw new PrestoException(NO_NODES_AVAILABLE, "No nodes available to run query");
-            }
-
-            if (nodes.size() < minRequiredWorkers) {
-                throw new PrestoException(NOT_ENOUGH_ACTIVE_NODES, format("Not enough active nodes: %s < %s", nodes.size(), minRequiredWorkers));
             }
 
             Set<String> coordinatorNodeIds = nodeManager.getCoordinators().stream()
