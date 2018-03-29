@@ -104,16 +104,22 @@ function terminate() {
   exit 130
 }
 
+function usage() {
+  echo "Usage: run_on_docker.sh <`getAvailableEnvironments | tr '\n' '|'`> <product test args>"
+  exit 1
+ }
+
+if [[ $# == 0 ]]; then
+  usage
+fi
 
 ENVIRONMENT=$1
+shift 1
 
 # Get the list of valid environments
 if [[ ! -f "$DOCKER_CONF_LOCATION/$ENVIRONMENT/compose.sh" ]]; then
-   echo "Usage: run_on_docker.sh <`getAvailableEnvironments | tr '\n' '|'`> <product test args>"
-   exit 1
+  usage
 fi
-
-shift 1
 
 PRESTO_SERVICES="presto-master"
 if [[ "$ENVIRONMENT" == "multinode" ]]; then
