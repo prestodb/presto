@@ -52,6 +52,12 @@ public final class OuterLookupSource
     }
 
     @Override
+    public boolean isEmpty()
+    {
+        return lookupSource.isEmpty();
+    }
+
+    @Override
     public long getJoinPositionCount()
     {
         return lookupSource.getJoinPositionCount();

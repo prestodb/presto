@@ -43,6 +43,12 @@ public class IndexLookupSource
     }
 
     @Override
+    public boolean isEmpty()
+    {
+        return false;
+    }
+
+    @Override
     public long getJoinPositionCount()
     {
         return 0;
