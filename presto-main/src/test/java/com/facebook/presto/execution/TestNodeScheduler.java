@@ -28,7 +28,6 @@ import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.TestingTransactionHandle;
 import com.facebook.presto.util.FinalizerService;
@@ -96,7 +95,7 @@ public class TestNodeScheduler
                 .setIncludeCoordinator(false)
                 .setMaxPendingSplitsPerTask(10);
 
-        NodeScheduler nodeScheduler = new NodeScheduler(new LegacyNetworkTopology(), nodeManager, nodeSchedulerConfig, nodeTaskMap, new QueryManagerConfig());
+        NodeScheduler nodeScheduler = new NodeScheduler(new LegacyNetworkTopology(), nodeManager, nodeSchedulerConfig, nodeTaskMap);
         // contents of taskMap indicate the node-task map for the current stage
         taskMap = new HashMap<>();
         nodeSelector = nodeScheduler.createNodeSelector(CONNECTOR_ID);
@@ -112,15 +111,6 @@ public class TestNodeScheduler
         remoteTaskExecutor.shutdown();
         remoteTaskScheduledExecutor.shutdown();
         finalizerService.destroy();
-    }
-
-    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Not enough active nodes:.*")
-    public void testNotEnoughActiveNodes()
-    {
-        QueryManagerConfig queryManagerConfig = new QueryManagerConfig().setInitializationRequiredWorkers(Integer.MAX_VALUE);
-        NodeScheduler nodeScheduler = new NodeScheduler(new LegacyNetworkTopology(), nodeManager, new NodeSchedulerConfig(), nodeTaskMap, queryManagerConfig);
-        NodeSelector nodeSelector = nodeScheduler.createNodeSelector(CONNECTOR_ID);
-        nodeSelector.selectRandomNodes(5);
     }
 
     @Test
@@ -172,7 +162,7 @@ public class TestNodeScheduler
                 }
             }
         };
-        NodeScheduler nodeScheduler = new NodeScheduler(locationCache, topology, nodeManager, nodeSchedulerConfig, nodeTaskMap, new QueryManagerConfig());
+        NodeScheduler nodeScheduler = new NodeScheduler(locationCache, topology, nodeManager, nodeSchedulerConfig, nodeTaskMap);
         NodeSelector nodeSelector = nodeScheduler.createNodeSelector(CONNECTOR_ID);
 
         // Fill up the nodes with non-local data
