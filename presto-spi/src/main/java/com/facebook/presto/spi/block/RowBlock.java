@@ -37,20 +37,17 @@ public class RowBlock
     private final long retainedSizeInBytes;
 
     /**
-     * Create an row block directly from columnar nulls, field blocks, and offsets into the fields.
-     * A null row must have no entries.
+     * Create a row block directly from columnar nulls and field blocks.
      */
-    public static Block fromFieldBlocks(int positionCount, boolean[] rowIsNull, int[] fieldBlockOffsets, Block[] fieldBlocks)
+    public static Block fromFieldBlocks(boolean[] rowIsNull, Block[] fieldBlocks)
     {
-        validateConstructorArguments(0, positionCount, rowIsNull, fieldBlockOffsets, fieldBlocks);
-        for (int position = 0; position < positionCount; position++) {
-            if (rowIsNull[position]) {
-                if (fieldBlockOffsets[position + 1] - fieldBlockOffsets[position] != 0) {
-                    throw new IllegalArgumentException("A null row must have zero entries");
-                }
-            }
+        requireNonNull(rowIsNull, "rowIsNull is null");
+        int[] fieldBlockOffsets = new int[rowIsNull.length + 1];
+        for (int position = 0; position < rowIsNull.length; position++) {
+            fieldBlockOffsets[position + 1] = fieldBlockOffsets[position] + (rowIsNull[position] ? 0 : 1);
         }
-        return new RowBlock(0, positionCount, rowIsNull, fieldBlockOffsets, fieldBlocks);
+        validateConstructorArguments(0, rowIsNull.length, rowIsNull, fieldBlockOffsets, fieldBlocks);
+        return new RowBlock(0, rowIsNull.length, rowIsNull, fieldBlockOffsets, fieldBlocks);
     }
 
     /**

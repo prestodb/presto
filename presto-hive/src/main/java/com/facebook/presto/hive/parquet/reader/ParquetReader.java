@@ -231,13 +231,11 @@ public class ParquetReader
             blocks[i] = readBlock(name, fieldType, path, new IntArrayList());
         }
 
-        int blockSize = blocks[0].getPositionCount();
-        int[] offsets = new int[blockSize + 1];
-        for (int i = 1; i < offsets.length; i++) {
+        int positionCount = blocks[0].getPositionCount();
+        for (int i = 0; i < positionCount; i++) {
             elementOffsets.add(parameters.size());
-            offsets[i] = i;
         }
-        return RowBlock.fromFieldBlocks(blockSize, new boolean[blockSize], offsets, blocks);
+        return RowBlock.fromFieldBlocks(new boolean[positionCount], blocks);
     }
 
     public Block readPrimitive(ColumnDescriptor columnDescriptor, Type type)

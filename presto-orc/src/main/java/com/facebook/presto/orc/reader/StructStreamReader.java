@@ -117,19 +117,8 @@ public class StructStreamReader
             }
         }
 
-        // Build offsets for row block (null valued have no positions)
-        int[] offsets = new int[nextBatchSize + 1];
-        for (int i = 1; i < offsets.length; i++) {
-            if (nullVector[i - 1]) {
-                offsets[i] = offsets[i - 1];
-            }
-            else {
-                offsets[i] = offsets[i - 1] + 1;
-            }
-        }
-
         // Struct is represented as a row block
-        Block rowBlock = RowBlock.fromFieldBlocks(nextBatchSize, nullVector, offsets, blocks);
+        Block rowBlock = RowBlock.fromFieldBlocks(nullVector, blocks);
 
         readOffset = 0;
         nextBatchSize = 0;

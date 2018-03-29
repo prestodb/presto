@@ -561,12 +561,10 @@ public class HivePageSource
                 }
             }
             boolean[] valueIsNull = new boolean[rowBlock.getPositionCount()];
-            int[] offsets = new int[rowBlock.getPositionCount() + 1];
             for (int i = 0; i < rowBlock.getPositionCount(); i++) {
                 valueIsNull[i] = rowBlock.isNull(i);
-                offsets[i + 1] = offsets[i] + (valueIsNull[i] ? 0 : 1);
             }
-            return RowBlock.fromFieldBlocks(rowBlock.getPositionCount(), valueIsNull, offsets, fields);
+            return RowBlock.fromFieldBlocks(valueIsNull, fields);
         }
     }
 
