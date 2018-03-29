@@ -14,6 +14,7 @@
 package com.facebook.presto.connector.thrift.integration;
 
 import com.facebook.presto.tests.AbstractTestIndexedQueries;
+import com.google.common.collect.ImmutableMap;
 
 import static com.facebook.presto.connector.thrift.integration.ThriftQueryRunner.createThriftQueryRunner;
 
@@ -22,7 +23,7 @@ public class TestThriftDistributedQueriesIndexed
 {
     public TestThriftDistributedQueriesIndexed()
     {
-        super(() -> createThriftQueryRunner(2, 2, true));
+        super(() -> createThriftQueryRunner(2, 2, true, ImmutableMap.of()));
     }
 
     @Override

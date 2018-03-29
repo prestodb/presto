@@ -39,6 +39,7 @@ import io.airlift.drift.transport.netty.server.DriftNettyServerConfig;
 import io.airlift.drift.transport.netty.server.DriftNettyServerTransport;
 import io.airlift.drift.transport.netty.server.DriftNettyServerTransportFactory;
 import io.airlift.log.Logger;
+import io.airlift.log.Logging;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -56,14 +57,14 @@ public final class ThriftQueryRunner
 
     private ThriftQueryRunner() {}
 
-    public static QueryRunner createThriftQueryRunner(int thriftServers, int workers, boolean enableIndexJoin)
+    public static QueryRunner createThriftQueryRunner(int thriftServers, int nodeCount, boolean enableIndexJoin, Map<String, String> properties)
             throws Exception
     {
         List<DriftServer> servers = null;
         DistributedQueryRunner runner = null;
         try {
             servers = startThriftServers(thriftServers, enableIndexJoin);
-            runner = createThriftQueryRunnerInternal(servers, workers);
+            runner = createThriftQueryRunnerInternal(servers, nodeCount, properties);
             return new ThriftQueryRunnerWithServers(runner, servers);
         }
         catch (Throwable t) {
@@ -81,7 +82,9 @@ public final class ThriftQueryRunner
     public static void main(String[] args)
             throws Exception
     {
-        ThriftQueryRunnerWithServers queryRunner = (ThriftQueryRunnerWithServers) createThriftQueryRunner(3, 3, true);
+        Logging.initialize();
+        Map<String, String> properties = ImmutableMap.of("http-server.http.port", "8080");
+        ThriftQueryRunnerWithServers queryRunner = (ThriftQueryRunnerWithServers) createThriftQueryRunner(3, 3, true, properties);
         Thread.sleep(10);
         Logger log = Logger.get(ThriftQueryRunner.class);
         log.info("======== SERVER STARTED ========");
@@ -105,7 +108,7 @@ public final class ThriftQueryRunner
         return servers;
     }
 
-    private static DistributedQueryRunner createThriftQueryRunnerInternal(List<DriftServer> servers, int workers)
+    private static DistributedQueryRunner createThriftQueryRunnerInternal(List<DriftServer> servers, int nodeCount, Map<String, String> properties)
             throws Exception
     {
         String addresses = servers.stream()
@@ -116,13 +119,20 @@ public final class ThriftQueryRunner
                 .setCatalog("thrift")
                 .setSchema("tiny")
                 .build();
-        DistributedQueryRunner queryRunner = new DistributedQueryRunner(defaultSession, workers);
+
+        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(defaultSession)
+                .setNodeCount(nodeCount)
+                .setExtraProperties(properties)
+                .build();
+
         queryRunner.installPlugin(new ThriftPlugin());
-        Map<String, String> connectorProperties = ImmutableMap.of(
-                "presto.thrift.client.addresses", addresses,
-                "presto.thrift.client.connect-timeout", "30s",
-                "presto-thrift.lookup-requests-concurrency", "2");
+        Map<String, String> connectorProperties = ImmutableMap.<String, String>builder()
+                .put("presto.thrift.client.addresses", addresses)
+                .put("presto.thrift.client.connect-timeout", "30s")
+                .put("presto-thrift.lookup-requests-concurrency", "2")
+                .build();
         queryRunner.createCatalog("thrift", "presto-thrift", connectorProperties);
+
         return queryRunner;
     }
 
