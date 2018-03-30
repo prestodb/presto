@@ -6,24 +6,25 @@ General Changes
 ---------------
 
 * Perform semantic analysis before enqueuing queries.
-* Add support for selective aggregates with ``DISTINCT`` argument qualifiers.
+* Add support for selective aggregates (``FILTER``) with ``DISTINCT`` argument qualifiers.
 * Support ``ESCAPE`` for ``LIKE`` predicate in ``SHOW SCHEMAS`` and ``SHOW TABLES`` queries.
-* Parse decimal literals (e.g. ``42.0``) as ``DECIMAL`` by default. Previously they were parsed as
+* Parse decimal literals (e.g. ``42.0``) as ``DECIMAL`` by default. Previously, they were parsed as
   ``DOUBLE``. This behavior can be turned off via the ``parse-decimal-literals-as-double`` config option or
-  ``parse_decimal_literals_as_double`` session property.
-* Fix ``current_date`` failure when session time zone has a "gap" at 1970-01-01 00:00:00,
-  e.g. ``America/Bahia_Banderas``.
-* Add variant of :func:`sequence` function for ``DATE`` with implicit 1-day step increment.
-* Increase the maximum number of arguments to ``zip`` from 4 to 5.
+  the ``parse_decimal_literals_as_double`` session property.
+* Fix ``current_date`` failure when the session time zone has a "gap" at ``1970-01-01 00:00:00``.
+  The time zone ``America/Bahia_Banderas`` is one such example.
+* Add variant of :func:`sequence` function for ``DATE`` with an implicit one-day step increment.
+* Increase the maximum number of arguments for the :func:`zip` function from 4 to 5.
+* Add :func:`ST_IsValid`, :func:`geometry_invalid_reason`, :func:`simplify_geometry`, and
+  :func:`great_circle_distance` functions.
+* Support :func:`min` and :func:`max` aggregation functions when the input type is unknown at query analysis time.
+  In particular, this allows using the functions with ``NULL`` literals.
+* Add configuration property ``task.max-local-exchange-buffer-size`` for setting local exchange buffer size.
 * Add trace token support to the scheduler and exchange HTTP clients. Each HTTP request sent
   by the scheduler and exchange HTTP clients will have a "trace token" (a unique ID) in their
   headers, which will be logged in the HTTP request logs. This information can be used to
   correlate the requests and responses during debugging.
-* Add :func:`ST_IsValid`, :func:`geometry_invalid_reason`, :func:`simplify_geometry` and
-  :func`great_circle_distance` functions.
-* Support MIN/MAX aggregation when input type is unknown at query analysis time (i.e., for ``NULL`` literals).
-* Add configuration property ``task.max-local-exchange-buffer-size`` for setting local exchange buffer size.
-* Improve performance of dynamic writer scaling.
+* Improve query performance when dynamic writer scaling is enabled.
 * Improve performance of :func:`ST_Intersects`.
 * Improve query latency when tables are known to be empty during query planning.
 * Optimize  :func:``array_agg`` to avoid excessive object overhead. It also fixes excessive native
