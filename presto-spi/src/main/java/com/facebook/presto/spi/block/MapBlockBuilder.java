@@ -21,6 +21,7 @@ import javax.annotation.Nullable;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Arrays;
+import java.util.Optional;
 import java.util.function.BiConsumer;
 
 import static com.facebook.presto.spi.block.BlockUtil.calculateBlockResetSize;
@@ -181,6 +182,11 @@ public class MapBlockBuilder
     @Override
     public BlockBuilder closeEntry()
     {
+        return closeEntry(Optional.empty());
+    }
+
+    private BlockBuilder closeEntry(Optional<ProvidedHashTable> providedHashTable)
+    {
         if (!currentEntryOpened) {
             throw new IllegalStateException("Expected entry to be opened but was closed");
         }
@@ -197,7 +203,31 @@ public class MapBlockBuilder
             hashTables = Arrays.copyOf(hashTables, newSize);
             Arrays.fill(hashTables, oldSize, hashTables.length, -1);
         }
-        buildHashTable(keyBlockBuilder, previousAggregatedEntryCount, entryCount, keyBlockHashCode, hashTables, previousAggregatedEntryCount * HASH_MULTIPLIER, entryCount * HASH_MULTIPLIER);
+
+        int hashTableOffset = previousAggregatedEntryCount * HASH_MULTIPLIER;
+        int hashTableSize = entryCount * HASH_MULTIPLIER;
+        if (!providedHashTable.isPresent()) {
+            buildHashTable(
+                    keyBlockBuilder,
+                    previousAggregatedEntryCount,
+                    entryCount,
+                    keyBlockHashCode,
+                    hashTables,
+                    hashTableOffset,
+                    hashTableSize);
+        }
+        else {
+            // Directly copy instead of building hashtable
+            int[] providedRawHashTable = providedHashTable.get().getHashTable();
+            int providedHashTableOffset = providedHashTable.get().getOffset();
+            if (providedHashTable.get().getSize() != hashTableSize) {
+                throw new IllegalArgumentException("Unexpected provided hash table size");
+            }
+            for (int i = 0; i < hashTableSize; i++) {
+                hashTables[hashTableOffset + i] = providedRawHashTable[providedHashTableOffset + i];
+            }
+        }
+
         if (blockBuilderStatus != null) {
             blockBuilderStatus.addBytes(entryCount * HASH_MULTIPLIER * Integer.BYTES);
         }
@@ -262,34 +292,66 @@ public class MapBlockBuilder
     }
 
     @Override
-    public BlockBuilder writeObject(Object value)
+    public BlockBuilder appendSingleStructure(Block block)
     {
-        if (currentEntryOpened) {
-            throw new IllegalStateException("Expected current entry to be closed but was opened");
+        if (!(block instanceof SingleMapBlock)) {
+            throw new IllegalStateException("Expected AbstractSingleMapBlock");
         }
-        currentEntryOpened = true;
 
-        Block block = (Block) value;
-        int blockPositionCount = block.getPositionCount();
+        beginBlockEntry();
+
+        SingleMapBlock singleMapBlock = (SingleMapBlock) block;
+        int blockPositionCount = singleMapBlock.getPositionCount();
         if (blockPositionCount % 2 != 0) {
             throw new IllegalArgumentException(format("block position count is not even: %s", blockPositionCount));
         }
         for (int i = 0; i < blockPositionCount; i += 2) {
-            if (block.isNull(i)) {
+            if (singleMapBlock.isNull(i)) {
                 throw new IllegalArgumentException("Map keys must not be null");
             }
             else {
-                block.writePositionTo(i, keyBlockBuilder);
-                keyBlockBuilder.closeEntry();
+                singleMapBlock.writePositionTo(i, keyBlockBuilder);
             }
-            if (block.isNull(i + 1)) {
+            if (singleMapBlock.isNull(i + 1)) {
                 valueBlockBuilder.appendNull();
             }
             else {
-                block.writePositionTo(i + 1, valueBlockBuilder);
-                valueBlockBuilder.closeEntry();
+                singleMapBlock.writePositionTo(i + 1, valueBlockBuilder);
             }
         }
+
+        closeEntry(Optional.of(new ProvidedHashTable(singleMapBlock.getHashTable(), singleMapBlock.getOffset() / 2 * HASH_MULTIPLIER, singleMapBlock.getPositionCount() / 2 * HASH_MULTIPLIER)));
+        return this;
+    }
+
+    @Override
+    public BlockBuilder appendStructure(Block block, int position)
+    {
+        if (!(block instanceof AbstractMapBlock)) {
+            throw new IllegalArgumentException();
+        }
+
+        beginBlockEntry();
+
+        AbstractMapBlock mapBlock = (AbstractMapBlock) block;
+        int startValueOffset = mapBlock.getOffset(position);
+        int endValueOffset = mapBlock.getOffset(position + 1);
+        for (int i = startValueOffset; i < endValueOffset; i++) {
+            if (mapBlock.getKeys().isNull(i)) {
+                throw new IllegalArgumentException("Map keys must not be null");
+            }
+            else {
+                mapBlock.getKeys().writePositionTo(i, keyBlockBuilder);
+            }
+            if (mapBlock.getValues().isNull(i)) {
+                valueBlockBuilder.appendNull();
+            }
+            else {
+                mapBlock.getValues().writePositionTo(i, valueBlockBuilder);
+            }
+        }
+
+        closeEntry(Optional.of(new ProvidedHashTable(mapBlock.getHashTables(), startValueOffset * HASH_MULTIPLIER, (endValueOffset - startValueOffset) * HASH_MULTIPLIER)));
         return this;
     }
 
@@ -347,6 +409,35 @@ public class MapBlockBuilder
                     hash = 0;
                 }
             }
+        }
+    }
+
+    private static class ProvidedHashTable
+    {
+        private final int[] hashTable;
+        private final int offset;
+        private final int size;
+
+        ProvidedHashTable(int[] hashTable, int offset, int size)
+        {
+            this.hashTable = hashTable;
+            this.offset = offset;
+            this.size = size;
+        }
+
+        int[] getHashTable()
+        {
+            return hashTable;
+        }
+
+        int getOffset()
+        {
+            return offset;
+        }
+
+        int getSize()
+        {
+            return size;
         }
     }
 }

@@ -149,17 +149,7 @@ public abstract class AbstractRowBlock
     public void writePositionTo(int position, BlockBuilder blockBuilder)
     {
         checkReadablePosition(position);
-        BlockBuilder entryBuilder = blockBuilder.beginBlockEntry();
-        int fieldBlockOffset = getFieldBlockOffset(position);
-        for (int i = 0; i < numFields; i++) {
-            if (getFieldBlocks()[i].isNull(fieldBlockOffset)) {
-                entryBuilder.appendNull();
-            }
-            else {
-                getFieldBlocks()[i].writePositionTo(fieldBlockOffset, entryBuilder);
-                entryBuilder.closeEntry();
-            }
-        }
+        blockBuilder.appendStructure(this, position);
     }
 
     @Override

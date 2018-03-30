@@ -126,8 +126,7 @@ public class RowType
             blockBuilder.appendNull();
         }
         else {
-            blockBuilder.writeObject(block.getObject(position, Block.class));
-            blockBuilder.closeEntry();
+            block.writePositionTo(position, blockBuilder);
         }
     }
 
@@ -140,7 +139,7 @@ public class RowType
     @Override
     public void writeObject(BlockBuilder blockBuilder, Object value)
     {
-        blockBuilder.writeObject(value).closeEntry();
+        blockBuilder.appendSingleStructure((Block) value);
     }
 
     @Override

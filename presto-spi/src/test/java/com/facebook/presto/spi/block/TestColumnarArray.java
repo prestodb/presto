@@ -123,7 +123,7 @@ public class TestColumnarArray
                         VARCHAR.writeSlice(elementBlockBuilder, v);
                     }
                 }
-                blockBuilder.writeObject(elementBlockBuilder.build()).closeEntry();
+                blockBuilder.appendSingleStructure(elementBlockBuilder.build());
             }
         }
         return blockBuilder;

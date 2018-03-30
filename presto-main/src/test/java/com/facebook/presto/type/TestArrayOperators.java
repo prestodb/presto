@@ -120,10 +120,8 @@ public class TestArrayOperators
 
         Block expectedBlock = new ArrayType(BIGINT)
                 .createBlockBuilder(new BlockBuilderStatus(), 3)
-                .writeObject(BIGINT.createBlockBuilder(new BlockBuilderStatus(), 2).writeLong(1).closeEntry().writeLong(2).closeEntry().build())
-                .closeEntry()
-                .writeObject(BIGINT.createBlockBuilder(new BlockBuilderStatus(), 1).writeLong(3).closeEntry().build())
-                .closeEntry()
+                .appendSingleStructure(BIGINT.createBlockBuilder(new BlockBuilderStatus(), 2).writeLong(1).closeEntry().writeLong(2).closeEntry().build())
+                .appendSingleStructure(BIGINT.createBlockBuilder(new BlockBuilderStatus(), 1).writeLong(3).closeEntry().build())
                 .build();
         DynamicSliceOutput expectedSliceOutput = new DynamicSliceOutput(100);
         writeBlock(expectedSliceOutput, expectedBlock);
