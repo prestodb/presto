@@ -18,7 +18,6 @@ import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
@@ -115,7 +114,7 @@ public class BenchmarkArrayAggregation
 
         private static Block createChannel(int arraySize, Type elementType)
         {
-            BlockBuilder blockBuilder = elementType.createBlockBuilder(new BlockBuilderStatus(), arraySize);
+            BlockBuilder blockBuilder = elementType.createBlockBuilder(null, arraySize);
             for (int i = 0; i < arraySize; i++) {
                 if (elementType.getJavaType() == long.class) {
                     elementType.writeLong(blockBuilder, (long) i);

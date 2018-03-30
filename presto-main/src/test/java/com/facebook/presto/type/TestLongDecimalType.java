@@ -15,7 +15,6 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.SqlDecimal;
 import io.airlift.slice.Slice;
@@ -53,7 +52,7 @@ public class TestLongDecimalType
 
     public static Block createTestBlock()
     {
-        BlockBuilder blockBuilder = LONG_DECIMAL_TYPE.createBlockBuilder(new BlockBuilderStatus(), 15);
+        BlockBuilder blockBuilder = LONG_DECIMAL_TYPE.createBlockBuilder(null, 15);
         writeBigDecimal(LONG_DECIMAL_TYPE, blockBuilder, new BigDecimal("-12345678901234567890.1234567890"));
         writeBigDecimal(LONG_DECIMAL_TYPE, blockBuilder, new BigDecimal("-12345678901234567890.1234567890"));
         writeBigDecimal(LONG_DECIMAL_TYPE, blockBuilder, new BigDecimal("-12345678901234567890.1234567890"));

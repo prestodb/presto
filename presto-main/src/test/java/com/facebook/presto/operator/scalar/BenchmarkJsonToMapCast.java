@@ -21,7 +21,6 @@ import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.PageFunctionCompiler;
@@ -120,7 +119,7 @@ public class BenchmarkJsonToMapCast
 
         private static Block createChannel(int positionCount, int mapSize, Type valueType)
         {
-            BlockBuilder blockBuilder = JSON.createBlockBuilder(new BlockBuilderStatus(), positionCount);
+            BlockBuilder blockBuilder = JSON.createBlockBuilder(null, positionCount);
             for (int position = 0; position < positionCount; position++) {
                 SliceOutput jsonSlice = new DynamicSliceOutput(20 * mapSize);
                 jsonSlice.appendByte('{');

@@ -23,7 +23,6 @@ import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.orc.stream.LongInputStream;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Type;
 
@@ -94,7 +93,7 @@ public class DecimalStreamReader
         seekToOffset();
         allocateVectors();
 
-        BlockBuilder builder = decimalType.createBlockBuilder(new BlockBuilderStatus(), nextBatchSize);
+        BlockBuilder builder = decimalType.createBlockBuilder(null, nextBatchSize);
         if (presentStream == null) {
             if (decimalStream == null) {
                 throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but decimal stream is not present");

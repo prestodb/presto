@@ -17,7 +17,6 @@ import com.facebook.presto.operator.index.PageRecordSet;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
@@ -179,7 +178,7 @@ public class TestReadWrite
 
     private static Block generateColumn(ColumnDefinition column, Random random, int records)
     {
-        BlockBuilder builder = column.getType().createBlockBuilder(new BlockBuilderStatus(), records);
+        BlockBuilder builder = column.getType().createBlockBuilder(null, records);
         for (int i = 0; i < records; i++) {
             if (random.nextDouble() < NULL_FRACTION) {
                 builder.appendNull();

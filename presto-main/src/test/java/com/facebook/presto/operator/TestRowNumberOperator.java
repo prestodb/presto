@@ -17,7 +17,6 @@ import com.facebook.presto.RowPagesBuilder;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -376,7 +375,7 @@ public class TestRowNumberOperator
 
     private static Block getRowNumberColumn(List<Page> pages)
     {
-        BlockBuilder builder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), pages.size() * 100);
+        BlockBuilder builder = BIGINT.createBlockBuilder(null, pages.size() * 100);
         for (Page page : pages) {
             int rowNumberChannel = page.getChannelCount() - 1;
             for (int i = 0; i < page.getPositionCount(); i++) {

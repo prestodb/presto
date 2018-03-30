@@ -16,7 +16,6 @@ package com.facebook.presto.hive;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
@@ -214,7 +213,7 @@ public class TestHiveBucketing
             Object javaValue = javaValues.get(i);
             Type type = hiveTypes.get(i).getType(TYPE_MANAGER);
 
-            BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), 3);
+            BlockBuilder blockBuilder = type.createBlockBuilder(null, 3);
             // prepend 2 nulls to make sure position is respected when HiveBucketing function
             blockBuilder.appendNull();
             blockBuilder.appendNull();

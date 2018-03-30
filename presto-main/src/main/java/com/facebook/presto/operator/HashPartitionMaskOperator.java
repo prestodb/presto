@@ -16,7 +16,6 @@ package com.facebook.presto.operator;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
@@ -193,10 +192,10 @@ public class HashPartitionMaskOperator
         checkState(!finishing, "Operator is finishing");
         checkState(outputPage == null, "Operator still has pending output");
 
-        BlockBuilder activePositions = BOOLEAN.createBlockBuilder(new BlockBuilderStatus(), page.getPositionCount());
+        BlockBuilder activePositions = BOOLEAN.createBlockBuilder(null, page.getPositionCount());
         BlockBuilder[] maskBuilders = new BlockBuilder[maskChannels.length];
         for (int i = 0; i < maskBuilders.length; i++) {
-            maskBuilders[i] = BOOLEAN.createBlockBuilder(new BlockBuilderStatus(), page.getPositionCount());
+            maskBuilders[i] = BOOLEAN.createBlockBuilder(null, page.getPositionCount());
         }
         for (int position = 0; position < page.getPositionCount(); position++) {
             long rawHash = hashGenerator.hashPosition(position, page);

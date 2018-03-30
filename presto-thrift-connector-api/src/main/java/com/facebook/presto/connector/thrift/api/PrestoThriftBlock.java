@@ -28,7 +28,6 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.drift.annotations.ThriftConstructor;
@@ -324,7 +323,7 @@ public final class PrestoThriftBlock
     private static Block convertColumnToBlock(RecordSet recordSet, int columnIndex, int positions)
     {
         Type type = recordSet.getColumnTypes().get(columnIndex);
-        BlockBuilder output = type.createBlockBuilder(new BlockBuilderStatus(), positions);
+        BlockBuilder output = type.createBlockBuilder(null, positions);
         Class<?> javaType = type.getJavaType();
         RecordCursor cursor = recordSet.cursor();
         for (int position = 0; position < positions; position++) {

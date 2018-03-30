@@ -14,7 +14,6 @@
 package com.facebook.presto.block;
 
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.FixedWidthBlockBuilder;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
@@ -50,9 +49,9 @@ public class TestFixedWidthBlock
     {
         for (int fixedSize = 0; fixedSize < 20; fixedSize++) {
             Slice[] expectedValues = (Slice[]) alternatingNullValues(createExpectedValues(17, fixedSize));
-            BlockBuilder emptyBlockBuilder = new FixedWidthBlockBuilder(fixedSize, new BlockBuilderStatus(), 0);
+            BlockBuilder emptyBlockBuilder = new FixedWidthBlockBuilder(fixedSize, null, 0);
 
-            BlockBuilder blockBuilder = new FixedWidthBlockBuilder(fixedSize, new BlockBuilderStatus(), expectedValues.length);
+            BlockBuilder blockBuilder = new FixedWidthBlockBuilder(fixedSize, null, expectedValues.length);
             assertEquals(blockBuilder.getSizeInBytes(), emptyBlockBuilder.getSizeInBytes());
             assertEquals(blockBuilder.getRetainedSizeInBytes(), emptyBlockBuilder.getRetainedSizeInBytes());
 
@@ -60,7 +59,7 @@ public class TestFixedWidthBlock
             assertTrue(blockBuilder.getSizeInBytes() > emptyBlockBuilder.getSizeInBytes());
             assertTrue(blockBuilder.getRetainedSizeInBytes() > emptyBlockBuilder.getRetainedSizeInBytes());
 
-            blockBuilder = blockBuilder.newBlockBuilderLike(new BlockBuilderStatus());
+            blockBuilder = blockBuilder.newBlockBuilderLike(null);
             assertEquals(blockBuilder.getSizeInBytes(), emptyBlockBuilder.getSizeInBytes());
             assertEquals(blockBuilder.getRetainedSizeInBytes(), emptyBlockBuilder.getRetainedSizeInBytes());
         }

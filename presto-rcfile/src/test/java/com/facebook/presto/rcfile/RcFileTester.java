@@ -21,7 +21,6 @@ import com.facebook.presto.rcfile.text.TextRcFileEncoding;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Decimals;
@@ -668,7 +667,7 @@ public class RcFileTester
                 new DataSize(100, KILOBYTE),   // use a smaller size to create more row groups
                 new DataSize(200, KILOBYTE),
                 true);
-        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), 1024);
+        BlockBuilder blockBuilder = type.createBlockBuilder(null, 1024);
         while (values.hasNext()) {
             Object value = values.next();
             writeValue(type, blockBuilder, value);

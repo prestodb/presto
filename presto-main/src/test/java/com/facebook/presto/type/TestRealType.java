@@ -15,7 +15,6 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 
 import static com.facebook.presto.spi.type.RealType.REAL;
 import static java.lang.Float.floatToRawIntBits;
@@ -31,7 +30,7 @@ public class TestRealType
 
     public static Block createTestBlock()
     {
-        BlockBuilder blockBuilder = REAL.createBlockBuilder(new BlockBuilderStatus(), 30);
+        BlockBuilder blockBuilder = REAL.createBlockBuilder(null, 30);
         REAL.writeLong(blockBuilder, floatToRawIntBits(11.11F));
         REAL.writeLong(blockBuilder, floatToRawIntBits(11.11F));
         REAL.writeLong(blockBuilder, floatToRawIntBits(11.11F));

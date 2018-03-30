@@ -22,7 +22,6 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.ArrayBlock;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.Type;
@@ -170,7 +169,7 @@ public class BenchmarkArraySubscript
 
         private static Block createFixWidthValueBlock(int positionCount, int mapSize)
         {
-            BlockBuilder valueBlockBuilder = DOUBLE.createBlockBuilder(new BlockBuilderStatus(), positionCount * mapSize);
+            BlockBuilder valueBlockBuilder = DOUBLE.createBlockBuilder(null, positionCount * mapSize);
             for (int i = 0; i < positionCount * mapSize; i++) {
                 DOUBLE.writeDouble(valueBlockBuilder, ThreadLocalRandom.current().nextDouble());
             }
@@ -180,7 +179,7 @@ public class BenchmarkArraySubscript
         private static Block createVarWidthValueBlock(int positionCount, int mapSize)
         {
             Type valueType = createUnboundedVarcharType();
-            BlockBuilder valueBlockBuilder = valueType.createBlockBuilder(new BlockBuilderStatus(), positionCount * mapSize);
+            BlockBuilder valueBlockBuilder = valueType.createBlockBuilder(null, positionCount * mapSize);
             for (int i = 0; i < positionCount * mapSize; i++) {
                 int wordLength = ThreadLocalRandom.current().nextInt(5, 10);
                 valueType.writeSlice(valueBlockBuilder, utf8Slice(randomString(wordLength)));

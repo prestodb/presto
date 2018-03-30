@@ -14,7 +14,6 @@
 package com.facebook.presto.block;
 
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.LongArrayBlockBuilder;
 import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
 import io.airlift.slice.Slice;
@@ -47,9 +46,9 @@ public class TestLongArrayBlock
     public void testLazyBlockBuilderInitialization()
     {
         Slice[] expectedValues = createTestValue(100);
-        BlockBuilder emptyBlockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), 0, 0);
+        BlockBuilder emptyBlockBuilder = new VariableWidthBlockBuilder(null, 0, 0);
 
-        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), expectedValues.length, 32 * expectedValues.length);
+        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(null, expectedValues.length, 32 * expectedValues.length);
         assertEquals(blockBuilder.getSizeInBytes(), emptyBlockBuilder.getSizeInBytes());
         assertEquals(blockBuilder.getRetainedSizeInBytes(), emptyBlockBuilder.getRetainedSizeInBytes());
 
@@ -57,7 +56,7 @@ public class TestLongArrayBlock
         assertTrue(blockBuilder.getSizeInBytes() > emptyBlockBuilder.getSizeInBytes());
         assertTrue(blockBuilder.getRetainedSizeInBytes() > emptyBlockBuilder.getRetainedSizeInBytes());
 
-        blockBuilder = blockBuilder.newBlockBuilderLike(new BlockBuilderStatus());
+        blockBuilder = blockBuilder.newBlockBuilderLike(null);
         assertEquals(blockBuilder.getSizeInBytes(), emptyBlockBuilder.getSizeInBytes());
         assertEquals(blockBuilder.getRetainedSizeInBytes(), emptyBlockBuilder.getRetainedSizeInBytes());
     }
@@ -71,7 +70,7 @@ public class TestLongArrayBlock
 
     private static BlockBuilder createBlockBuilderWithValues(Slice[] expectedValues)
     {
-        LongArrayBlockBuilder blockBuilder = new LongArrayBlockBuilder(new BlockBuilderStatus(), expectedValues.length);
+        LongArrayBlockBuilder blockBuilder = new LongArrayBlockBuilder(null, expectedValues.length);
         writeValues(expectedValues, blockBuilder);
         return blockBuilder;
     }

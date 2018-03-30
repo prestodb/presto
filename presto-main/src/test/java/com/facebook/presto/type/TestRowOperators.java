@@ -16,7 +16,6 @@ package com.facebook.presto.type;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
@@ -442,7 +441,7 @@ public class TestRowOperators
     {
         checkArgument(types.size() == elements.size(), "types and elements must have the same size");
         RowType rowType = new RowType(types, Optional.empty());
-        BlockBuilder blockBuilder = rowType.createBlockBuilder(new BlockBuilderStatus(), 1);
+        BlockBuilder blockBuilder = rowType.createBlockBuilder(null, 1);
         BlockBuilder singleRowBlockWriter = blockBuilder.beginBlockEntry();
         for (int i = 0; i < types.size(); i++) {
             appendToBlockBuilder(types.get(i), elements.get(i), singleRowBlockWriter);

@@ -18,7 +18,6 @@ import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
@@ -119,10 +118,10 @@ public class TestArrayOperators
         writeBlock(actualSliceOutput, actualBlock);
 
         Block expectedBlock = new ArrayType(BIGINT)
-                .createBlockBuilder(new BlockBuilderStatus(), 3)
-                .writeObject(BIGINT.createBlockBuilder(new BlockBuilderStatus(), 2).writeLong(1).closeEntry().writeLong(2).closeEntry().build())
+                .createBlockBuilder(null, 3)
+                .writeObject(BIGINT.createBlockBuilder(null, 2).writeLong(1).closeEntry().writeLong(2).closeEntry().build())
                 .closeEntry()
-                .writeObject(BIGINT.createBlockBuilder(new BlockBuilderStatus(), 1).writeLong(3).closeEntry().build())
+                .writeObject(BIGINT.createBlockBuilder(null, 1).writeLong(3).closeEntry().build())
                 .closeEntry()
                 .build();
         DynamicSliceOutput expectedSliceOutput = new DynamicSliceOutput(100);
@@ -1553,8 +1552,8 @@ public class TestArrayOperators
     private void assertArrayHashOperator(String inputArray, Type elementType, List<Object> elements)
     {
         ArrayType arrayType = new ArrayType(elementType);
-        BlockBuilder arrayArrayBuilder = arrayType.createBlockBuilder(new BlockBuilderStatus(), 1);
-        BlockBuilder arrayBuilder = elementType.createBlockBuilder(new BlockBuilderStatus(), elements.size());
+        BlockBuilder arrayArrayBuilder = arrayType.createBlockBuilder(null, 1);
+        BlockBuilder arrayBuilder = elementType.createBlockBuilder(null, elements.size());
         for (Object element : elements) {
             appendToBlockBuilder(elementType, element, arrayBuilder);
         }

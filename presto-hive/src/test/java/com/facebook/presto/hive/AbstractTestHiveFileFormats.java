@@ -22,7 +22,6 @@ import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DateType;
@@ -771,7 +770,7 @@ public abstract class AbstractTestHiveFileFormats
                         assertEquals(actualValue, expectedValue, "Wrong value for column " + testColumn.getName());
                     }
                     else {
-                        BlockBuilder builder = type.createBlockBuilder(new BlockBuilderStatus(), 1);
+                        BlockBuilder builder = type.createBlockBuilder(null, 1);
                         type.writeObject(builder, expectedValue);
                         expectedValue = type.getObjectValue(SESSION, builder.build(), 0);
                         assertEquals(actualValue, expectedValue, "Wrong value for column " + testColumn.getName());

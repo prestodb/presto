@@ -23,7 +23,6 @@ import com.facebook.presto.operator.aggregation.groupByAggregations.GroupByAggre
 import com.facebook.presto.operator.aggregation.histogram.HistogramGroupImplementation;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.RowType;
@@ -218,7 +217,7 @@ public class TestHistogram
         MapType mapType = mapType(innerMapType, BIGINT);
         InternalAggregationFunction aggregationFunction = getAggregation(mapType.getTypeSignature(), innerMapType.getTypeSignature());
 
-        BlockBuilder builder = innerMapType.createBlockBuilder(new BlockBuilderStatus(), 3);
+        BlockBuilder builder = innerMapType.createBlockBuilder(null, 3);
         innerMapType.writeObject(builder, mapBlockOf(VARCHAR, VARCHAR, ImmutableMap.of("a", "b")));
         innerMapType.writeObject(builder, mapBlockOf(VARCHAR, VARCHAR, ImmutableMap.of("c", "d")));
         innerMapType.writeObject(builder, mapBlockOf(VARCHAR, VARCHAR, ImmutableMap.of("e", "f")));
@@ -235,7 +234,7 @@ public class TestHistogram
         RowType innerRowType = new RowType(ImmutableList.of(BIGINT, DOUBLE), Optional.of(ImmutableList.of("f1", "f2")));
         MapType mapType = mapType(innerRowType, BIGINT);
         InternalAggregationFunction aggregationFunction = getAggregation(mapType.getTypeSignature(), innerRowType.getTypeSignature());
-        BlockBuilder builder = innerRowType.createBlockBuilder(new BlockBuilderStatus(), 3);
+        BlockBuilder builder = innerRowType.createBlockBuilder(null, 3);
         innerRowType.writeObject(builder, toRow(ImmutableList.of(BIGINT, DOUBLE), 1L, 1.0));
         innerRowType.writeObject(builder, toRow(ImmutableList.of(BIGINT, DOUBLE), 2L, 2.0));
         innerRowType.writeObject(builder, toRow(ImmutableList.of(BIGINT, DOUBLE), 3L, 3.0));
@@ -263,7 +262,7 @@ public class TestHistogram
         InternalAggregationFunction function = getInternalDefaultVarCharAggregationn();
         GroupedAccumulator groupedAccumulator = function.bind(Ints.asList(new int[] {}), Optional.empty())
                 .createGroupedAccumulator();
-        BlockBuilder blockBuilder = groupedAccumulator.getFinalType().createBlockBuilder(new BlockBuilderStatus(), 1000);
+        BlockBuilder blockBuilder = groupedAccumulator.getFinalType().createBlockBuilder(null, 1000);
 
         groupedAccumulator.evaluateFinal(0, blockBuilder);
         assertTrue(blockBuilder.isNull(0));

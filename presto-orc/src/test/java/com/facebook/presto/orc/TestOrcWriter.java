@@ -21,7 +21,6 @@ import com.facebook.presto.orc.stream.OrcInputStream;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
@@ -74,7 +73,7 @@ public class TestOrcWriter
         String[] data = new String[]{"a", "bbbbb", "ccc", "dd", "eeee"};
         Block[] blocks = new Block[data.length];
         int entries = 65536;
-        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), entries);
+        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, entries);
         for (int i = 0; i < data.length; i++) {
             byte[] bytes = data[i].getBytes();
             for (int j = 0; j < entries; j++) {
@@ -84,7 +83,7 @@ public class TestOrcWriter
                 blockBuilder.closeEntry();
             }
             blocks[i] = blockBuilder.build();
-            blockBuilder = blockBuilder.newBlockBuilderLike(new BlockBuilderStatus());
+            blockBuilder = blockBuilder.newBlockBuilderLike(null);
         }
 
         writer.write(new Page(blocks));

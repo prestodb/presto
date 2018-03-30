@@ -65,7 +65,7 @@ public final class SmallintType
     @Override
     public BlockBuilder createFixedSizeBlockBuilder(int positionCount)
     {
-        return new ShortArrayBlockBuilder(new BlockBuilderStatus(), positionCount);
+        return new ShortArrayBlockBuilder(null, positionCount);
     }
 
     @Override

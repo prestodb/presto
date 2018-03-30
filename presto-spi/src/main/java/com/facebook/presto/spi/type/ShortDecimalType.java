@@ -63,7 +63,7 @@ final class ShortDecimalType
     @Override
     public BlockBuilder createFixedSizeBlockBuilder(int positionCount)
     {
-        return new LongArrayBlockBuilder(new BlockBuilderStatus(), positionCount);
+        return new LongArrayBlockBuilder(null, positionCount);
     }
 
     @Override

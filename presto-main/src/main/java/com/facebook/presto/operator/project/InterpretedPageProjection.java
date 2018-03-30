@@ -21,7 +21,6 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DeterminismEvaluator;
@@ -72,7 +71,7 @@ public class InterpretedPageProjection
         Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypesFromInput(session, metadata, sqlParser, parameterTypes.build(), rewritten, emptyList());
         this.evaluator = ExpressionInterpreter.expressionInterpreter(rewritten, metadata, session, expressionTypes);
 
-        blockBuilder = evaluator.getType().createBlockBuilder(new BlockBuilderStatus(), 1);
+        blockBuilder = evaluator.getType().createBlockBuilder(null, 1);
     }
 
     @Override
@@ -143,7 +142,7 @@ public class InterpretedPageProjection
             }
 
             result = blockBuilder.build();
-            blockBuilder = blockBuilder.newBlockBuilderLike(new BlockBuilderStatus());
+            blockBuilder = blockBuilder.newBlockBuilderLike(null);
             return true;
         }
 

@@ -18,7 +18,6 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
@@ -38,7 +37,7 @@ public class TestLookupJoinPageBuilder
     public void testPageBuilder()
     {
         int entries = 10_000;
-        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), entries);
+        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, entries);
         for (int i = 0; i < entries; i++) {
             BIGINT.writeLong(blockBuilder, i);
         }
@@ -159,7 +158,7 @@ public class TestLookupJoinPageBuilder
     @Test
     public void testCrossJoinWithEmptyBuild()
     {
-        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), 1);
+        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, 1);
         BIGINT.writeLong(blockBuilder, 0);
         Page page = new Page(blockBuilder.build());
 

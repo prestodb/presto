@@ -25,7 +25,6 @@ import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -140,7 +139,7 @@ public class BenchmarkArrayFilter
 
         private static Block createChannel(int positionCount, int arraySize, ArrayType arrayType)
         {
-            BlockBuilder blockBuilder = arrayType.createBlockBuilder(new BlockBuilderStatus(), positionCount);
+            BlockBuilder blockBuilder = arrayType.createBlockBuilder(null, positionCount);
             for (int position = 0; position < positionCount; position++) {
                 BlockBuilder entryBuilder = blockBuilder.beginBlockEntry();
                 for (int i = 0; i < arraySize; i++) {
@@ -235,7 +234,7 @@ public class BenchmarkArrayFilter
         public static Block filter(Type type, Block block, MethodHandle function)
         {
             int positionCount = block.getPositionCount();
-            BlockBuilder resultBuilder = type.createBlockBuilder(new BlockBuilderStatus(), positionCount);
+            BlockBuilder resultBuilder = type.createBlockBuilder(null, positionCount);
             for (int position = 0; position < positionCount; position++) {
                 Long input = (Long) readNativeValue(type, block, position);
                 Boolean keep;

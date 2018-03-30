@@ -15,7 +15,6 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
@@ -43,7 +42,7 @@ public final class ArrayFilterFunction
             @SqlType("function(T, boolean)") FilterLongLambda function)
     {
         int positionCount = arrayBlock.getPositionCount();
-        BlockBuilder resultBuilder = elementType.createBlockBuilder(new BlockBuilderStatus(), positionCount);
+        BlockBuilder resultBuilder = elementType.createBlockBuilder(null, positionCount);
         for (int position = 0; position < positionCount; position++) {
             Long input = null;
             if (!arrayBlock.isNull(position)) {
@@ -73,7 +72,7 @@ public final class ArrayFilterFunction
             @SqlType("function(T, boolean)") FilterDoubleLambda function)
     {
         int positionCount = arrayBlock.getPositionCount();
-        BlockBuilder resultBuilder = elementType.createBlockBuilder(new BlockBuilderStatus(), positionCount);
+        BlockBuilder resultBuilder = elementType.createBlockBuilder(null, positionCount);
         for (int position = 0; position < positionCount; position++) {
             Double input = null;
             if (!arrayBlock.isNull(position)) {
@@ -103,7 +102,7 @@ public final class ArrayFilterFunction
             @SqlType("function(T, boolean)") FilterBooleanLambda function)
     {
         int positionCount = arrayBlock.getPositionCount();
-        BlockBuilder resultBuilder = elementType.createBlockBuilder(new BlockBuilderStatus(), positionCount);
+        BlockBuilder resultBuilder = elementType.createBlockBuilder(null, positionCount);
         for (int position = 0; position < positionCount; position++) {
             Boolean input = null;
             if (!arrayBlock.isNull(position)) {
@@ -133,7 +132,7 @@ public final class ArrayFilterFunction
             @SqlType("function(T, boolean)") FilterSliceLambda function)
     {
         int positionCount = arrayBlock.getPositionCount();
-        BlockBuilder resultBuilder = elementType.createBlockBuilder(new BlockBuilderStatus(), positionCount);
+        BlockBuilder resultBuilder = elementType.createBlockBuilder(null, positionCount);
         for (int position = 0; position < positionCount; position++) {
             Slice input = null;
             if (!arrayBlock.isNull(position)) {
@@ -163,7 +162,7 @@ public final class ArrayFilterFunction
             @SqlType("function(T, boolean)") FilterBlockLambda function)
     {
         int positionCount = arrayBlock.getPositionCount();
-        BlockBuilder resultBuilder = elementType.createBlockBuilder(new BlockBuilderStatus(), positionCount);
+        BlockBuilder resultBuilder = elementType.createBlockBuilder(null, positionCount);
         for (int position = 0; position < positionCount; position++) {
             Block input = null;
             if (!arrayBlock.isNull(position)) {
@@ -193,7 +192,7 @@ public final class ArrayFilterFunction
             @SqlType("function(T, boolean)") FilterVoidLambda function)
     {
         int positionCount = arrayBlock.getPositionCount();
-        BlockBuilder resultBuilder = elementType.createBlockBuilder(new BlockBuilderStatus(), positionCount);
+        BlockBuilder resultBuilder = elementType.createBlockBuilder(null, positionCount);
         for (int position = 0; position < positionCount; position++) {
             Boolean keep;
             try {

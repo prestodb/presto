@@ -22,7 +22,6 @@ import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -114,7 +113,7 @@ public final class ZipFunction
             biggestCardinality = Math.max(biggestCardinality, array.getPositionCount());
         }
         RowType rowType = new RowType(types, Optional.empty());
-        BlockBuilder outputBuilder = rowType.createBlockBuilder(new BlockBuilderStatus(), biggestCardinality);
+        BlockBuilder outputBuilder = rowType.createBlockBuilder(null, biggestCardinality);
         for (int outputPosition = 0; outputPosition < biggestCardinality; outputPosition++) {
             BlockBuilder rowBuilder = outputBuilder.beginBlockEntry();
             for (int fieldIndex = 0; fieldIndex < arrays.length; fieldIndex++) {

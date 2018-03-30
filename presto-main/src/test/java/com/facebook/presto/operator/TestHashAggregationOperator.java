@@ -24,7 +24,6 @@ import com.facebook.presto.operator.aggregation.builder.HashAggregationBuilder;
 import com.facebook.presto.operator.aggregation.builder.InMemoryHashAggregationBuilder;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.PageBuilderStatus;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
@@ -344,7 +343,7 @@ public class TestHashAggregationOperator
     @Test(dataProvider = "hashEnabledAndMemoryLimitForMergeValues")
     public void testHashBuilderResize(boolean hashEnabled, long memoryLimitForMerge, long memoryLimitForMergeWithMemory)
     {
-        BlockBuilder builder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 1, DEFAULT_MAX_BLOCK_SIZE_IN_BYTES);
+        BlockBuilder builder = VARCHAR.createBlockBuilder(null, 1, DEFAULT_MAX_BLOCK_SIZE_IN_BYTES);
         VARCHAR.writeSlice(builder, Slices.allocate(200_000)); // this must be larger than DEFAULT_MAX_BLOCK_SIZE, 64K
         builder.build();
 
@@ -418,7 +417,7 @@ public class TestHashAggregationOperator
     @Test(dataProvider = "hashEnabled", expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded local memory limit of 3MB")
     public void testHashBuilderResizeLimit(boolean hashEnabled)
     {
-        BlockBuilder builder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 1, DEFAULT_MAX_BLOCK_SIZE_IN_BYTES);
+        BlockBuilder builder = VARCHAR.createBlockBuilder(null, 1, DEFAULT_MAX_BLOCK_SIZE_IN_BYTES);
         VARCHAR.writeSlice(builder, Slices.allocate(5_000_000)); // this must be larger than DEFAULT_MAX_BLOCK_SIZE, 64K
         builder.build();
 

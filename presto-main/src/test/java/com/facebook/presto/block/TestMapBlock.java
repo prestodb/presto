@@ -16,7 +16,6 @@ package com.facebook.presto.block;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.SingleMapBlock;
 import com.facebook.presto.spi.type.MapType;
 import org.testng.annotations.Test;
@@ -98,7 +97,7 @@ public class TestMapBlock
     private BlockBuilder createBlockBuilderWithValues(Map<String, Long>[] maps)
     {
         MapType mapType = mapType(VARCHAR, BIGINT);
-        BlockBuilder mapBlockBuilder = mapType.createBlockBuilder(new BlockBuilderStatus(), 1);
+        BlockBuilder mapBlockBuilder = mapType.createBlockBuilder(null, 1);
         for (Map<String, Long> map : maps) {
             createBlockBuilderWithValues(map, mapBlockBuilder);
         }

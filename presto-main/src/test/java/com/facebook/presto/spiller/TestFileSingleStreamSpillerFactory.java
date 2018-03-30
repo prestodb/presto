@@ -16,7 +16,6 @@ package com.facebook.presto.spiller;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.TypeRegistry;
@@ -107,7 +106,7 @@ public class TestFileSingleStreamSpillerFactory
 
     private Page buildPage()
     {
-        BlockBuilder col1 = BIGINT.createBlockBuilder(new BlockBuilderStatus(), 1);
+        BlockBuilder col1 = BIGINT.createBlockBuilder(null, 1);
         col1.writeLong(42).closeEntry();
         return new Page(col1.build());
     }

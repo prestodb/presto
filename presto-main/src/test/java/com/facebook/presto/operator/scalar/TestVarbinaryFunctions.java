@@ -14,7 +14,6 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.SqlVarbinary;
 import com.facebook.presto.type.VarbinaryOperators;
 import io.airlift.slice.Slice;
@@ -255,7 +254,7 @@ public class TestVarbinaryFunctions
     {
         Slice data = Slices.wrappedBuffer(ALL_BYTES);
 
-        Block block = VARBINARY.createBlockBuilder(new BlockBuilderStatus(), 1, ALL_BYTES.length)
+        Block block = VARBINARY.createBlockBuilder(null, 1, ALL_BYTES.length)
                 .writeBytes(data, 0, data.length())
                 .closeEntry()
                 .build();

@@ -30,7 +30,7 @@ public class TestDictionaryBlockEncoding
         int positionCount = 40;
 
         // build dictionary
-        BlockBuilder dictionaryBuilder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 4);
+        BlockBuilder dictionaryBuilder = VARCHAR.createBlockBuilder(null, 4);
         VARCHAR.writeString(dictionaryBuilder, "alice");
         VARCHAR.writeString(dictionaryBuilder, "bob");
         VARCHAR.writeString(dictionaryBuilder, "charlie");

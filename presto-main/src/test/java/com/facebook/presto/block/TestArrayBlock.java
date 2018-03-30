@@ -15,7 +15,6 @@ package com.facebook.presto.block;
 
 import com.facebook.presto.spi.block.ArrayBlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
@@ -112,9 +111,9 @@ public class TestArrayBlock
         for (int i = 0; i < ARRAY_SIZES.length; i++) {
             expectedValues[i] = rand.longs(ARRAY_SIZES[i]).toArray();
         }
-        BlockBuilder emptyBlockBuilder = new ArrayBlockBuilder(BIGINT, new BlockBuilderStatus(), 0, 0);
+        BlockBuilder emptyBlockBuilder = new ArrayBlockBuilder(BIGINT, null, 0, 0);
 
-        BlockBuilder blockBuilder = new ArrayBlockBuilder(BIGINT, new BlockBuilderStatus(), 100, 100);
+        BlockBuilder blockBuilder = new ArrayBlockBuilder(BIGINT, null, 100, 100);
         assertEquals(blockBuilder.getSizeInBytes(), emptyBlockBuilder.getSizeInBytes());
         assertEquals(blockBuilder.getRetainedSizeInBytes(), emptyBlockBuilder.getRetainedSizeInBytes());
 
@@ -122,26 +121,26 @@ public class TestArrayBlock
         assertTrue(blockBuilder.getSizeInBytes() > emptyBlockBuilder.getSizeInBytes());
         assertTrue(blockBuilder.getRetainedSizeInBytes() > emptyBlockBuilder.getRetainedSizeInBytes());
 
-        blockBuilder = blockBuilder.newBlockBuilderLike(new BlockBuilderStatus());
+        blockBuilder = blockBuilder.newBlockBuilderLike(null);
         assertEquals(blockBuilder.getSizeInBytes(), emptyBlockBuilder.getSizeInBytes());
         assertEquals(blockBuilder.getRetainedSizeInBytes(), emptyBlockBuilder.getRetainedSizeInBytes());
     }
 
     private static BlockBuilder createBlockBuilderWithValues(long[][][] expectedValues)
     {
-        BlockBuilder blockBuilder = new ArrayBlockBuilder(new ArrayBlockBuilder(BIGINT, new BlockBuilderStatus(), 100, 100), new BlockBuilderStatus(), 100);
+        BlockBuilder blockBuilder = new ArrayBlockBuilder(new ArrayBlockBuilder(BIGINT, null, 100, 100), null, 100);
         for (long[][] expectedValue : expectedValues) {
             if (expectedValue == null) {
                 blockBuilder.appendNull();
             }
             else {
-                BlockBuilder intermediateBlockBuilder = new ArrayBlockBuilder(BIGINT, new BlockBuilderStatus(), 100, 100);
+                BlockBuilder intermediateBlockBuilder = new ArrayBlockBuilder(BIGINT, null, 100, 100);
                 for (int j = 0; j < expectedValue.length; j++) {
                     if (expectedValue[j] == null) {
                         intermediateBlockBuilder.appendNull();
                     }
                     else {
-                        BlockBuilder innerMostBlockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), expectedValue.length);
+                        BlockBuilder innerMostBlockBuilder = BIGINT.createBlockBuilder(null, expectedValue.length);
                         for (long v : expectedValue[j]) {
                             BIGINT.writeLong(innerMostBlockBuilder, v);
                         }
@@ -156,7 +155,7 @@ public class TestArrayBlock
 
     private static BlockBuilder createBlockBuilderWithValues(long[][] expectedValues)
     {
-        BlockBuilder blockBuilder = new ArrayBlockBuilder(BIGINT, new BlockBuilderStatus(), 100, 100);
+        BlockBuilder blockBuilder = new ArrayBlockBuilder(BIGINT, null, 100, 100);
         return writeValues(expectedValues, blockBuilder);
     }
 
@@ -167,7 +166,7 @@ public class TestArrayBlock
                 blockBuilder.appendNull();
             }
             else {
-                BlockBuilder elementBlockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), expectedValue.length);
+                BlockBuilder elementBlockBuilder = BIGINT.createBlockBuilder(null, expectedValue.length);
                 for (long v : expectedValue) {
                     BIGINT.writeLong(elementBlockBuilder, v);
                 }
@@ -179,13 +178,13 @@ public class TestArrayBlock
 
     private static BlockBuilder createBlockBuilderWithValues(Slice[][] expectedValues)
     {
-        BlockBuilder blockBuilder = new ArrayBlockBuilder(VARCHAR, new BlockBuilderStatus(), 100, 100);
+        BlockBuilder blockBuilder = new ArrayBlockBuilder(VARCHAR, null, 100, 100);
         for (Slice[] expectedValue : expectedValues) {
             if (expectedValue == null) {
                 blockBuilder.appendNull();
             }
             else {
-                BlockBuilder elementBlockBuilder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), expectedValue.length);
+                BlockBuilder elementBlockBuilder = VARCHAR.createBlockBuilder(null, expectedValue.length);
                 for (Slice v : expectedValue) {
                     VARCHAR.writeSlice(elementBlockBuilder, v);
                 }

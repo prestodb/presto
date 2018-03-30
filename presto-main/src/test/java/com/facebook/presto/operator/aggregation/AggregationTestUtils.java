@@ -18,7 +18,6 @@ import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.google.common.primitives.Ints;
 
@@ -64,28 +63,28 @@ public final class AggregationTestUtils
 
     public static Block getIntermediateBlock(Accumulator accumulator)
     {
-        BlockBuilder blockBuilder = accumulator.getIntermediateType().createBlockBuilder(new BlockBuilderStatus(), 1000);
+        BlockBuilder blockBuilder = accumulator.getIntermediateType().createBlockBuilder(null, 1000);
         accumulator.evaluateIntermediate(blockBuilder);
         return blockBuilder.build();
     }
 
     public static Block getIntermediateBlock(GroupedAccumulator accumulator)
     {
-        BlockBuilder blockBuilder = accumulator.getIntermediateType().createBlockBuilder(new BlockBuilderStatus(), 1000);
+        BlockBuilder blockBuilder = accumulator.getIntermediateType().createBlockBuilder(null, 1000);
         accumulator.evaluateIntermediate(0, blockBuilder);
         return blockBuilder.build();
     }
 
     public static Block getFinalBlock(Accumulator accumulator)
     {
-        BlockBuilder blockBuilder = accumulator.getFinalType().createBlockBuilder(new BlockBuilderStatus(), 1000);
+        BlockBuilder blockBuilder = accumulator.getFinalType().createBlockBuilder(null, 1000);
         accumulator.evaluateFinal(blockBuilder);
         return blockBuilder.build();
     }
 
     public static Block getFinalBlock(GroupedAccumulator accumulator)
     {
-        BlockBuilder blockBuilder = accumulator.getFinalType().createBlockBuilder(new BlockBuilderStatus(), 1000);
+        BlockBuilder blockBuilder = accumulator.getFinalType().createBlockBuilder(null, 1000);
         accumulator.evaluateFinal(0, blockBuilder);
         return blockBuilder.build();
     }
@@ -136,7 +135,7 @@ public final class AggregationTestUtils
         Page[] maskedPages = new Page[pages.length];
         for (int i = 0; i < pages.length; i++) {
             Page page = pages[i];
-            BlockBuilder blockBuilder = BOOLEAN.createBlockBuilder(new BlockBuilderStatus(), page.getPositionCount());
+            BlockBuilder blockBuilder = BOOLEAN.createBlockBuilder(null, page.getPositionCount());
             for (int j = 0; j < page.getPositionCount(); j++) {
                 BOOLEAN.writeBoolean(blockBuilder, maskValue);
             }
@@ -299,7 +298,7 @@ public final class AggregationTestUtils
 
     public static GroupByIdBlock createGroupByIdBlock(int groupId, int positions)
     {
-        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), positions);
+        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, positions);
         for (int i = 0; i < positions; i++) {
             BIGINT.writeLong(blockBuilder, groupId);
         }
@@ -369,7 +368,7 @@ public final class AggregationTestUtils
 
     private static RunLengthEncodedBlock createNullRLEBlock(int positionCount)
     {
-        Block value = BOOLEAN.createBlockBuilder(new BlockBuilderStatus(), 1)
+        Block value = BOOLEAN.createBlockBuilder(null, 1)
                 .appendNull()
                 .build();
 
@@ -378,7 +377,7 @@ public final class AggregationTestUtils
 
     public static Object getGroupValue(GroupedAccumulator groupedAggregation, int groupId)
     {
-        BlockBuilder out = groupedAggregation.getFinalType().createBlockBuilder(new BlockBuilderStatus(), 1);
+        BlockBuilder out = groupedAggregation.getFinalType().createBlockBuilder(null, 1);
         groupedAggregation.evaluateFinal(groupId, out);
         return BlockAssertions.getOnlyValue(groupedAggregation.getFinalType(), out.build());
     }

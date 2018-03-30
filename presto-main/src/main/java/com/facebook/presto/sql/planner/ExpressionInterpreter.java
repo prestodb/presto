@@ -26,7 +26,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.RowBlockBuilder;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.ArrayType;
@@ -1165,7 +1164,7 @@ public class ExpressionInterpreter
         protected Object visitArrayConstructor(ArrayConstructor node, Object context)
         {
             Type elementType = ((ArrayType) type(node)).getElementType();
-            BlockBuilder arrayBlockBuilder = elementType.createBlockBuilder(new BlockBuilderStatus(), node.getValues().size());
+            BlockBuilder arrayBlockBuilder = elementType.createBlockBuilder(null, node.getValues().size());
 
             for (Expression expression : node.getValues()) {
                 Object value = process(expression, context);
@@ -1194,7 +1193,7 @@ public class ExpressionInterpreter
                 return new Row(toExpressions(values, parameterTypes));
             }
             else {
-                BlockBuilder blockBuilder = new RowBlockBuilder(parameterTypes, new BlockBuilderStatus(), 1);
+                BlockBuilder blockBuilder = new RowBlockBuilder(parameterTypes, null, 1);
                 BlockBuilder singleRowBlockWriter = blockBuilder.beginBlockEntry();
                 for (int i = 0; i < cardinality; ++i) {
                     writeNativeValue(parameterTypes.get(i), singleRowBlockWriter, values.get(i));

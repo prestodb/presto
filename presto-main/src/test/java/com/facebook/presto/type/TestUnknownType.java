@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.spi.block.BlockBuilderStatus;
-
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 
 public class TestUnknownType
@@ -24,7 +22,7 @@ public class TestUnknownType
     {
         super(UNKNOWN,
                 void.class,
-                UNKNOWN.createBlockBuilder(new BlockBuilderStatus(), 3)
+                UNKNOWN.createBlockBuilder(null, 3)
                         .appendNull()
                         .appendNull()
                         .appendNull()

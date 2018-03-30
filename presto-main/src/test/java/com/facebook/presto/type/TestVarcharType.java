@@ -15,7 +15,6 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
@@ -31,7 +30,7 @@ public class TestVarcharType
 
     public static Block createTestBlock()
     {
-        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 15);
+        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, 15);
         VARCHAR.writeString(blockBuilder, "apple");
         VARCHAR.writeString(blockBuilder, "apple");
         VARCHAR.writeString(blockBuilder, "apple");

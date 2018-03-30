@@ -19,7 +19,6 @@ import com.facebook.presto.orc.stream.BooleanInputStream;
 import com.facebook.presto.orc.stream.InputStreamSource;
 import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.RowBlock;
 import com.facebook.presto.spi.type.Type;
 import org.joda.time.DateTimeZone;
@@ -113,7 +112,7 @@ public class StructStreamReader
             }
             else {
                 for (int i = 0; i < typeParameters.size(); i++) {
-                    blocks[i] = typeParameters.get(i).createBlockBuilder(new BlockBuilderStatus(), 0).build();
+                    blocks[i] = typeParameters.get(i).createBlockBuilder(null, 0).build();
                 }
             }
         }

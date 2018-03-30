@@ -15,7 +15,6 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
@@ -913,7 +912,7 @@ public class TestMapOperators
     {
         checkArgument(elements.size() % 2 == 0, "the size of elements should be even number");
         MapType mapType = mapType(keyType, valueType);
-        BlockBuilder mapArrayBuilder = mapType.createBlockBuilder(new BlockBuilderStatus(), 1);
+        BlockBuilder mapArrayBuilder = mapType.createBlockBuilder(null, 1);
         BlockBuilder singleMapWriter = mapArrayBuilder.beginBlockEntry();
         for (int i = 0; i < elements.size(); i += 2) {
             appendToBlockBuilder(keyType, elements.get(i), singleMapWriter);

@@ -16,7 +16,6 @@ package com.facebook.presto.hive.util;
 import com.facebook.presto.block.BlockSerdeUtil;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.RowType;
 import com.google.common.collect.ImmutableList;
@@ -115,54 +114,54 @@ public class TestSerDeUtils
     public void testPrimitiveSlice()
     {
         // boolean
-        Block expectedBoolean = VARBINARY.createBlockBuilder(new BlockBuilderStatus(), 1).writeByte(1).closeEntry().build();
+        Block expectedBoolean = VARBINARY.createBlockBuilder(null, 1).writeByte(1).closeEntry().build();
         Block actualBoolean = toBinaryBlock(BOOLEAN, true, getInspector(Boolean.class));
         assertBlockEquals(actualBoolean, expectedBoolean);
 
         // byte
-        Block expectedByte = VARBINARY.createBlockBuilder(new BlockBuilderStatus(), 1).writeByte(5).closeEntry().build();
+        Block expectedByte = VARBINARY.createBlockBuilder(null, 1).writeByte(5).closeEntry().build();
         Block actualByte = toBinaryBlock(TINYINT, (byte) 5, getInspector(Byte.class));
         assertBlockEquals(actualByte, expectedByte);
 
         // short
-        Block expectedShort = VARBINARY.createBlockBuilder(new BlockBuilderStatus(), 1).writeShort(2).closeEntry().build();
+        Block expectedShort = VARBINARY.createBlockBuilder(null, 1).writeShort(2).closeEntry().build();
         Block actualShort = toBinaryBlock(SMALLINT, (short) 2, getInspector(Short.class));
         assertBlockEquals(actualShort, expectedShort);
 
         // int
-        Block expectedInt = VARBINARY.createBlockBuilder(new BlockBuilderStatus(), 1).writeInt(1).closeEntry().build();
+        Block expectedInt = VARBINARY.createBlockBuilder(null, 1).writeInt(1).closeEntry().build();
         Block actualInt = toBinaryBlock(INTEGER, 1, getInspector(Integer.class));
         assertBlockEquals(actualInt, expectedInt);
 
         // long
-        Block expectedLong = VARBINARY.createBlockBuilder(new BlockBuilderStatus(), 1).writeLong(10).closeEntry().build();
+        Block expectedLong = VARBINARY.createBlockBuilder(null, 1).writeLong(10).closeEntry().build();
         Block actualLong = toBinaryBlock(BIGINT, 10L, getInspector(Long.class));
         assertBlockEquals(actualLong, expectedLong);
 
         // float
-        Block expectedFloat = VARBINARY.createBlockBuilder(new BlockBuilderStatus(), 1).writeInt(floatToRawIntBits(20.0f)).closeEntry().build();
+        Block expectedFloat = VARBINARY.createBlockBuilder(null, 1).writeInt(floatToRawIntBits(20.0f)).closeEntry().build();
         Block actualFloat = toBinaryBlock(REAL, 20.0f, getInspector(Float.class));
         assertBlockEquals(actualFloat, expectedFloat);
 
         // double
-        Block expectedDouble = VARBINARY.createBlockBuilder(new BlockBuilderStatus(), 1).writeLong(doubleToLongBits(30.12)).closeEntry().build();
+        Block expectedDouble = VARBINARY.createBlockBuilder(null, 1).writeLong(doubleToLongBits(30.12)).closeEntry().build();
         Block actualDouble = toBinaryBlock(DOUBLE, 30.12d, getInspector(Double.class));
         assertBlockEquals(actualDouble, expectedDouble);
 
         // string
-        Block expectedString = VARBINARY.createBlockBuilder(new BlockBuilderStatus(), 1).writeBytes(utf8Slice("abdd"), 0, 4).closeEntry().build();
+        Block expectedString = VARBINARY.createBlockBuilder(null, 1).writeBytes(utf8Slice("abdd"), 0, 4).closeEntry().build();
         Block actualString = toBinaryBlock(createUnboundedVarcharType(), "abdd", getInspector(String.class));
         assertBlockEquals(actualString, expectedString);
 
         // timestamp
         DateTime dateTime = new DateTime(2008, 10, 28, 16, 7, 15, 0);
-        Block expectedTimestamp = VARBINARY.createBlockBuilder(new BlockBuilderStatus(), 1).writeLong(dateTime.getMillis()).closeEntry().build();
+        Block expectedTimestamp = VARBINARY.createBlockBuilder(null, 1).writeLong(dateTime.getMillis()).closeEntry().build();
         Block actualTimestamp = toBinaryBlock(BIGINT, new Timestamp(dateTime.getMillis()), getInspector(Timestamp.class));
         assertBlockEquals(actualTimestamp, expectedTimestamp);
 
         // binary
         byte[] byteArray = {81, 82, 84, 85};
-        Block expectedBinary = VARBINARY.createBlockBuilder(new BlockBuilderStatus(), 1).writeBytes(Slices.wrappedBuffer(byteArray), 0, 4).closeEntry().build();
+        Block expectedBinary = VARBINARY.createBlockBuilder(null, 1).writeBytes(Slices.wrappedBuffer(byteArray), 0, 4).closeEntry().build();
         Block actualBinary = toBinaryBlock(createUnboundedVarcharType(), byteArray, getInspector(byte[].class));
         assertBlockEquals(actualBinary, expectedBinary);
     }
@@ -179,7 +178,7 @@ public class TestSerDeUtils
         com.facebook.presto.spi.type.Type rowType = new RowType(ImmutableList.of(INTEGER, BIGINT), Optional.empty());
         com.facebook.presto.spi.type.Type arrayOfRowType = new RowType(ImmutableList.of(new ArrayType(rowType)), Optional.empty());
         Block actual = toBinaryBlock(arrayOfRowType, listHolder, getInspector(ListHolder.class));
-        BlockBuilder blockBuilder = rowType.createBlockBuilder(new BlockBuilderStatus(), 1024);
+        BlockBuilder blockBuilder = rowType.createBlockBuilder(null, 1024);
         rowType.writeObject(blockBuilder, rowBlockOf(ImmutableList.of(INTEGER, BIGINT), 8, 9L));
         rowType.writeObject(blockBuilder, rowBlockOf(ImmutableList.of(INTEGER, BIGINT), 10, 11L));
         Block expected = rowBlockOf(ImmutableList.of(new ArrayType(rowType)), blockBuilder.build());
@@ -317,7 +316,7 @@ public class TestSerDeUtils
 
     private static Block getPrimitiveBlock(com.facebook.presto.spi.type.Type type, Object object, ObjectInspector inspector)
     {
-        BlockBuilder builder = VARBINARY.createBlockBuilder(new BlockBuilderStatus(), 1);
+        BlockBuilder builder = VARBINARY.createBlockBuilder(null, 1);
         serializeObject(type, builder, object, inspector);
         return builder.build();
     }

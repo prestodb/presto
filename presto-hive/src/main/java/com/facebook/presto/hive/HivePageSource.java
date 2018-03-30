@@ -20,7 +20,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.ArrayBlock;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.ColumnarArray;
 import com.facebook.presto.spi.block.ColumnarMap;
 import com.facebook.presto.spi.block.ColumnarRow;
@@ -332,7 +331,7 @@ public class HivePageSource
         @Override
         public Block apply(Block block)
         {
-            BlockBuilder blockBuilder = toType.createBlockBuilder(new BlockBuilderStatus(), block.getPositionCount());
+            BlockBuilder blockBuilder = toType.createBlockBuilder(null, block.getPositionCount());
             for (int i = 0; i < block.getPositionCount(); i++) {
                 if (block.isNull(i)) {
                     blockBuilder.appendNull();
@@ -359,7 +358,7 @@ public class HivePageSource
         @Override
         public Block apply(Block block)
         {
-            BlockBuilder blockBuilder = toType.createBlockBuilder(new BlockBuilderStatus(), block.getPositionCount());
+            BlockBuilder blockBuilder = toType.createBlockBuilder(null, block.getPositionCount());
             for (int i = 0; i < block.getPositionCount(); i++) {
                 if (block.isNull(i)) {
                     blockBuilder.appendNull();
@@ -409,7 +408,7 @@ public class HivePageSource
         @Override
         public Block apply(Block block)
         {
-            BlockBuilder blockBuilder = toType.createBlockBuilder(new BlockBuilderStatus(), block.getPositionCount());
+            BlockBuilder blockBuilder = toType.createBlockBuilder(null, block.getPositionCount());
             for (int i = 0; i < block.getPositionCount(); i++) {
                 if (block.isNull(i)) {
                     blockBuilder.appendNull();
@@ -438,7 +437,7 @@ public class HivePageSource
         @Override
         public Block apply(Block block)
         {
-            BlockBuilder blockBuilder = DOUBLE.createBlockBuilder(new BlockBuilderStatus(), block.getPositionCount());
+            BlockBuilder blockBuilder = DOUBLE.createBlockBuilder(null, block.getPositionCount());
             for (int i = 0; i < block.getPositionCount(); i++) {
                 if (block.isNull(i)) {
                     blockBuilder.appendNull();
@@ -534,10 +533,9 @@ public class HivePageSource
             List<HiveType> toFieldTypes = extractStructFieldTypes(toHiveType);
             this.coercers = new Function[toFieldTypes.size()];
             this.nullBlocks = new Block[toFieldTypes.size()];
-            BlockBuilderStatus blockBuilderStatus = new BlockBuilderStatus();
             for (int i = 0; i < coercers.length; i++) {
                 if (i >= fromFieldTypes.size()) {
-                    nullBlocks[i] = toFieldTypes.get(i).getType(typeManager).createBlockBuilder(blockBuilderStatus, 1).appendNull().build();
+                    nullBlocks[i] = toFieldTypes.get(i).getType(typeManager).createBlockBuilder(null, 1).appendNull().build();
                 }
                 else if (!fromFieldTypes.get(i).equals(toFieldTypes.get(i))) {
                     coercers[i] = createCoercer(typeManager, fromFieldTypes.get(i), toFieldTypes.get(i));

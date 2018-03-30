@@ -124,13 +124,13 @@ public class TestColumnarMap
 
     public static BlockBuilder createBlockBuilderWithValues(Slice[][][] expectedValues)
     {
-        BlockBuilder blockBuilder = createMapBuilder(new BlockBuilderStatus(), 100);
+        BlockBuilder blockBuilder = createMapBuilder(100);
         for (Slice[][] expectedMap : expectedValues) {
             if (expectedMap == null) {
                 blockBuilder.appendNull();
             }
             else {
-                BlockBuilder elementBlockBuilder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), expectedMap.length);
+                BlockBuilder elementBlockBuilder = VARCHAR.createBlockBuilder(null, expectedMap.length);
                 for (Slice[] entry : expectedMap) {
                     Slice key = entry[0];
                     assertNotNull(key);
@@ -150,7 +150,7 @@ public class TestColumnarMap
         return blockBuilder;
     }
 
-    private static BlockBuilder createMapBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+    private static BlockBuilder createMapBuilder(int expectedEntries)
     {
         return new MapBlockBuilder(
                 VARCHAR,
@@ -158,7 +158,7 @@ public class TestColumnarMap
                 MethodHandleUtil.methodHandle(Slice.class, "equals", Object.class).asType(MethodType.methodType(boolean.class, Slice.class, Slice.class)),
                 MethodHandleUtil.methodHandle(Slice.class, "hashCode").asType(MethodType.methodType(long.class, Slice.class)),
                 MethodHandleUtil.methodHandle(TestColumnarMap.class, "blockVarcharHashCode", Block.class, int.class),
-                blockBuilderStatus,
+                null,
                 expectedEntries);
     }
 

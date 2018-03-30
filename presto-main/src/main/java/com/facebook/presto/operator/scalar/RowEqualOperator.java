@@ -18,7 +18,6 @@ import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.SqlOperator;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -64,8 +63,8 @@ public class RowEqualOperator
     public static boolean equals(Type rowType, Block leftRow, Block rightRow)
     {
         // TODO: Fix this. It feels very inefficient and unnecessary to wrap and unwrap with Block
-        BlockBuilder leftBlockBuilder = rowType.createBlockBuilder(new BlockBuilderStatus(), 1);
-        BlockBuilder rightBlockBuilder = rowType.createBlockBuilder(new BlockBuilderStatus(), 1);
+        BlockBuilder leftBlockBuilder = rowType.createBlockBuilder(null, 1);
+        BlockBuilder rightBlockBuilder = rowType.createBlockBuilder(null, 1);
         rowType.writeObject(leftBlockBuilder, leftRow);
         rowType.writeObject(rightBlockBuilder, rightRow);
         return rowType.equalTo(leftBlockBuilder.build(), 0, rightBlockBuilder.build(), 0);

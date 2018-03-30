@@ -14,7 +14,6 @@
 package com.facebook.presto.block;
 
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.ByteArrayBlockBuilder;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -46,9 +45,9 @@ public class TestByteArrayBlock
     public void testLazyBlockBuilderInitialization()
     {
         Slice[] expectedValues = createTestValue(100);
-        BlockBuilder emptyBlockBuilder = new ByteArrayBlockBuilder(new BlockBuilderStatus(), 0);
+        BlockBuilder emptyBlockBuilder = new ByteArrayBlockBuilder(null, 0);
 
-        BlockBuilder blockBuilder = new ByteArrayBlockBuilder(new BlockBuilderStatus(), expectedValues.length);
+        BlockBuilder blockBuilder = new ByteArrayBlockBuilder(null, expectedValues.length);
         assertEquals(blockBuilder.getSizeInBytes(), emptyBlockBuilder.getSizeInBytes());
         assertEquals(blockBuilder.getRetainedSizeInBytes(), emptyBlockBuilder.getRetainedSizeInBytes());
 
@@ -56,7 +55,7 @@ public class TestByteArrayBlock
         assertTrue(blockBuilder.getSizeInBytes() > emptyBlockBuilder.getSizeInBytes());
         assertTrue(blockBuilder.getRetainedSizeInBytes() > emptyBlockBuilder.getRetainedSizeInBytes());
 
-        blockBuilder = blockBuilder.newBlockBuilderLike(new BlockBuilderStatus());
+        blockBuilder = blockBuilder.newBlockBuilderLike(null);
         assertEquals(blockBuilder.getSizeInBytes(), emptyBlockBuilder.getSizeInBytes());
         assertEquals(blockBuilder.getRetainedSizeInBytes(), emptyBlockBuilder.getRetainedSizeInBytes());
     }
@@ -70,7 +69,7 @@ public class TestByteArrayBlock
 
     private static BlockBuilder createBlockBuilderWithValues(Slice[] expectedValues)
     {
-        ByteArrayBlockBuilder blockBuilder = new ByteArrayBlockBuilder(new BlockBuilderStatus(), expectedValues.length);
+        ByteArrayBlockBuilder blockBuilder = new ByteArrayBlockBuilder(null, expectedValues.length);
         writeValues(expectedValues, blockBuilder);
         return blockBuilder;
     }

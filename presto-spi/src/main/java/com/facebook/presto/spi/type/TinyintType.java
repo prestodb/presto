@@ -65,7 +65,7 @@ public final class TinyintType
     @Override
     public BlockBuilder createFixedSizeBlockBuilder(int positionCount)
     {
-        return new ByteArrayBlockBuilder(new BlockBuilderStatus(), positionCount);
+        return new ByteArrayBlockBuilder(null, positionCount);
     }
 
     @Override

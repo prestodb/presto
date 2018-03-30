@@ -25,7 +25,6 @@ import com.esri.core.geometry.ogc.OGCPolygon;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
@@ -101,7 +100,7 @@ public class BingTileFunctions
     {
         BingTile tile = BingTile.decode(input);
 
-        BlockBuilder tileBlockBuilder = INTEGER.createBlockBuilder(new BlockBuilderStatus(), 2);
+        BlockBuilder tileBlockBuilder = INTEGER.createBlockBuilder(null, 2);
         INTEGER.writeLong(tileBlockBuilder, tile.getX());
         INTEGER.writeLong(tileBlockBuilder, tile.getY());
 

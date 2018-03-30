@@ -15,7 +15,6 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 
@@ -29,7 +28,7 @@ public class TestDoubleType
 
     public static Block createTestBlock()
     {
-        BlockBuilder blockBuilder = DOUBLE.createBlockBuilder(new BlockBuilderStatus(), 15);
+        BlockBuilder blockBuilder = DOUBLE.createBlockBuilder(null, 15);
         DOUBLE.writeDouble(blockBuilder, 11.11);
         DOUBLE.writeDouble(blockBuilder, 11.11);
         DOUBLE.writeDouble(blockBuilder, 11.11);

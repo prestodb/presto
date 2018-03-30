@@ -15,7 +15,6 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 
@@ -29,7 +28,7 @@ public class TestSmallintType
 
     public static Block createTestBlock()
     {
-        BlockBuilder blockBuilder = SMALLINT.createBlockBuilder(new BlockBuilderStatus(), 15);
+        BlockBuilder blockBuilder = SMALLINT.createBlockBuilder(null, 15);
         SMALLINT.writeLong(blockBuilder, 1111);
         SMALLINT.writeLong(blockBuilder, 1111);
         SMALLINT.writeLong(blockBuilder, 1111);

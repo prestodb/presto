@@ -22,7 +22,6 @@ import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.orc.stream.LongInputStream;
 import com.facebook.presto.spi.block.ArrayBlock;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import org.joda.time.DateTimeZone;
 
@@ -134,7 +133,7 @@ public class ListStreamReader
             elements = elementStreamReader.readBlock(elementType);
         }
         else {
-            elements = elementType.createBlockBuilder(new BlockBuilderStatus(), 0).build();
+            elements = elementType.createBlockBuilder(null, 0).build();
         }
         Block arrayBlock = ArrayBlock.fromElementBlock(nextBatchSize, nullVector, offsets, elements);
 

@@ -19,7 +19,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.function.OperatorDependency;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlType;
@@ -61,7 +60,7 @@ public final class MapToMapCast
         boolean valueCastRequiresSession = valueCastFunction.type().parameterArray()[0] == ConnectorSession.class;
 
         TypedSet typedSet = new TypedSet(toKeyType, fromMap.getPositionCount() / 2, "map-to-map cast");
-        BlockBuilder keyBlockBuilder = toKeyType.createBlockBuilder(new BlockBuilderStatus(), fromMap.getPositionCount() / 2);
+        BlockBuilder keyBlockBuilder = toKeyType.createBlockBuilder(null, fromMap.getPositionCount() / 2);
         for (int i = 0; i < fromMap.getPositionCount(); i += 2) {
             Object fromKey = readNativeValue(fromKeyType, fromMap, i);
             try {
@@ -85,7 +84,7 @@ public final class MapToMapCast
         }
         Block keyBlock = keyBlockBuilder.build();
 
-        BlockBuilder mapBlockBuilder = toMapType.createBlockBuilder(new BlockBuilderStatus(), 1);
+        BlockBuilder mapBlockBuilder = toMapType.createBlockBuilder(null, 1);
         BlockBuilder blockBuilder = mapBlockBuilder.beginBlockEntry();
         for (int i = 0; i < fromMap.getPositionCount(); i += 2) {
             if (!typedSet.contains(keyBlock, i / 2)) {

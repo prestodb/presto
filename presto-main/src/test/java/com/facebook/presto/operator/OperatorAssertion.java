@@ -17,7 +17,6 @@ import com.facebook.presto.Session;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.RowBlockBuilder;
 import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.Type;
@@ -158,7 +157,7 @@ public final class OperatorAssertion
         checkArgument(parameterTypes.size() == values.length, "parameterTypes.size(" + parameterTypes.size() + ") does not equal to values.length(" + values.length + ")");
 
         RowType rowType = new RowType(parameterTypes, Optional.empty());
-        BlockBuilder blockBuilder = new RowBlockBuilder(parameterTypes, new BlockBuilderStatus(), 1);
+        BlockBuilder blockBuilder = new RowBlockBuilder(parameterTypes, null, 1);
         BlockBuilder singleRowBlockWriter = blockBuilder.beginBlockEntry();
         for (int i = 0; i < values.length; i++) {
             appendToBlockBuilder(parameterTypes.get(i), values[i], singleRowBlockWriter);

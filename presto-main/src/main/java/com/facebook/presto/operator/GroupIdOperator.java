@@ -16,7 +16,6 @@ package com.facebook.presto.operator;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -82,7 +81,7 @@ public class GroupIdOperator
             // it's easier to create null blocks for every output column even though we only null out some grouping column outputs
             Block[] nullBlocks = new Block[outputTypes.size()];
             for (int i = 0; i < outputTypes.size(); i++) {
-                nullBlocks[i] = outputTypes.get(i).createBlockBuilder(new BlockBuilderStatus(), 1)
+                nullBlocks[i] = outputTypes.get(i).createBlockBuilder(null, 1)
                         .appendNull()
                         .build();
             }
@@ -90,7 +89,7 @@ public class GroupIdOperator
             // create groupid blocks for every group
             Block[] groupIdBlocks = new Block[groupingSetMappings.size()];
             for (int i = 0; i < groupingSetMappings.size(); i++) {
-                BlockBuilder builder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), 1);
+                BlockBuilder builder = BIGINT.createBlockBuilder(null, 1);
                 BIGINT.writeLong(builder, i);
                 groupIdBlocks[i] = builder.build();
             }

@@ -123,7 +123,7 @@ public abstract class AbstractLongType
     @Override
     public final BlockBuilder createFixedSizeBlockBuilder(int positionCount)
     {
-        return new LongArrayBlockBuilder(new BlockBuilderStatus(), positionCount);
+        return new LongArrayBlockBuilder(null, positionCount);
     }
 
     public static long hash(long value)

@@ -21,7 +21,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Decimals;
@@ -773,7 +772,7 @@ public class ParquetHiveRecordCursor
         {
             if (builder == null) {
                 if (nullBuilder == null || (nullBuilder.getPositionCount() >= NULL_BUILDER_POSITIONS_THRESHOLD && nullBuilder.getSizeInBytes() >= NULL_BUILDER_SIZE_IN_BYTES_THRESHOLD)) {
-                    nullBuilder = rowType.createBlockBuilder(new BlockBuilderStatus(), NULL_BUILDER_POSITIONS_THRESHOLD);
+                    nullBuilder = rowType.createBlockBuilder(null, NULL_BUILDER_POSITIONS_THRESHOLD);
                 }
                 currentEntryBuilder = nullBuilder.beginBlockEntry();
             }
@@ -908,7 +907,7 @@ public class ParquetHiveRecordCursor
         {
             if (builder == null) {
                 if (nullBuilder == null || (nullBuilder.getPositionCount() >= NULL_BUILDER_POSITIONS_THRESHOLD && nullBuilder.getSizeInBytes() >= NULL_BUILDER_SIZE_IN_BYTES_THRESHOLD)) {
-                    nullBuilder = arrayType.createBlockBuilder(new BlockBuilderStatus(), NULL_BUILDER_POSITIONS_THRESHOLD);
+                    nullBuilder = arrayType.createBlockBuilder(null, NULL_BUILDER_POSITIONS_THRESHOLD);
                 }
                 currentEntryBuilder = nullBuilder.beginBlockEntry();
             }
@@ -1061,7 +1060,7 @@ public class ParquetHiveRecordCursor
         {
             if (builder == null) {
                 if (nullBuilder == null || (nullBuilder.getPositionCount() >= NULL_BUILDER_POSITIONS_THRESHOLD && nullBuilder.getSizeInBytes() >= NULL_BUILDER_SIZE_IN_BYTES_THRESHOLD)) {
-                    nullBuilder = mapType.createBlockBuilder(new BlockBuilderStatus(), NULL_BUILDER_POSITIONS_THRESHOLD);
+                    nullBuilder = mapType.createBlockBuilder(null, NULL_BUILDER_POSITIONS_THRESHOLD);
                 }
                 currentEntryBuilder = nullBuilder.beginBlockEntry();
             }

@@ -133,7 +133,7 @@ public final class DoubleType
     @Override
     public final BlockBuilder createFixedSizeBlockBuilder(int positionCount)
     {
-        return new LongArrayBlockBuilder(new BlockBuilderStatus(), positionCount);
+        return new LongArrayBlockBuilder(null, positionCount);
     }
 
     @Override

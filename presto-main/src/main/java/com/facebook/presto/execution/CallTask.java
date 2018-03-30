@@ -21,7 +21,6 @@ import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.procedure.Procedure.Argument;
 import com.facebook.presto.spi.type.Type;
@@ -173,7 +172,7 @@ public class CallTask
 
     private static Object toTypeObjectValue(Session session, Type type, Object value)
     {
-        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), 1);
+        BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
         writeNativeValue(type, blockBuilder, value);
         return type.getObjectValue(session.toConnectorSession(), blockBuilder, 0);
     }

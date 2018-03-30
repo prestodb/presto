@@ -22,7 +22,6 @@ import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
@@ -174,7 +173,7 @@ public class ExplainAnalyzeOperator
         }
 
         String plan = textDistributedPlan(queryInfo.getOutputStage().get().getSubStages().get(0), functionRegistry, statsCalculator, costCalculator, operatorContext.getSession(), verbose);
-        BlockBuilder builder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 1);
+        BlockBuilder builder = VARCHAR.createBlockBuilder(null, 1);
         VARCHAR.writeString(builder, plan);
 
         outputConsumed = true;

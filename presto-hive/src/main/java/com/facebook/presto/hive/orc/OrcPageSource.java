@@ -24,7 +24,6 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.LazyBlock;
 import com.facebook.presto.spi.block.LazyBlockLoader;
 import com.facebook.presto.spi.type.Type;
@@ -97,7 +96,7 @@ public class OrcPageSource
             hiveColumnIndexes[columnIndex] = column.getHiveColumnIndex();
 
             if (!recordReader.isColumnPresent(column.getHiveColumnIndex())) {
-                BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), MAX_BATCH_SIZE, NULL_ENTRY_SIZE);
+                BlockBuilder blockBuilder = type.createBlockBuilder(null, MAX_BATCH_SIZE, NULL_ENTRY_SIZE);
                 for (int i = 0; i < MAX_BATCH_SIZE; i++) {
                     blockBuilder.appendNull();
                 }

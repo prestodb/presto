@@ -21,7 +21,6 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.SingleRowBlockWriter;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.RowType;
@@ -111,7 +110,7 @@ public class JsonToRowCast
                 throw new JsonCastException(format("Expected a json array or object, but got %s", jsonParser.getText()));
             }
 
-            BlockBuilder rowBlockBuilder = rowType.createBlockBuilder(new BlockBuilderStatus(), 1);
+            BlockBuilder rowBlockBuilder = rowType.createBlockBuilder(null, 1);
             parseJsonToSingleRowBlock(
                     jsonParser,
                     (SingleRowBlockWriter) rowBlockBuilder.beginBlockEntry(),

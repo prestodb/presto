@@ -16,7 +16,6 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.operator.aggregation.TypedSet;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
@@ -51,7 +50,7 @@ public final class ArrayDistinctFunction
         }
 
         TypedSet typedSet = new TypedSet(type, array.getPositionCount(), "array_distinct");
-        BlockBuilder distinctElementBlockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), array.getPositionCount());
+        BlockBuilder distinctElementBlockBuilder = type.createBlockBuilder(null, array.getPositionCount());
         for (int i = 0; i < array.getPositionCount(); i++) {
             if (!typedSet.contains(array, i)) {
                 typedSet.add(array, i);
@@ -71,7 +70,7 @@ public final class ArrayDistinctFunction
 
         boolean containsNull = false;
         LongSet set = new LongOpenHashSet(array.getPositionCount());
-        BlockBuilder distinctElementBlockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), array.getPositionCount());
+        BlockBuilder distinctElementBlockBuilder = BIGINT.createBlockBuilder(null, array.getPositionCount());
         for (int i = 0; i < array.getPositionCount(); i++) {
             if (array.isNull(i)) {
                 if (!containsNull) {

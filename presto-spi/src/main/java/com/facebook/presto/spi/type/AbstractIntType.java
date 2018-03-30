@@ -125,7 +125,7 @@ public abstract class AbstractIntType
     @Override
     public final BlockBuilder createFixedSizeBlockBuilder(int positionCount)
     {
-        return new IntArrayBlockBuilder(new BlockBuilderStatus(), positionCount);
+        return new IntArrayBlockBuilder(null, positionCount);
     }
 
     public static long hash(int value)

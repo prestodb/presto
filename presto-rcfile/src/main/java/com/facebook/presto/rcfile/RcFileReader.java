@@ -17,7 +17,6 @@ import com.facebook.presto.rcfile.RcFileWriteValidation.WriteChecksum;
 import com.facebook.presto.rcfile.RcFileWriteValidation.WriteChecksumBuilder;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableMap;
@@ -428,7 +427,7 @@ public class RcFileReader
 
         if (columnIndex >= columns.length) {
             Type type = readColumns.get(columnIndex);
-            Block nullBlock = type.createBlockBuilder(new BlockBuilderStatus(), 1, 0).appendNull().build();
+            Block nullBlock = type.createBlockBuilder(null, 1, 0).appendNull().build();
             return new RunLengthEncodedBlock(nullBlock, currentChunkRowCount);
         }
 

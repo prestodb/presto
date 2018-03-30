@@ -16,7 +16,6 @@ package com.facebook.presto.plugin.geospatial;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -47,7 +46,7 @@ public class TestGeoFunctions
     @Test
     public void testGeometryGetObjectValue()
     {
-        BlockBuilder builder = GEOMETRY.createBlockBuilder(new BlockBuilderStatus(), 1);
+        BlockBuilder builder = GEOMETRY.createBlockBuilder(null, 1);
         GEOMETRY.writeSlice(builder, GeoFunctions.stPoint(1.2, 3.4));
         Block block = builder.build();
 

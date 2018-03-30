@@ -67,7 +67,7 @@ public class FixedWidthBlockBuilder
         initialized = true;
         Slice slice = Slices.allocate(fixedSize * positionCount);
 
-        this.blockBuilderStatus = new BlockBuilderStatus();
+        this.blockBuilderStatus = null;
         this.sliceOutput = slice.getOutput();
 
         this.valueIsNull = Slices.allocate(positionCount).getOutput();

@@ -21,7 +21,6 @@ import com.facebook.presto.operator.aggregation.groupByAggregations.AggregationT
 import com.facebook.presto.operator.aggregation.groupByAggregations.GroupByAggregationTestUtils;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.google.common.collect.ImmutableList;
@@ -145,7 +144,7 @@ public class TestArrayAggregation
                 new Signature("array_agg", AGGREGATE, parseTypeSignature("array(bigint)"), parseTypeSignature(StandardTypes.BIGINT)));
         GroupedAccumulator groupedAccumulator = bigIntAgg.bind(Ints.asList(new int[] {}), Optional.empty())
                 .createGroupedAccumulator();
-        BlockBuilder blockBuilder = groupedAccumulator.getFinalType().createBlockBuilder(new BlockBuilderStatus(), 1000);
+        BlockBuilder blockBuilder = groupedAccumulator.getFinalType().createBlockBuilder(null, 1000);
 
         groupedAccumulator.evaluateFinal(0, blockBuilder);
         assertTrue(blockBuilder.isNull(0));

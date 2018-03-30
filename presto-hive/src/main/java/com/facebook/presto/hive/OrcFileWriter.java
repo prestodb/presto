@@ -23,7 +23,6 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
@@ -89,7 +88,7 @@ public class OrcFileWriter
 
         ImmutableList.Builder<Block> nullBlocks = ImmutableList.builder();
         for (Type fileColumnType : fileColumnTypes) {
-            BlockBuilder blockBuilder = fileColumnType.createBlockBuilder(new BlockBuilderStatus(), 1, 0);
+            BlockBuilder blockBuilder = fileColumnType.createBlockBuilder(null, 1, 0);
             blockBuilder.appendNull();
             nullBlocks.add(blockBuilder.build());
         }
