@@ -23,8 +23,6 @@ import static com.facebook.presto.tests.TestGroups.HIVE_CONNECTOR;
 import static com.facebook.presto.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static com.facebook.presto.tests.utils.QueryExecutors.connectToPresto;
 import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
-import static io.prestodb.tempto.context.ContextDsl.executeWith;
-import static io.prestodb.tempto.sql.SqlContexts.createViewAs;
 import static java.lang.String.format;
 
 public class TestSqlStandardAccessControlChecks
@@ -33,6 +31,7 @@ public class TestSqlStandardAccessControlChecks
     private String tableName;
     private QueryExecutor aliceExecutor;
     private QueryExecutor bobExecutor;
+    private QueryExecutor charlieExecutor;
 
     @BeforeTestWithContext
     public void setup()
@@ -40,6 +39,7 @@ public class TestSqlStandardAccessControlChecks
         tableName = "alice_owned_table";
         aliceExecutor = connectToPresto("alice@presto");
         bobExecutor = connectToPresto("bob@presto");
+        charlieExecutor = connectToPresto("charlie@presto");
 
         aliceExecutor.executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
         aliceExecutor.executeQuery(format("CREATE TABLE %s(month bigint, day bigint) WITH (partitioned_by = ARRAY['day'])", tableName));
@@ -142,18 +142,33 @@ public class TestSqlStandardAccessControlChecks
         String createViewSql = format("CREATE VIEW %s AS %s", viewName, selectTableSql);
 
         bobExecutor.executeQuery(format("DROP VIEW IF EXISTS %s", viewName));
+
+        // Bob needs SELECT on the table to create the view
         assertThat(() -> bobExecutor.executeQuery(createViewSql))
                 .failsWithMessage(format("Access Denied: Cannot select from table default.%s", tableName));
+
+        // Give Bob access to table, then create view
         aliceExecutor.executeQuery(format("GRANT SELECT ON %s TO bob", tableName));
-        assertThat(() -> bobExecutor.executeQuery(createViewSql))
+        bobExecutor.executeQuery(createViewSql);
+
+        // Verify that Charlie does not have SELECT on the view, then grant access
+        assertThat(() -> charlieExecutor.executeQuery(format("SELECT * FROM %s", viewName)))
+                .failsWithMessage(format("Access Denied: Cannot select from view default.%s", viewName));
+        bobExecutor.executeQuery(format("GRANT SELECT ON %s TO charlie", viewName));
+
+        // Bob does not have GRANT OPTION, so neither Bob nor Charlie can access the view
+        assertThat(() -> bobExecutor.executeQuery(format("SELECT * FROM %s", viewName)))
+                .failsWithMessage(format("Access Denied: Cannot create view that selects from default.%s", tableName));
+        assertThat(() -> charlieExecutor.executeQuery(format("SELECT * FROM %s", viewName)))
                 .failsWithMessage(format("Access Denied: Cannot create view that selects from default.%s", tableName));
 
+        // Give Bob SELECT WITH GRANT OPTION on the underlying table
         aliceExecutor.executeQuery(format("REVOKE SELECT ON %s FROM bob", tableName));
         aliceExecutor.executeQuery(format("GRANT SELECT ON %s TO bob WITH GRANT OPTION", tableName));
-        executeWith(createViewAs(viewName, selectTableSql, bobExecutor), view -> {
-            assertThat(bobExecutor.executeQuery(format("SELECT * FROM %s", view.getName())))
-                    .hasNoRows();
-        });
+
+        // Bob has GRANT OPTION, so both Bob and Charlie can access the view
+        assertThat(bobExecutor.executeQuery(format("SELECT * FROM %s", viewName))).hasNoRows();
+        assertThat(charlieExecutor.executeQuery(format("SELECT * FROM %s", viewName))).hasNoRows();
     }
 
     @Test(groups = {AUTHORIZATION, HIVE_CONNECTOR, PROFILE_SPECIFIC_TESTS})

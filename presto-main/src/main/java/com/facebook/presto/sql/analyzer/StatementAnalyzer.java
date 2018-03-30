@@ -452,12 +452,7 @@ class StatementAnalyzer
             QualifiedObjectName viewName = createQualifiedObjectName(session, node, node.getName());
 
             // analyze the query that creates the view
-            StatementAnalyzer analyzer = new StatementAnalyzer(
-                    analysis,
-                    metadata,
-                    sqlParser,
-                    new ViewAccessControl(accessControl),
-                    session);
+            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session);
 
             Scope queryScope = analyzer.analyze(node.getQuery(), scope);
 

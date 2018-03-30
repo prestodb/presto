@@ -880,18 +880,11 @@ public abstract class AbstractTestDistributedQueries
                 .setSchema(getSession().getSchema().get())
                 .build();
 
-        // verify creation of view over a table requires special view creation privileges for the table
-        assertAccessDenied(
-                viewOwnerSession,
-                "CREATE VIEW test_view_access AS SELECT * FROM orders",
-                "Cannot select from table .*.orders.*",
-                privilege("orders", CREATE_VIEW_WITH_SELECT_TABLE));
-
-        // create the view
+        // view creation permissions are only checked at query time, not at creation
         assertAccessAllowed(
                 viewOwnerSession,
                 "CREATE VIEW test_view_access AS SELECT * FROM orders",
-                privilege("bogus", "bogus privilege to disable security", SELECT_TABLE));
+                privilege("orders", CREATE_VIEW_WITH_SELECT_TABLE));
 
         // verify selecting from a view over a table requires the view owner to have special view creation privileges for the table
         assertAccessDenied(
@@ -913,18 +906,11 @@ public abstract class AbstractTestDistributedQueries
                 .setSchema(getSession().getSchema().get())
                 .build();
 
-        // verify creation of view over a view requires special view creation privileges for the view
-        assertAccessDenied(
-                nestedViewOwnerSession,
-                "CREATE VIEW test_nested_view_access AS SELECT * FROM test_view_access",
-                "Cannot select from view .*.test_view_access.*",
-                privilege("test_view_access", CREATE_VIEW_WITH_SELECT_VIEW));
-
-        // create the nested view
+        // view creation permissions are only checked at query time, not at creation
         assertAccessAllowed(
                 nestedViewOwnerSession,
                 "CREATE VIEW test_nested_view_access AS SELECT * FROM test_view_access",
-                privilege("bogus", "bogus privilege to disable security", SELECT_TABLE));
+                privilege("test_view_access", CREATE_VIEW_WITH_SELECT_VIEW));
 
         // verify selecting from a view over a view requires the view owner of the outer view to have special view creation privileges for the inner view
         assertAccessDenied(
