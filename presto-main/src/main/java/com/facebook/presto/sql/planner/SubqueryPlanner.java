@@ -198,7 +198,7 @@ class SubqueryPlanner
         subPlan.getTranslations().put(parametersReplaced, inPredicateSubquerySymbol);
         subPlan.getTranslations().put(inPredicate, inPredicateSubquerySymbol);
 
-        return appendApplyNode(subPlan, inPredicate, subqueryPlan, Assignments.of(inPredicateSubquerySymbol, inPredicateSubqueryExpression), correlationAllowed);
+        return appendApplyNode(subPlan, inPredicate, subqueryPlan.getRoot(), Assignments.of(inPredicateSubquerySymbol, inPredicateSubqueryExpression), correlationAllowed);
     }
 
     private PlanBuilder appendScalarSubqueryApplyNodes(PlanBuilder builder, Set<SubqueryExpression> scalarSubqueries, boolean correlationAllowed)
@@ -287,14 +287,16 @@ class SubqueryPlanner
             return subPlan;
         }
 
+        // add an explicit projection that removes all columns
+        PlanNode subqueryNode = new ProjectNode(idAllocator.getNextId(), subqueryPlan.getRoot(), Assignments.of());
+
         Symbol exists = symbolAllocator.newSymbol("exists", BOOLEAN);
         subPlan.getTranslations().put(existsPredicate, exists);
-        ExistsPredicate rewrittenExistsPredicate = new ExistsPredicate(
-                subqueryPlanRoot.getOutputSymbols().get(0).toSymbolReference());
+        ExistsPredicate rewrittenExistsPredicate = new ExistsPredicate(BooleanLiteral.TRUE_LITERAL);
         return appendApplyNode(
                 subPlan,
                 existsPredicate.getSubquery(),
-                subqueryPlan,
+                subqueryNode,
                 Assignments.of(exists, rewrittenExistsPredicate),
                 correlationAllowed);
     }
@@ -392,7 +394,7 @@ class SubqueryPlanner
         return appendApplyNode(
                 subPlan,
                 quantifiedComparison.getSubquery(),
-                subqueryPlan,
+                subqueryPlan.getRoot(),
                 Assignments.of(coercedQuantifiedComparisonSymbol, coercedQuantifiedComparison),
                 correlationAllowed);
     }
@@ -429,11 +431,10 @@ class SubqueryPlanner
     private PlanBuilder appendApplyNode(
             PlanBuilder subPlan,
             Node subquery,
-            PlanBuilder subqueryPlan,
+            PlanNode subqueryNode,
             Assignments subqueryAssignments,
             boolean correlationAllowed)
     {
-        PlanNode subqueryNode = subqueryPlan.getRoot();
         Map<Expression, Expression> correlation = extractCorrelation(subPlan, subqueryNode);
         if (!correlationAllowed && !correlation.isEmpty()) {
             throw notSupportedException(subquery, "Correlated subquery in given context");
