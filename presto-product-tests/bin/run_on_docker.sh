@@ -105,7 +105,7 @@ function terminate() {
 }
 
 function usage() {
-  echo "Usage: run_on_docker.sh <`getAvailableEnvironments | tr '\n' '|'`> <product test args>"
+  echo "Usage: run_on_docker.sh <`getAvailableEnvironments | tr '\n' '|' | sed 's/|$//'`> <product test args>"
   exit 1
  }
 
