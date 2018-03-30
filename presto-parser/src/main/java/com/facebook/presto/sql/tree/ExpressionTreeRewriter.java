@@ -683,7 +683,13 @@ public final class ExpressionTreeRewriter<C>
                 }
             }
 
-            // No default rewrite for ExistsPredicate since we do not want to traverse subqueries
+            Expression subquery = node.getSubquery();
+            subquery = rewrite(subquery, context.get());
+
+            if (subquery != node.getSubquery()) {
+                return new ExistsPredicate(subquery);
+            }
+
             return node;
         }
 
