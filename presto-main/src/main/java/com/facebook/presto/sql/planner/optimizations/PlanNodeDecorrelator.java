@@ -18,31 +18,23 @@ import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
-import com.facebook.presto.sql.planner.iterative.GroupReference;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.FilterNode;
-import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
-import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
-import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
-import static com.facebook.presto.sql.planner.plan.SimplePlanRewriter.rewriteWith;
-import static com.facebook.presto.util.MorePredicates.isInstanceOfAny;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
@@ -59,98 +51,103 @@ public class PlanNodeDecorrelator
 
     public Optional<DecorrelatedNode> decorrelateFilters(PlanNode node, List<Symbol> correlation)
     {
-        PlanNodeSearcher filterNodeSearcher = searchFrom(node, lookup)
-                .where(FilterNode.class::isInstance)
-                .recurseOnlyWhen(isInstanceOfAny(ProjectNode.class, LimitNode.class));
-        List<FilterNode> filterNodes = filterNodeSearcher.findAll();
+        // TODO: when correlations list empty this should return immediately. However this isn't correct
+        // right now, because for nested subqueries correlation list is empty while there might exists usages
+        // of the outer most correlated symbols
 
-        if (filterNodes.isEmpty()) {
-            return decorrelatedNode(ImmutableList.of(), node, correlation);
-        }
-
-        if (filterNodes.size() > 1) {
-            return Optional.empty();
-        }
-
-        FilterNode filterNode = filterNodes.get(0);
-        Expression predicate = filterNode.getPredicate();
-
-        if (!isSupportedPredicate(predicate)) {
-            return Optional.empty();
-        }
-
-        if (!SymbolsExtractor.extractUnique(predicate).containsAll(correlation)) {
-            return Optional.empty();
-        }
-
-        Map<Boolean, List<Expression>> predicates = ExpressionUtils.extractConjuncts(predicate).stream()
-                .collect(Collectors.partitioningBy(isUsingPredicate(correlation)));
-        List<Expression> correlatedPredicates = ImmutableList.copyOf(predicates.get(true));
-        List<Expression> uncorrelatedPredicates = ImmutableList.copyOf(predicates.get(false));
-
-        node = updateFilterNode(filterNodeSearcher, uncorrelatedPredicates);
-
-        if (!correlatedPredicates.isEmpty()) {
-            // filterNodes condition has changed so Limit node no longer applies for EXISTS subquery
-            node = removeLimitNode(node);
-        }
-
-        node = ensureJoinSymbolsAreReturned(node, correlatedPredicates);
-
-        return decorrelatedNode(correlatedPredicates, node, correlation);
+        Optional<DecorrelationResult> decorrelationResultOptional = lookup.resolve(node).accept(new DecorrelatingVisitor(correlation), null);
+        return decorrelationResultOptional.flatMap(decorrelationResult -> decorrelatedNode(
+                decorrelationResult.correlatedPredicates,
+                decorrelationResult.node,
+                correlation));
     }
 
-    private static boolean isSupportedPredicate(Expression predicate)
+    private class DecorrelatingVisitor
+            extends PlanVisitor<Optional<DecorrelationResult>, Void>
     {
-        AtomicBoolean isSupported = new AtomicBoolean(true);
-        new DefaultTraversalVisitor<Void, AtomicBoolean>()
+        final List<Symbol> correlation;
+
+        DecorrelatingVisitor(List<Symbol> correlation)
         {
-            @Override
-            protected Void visitLogicalBinaryExpression(LogicalBinaryExpression node, AtomicBoolean context)
-            {
-                if (node.getType() != LogicalBinaryExpression.Type.AND) {
-                    context.set(false);
-                }
-                return null;
-            }
-        }.process(predicate, isSupported);
-        return isSupported.get();
-    }
-
-    private Predicate<Expression> isUsingPredicate(List<Symbol> symbols)
-    {
-        return expression -> symbols.stream().anyMatch(SymbolsExtractor.extractUnique(expression)::contains);
-    }
-
-    private PlanNode updateFilterNode(PlanNodeSearcher filterNodeSearcher, List<Expression> newPredicates)
-    {
-        if (newPredicates.isEmpty()) {
-            return filterNodeSearcher.removeAll();
+            this.correlation = requireNonNull(correlation, "correlation is null");
         }
-        FilterNode oldFilterNode = Iterables.getOnlyElement(filterNodeSearcher.findAll());
-        FilterNode newFilterNode = new FilterNode(
-                idAllocator.getNextId(),
-                oldFilterNode.getSource(),
-                ExpressionUtils.combineConjuncts(newPredicates));
-        return filterNodeSearcher.replaceAll(newFilterNode);
+
+        @Override
+        protected Optional<DecorrelationResult> visitPlan(PlanNode node, Void context)
+        {
+            return Optional.of(new DecorrelationResult(
+                    node,
+                    ImmutableSet.of(),
+                    ImmutableList.of()));
+        }
+
+        @Override
+        public Optional<DecorrelationResult> visitFilter(FilterNode node, Void context)
+        {
+            Expression predicate = node.getPredicate();
+            if (!SymbolsExtractor.extractUnique(predicate).containsAll(correlation)) {
+                return Optional.empty();
+            }
+
+            Map<Boolean, List<Expression>> predicates = ExpressionUtils.extractConjuncts(predicate).stream()
+                    .collect(Collectors.partitioningBy(PlanNodeDecorrelator.DecorrelatingVisitor.this::isCorrelated));
+            List<Expression> correlatedPredicates = ImmutableList.copyOf(predicates.get(true));
+            List<Expression> uncorrelatedPredicates = ImmutableList.copyOf(predicates.get(false));
+
+            FilterNode newFilterNode = new FilterNode(
+                    idAllocator.getNextId(),
+                    node.getSource(),
+                    ExpressionUtils.combineConjuncts(uncorrelatedPredicates));
+
+            return Optional.of(new DecorrelationResult(
+                    newFilterNode,
+                    Sets.difference(SymbolsExtractor.extractUnique(correlatedPredicates), ImmutableSet.copyOf(correlation)),
+                    correlatedPredicates));
+        }
+
+        @Override
+        public Optional<DecorrelationResult> visitProject(ProjectNode node, Void context)
+        {
+            Optional<DecorrelationResult> childDecorrelationResultOptional = lookup.resolve(node.getSource()).accept(this, null);
+            if (!childDecorrelationResultOptional.isPresent()) {
+                return Optional.empty();
+            }
+
+            DecorrelationResult childDecorrelationResult = childDecorrelationResultOptional.get();
+            Set<Symbol> nodeOutputSymbols = ImmutableSet.copyOf(node.getOutputSymbols());
+            List<Symbol> symbolsToAdd = childDecorrelationResult.symbolsToPropagate.stream()
+                    .filter(symbol -> !nodeOutputSymbols.contains(symbol))
+                    .collect(toImmutableList());
+
+            Assignments assignments = Assignments.builder()
+                    .putAll(node.getAssignments())
+                    .putIdentities(symbolsToAdd)
+                    .build();
+
+            return Optional.of(new DecorrelationResult(
+                    new ProjectNode(idAllocator.getNextId(), childDecorrelationResult.node, assignments),
+                    childDecorrelationResult.symbolsToPropagate,
+                    childDecorrelationResult.correlatedPredicates));
+        }
+
+        private boolean isCorrelated(Expression expression)
+        {
+            return correlation.stream().anyMatch(SymbolsExtractor.extractUnique(expression)::contains);
+        }
     }
 
-    private PlanNode removeLimitNode(PlanNode node)
+    private static class DecorrelationResult
     {
-        node = searchFrom(node, lookup)
-                .where(LimitNode.class::isInstance)
-                .recurseOnlyWhen(ProjectNode.class::isInstance)
-                .removeFirst();
-        return node;
-    }
+        final PlanNode node;
+        final Set<Symbol> symbolsToPropagate;
+        final List<Expression> correlatedPredicates;
 
-    private PlanNode ensureJoinSymbolsAreReturned(PlanNode scalarAggregationSource, List<Expression> joinPredicate)
-    {
-        Set<Symbol> joinExpressionSymbols = SymbolsExtractor.extractUnique(joinPredicate);
-        ExtendProjectionRewriter extendProjectionRewriter = new ExtendProjectionRewriter(
-                idAllocator,
-                joinExpressionSymbols);
-        return rewriteWith(extendProjectionRewriter, scalarAggregationSource);
+        public DecorrelationResult(PlanNode node, Set<Symbol> symbolsToPropagate, List<Expression> correlatedPredicates)
+        {
+            this.node = node;
+            this.symbolsToPropagate = symbolsToPropagate;
+            this.correlatedPredicates = correlatedPredicates;
+        }
     }
 
     private Optional<DecorrelatedNode> decorrelatedNode(
@@ -186,43 +183,6 @@ public class PlanNodeDecorrelator
         }
 
         public PlanNode getNode()
-        {
-            return node;
-        }
-    }
-
-    private static class ExtendProjectionRewriter
-            extends SimplePlanRewriter<PlanNode>
-    {
-        private final PlanNodeIdAllocator idAllocator;
-        private final Set<Symbol> symbols;
-
-        ExtendProjectionRewriter(PlanNodeIdAllocator idAllocator, Set<Symbol> symbols)
-        {
-            this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
-            this.symbols = requireNonNull(symbols, "symbols is null");
-        }
-
-        @Override
-        public PlanNode visitProject(ProjectNode node, RewriteContext<PlanNode> context)
-        {
-            ProjectNode rewrittenNode = (ProjectNode) context.defaultRewrite(node, context.get());
-
-            List<Symbol> symbolsToAdd = symbols.stream()
-                    .filter(rewrittenNode.getSource().getOutputSymbols()::contains)
-                    .filter(symbol -> !rewrittenNode.getOutputSymbols().contains(symbol))
-                    .collect(toImmutableList());
-
-            Assignments assignments = Assignments.builder()
-                    .putAll(rewrittenNode.getAssignments())
-                    .putIdentities(symbolsToAdd)
-                    .build();
-
-            return new ProjectNode(idAllocator.getNextId(), rewrittenNode.getSource(), assignments);
-        }
-
-        @Override
-        public PlanNode visitGroupReference(GroupReference node, RewriteContext<PlanNode> context)
         {
             return node;
         }
