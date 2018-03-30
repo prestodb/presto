@@ -177,7 +177,7 @@ public class PlanNodeDecorrelator
             this.node = requireNonNull(node, "node is null");
         }
 
-        Optional<Expression> getCorrelatedPredicates()
+        public Optional<Expression> getCorrelatedPredicates()
         {
             if (correlatedPredicates.isEmpty()) {
                 return Optional.empty();
