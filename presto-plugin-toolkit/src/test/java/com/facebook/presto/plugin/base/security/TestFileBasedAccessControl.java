@@ -52,12 +52,17 @@ public class TestFileBasedAccessControl
         accessControl.checkCanSelectFromTable(TRANSACTION_HANDLE, user("bob"), new SchemaTableName("bobschema", "bobtable"));
         accessControl.checkCanInsertIntoTable(TRANSACTION_HANDLE, user("bob"), new SchemaTableName("bobschema", "bobtable"));
         accessControl.checkCanDeleteFromTable(TRANSACTION_HANDLE, user("bob"), new SchemaTableName("bobschema", "bobtable"));
+        accessControl.checkCanSelectFromTable(TRANSACTION_HANDLE, user("joe"), new SchemaTableName("bobschema", "bobtable"));
         accessControl.checkCanCreateViewWithSelectFromTable(TRANSACTION_HANDLE, user("bob"), new SchemaTableName("bobschema", "bobtable"));
+        accessControl.checkCanCreateViewWithSelectFromView(TRANSACTION_HANDLE, user("bob"), new SchemaTableName("bobschema", "bobtable"));
         accessControl.checkCanDropTable(TRANSACTION_HANDLE, user("admin"), new SchemaTableName("bobschema", "bobtable"));
         assertDenied(() -> accessControl.checkCanInsertIntoTable(TRANSACTION_HANDLE, user("alice"), new SchemaTableName("bobschema", "bobtable")));
         assertDenied(() -> accessControl.checkCanDropTable(TRANSACTION_HANDLE, user("bob"), new SchemaTableName("bobschema", "bobtable")));
         assertDenied(() -> accessControl.checkCanInsertIntoTable(TRANSACTION_HANDLE, user("bob"), new SchemaTableName("test", "test")));
         assertDenied(() -> accessControl.checkCanSelectFromTable(TRANSACTION_HANDLE, user("admin"), new SchemaTableName("secret", "secret")));
+        assertDenied(() -> accessControl.checkCanSelectFromTable(TRANSACTION_HANDLE, user("joe"), new SchemaTableName("secret", "secret")));
+        assertDenied(() -> accessControl.checkCanCreateViewWithSelectFromTable(TRANSACTION_HANDLE, user("joe"), new SchemaTableName("bobschema", "bobtable")));
+        assertDenied(() -> accessControl.checkCanCreateViewWithSelectFromView(TRANSACTION_HANDLE, user("joe"), new SchemaTableName("bobschema", "bobtable")));
     }
 
     @Test
