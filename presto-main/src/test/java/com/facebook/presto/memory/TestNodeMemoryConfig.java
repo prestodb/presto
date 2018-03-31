@@ -30,10 +30,12 @@ public class TestNodeMemoryConfig
     public void testDefaults()
     {
         // This can't use assertRecordedDefaults because the default value is dependent on the current max heap size, which varies based on the current size of the survivor space.
+        NodeMemoryConfig config = new NodeMemoryConfig();
+        long maxMemory = Runtime.getRuntime().maxMemory();
         for (int i = 0; i < 1_000; i++) {
-            DataSize expected = new DataSize(Runtime.getRuntime().maxMemory() * 0.1, BYTE);
-            NodeMemoryConfig config = new NodeMemoryConfig();
-            if (expected.equals(config.getMaxQueryMemoryPerNode())) {
+            DataSize expectedQueryMaxMemory = new DataSize(maxMemory * 0.1, BYTE);
+            DataSize expectedQueryMaxTotalMemory = new DataSize(maxMemory, BYTE);
+            if (expectedQueryMaxMemory.equals(config.getMaxQueryMemoryPerNode()) && expectedQueryMaxTotalMemory.equals(config.getMaxQueryTotalMemoryPerNode())) {
                 return;
             }
         }
@@ -46,10 +48,12 @@ public class TestNodeMemoryConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("query.max-memory-per-node", "1GB")
+                .put("query.max-total-memory-per-node", "3GB")
                 .build();
 
         NodeMemoryConfig expected = new NodeMemoryConfig()
-                .setMaxQueryMemoryPerNode(new DataSize(1, GIGABYTE));
+                .setMaxQueryMemoryPerNode(new DataSize(1, GIGABYTE))
+                .setMaxQueryTotalMemoryPerNode(new DataSize(3, GIGABYTE));
 
         assertFullMapping(properties, expected);
     }

@@ -27,6 +27,9 @@ public class NodeMemoryConfig
 
     private DataSize maxQueryMemoryPerNode = new DataSize(Runtime.getRuntime().maxMemory() * 0.1, BYTE);
 
+    // This is a per-query limit for the user plus system allocations.
+    private DataSize maxQueryTotalMemoryPerNode = new DataSize(Runtime.getRuntime().maxMemory(), BYTE);
+
     @NotNull
     public DataSize getMaxQueryMemoryPerNode()
     {
@@ -37,6 +40,19 @@ public class NodeMemoryConfig
     public NodeMemoryConfig setMaxQueryMemoryPerNode(DataSize maxQueryMemoryPerNode)
     {
         this.maxQueryMemoryPerNode = maxQueryMemoryPerNode;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getMaxQueryTotalMemoryPerNode()
+    {
+        return maxQueryTotalMemoryPerNode;
+    }
+
+    @Config("query.max-total-memory-per-node")
+    public NodeMemoryConfig setMaxQueryTotalMemoryPerNode(DataSize maxQueryTotalMemoryPerNode)
+    {
+        this.maxQueryTotalMemoryPerNode = maxQueryTotalMemoryPerNode;
         return this;
     }
 }

@@ -54,6 +54,7 @@ public class TestQueryContext
             QueryContext queryContext = new QueryContext(
                     new QueryId("query"),
                     new DataSize(10, BYTE),
+                    new DataSize(20, BYTE),
                     new MemoryPool(GENERAL_POOL, new DataSize(10, BYTE)),
                     new MemoryPool(SYSTEM_POOL, new DataSize(10, BYTE)),
                     new TestingGcMonitor(),

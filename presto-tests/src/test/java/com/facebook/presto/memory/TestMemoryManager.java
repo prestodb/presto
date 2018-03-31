@@ -75,6 +75,7 @@ public class TestMemoryManager
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("query.max-memory-per-node", "1kB")
+                .put("query.max-total-memory-per-node", "1kB")
                 .put("query.max-memory", "1kB")
                 .build();
 
@@ -307,7 +308,7 @@ public class TestMemoryManager
         }
     }
 
-    @Test(timeOut = 60_000, expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Query exceeded local memory limit of 1kB.*")
+    @Test(timeOut = 60_000, expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Query exceeded local user memory limit of 1kB.*")
     public void testQueryMemoryPerNodeLimit()
             throws Exception
     {

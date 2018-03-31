@@ -290,9 +290,9 @@ public class TestMemoryRevokingScheduler
                 taskId,
                 location,
                 "fake",
-                new QueryContext(
-                        new QueryId("query"),
+                new QueryContext(new QueryId("query"),
                         new DataSize(1, MEGABYTE),
+                        new DataSize(2, MEGABYTE),
                         memoryPool,
                         new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE)),
                         new TestingGcMonitor(),
