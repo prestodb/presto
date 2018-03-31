@@ -27,22 +27,12 @@ General Changes
 * Improve query performance when dynamic writer scaling is enabled.
 * Improve performance of :func:`ST_Intersects`.
 * Improve query latency when tables are known to be empty during query planning.
-* Optimize  :func:``array_agg`` to avoid excessive object overhead. It also fixes excessive native
-  memory usage with G1 garbage collection.
+* Optimize :func:`array_agg` to avoid excessive object overhead and native memory usage with G1 GC.
 * Improve performance for high-cardinality aggregations with ``DISTINCT`` argument qualifiers. This
   is an experimental optimization that can be activated by disabling the `use_mark_distinct` session
-  property or `optimizer.use-mark-distinct` configuration.
-* Improve parallelism of queries with empty grouping set.
-* Optimize ``JOIN`` queries involving the :func:`ST_Distance` function.
-
-
-SPI Changes
------------
-
-* Add performance statistics to plan in ``QueryCompletedEvent``.
-* Remove ``Page.getBlocks()``.  This call was rarely used and is performs an expensive copy.
-  Instead use ``Page.getBlock(channel)`` or the new helper ``Page.appendColumn()``.
-* Improve validation ``MapBlock``, ``RowBlock`` and ``ArrayBlock`` during construction.
+  property or the ``optimizer.use-mark-distinct`` config option.
+* Improve parallelism of queries that have an empty grouping set.
+* Improve performance of join queries involving the :func:`ST_Distance` function.
 
 Resource Groups Changes
 -----------------------
@@ -69,4 +59,13 @@ Hive Changes
 
 JMX Changes
 -----------
- * Add wildcard character * which allows to query several MBeans data with single query.
+
+* Add wildcard character ``*`` which allows querying several MBeans with a single query.
+
+SPI Changes
+-----------
+
+* Add performance statistics to query plan in ``QueryCompletedEvent``.
+* Remove ``Page.getBlocks()``. This call was rarely used and performed an expensive copy.
+  Instead, use ``Page.getBlock(channel)`` or the new helper ``Page.appendColumn()``.
+* Improve validation of ``ArrayBlock``, ``MapBlock``, and ``RowBlock`` during construction.
