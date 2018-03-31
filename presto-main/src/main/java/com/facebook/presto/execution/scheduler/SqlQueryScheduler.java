@@ -426,6 +426,13 @@ public class SqlQueryScheduler
                 .sum();
     }
 
+    public long getTotalMemoryReservation()
+    {
+        return stages.values().stream()
+                .mapToLong(SqlStageExecution::getTotalMemoryReservation)
+                .sum();
+    }
+
     public Duration getTotalCpuTime()
     {
         long millis = stages.values().stream()

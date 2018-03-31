@@ -131,6 +131,7 @@ public class MockQueryExecution
                         new DataSize(19, BYTE),
                         new DataSize(20, BYTE),
                         new DataSize(21, BYTE),
+                        new DataSize(22, BYTE),
 
                         true,
                         new Duration(20, NANOSECONDS),
@@ -214,6 +215,12 @@ public class MockQueryExecution
 
     @Override
     public long getUserMemoryReservation()
+    {
+        return memoryUsage;
+    }
+
+    @Override
+    public long getTotalMemoryReservation()
     {
         return memoryUsage;
     }

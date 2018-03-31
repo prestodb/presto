@@ -254,25 +254,25 @@ public class OperatorContext
     // caller should close this context as it's a new context
     public LocalMemoryContext newLocalSystemMemoryContext()
     {
-        return operatorMemoryContext.newSystemMemoryContext();
+        return new InternalLocalMemoryContext(operatorMemoryContext.newSystemMemoryContext(), memoryFuture);
     }
 
     // caller shouldn't close this context as it's managed by the OperatorContext
     public LocalMemoryContext localUserMemoryContext()
     {
-        return new DecoratedLocalMemoryContext(operatorMemoryContext.localUserMemoryContext(), memoryFuture);
+        return new InternalLocalMemoryContext(operatorMemoryContext.localUserMemoryContext(), memoryFuture);
     }
 
     // caller shouldn't close this context as it's managed by the OperatorContext
     public LocalMemoryContext localRevocableMemoryContext()
     {
-        return new DecoratedLocalMemoryContext(operatorMemoryContext.localRevocableMemoryContext(), revocableMemoryFuture);
+        return new InternalLocalMemoryContext(operatorMemoryContext.localRevocableMemoryContext(), revocableMemoryFuture);
     }
 
     // caller should close this context as it's a new context
     public AggregatedMemoryContext newAggregateSystemMemoryContext()
     {
-        return operatorMemoryContext.newAggregateSystemMemoryContext();
+        return new InternalAggregatedMemoryContext(operatorMemoryContext.newAggregateSystemMemoryContext(), memoryFuture);
     }
 
     public long getReservedRevocableBytes()
@@ -566,7 +566,7 @@ public class OperatorContext
     }
 
     @ThreadSafe
-    private class OperatorSpillContext
+    private static class OperatorSpillContext
             implements SpillContext
     {
         private final DriverContext driverContext;
@@ -613,13 +613,13 @@ public class OperatorContext
         }
     }
 
-    static class DecoratedLocalMemoryContext
+    private static class InternalLocalMemoryContext
             implements LocalMemoryContext
     {
         private final LocalMemoryContext delegate;
         private final AtomicReference<SettableFuture<?>> memoryFuture;
 
-        DecoratedLocalMemoryContext(LocalMemoryContext delegate, AtomicReference<SettableFuture<?>> memoryFuture)
+        InternalLocalMemoryContext(LocalMemoryContext delegate, AtomicReference<SettableFuture<?>> memoryFuture)
         {
             this.delegate = requireNonNull(delegate, "delegate is null");
             this.memoryFuture = requireNonNull(memoryFuture, "memoryFuture is null");
@@ -654,7 +654,44 @@ public class OperatorContext
         @Override
         public void close()
         {
-            throw new UnsupportedOperationException("Caller shouldn't call close on DecoratedLocalMemoryContext");
+            delegate.close();
+        }
+    }
+
+    private static class InternalAggregatedMemoryContext
+            implements AggregatedMemoryContext
+    {
+        private final AggregatedMemoryContext delegate;
+        private final AtomicReference<SettableFuture<?>> memoryFuture;
+
+        InternalAggregatedMemoryContext(AggregatedMemoryContext delegate, AtomicReference<SettableFuture<?>> memoryFuture)
+        {
+            this.delegate = requireNonNull(delegate, "delegate is null");
+            this.memoryFuture = requireNonNull(memoryFuture, "memoryFuture is null");
+        }
+
+        @Override
+        public AggregatedMemoryContext newAggregatedMemoryContext()
+        {
+            return delegate.newAggregatedMemoryContext();
+        }
+
+        @Override
+        public LocalMemoryContext newLocalMemoryContext()
+        {
+            return new InternalLocalMemoryContext(delegate.newLocalMemoryContext(), memoryFuture);
+        }
+
+        @Override
+        public long getBytes()
+        {
+            return delegate.getBytes();
+        }
+
+        @Override
+        public void close()
+        {
+            delegate.close();
         }
     }
 

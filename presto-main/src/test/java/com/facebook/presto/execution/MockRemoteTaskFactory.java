@@ -179,13 +179,11 @@ public class MockRemoteTaskFactory
             this.taskStateMachine = new TaskStateMachine(requireNonNull(taskId, "taskId is null"), requireNonNull(executor, "executor is null"));
 
             MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE));
-            MemoryPool memorySystemPool = new MemoryPool(new MemoryPoolId("testSystem"), new DataSize(1, GIGABYTE));
             SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(new DataSize(1, GIGABYTE));
             QueryContext queryContext = new QueryContext(taskId.getQueryId(),
                     new DataSize(1, MEGABYTE),
                     new DataSize(2, MEGABYTE),
                     memoryPool,
-                    memorySystemPool,
                     new TestingGcMonitor(),
                     executor,
                     scheduledExecutor,

@@ -141,7 +141,6 @@ public class SqlTaskManager
                         maxQueryUserMemoryPerNode,
                         maxQueryTotalMemoryPerNode,
                         localMemoryManager.getPool(LocalMemoryManager.GENERAL_POOL),
-                        localMemoryManager.getPool(LocalMemoryManager.SYSTEM_POOL),
                         gcMonitor,
                         taskNotificationExecutor,
                         driverYieldExecutor,

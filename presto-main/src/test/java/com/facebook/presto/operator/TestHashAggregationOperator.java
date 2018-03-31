@@ -509,7 +509,7 @@ public class TestHashAggregationOperator
                 new DataSize(1, KILOBYTE),
                 joinCompiler);
 
-        DriverContext driverContext = createDriverContext(1024, Integer.MAX_VALUE);
+        DriverContext driverContext = createDriverContext(1024);
 
         try (Operator operator = operatorFactory.createOperator(driverContext)) {
             List<Page> expectedPages = rowPagesBuilder(BIGINT, BIGINT)
@@ -622,7 +622,6 @@ public class TestHashAggregationOperator
         DriverContext driverContext = TestingTaskContext.builder(executor, scheduledExecutor, TEST_SESSION)
                 .setQueryMaxMemory(DataSize.valueOf("7MB"))
                 .setMemoryPoolSize(DataSize.valueOf("1GB"))
-                .setSystemMemoryPoolSize(DataSize.valueOf("10B"))
                 .build()
                 .addPipelineContext(0, true, true)
                 .addDriverContext();
@@ -665,16 +664,10 @@ public class TestHashAggregationOperator
         return createDriverContext(Integer.MAX_VALUE);
     }
 
-    private DriverContext createDriverContext(long systemMemoryLimit)
-    {
-        return createDriverContext(Integer.MAX_VALUE, systemMemoryLimit);
-    }
-
-    private DriverContext createDriverContext(long memoryLimit, long systemMemoryLimit)
+    private DriverContext createDriverContext(long memoryLimit)
     {
         return TestingTaskContext.builder(executor, scheduledExecutor, TEST_SESSION)
                 .setMemoryPoolSize(succinctBytes(memoryLimit))
-                .setSystemMemoryPoolSize(succinctBytes(systemMemoryLimit))
                 .build()
                 .addPipelineContext(0, true, true)
                 .addDriverContext();

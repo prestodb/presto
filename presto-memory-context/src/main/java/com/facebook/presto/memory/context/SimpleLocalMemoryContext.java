@@ -19,10 +19,11 @@ import com.google.common.util.concurrent.ListenableFuture;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
-import static com.facebook.presto.memory.context.AggregatedMemoryContext.addExact;
+import static com.facebook.presto.memory.context.AbstractAggregatedMemoryContext.addExact;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -31,7 +32,7 @@ public final class SimpleLocalMemoryContext
 {
     private static final ListenableFuture<?> NOT_BLOCKED = Futures.immediateFuture(null);
 
-    private final AggregatedMemoryContext parentMemoryContext;
+    private final AbstractAggregatedMemoryContext parentMemoryContext;
     @GuardedBy("this")
     private long usedBytes;
     @GuardedBy("this")
@@ -39,7 +40,8 @@ public final class SimpleLocalMemoryContext
 
     public SimpleLocalMemoryContext(AggregatedMemoryContext parentMemoryContext)
     {
-        this.parentMemoryContext = requireNonNull(parentMemoryContext, "parentMemoryContext is null");
+        verify(parentMemoryContext instanceof AbstractAggregatedMemoryContext);
+        this.parentMemoryContext = (AbstractAggregatedMemoryContext) requireNonNull(parentMemoryContext, "parentMemoryContext is null");
     }
 
     @Override
@@ -97,7 +99,7 @@ public final class SimpleLocalMemoryContext
         SimpleLocalMemoryContext target = (SimpleLocalMemoryContext) to;
         checkMemoryContextState(target);
 
-        AggregatedMemoryContext parent = parentMemoryContext;
+        AbstractAggregatedMemoryContext parent = parentMemoryContext;
         while (parent != null && parent != target.parentMemoryContext) {
             parent.addBytes(-usedBytes);
             parent = parent.getParent();
@@ -108,7 +110,7 @@ public final class SimpleLocalMemoryContext
 
     private void checkMemoryContextState(SimpleLocalMemoryContext target)
     {
-        AggregatedMemoryContext parent = parentMemoryContext;
+        AbstractAggregatedMemoryContext parent = parentMemoryContext;
         while (parent != null && parent != target.parentMemoryContext) {
             parent = parent.getParent();
         }
