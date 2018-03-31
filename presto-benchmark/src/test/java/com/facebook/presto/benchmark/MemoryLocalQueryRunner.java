@@ -79,6 +79,7 @@ public class MemoryLocalQueryRunner
         QueryContext queryContext = new QueryContext(
                 new QueryId("test"),
                 new DataSize(1, GIGABYTE),
+                new DataSize(2, GIGABYTE),
                 memoryPool,
                 systemMemoryPool,
                 new TestingGcMonitor(),

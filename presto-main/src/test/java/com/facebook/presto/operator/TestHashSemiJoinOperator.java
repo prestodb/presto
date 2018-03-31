@@ -319,7 +319,7 @@ public class TestHashSemiJoinOperator
         OperatorAssertion.assertOperatorEquals(joinOperatorFactory, driverContext, probeInput, expected, hashEnabled, ImmutableList.of(probeTypes.size()));
     }
 
-    @Test(dataProvider = "hashEnabledValues", expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded local memory limit of.*")
+    @Test(dataProvider = "hashEnabledValues", expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded local user memory limit of.*")
     public void testMemoryLimit(boolean hashEnabled)
     {
         DriverContext driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION, new DataSize(100, BYTE))

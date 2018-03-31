@@ -46,6 +46,7 @@ import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
+import static java.lang.String.format;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertEquals;
@@ -57,6 +58,7 @@ import static org.testng.Assert.fail;
 public class TestMemoryTracking
 {
     private static final DataSize queryMaxMemory = new DataSize(1, GIGABYTE);
+    private static final DataSize queryMaxTotalMemory = new DataSize(1, GIGABYTE);
     private static final DataSize memoryPoolSize = new DataSize(1, GIGABYTE);
     private static final DataSize systemMemoryPoolSize = new DataSize(1, GIGABYTE);
     private static final DataSize maxSpillSize = new DataSize(1, GIGABYTE);
@@ -102,6 +104,7 @@ public class TestMemoryTracking
         queryContext = new QueryContext(
                 new QueryId("test_query"),
                 queryMaxMemory,
+                queryMaxTotalMemory,
                 userPool,
                 systemPool,
                 new TestingGcMonitor(),
@@ -141,6 +144,23 @@ public class TestMemoryTracking
         assertAllocationFails((ignored) -> userMemory.setBytes(userMemory.getBytes() - 500), "bytes cannot be negative");
         operatorContext.destroy();
         assertOperatorMemoryAllocations(operatorMemoryContext, 0, 0, 0);
+    }
+
+    @Test
+    public void testLocalTotalMemoryLimitExceeded()
+    {
+        LocalMemoryContext systemMemoryContext = operatorContext.newLocalSystemMemoryContext();
+        systemMemoryContext.setBytes(100);
+        assertOperatorMemoryAllocations(operatorContext.getOperatorMemoryContext(), 0, 100, 0);
+        systemMemoryContext.setBytes(queryMaxTotalMemory.toBytes());
+        assertOperatorMemoryAllocations(operatorContext.getOperatorMemoryContext(), 0, queryMaxTotalMemory.toBytes(), 0);
+        try {
+            systemMemoryContext.setBytes(queryMaxTotalMemory.toBytes() + 1);
+            fail("allocation should hit the local total memory limit");
+        }
+        catch (ExceededMemoryLimitException e) {
+            assertEquals(e.getMessage(), format("Query exceeded local total memory limit of %s", queryMaxTotalMemory));
+        }
     }
 
     @Test

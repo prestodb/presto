@@ -597,7 +597,9 @@ public class TestSqlTaskExecution
         QueryContext queryContext = new QueryContext(
                 new QueryId("queryid"),
                 new DataSize(1, MEGABYTE),
-                new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE)), new MemoryPool(new MemoryPoolId("testSystem"), new DataSize(1, GIGABYTE)),
+                new DataSize(2, MEGABYTE),
+                new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE)),
+                new MemoryPool(new MemoryPoolId("testSystem"), new DataSize(1, GIGABYTE)),
                 new TestingGcMonitor(),
                 taskNotificationExecutor,
                 driverYieldExecutor,

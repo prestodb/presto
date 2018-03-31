@@ -84,6 +84,7 @@ public final class TestingTaskContext
         private final Session session;
         private TaskStateMachine taskStateMachine;
         private DataSize queryMaxMemory = new DataSize(256, MEGABYTE);
+        private DataSize queryMaxTotalMemory = new DataSize(512, MEGABYTE);
         private DataSize memoryPoolSize = new DataSize(1, GIGABYTE);
         private DataSize systemMemoryPoolSize = new DataSize(1, GIGABYTE);
         private DataSize maxSpillSize = new DataSize(1, GIGABYTE);
@@ -141,6 +142,7 @@ public final class TestingTaskContext
             QueryContext queryContext = new QueryContext(
                     new QueryId("test_query"),
                     queryMaxMemory,
+                    queryMaxTotalMemory,
                     memoryPool,
                     systemMemoryPool,
                     GC_MONITOR,
