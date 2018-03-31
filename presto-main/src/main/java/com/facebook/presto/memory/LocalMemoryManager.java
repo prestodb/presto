@@ -15,6 +15,7 @@ package com.facebook.presto.memory;
 
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.memory.MemoryPoolInfo;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
@@ -24,8 +25,8 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.memory.NodeMemoryConfig.QUERY_MAX_MEMORY_PER_NODE_CONFIG;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -42,14 +43,35 @@ public final class LocalMemoryManager
     public LocalMemoryManager(NodeMemoryConfig config)
     {
         requireNonNull(config, "config is null");
-        maxMemory = new DataSize(Runtime.getRuntime().maxMemory(), BYTE);
-        checkArgument(config.getMaxQueryMemoryPerNode().toBytes() <= maxMemory.toBytes(), format("%s set to %s, but only %s of useable heap available", QUERY_MAX_MEMORY_PER_NODE_CONFIG, config.getMaxQueryMemoryPerNode(), maxMemory));
+        long availableMemory = Runtime.getRuntime().maxMemory();
+        validateHeapHeadroom(config, availableMemory);
+
+        maxMemory = new DataSize(availableMemory - config.getHeapHeadroom().toBytes(), BYTE);
+        checkArgument(config.getMaxQueryMemoryPerNode().toBytes() <= config.getMaxQueryTotalMemoryPerNode().toBytes(),
+                "Max query memory per node cannot be greater than the max query total memory per node.");
 
         ImmutableMap.Builder<MemoryPoolId, MemoryPool> builder = ImmutableMap.builder();
-        builder.put(RESERVED_POOL, new MemoryPool(RESERVED_POOL, config.getMaxQueryMemoryPerNode()));
-        DataSize generalPoolSize = new DataSize(Math.max(0, maxMemory.toBytes() - config.getMaxQueryMemoryPerNode().toBytes()), BYTE);
-        builder.put(GENERAL_POOL, new MemoryPool(GENERAL_POOL, generalPoolSize));
+        builder.put(RESERVED_POOL, new MemoryPool(RESERVED_POOL, config.getMaxQueryTotalMemoryPerNode()));
+        long generalPoolSize = maxMemory.toBytes() - config.getMaxQueryTotalMemoryPerNode().toBytes();
+        verify(generalPoolSize > 0, "general memory pool size is 0");
+        builder.put(GENERAL_POOL, new MemoryPool(GENERAL_POOL, new DataSize(generalPoolSize, BYTE)));
         this.pools = builder.build();
+    }
+
+    @VisibleForTesting
+    static void validateHeapHeadroom(NodeMemoryConfig config, long availableMemory)
+    {
+        long maxQueryTotalMemoryPerNode = config.getMaxQueryTotalMemoryPerNode().toBytes();
+        long heapHeadroom = config.getHeapHeadroom().toBytes();
+        // (availableMemory - maxQueryTotalMemoryPerNode) bytes will be available for the general pool and the
+        // headroom/untracked allocations, so the heapHeadroom cannot be larger than that space.
+        if (heapHeadroom < 0 || heapHeadroom + maxQueryTotalMemoryPerNode > availableMemory) {
+            throw new IllegalArgumentException(
+                    format("Invalid memory configuration. The sum of max total query memory per node (%s) and heap headroom (%s) cannot be larger than the available heap memory (%s)",
+                            maxQueryTotalMemoryPerNode,
+                            heapHeadroom,
+                            availableMemory));
+        }
     }
 
     public MemoryInfo getInfo()
