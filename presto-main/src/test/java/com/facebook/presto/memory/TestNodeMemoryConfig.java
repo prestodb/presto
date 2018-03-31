@@ -14,31 +14,28 @@
 package com.facebook.presto.memory;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.configuration.testing.ConfigAssertions;
 import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 
+import static com.facebook.presto.memory.LocalMemoryManager.validateHeapHeadroom;
+import static com.facebook.presto.memory.NodeMemoryConfig.AVAILABLE_HEAP_MEMORY;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
-import static org.testng.Assert.fail;
 
 public class TestNodeMemoryConfig
 {
     @Test
     public void testDefaults()
     {
-        // This can't use assertRecordedDefaults because the default value is dependent on the current max heap size, which varies based on the current size of the survivor space.
-        for (int i = 0; i < 1_000; i++) {
-            DataSize expected = new DataSize(Runtime.getRuntime().maxMemory() * 0.1, BYTE);
-            NodeMemoryConfig config = new NodeMemoryConfig();
-            if (expected.equals(config.getMaxQueryMemoryPerNode())) {
-                return;
-            }
-        }
-        // We can't make this 100% deterministic, since we don't know when the survivor space will change sizes, but assume that something is broken if we got the wrong answer 1000 times
-        fail();
+        ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(NodeMemoryConfig.class)
+                .setLegacySystemPoolEnabled(false)
+                .setMaxQueryMemoryPerNode(new DataSize(AVAILABLE_HEAP_MEMORY * 0.1, BYTE))
+                .setMaxQueryTotalMemoryPerNode(new DataSize(AVAILABLE_HEAP_MEMORY * 0.3, BYTE))
+                .setHeapHeadroom(new DataSize(AVAILABLE_HEAP_MEMORY * 0.3, BYTE)));
     }
 
     @Test
@@ -46,11 +43,28 @@ public class TestNodeMemoryConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("query.max-memory-per-node", "1GB")
+                .put("query.max-total-memory-per-node", "3GB")
+                .put("memory.heap-headroom-per-node", "1GB")
+                .put("deprecated.legacy-system-pool-enabled", "true")
                 .build();
 
         NodeMemoryConfig expected = new NodeMemoryConfig()
-                .setMaxQueryMemoryPerNode(new DataSize(1, GIGABYTE));
+                .setLegacySystemPoolEnabled(true)
+                .setMaxQueryMemoryPerNode(new DataSize(1, GIGABYTE))
+                .setMaxQueryTotalMemoryPerNode(new DataSize(3, GIGABYTE))
+                .setHeapHeadroom(new DataSize(1, GIGABYTE));
 
         assertFullMapping(properties, expected);
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class)
+    public void testInvalidValues()
+    {
+        NodeMemoryConfig config = new NodeMemoryConfig();
+        config.setMaxQueryTotalMemoryPerNode(new DataSize(1, GIGABYTE));
+        config.setHeapHeadroom(new DataSize(3.1, GIGABYTE));
+        // In this case we have 4GB - 1GB = 3GB available memory for the general pool
+        // and the heap headroom and the config is more than that.
+        validateHeapHeadroom(config, new DataSize(4, GIGABYTE).toBytes());
     }
 }

@@ -19,8 +19,8 @@ import com.facebook.presto.TaskSource;
 import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.execution.buffer.BufferState;
 import com.facebook.presto.execution.executor.TaskExecutor;
+import com.facebook.presto.memory.DefaultQueryContext;
 import com.facebook.presto.memory.MemoryPool;
-import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spiller.SpillSpaceTracker;
@@ -296,11 +296,10 @@ public class TestSqlTask
                 taskId,
                 location,
                 "fake",
-                new QueryContext(
-                        new QueryId("query"),
+                new DefaultQueryContext(new QueryId("query"),
                         new DataSize(1, MEGABYTE),
+                        new DataSize(2, MEGABYTE),
                         new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE)),
-                        new MemoryPool(new MemoryPoolId("testSystem"), new DataSize(1, GIGABYTE)),
                         new TestingGcMonitor(),
                         taskNotificationExecutor,
                         driverYieldExecutor,

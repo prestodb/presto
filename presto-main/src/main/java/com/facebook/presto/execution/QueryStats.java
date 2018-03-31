@@ -64,6 +64,7 @@ public class QueryStats
 
     private final double cumulativeUserMemory;
     private final DataSize userMemoryReservation;
+    private final DataSize totalMemoryReservation;
     private final DataSize peakUserMemoryReservation;
     private final DataSize peakTotalMemoryReservation;
     private final DataSize peakTaskTotalMemory;
@@ -114,6 +115,7 @@ public class QueryStats
         this.completedDrivers = 0;
         this.cumulativeUserMemory = 0.0;
         this.userMemoryReservation = null;
+        this.totalMemoryReservation = null;
         this.peakUserMemoryReservation = null;
         this.peakTotalMemoryReservation = null;
         this.peakTaskTotalMemory = null;
@@ -161,6 +163,7 @@ public class QueryStats
 
             @JsonProperty("cumulativeUserMemory") double cumulativeUserMemory,
             @JsonProperty("userMemoryReservation") DataSize userMemoryReservation,
+            @JsonProperty("totalMemoryReservation") DataSize totalMemoryReservation,
             @JsonProperty("peakUserMemoryReservation") DataSize peakUserMemoryReservation,
             @JsonProperty("peakTotalMemoryReservation") DataSize peakTotalMemoryReservation,
             @JsonProperty("peakTaskTotalMemory") DataSize peakTaskTotalMemory,
@@ -220,6 +223,7 @@ public class QueryStats
         checkArgument(cumulativeUserMemory >= 0, "cumulativeUserMemory is negative");
         this.cumulativeUserMemory = cumulativeUserMemory;
         this.userMemoryReservation = requireNonNull(userMemoryReservation, "userMemoryReservation is null");
+        this.totalMemoryReservation = requireNonNull(totalMemoryReservation, "totalMemoryReservation is null");
         this.peakUserMemoryReservation = requireNonNull(peakUserMemoryReservation, "peakUserMemoryReservation is null");
         this.peakTotalMemoryReservation = requireNonNull(peakTotalMemoryReservation, "peakTotalMemoryReservation is null");
         this.peakTaskTotalMemory = requireNonNull(peakTaskTotalMemory, "peakTaskTotalMemory is null");
@@ -383,6 +387,12 @@ public class QueryStats
     public DataSize getUserMemoryReservation()
     {
         return userMemoryReservation;
+    }
+
+    @JsonProperty
+    public DataSize getTotalMemoryReservation()
+    {
+        return totalMemoryReservation;
     }
 
     @JsonProperty

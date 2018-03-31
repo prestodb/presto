@@ -39,7 +39,6 @@ import static com.facebook.presto.execution.QueryState.FINISHED;
 import static com.facebook.presto.execution.StageInfo.getAllStages;
 import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
 import static com.facebook.presto.memory.LocalMemoryManager.RESERVED_POOL;
-import static com.facebook.presto.memory.LocalMemoryManager.SYSTEM_POOL;
 import static com.facebook.presto.operator.BlockedReason.WAITING_FOR_MEMORY;
 import static com.facebook.presto.spi.StandardErrorCode.CLUSTER_OUT_OF_MEMORY;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
@@ -75,6 +74,7 @@ public class TestMemoryManager
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("query.max-memory-per-node", "1kB")
+                .put("query.max-total-memory-per-node", "1kB")
                 .put("query.max-memory", "1kB")
                 .build();
 
@@ -176,8 +176,6 @@ public class TestMemoryManager
                 assertEquals(reserved.getMaxBytes(), reserved.getFreeBytes());
                 MemoryPool general = worker.getLocalMemoryManager().getPool(GENERAL_POOL);
                 assertEquals(general.getMaxBytes(), general.getFreeBytes());
-                MemoryPool system = worker.getLocalMemoryManager().getPool(SYSTEM_POOL);
-                assertEquals(system.getMaxBytes(), system.getFreeBytes());
             }
         }
     }
@@ -235,17 +233,12 @@ public class TestMemoryManager
                 }
             }
 
-            // Release the memory in the reserved pool and the system pool
+            // Release the memory in the reserved pool
             for (TestingPrestoServer server : queryRunner.getServers()) {
                 MemoryPool reserved = server.getLocalMemoryManager().getPool(RESERVED_POOL);
                 // Free up the entire pool
                 reserved.free(fakeQueryId, reserved.getMaxBytes());
                 assertTrue(reserved.getFreeBytes() > 0);
-
-                MemoryPool system = server.getLocalMemoryManager().getPool(SYSTEM_POOL);
-                // Free up the entire pool
-                system.free(fakeQueryId, system.getMaxBytes());
-                assertTrue(system.getFreeBytes() > 0);
             }
 
             // Make sure both queries finish now that there's memory free in the reserved pool.
@@ -267,8 +260,6 @@ public class TestMemoryManager
                 // Free up the memory we reserved earlier
                 general.free(fakeQueryId, general.getMaxBytes());
                 assertEquals(general.getMaxBytes(), general.getFreeBytes());
-                MemoryPool system = worker.getLocalMemoryManager().getPool(SYSTEM_POOL);
-                assertEquals(system.getMaxBytes(), system.getFreeBytes());
             }
         }
     }
@@ -307,7 +298,7 @@ public class TestMemoryManager
         }
     }
 
-    @Test(timeOut = 60_000, expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Query exceeded local memory limit of 1kB.*")
+    @Test(timeOut = 60_000, expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Query exceeded local user memory limit of 1kB.*")
     public void testQueryMemoryPerNodeLimit()
             throws Exception
     {

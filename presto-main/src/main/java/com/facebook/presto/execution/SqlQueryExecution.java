@@ -202,8 +202,8 @@ public final class SqlQueryExecution
     @Override
     public long getUserMemoryReservation()
     {
-        // acquire reference to outputStage before checking finalQueryInfo, because
-        // state change listener sets finalQueryInfo and then clears outputStage when
+        // acquire reference to scheduler before checking finalQueryInfo, because
+        // state change listener sets finalQueryInfo and then clears scheduler when
         // the query finishes.
         SqlQueryScheduler scheduler = queryScheduler.get();
         Optional<QueryInfo> finalQueryInfo = stateMachine.getFinalQueryInfo();
@@ -214,6 +214,23 @@ public final class SqlQueryExecution
             return 0;
         }
         return scheduler.getUserMemoryReservation();
+    }
+
+    @Override
+    public long getTotalMemoryReservation()
+    {
+        // acquire reference to scheduler before checking finalQueryInfo, because
+        // state change listener sets finalQueryInfo and then clears scheduler when
+        // the query finishes.
+        SqlQueryScheduler scheduler = queryScheduler.get();
+        Optional<QueryInfo> finalQueryInfo = stateMachine.getFinalQueryInfo();
+        if (finalQueryInfo.isPresent()) {
+            return finalQueryInfo.get().getQueryStats().getTotalMemoryReservation().toBytes();
+        }
+        if (scheduler == null) {
+            return 0;
+        }
+        return scheduler.getTotalMemoryReservation();
     }
 
     @Override

@@ -46,6 +46,7 @@ import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
+import static java.lang.String.format;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertEquals;
@@ -57,19 +58,18 @@ import static org.testng.Assert.fail;
 public class TestMemoryTracking
 {
     private static final DataSize queryMaxMemory = new DataSize(1, GIGABYTE);
+    private static final DataSize queryMaxTotalMemory = new DataSize(1, GIGABYTE);
     private static final DataSize memoryPoolSize = new DataSize(1, GIGABYTE);
-    private static final DataSize systemMemoryPoolSize = new DataSize(1, GIGABYTE);
     private static final DataSize maxSpillSize = new DataSize(1, GIGABYTE);
     private static final DataSize queryMaxSpillSize = new DataSize(1, GIGABYTE);
     private static final SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(maxSpillSize);
 
-    private QueryContext queryContext;
+    private DefaultQueryContext queryContext;
     private TaskContext taskContext;
     private PipelineContext pipelineContext;
     private DriverContext driverContext;
     private OperatorContext operatorContext;
-    private MemoryPool userPool;
-    private MemoryPool systemPool;
+    private MemoryPool memoryPool;
     private ExecutorService notificationExecutor;
     private ScheduledExecutorService yieldExecutor;
 
@@ -90,20 +90,18 @@ public class TestMemoryTracking
         pipelineContext = null;
         driverContext = null;
         operatorContext = null;
-        userPool = null;
-        systemPool = null;
+        memoryPool = null;
     }
 
     @BeforeMethod
     public void setUpTest()
     {
-        userPool = new MemoryPool(new MemoryPoolId("test"), memoryPoolSize);
-        systemPool = new MemoryPool(new MemoryPoolId("testSystem"), systemMemoryPoolSize);
-        queryContext = new QueryContext(
+        memoryPool = new MemoryPool(new MemoryPoolId("test"), memoryPoolSize);
+        queryContext = new DefaultQueryContext(
                 new QueryId("test_query"),
                 queryMaxMemory,
-                userPool,
-                systemPool,
+                queryMaxTotalMemory,
+                memoryPool,
                 new TestingGcMonitor(),
                 notificationExecutor,
                 yieldExecutor,
@@ -144,6 +142,23 @@ public class TestMemoryTracking
     }
 
     @Test
+    public void testLocalTotalMemoryLimitExceeded()
+    {
+        LocalMemoryContext systemMemoryContext = operatorContext.newLocalSystemMemoryContext();
+        systemMemoryContext.setBytes(100);
+        assertOperatorMemoryAllocations(operatorContext.getOperatorMemoryContext(), 0, 100, 0);
+        systemMemoryContext.setBytes(queryMaxTotalMemory.toBytes());
+        assertOperatorMemoryAllocations(operatorContext.getOperatorMemoryContext(), 0, queryMaxTotalMemory.toBytes(), 0);
+        try {
+            systemMemoryContext.setBytes(queryMaxTotalMemory.toBytes() + 1);
+            fail("allocation should hit the local total memory limit");
+        }
+        catch (ExceededMemoryLimitException e) {
+            assertEquals(e.getMessage(), format("Query exceeded local total memory limit of %s", queryMaxTotalMemory));
+        }
+    }
+
+    @Test
     public void testLocalSystemAllocations()
     {
         long pipelineLocalAllocation = 1_000_000;
@@ -151,17 +166,15 @@ public class TestMemoryTracking
         LocalMemoryContext pipelineLocalSystemMemoryContext = pipelineContext.localSystemMemoryContext();
         pipelineLocalSystemMemoryContext.setBytes(pipelineLocalAllocation);
         assertLocalMemoryAllocations(pipelineContext.getPipelineMemoryContext(),
-                0,
-                0,
                 pipelineLocalAllocation,
+                0,
                 pipelineLocalAllocation);
         LocalMemoryContext taskLocalSystemMemoryContext = taskContext.localSystemMemoryContext();
         taskLocalSystemMemoryContext.setBytes(taskLocalAllocation);
         assertLocalMemoryAllocations(
                 taskContext.getTaskMemoryContext(),
+                pipelineLocalAllocation + taskLocalAllocation,
                 0,
-                0,
-                taskLocalAllocation + pipelineLocalAllocation, // at the pool level we should observe both
                 taskLocalAllocation);
         assertEquals(pipelineContext.getPipelineStats().getSystemMemoryReservation().toBytes(),
                 pipelineLocalAllocation,
@@ -169,14 +182,12 @@ public class TestMemoryTracking
         pipelineLocalSystemMemoryContext.setBytes(pipelineLocalSystemMemoryContext.getBytes() - pipelineLocalAllocation);
         assertLocalMemoryAllocations(
                 pipelineContext.getPipelineMemoryContext(),
-                0,
-                0,
                 taskLocalAllocation,
+                0,
                 0);
         taskLocalSystemMemoryContext.setBytes(taskLocalSystemMemoryContext.getBytes() - taskLocalAllocation);
         assertLocalMemoryAllocations(
                 taskContext.getTaskMemoryContext(),
-                0,
                 0,
                 0,
                 0);
@@ -305,7 +316,7 @@ public class TestMemoryTracking
                 0);
 
         // allocating more than the pool size should fail and we should have the same stats as before
-        assertFalse(localMemoryContext.trySetBytes(userPool.getMaxBytes() + 1));
+        assertFalse(localMemoryContext.trySetBytes(memoryPool.getMaxBytes() + 1));
         assertStats(
                 operatorContext.getOperatorStats(),
                 driverContext.getDriverStats(),
@@ -332,9 +343,9 @@ public class TestMemoryTracking
         assertEquals(driverContext.getDriverMemoryContext().getUserMemory(), 0);
         assertEquals(pipelineContext.getPipelineMemoryContext().getUserMemory(), 0);
         assertEquals(taskContext.getTaskMemoryContext().getUserMemory(), 500_000_000);
-        assertLocalMemoryAllocations(taskContext.getTaskMemoryContext(), 500_000_000, 500_000_000, 0, 0);
+        assertLocalMemoryAllocations(taskContext.getTaskMemoryContext(), 500_000_000, 500_000_000, 0);
         transferredBytesMemoryContext.close();
-        assertLocalMemoryAllocations(taskContext.getTaskMemoryContext(), 0, 0, 0, 0);
+        assertLocalMemoryAllocations(taskContext.getTaskMemoryContext(), 0, 0, 0);
 
         // do another set of allocations where transferMemoryToTaskContext() will be called
         // with exactly the same number of bytes as in the operator user memory context
@@ -351,9 +362,9 @@ public class TestMemoryTracking
         assertEquals(driverContext.getDriverMemoryContext().getUserMemory(), 0);
         assertEquals(pipelineContext.getPipelineMemoryContext().getUserMemory(), 0);
         assertEquals(taskContext.getTaskMemoryContext().getUserMemory(), 1000);
-        assertLocalMemoryAllocations(taskContext.getTaskMemoryContext(), 1000, 1000, 0, 0);
+        assertLocalMemoryAllocations(taskContext.getTaskMemoryContext(), 1000, 1000, 0);
         transferredBytesMemoryContext.close();
-        assertLocalMemoryAllocations(taskContext.getTaskMemoryContext(), 0, 0, 0, 0);
+        assertLocalMemoryAllocations(taskContext.getTaskMemoryContext(), 0, 0, 0);
 
         // exhaust the pool
         userMemory.setBytes(memoryPoolSize.toBytes());
@@ -433,23 +444,21 @@ public class TestMemoryTracking
             long expectedRevocableMemory)
     {
         assertEquals(memoryTrackingContext.getUserMemory(), expectedUserMemory, "User memory verification failed");
-        assertEquals(userPool.getReservedBytes(), expectedUserMemory, "User pool memory verification failed");
+        // both user and system memory are allocated from the same memoryPool
+        assertEquals(memoryPool.getReservedBytes(), expectedUserMemory + expectedSystemMemory, "Memory pool verification failed");
         assertEquals(memoryTrackingContext.getSystemMemory(), expectedSystemMemory, "System memory verification failed");
-        assertEquals(systemPool.getReservedBytes(), expectedSystemMemory, "System pool memory verification failed");
         assertEquals(memoryTrackingContext.getRevocableMemory(), expectedRevocableMemory, "Revocable memory verification failed");
     }
 
     // the local allocations are reflected only at that level and all the way up to the pools
     private void assertLocalMemoryAllocations(
             MemoryTrackingContext memoryTrackingContext,
-            long expectedUserPoolMemory,
+            long expectedPoolMemory,
             long expectedContextUserMemory,
-            long expectedSystemPoolMemory,
             long expectedContextSystemMemory)
     {
         assertEquals(memoryTrackingContext.getUserMemory(), expectedContextUserMemory, "User memory verification failed");
-        assertEquals(userPool.getReservedBytes(), expectedUserPoolMemory, "User pool memory verification failed");
+        assertEquals(memoryPool.getReservedBytes(), expectedPoolMemory, "Memory pool verification failed");
         assertEquals(memoryTrackingContext.localSystemMemoryContext().getBytes(), expectedContextSystemMemory, "Local system memory verification failed");
-        assertEquals(systemPool.getReservedBytes(), expectedSystemPoolMemory, "System pool memory verification failed");
     }
 }
