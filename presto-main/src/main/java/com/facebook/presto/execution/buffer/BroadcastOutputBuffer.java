@@ -18,6 +18,7 @@ import com.facebook.presto.OutputBuffers.OutputBufferId;
 import com.facebook.presto.execution.StateMachine;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.memory.context.LocalMemoryContext;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
@@ -227,7 +228,7 @@ public class BroadcastOutputBuffer
         // drop the initial reference
         serializedPageReferences.forEach(SerializedPageReference::dereferencePage);
 
-        return memoryManager.getNotFullFuture();
+        return memoryManager.getBufferBlockedFuture();
     }
 
     @Override
@@ -382,5 +383,11 @@ public class BroadcastOutputBuffer
         if (safeGetBuffersSnapshot().stream().allMatch(ClientBuffer::isDestroyed)) {
             destroy();
         }
+    }
+
+    @VisibleForTesting
+    OutputBufferMemoryManager getMemoryManager()
+    {
+        return memoryManager;
     }
 }

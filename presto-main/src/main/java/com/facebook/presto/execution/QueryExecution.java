@@ -59,6 +59,11 @@ public interface QueryExecution
 
     long getUserMemoryReservation();
 
+    /**
+     * @return the user + system memory reservation
+     */
+    long getTotalMemoryReservation();
+
     Duration getTotalCpuTime();
 
     Session getSession();

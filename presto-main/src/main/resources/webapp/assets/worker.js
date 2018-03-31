@@ -389,15 +389,11 @@ let WorkerStatus = React.createClass({
                         <h3>Memory Pools</h3>
                         <hr className="h3-hr"/>
                         <div className="row">
-                            <div className="col-xs-4">
+                            <div className="col-xs-6">
                                 { this.renderPoolBar("General", serverInfo.memoryInfo.pools.general) }
                                 { this.renderPoolQueries(serverInfo.memoryInfo.pools.general) }
                             </div>
-                            <div className="col-xs-4">
-                                { this.renderPoolBar("System", serverInfo.memoryInfo.pools.system) }
-                                { this.renderPoolQueries(serverInfo.memoryInfo.pools.system) }
-                            </div>
-                            <div className="col-xs-4">
+                            <div className="col-xs-6">
                                 { this.renderPoolBar("Reserved", serverInfo.memoryInfo.pools.reserved) }
                                 { this.renderPoolQueries(serverInfo.memoryInfo.pools.reserved) }
                             </div>

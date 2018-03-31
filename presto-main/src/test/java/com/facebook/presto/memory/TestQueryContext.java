@@ -25,7 +25,6 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
 import static com.facebook.presto.memory.LocalMemoryManager.RESERVED_POOL;
-import static com.facebook.presto.memory.LocalMemoryManager.SYSTEM_POOL;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static org.testng.Assert.assertTrue;
 
@@ -56,7 +55,6 @@ public class TestQueryContext
                     new DataSize(10, BYTE),
                     new DataSize(20, BYTE),
                     new MemoryPool(GENERAL_POOL, new DataSize(10, BYTE)),
-                    new MemoryPool(SYSTEM_POOL, new DataSize(10, BYTE)),
                     new TestingGcMonitor(),
                     localQueryRunner.getExecutor(),
                     localQueryRunner.getScheduler(),

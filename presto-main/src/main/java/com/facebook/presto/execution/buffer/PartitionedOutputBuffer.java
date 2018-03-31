@@ -193,7 +193,7 @@ public class PartitionedOutputBuffer
         // drop the initial reference
         serializedPageReferences.forEach(SerializedPageReference::dereferencePage);
 
-        return memoryManager.getNotFullFuture();
+        return memoryManager.getBufferBlockedFuture();
     }
 
     @Override

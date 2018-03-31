@@ -62,7 +62,6 @@ public class QueryContext
     private final long maxSpill;
     private final SpillSpaceTracker spillSpaceTracker;
     private final Map<TaskId, TaskContext> taskContexts = new ConcurrentHashMap();
-    private final MemoryPool systemMemoryPool;
 
     // TODO: This field should be final. However, due to the way QueryContext is constructed the memory limit is not known in advance
     @GuardedBy("this")
@@ -83,7 +82,6 @@ public class QueryContext
             DataSize maxUserMemory,
             DataSize maxTotalMemory,
             MemoryPool memoryPool,
-            MemoryPool systemMemoryPool,
             GcMonitor gcMonitor,
             Executor notificationExecutor,
             ScheduledExecutorService yieldExecutor,
@@ -94,7 +92,6 @@ public class QueryContext
         this.maxUserMemory = requireNonNull(maxUserMemory, "maxUserMemory is null").toBytes();
         this.maxTotalMemory = requireNonNull(maxTotalMemory, "maxTotalMemory is null").toBytes();
         this.memoryPool = requireNonNull(memoryPool, "memoryPool is null");
-        this.systemMemoryPool = requireNonNull(systemMemoryPool, "systemMemoryPool is null");
         this.gcMonitor = requireNonNull(gcMonitor, "gcMonitor is null");
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
         this.yieldExecutor = requireNonNull(yieldExecutor, "yieldExecutor is null");
@@ -166,14 +163,14 @@ public class QueryContext
         // the same RootAggregatedMemoryContext instance, and one of the threads will be blocked on the monitor of that
         // RootAggregatedMemoryContext instance even before calling the QueryContext methods (the monitors of
         // RootAggregatedMemoryContext instance and this will be acquired in the same order).
-        long userMemory = memoryPool.getQueryUserMemoryReservation(queryId);
+        long totalMemory = memoryPool.getQueryMemoryReservation(queryId);
         if (delta >= 0) {
-            if (queryMemoryContext.getSystemMemory() + userMemory + delta > maxTotalMemory) {
+            if (totalMemory + delta > maxTotalMemory) {
                 throw exceededLocalTotalMemoryLimit(succinctBytes(maxTotalMemory));
             }
-            return systemMemoryPool.reserve(queryId, delta);
+            return memoryPool.reserve(queryId, delta);
         }
-        systemMemoryPool.free(queryId, -delta);
+        memoryPool.free(queryId, -delta);
         return NOT_BLOCKED;
     }
 
@@ -229,7 +226,7 @@ public class QueryContext
             return;
         }
         MemoryPool originalPool = memoryPool;
-        long originalReserved = originalPool.getQueryUserMemoryReservation(queryId);
+        long originalReserved = originalPool.getQueryMemoryReservation(queryId);
         long originalRevocableReserved = originalPool.getQueryRevocableMemoryReservation(queryId);
         memoryPool = pool;
         ListenableFuture<?> future = pool.reserve(queryId, originalReserved);

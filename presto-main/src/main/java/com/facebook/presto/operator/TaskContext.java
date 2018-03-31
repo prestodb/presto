@@ -525,4 +525,10 @@ public class TaskContext
     {
         return taskMemoryContext;
     }
+
+    @VisibleForTesting
+    public QueryContext getQueryContext()
+    {
+        return queryContext;
+    }
 }

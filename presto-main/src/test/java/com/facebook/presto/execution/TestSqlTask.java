@@ -300,7 +300,6 @@ public class TestSqlTask
                         new DataSize(1, MEGABYTE),
                         new DataSize(2, MEGABYTE),
                         new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE)),
-                        new MemoryPool(new MemoryPoolId("testSystem"), new DataSize(1, GIGABYTE)),
                         new TestingGcMonitor(),
                         taskNotificationExecutor,
                         driverYieldExecutor,

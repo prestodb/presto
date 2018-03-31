@@ -31,13 +31,13 @@ public interface LowMemoryKiller
     {
         private final QueryId queryId;
         private final MemoryPoolId memoryPoolId;
-        private final long memoryReservation;
+        private final long totalMemoryReservation;
 
-        public QueryMemoryInfo(QueryId queryId, MemoryPoolId memoryPoolId, long memoryReservation)
+        public QueryMemoryInfo(QueryId queryId, MemoryPoolId memoryPoolId, long totalMemoryReservation)
         {
             this.queryId = requireNonNull(queryId, "queryId is null");
             this.memoryPoolId = requireNonNull(memoryPoolId, "memoryPoolId is null");
-            this.memoryReservation = memoryReservation;
+            this.totalMemoryReservation = totalMemoryReservation;
         }
 
         public QueryId getQueryId()
@@ -50,9 +50,9 @@ public interface LowMemoryKiller
             return memoryPoolId;
         }
 
-        public long getUserMemoryReservation()
+        public long getTotalMemoryReservation()
         {
-            return memoryReservation;
+            return totalMemoryReservation;
         }
 
         @Override
@@ -61,7 +61,7 @@ public interface LowMemoryKiller
             return toStringHelper(this)
                     .add("queryId", queryId)
                     .add("memoryPoolId", memoryPoolId)
-                    .add("memoryReservation", memoryReservation)
+                    .add("totalMemoryReservation", totalMemoryReservation)
                     .toString();
         }
     }
