@@ -195,7 +195,6 @@ public class BenchmarkPartitionedOutputOperator
         {
             return TestingTaskContext.builder(EXECUTOR, SCHEDULER, TEST_SESSION)
                     .setMemoryPoolSize(MAX_MEMORY)
-                    .setSystemMemoryPoolSize(MAX_MEMORY)
                     .build()
                     .addPipelineContext(0, true, true)
                     .addDriverContext();

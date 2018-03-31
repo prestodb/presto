@@ -50,7 +50,7 @@ public interface LowMemoryKiller
             return memoryPoolId;
         }
 
-        public long getUserMemoryReservation()
+        public long getMemoryReservation()
         {
             return memoryReservation;
         }
