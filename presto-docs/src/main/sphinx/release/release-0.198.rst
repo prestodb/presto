@@ -39,7 +39,8 @@ Resource Groups Changes
 
 * Query Queues have been removed. Resource Groups are always enabled. The
   config property ``experimental.resource-groups-enabled`` has been removed.
-
+* Change ``WEIGHTED_FAIR`` scheduling policy to select oldest eligible sub group
+  of groups where utilization and share are identical.
 
 CLI Changes
 -----------
@@ -47,7 +48,6 @@ CLI Changes
 * The ``--enable-authentication`` option has been removed. Kerberos authentication
   is automatically enabled when ``--krb5-remote-service-name`` is specified.
 * Kerberos authentication now requires HTTPS.
-
 
 Hive Changes
 ------------
