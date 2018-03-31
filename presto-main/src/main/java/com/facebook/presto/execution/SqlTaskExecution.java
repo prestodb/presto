@@ -123,6 +123,7 @@ public class SqlTaskExecution
 
     private final List<WeakReference<Driver>> drivers = new CopyOnWriteArrayList<>();
 
+    private final List<DriverFactory> allRawDriverFactories;
     private final Map<PlanNodeId, DriverSplitRunnerFactory> driverRunnerFactoriesWithSplitLifeCycle;
     private final List<DriverSplitRunnerFactory> driverRunnerFactoriesWithDriverGroupLifeCycle;
     private final List<DriverSplitRunnerFactory> driverRunnerFactoriesWithTaskLifeCycle;
@@ -189,6 +190,9 @@ public class SqlTaskExecution
 
         this.queryMonitor = requireNonNull(queryMonitor, "queryMonitor is null");
 
+        requireNonNull(localExecutionPlan, "localExecutionPlan is null");
+        this.allRawDriverFactories = localExecutionPlan.getDriverFactories();
+
         try (SetThreadName ignored = new SetThreadName("Task-%s", taskId)) {
             // index driver factories
             Set<PlanNodeId> partitionedSources = ImmutableSet.copyOf(localExecutionPlan.getPartitionedSourceOrder());
@@ -243,10 +247,7 @@ public class SqlTaskExecution
                 taskHandle = taskExecutor.addTask(taskId, outputBuffer::getUtilization, getInitialSplitsPerNode(taskContext.getSession()), getSplitConcurrencyAdjustmentInterval(taskContext.getSession()));
                 taskStateMachine.addStateChangeListener(state -> {
                     if (state.isDone()) {
-                        taskExecutor.removeTask(taskHandle);
-                        for (DriverFactory factory : localExecutionPlan.getDriverFactories()) {
-                            factory.noMoreDrivers();
-                        }
+                        stopAllDriverExecution();
                     }
                 });
             }
@@ -255,6 +256,14 @@ public class SqlTaskExecution
             }
 
             outputBuffer.addStateChangeListener(new CheckTaskCompletionOnBufferFinish(SqlTaskExecution.this));
+        }
+    }
+
+    private void stopAllDriverExecution()
+    {
+        taskExecutor.removeTask(taskHandle);
+        for (DriverFactory factory : allRawDriverFactories) {
+            factory.noMoreDrivers();
         }
     }
 
@@ -496,7 +505,7 @@ public class SqlTaskExecution
             final DriverSplitRunner splitRunner = runners.get(i);
 
             // record new driver
-            status.incrementRemainingDriver(splitRunner.getLifespan());
+            status.incrementRemainingDriver(splitRunner.getLifespan(), splitRunner.isOutputSplit());
 
             Futures.addCallback(finishedFuture, new FutureCallback<Object>()
             {
@@ -505,7 +514,7 @@ public class SqlTaskExecution
                 {
                     try (SetThreadName ignored = new SetThreadName("Task-%s", taskId)) {
                         // record driver is finished
-                        status.decrementRemainingDriver(splitRunner.getLifespan());
+                        status.decrementRemainingDriver(splitRunner.getLifespan(), splitRunner.isOutputSplit());
 
                         checkTaskCompletion();
 
@@ -520,7 +529,7 @@ public class SqlTaskExecution
                         taskStateMachine.failed(cause);
 
                         // record driver is finished
-                        status.decrementRemainingDriver(splitRunner.getLifespan());
+                        status.decrementRemainingDriver(splitRunner.getLifespan(), splitRunner.isOutputSplit());
 
                         // fire failed event with cause
                         queryMonitor.splitFailedEvent(taskId, getDriverStats(), cause);
@@ -573,10 +582,14 @@ public class SqlTaskExecution
                 return;
             }
         }
-        // do we still have running tasks?
-        if (status.getRemainingDriver() != 0) {
+
+        // the only required output (side effect) of a task is the output created in output drivers, so
+        // are there any output drivers remaining?
+        if (status.getRemainingOutputDrivers() != 0) {
             return;
         }
+
+        stopAllDriverExecution();
 
         // no more output will be created
         outputBuffer.setNoMorePages();
@@ -595,7 +608,7 @@ public class SqlTaskExecution
     {
         return toStringHelper(this)
                 .add("taskId", taskId)
-                .add("remainingDrivers", status.getRemainingDriver())
+                .add("remainingOutputDriver", status.getRemainingOutputDrivers())
                 .add("unpartitionedSources", unpartitionedSources)
                 .toString();
     }
@@ -869,6 +882,11 @@ public class SqlTaskExecution
             return driver;
         }
 
+        public boolean isOutputDriver()
+        {
+            return driverFactory.isOutputDriver();
+        }
+
         public void noMoreDriverRunner(Iterable<Lifespan> lifespans)
         {
             for (Lifespan lifespan : lifespans) {
@@ -930,6 +948,11 @@ public class SqlTaskExecution
             this.driverContext = requireNonNull(driverContext, "driverContext is null");
             this.partitionedSplit = partitionedSplit;
             this.lifespan = requireNonNull(lifespan, "lifespan is null");
+        }
+
+        public boolean isOutputSplit()
+        {
+            return driverSplitRunnerFactory.isOutputDriver();
         }
 
         public synchronized DriverContext getDriverContext()
@@ -1045,7 +1068,7 @@ public class SqlTaskExecution
         private final Map<Lifespan, PerLifespanStatus> perLifespan = new HashMap<>();
 
         @GuardedBy("this")
-        private int overallRemainingDriver;
+        private int remainingOutputDriver;
 
         @GuardedBy("this")
         private boolean noMoreLifespans;
@@ -1118,18 +1141,22 @@ public class SqlTaskExecution
             per(pipelineId).pendingCreation--;
         }
 
-        public synchronized void incrementRemainingDriver(Lifespan lifespan)
+        public synchronized void incrementRemainingDriver(Lifespan lifespan, boolean outputDriver)
         {
             checkState(!isNoMoreDriverRunners(lifespan), "Cannot increment remainingDriver for Lifespan %s. NoMoreSplits is set.", lifespan);
             per(lifespan).remainingDriver++;
-            overallRemainingDriver++;
+            if (outputDriver) {
+                remainingOutputDriver++;
+            }
         }
 
-        public synchronized void decrementRemainingDriver(Lifespan lifespan)
+        public synchronized void decrementRemainingDriver(Lifespan lifespan, boolean outputDriver)
         {
             checkState(per(lifespan).remainingDriver > 0, "Cannot decrement remainingDriver for Lifespan %s. Value is 0.", lifespan);
             per(lifespan).remainingDriver--;
-            overallRemainingDriver--;
+            if (outputDriver) {
+                remainingOutputDriver--;
+            }
             checkLifespanCompletion(lifespan);
         }
 
@@ -1148,9 +1175,9 @@ public class SqlTaskExecution
             return per(lifespan).remainingDriver;
         }
 
-        public synchronized int getRemainingDriver()
+        public synchronized int getRemainingOutputDrivers()
         {
-            return overallRemainingDriver;
+            return remainingOutputDriver;
         }
 
         public synchronized boolean isNoMoreDriverRunners(int pipelineId)
