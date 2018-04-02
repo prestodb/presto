@@ -153,6 +153,11 @@ public class LegacyAccessControl
     }
 
     @Override
+    public void checkCanSelectFromColumns(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName, Set<String> columnNames)
+    {
+    }
+
+    @Override
     public void checkCanSelectFromTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
     {
     }
@@ -189,6 +194,11 @@ public class LegacyAccessControl
 
     @Override
     public void checkCanCreateViewWithSelectFromView(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName viewName)
+    {
+    }
+
+    @Override
+    public void checkCanCreateViewWithSelectFromColumns(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName, Set<String> columnNames)
     {
     }
 
