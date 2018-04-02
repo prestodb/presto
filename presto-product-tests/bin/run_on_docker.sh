@@ -40,10 +40,7 @@ function run_in_application_runner_container() {
 }
 
 function check_presto() {
-  run_in_application_runner_container \
-    java -jar "/docker/volumes/presto-cli/presto-cli-executable.jar" \
-    ${CLI_ARGUMENTS} \
-    --execute "SHOW CATALOGS" | grep -iq hive
+  run_in_application_runner_container /docker/volumes/conf/docker/files/presto-cli.sh --execute "SHOW CATALOGS" | grep -iq hive
 }
 
 function run_product_tests() {
@@ -126,17 +123,6 @@ if [[ "$ENVIRONMENT" == "multinode" ]]; then
    PRESTO_SERVICES="${PRESTO_SERVICES} presto-worker"
 elif [[ "$ENVIRONMENT" == "multinode-tls" ]]; then
    PRESTO_SERVICES="${PRESTO_SERVICES} presto-worker-1 presto-worker-2"
-fi
-
-CLI_ARGUMENTS="--server presto-master:8080"
-if [[ "$ENVIRONMENT" == "singlenode-ldap" ]]; then
-    CLI_ARGUMENTS="--server https://presto-master:8443 --keystore-path /etc/openldap/certs/coordinator.jks --keystore-password testldap"
-fi
-if [[ "$ENVIRONMENT" == "multinode-tls" || "$ENVIRONMENT" == *kerberos* ]]; then
-    CLI_ARGUMENTS="--server https://presto-master.docker.cluster:7778 --keystore-path /docker/volumes/conf/presto/etc/docker.cluster.jks --keystore-password 123456"
-fi
-if [[ "$ENVIRONMENT" == *kerberos* ]]; then
-    CLI_ARGUMENTS="${CLI_ARGUMENTS} --krb5-config-path /etc/krb5.conf --krb5-principal presto-client/presto-master.docker.cluster@LABS.TERADATA.COM --krb5-keytab-path /etc/presto/conf/presto-client.keytab --krb5-remote-service-name presto-server --krb5-disable-remote-service-hostname-canonicalization"
 fi
 
 # check docker and docker compose installation
