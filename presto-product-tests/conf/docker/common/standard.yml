@@ -50,3 +50,4 @@ services:
     environment:
       - PRESTO_JDBC_DRIVER_CLASS
       - TEMPTO_EXTRA_CONFIG_FILE
+      - CLI_ARGUMENTS=--server presto-master:8080
