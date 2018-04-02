@@ -48,6 +48,7 @@ import java.util.Set;
 
 import static com.facebook.presto.hive.parquet.ParquetCompressionUtils.decompress;
 import static com.facebook.presto.hive.parquet.ParquetTypeUtils.getDescriptor;
+import static com.facebook.presto.hive.parquet.ParquetTypeUtils.getDescriptorExactPath;
 import static com.facebook.presto.hive.parquet.ParquetTypeUtils.getParquetEncoding;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
@@ -83,7 +84,7 @@ public final class ParquetPredicateUtils
 
         ImmutableMap.Builder<ColumnDescriptor, Domain> predicate = ImmutableMap.builder();
         for (Entry<HiveColumnHandle, Domain> entry : effectivePredicate.getDomains().get().entrySet()) {
-            Optional<RichColumnDescriptor> descriptor = getDescriptor(fileSchema, requestedSchema, ImmutableList.of(entry.getKey().getName()));
+            Optional<RichColumnDescriptor> descriptor = getDescriptorExactPath(fileSchema, requestedSchema, ImmutableList.of(entry.getKey().getName()));
             if (descriptor.isPresent()) {
                 predicate.put(descriptor.get(), entry.getValue());
             }

@@ -23,6 +23,8 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.predicate.Domain;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DateType;
@@ -484,6 +486,13 @@ public abstract class AbstractTestHiveFileFormats
             columns.add(new HiveColumnHandle(testColumn.getName(), hiveType, hiveType.getTypeSignature(), columnIndex, testColumn.isPartitionKey() ? PARTITION_KEY : REGULAR, Optional.empty()));
         }
         return columns;
+    }
+
+    protected TupleDomain<HiveColumnHandle> createEffectivePredicate(List<TestColumn> predicateColumns)
+    {
+        ImmutableMap<HiveColumnHandle, Domain> domains = getColumnHandles(predicateColumns).stream()
+                .collect(ImmutableMap.toImmutableMap(column -> column, column -> Domain.notNull(column.getHiveType().getType(TYPE_MANAGER))));
+        return TupleDomain.withColumnDomains(domains);
     }
 
     public static FileSplit createTestFile(
