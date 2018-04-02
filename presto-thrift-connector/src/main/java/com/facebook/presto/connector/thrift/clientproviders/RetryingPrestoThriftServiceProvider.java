@@ -26,6 +26,7 @@ import com.facebook.presto.connector.thrift.api.PrestoThriftService;
 import com.facebook.presto.connector.thrift.api.PrestoThriftServiceException;
 import com.facebook.presto.connector.thrift.api.PrestoThriftSplitBatch;
 import com.facebook.presto.connector.thrift.api.PrestoThriftTupleDomain;
+import com.facebook.presto.connector.thrift.tracetoken.ThriftTraceToken;
 import com.facebook.presto.connector.thrift.util.RetryDriver;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.PrestoException;
@@ -42,6 +43,7 @@ import javax.annotation.concurrent.NotThreadSafe;
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.connector.thrift.ThriftErrorCode.THRIFT_SERVICE_GENERIC_REMOTE_ERROR;
@@ -85,15 +87,15 @@ public class RetryingPrestoThriftServiceProvider
     }
 
     @Override
-    public PrestoThriftService anyHostClient()
+    public PrestoThriftService anyHostClient(Optional<ThriftTraceToken> traceToken)
     {
-        return new RetryingService(original::anyHostClient, retry, stats);
+        return new RetryingService(() -> original.anyHostClient(traceToken), retry, stats);
     }
 
     @Override
-    public PrestoThriftService selectedHostClient(List<HostAddress> hosts)
+    public PrestoThriftService selectedHostClient(List<HostAddress> hosts, Optional<ThriftTraceToken> traceToken)
     {
-        return new RetryingService(() -> original.selectedHostClient(hosts), retry, stats);
+        return new RetryingService(() -> original.selectedHostClient(hosts, traceToken), retry, stats);
     }
 
     @NotThreadSafe

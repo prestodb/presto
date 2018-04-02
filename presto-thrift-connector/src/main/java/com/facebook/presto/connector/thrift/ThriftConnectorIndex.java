@@ -14,12 +14,14 @@
 package com.facebook.presto.connector.thrift;
 
 import com.facebook.presto.connector.thrift.clientproviders.PrestoThriftServiceProvider;
+import com.facebook.presto.connector.thrift.tracetoken.ThriftTraceToken;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorIndex;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.RecordSet;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -34,6 +36,7 @@ public class ThriftConnectorIndex
     private final long maxBytesPerResponse;
     private final int lookupRequestsConcurrency;
     private final ThriftConnectorStats stats;
+    private final Optional<ThriftTraceToken> traceToken;
 
     public ThriftConnectorIndex(
             PrestoThriftServiceProvider clientProvider,
@@ -42,7 +45,8 @@ public class ThriftConnectorIndex
             List<ColumnHandle> lookupColumns,
             List<ColumnHandle> outputColumns,
             long maxBytesPerResponse,
-            int lookupRequestsConcurrency)
+            int lookupRequestsConcurrency,
+            Optional<ThriftTraceToken> traceToken)
     {
         this.clientProvider = requireNonNull(clientProvider, "clientProvider is null");
         this.stats = requireNonNull(stats, "stats is null");
@@ -51,12 +55,13 @@ public class ThriftConnectorIndex
         this.outputColumns = requireNonNull(outputColumns, "outputColumns is null");
         this.maxBytesPerResponse = maxBytesPerResponse;
         this.lookupRequestsConcurrency = lookupRequestsConcurrency;
+        this.traceToken = requireNonNull(traceToken, "traceToken is null");
     }
 
     @Override
     public ConnectorPageSource lookup(RecordSet recordSet)
     {
-        return new ThriftIndexPageSource(clientProvider, stats, indexHandle, lookupColumns, outputColumns, recordSet, maxBytesPerResponse, lookupRequestsConcurrency);
+        return new ThriftIndexPageSource(clientProvider, stats, indexHandle, lookupColumns, outputColumns, recordSet, maxBytesPerResponse, lookupRequestsConcurrency, traceToken);
     }
 
     @Override

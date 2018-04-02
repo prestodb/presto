@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.connector.thrift;
 
+import com.facebook.presto.connector.thrift.tracetoken.ThriftTraceTokenHandler;
 import com.facebook.presto.connector.thrift.util.RebindSafeMBeanServer;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.connector.Connector;
@@ -23,6 +24,7 @@ import com.facebook.swift.codec.guice.ThriftCodecModule;
 import com.facebook.swift.service.guice.ThriftClientModule;
 import com.google.inject.Injector;
 import com.google.inject.Module;
+import com.google.inject.Scopes;
 import io.airlift.bootstrap.Bootstrap;
 import org.weakref.jmx.guice.MBeanModule;
 
@@ -39,11 +41,13 @@ public class ThriftConnectorFactory
 {
     private final String name;
     private final Module locationModule;
+    private final Class<? extends ThriftTraceTokenHandler> traceTokenHandler;
 
-    public ThriftConnectorFactory(String name, Module locationModule)
+    public ThriftConnectorFactory(String name, Module locationModule, Class<? extends ThriftTraceTokenHandler> traceTokenHandler)
     {
         this.name = requireNonNull(name, "name is null");
         this.locationModule = requireNonNull(locationModule, "locationModule is null");
+        this.traceTokenHandler = requireNonNull(traceTokenHandler, "traceTokenHandler is null");
     }
 
     @Override
@@ -69,6 +73,7 @@ public class ThriftConnectorFactory
                     binder -> {
                         binder.bind(MBeanServer.class).toInstance(new RebindSafeMBeanServer(getPlatformMBeanServer()));
                         binder.bind(TypeManager.class).toInstance(context.getTypeManager());
+                        binder.bind(ThriftTraceTokenHandler.class).to(traceTokenHandler).in(Scopes.SINGLETON);
                     },
                     locationModule,
                     new ThriftModule(connectorId));

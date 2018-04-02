@@ -27,6 +27,7 @@ import com.facebook.presto.connector.thrift.api.PrestoThriftSplitBatch;
 import com.facebook.presto.connector.thrift.api.PrestoThriftTupleDomain;
 import com.facebook.presto.connector.thrift.location.HostLocationHandle;
 import com.facebook.presto.connector.thrift.location.SimpleHostLocationHandle;
+import com.facebook.presto.connector.thrift.tracetoken.ThriftTraceToken;
 import com.facebook.presto.spi.HostAddress;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -37,6 +38,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.facebook.presto.spi.HostAddress.fromParts;
@@ -112,14 +114,14 @@ public class TestRetryingPrestoThriftServiceProvider
         }
 
         @Override
-        public ConnectedThriftService anyHostClient()
+        public ConnectedThriftService anyHostClient(Optional<ThriftTraceToken> traceToken)
         {
             openServiceCount.getAndIncrement();
             return new TestingConnectedThriftService();
         }
 
         @Override
-        public ConnectedThriftService selectedHostClient(List<HostAddress> hosts)
+        public ConnectedThriftService selectedHostClient(List<HostAddress> hosts, Optional<ThriftTraceToken> traceToken)
         {
             openServiceCount.getAndIncrement();
             return new TestingConnectedThriftService();

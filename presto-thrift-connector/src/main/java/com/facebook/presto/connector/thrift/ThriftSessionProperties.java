@@ -13,12 +13,17 @@
  */
 package com.facebook.presto.connector.thrift;
 
+import com.facebook.presto.connector.thrift.tracetoken.ThriftTraceToken;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Optional;
+
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
 /**
  * Internal session properties are those defined by the connector itself.
@@ -26,16 +31,32 @@ import java.util.List;
  */
 public final class ThriftSessionProperties
 {
+    private static final String TRACE_TOKEN = "trace_token";
+
     private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
     public ThriftSessionProperties(ThriftConnectorConfig config)
     {
-        sessionProperties = ImmutableList.of();
+        sessionProperties = ImmutableList.of(
+                new PropertyMetadata<>(
+                        TRACE_TOKEN,
+                        "Trace token value",
+                        VARCHAR,
+                        ThriftTraceToken.class,
+                        null,
+                        false,
+                        object -> ThriftTraceToken.valueOf((String) object),
+                        traceToken -> traceToken == null ? null : traceToken.getValue()));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
     {
         return sessionProperties;
+    }
+
+    public static Optional<ThriftTraceToken> getTraceToken(ConnectorSession session)
+    {
+        return Optional.ofNullable(session.getProperty(TRACE_TOKEN, ThriftTraceToken.class));
     }
 }

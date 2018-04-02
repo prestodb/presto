@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.connector.thrift;
 
+import com.facebook.presto.connector.thrift.tracetoken.ThriftTraceTokenHandler;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.google.common.collect.ImmutableList;
@@ -31,6 +32,7 @@ public class ThriftPlugin
 {
     private final String name;
     private final Module locationModule;
+    private final Class<? extends ThriftTraceTokenHandler> traceTokenHandler;
 
     public ThriftPlugin()
     {
@@ -39,20 +41,21 @@ public class ThriftPlugin
 
     private ThriftPlugin(ThriftPluginInfo info)
     {
-        this(info.getName(), info.getLocationModule());
+        this(info.getName(), info.getLocationModule(), info.getTraceTokenHandler());
     }
 
-    public ThriftPlugin(String name, Module locationModule)
+    public ThriftPlugin(String name, Module locationModule, Class<? extends ThriftTraceTokenHandler> traceTokenHandler)
     {
         checkArgument(!isNullOrEmpty(name), "name is null or empty");
         this.name = name;
         this.locationModule = requireNonNull(locationModule, "locationModule is null");
+        this.traceTokenHandler = requireNonNull(traceTokenHandler, "traceTokenHandler is null");
     }
 
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(new ThriftConnectorFactory(name, locationModule));
+        return ImmutableList.of(new ThriftConnectorFactory(name, locationModule, traceTokenHandler));
     }
 
     private static ThriftPluginInfo getPluginInfo()

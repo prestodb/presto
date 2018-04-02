@@ -23,6 +23,7 @@ import com.facebook.presto.connector.thrift.api.PrestoThriftSplit;
 import com.facebook.presto.connector.thrift.api.PrestoThriftSplitBatch;
 import com.facebook.presto.connector.thrift.api.PrestoThriftTupleDomain;
 import com.facebook.presto.connector.thrift.clientproviders.PrestoThriftServiceProvider;
+import com.facebook.presto.connector.thrift.tracetoken.ThriftTraceToken;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.HostAddress;
@@ -42,6 +43,7 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
@@ -75,6 +77,7 @@ public class ThriftIndexPageSource
     private final PrestoThriftPageResult keys;
     private final long maxBytesPerResponse;
     private final int lookupRequestsConcurrency;
+    private final Optional<ThriftTraceToken> traceToken;
 
     private final AtomicLong readTimeNanos = new AtomicLong(0);
     private long completedBytes;
@@ -101,7 +104,8 @@ public class ThriftIndexPageSource
             List<ColumnHandle> outputColumns,
             RecordSet keys,
             long maxBytesPerResponse,
-            int lookupRequestsConcurrency)
+            int lookupRequestsConcurrency,
+            Optional<ThriftTraceToken> traceToken)
     {
         this.clientProvider = requireNonNull(clientProvider, "clientProvider is null");
         this.stats = requireNonNull(stats, "stats is null");
@@ -133,6 +137,7 @@ public class ThriftIndexPageSource
         this.maxBytesPerResponse = maxBytesPerResponse;
         checkArgument(lookupRequestsConcurrency >= 1, "lookupRequestsConcurrency is less than one");
         this.lookupRequestsConcurrency = lookupRequestsConcurrency;
+        this.traceToken = requireNonNull(traceToken, "traceToken is null");
 
         this.contexts = new HashMap<>(lookupRequestsConcurrency);
     }
@@ -248,7 +253,7 @@ public class ThriftIndexPageSource
         // check if request for splits was sent
         if (splitFuture == null) {
             // didn't start fetching splits, send the first request now
-            splitsClient = clientProvider.anyHostClient();
+            splitsClient = clientProvider.anyHostClient(traceToken);
             splitFuture = sendSplitRequest(splitsClient, null);
             statusFuture = toCompletableFuture(nonCancellationPropagating(splitFuture));
         }
@@ -322,10 +327,10 @@ public class ThriftIndexPageSource
     private PrestoThriftService openClient(PrestoThriftSplit split)
     {
         if (split.getHosts().isEmpty()) {
-            return clientProvider.anyHostClient();
+            return clientProvider.anyHostClient(traceToken);
         }
         else {
-            return clientProvider.selectedHostClient(toHostAddressList(split.getHosts()));
+            return clientProvider.selectedHostClient(toHostAddressList(split.getHosts()), traceToken);
         }
     }
 

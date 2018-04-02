@@ -25,6 +25,7 @@ import javax.inject.Inject;
 
 import java.util.List;
 
+import static com.facebook.presto.connector.thrift.ThriftSessionProperties.getTraceToken;
 import static java.util.Objects.requireNonNull;
 
 public class ThriftIndexProvider
@@ -53,6 +54,14 @@ public class ThriftIndexProvider
             List<ColumnHandle> lookupSchema,
             List<ColumnHandle> outputSchema)
     {
-        return new ThriftConnectorIndex(clientProvider, stats, (ThriftIndexHandle) indexHandle, lookupSchema, outputSchema, maxBytesPerResponse, lookupRequestsConcurrency);
+        return new ThriftConnectorIndex(
+                clientProvider,
+                stats,
+                (ThriftIndexHandle) indexHandle,
+                lookupSchema,
+                outputSchema,
+                maxBytesPerResponse,
+                lookupRequestsConcurrency,
+                getTraceToken(session));
     }
 }
