@@ -177,6 +177,12 @@ public class SqlStandardAccessControl
     }
 
     @Override
+    public void checkCanSelectFromColumns(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName, Set<String> columnNames)
+    {
+        // TODO
+    }
+
+    @Override
     public void checkCanSelectFromTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
     {
         if (!checkTablePermission(transaction, identity, tableName, SELECT)) {
@@ -244,6 +250,12 @@ public class SqlStandardAccessControl
         if (!getGrantOptionForPrivilege(transaction, identity, Privilege.SELECT, viewName)) {
             denyCreateViewWithSelect(viewName.toString());
         }
+    }
+
+    @Override
+    public void checkCanCreateViewWithSelectFromColumns(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName, Set<String> columnNames)
+    {
+        // TODO
     }
 
     @Override

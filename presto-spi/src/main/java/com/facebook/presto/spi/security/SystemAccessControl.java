@@ -38,6 +38,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameC
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
+import static com.facebook.presto.spi.security.AccessDeniedException.denySelectColumns;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectView;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
@@ -213,6 +214,16 @@ public interface SystemAccessControl
     }
 
     /**
+     * Check if identity is allowed to select from the specified columns in a relation.
+     *
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanSelectFromColumns(Identity identity, CatalogSchemaTableName table, Set<String> columns)
+    {
+        denySelectColumns(table.toString(), columns);
+    }
+
+    /**
      * Check if identity is allowed to select from the specified table in a catalog.
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
@@ -290,6 +301,16 @@ public interface SystemAccessControl
     default void checkCanCreateViewWithSelectFromView(Identity identity, CatalogSchemaTableName view)
     {
         denyCreateViewWithSelect(view.toString());
+    }
+
+    /**
+     * Check if identity is allowed to create a view that selects from the specified columns in a relation.
+     *
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanCreateViewWithSelectFromColumns(Identity identity, CatalogSchemaTableName table, Set<String> columns)
+    {
+        denyCreateViewWithSelect(table.toString());
     }
 
     /**
