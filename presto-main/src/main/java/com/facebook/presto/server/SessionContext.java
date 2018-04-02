@@ -14,6 +14,7 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.spi.session.ResourceEstimates;
 import com.facebook.presto.transaction.TransactionId;
 
 import javax.annotation.Nullable;
@@ -44,6 +45,8 @@ public interface SessionContext
     String getClientInfo();
 
     Set<String> getClientTags();
+
+    ResourceEstimates getResourceEstimates();
 
     @Nullable
     String getTimeZoneId();

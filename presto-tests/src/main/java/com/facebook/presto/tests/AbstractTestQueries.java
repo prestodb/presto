@@ -4939,6 +4939,7 @@ public abstract class AbstractTestQueries
                 getSession().getUserAgent(),
                 getSession().getClientInfo(),
                 getSession().getClientTags(),
+                getSession().getResourceEstimates(),
                 getSession().getStartTime(),
                 ImmutableMap.<String, String>builder()
                         .put("test_string", "foo string")

@@ -654,6 +654,7 @@ public class PrestoConnection
                 schema.get(),
                 timeZoneId.get(),
                 locale.get(),
+                ImmutableMap.of(),
                 ImmutableMap.copyOf(allProperties),
                 ImmutableMap.copyOf(preparedStatements),
                 transactionId.get(),

@@ -18,6 +18,7 @@ import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.security.BasicPrincipal;
 import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.spi.session.ResourceEstimates;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.transaction.TransactionId;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -49,6 +50,7 @@ public final class SessionRepresentation
     private final Optional<String> clientInfo;
     private final Set<String> clientTags;
     private final long startTime;
+    private final ResourceEstimates resourceEstimate;
     private final Map<String, String> systemProperties;
     private final Map<ConnectorId, Map<String, String>> catalogProperties;
     private final Map<String, String> preparedStatements;
@@ -69,6 +71,7 @@ public final class SessionRepresentation
             @JsonProperty("userAgent") Optional<String> userAgent,
             @JsonProperty("clientInfo") Optional<String> clientInfo,
             @JsonProperty("clientTags") Set<String> clientTags,
+            @JsonProperty("resourceEstimate") ResourceEstimates resourceEstimate,
             @JsonProperty("startTime") long startTime,
             @JsonProperty("systemProperties") Map<String, String> systemProperties,
             @JsonProperty("catalogProperties") Map<ConnectorId, Map<String, String>> catalogProperties,
@@ -88,6 +91,7 @@ public final class SessionRepresentation
         this.userAgent = requireNonNull(userAgent, "userAgent is null");
         this.clientInfo = requireNonNull(clientInfo, "clientInfo is null");
         this.clientTags = requireNonNull(clientTags, "clientTags is null");
+        this.resourceEstimate = requireNonNull(resourceEstimate, "resourceEstimate is null");
         this.startTime = startTime;
         this.systemProperties = ImmutableMap.copyOf(systemProperties);
         this.preparedStatements = ImmutableMap.copyOf(preparedStatements);
@@ -190,6 +194,12 @@ public final class SessionRepresentation
     }
 
     @JsonProperty
+    public ResourceEstimates getResourceEstimate()
+    {
+        return resourceEstimate;
+    }
+
+    @JsonProperty
     public Map<String, String> getSystemProperties()
     {
         return systemProperties;
@@ -223,6 +233,7 @@ public final class SessionRepresentation
                 userAgent,
                 clientInfo,
                 clientTags,
+                resourceEstimate,
                 startTime,
                 systemProperties,
                 catalogProperties,

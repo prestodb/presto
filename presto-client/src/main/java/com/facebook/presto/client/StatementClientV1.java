@@ -54,6 +54,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_TAGS;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_DEALLOCATED_PREPARE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_LANGUAGE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PREPARED_STATEMENT;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_RESOURCE_ESTIMATE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SCHEMA;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_CATALOG;
@@ -161,6 +162,11 @@ class StatementClientV1
         Map<String, String> property = session.getProperties();
         for (Entry<String, String> entry : property.entrySet()) {
             builder.addHeader(PRESTO_SESSION, entry.getKey() + "=" + entry.getValue());
+        }
+
+        Map<String, String> resourceEstimates = session.getResourceEstimates();
+        for (Entry<String, String> entry : resourceEstimates.entrySet()) {
+            builder.addHeader(PRESTO_RESOURCE_ESTIMATE, entry.getKey() + "=" + entry.getValue());
         }
 
         Map<String, String> statements = session.getPreparedStatements();

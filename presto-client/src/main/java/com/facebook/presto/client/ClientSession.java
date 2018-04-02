@@ -41,6 +41,7 @@ public class ClientSession
     private final String schema;
     private final TimeZoneKey timeZone;
     private final Locale locale;
+    private final Map<String, String> resourceEstimates;
     private final Map<String, String> properties;
     private final Map<String, String> preparedStatements;
     private final String transactionId;
@@ -68,6 +69,7 @@ public class ClientSession
             String schema,
             String timeZoneId,
             Locale locale,
+            Map<String, String> resourceEstimates,
             Map<String, String> properties,
             Map<String, String> preparedStatements,
             String transactionId,
@@ -83,6 +85,7 @@ public class ClientSession
         this.locale = locale;
         this.timeZone = TimeZoneKey.getTimeZoneKey(timeZoneId);
         this.transactionId = transactionId;
+        this.resourceEstimates = ImmutableMap.copyOf(requireNonNull(resourceEstimates, "resourceEstimates is null"));
         this.properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
         this.preparedStatements = ImmutableMap.copyOf(requireNonNull(preparedStatements, "preparedStatements is null"));
         this.clientRequestTimeout = clientRequestTimeout;
@@ -91,8 +94,15 @@ public class ClientSession
             checkArgument(!clientTag.contains(","), "client tag cannot contain ','");
         }
 
-        // verify the properties are valid
+        // verify that resource estimates are valid
         CharsetEncoder charsetEncoder = US_ASCII.newEncoder();
+        for (Entry<String, String> entry : resourceEstimates.entrySet()) {
+            checkArgument(!entry.getKey().isEmpty(), "Resource name is empty");
+            checkArgument(entry.getKey().indexOf('=') < 0, "Resource name must not contain '=': %s", entry.getKey());
+            checkArgument(charsetEncoder.canEncode(entry.getKey()), "Resource name is not US_ASCII: %s", entry.getKey());
+        }
+
+        // verify the properties are valid
         for (Entry<String, String> entry : properties.entrySet()) {
             checkArgument(!entry.getKey().isEmpty(), "Session property name is empty");
             checkArgument(entry.getKey().indexOf('=') < 0, "Session property name must not contain '=': %s", entry.getKey());
@@ -144,6 +154,11 @@ public class ClientSession
     public Locale getLocale()
     {
         return locale;
+    }
+
+    public Map<String, String> getResourceEstimates()
+    {
+        return resourceEstimates;
     }
 
     public Map<String, String> getProperties()
@@ -199,6 +214,7 @@ public class ClientSession
         private String schema;
         private TimeZoneKey timeZone;
         private Locale locale;
+        private Map<String, String> resourceEstimates;
         private Map<String, String> properties;
         private Map<String, String> preparedStatements;
         private String transactionId;
@@ -216,6 +232,7 @@ public class ClientSession
             schema = clientSession.getSchema();
             timeZone = clientSession.getTimeZone();
             locale = clientSession.getLocale();
+            resourceEstimates = clientSession.getResourceEstimates();
             properties = clientSession.getProperties();
             preparedStatements = clientSession.getPreparedStatements();
             transactionId = clientSession.getTransactionId();
@@ -270,6 +287,7 @@ public class ClientSession
                     schema,
                     timeZone.getId(),
                     locale,
+                    resourceEstimates,
                     properties,
                     preparedStatements,
                     transactionId,

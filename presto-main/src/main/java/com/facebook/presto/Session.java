@@ -20,6 +20,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.spi.session.ResourceEstimates;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.sql.tree.Execute;
 import com.facebook.presto.transaction.TransactionId;
@@ -28,6 +29,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
+import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 
 import java.security.Principal;
 import java.util.HashMap;
@@ -60,6 +63,7 @@ public final class Session
     private final Optional<String> userAgent;
     private final Optional<String> clientInfo;
     private final Set<String> clientTags;
+    private final ResourceEstimates resourceEstimates;
     private final long startTime;
     private final Map<String, String> systemProperties;
     private final Map<ConnectorId, Map<String, String>> connectorProperties;
@@ -81,6 +85,7 @@ public final class Session
             Optional<String> userAgent,
             Optional<String> clientInfo,
             Set<String> clientTags,
+            ResourceEstimates resourceEstimates,
             long startTime,
             Map<String, String> systemProperties,
             Map<ConnectorId, Map<String, String>> connectorProperties,
@@ -101,6 +106,7 @@ public final class Session
         this.userAgent = requireNonNull(userAgent, "userAgent is null");
         this.clientInfo = requireNonNull(clientInfo, "clientInfo is null");
         this.clientTags = ImmutableSet.copyOf(requireNonNull(clientTags, "clientTags is null"));
+        this.resourceEstimates = requireNonNull(resourceEstimates, "resourceEstimates is null");
         this.startTime = startTime;
         this.systemProperties = ImmutableMap.copyOf(requireNonNull(systemProperties, "systemProperties is null"));
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
@@ -180,6 +186,11 @@ public final class Session
     public Set<String> getClientTags()
     {
         return clientTags;
+    }
+
+    public ResourceEstimates getResourceEstimates()
+    {
+        return resourceEstimates;
     }
 
     public long getStartTime()
@@ -296,6 +307,7 @@ public final class Session
                 userAgent,
                 clientInfo,
                 clientTags,
+                resourceEstimates,
                 startTime,
                 systemProperties,
                 connectorProperties.build(),
@@ -337,6 +349,7 @@ public final class Session
                 userAgent,
                 clientInfo,
                 clientTags,
+                resourceEstimates,
                 startTime,
                 systemProperties,
                 connectorProperties,
@@ -360,6 +373,7 @@ public final class Session
                 .add("userAgent", userAgent.orElse(null))
                 .add("clientInfo", clientInfo.orElse(null))
                 .add("clientTags", clientTags)
+                .add("resourceEstimates", resourceEstimates)
                 .add("startTime", startTime)
                 .omitNullValues()
                 .toString();
@@ -391,6 +405,7 @@ public final class Session
         private String userAgent;
         private String clientInfo;
         private Set<String> clientTags = ImmutableSet.of();
+        private ResourceEstimates resourceEstimates;
         private long startTime = System.currentTimeMillis();
         private final Map<String, String> systemProperties = new HashMap<>();
         private final Map<String, Map<String, String>> catalogSessionProperties = new HashMap<>();
@@ -511,6 +526,12 @@ public final class Session
             return this;
         }
 
+        public SessionBuilder setResourceEstimates(ResourceEstimates resourceEstimates)
+        {
+            this.resourceEstimates = resourceEstimates;
+            return this;
+        }
+
         /**
          * Sets a system property for the session.  The property name and value must
          * only contain characters from US-ASCII and must not be for '='.
@@ -554,12 +575,43 @@ public final class Session
                     Optional.ofNullable(userAgent),
                     Optional.ofNullable(clientInfo),
                     clientTags,
+                    Optional.ofNullable(resourceEstimates).orElse(new ResourceEstimateBuilder().build()),
                     startTime,
                     systemProperties,
                     ImmutableMap.of(),
                     catalogSessionProperties,
                     sessionPropertyManager,
                     preparedStatements);
+        }
+    }
+
+    public static class ResourceEstimateBuilder
+    {
+        private Optional<Duration> executionTime = Optional.empty();
+        private Optional<Duration> cpuTime = Optional.empty();
+        private Optional<DataSize> peakMemory = Optional.empty();
+
+        public ResourceEstimateBuilder setExecutionTime(Duration executionTime)
+        {
+            this.executionTime = Optional.of(executionTime);
+            return this;
+        }
+
+        public ResourceEstimateBuilder setCpuTime(Duration cpuTime)
+        {
+            this.cpuTime = Optional.of(cpuTime);
+            return this;
+        }
+
+        public ResourceEstimateBuilder setPeakMemory(DataSize peakMemory)
+        {
+            this.peakMemory = Optional.of(peakMemory);
+            return this;
+        }
+
+        public ResourceEstimates build()
+        {
+            return new ResourceEstimates(executionTime, cpuTime, peakMemory);
         }
     }
 }

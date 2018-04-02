@@ -94,6 +94,7 @@ public class TestQueryRunner
                         Locale.ENGLISH,
                         ImmutableMap.of(),
                         ImmutableMap.of(),
+                        ImmutableMap.of(),
                         null,
                         new Duration(2, MINUTES)));
         try (Query query = queryRunner.startQuery("first query will introduce a cookie")) {

@@ -407,6 +407,7 @@ public class LocalQueryRunner
                 defaultSession.getUserAgent(),
                 defaultSession.getClientInfo(),
                 defaultSession.getClientTags(),
+                defaultSession.getResourceEstimates(),
                 defaultSession.getStartTime(),
                 defaultSession.getSystemProperties(),
                 defaultSession.getConnectorProperties(),
