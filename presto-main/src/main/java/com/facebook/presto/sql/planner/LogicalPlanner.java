@@ -248,7 +248,8 @@ public class LogicalPlanner
             Symbol output = symbolAllocator.newSymbol(column.getName(), column.getType());
             int index = insert.getColumns().indexOf(columns.get(column.getName()));
             if (index < 0) {
-                assignments.put(output, new NullLiteral());
+                Expression cast = new Cast(new NullLiteral(), column.getType().getTypeSignature().toString());
+                assignments.put(output, cast);
             }
             else {
                 Symbol input = plan.getSymbol(index);

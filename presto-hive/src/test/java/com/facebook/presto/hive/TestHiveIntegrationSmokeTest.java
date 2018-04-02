@@ -817,6 +817,29 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testCastNullToColumnTypes()
+    {
+        String tableName = "test_cast_null_to_column_types";
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, "orc_optimized_writer_enabled", "true")
+                .build();
+
+        assertUpdate(session, "" +
+                "CREATE TABLE " + tableName + " (" +
+                "  col1 bigint," +
+                "  col2 map(bigint, bigint)," +
+                "  partition_key varchar)" +
+                "WITH (" +
+                "  format = 'ORC', " +
+                "  partitioned_by = ARRAY[ 'partition_key' ] " +
+                ")");
+
+        assertUpdate(session, format("INSERT INTO %s (col1) VALUES (1), (2), (3)", tableName), 3);
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testInsertPartitionedBucketedTable()
     {
         testInsertPartitionedBucketedTable(HiveStorageFormat.RCBINARY);
