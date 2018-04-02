@@ -511,6 +511,22 @@ public class AccessControlManager
     }
 
     @Override
+    public void checkCanCreateViewWithSelectFromColumns(TransactionId transactionId, Identity identity, QualifiedObjectName tableName, Set<String> columnNames)
+    {
+        requireNonNull(identity, "identity is null");
+        requireNonNull(tableName, "tableName is null");
+
+        authenticationCheck(() -> checkCanAccessCatalog(identity, tableName.getCatalogName()));
+
+        authorizationCheck(() -> systemAccessControl.get().checkCanCreateViewWithSelectFromColumns(identity, tableName.asCatalogSchemaTableName(), columnNames));
+
+        CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, tableName.getCatalogName());
+        if (entry != null) {
+            authorizationCheck(() -> entry.getAccessControl().checkCanCreateViewWithSelectFromColumns(entry.getTransactionHandle(transactionId), identity, tableName.asSchemaTableName(), columnNames));
+        }
+    }
+
+    @Override
     public void checkCanGrantTablePrivilege(TransactionId transactionId, Identity identity, Privilege privilege, QualifiedObjectName tableName, String grantee, boolean withGrantOption)
     {
         requireNonNull(identity, "identity is null");
@@ -567,6 +583,23 @@ public class AccessControlManager
         CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, catalogName);
         if (entry != null) {
             authorizationCheck(() -> entry.getAccessControl().checkCanSetCatalogSessionProperty(identity, propertyName));
+        }
+    }
+
+    @Override
+    public void checkCanSelectFromColumns(TransactionId transactionId, Identity identity, QualifiedObjectName tableName, Set<String> columnNames)
+    {
+        requireNonNull(identity, "identity is null");
+        requireNonNull(tableName, "tableName is null");
+        requireNonNull(columnNames, "columnNames is null");
+
+        authenticationCheck(() -> checkCanAccessCatalog(identity, tableName.getCatalogName()));
+
+        authorizationCheck(() -> systemAccessControl.get().checkCanSelectFromColumns(identity, tableName.asCatalogSchemaTableName(), columnNames));
+
+        CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, tableName.getCatalogName());
+        if (entry != null) {
+            authorizationCheck(() -> entry.getAccessControl().checkCanSelectFromColumns(entry.getTransactionHandle(transactionId), identity, tableName.asSchemaTableName(), columnNames));
         }
     }
 

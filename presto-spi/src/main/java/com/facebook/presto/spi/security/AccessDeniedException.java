@@ -16,6 +16,7 @@ package com.facebook.presto.spi.security;
 import com.facebook.presto.spi.PrestoException;
 
 import java.security.Principal;
+import java.util.Collection;
 
 import static com.facebook.presto.spi.StandardErrorCode.PERMISSION_DENIED;
 import static java.lang.String.format;
@@ -271,6 +272,16 @@ public class AccessDeniedException
     public static void denySetCatalogSessionProperty(String propertyName)
     {
         throw new AccessDeniedException(format("Cannot set catalog session property %s", propertyName));
+    }
+
+    public static void denySelectColumns(String tableName, Collection<String> columnNames)
+    {
+        denySelectColumns(tableName, columnNames, null);
+    }
+
+    public static void denySelectColumns(String tableName, Collection<String> columnNames, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot select from columns %s in table or view %s%s", columnNames, tableName, formatExtraInfo(extraInfo)));
     }
 
     private static Object formatExtraInfo(String extraInfo)

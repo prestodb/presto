@@ -142,6 +142,11 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
+    public void checkCanSelectFromColumns(Identity identity, CatalogSchemaTableName table, Set<String> columns)
+    {
+    }
+
+    @Override
     public void checkCanSelectFromTable(Identity identity, CatalogSchemaTableName table)
     {
     }
@@ -173,6 +178,11 @@ public class AllowAllSystemAccessControl
 
     @Override
     public void checkCanCreateViewWithSelectFromTable(Identity identity, CatalogSchemaTableName table)
+    {
+    }
+
+    @Override
+    public void checkCanCreateViewWithSelectFromColumns(Identity identity, CatalogSchemaTableName table, Set<String> columns)
     {
     }
 
