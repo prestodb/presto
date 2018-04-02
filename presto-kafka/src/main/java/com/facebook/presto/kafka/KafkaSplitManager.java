@@ -58,7 +58,7 @@ public class KafkaSplitManager
     }
 
     @Override
-    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableLayoutHandle layout)
+    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableLayoutHandle layout, SplitSchedulingStrategy splitSchedulingStrategy)
     {
         KafkaTableHandle kafkaTableHandle = convertLayout(layout).getTable();
         ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
