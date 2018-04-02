@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.FunctionRegistry;
@@ -46,6 +47,8 @@ import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
+import static com.facebook.presto.sql.planner.plan.Patterns.exchange;
+import static com.facebook.presto.sql.planner.plan.Patterns.source;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
@@ -60,7 +63,10 @@ public class PushPartialAggregationThroughExchange
         this.functionRegistry = requireNonNull(functionRegistry, "functionRegistry is null");
     }
 
-    private static final Pattern<AggregationNode> PATTERN = aggregation();
+    private static final Capture<ExchangeNode> EXCHANGE_NODE = Capture.newCapture();
+
+    private static final Pattern<AggregationNode> PATTERN = aggregation()
+            .with(source().matching(exchange().capturedAs(EXCHANGE_NODE)));
 
     @Override
     public Pattern<AggregationNode> getPattern()
@@ -71,12 +77,7 @@ public class PushPartialAggregationThroughExchange
     @Override
     public Result apply(AggregationNode aggregationNode, Captures captures, Context context)
     {
-        PlanNode childNode = context.getLookup().resolve(aggregationNode.getSource());
-        if (!(childNode instanceof ExchangeNode)) {
-            return Result.empty();
-        }
-
-        ExchangeNode exchangeNode = (ExchangeNode) childNode;
+        ExchangeNode exchangeNode = captures.get(EXCHANGE_NODE);
 
         boolean decomposable = aggregationNode.isDecomposable(functionRegistry);
 
