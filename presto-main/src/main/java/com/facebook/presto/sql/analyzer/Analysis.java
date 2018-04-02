@@ -38,9 +38,11 @@ import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.Table;
 import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ListMultimap;
+import com.google.common.collect.Multimap;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
@@ -77,6 +79,7 @@ public class Analysis
 
     private final Map<NodeRef<Node>, Scope> scopes = new LinkedHashMap<>();
     private final Map<NodeRef<Expression>, FieldId> columnReferences = new LinkedHashMap<>();
+    private final Multimap<QualifiedObjectName, String> tableColumnReferences = HashMultimap.create();
 
     private final Map<NodeRef<QuerySpecification>, List<FunctionCall>> aggregates = new LinkedHashMap<>();
     private final Map<NodeRef<OrderBy>, List<Expression>> orderByAggregates = new LinkedHashMap<>();
@@ -606,6 +609,16 @@ public class Analysis
     public JoinUsingAnalysis getJoinUsing(Join node)
     {
         return joinUsing.get(NodeRef.of(node));
+    }
+
+    public void addTableColumnMappings(Multimap<QualifiedObjectName, String> tableColumnMap)
+    {
+        this.tableColumnReferences.putAll(tableColumnMap);
+    }
+
+    public Multimap<QualifiedObjectName, String> getTableColumnReferences()
+    {
+        return tableColumnReferences;
     }
 
     @Immutable

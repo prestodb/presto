@@ -117,6 +117,11 @@ public class PartitionsAwareAccessControl
     }
 
     @Override
+    public void checkCanSelectFromColumns(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName, Set<String> columnNames)
+    {
+        delegate.checkCanSelectFromColumns(transactionHandle, identity, tableName, columnNames);
+    }
+    @Override
     public void checkCanSelectFromTable(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
     {
         if (isPartitionsSystemTable(tableName)) {
@@ -171,6 +176,12 @@ public class PartitionsAwareAccessControl
     public void checkCanCreateViewWithSelectFromView(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName viewName)
     {
         delegate.checkCanCreateViewWithSelectFromView(transactionHandle, identity, viewName);
+    }
+
+    @Override
+    public void checkCanCreateViewWithSelectFromColumns(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName, Set<String> columnNames)
+    {
+        delegate.checkCanCreateViewWithSelectFromColumns(transactionHandle, identity, tableName, columnNames);
     }
 
     @Override

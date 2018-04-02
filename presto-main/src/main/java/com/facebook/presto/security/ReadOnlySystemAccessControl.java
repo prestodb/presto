@@ -68,6 +68,11 @@ public class ReadOnlySystemAccessControl
     }
 
     @Override
+    public void checkCanSelectFromColumns(Identity identity, CatalogSchemaTableName table, Set<String> columns)
+    {
+    }
+
+    @Override
     public void checkCanSelectFromTable(Identity identity, CatalogSchemaTableName table)
     {
     }
@@ -81,7 +86,6 @@ public class ReadOnlySystemAccessControl
     public void checkCanSetCatalogSessionProperty(Identity identity, String catalogName, String propertyName)
     {
     }
-
     @Override
     public void checkCanCreateViewWithSelectFromTable(Identity identity, CatalogSchemaTableName table)
     {
@@ -89,6 +93,11 @@ public class ReadOnlySystemAccessControl
 
     @Override
     public void checkCanCreateViewWithSelectFromView(Identity identity, CatalogSchemaTableName view)
+    {
+    }
+
+    @Override
+    public void checkCanCreateViewWithSelectFromColumns(Identity identity, CatalogSchemaTableName table, Set<String> columns)
     {
     }
 
