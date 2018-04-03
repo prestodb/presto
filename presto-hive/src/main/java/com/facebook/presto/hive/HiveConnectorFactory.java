@@ -18,6 +18,7 @@ import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.HiveMetastoreModule;
 import com.facebook.presto.hive.s3.HiveS3Module;
 import com.facebook.presto.hive.security.HiveSecurityModule;
+import com.facebook.presto.hive.security.PartitionsAwareAccessControl;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.Connector;
@@ -118,7 +119,7 @@ public class HiveConnectorFactory
             ConnectorNodePartitioningProvider connectorDistributionProvider = injector.getInstance(ConnectorNodePartitioningProvider.class);
             HiveSessionProperties hiveSessionProperties = injector.getInstance(HiveSessionProperties.class);
             HiveTableProperties hiveTableProperties = injector.getInstance(HiveTableProperties.class);
-            ConnectorAccessControl accessControl = injector.getInstance(ConnectorAccessControl.class);
+            ConnectorAccessControl accessControl = new PartitionsAwareAccessControl(injector.getInstance(ConnectorAccessControl.class));
 
             return new HiveConnector(
                     lifeCycleManager,

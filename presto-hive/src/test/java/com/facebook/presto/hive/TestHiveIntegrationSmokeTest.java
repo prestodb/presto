@@ -44,6 +44,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.stream.LongStream;
 
 import static com.facebook.presto.SystemSessionProperties.COLOCATED_JOIN;
 import static com.facebook.presto.SystemSessionProperties.CONCURRENT_LIFESPANS_PER_NODE;
@@ -82,6 +83,7 @@ import static io.airlift.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
@@ -1193,6 +1195,14 @@ public class TestHiveIntegrationSmokeTest
                 "SHOW PARTITIONS FROM " + tableName + " WHERE part < 0",
                 "SELECT null WHERE false");
 
+        // using $partitions system table we are not constrained by hive.max-partitions-per-scan
+        assertQuery(
+                session,
+                "SELECT * FROM \"" + tableName + "$partitions\"",
+                "VALUES " + LongStream.range(0, 1200)
+                        .mapToObj(String::valueOf)
+                        .collect(joining(",")));
+
         // verify can query 1000 partitions
         assertQuery(
                 session,
@@ -1220,6 +1230,74 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate(session, "DROP TABLE " + tableName);
 
         assertFalse(getQueryRunner().tableExists(session, tableName));
+    }
+
+    @Test
+    public void testShowColumnsFromPartitions()
+    {
+        String tableName = "test_show_columns_from_partitions";
+
+        @Language("SQL") String createTable = "" +
+                "CREATE TABLE " + tableName + " " +
+                "(" +
+                "  foo VARCHAR," +
+                "  part1 BIGINT," +
+                "  part2 VARCHAR" +
+                ") " +
+                "WITH (" +
+                "partitioned_by = ARRAY[ 'part1', 'part2' ]" +
+                ") ";
+
+        assertUpdate(getSession(), createTable);
+
+        assertQuery(
+                getSession(),
+                "SHOW COLUMNS FROM \"" + tableName + "$partitions\"",
+                "VALUES ('part1', 'bigint', '', ''), ('part2', 'varchar', '', '')");
+
+        assertQueryFails(
+                getSession(),
+                "SHOW COLUMNS FROM \"$partitions\"",
+                ".*Table 'hive.tpch.\\$partitions' does not exist");
+
+        assertQueryFails(
+                getSession(),
+                "SHOW COLUMNS FROM \"orders$partitions\"",
+                ".*Table 'hive.tpch.orders\\$partitions' does not exist");
+
+        assertQueryFails(
+                getSession(),
+                "SHOW COLUMNS FROM \"blah$partitions\"",
+                ".*Table 'hive.tpch.blah\\$partitions' does not exist");
+    }
+
+    @Test
+    public void testShowPartitionsFromPartitionsSystemTable()
+    {
+        String tableName = "test_show_partitions_from_partitions";
+
+        @Language("SQL") String createTable = "" +
+                "CREATE TABLE " + tableName + " " +
+                "(" +
+                "  foo VARCHAR," +
+                "  part1 BIGINT," +
+                "  part2 VARCHAR" +
+                ") " +
+                "WITH (" +
+                "partitioned_by = ARRAY[ 'part1', 'part2' ]" +
+                ") ";
+
+        assertUpdate(getSession(), createTable);
+
+        assertQueryFails(
+                getSession(),
+                "SHOW PARTITIONS FROM \"" + tableName + "$partitions\"",
+                ".*Table does not have partition columns: hive.tpch.test_show_partitions_from_partitions\\$partitions");
+
+        assertQueryFails(
+                getSession(),
+                "SHOW PARTITIONS FROM \"non_existent$partitions\"",
+                ".*Table 'hive.tpch.non_existent\\$partitions' does not exist");
     }
 
     @Test

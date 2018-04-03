@@ -40,13 +40,18 @@ import com.facebook.presto.spi.ConnectorTablePartitioning;
 import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.DiscretePredicates;
+import com.facebook.presto.spi.InMemoryRecordSet;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.StandardErrorCode;
+import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.ViewNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
@@ -89,6 +94,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static com.facebook.presto.hive.HiveBucketing.getHiveBucketHandle;
 import static com.facebook.presto.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
@@ -129,6 +135,7 @@ import static com.facebook.presto.hive.HiveUtil.PRESTO_VIEW_FLAG;
 import static com.facebook.presto.hive.HiveUtil.columnExtraInfo;
 import static com.facebook.presto.hive.HiveUtil.decodeViewData;
 import static com.facebook.presto.hive.HiveUtil.encodeViewData;
+import static com.facebook.presto.hive.HiveUtil.getPartitionKeyColumnHandles;
 import static com.facebook.presto.hive.HiveUtil.hiveColumnHandles;
 import static com.facebook.presto.hive.HiveUtil.schemaTableName;
 import static com.facebook.presto.hive.HiveUtil.toPartitionValues;
@@ -146,6 +153,7 @@ import static com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore.
 import static com.facebook.presto.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
 import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static com.facebook.presto.hive.util.ConfigurationUtils.toJobConf;
+import static com.facebook.presto.spi.Constraint.alwaysTrue;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -154,12 +162,15 @@ import static com.facebook.presto.spi.predicate.TupleDomain.withColumnDomains;
 import static com.facebook.presto.spi.statistics.TableStatistics.EMPTY_STATISTICS;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.concat;
+import static com.google.common.collect.Streams.stream;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
@@ -175,6 +186,8 @@ public class HiveMetadata
 
     private static final String ORC_BLOOM_FILTER_COLUMNS_KEY = "orc.bloom.filter.columns";
     private static final String ORC_BLOOM_FILTER_FPP_KEY = "orc.bloom.filter.fpp";
+
+    private static final String PARTITIONS_TABLE_SUFFIX = "$partitions";
 
     private final boolean allowCorruptWritesForTesting;
     private final SemiTransactionalHiveMetastore metastore;
@@ -250,8 +263,93 @@ public class HiveMetadata
         if (!table.isPresent()) {
             return null;
         }
+
+        if (isPartitionsSystemTable(tableName)) {
+            // We must not allow $partitions table due to how permissions are checked in PartitionsAwareAccessControl.checkCanSelectFromTable()
+            throw new PrestoException(StandardErrorCode.NOT_SUPPORTED, format("Unexpected table %s present in Hive metastore", tableName));
+        }
+
         verifyOnline(tableName, Optional.empty(), getProtectMode(table.get()), table.get().getParameters());
         return new HiveTableHandle(tableName.getSchemaName(), tableName.getTableName());
+    }
+
+    @Override
+    public Optional<SystemTable> getSystemTable(ConnectorSession session, SchemaTableName tableName)
+    {
+        if (isPartitionsSystemTable(tableName)) {
+            return getPartitionsSystemTable(session, tableName);
+        }
+        return Optional.empty();
+    }
+
+    private Optional<SystemTable> getPartitionsSystemTable(ConnectorSession session, SchemaTableName tableName)
+    {
+        SchemaTableName sourceTableName = getSourceTableNameForPartitionsTable(tableName);
+        HiveTableHandle sourceTableHandle = getTableHandle(session, sourceTableName);
+
+        if (sourceTableHandle == null) {
+            return Optional.empty();
+        }
+
+        List<HiveColumnHandle> partitionColumns = getPartitionColumns(sourceTableName);
+        if (partitionColumns.isEmpty()) {
+            return Optional.empty();
+        }
+
+        List<Type> partitionColumnTypes = partitionColumns.stream()
+                .map(HiveColumnHandle::getTypeSignature)
+                .map(typeManager::getType)
+                .collect(toImmutableList());
+
+        List<ColumnMetadata> partitionSystemTableColumns = partitionColumns.stream()
+                .map(column -> new ColumnMetadata(
+                        column.getName(),
+                        typeManager.getType(column.getTypeSignature()),
+                        column.getComment().orElse(null),
+                        column.isHidden()))
+                .collect(toImmutableList());
+
+        Map<Integer, HiveColumnHandle> fieldIdToColumnHandle =
+                IntStream.range(0, partitionColumns.size())
+                        .boxed()
+                        .collect(toImmutableMap(identity(), partitionColumns::get));
+
+        SystemTable partitionsSystemTable = new SystemTable()
+        {
+            @Override
+            public Distribution getDistribution()
+            {
+                return Distribution.SINGLE_COORDINATOR;
+            }
+
+            @Override
+            public ConnectorTableMetadata getTableMetadata()
+            {
+                return new ConnectorTableMetadata(tableName, partitionSystemTableColumns);
+            }
+
+            @Override
+            public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
+            {
+                Iterable<List<Object>> records = () ->
+                        stream(partitionManager.getPartitions(metastore, sourceTableHandle, alwaysTrue()).getPartitions())
+                                .map(hivePartition ->
+                                        (List<Object>) IntStream.range(0, partitionColumns.size())
+                                                .mapToObj(fieldIdToColumnHandle::get)
+                                                .map(columnHandle -> hivePartition.getKeys().get(columnHandle).getValue())
+                                                .collect(toImmutableList()))
+                                .iterator();
+
+                return new InMemoryRecordSet(partitionColumnTypes, records).cursor();
+            }
+        };
+        return Optional.of(partitionsSystemTable);
+    }
+
+    private List<HiveColumnHandle> getPartitionColumns(SchemaTableName tableName)
+    {
+        Table sourceTable = metastore.getTable(tableName.getSchemaName(), tableName.getTableName()).get();
+        return getPartitionKeyColumnHandles(sourceTable);
     }
 
     @Override
@@ -1266,7 +1364,7 @@ public class HiveMetadata
         return withColumnDomains(
                 partitionColumns.stream()
                         .collect(Collectors.toMap(
-                                Function.identity(),
+                                identity(),
                                 column -> buildColumnDomain(column, partitions))));
     }
 
@@ -1538,5 +1636,18 @@ public class HiveMetadata
     public void commit()
     {
         metastore.commit();
+    }
+
+    public static boolean isPartitionsSystemTable(SchemaTableName tableName)
+    {
+        return tableName.getTableName().endsWith(PARTITIONS_TABLE_SUFFIX) && tableName.getTableName().length() > PARTITIONS_TABLE_SUFFIX.length();
+    }
+
+    public static SchemaTableName getSourceTableNameForPartitionsTable(SchemaTableName tableName)
+    {
+        checkArgument(isPartitionsSystemTable(tableName), "not a partitions table name");
+        return new SchemaTableName(
+                tableName.getSchemaName(),
+                tableName.getTableName().substring(0, tableName.getTableName().length() - PARTITIONS_TABLE_SUFFIX.length()));
     }
 }
