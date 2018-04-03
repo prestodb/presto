@@ -56,10 +56,6 @@ public interface ConnectorTableLayoutProvider
 
     interface PredicatePushdown
     {
-        TupleDomain<ColumnHandle> getUnenforcedConstraint();
-
-        TupleDomain<ColumnHandle> getPredicate();
-
         void pushDownPredicate(Constraint<ColumnHandle> constraint);
     }
 
