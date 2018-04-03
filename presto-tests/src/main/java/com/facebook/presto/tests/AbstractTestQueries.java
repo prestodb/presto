@@ -160,7 +160,7 @@ public abstract class AbstractTestQueries
     {
         assertQueryFails("SHOW PARTITIONS FROM orders", "line 1:1: Table does not have partition columns: \\S+\\.orders");
         assertQueryFails("SHOW PARTITIONS FROM orders WHERE orderkey < 10", "line 1:1: Table does not have partition columns: \\S+\\.orders");
-        assertQueryFails("SHOW PARTITIONS FROM orders WHERE invalid_column < 10", "line 1:35: Column 'invalid_column' cannot be resolved");
+        assertQueryFails("SHOW PARTITIONS FROM orders WHERE invalid_column < 10", "line 1:1: Table does not have partition columns: \\S+\\.orders");
         assertQueryFails("SHOW PARTITIONS FROM orders LIMIT 2", "line 1:1: Table does not have partition columns: \\S+\\.orders");
     }
 
