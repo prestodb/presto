@@ -83,7 +83,7 @@ import com.facebook.presto.sql.planner.iterative.rule.SingleDistinctAggregationT
 import com.facebook.presto.sql.planner.iterative.rule.TransformCorrelatedInPredicateToJoin;
 import com.facebook.presto.sql.planner.iterative.rule.TransformCorrelatedScalarAggregationToJoin;
 import com.facebook.presto.sql.planner.iterative.rule.TransformExistsApplyToLateralNode;
-import com.facebook.presto.sql.planner.iterative.rule.TransformSpatialPredicateToJoin;
+import com.facebook.presto.sql.planner.iterative.rule.TransformSpatialPredicates;
 import com.facebook.presto.sql.planner.iterative.rule.TransformUncorrelatedInPredicateSubqueryToSemiJoin;
 import com.facebook.presto.sql.planner.iterative.rule.TransformUncorrelatedLateralToJoin;
 import com.facebook.presto.sql.planner.optimizations.AddExchanges;
@@ -400,10 +400,11 @@ public class PlanOptimizers
                 stats,
                 statsCalculator,
                 costCalculator,
-                ImmutableSet.of(
-                        new RemoveRedundantIdentityProjections(),
-                        new TransformSpatialPredicateToJoin(metadata),
-                        new InlineProjections())));
+                ImmutableSet.<Rule<?>>builder()
+                        .add(new RemoveRedundantIdentityProjections())
+                        .addAll(new TransformSpatialPredicates(metadata).rules())
+                        .add(new InlineProjections())
+                        .build()));
 
         // Optimizers above this don't understand local exchanges, so be careful moving this.
         builder.add(new AddLocalExchanges(metadata, sqlParser));

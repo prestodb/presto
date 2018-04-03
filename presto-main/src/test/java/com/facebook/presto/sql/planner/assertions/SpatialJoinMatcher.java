@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.JoinNode.Type;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.tree.Expression;
 
@@ -29,10 +30,12 @@ import static java.util.Objects.requireNonNull;
 public class SpatialJoinMatcher
         implements Matcher
 {
+    private final Type type;
     private final Expression filter;
 
-    public SpatialJoinMatcher(Expression filter)
+    public SpatialJoinMatcher(Type type, Expression filter)
     {
+        this.type = type;
         this.filter = requireNonNull(filter, "filter can not be null");
     }
 
@@ -44,7 +47,7 @@ public class SpatialJoinMatcher
         }
 
         JoinNode joinNode = (JoinNode) node;
-        return joinNode.isSpatialJoin();
+        return joinNode.getType() == type && joinNode.isSpatialJoin();
     }
 
     @Override
