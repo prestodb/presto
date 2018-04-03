@@ -73,7 +73,7 @@ public class TpchIndexedData
                         .collect(toImmutableSet());
 
                 TpchTable<?> tpchTable = TpchTable.getTable(table.getTableName());
-                RecordSet recordSet = tpchRecordSetProvider.getRecordSet(tpchTable, ImmutableList.copyOf(columnHandles.values()), table.getScaleFactor(), 0, 1, TupleDomain.all());
+                RecordSet recordSet = tpchRecordSetProvider.getRecordSet(tpchTable, ImmutableList.copyOf(columnHandles.values()), table.getScaleFactor(), 0, 1, TupleDomain.all(), Long.MAX_VALUE);
                 IndexedTable indexedTable = indexTable(recordSet, ImmutableList.copyOf(columnHandles.keySet()), keyColumnNames);
                 indexedTablesBuilder.put(keyColumns, indexedTable);
             }

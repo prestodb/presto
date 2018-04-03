@@ -24,12 +24,17 @@ public class TpchTableLayoutHandle
 {
     private final TpchTableHandle table;
     private final TupleDomain<ColumnHandle> predicate;
+    private final long limit;
 
     @JsonCreator
-    public TpchTableLayoutHandle(@JsonProperty("table") TpchTableHandle table, @JsonProperty("predicate") TupleDomain<ColumnHandle> predicate)
+    public TpchTableLayoutHandle(
+            @JsonProperty("table") TpchTableHandle table,
+            @JsonProperty("predicate") TupleDomain<ColumnHandle> predicate,
+            @JsonProperty("limit") long limit)
     {
         this.table = table;
         this.predicate = predicate;
+        this.limit = limit;
     }
 
     @JsonProperty
@@ -42,6 +47,12 @@ public class TpchTableLayoutHandle
     public TupleDomain<ColumnHandle> getPredicate()
     {
         return predicate;
+    }
+
+    @JsonProperty
+    public long getLimit()
+    {
+        return limit;
     }
 
     public String getConnectorId()

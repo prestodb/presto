@@ -45,7 +45,7 @@ public class TpchRecordSet<E extends TpchEntity>
 {
     public static <E extends TpchEntity> TpchRecordSet<E> createTpchRecordSet(TpchTable<E> table, double scaleFactor)
     {
-        return createTpchRecordSet(table, table.getColumns(), scaleFactor, 1, 1, TupleDomain.all());
+        return createTpchRecordSet(table, table.getColumns(), scaleFactor, 1, 1, TupleDomain.all(), Long.MAX_VALUE);
     }
 
     public static <E extends TpchEntity> TpchRecordSet<E> createTpchRecordSet(
@@ -54,9 +54,10 @@ public class TpchRecordSet<E extends TpchEntity>
             double scaleFactor,
             int part,
             int partCount,
-            TupleDomain<ColumnHandle> predicate)
+            TupleDomain<ColumnHandle> predicate,
+            long limit)
     {
-        return new TpchRecordSet<>(table.createGenerator(scaleFactor, part, partCount), table, columns, predicate);
+        return new TpchRecordSet<>(table.createGenerator(scaleFactor, part, partCount), table, columns, predicate, limit);
     }
 
     private final Iterable<E> rows;
@@ -64,8 +65,9 @@ public class TpchRecordSet<E extends TpchEntity>
     private final List<TpchColumn<E>> columns;
     private final List<Type> columnTypes;
     private final TupleDomain<ColumnHandle> predicate;
+    private final long limit;
 
-    public TpchRecordSet(Iterable<E> rows, TpchTable<E> table, List<TpchColumn<E>> columns, TupleDomain<ColumnHandle> predicate)
+    private TpchRecordSet(Iterable<E> rows, TpchTable<E> table, List<TpchColumn<E>> columns, TupleDomain<ColumnHandle> predicate, long limit)
     {
         this.rows = requireNonNull(rows, "rows is null");
         this.table = requireNonNull(table, "table is null");
@@ -74,6 +76,7 @@ public class TpchRecordSet<E extends TpchEntity>
                 .map(TpchMetadata::getPrestoType)
                 .collect(toImmutableList());
         this.predicate = requireNonNull(predicate, "predicate is null");
+        this.limit = limit;
     }
 
     @Override
@@ -85,7 +88,7 @@ public class TpchRecordSet<E extends TpchEntity>
     @Override
     public RecordCursor cursor()
     {
-        return new TpchRecordCursor<>(rows.iterator(), table, columns, predicate);
+        return new TpchRecordCursor<>(rows.iterator(), table, columns, predicate, limit);
     }
 
     public static final class TpchRecordCursor<E extends TpchEntity>
@@ -97,13 +100,16 @@ public class TpchRecordSet<E extends TpchEntity>
         private final TupleDomain<ColumnHandle> predicate;
         private E row;
         private boolean closed;
+        private final long limit;
+        private long counter;
 
-        public TpchRecordCursor(Iterator<E> rows, TpchTable<E> table, List<TpchColumn<E>> columns, TupleDomain<ColumnHandle> predicate)
+        public TpchRecordCursor(Iterator<E> rows, TpchTable<E> table, List<TpchColumn<E>> columns, TupleDomain<ColumnHandle> predicate, long limit)
         {
             this.rows = requireNonNull(rows, "rows is null");
             this.table = requireNonNull(table, "table is null");
             this.columns = requireNonNull(columns, "columns is null");
             this.predicate = requireNonNull(predicate, "predicate is null");
+            this.limit = limit;
         }
 
         @Override
@@ -130,6 +136,10 @@ public class TpchRecordSet<E extends TpchEntity>
             while (!closed && rows.hasNext()) {
                 row = rows.next();
                 if (rowMatchesPredicate()) {
+                    counter++;
+                    if (counter > limit) {
+                        break;
+                    }
                     return true;
                 }
             }

@@ -37,13 +37,15 @@ public class TpchSplit
     private final int partNumber;
     private final List<HostAddress> addresses;
     private final TupleDomain<ColumnHandle> predicate;
+    private final long limit;
 
     @JsonCreator
     public TpchSplit(@JsonProperty("tableHandle") TpchTableHandle tableHandle,
             @JsonProperty("partNumber") int partNumber,
             @JsonProperty("totalParts") int totalParts,
             @JsonProperty("addresses") List<HostAddress> addresses,
-            @JsonProperty("predicate") TupleDomain<ColumnHandle> predicate)
+            @JsonProperty("predicate") TupleDomain<ColumnHandle> predicate,
+            @JsonProperty("limit") long limit)
     {
         checkState(partNumber >= 0, "partNumber must be >= 0");
         checkState(totalParts >= 1, "totalParts must be >= 1");
@@ -54,6 +56,7 @@ public class TpchSplit
         this.totalParts = totalParts;
         this.addresses = ImmutableList.copyOf(requireNonNull(addresses, "addresses is null"));
         this.predicate = requireNonNull(predicate, "predicate is null");
+        this.limit = limit;
     }
 
     @JsonProperty
@@ -99,6 +102,12 @@ public class TpchSplit
         return predicate;
     }
 
+    @JsonProperty
+    public long getLimit()
+    {
+        return limit;
+    }
+
     @Override
     public boolean equals(Object obj)
     {
@@ -112,7 +121,8 @@ public class TpchSplit
         return Objects.equals(this.tableHandle, other.tableHandle) &&
                 Objects.equals(this.totalParts, other.totalParts) &&
                 Objects.equals(this.partNumber, other.partNumber) &&
-                Objects.equals(this.predicate, other.predicate);
+                Objects.equals(this.predicate, other.predicate) &&
+                Objects.equals(this.limit, other.limit);
     }
 
     @Override
@@ -129,6 +139,7 @@ public class TpchSplit
                 .add("partNumber", partNumber)
                 .add("totalParts", totalParts)
                 .add("predicate", predicate)
+                .add("limit", limit)
                 .toString();
     }
 }

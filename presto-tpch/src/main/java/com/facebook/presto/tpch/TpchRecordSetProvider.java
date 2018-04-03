@@ -43,7 +43,7 @@ public class TpchRecordSetProvider
 
         TpchTable<?> tpchTable = TpchTable.getTable(tableName);
 
-        return getRecordSet(tpchTable, columns, tpchSplit.getTableHandle().getScaleFactor(), tpchSplit.getPartNumber(), tpchSplit.getTotalParts(), tpchSplit.getPredicate());
+        return getRecordSet(tpchTable, columns, tpchSplit.getTableHandle().getScaleFactor(), tpchSplit.getPartNumber(), tpchSplit.getTotalParts(), tpchSplit.getPredicate(), tpchSplit.getLimit());
     }
 
     public <E extends TpchEntity> RecordSet getRecordSet(
@@ -52,7 +52,8 @@ public class TpchRecordSetProvider
             double scaleFactor,
             int partNumber,
             int totalParts,
-            TupleDomain<ColumnHandle> predicate)
+            TupleDomain<ColumnHandle> predicate,
+            long limit)
     {
         ImmutableList.Builder<TpchColumn<E>> builder = ImmutableList.builder();
         for (ColumnHandle column : columns) {
@@ -65,7 +66,7 @@ public class TpchRecordSetProvider
             }
         }
 
-        return createTpchRecordSet(table, builder.build(), scaleFactor, partNumber + 1, totalParts, predicate);
+        return createTpchRecordSet(table, builder.build(), scaleFactor, partNumber + 1, totalParts, predicate, limit);
     }
 
     private static class RowNumberTpchColumn<E extends TpchEntity>

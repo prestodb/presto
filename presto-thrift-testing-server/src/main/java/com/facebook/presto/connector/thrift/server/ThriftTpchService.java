@@ -300,7 +300,8 @@ public class ThriftTpchService
                 schemaNameToScaleFactor(splitInfo.getSchemaName()),
                 splitInfo.getPartNumber(),
                 splitInfo.getTotalParts(),
-                TupleDomain.all()));
+                TupleDomain.all(),
+                Long.MAX_VALUE));
     }
 
     private static List<String> getSchemaNames(String schemaNameOrNull)

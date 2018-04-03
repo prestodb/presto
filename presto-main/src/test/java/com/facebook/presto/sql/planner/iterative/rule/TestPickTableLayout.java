@@ -63,7 +63,7 @@ public class TestPickTableLayout
 
         nationTableLayoutHandle = new TableLayoutHandle(connectorId,
                 TestingTransactionHandle.create(),
-                new TpchTableLayoutHandle((TpchTableHandle) nationTableHandle.getConnectorHandle(), TupleDomain.all()));
+                new TpchTableLayoutHandle((TpchTableHandle) nationTableHandle.getConnectorHandle(), TupleDomain.all(), Long.MAX_VALUE));
     }
 
     @Test

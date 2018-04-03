@@ -44,6 +44,7 @@ import io.airlift.tpch.TpchTable;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -83,6 +84,7 @@ public class TpchTableLayoutProvider
 
     private TupleDomain<ColumnHandle> predicate = TupleDomain.all();
     private TupleDomain<ColumnHandle> unenforcedConstraint = TupleDomain.all();
+    private OptionalLong limit = OptionalLong.empty();
 
     public TpchTableLayoutProvider(TpchMetadata tpchMetadata, TpchTableHandle table, ColumnNaming columnNaming, Optional<ConnectorTableLayoutHandle> layoutHandle)
     {
@@ -93,6 +95,9 @@ public class TpchTableLayoutProvider
         if (layoutHandle.isPresent()) {
             TpchTableLayoutHandle tpchLayoutHandle = (TpchTableLayoutHandle) layoutHandle.get();
             predicate = tpchLayoutHandle.getPredicate();
+            if (tpchLayoutHandle.getLimit() != Long.MAX_VALUE) {
+                limit = OptionalLong.of(tpchLayoutHandle.getLimit());
+            }
         }
     }
 
@@ -128,7 +133,7 @@ public class TpchTableLayoutProvider
         }
 
         ConnectorTableLayout layout = new ConnectorTableLayout(
-                new TpchTableLayoutHandle(table, predicate),
+                new TpchTableLayoutHandle(table, predicate, limit.orElse(Long.MAX_VALUE)),
                 Optional.empty(),
                 predicate, // TODO: return well-known properties (e.g., orderkey > 0, etc)
                 nodePartition,
@@ -205,5 +210,11 @@ public class TpchTableLayoutProvider
             throw new IllegalArgumentException("Total rows is larger than 2^64");
         }
         return (long) totalRows;
+    }
+
+    @Override
+    public Optional<LimitPushdown> getLimitPushdown()
+    {
+        return Optional.of(limit -> TpchTableLayoutProvider.this.limit = OptionalLong.of(limit));
     }
 }
