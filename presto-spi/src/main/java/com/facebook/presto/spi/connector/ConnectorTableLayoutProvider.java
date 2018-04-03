@@ -49,8 +49,6 @@ public interface ConnectorTableLayoutProvider
 
     interface ProjectionPushdown
     {
-        Optional<List<ColumnHandle>> getColumnHandles();
-
         void pushDownProjection(Set<ColumnHandle> columnHandles);
     }
 

@@ -50,42 +50,12 @@ public class LegacyConnectorTableLayoutProvider
     @Override
     public Optional<PredicatePushdown> getPredicatePushdown()
     {
-        return Optional.of(new PredicatePushdown() {
-            @Override
-            public TupleDomain<ColumnHandle> getUnenforcedConstraint()
-            {
-                return constraint.getSummary();
-            }
-
-            @Override
-            public TupleDomain<ColumnHandle> getPredicate()
-            {
-                return TupleDomain.all();
-            }
-
-            @Override
-            public void pushDownPredicate(Constraint<ColumnHandle> constraint)
-            {
-                LegacyConnectorTableLayoutProvider.this.constraint = constraint;
-            }
-        });
+        return Optional.of(constraint -> LegacyConnectorTableLayoutProvider.this.constraint = constraint);
     }
 
     @Override
     public Optional<ProjectionPushdown> getProjectionPushdown()
     {
-        return Optional.of(new ProjectionPushdown() {
-            @Override
-            public Optional<List<ColumnHandle>> getColumnHandles()
-            {
-                return Optional.empty();
-            }
-
-            @Override
-            public void pushDownProjection(Set<ColumnHandle> desiredColumns)
-            {
-                LegacyConnectorTableLayoutProvider.this.desiredColumns = Optional.of(desiredColumns);
-            }
-        });
+        return Optional.of(desiredColumns -> LegacyConnectorTableLayoutProvider.this.desiredColumns = Optional.of(desiredColumns));
     }
 }
