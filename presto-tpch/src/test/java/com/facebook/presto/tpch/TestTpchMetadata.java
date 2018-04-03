@@ -19,6 +19,7 @@ import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.connector.ConnectorTableLayoutProvider;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
@@ -391,8 +392,9 @@ public class TestTpchMetadata
 
     private static ConnectorTableLayoutResult getTableOnlyLayout(TpchMetadata tpchMetadata, ConnectorSession session, ConnectorTableHandle tableHandle, Constraint<ColumnHandle> constraint)
     {
-        List<ConnectorTableLayoutResult> tableLayouts = tpchMetadata.getTableLayouts(session, tableHandle, constraint, Optional.empty());
-        return getOnlyElement(tableLayouts);
+        ConnectorTableLayoutProvider tableLayoutProvider = tpchMetadata.getTableLayoutProvider(session, tableHandle, Optional.empty());
+        tableLayoutProvider.getPredicatePushdown().get().pushDownPredicate(constraint);
+        return getOnlyElement(tableLayoutProvider.provide(session));
     }
 
     private ColumnStatistics noColumnStatistics()

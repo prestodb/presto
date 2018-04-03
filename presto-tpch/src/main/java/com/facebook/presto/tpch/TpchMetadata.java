@@ -19,18 +19,13 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayout;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
-import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
-import com.facebook.presto.spi.ConnectorTablePartitioning;
 import com.facebook.presto.spi.Constraint;
-import com.facebook.presto.spi.LocalProperty;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
-import com.facebook.presto.spi.SortingProperty;
-import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.connector.ConnectorTableLayoutProvider;
 import com.facebook.presto.spi.predicate.Domain;
-import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.Estimate;
@@ -43,17 +38,11 @@ import com.facebook.presto.tpch.statistics.TableStatisticsData;
 import com.facebook.presto.tpch.statistics.TableStatisticsDataRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.airlift.tpch.Distributions;
-import io.airlift.tpch.LineItemColumn;
-import io.airlift.tpch.OrderColumn;
-import io.airlift.tpch.OrderGenerator;
-import io.airlift.tpch.PartColumn;
 import io.airlift.tpch.TpchColumn;
 import io.airlift.tpch.TpchColumnType;
 import io.airlift.tpch.TpchEntity;
@@ -63,15 +52,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
-import static com.facebook.presto.tpch.util.PredicateUtils.convertToPredicate;
-import static com.facebook.presto.tpch.util.PredicateUtils.filterOutColumnFromPredicate;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Maps.asMap;
 import static io.airlift.tpch.OrderColumn.ORDER_STATUS;
@@ -79,7 +65,6 @@ import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toSet;
 
 public class TpchMetadata
         implements ConnectorMetadata
@@ -95,23 +80,6 @@ public class TpchMetadata
     private static final Set<Slice> ORDER_STATUS_VALUES = ImmutableSet.of("F", "O", "P").stream()
             .map(Slices::utf8Slice)
             .collect(toImmutableSet());
-    private static final Set<NullableValue> ORDER_STATUS_NULLABLE_VALUES = ORDER_STATUS_VALUES.stream()
-            .map(value -> new NullableValue(getPrestoType(OrderColumn.ORDER_STATUS), value))
-            .collect(toSet());
-
-    private static final Set<Slice> PART_TYPE_VALUES = Distributions.getDefaultDistributions().getPartTypes().getValues().stream()
-            .map(Slices::utf8Slice)
-            .collect(toImmutableSet());
-    private static final Set<NullableValue> PART_TYPE_NULLABLE_VALUES = PART_TYPE_VALUES.stream()
-            .map(value -> new NullableValue(getPrestoType(PartColumn.TYPE), value))
-            .collect(toSet());
-
-    private static final Set<Slice> PART_CONTAINER_VALUES = Distributions.getDefaultDistributions().getPartContainers().getValues().stream()
-            .map(Slices::utf8Slice)
-            .collect(toImmutableSet());
-    private static final Set<NullableValue> PART_CONTAINER_NULLABLE_VALUES = PART_CONTAINER_VALUES.stream()
-            .map(value -> new NullableValue(getPrestoType(PartColumn.CONTAINER), value))
-            .collect(toSet());
 
     private final String connectorId;
     private final Set<String> tableNames;
@@ -167,75 +135,9 @@ public class TpchMetadata
     }
 
     @Override
-    public List<ConnectorTableLayoutResult> getTableLayouts(
-            ConnectorSession session,
-            ConnectorTableHandle table,
-            Constraint<ColumnHandle> constraint,
-            Optional<Set<ColumnHandle>> desiredColumns)
+    public ConnectorTableLayoutProvider getTableLayoutProvider(ConnectorSession session, ConnectorTableHandle table, Optional<ConnectorTableLayoutHandle> layoutHandle)
     {
-        TpchTableHandle tableHandle = (TpchTableHandle) table;
-
-        Optional<ConnectorTablePartitioning> nodePartition = Optional.empty();
-        Optional<Set<ColumnHandle>> partitioningColumns = Optional.empty();
-        List<LocalProperty<ColumnHandle>> localProperties = ImmutableList.of();
-
-        TupleDomain<ColumnHandle> predicate = TupleDomain.all();
-        TupleDomain<ColumnHandle> unenforcedConstraint = constraint.getSummary();
-        Map<String, ColumnHandle> columns = getColumnHandles(session, tableHandle);
-        if (tableHandle.getTableName().equals(TpchTable.ORDERS.getTableName())) {
-            ColumnHandle orderKeyColumn = columns.get(columnNaming.getName(OrderColumn.ORDER_KEY));
-            nodePartition = Optional.of(new ConnectorTablePartitioning(
-                    new TpchPartitioningHandle(
-                            TpchTable.ORDERS.getTableName(),
-                            calculateTotalRows(OrderGenerator.SCALE_BASE, tableHandle.getScaleFactor())),
-                    ImmutableList.of(orderKeyColumn)));
-            partitioningColumns = Optional.of(ImmutableSet.of(orderKeyColumn));
-            localProperties = ImmutableList.of(new SortingProperty<>(orderKeyColumn, SortOrder.ASC_NULLS_FIRST));
-            predicate = toTupleDomain(ImmutableMap.of(
-                    toColumnHandle(OrderColumn.ORDER_STATUS),
-                    filterValues(ORDER_STATUS_NULLABLE_VALUES, OrderColumn.ORDER_STATUS, constraint)));
-            unenforcedConstraint = filterOutColumnFromPredicate(constraint.getSummary(), toColumnHandle(OrderColumn.ORDER_STATUS));
-        }
-        else if (tableHandle.getTableName().equals(TpchTable.PART.getTableName())) {
-            predicate = toTupleDomain(ImmutableMap.of(
-                    toColumnHandle(PartColumn.CONTAINER),
-                    filterValues(PART_CONTAINER_NULLABLE_VALUES, PartColumn.CONTAINER, constraint),
-                    toColumnHandle(PartColumn.TYPE),
-                    filterValues(PART_TYPE_NULLABLE_VALUES, PartColumn.TYPE, constraint)));
-            unenforcedConstraint = filterOutColumnFromPredicate(constraint.getSummary(), toColumnHandle(PartColumn.CONTAINER));
-            unenforcedConstraint = filterOutColumnFromPredicate(unenforcedConstraint, toColumnHandle(PartColumn.TYPE));
-        }
-        else if (tableHandle.getTableName().equals(TpchTable.LINE_ITEM.getTableName())) {
-            ColumnHandle orderKeyColumn = columns.get(columnNaming.getName(LineItemColumn.ORDER_KEY));
-            nodePartition = Optional.of(new ConnectorTablePartitioning(
-                    new TpchPartitioningHandle(
-                            TpchTable.ORDERS.getTableName(),
-                            calculateTotalRows(OrderGenerator.SCALE_BASE, tableHandle.getScaleFactor())),
-                    ImmutableList.of(orderKeyColumn)));
-            partitioningColumns = Optional.of(ImmutableSet.of(orderKeyColumn));
-            localProperties = ImmutableList.of(
-                    new SortingProperty<>(orderKeyColumn, SortOrder.ASC_NULLS_FIRST),
-                    new SortingProperty<>(columns.get(columnNaming.getName(LineItemColumn.LINE_NUMBER)), SortOrder.ASC_NULLS_FIRST));
-        }
-
-        ConnectorTableLayout layout = new ConnectorTableLayout(
-                new TpchTableLayoutHandle(tableHandle, predicate),
-                Optional.empty(),
-                predicate, // TODO: return well-known properties (e.g., orderkey > 0, etc)
-                nodePartition,
-                partitioningColumns,
-                Optional.empty(),
-                localProperties);
-
-        return ImmutableList.of(new ConnectorTableLayoutResult(layout, unenforcedConstraint));
-    }
-
-    private Set<NullableValue> filterValues(Set<NullableValue> nullableValues, TpchColumn<?> column, Constraint<ColumnHandle> constraint)
-    {
-        return nullableValues.stream()
-                .filter(convertToPredicate(constraint.getSummary(), toColumnHandle(column)))
-                .filter(value -> constraint.predicate().test(ImmutableMap.of(toColumnHandle(column), value)))
-                .collect(toSet());
+        return new TpchTableLayoutProvider(this, (TpchTableHandle) table, columnNaming, layoutHandle);
     }
 
     @Override
@@ -244,7 +146,7 @@ public class TpchMetadata
         TpchTableLayoutHandle layout = (TpchTableLayoutHandle) handle;
 
         // tables in this connector have a single layout
-        return getTableLayouts(session, layout.getTable(), Constraint.alwaysTrue(), Optional.empty())
+        return getTableLayoutProvider(session, layout.getTable(), Optional.of(handle)).provide(session)
                 .get(0)
                 .getTableLayout();
     }
@@ -388,8 +290,7 @@ public class TpchMetadata
         throw new IllegalArgumentException("unsupported column type " + columnType);
     }
 
-    @VisibleForTesting
-    TpchColumnHandle toColumnHandle(TpchColumn<?> column)
+    public TpchColumnHandle toColumnHandle(TpchColumn<?> column)
     {
         return new TpchColumnHandle(columnNaming.getName(column), getPrestoType(column));
     }
@@ -418,18 +319,6 @@ public class TpchMetadata
             }
         }
         return builder.build();
-    }
-
-    private TupleDomain<ColumnHandle> toTupleDomain(Map<TpchColumnHandle, Set<NullableValue>> predicate)
-    {
-        return TupleDomain.withColumnDomains(predicate.entrySet().stream()
-                .collect(Collectors.toMap(Map.Entry::getKey, entry -> {
-                    Type type = entry.getKey().getType();
-                    return entry.getValue().stream()
-                            .map(nullableValue -> Domain.singleValue(type, nullableValue.getValue()))
-                            .reduce((Domain::union))
-                            .orElse(Domain.none(type));
-                })));
     }
 
     private List<String> getSchemaNames(ConnectorSession session, String schemaNameOrNull)
@@ -486,14 +375,5 @@ public class TpchMetadata
                 return createVarcharType((int) (long) tpchType.getPrecision().get());
         }
         throw new IllegalArgumentException("Unsupported type " + tpchType);
-    }
-
-    private long calculateTotalRows(int scaleBase, double scaleFactor)
-    {
-        double totalRows = scaleBase * scaleFactor;
-        if (totalRows > Long.MAX_VALUE) {
-            throw new IllegalArgumentException("Total rows is larger than 2^64");
-        }
-        return (long) totalRows;
     }
 }
