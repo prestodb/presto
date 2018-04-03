@@ -42,7 +42,7 @@ public class TestSqlStandardAccessControlChecks
         bobExecutor = connectToPresto("bob@presto");
 
         aliceExecutor.executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
-        aliceExecutor.executeQuery(format("CREATE TABLE %s(month bigint, day bigint)", tableName));
+        aliceExecutor.executeQuery(format("CREATE TABLE %s(month bigint, day bigint) WITH (partitioned_by = ARRAY['day'])", tableName));
     }
 
     @Test(groups = {AUTHORIZATION, HIVE_CONNECTOR, PROFILE_SPECIFIC_TESTS})
@@ -53,6 +53,26 @@ public class TestSqlStandardAccessControlChecks
 
         aliceExecutor.executeQuery(format("GRANT SELECT ON %s TO bob", tableName));
         assertThat(bobExecutor.executeQuery(format("SELECT * FROM %s", tableName))).hasNoRows();
+    }
+
+    @Test(groups = {AUTHORIZATION, HIVE_CONNECTOR, PROFILE_SPECIFIC_TESTS})
+    public void testAccessControlSelectFromPartitions()
+    {
+        assertThat(() -> bobExecutor.executeQuery(format("SELECT * FROM \"%s$partitions\"", tableName)))
+                .failsWithMessage(format("Access Denied: Cannot select from table default.%s$partitions", tableName));
+
+        aliceExecutor.executeQuery(format("GRANT SELECT ON %s TO bob", tableName));
+        assertThat(bobExecutor.executeQuery(format("SELECT * FROM \"%s$partitions\"", tableName))).hasNoRows();
+    }
+
+    @Test(groups = {AUTHORIZATION, HIVE_CONNECTOR, PROFILE_SPECIFIC_TESTS})
+    public void testAccessControlShowPartitions()
+    {
+        assertThat(() -> bobExecutor.executeQuery(format("SHOW PARTITIONS FROM %s", tableName)))
+                .failsWithMessage(format("Access Denied: Cannot select from table default.%s$partitions", tableName));
+
+        aliceExecutor.executeQuery(format("GRANT SELECT ON %s TO bob", tableName));
+        assertThat(bobExecutor.executeQuery(format("SHOW PARTITIONS FROM %s", tableName))).hasNoRows();
     }
 
     @Test(groups = {AUTHORIZATION, HIVE_CONNECTOR, PROFILE_SPECIFIC_TESTS})
