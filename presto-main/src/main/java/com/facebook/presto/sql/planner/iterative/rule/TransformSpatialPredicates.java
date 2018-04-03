@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
@@ -22,10 +21,13 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
+import com.facebook.presto.sql.planner.iterative.Rule.Context;
+import com.facebook.presto.sql.planner.iterative.Rule.Result;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
@@ -40,11 +42,13 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.SystemSessionProperties.isSpatialJoinEnabled;
 import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.planner.ExpressionNodeInliner.replaceExpression;
 import static com.facebook.presto.sql.planner.SymbolsExtractor.extractUnique;
+import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
 import static com.facebook.presto.sql.planner.plan.Patterns.filter;
 import static com.facebook.presto.sql.planner.plan.Patterns.join;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
@@ -53,10 +57,11 @@ import static com.facebook.presto.sql.tree.ComparisonExpressionType.LESS_THAN_OR
 import static com.facebook.presto.util.SpatialJoinUtils.extractSupportedSpatialComparisons;
 import static com.facebook.presto.util.SpatialJoinUtils.extractSupportedSpatialFunctions;
 import static com.google.common.base.Verify.verify;
+import static java.util.Objects.requireNonNull;
 
 /**
- * Applies to broadcast spatial joins expressed via ST_Contains, ST_Intersects and
- * ST_Distance functions.
+ * Applies to broadcast spatial joins, inner and left, expressed via ST_Contains,
+ * ST_Intersects and ST_Distance functions.
  * <p>
  * For example:
  * <ul>
@@ -79,10 +84,11 @@ import static com.google.common.base.Verify.verify;
  * - one of the arguments uses symbols from left side of the join, the other from right;
  * - radius is either scalar expression or uses symbols only from the right (build) side of the join.
  * <p>
- * Replaces cross join node and a qualifying filter on top with a single spatial join node.
+ * For inner join, replaces cross join node and a qualifying filter on top with a single
+ * spatial join node.
  * <p>
- * Pushes non-trivial expressions of the spatial function arguments into projections on top of
- * join child nodes.
+ * For both inner and left joins, pushes non-trivial expressions of the spatial function
+ * arguments and radius into projections on top of join child nodes.
  * <p>
  * Examples:
  * <p>
@@ -100,60 +106,127 @@ import static com.google.common.base.Verify.verify;
  * with st_point_a -> 'ST_Point(a.lon, a.lat)', st_point_b -> 'ST_Point(b.lon, b.lat)'
  * and radius -> '10 / (111.321 * cos(radians(b.lat)))' projections on top of child nodes.
  */
-public class TransformSpatialPredicateToJoin
-        implements Rule<FilterNode>
+public class TransformSpatialPredicates
 {
-    private static final Capture<JoinNode> JOIN = newCapture();
-    private static final Pattern<FilterNode> PATTERN = filter()
-            .with(source().matching(join().capturedAs(JOIN).matching(node -> node.isCrossJoin())));
     private static final TypeSignature GEOMETRY_TYPE_SIGNATURE = parseTypeSignature("Geometry");
 
     private final Metadata metadata;
 
-    public TransformSpatialPredicateToJoin(Metadata metadata)
+    public TransformSpatialPredicates(Metadata metadata)
     {
-        this.metadata = metadata;
+        this.metadata = requireNonNull(metadata, "metadata is null");
     }
 
-    @Override
-    public Pattern<FilterNode> getPattern()
+    public Set<Rule<?>> rules()
     {
-        return PATTERN;
+        return ImmutableSet.of(
+                new TransformSpatialPredicateToJoin(metadata),
+                new TransformSpatialPredicateToLeftJoin(metadata));
     }
 
-    @Override
-    public boolean isEnabled(Session session)
+    public static final class TransformSpatialPredicateToJoin
+            implements Rule<FilterNode>
     {
-        return SystemSessionProperties.isSpatialJoinEnabled(session);
-    }
+        private static final Capture<JoinNode> JOIN = newCapture();
+        private static final Pattern<FilterNode> PATTERN = filter()
+                .with(source().matching(join().capturedAs(JOIN).matching(node -> node.isCrossJoin())));
 
-    @Override
-    public Result apply(FilterNode node, Captures captures, Context context)
-    {
-        JoinNode joinNode = captures.get(JOIN);
+        private final Metadata metadata;
 
-        Expression filter = node.getPredicate();
-        List<FunctionCall> spatialFunctions = extractSupportedSpatialFunctions(filter);
-
-        for (FunctionCall spatialFunction : spatialFunctions) {
-            Result result = tryCreateSpatialJoin(context, node, joinNode, filter, spatialFunction);
-            if (!result.isEmpty()) {
-                return result;
-            }
+        public TransformSpatialPredicateToJoin(Metadata metadata)
+        {
+            this.metadata = metadata;
         }
 
-        List<ComparisonExpression> spatialComparisons = extractSupportedSpatialComparisons(filter);
-        for (ComparisonExpression spatialComparison : spatialComparisons) {
-            Result result = tryCreateSpatialJoin(context, node, joinNode, filter, spatialComparison);
-            if (!result.isEmpty()) {
-                return result;
-            }
+        @Override
+        public boolean isEnabled(Session session)
+        {
+            return isSpatialJoinEnabled(session);
         }
 
-        return Result.empty();
+        @Override
+        public Pattern<FilterNode> getPattern()
+        {
+            return PATTERN;
+        }
+
+        @Override
+        public Result apply(FilterNode node, Captures captures, Context context)
+        {
+            JoinNode joinNode = captures.get(JOIN);
+
+            Expression filter = node.getPredicate();
+            List<FunctionCall> spatialFunctions = extractSupportedSpatialFunctions(filter);
+
+            for (FunctionCall spatialFunction : spatialFunctions) {
+                Result result = tryCreateSpatialJoin(context, joinNode, filter, node.getId(), node.getOutputSymbols(), spatialFunction, metadata);
+                if (!result.isEmpty()) {
+                    return result;
+                }
+            }
+
+            List<ComparisonExpression> spatialComparisons = extractSupportedSpatialComparisons(filter);
+            for (ComparisonExpression spatialComparison : spatialComparisons) {
+                Result result = tryCreateSpatialJoin(context, joinNode, filter, node.getId(), node.getOutputSymbols(), spatialComparison, metadata);
+                if (!result.isEmpty()) {
+                    return result;
+                }
+            }
+
+            return Result.empty();
+        }
     }
 
-    private Result tryCreateSpatialJoin(Context context, FilterNode filterNode, JoinNode joinNode, Expression filter, ComparisonExpression spatialComparison)
+    public static final class TransformSpatialPredicateToLeftJoin
+            implements Rule<JoinNode>
+    {
+        private static final Pattern<JoinNode> PATTERN = join().matching(node -> node.getCriteria().isEmpty() && node.getFilter().isPresent() && node.getType() == LEFT && !node.isSpatialJoin());
+
+        private final Metadata metadata;
+
+        public TransformSpatialPredicateToLeftJoin(Metadata metadata)
+        {
+            this.metadata = metadata;
+        }
+
+        @Override
+        public boolean isEnabled(Session session)
+        {
+            return isSpatialJoinEnabled(session);
+        }
+
+        @Override
+        public Pattern<JoinNode> getPattern()
+        {
+            return PATTERN;
+        }
+
+        @Override
+        public Result apply(JoinNode joinNode, Captures captures, Context context)
+        {
+            Expression filter = joinNode.getFilter().get();
+            List<FunctionCall> spatialFunctions = extractSupportedSpatialFunctions(filter);
+
+            for (FunctionCall spatialFunction : spatialFunctions) {
+                Result result = tryCreateSpatialJoin(context, joinNode, filter, joinNode.getId(), joinNode.getOutputSymbols(), spatialFunction, metadata);
+                if (!result.isEmpty()) {
+                    return result;
+                }
+            }
+
+            List<ComparisonExpression> spatialComparisons = extractSupportedSpatialComparisons(filter);
+            for (ComparisonExpression spatialComparison : spatialComparisons) {
+                Result result = tryCreateSpatialJoin(context, joinNode, filter, joinNode.getId(), joinNode.getOutputSymbols(), spatialComparison, metadata);
+                if (!result.isEmpty()) {
+                    return result;
+                }
+            }
+
+            return Result.empty();
+        }
+    }
+
+    private static Result tryCreateSpatialJoin(Context context, JoinNode joinNode, Expression filter, PlanNodeId nodeId, List<Symbol> outputSymbols, ComparisonExpression spatialComparison, Metadata metadata)
     {
         PlanNode leftNode = joinNode.getLeft();
         PlanNode rightNode = joinNode.getRight();
@@ -204,10 +277,10 @@ public class TransformSpatialPredicateToJoin
                 joinNode.getRightHashSymbol(),
                 joinNode.getDistributionType());
 
-        return tryCreateSpatialJoin(context, filterNode, newJoinNode, newFilter, (FunctionCall) newComparison.getLeft());
+        return tryCreateSpatialJoin(context, newJoinNode, newFilter, nodeId, outputSymbols, (FunctionCall) newComparison.getLeft(), metadata);
     }
 
-    private Result tryCreateSpatialJoin(Context context, FilterNode filterNode, JoinNode joinNode, Expression filter, FunctionCall spatialFunction)
+    private static Result tryCreateSpatialJoin(Context context, JoinNode joinNode, Expression filter, PlanNodeId nodeId, List<Symbol> outputSymbols, FunctionCall spatialFunction, Metadata metadata)
     {
         List<Expression> arguments = spatialFunction.getArguments();
         verify(arguments.size() == 2);
@@ -222,8 +295,8 @@ public class TransformSpatialPredicateToJoin
             return Result.empty();
         }
 
-        Optional<Symbol> newFirstSymbol = newGeometrySymbol(context, firstArgument);
-        Optional<Symbol> newSecondSymbol = newGeometrySymbol(context, secondArgument);
+        Optional<Symbol> newFirstSymbol = newGeometrySymbol(context, firstArgument, metadata);
+        Optional<Symbol> newSecondSymbol = newGeometrySymbol(context, secondArgument, metadata);
 
         PlanNode leftNode = joinNode.getLeft();
         PlanNode rightNode = joinNode.getRight();
@@ -251,12 +324,12 @@ public class TransformSpatialPredicateToJoin
         Expression newFilter = replaceExpression(filter, ImmutableMap.of(spatialFunction, newSpatialFunction));
 
         return Result.ofPlanNode(new JoinNode(
-                filterNode.getId(),
+                nodeId,
                 joinNode.getType(),
                 newLeftNode,
                 newRightNode,
                 joinNode.getCriteria(),
-                filterNode.getOutputSymbols(),
+                outputSymbols,
                 Optional.of(newFilter),
                 joinNode.getLeftHashSymbol(),
                 joinNode.getRightHashSymbol(),
@@ -274,23 +347,23 @@ public class TransformSpatialPredicateToJoin
                 && containsNone(rightSymbols, maybeLeftSymbols)) {
             return 1;
         }
-        else if (leftSymbols.containsAll(maybeRightSymbols)
+
+        if (leftSymbols.containsAll(maybeRightSymbols)
                 && containsNone(leftSymbols, maybeLeftSymbols)
                 && rightSymbols.containsAll(maybeLeftSymbols)
                 && containsNone(rightSymbols, maybeRightSymbols)) {
             return -1;
         }
-        else {
-            return 0;
-        }
+
+        return 0;
     }
 
-    private Expression toExpression(Optional<Symbol> optionalSymbol, Expression defaultExpression)
+    private static Expression toExpression(Optional<Symbol> optionalSymbol, Expression defaultExpression)
     {
         return optionalSymbol.map(symbol -> (Expression) symbol.toSymbolReference()).orElse(defaultExpression);
     }
 
-    private Optional<Symbol> newGeometrySymbol(Context context, Expression expression)
+    private static Optional<Symbol> newGeometrySymbol(Context context, Expression expression, Metadata metadata)
     {
         if (expression instanceof SymbolReference) {
             return Optional.empty();
@@ -299,7 +372,7 @@ public class TransformSpatialPredicateToJoin
         return Optional.of(context.getSymbolAllocator().newSymbol(expression, metadata.getType(GEOMETRY_TYPE_SIGNATURE)));
     }
 
-    private Optional<Symbol> newRadiusSymbol(Context context, Expression expression)
+    private static Optional<Symbol> newRadiusSymbol(Context context, Expression expression)
     {
         if (expression instanceof SymbolReference) {
             return Optional.empty();
@@ -308,7 +381,7 @@ public class TransformSpatialPredicateToJoin
         return Optional.of(context.getSymbolAllocator().newSymbol(expression, DOUBLE));
     }
 
-    private PlanNode addProjection(Context context, PlanNode node, Symbol symbol, Expression expression)
+    private static PlanNode addProjection(Context context, PlanNode node, Symbol symbol, Expression expression)
     {
         Assignments.Builder projections = Assignments.builder();
         for (Symbol outputSymbol : node.getOutputSymbols()) {

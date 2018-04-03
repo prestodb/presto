@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.plugin.geospatial;
 
-import com.facebook.presto.sql.planner.iterative.rule.TransformSpatialPredicateToJoin;
+import com.facebook.presto.sql.planner.iterative.rule.TransformSpatialPredicates.TransformSpatialPredicateToJoin;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.sql.planner.iterative.rule.test.RuleAssert;

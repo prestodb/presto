@@ -1742,6 +1742,7 @@ public class LocalExecutionPlanner
             return new SpatialJoinOperatorFactory(
                     context.getNextOperatorId(),
                     node.getId(),
+                    node.getType(),
                     probeTypes,
                     probeOutputChannels,
                     probeChannel,

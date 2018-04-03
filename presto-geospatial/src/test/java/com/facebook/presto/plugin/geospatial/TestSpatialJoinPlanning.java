@@ -29,6 +29,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.spatialJoin;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.spatialLeftJoin;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.util.Collections.emptyList;
@@ -166,9 +167,8 @@ public class TestSpatialJoinPlanning
                         "FROM " + POINTS_SQL + " LEFT JOIN " + POLYGONS_SQL + " " +
                         "ON ST_Contains(ST_GeometryFromText(wkt), ST_Point(lng, lat))",
                 anyTree(
-                        join(JoinNode.Type.LEFT, emptyList(),
-                                Optional.of("ST_Contains(ST_GeometryFromText(cast(wkt as varchar)), ST_Point(lng, lat))"),
-                                anyTree(values(ImmutableMap.of("lng", 0, "lat", 1))),
-                                values(ImmutableMap.of("wkt", 0)))));
+                        spatialLeftJoin("st_contains(st_geometryfromtext, st_point)",
+                                project(ImmutableMap.of("st_point", expression("ST_Point(lng, lat)")), anyTree(values(ImmutableMap.of("lng", 0, "lat", 1)))),
+                                anyTree(project(ImmutableMap.of("st_geometryfromtext", expression("ST_GeometryFromText(cast(wkt as varchar))")), anyTree(values(ImmutableMap.of("wkt", 0))))))));
     }
 }
