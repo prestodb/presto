@@ -1185,17 +1185,24 @@ public class TestHiveIntegrationSmokeTest
             assertUpdate(session, insertPartitions, 100);
         }
 
-        // verify can show partitions
+        // we are not constrained by hive.max-partitions-per-scan when listing partitions
         assertQuery(
                 session,
                 "SHOW PARTITIONS FROM " + tableName + " WHERE part > 490 and part <= 500",
                 "VALUES 491, 492, 493, 494, 495, 496, 497, 498, 499, 500");
+
         assertQuery(
                 session,
                 "SHOW PARTITIONS FROM " + tableName + " WHERE part < 0",
                 "SELECT null WHERE false");
 
-        // using $partitions system table we are not constrained by hive.max-partitions-per-scan
+        assertQuery(
+                session,
+                "SHOW PARTITIONS FROM " + tableName,
+                "VALUES " + LongStream.range(0, 1200)
+                        .mapToObj(String::valueOf)
+                        .collect(joining(",")));
+
         assertQuery(
                 session,
                 "SELECT * FROM \"" + tableName + "$partitions\"",
