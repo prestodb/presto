@@ -24,6 +24,7 @@ import java.util.Optional;
 import static com.facebook.presto.matching.Pattern.typeOf;
 import static com.facebook.presto.matching.Property.optionalProperty;
 import static com.facebook.presto.matching.Property.property;
+import static com.google.common.base.Verify.verify;
 import static java.util.Optional.empty;
 
 public class Patterns
@@ -150,6 +151,22 @@ public class Patterns
     public static Property<PlanNode, List<PlanNode>> sources()
     {
         return property("sources", PlanNode::getSources);
+    }
+
+    public static Property<PlanNode, PlanNode> left()
+    {
+        return property("left", planNode -> {
+            verify(planNode.getSources().size() == 2);
+            return planNode.getSources().get(0);
+        });
+    }
+
+    public static Property<PlanNode, PlanNode> right()
+    {
+        return property("right", planNode -> {
+            verify(planNode.getSources().size() == 2);
+            return planNode.getSources().get(1);
+        });
     }
 
     public static class Aggregation

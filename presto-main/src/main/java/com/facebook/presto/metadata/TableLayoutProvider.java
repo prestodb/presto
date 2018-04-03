@@ -19,6 +19,8 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.connector.ConnectorTableLayoutProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -85,6 +87,11 @@ public class TableLayoutProvider
         return layoutProvider.getLimitPushdown().map(connectorLimitPushdown -> new LimitPushdown());
     }
 
+    public Optional<JoinPushdown> getJoinPushdown()
+    {
+        return layoutProvider.getJoinPushdown().map(connectorJoinPushdown -> new JoinPushdown());
+    }
+
     public class PredicatePushdown
     {
         public void pushDownPredicate(Constraint<ColumnHandle> constraint)
@@ -113,6 +120,14 @@ public class TableLayoutProvider
         public void pushDownLimit(long limit)
         {
             TableLayoutProvider.this.limit = OptionalLong.of(limit);
+        }
+    }
+
+    public class JoinPushdown
+    {
+        public void pushDownJoin(TableLayoutProvider otherTableLayoutProvider, JoinNode.Type type, List<JoinNode.EquiJoinClause> criteria, Optional<Expression> filter)
+        {
+            // TODO
         }
     }
 }

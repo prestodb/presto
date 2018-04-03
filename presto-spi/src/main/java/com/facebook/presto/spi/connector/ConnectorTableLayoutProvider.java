@@ -42,6 +42,11 @@ public interface ConnectorTableLayoutProvider
         return Optional.empty();
     }
 
+    default Optional<JoinPushdown> getJoinPushdown()
+    {
+        return Optional.empty();
+    }
+
     interface ProjectionPushdown
     {
         Optional<List<ColumnHandle>> getColumnHandles();
@@ -61,5 +66,16 @@ public interface ConnectorTableLayoutProvider
     interface LimitPushdown
     {
         void pushDownLimit(long limit);
+    }
+
+    interface JoinPushdown
+    {
+        void pushDownJoin(
+                /*
+                What should be here?
+                 - how to map join types?
+                 - how to map expressions from join filter?
+                 - maybe only support equi inner joins?
+                * */);
     }
 }
