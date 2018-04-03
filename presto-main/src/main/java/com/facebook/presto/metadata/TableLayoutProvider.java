@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 
 import static com.facebook.presto.metadata.TableLayout.fromConnectorLayout;
@@ -37,6 +38,7 @@ public class TableLayoutProvider
 
     private Optional<Constraint<ColumnHandle>> constraint = Optional.empty();
     private Optional<Set<ColumnHandle>> desiredColumns = Optional.empty();
+    private OptionalLong limit = OptionalLong.empty();
 
     public TableLayoutProvider(ConnectorTableLayoutProvider layoutProvider, ConnectorTransactionHandle transaction, ConnectorId connectorId)
     {
@@ -57,8 +59,12 @@ public class TableLayoutProvider
 
         if (desiredColumns.isPresent()) {
             layoutProvider.getProjectionPushdown().get().pushDownProjection(desiredColumns.get());
-
         }
+
+        if (limit.isPresent()) {
+            layoutProvider.getLimitPushdown().get().pushDownLimit(limit.getAsLong());
+        }
+
         return layoutProvider.provide(session.toConnectorSession(connectorId)).stream()
                 .map(layout -> new TableLayoutResult(fromConnectorLayout(connectorId, transaction, layout.getTableLayout()), layout.getUnenforcedConstraint()))
                 .collect(toImmutableList());
@@ -72,6 +78,11 @@ public class TableLayoutProvider
     public Optional<ProjectionPushdown> getProjectionPushdown()
     {
         return layoutProvider.getProjectionPushdown().map(connectorProjectionPushdown -> new ProjectionPushdown());
+    }
+
+    public Optional<LimitPushdown> getLimitPushdown()
+    {
+        return layoutProvider.getLimitPushdown().map(connectorLimitPushdown -> new LimitPushdown());
     }
 
     public class PredicatePushdown
@@ -94,6 +105,14 @@ public class TableLayoutProvider
         public void pushDownProjection(Set<ColumnHandle> desiredColumns)
         {
             TableLayoutProvider.this.desiredColumns = Optional.of(desiredColumns);
+        }
+    }
+
+    public class LimitPushdown
+    {
+        public void pushDownLimit(long limit)
+        {
+            TableLayoutProvider.this.limit = OptionalLong.of(limit);
         }
     }
 }

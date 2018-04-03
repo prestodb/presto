@@ -37,6 +37,11 @@ public interface ConnectorTableLayoutProvider
         return Optional.empty();
     }
 
+    default Optional<LimitPushdown> getLimitPushdown()
+    {
+        return Optional.empty();
+    }
+
     interface ProjectionPushdown
     {
         Optional<List<ColumnHandle>> getColumnHandles();
@@ -51,5 +56,10 @@ public interface ConnectorTableLayoutProvider
         TupleDomain<ColumnHandle> getPredicate();
 
         void pushDownPredicate(Constraint<ColumnHandle> constraint);
+    }
+
+    interface LimitPushdown
+    {
+        void pushDownLimit(long limit);
     }
 }
