@@ -24,6 +24,7 @@ import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.TableStatistics;
+import com.facebook.presto.tpch.util.PredicateUtils;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -44,6 +45,7 @@ import static com.facebook.presto.spi.Constraint.alwaysTrue;
 import static com.facebook.presto.spi.statistics.Estimate.unknownValue;
 import static com.facebook.presto.spi.statistics.Estimate.zeroValue;
 import static com.facebook.presto.tpch.TpchMetadata.getPrestoType;
+import static com.facebook.presto.tpch.util.PredicateUtils.filterOutColumnFromPredicate;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.tpch.CustomerColumn.MARKET_SEGMENT;
@@ -305,7 +307,7 @@ public class TestTpchMetadata
         tableLayout = getTableOnlyLayout(tpchMetadata, session, tableHandle, new Constraint<>(domain, convertToPredicate(domain, PartColumn.TYPE)));
         assertTupleDomainEquals(tableLayout.getUnenforcedConstraint(), TupleDomain.all(), session);
         assertTupleDomainEquals(
-                tpchMetadata.filterOutColumnFromPredicate(tableLayout.getTableLayout().getPredicate(), PartColumn.CONTAINER),
+                filterOutColumnFromPredicate(tableLayout.getTableLayout().getPredicate(), tpchMetadata.toColumnHandle(PartColumn.CONTAINER)),
                 domain,
                 session);
 
@@ -318,7 +320,7 @@ public class TestTpchMetadata
         tableLayout = getTableOnlyLayout(tpchMetadata, session, tableHandle, new Constraint<>(domain, convertToPredicate(domain, PartColumn.CONTAINER)));
         assertTupleDomainEquals(tableLayout.getUnenforcedConstraint(), TupleDomain.all(), session);
         assertTupleDomainEquals(
-                tpchMetadata.filterOutColumnFromPredicate(tableLayout.getTableLayout().getPredicate(), PartColumn.TYPE),
+                filterOutColumnFromPredicate(tableLayout.getTableLayout().getPredicate(), tpchMetadata.toColumnHandle(PartColumn.TYPE)),
                 domain,
                 session);
 
@@ -346,7 +348,7 @@ public class TestTpchMetadata
                 ColumnHandle columnHandle = tpchMetadata.toColumnHandle(column);
                 if (bindings.containsKey(columnHandle)) {
                     NullableValue nullableValue = requireNonNull(bindings.get(columnHandle), "binding is null");
-                    if (!tpchMetadata.convertToPredicate(domain, column).test(nullableValue)) {
+                    if (!PredicateUtils.convertToPredicate(domain, tpchMetadata.toColumnHandle(column)).test(nullableValue)) {
                         return false;
                     }
                 }
