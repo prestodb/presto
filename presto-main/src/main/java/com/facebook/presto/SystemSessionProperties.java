@@ -517,7 +517,7 @@ public final class SystemSessionProperties
         return session.getSystemProperty(COLOCATED_JOIN, Boolean.class);
     }
 
-    public static boolean isSpatialJoinEanbled(Session session)
+    public static boolean isSpatialJoinEnabled(Session session)
     {
         return session.getSystemProperty(SPATIAL_JOIN, Boolean.class);
     }

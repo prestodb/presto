@@ -124,7 +124,7 @@ public class TransformSpatialPredicateToJoin
     @Override
     public boolean isEnabled(Session session)
     {
-        return SystemSessionProperties.isSpatialJoinEanbled(session);
+        return SystemSessionProperties.isSpatialJoinEnabled(session);
     }
 
     @Override
