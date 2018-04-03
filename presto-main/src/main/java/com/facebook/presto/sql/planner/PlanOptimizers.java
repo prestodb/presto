@@ -62,6 +62,7 @@ import com.facebook.presto.sql.planner.iterative.rule.PruneTopNColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneValuesColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneWindowColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PushAggregationThroughOuterJoin;
+import com.facebook.presto.sql.planner.iterative.rule.PushDownLimitToScan;
 import com.facebook.presto.sql.planner.iterative.rule.PushLimitThroughMarkDistinct;
 import com.facebook.presto.sql.planner.iterative.rule.PushLimitThroughProject;
 import com.facebook.presto.sql.planner.iterative.rule.PushLimitThroughSemiJoin;
@@ -271,6 +272,11 @@ public class PlanOptimizers
                 new SetFlatteningOptimizer(),
                 new ImplementIntersectAndExceptAsUnion(),
                 new LimitPushDown(), // Run the LimitPushDown after flattening set operators to make it easier to do the set flattening
+                new IterativeOptimizer(
+                        stats,
+                        statsCalculator,
+                        estimatedExchangesCostCalculator,
+                        ImmutableSet.of(new PushDownLimitToScan(metadata))),
                 new PruneUnreferencedOutputs(),
                 inlineProjections,
                 new IterativeOptimizer(

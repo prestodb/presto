@@ -8000,4 +8000,10 @@ public abstract class AbstractTestQueries
         assertEquals(doubleColumnResult.getTypes().get(0), DOUBLE);
         assertEquals(doubleColumnResult.getMaterializedRows().get(0).getField(0), 1.0);
     }
+
+    @Test
+    public void testLimitPushdown()
+    {
+        assertQuery("SELECT 1 FROM nation LIMIT 2");
+    }
 }
