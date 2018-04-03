@@ -65,7 +65,13 @@ public interface Metadata
      */
     Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName tableName);
 
+    /**
+     * Use {@link Metadata#getTableLayoutProvider(Session, TableHandle, Optional)}
+     */
+    @Deprecated
     List<TableLayoutResult> getLayouts(Session session, TableHandle tableHandle, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns);
+
+    TableLayoutProvider getTableLayoutProvider(Session session, TableHandle tableHandle, Optional<TableLayoutHandle> tableLayoutHandle);
 
     TableLayout getLayout(Session session, TableLayoutHandle handle);
 

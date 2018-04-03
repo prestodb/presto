@@ -78,12 +78,22 @@ public interface ConnectorMetadata
      * Return a list of table layouts that satisfy the given constraint.
      * <p>
      * For each layout, connectors must return an "unenforced constraint" representing the part of the constraint summary that isn't guaranteed by the layout.
+     * Deprecated, use {@link ConnectorMetadata#getTableLayoutProvider(ConnectorSession, ConnectorTableHandle, Optional)}
      */
-    List<ConnectorTableLayoutResult> getTableLayouts(
+    @Deprecated
+    default List<ConnectorTableLayoutResult> getTableLayouts(
             ConnectorSession session,
             ConnectorTableHandle table,
             Constraint<ColumnHandle> constraint,
-            Optional<Set<ColumnHandle>> desiredColumns);
+            Optional<Set<ColumnHandle>> desiredColumns)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default ConnectorTableLayoutProvider getTableLayoutProvider(ConnectorSession session, ConnectorTableHandle table, Optional<ConnectorTableLayoutHandle> connectorTableLayoutHandle)
+    {
+        return new LegacyConnectorTableLayoutProvider(this, session, table);
+    }
 
     ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle);
 

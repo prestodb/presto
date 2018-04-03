@@ -34,6 +34,7 @@ import com.facebook.presto.spi.TableIdentity;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
+import com.facebook.presto.spi.connector.ConnectorTableLayoutProvider;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.security.GrantInfo;
 import com.facebook.presto.spi.security.Privilege;
@@ -70,6 +71,14 @@ public class ClassLoaderSafeConnectorMetadata
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.getTableLayouts(session, table, constraint, desiredColumns);
+        }
+    }
+
+    @Override
+    public ConnectorTableLayoutProvider getTableLayoutProvider(ConnectorSession session, ConnectorTableHandle table, Optional<ConnectorTableLayoutHandle> layoutHandle)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getTableLayoutProvider(session, table, layoutHandle);
         }
     }
 

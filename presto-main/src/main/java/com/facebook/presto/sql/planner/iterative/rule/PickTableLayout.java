@@ -18,6 +18,7 @@ import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.TableLayoutProvider;
 import com.facebook.presto.metadata.TableLayoutResult;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Constraint;
@@ -50,7 +51,6 @@ import static com.facebook.presto.sql.planner.plan.Patterns.filter;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
 import static com.facebook.presto.sql.planner.plan.Patterns.tableScan;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -193,17 +193,15 @@ public class PickTableLayout
                 .transform(node.getAssignments()::get)
                 .intersect(node.getCurrentConstraint());
 
-        List<TableLayoutResult> layouts = metadata.getLayouts(
-                context.getSession(),
-                node.getTable(),
-                new Constraint<>(simplifiedConstraint, bindings -> true),
-                Optional.of(ImmutableSet.copyOf(node.getAssignments().values())));
+        TableLayoutProvider layoutProvider = metadata.getTableLayoutProvider(context.getSession(), node.getTable(), node.getLayout());
+        //TODO do not calculate simplifiedConstraint
+        layoutProvider.getPredicatePushdown().ifPresent(predicatePushdown -> predicatePushdown.pushDownPredicate(new Constraint<>(simplifiedConstraint, bindings -> true)));
+        layoutProvider.getProjectionPushdown().ifPresent(projectionPushdown -> projectionPushdown.pushDownProjection(ImmutableSet.copyOf(node.getAssignments().values())));
+        List<TableLayoutResult> layouts = layoutProvider.provide(context.getSession());
+
         if (layouts.isEmpty()) {
             return new ValuesNode(context.getIdAllocator().getNextId(), node.getOutputSymbols(), ImmutableList.of());
         }
-        layouts = layouts.stream()
-                .filter(layout -> layout.hasAllOutputs(node))
-                .collect(toImmutableList());
 
         TableLayoutResult layout = layouts.get(0);
 

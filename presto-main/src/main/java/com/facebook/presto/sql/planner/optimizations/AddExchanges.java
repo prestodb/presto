@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.TableLayoutProvider;
 import com.facebook.presto.metadata.TableLayoutResult;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Constraint;
@@ -120,7 +121,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
@@ -555,12 +555,11 @@ public class AddExchanges
                     constraint);
 
             // Layouts will be returned in order of the connector's preference
-            List<TableLayoutResult> layouts = metadata.getLayouts(
-                    session, node.getTable(),
-                    new Constraint<>(newDomain, evaluator::isCandidate),
-                    Optional.of(node.getOutputSymbols().stream()
-                            .map(node.getAssignments()::get)
-                            .collect(toImmutableSet())));
+            TableLayoutProvider layoutProvider = metadata.getTableLayoutProvider(session, node.getTable(), node.getLayout());
+            //TODO do not calculate newDomain nor LayoutConstraintEvaluator when PredicatePushdown is not available
+            layoutProvider.getPredicatePushdown().ifPresent(predicatePushdown -> predicatePushdown.pushDownPredicate(new Constraint<>(newDomain, evaluator::isCandidate)));
+            layoutProvider.getProjectionPushdown().ifPresent(projectionPushdown -> projectionPushdown.pushDownProjection(ImmutableSet.copyOf(node.getAssignments().values())));
+            List<TableLayoutResult> layouts = layoutProvider.provide(session);
 
             if (layouts.isEmpty()) {
                 return emptyRelation(node.getOutputSymbols());

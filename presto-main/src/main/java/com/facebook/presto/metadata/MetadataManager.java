@@ -27,7 +27,6 @@ import com.facebook.presto.spi.ConnectorResolvedIndex;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayout;
-import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.Constraint;
@@ -39,6 +38,7 @@ import com.facebook.presto.spi.TableIdentity;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
+import com.facebook.presto.spi.connector.ConnectorTableLayoutProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.predicate.TupleDomain;
@@ -98,7 +98,6 @@ import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.transaction.TransactionManager.createTestTransactionManager;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -314,6 +313,17 @@ public class MetadataManager
             return ImmutableList.of();
         }
 
+        TableLayoutProvider tableLayoutProvider = getTableLayoutProvider(session, table, Optional.empty());
+        tableLayoutProvider.getPredicatePushdown().ifPresent(predicatePushdown -> predicatePushdown.pushDownPredicate(constraint));
+        if (desiredColumns.isPresent()) {
+            tableLayoutProvider.getProjectionPushdown().ifPresent(projectionPushdown -> projectionPushdown.pushDownProjection(desiredColumns.get()));
+        }
+        return tableLayoutProvider.provide(session);
+    }
+
+    @Override
+    public TableLayoutProvider getTableLayoutProvider(Session session, TableHandle table, Optional<TableLayoutHandle> tableLayoutHandle)
+    {
         ConnectorId connectorId = table.getConnectorId();
         ConnectorTableHandle connectorTable = table.getConnectorHandle();
 
@@ -321,11 +331,9 @@ public class MetadataManager
         ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
         ConnectorTransactionHandle transaction = catalogMetadata.getTransactionHandleFor(connectorId);
         ConnectorSession connectorSession = session.toConnectorSession(connectorId);
-        List<ConnectorTableLayoutResult> layouts = metadata.getTableLayouts(connectorSession, connectorTable, constraint, desiredColumns);
+        ConnectorTableLayoutProvider layoutProvider = metadata.getTableLayoutProvider(connectorSession, connectorTable, tableLayoutHandle.map(TableLayoutHandle::getConnectorHandle));
 
-        return layouts.stream()
-                .map(layout -> new TableLayoutResult(fromConnectorLayout(connectorId, transaction, layout.getTableLayout()), layout.getUnenforcedConstraint()))
-                .collect(toImmutableList());
+        return new TableLayoutProvider(layoutProvider, transaction, connectorId);
     }
 
     @Override
