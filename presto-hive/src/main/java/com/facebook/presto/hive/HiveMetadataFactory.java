@@ -39,6 +39,7 @@ public class HiveMetadataFactory
     private final boolean writesToNonManagedTablesEnabled;
     private final boolean createsOfNonManagedTablesEnabled;
     private final long perTransactionCacheMaximumSize;
+    private final int maxPartitions;
     private final ExtendedHiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
     private final HivePartitionManager partitionManager;
@@ -78,6 +79,7 @@ public class HiveMetadataFactory
                 hiveClientConfig.getWritesToNonManagedTablesEnabled(),
                 hiveClientConfig.getCreatesOfNonManagedTablesEnabled(),
                 hiveClientConfig.getPerTransactionMetastoreCacheMaximumSize(),
+                hiveClientConfig.getMaxPartitionsPerScan(),
                 typeManager,
                 locationService,
                 tableParameterCodec,
@@ -99,6 +101,7 @@ public class HiveMetadataFactory
             boolean writesToNonManagedTablesEnabled,
             boolean createsOfNonManagedTablesEnabled,
             long perTransactionCacheMaximumSize,
+            int maxPartitions,
             TypeManager typeManager,
             LocationService locationService,
             TableParameterCodec tableParameterCodec,
@@ -124,6 +127,7 @@ public class HiveMetadataFactory
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
         this.typeTranslator = requireNonNull(typeTranslator, "typeTranslator is null");
         this.prestoVersion = requireNonNull(prestoVersion, "prestoVersion is null");
+        this.maxPartitions = maxPartitions;
 
         if (!allowCorruptWritesForTesting && !timeZone.equals(DateTimeZone.getDefault())) {
             log.warn("Hive writes are disabled. " +
@@ -158,6 +162,7 @@ public class HiveMetadataFactory
                 partitionUpdateCodec,
                 typeTranslator,
                 prestoVersion,
-                new MetastoreHiveStatisticsProvider(typeManager, metastore, timeZone));
+                new MetastoreHiveStatisticsProvider(typeManager, metastore, timeZone),
+                maxPartitions);
     }
 }
