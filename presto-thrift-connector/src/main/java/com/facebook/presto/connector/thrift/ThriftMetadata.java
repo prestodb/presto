@@ -208,8 +208,17 @@ public class ThriftMetadata
 
     private PrestoThriftNullableTableMetadata getTableMetadata(SchemaTableName schemaTableName)
     {
+        // treat invalid names as not found
+        PrestoThriftSchemaTableName name;
         try {
-            return client.get().getTableMetadata(new PrestoThriftSchemaTableName(schemaTableName));
+            name = new PrestoThriftSchemaTableName(schemaTableName);
+        }
+        catch (IllegalArgumentException e) {
+            return new PrestoThriftNullableTableMetadata(null);
+        }
+
+        try {
+            return client.get().getTableMetadata(name);
         }
         catch (PrestoThriftServiceException | TException e) {
             throw toPrestoException(e);
