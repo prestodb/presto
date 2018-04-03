@@ -63,7 +63,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -71,6 +70,8 @@ import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
+import static com.facebook.presto.tpch.util.PredicateUtils.convertToPredicate;
+import static com.facebook.presto.tpch.util.PredicateUtils.filterOutColumnFromPredicate;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Maps.asMap;
 import static io.airlift.tpch.OrderColumn.ORDER_STATUS;
@@ -193,7 +194,7 @@ public class TpchMetadata
             predicate = toTupleDomain(ImmutableMap.of(
                     toColumnHandle(OrderColumn.ORDER_STATUS),
                     filterValues(ORDER_STATUS_NULLABLE_VALUES, OrderColumn.ORDER_STATUS, constraint)));
-            unenforcedConstraint = filterOutColumnFromPredicate(constraint.getSummary(), OrderColumn.ORDER_STATUS);
+            unenforcedConstraint = filterOutColumnFromPredicate(constraint.getSummary(), toColumnHandle(OrderColumn.ORDER_STATUS));
         }
         else if (tableHandle.getTableName().equals(TpchTable.PART.getTableName())) {
             predicate = toTupleDomain(ImmutableMap.of(
@@ -201,8 +202,8 @@ public class TpchMetadata
                     filterValues(PART_CONTAINER_NULLABLE_VALUES, PartColumn.CONTAINER, constraint),
                     toColumnHandle(PartColumn.TYPE),
                     filterValues(PART_TYPE_NULLABLE_VALUES, PartColumn.TYPE, constraint)));
-            unenforcedConstraint = filterOutColumnFromPredicate(constraint.getSummary(), PartColumn.CONTAINER);
-            unenforcedConstraint = filterOutColumnFromPredicate(unenforcedConstraint, PartColumn.TYPE);
+            unenforcedConstraint = filterOutColumnFromPredicate(constraint.getSummary(), toColumnHandle(PartColumn.CONTAINER));
+            unenforcedConstraint = filterOutColumnFromPredicate(unenforcedConstraint, toColumnHandle(PartColumn.TYPE));
         }
         else if (tableHandle.getTableName().equals(TpchTable.LINE_ITEM.getTableName())) {
             ColumnHandle orderKeyColumn = columns.get(columnNaming.getName(LineItemColumn.ORDER_KEY));
@@ -232,7 +233,7 @@ public class TpchMetadata
     private Set<NullableValue> filterValues(Set<NullableValue> nullableValues, TpchColumn<?> column, Constraint<ColumnHandle> constraint)
     {
         return nullableValues.stream()
-                .filter(convertToPredicate(constraint.getSummary(), column))
+                .filter(convertToPredicate(constraint.getSummary(), toColumnHandle(column)))
                 .filter(value -> constraint.predicate().test(ImmutableMap.of(toColumnHandle(column), value)))
                 .collect(toSet());
     }
@@ -429,32 +430,6 @@ public class TpchMetadata
                             .reduce((Domain::union))
                             .orElse(Domain.none(type));
                 })));
-    }
-
-    @VisibleForTesting
-    Predicate<NullableValue> convertToPredicate(TupleDomain<ColumnHandle> predicate, TpchColumn column)
-    {
-        TpchColumnHandle columnHandle = toColumnHandle(column);
-        TupleDomain<ColumnHandle> columnPredicate = filterColumns(predicate, columnHandle::equals);
-        return nullableValue -> columnPredicate.contains(TupleDomain.fromFixedValues(ImmutableMap.of(columnHandle, nullableValue)));
-    }
-
-    @VisibleForTesting
-    TupleDomain<ColumnHandle> filterOutColumnFromPredicate(TupleDomain<ColumnHandle> predicate, TpchColumn column)
-    {
-        return filterColumns(predicate, tpchColumnHandle -> !tpchColumnHandle.equals(toColumnHandle(column)));
-    }
-
-    private TupleDomain<ColumnHandle> filterColumns(TupleDomain<ColumnHandle> predicate, Predicate<TpchColumnHandle> filterPredicate)
-    {
-        return predicate.transform(columnHandle -> {
-            TpchColumnHandle tpchColumnHandle = (TpchColumnHandle) columnHandle;
-            if (filterPredicate.test(tpchColumnHandle)) {
-                return tpchColumnHandle;
-            }
-
-            return null;
-        });
     }
 
     private List<String> getSchemaNames(ConnectorSession session, String schemaNameOrNull)
