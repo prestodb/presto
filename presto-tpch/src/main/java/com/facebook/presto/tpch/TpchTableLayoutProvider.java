@@ -147,38 +147,22 @@ public class TpchTableLayoutProvider
     @Override
     public Optional<PredicatePushdown> getPredicatePushdown()
     {
-        return Optional.of(new PredicatePushdown() {
-            @Override
-            public TupleDomain<ColumnHandle> getUnenforcedConstraint()
-            {
-                return unenforcedConstraint;
+        return Optional.of(constraint -> {
+            unenforcedConstraint = constraint.getSummary();
+            if (table.getTableName().equals(TpchTable.ORDERS.getTableName())) {
+                predicate = toTupleDomain(ImmutableMap.of(
+                        tpchMetadata.toColumnHandle(OrderColumn.ORDER_STATUS),
+                        filterValues(ORDER_STATUS_NULLABLE_VALUES, OrderColumn.ORDER_STATUS, constraint)));
+                unenforcedConstraint = filterOutColumnFromPredicate(constraint.getSummary(), tpchMetadata.toColumnHandle(OrderColumn.ORDER_STATUS));
             }
-
-            @Override
-            public TupleDomain<ColumnHandle> getPredicate()
-            {
-                return predicate;
-            }
-
-            @Override
-            public void pushDownPredicate(Constraint<ColumnHandle> constraint)
-            {
-                unenforcedConstraint = constraint.getSummary();
-                if (table.getTableName().equals(TpchTable.ORDERS.getTableName())) {
-                    predicate = toTupleDomain(ImmutableMap.of(
-                            tpchMetadata.toColumnHandle(OrderColumn.ORDER_STATUS),
-                            filterValues(ORDER_STATUS_NULLABLE_VALUES, OrderColumn.ORDER_STATUS, constraint)));
-                    unenforcedConstraint = filterOutColumnFromPredicate(constraint.getSummary(), tpchMetadata.toColumnHandle(OrderColumn.ORDER_STATUS));
-                }
-                else if (table.getTableName().equals(TpchTable.PART.getTableName())) {
-                    predicate = toTupleDomain(ImmutableMap.of(
-                            tpchMetadata.toColumnHandle(PartColumn.CONTAINER),
-                            filterValues(PART_CONTAINER_NULLABLE_VALUES, PartColumn.CONTAINER, constraint),
-                            tpchMetadata.toColumnHandle(PartColumn.TYPE),
-                            filterValues(PART_TYPE_NULLABLE_VALUES, PartColumn.TYPE, constraint)));
-                    unenforcedConstraint = filterOutColumnFromPredicate(constraint.getSummary(), tpchMetadata.toColumnHandle(PartColumn.CONTAINER));
-                    unenforcedConstraint = filterOutColumnFromPredicate(unenforcedConstraint, tpchMetadata.toColumnHandle(PartColumn.TYPE));
-                }
+            else if (table.getTableName().equals(TpchTable.PART.getTableName())) {
+                predicate = toTupleDomain(ImmutableMap.of(
+                        tpchMetadata.toColumnHandle(PartColumn.CONTAINER),
+                        filterValues(PART_CONTAINER_NULLABLE_VALUES, PartColumn.CONTAINER, constraint),
+                        tpchMetadata.toColumnHandle(PartColumn.TYPE),
+                        filterValues(PART_TYPE_NULLABLE_VALUES, PartColumn.TYPE, constraint)));
+                unenforcedConstraint = filterOutColumnFromPredicate(constraint.getSummary(), tpchMetadata.toColumnHandle(PartColumn.CONTAINER));
+                unenforcedConstraint = filterOutColumnFromPredicate(unenforcedConstraint, tpchMetadata.toColumnHandle(PartColumn.TYPE));
             }
         });
     }
