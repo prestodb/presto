@@ -482,7 +482,7 @@ public final class GeoFunctions
         if (envelope == null) {
             return EMPTY_POLYGON;
         }
-        return serialize(createFromEsriGeometry(envelope, null));
+        return serialize(envelope);
     }
 
     @Description("Returns the Geometry value that represents the point set difference of two geometries")

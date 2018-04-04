@@ -72,6 +72,8 @@ public class JtsGeometrySerde
                 return readPolygon(input, true);
             case GEOMETRY_COLLECTION:
                 return readGeometryCollection(input);
+            case ENVELOPE:
+                return readEnvelope(input);
             default:
                 throw new UnsupportedOperationException("Unexpected type: " + type);
         }
@@ -204,6 +206,23 @@ public class JtsGeometrySerde
             geometries.add(readGeometry(input, type));
         }
         return GEOMETRY_FACTORY.createGeometryCollection(geometries.toArray(new Geometry[0]));
+    }
+
+    private static Geometry readEnvelope(SliceInput input)
+    {
+        verify(input.available() > 0);
+        double xMin = input.readDouble();
+        double yMin = input.readDouble();
+        double xMax = input.readDouble();
+        double yMax = input.readDouble();
+
+        Coordinate[] coordinates = new Coordinate[5];
+        coordinates[0] = new Coordinate(xMin, yMin);
+        coordinates[1] = new Coordinate(xMin, yMax);
+        coordinates[2] = new Coordinate(xMax, yMax);
+        coordinates[3] = new Coordinate(xMax, yMin);
+        coordinates[4] = coordinates[0];
+        return GEOMETRY_FACTORY.createPolygon(coordinates);
     }
 
     private static void skipEsriType(SliceInput input)

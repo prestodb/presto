@@ -33,6 +33,7 @@ import com.esri.core.geometry.ogc.OGCPolygon;
 import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceInput;
 
 import javax.annotation.Nullable;
 
@@ -58,6 +59,19 @@ public class GeometrySerde
         requireNonNull(input, "input is null");
         DynamicSliceOutput output = new DynamicSliceOutput(100);
         writeGeometry(output, input);
+        return output.slice();
+    }
+
+    public static Slice serialize(Envelope envelope)
+    {
+        requireNonNull(envelope, "envelope is null");
+        verify(!envelope.isEmpty());
+        DynamicSliceOutput output = new DynamicSliceOutput(100);
+        output.appendByte(GeometryType.ENVELOPE.code());
+        output.appendDouble(envelope.getXMin());
+        output.appendDouble(envelope.getYMin());
+        output.appendDouble(envelope.getXMax());
+        output.appendDouble(envelope.getYMax());
         return output.slice();
     }
 
@@ -154,6 +168,8 @@ public class GeometrySerde
                 return readSimpleGeometry(input, inputSlice, type, length);
             case GEOMETRY_COLLECTION:
                 return readGeometryCollection(input, inputSlice);
+            case ENVELOPE:
+                return createFromEsriGeometry(readEnvelope(input), false);
             default:
                 throw new IllegalArgumentException("Unexpected type: " + type);
         }
@@ -211,6 +227,11 @@ public class GeometrySerde
                 }
                 return new OGCMultiPoint((Point) geometry, null);
             }
+            case Envelope: {
+                Polygon polygon = new Polygon();
+                polygon.addEnvelope((Envelope) geometry, false);
+                return new OGCPolygon(polygon, null);
+            }
             default:
                 throw new IllegalArgumentException("Unexpected geometry type: " + type);
         }
@@ -258,6 +279,8 @@ public class GeometrySerde
                 return getSimpleGeometryEnvelope(input, length);
             case GEOMETRY_COLLECTION:
                 return getGeometryCollectionOverallEnvelope(input);
+            case ENVELOPE:
+                return readEnvelope(input);
             default:
                 throw new IllegalArgumentException("Unexpected type: " + type);
         }
@@ -304,6 +327,16 @@ public class GeometrySerde
             return null;
         }
         return new Envelope(x, y, x, y);
+    }
+
+    private static Envelope readEnvelope(SliceInput input)
+    {
+        verify(input.available() > 0);
+        double xMin = input.readDouble();
+        double yMin = input.readDouble();
+        double xMax = input.readDouble();
+        double yMax = input.readDouble();
+        return new Envelope(xMin, yMin, xMax, yMax);
     }
 
     @Nullable
