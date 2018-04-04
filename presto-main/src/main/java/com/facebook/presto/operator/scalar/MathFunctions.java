@@ -725,6 +725,24 @@ public final class MathFunctions
         return Math.round(num * factor) / factor;
     }
 
+    @Description("round to given number of decimal places")
+    @ScalarFunction("round")
+    @SqlType(StandardTypes.REAL)
+    public static long roundFloat(@SqlType(StandardTypes.REAL) long num, @SqlType(StandardTypes.BIGINT) long decimals)
+    {
+        float numInFloat = intBitsToFloat((int) num);
+        if (Float.isNaN(numInFloat) || Float.isInfinite(numInFloat)) {
+            return num;
+        }
+
+        double factor = Math.pow(10, decimals);
+        if (numInFloat < 0) {
+            return floatToRawIntBits((float) -(Math.round(-numInFloat * factor) / factor));
+        }
+
+        return floatToRawIntBits((float) (Math.round(numInFloat * factor) / factor));
+    }
+
     @ScalarFunction("round")
     @Description("round to nearest integer")
     public static final class Round
@@ -924,24 +942,6 @@ public final class MathFunctions
             int rescaleFactor = (int) (numScale - roundScale);
             return rescaleTruncate(rescaleTruncate(num, -rescaleFactor), rescaleFactor);
         }
-    }
-
-    @Description("round to given number of decimal places")
-    @ScalarFunction("round")
-    @SqlType(StandardTypes.REAL)
-    public static long roundFloat(@SqlType(StandardTypes.REAL) long num, @SqlType(StandardTypes.BIGINT) long decimals)
-    {
-        float numInFloat = intBitsToFloat((int) num);
-        if (Float.isNaN(numInFloat) || Float.isInfinite(numInFloat)) {
-            return num;
-        }
-
-        double factor = Math.pow(10, decimals);
-        if (numInFloat < 0) {
-            return floatToRawIntBits((float) -(Math.round(-numInFloat * factor) / factor));
-        }
-
-        return floatToRawIntBits((float) (Math.round(numInFloat * factor) / factor));
     }
 
     @Description("signum")
