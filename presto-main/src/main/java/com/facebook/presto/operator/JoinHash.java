@@ -55,6 +55,12 @@ public final class JoinHash
     }
 
     @Override
+    public boolean isEmpty()
+    {
+        return getJoinPositionCount() == 0;
+    }
+
+    @Override
     public long getJoinPositionCount()
     {
         return pagesHash.getPositionCount();

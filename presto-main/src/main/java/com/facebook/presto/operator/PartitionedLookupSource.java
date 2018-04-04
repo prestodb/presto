@@ -110,6 +110,12 @@ public class PartitionedLookupSource
     }
 
     @Override
+    public boolean isEmpty()
+    {
+        return Arrays.stream(lookupSources).allMatch(LookupSource::isEmpty);
+    }
+
+    @Override
     public long getJoinPositionCount()
     {
         return Arrays.stream(lookupSources)

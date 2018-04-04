@@ -507,6 +507,12 @@ public final class PartitionedLookupSourceFactory
         }
 
         @Override
+        public boolean isEmpty()
+        {
+            return false;
+        }
+
+        @Override
         public long getInMemorySizeInBytes()
         {
             return 0;
