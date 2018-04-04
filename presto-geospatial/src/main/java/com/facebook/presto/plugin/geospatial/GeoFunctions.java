@@ -72,7 +72,7 @@ import static org.locationtech.jts.simplify.TopologyPreservingSimplifier.simplif
 public final class GeoFunctions
 {
     private static final Joiner OR_JOINER = Joiner.on(" or ");
-    private static final Slice EMPTY_POLYGON = serialize(createFromEsriGeometry(new Polygon(), null));
+    private static final Slice EMPTY_POLYGON = serialize(new OGCPolygon(new Polygon(), null));
     private static final Slice EMPTY_MULTIPOINT = serialize(createFromEsriGeometry(new MultiPoint(), null, true));
     private static final double EARTH_RADIUS_KM = 6371.01;
 

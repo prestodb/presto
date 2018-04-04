@@ -377,7 +377,7 @@ public class TestGeoFunctions
     public void testSTEnvelope()
     {
         assertFunction("ST_AsText(ST_Envelope(ST_GeometryFromText('MULTIPOINT (1 2, 2 4, 3 6, 4 8)')))", VARCHAR, "POLYGON ((1 2, 4 2, 4 8, 1 8, 1 2))");
-        assertFunction("ST_AsText(ST_Envelope(ST_GeometryFromText('LINESTRING EMPTY')))", VARCHAR, "MULTIPOLYGON EMPTY");
+        assertFunction("ST_AsText(ST_Envelope(ST_GeometryFromText('LINESTRING EMPTY')))", VARCHAR, "POLYGON EMPTY");
         assertFunction("ST_AsText(ST_Envelope(ST_GeometryFromText('LINESTRING (1 1, 2 2, 1 3)')))", VARCHAR, "POLYGON ((1 1, 2 1, 2 3, 1 3, 1 1))");
         assertFunction("ST_AsText(ST_Envelope(ST_GeometryFromText('LINESTRING (8 4, 5 7)')))", VARCHAR, "POLYGON ((5 4, 8 4, 8 7, 5 7, 5 4))");
         assertFunction("ST_AsText(ST_Envelope(ST_GeometryFromText('MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))')))", VARCHAR, "POLYGON ((1 1, 5 1, 5 4, 1 4, 1 1))");
