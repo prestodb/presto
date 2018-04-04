@@ -430,6 +430,21 @@ public class TestGeoFunctions
         assertFunction("ST_AsText(ST_Intersection(ST_GeometryFromText('MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1)), ((0 0, 0 2, 2 2, 2 0)))'), ST_GeometryFromText('POLYGON ((0 1, 3 1, 3 3, 0 3))')))", VARCHAR, "GEOMETRYCOLLECTION (LINESTRING (1 1, 2 1), MULTIPOLYGON (((0 1, 1 1, 1 2, 0 2, 0 1)), ((2 1, 3 1, 3 3, 1 3, 1 2, 2 2, 2 1))))");
         assertFunction("ST_AsText(ST_Intersection(ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 4, 4 1))'), ST_GeometryFromText('LINESTRING (2 0, 2 3)')))", VARCHAR, "LINESTRING (2 1, 2 3)");
         assertFunction("ST_AsText(ST_Intersection(ST_GeometryFromText('POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0))'), ST_GeometryFromText('LINESTRING (0 0, 1 -1, 1 2)')))", VARCHAR, "GEOMETRYCOLLECTION (POINT (0 0), LINESTRING (1 0, 1 1))");
+
+        // test intersection of envelopes
+        assertEnvelopeIntersection("POLYGON ((0 0, 5 0, 5 5, 0 5, 0 0))", "POLYGON ((0 0, 5 0, 5 5, 0 5, 0 0))", "POLYGON ((0 0, 5 0, 5 5, 0 5, 0 0))");
+        assertEnvelopeIntersection("POLYGON ((0 0, 5 0, 5 5, 0 5, 0 0))", "POLYGON ((-1 4, 1 4, 1 6, -1 6, -1 4))", "POLYGON ((0 4, 1 4, 1 5, 0 5, 0 4))");
+        assertEnvelopeIntersection("POLYGON ((0 0, 5 0, 5 5, 0 5, 0 0))", "POLYGON ((1 4, 2 4, 2 6, 1 6, 1 4))", "POLYGON ((1 4, 2 4, 2 5, 1 5, 1 4))");
+        assertEnvelopeIntersection("POLYGON ((0 0, 5 0, 5 5, 0 5, 0 0))", "POLYGON ((4 4, 6 4, 6 6, 4 6, 4 4))", "POLYGON ((4 4, 5 4, 5 5, 4 5, 4 4))");
+        assertEnvelopeIntersection("POLYGON ((0 0, 5 0, 5 5, 0 5, 0 0))", "POLYGON ((10 10, 11 10, 11 11, 10 11, 10 10))", "POLYGON EMPTY");
+        assertEnvelopeIntersection("POLYGON ((0 0, 5 0, 5 5, 0 5, 0 0))", "POLYGON ((-1 -1, 0 -1, 0 1, -1 1, -1 -1))", "LINESTRING (0 0, 0 1)");
+        assertEnvelopeIntersection("POLYGON ((0 0, 5 0, 5 5, 0 5, 0 0))", "POLYGON ((1 -1, 2 -1, 2 0, 1 0, 1 -1))", "LINESTRING (1 0, 2 0)");
+        assertEnvelopeIntersection("POLYGON ((0 0, 5 0, 5 5, 0 5, 0 0))", "POLYGON ((-1 -1, 0 -1, 0 0, -1 0, -1 -1))", "POINT (0 0)");
+    }
+
+    private void assertEnvelopeIntersection(String envelope, String otherEnvelope, String intersection)
+    {
+        assertFunction("ST_AsText(ST_Intersection(ST_Envelope(ST_GeometryFromText('" + envelope + "')), ST_Envelope(ST_GeometryFromText('" + otherEnvelope + "'))))", VARCHAR, intersection);
     }
 
     @Test
