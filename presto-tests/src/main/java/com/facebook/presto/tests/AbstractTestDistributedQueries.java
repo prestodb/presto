@@ -297,7 +297,7 @@ public abstract class AbstractTestDistributedQueries
         assertExplainAnalyze("EXPLAIN ANALYZE VERBOSE SELECT rank() OVER (PARTITION BY orderkey ORDER BY clerk DESC) FROM orders WHERE orderkey < 0");
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "EXPLAIN ANALYZE only supported for statements that are queries")
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "EXPLAIN ANALYZE doesn't support statement type: DropTable")
     public void testExplainAnalyzeDDL()
     {
         computeActual("EXPLAIN ANALYZE DROP TABLE orders");
