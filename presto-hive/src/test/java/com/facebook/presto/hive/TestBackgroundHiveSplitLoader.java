@@ -92,7 +92,7 @@ public class TestBackgroundHiveSplitLoader
             new Column("partitionColumn", HIVE_INT, Optional.empty()));
 
     private static final Optional<HiveBucketProperty> BUCKET_PROPERTY = Optional.of(
-            new HiveBucketProperty(ImmutableList.of("col1"), BUCKET_COUNT));
+            new HiveBucketProperty(ImmutableList.of("col1"), BUCKET_COUNT, ImmutableList.of()));
 
     private static final Table SIMPLE_TABLE = table(ImmutableList.of(), Optional.empty());
     private static final Table PARTITIONED_TABLE = table(PARTITION_COLUMNS, BUCKET_PROPERTY);
@@ -337,8 +337,7 @@ public class TestBackgroundHiveSplitLoader
                                 "org.apache.hadoop.hive.ql.io.RCFileInputFormat"))
                 .setLocation("hdfs://VOL1:9000/db_name/table_name")
                 .setSkewed(false)
-                .setBucketProperty(bucketProperty)
-                .setSorted(false);
+                .setBucketProperty(bucketProperty);
 
         return tableBuilder
                 .setDatabaseName("test_dbname")

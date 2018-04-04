@@ -16,6 +16,7 @@ package com.facebook.presto.hive;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.type.TypeManager;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
@@ -26,12 +27,15 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.hive.HiveSortOrder.Ordering.ASCENDING;
+import static com.facebook.presto.hive.HiveSortOrder.Ordering.DESCENDING;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static com.facebook.presto.spi.session.PropertyMetadata.doubleSessionProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerSessionProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringSessionProperty;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -43,6 +47,7 @@ public class HiveTableProperties
     public static final String PARTITIONED_BY_PROPERTY = "partitioned_by";
     public static final String BUCKETED_BY_PROPERTY = "bucketed_by";
     public static final String BUCKET_COUNT_PROPERTY = "bucket_count";
+    public static final String SORTED_BY_PROPERTY = "sorted_by";
     public static final String ORC_BLOOM_FILTER_COLUMNS = "orc_bloom_filter_columns";
     public static final String ORC_BLOOM_FILTER_FPP = "orc_bloom_filter_fpp";
 
@@ -88,6 +93,22 @@ public class HiveTableProperties
                                 .map(name -> ((String) name).toLowerCase(ENGLISH))
                                 .collect(Collectors.toList())),
                         value -> value),
+                // For sorted_by, we use (+/-)col to represent sorting columns, where + means ascending and - means descending.
+                new PropertyMetadata<>(
+                        SORTED_BY_PROPERTY,
+                        "Sorting columns",
+                        typeManager.getType(parseTypeSignature("array(varchar)")),
+                        List.class,
+                        ImmutableList.of(),
+                        false,
+                        value -> ((Collection<?>) value).stream()
+                                .map(String.class::cast)
+                                .map(HiveTableProperties::decodeSortingColumn)
+                                .collect(toImmutableList()),
+                        value -> ((Collection<?>) value).stream()
+                                .map(HiveSortOrder.class::cast)
+                                .map(order -> order.getOrdering().getPrefix() + order.getColumnName())
+                                .collect(toImmutableList())),
                 new PropertyMetadata<>(
                         ORC_BLOOM_FILTER_COLUMNS,
                         "ORC Bloom filter index columns",
@@ -132,8 +153,12 @@ public class HiveTableProperties
     public static Optional<HiveBucketProperty> getBucketProperty(Map<String, Object> tableProperties)
     {
         List<String> bucketedBy = getBucketedBy(tableProperties);
+        List<HiveSortOrder> sortedBy = getSortedBy(tableProperties);
         int bucketCount = (Integer) tableProperties.get(BUCKET_COUNT_PROPERTY);
         if ((bucketedBy.isEmpty()) && (bucketCount == 0)) {
+            if (!sortedBy.isEmpty()) {
+                throw new PrestoException(INVALID_TABLE_PROPERTY, format("%s may be specified only when %s is specified", SORTED_BY_PROPERTY, BUCKETED_BY_PROPERTY));
+            }
             return Optional.empty();
         }
         if (bucketCount < 0) {
@@ -142,13 +167,19 @@ public class HiveTableProperties
         if (bucketedBy.isEmpty() || bucketCount == 0) {
             throw new PrestoException(INVALID_TABLE_PROPERTY, format("%s and %s must be specified together", BUCKETED_BY_PROPERTY, BUCKET_COUNT_PROPERTY));
         }
-        return Optional.of(new HiveBucketProperty(bucketedBy, bucketCount));
+        return Optional.of(new HiveBucketProperty(bucketedBy, bucketCount, sortedBy));
     }
 
     @SuppressWarnings("unchecked")
     private static List<String> getBucketedBy(Map<String, Object> tableProperties)
     {
         return (List<String>) tableProperties.get(BUCKETED_BY_PROPERTY);
+    }
+
+    @SuppressWarnings("unchecked")
+    public static List<HiveSortOrder> getSortedBy(Map<String, Object> tableProperties)
+    {
+        return (List<HiveSortOrder>) tableProperties.get(SORTED_BY_PROPERTY);
     }
 
     public static List<String> getOrcBloomFilterColumns(Map<String, Object> tableProperties)
@@ -159,5 +190,13 @@ public class HiveTableProperties
     public static Double getOrcBloomFilterFpp(Map<String, Object> tableProperties)
     {
         return (Double) tableProperties.get(ORC_BLOOM_FILTER_FPP);
+    }
+
+    private static HiveSortOrder decodeSortingColumn(String name)
+    {
+        checkState(!Strings.isNullOrEmpty(name) && (name.charAt(0) == '+' || name.charAt(0) == '-'), "Sort columns must be prefixed with +/- to specify ASC/DESC");
+        return new HiveSortOrder(
+                name.substring(1).toLowerCase(ENGLISH),
+                name.charAt(0) == '+' ? ASCENDING : DESCENDING);
     }
 }

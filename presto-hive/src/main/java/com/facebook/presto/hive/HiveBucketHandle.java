@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
@@ -51,6 +52,7 @@ public class HiveBucketHandle
                 columns.stream()
                         .map(HiveColumnHandle::getName)
                         .collect(toList()),
-                bucketCount);
+                bucketCount,
+                ImmutableList.of());
     }
 }

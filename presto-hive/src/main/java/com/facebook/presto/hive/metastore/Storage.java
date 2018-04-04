@@ -30,7 +30,6 @@ public class Storage
     private final StorageFormat storageFormat;
     private final String location;
     private final Optional<HiveBucketProperty> bucketProperty;
-    private final boolean sorted;
     private final boolean skewed;
     private final Map<String, String> serdeParameters;
 
@@ -38,14 +37,12 @@ public class Storage
             @JsonProperty("storageFormat") StorageFormat storageFormat,
             @JsonProperty("location") String location,
             @JsonProperty("bucketProperty") Optional<HiveBucketProperty> bucketProperty,
-            @JsonProperty("sorted") boolean sorted,
             @JsonProperty("skewed") boolean skewed,
             @JsonProperty("serdeParameters") Map<String, String> serdeParameters)
     {
         this.storageFormat = requireNonNull(storageFormat, "storageFormat is null");
         this.location = requireNonNull(location, "location is null");
         this.bucketProperty = requireNonNull(bucketProperty, "bucketProperty is null");
-        this.sorted = sorted;
         this.skewed = skewed;
         this.serdeParameters = ImmutableMap.copyOf(requireNonNull(serdeParameters, "serdeParameters is null"));
     }
@@ -66,12 +63,6 @@ public class Storage
     public Optional<HiveBucketProperty> getBucketProperty()
     {
         return bucketProperty;
-    }
-
-    @JsonProperty
-    public boolean isSorted()
-    {
-        return sorted;
     }
 
     @JsonProperty
@@ -101,7 +92,6 @@ public class Storage
         private StorageFormat storageFormat;
         private String location;
         private Optional<HiveBucketProperty> bucketProperty = Optional.empty();
-        private boolean sorted;
         private boolean skewed;
         private Map<String, String> serdeParameters = ImmutableMap.of();
 
@@ -114,7 +104,6 @@ public class Storage
             this.storageFormat = storage.storageFormat;
             this.location = storage.location;
             this.bucketProperty = storage.bucketProperty;
-            this.sorted = storage.sorted;
             this.skewed = storage.skewed;
             this.serdeParameters = storage.serdeParameters;
         }
@@ -137,12 +126,6 @@ public class Storage
             return this;
         }
 
-        public Builder setSorted(boolean sorted)
-        {
-            this.sorted = sorted;
-            return this;
-        }
-
         public Builder setSkewed(boolean skewed)
         {
             this.skewed = skewed;
@@ -157,7 +140,7 @@ public class Storage
 
         public Storage build()
         {
-            return new Storage(storageFormat, location, bucketProperty, sorted, skewed, serdeParameters);
+            return new Storage(storageFormat, location, bucketProperty, skewed, serdeParameters);
         }
     }
 }

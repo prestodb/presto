@@ -114,6 +114,7 @@ import static com.facebook.presto.hive.HiveTableProperties.EXTERNAL_LOCATION_PRO
 import static com.facebook.presto.hive.HiveTableProperties.ORC_BLOOM_FILTER_COLUMNS;
 import static com.facebook.presto.hive.HiveTableProperties.ORC_BLOOM_FILTER_FPP;
 import static com.facebook.presto.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
+import static com.facebook.presto.hive.HiveTableProperties.SORTED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.getBucketProperty;
 import static com.facebook.presto.hive.HiveTableProperties.getExternalLocation;
@@ -121,6 +122,7 @@ import static com.facebook.presto.hive.HiveTableProperties.getHiveStorageFormat;
 import static com.facebook.presto.hive.HiveTableProperties.getOrcBloomFilterColumns;
 import static com.facebook.presto.hive.HiveTableProperties.getOrcBloomFilterFpp;
 import static com.facebook.presto.hive.HiveTableProperties.getPartitionedBy;
+import static com.facebook.presto.hive.HiveTableProperties.getSortedBy;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.hive.HiveType.toHiveType;
 import static com.facebook.presto.hive.HiveUtil.PRESTO_VIEW_FLAG;
@@ -297,6 +299,7 @@ public class HiveMetadata
         if (bucketProperty.isPresent()) {
             properties.put(BUCKET_COUNT_PROPERTY, bucketProperty.get().getBucketCount());
             properties.put(BUCKETED_BY_PROPERTY, bucketProperty.get().getBucketedBy());
+            properties.put(SORTED_BY_PROPERTY, bucketProperty.get().getSortedBy());
         }
 
         // ORC format specific properties
@@ -679,6 +682,9 @@ public class HiveMetadata
         HiveStorageFormat tableStorageFormat = getHiveStorageFormat(tableMetadata.getProperties());
         List<String> partitionedBy = getPartitionedBy(tableMetadata.getProperties());
         Optional<HiveBucketProperty> bucketProperty = getBucketProperty(tableMetadata.getProperties());
+        if (bucketProperty.isPresent() && !bucketProperty.get().getSortedBy().isEmpty()) {
+            throw new PrestoException(NOT_SUPPORTED, "Sorted tables cannot be created using CREATE TABLE AS");
+        }
 
         Map<String, String> tableProperties = getTableProperties(tableMetadata);
 
@@ -1431,10 +1437,24 @@ public class HiveMetadata
         }
     }
 
+    private static void validateSortColumns(ConnectorTableMetadata tableMetadata)
+    {
+        Set<String> sortedBy = getSortedBy(tableMetadata.getProperties()).stream()
+                .map(HiveSortOrder::getColumnName)
+                .collect(toImmutableSet());
+        Set<String> allColumns = tableMetadata.getColumns().stream()
+                .map(ColumnMetadata::getName)
+                .collect(toSet());
+        if (!allColumns.containsAll(sortedBy)) {
+            throw new PrestoException(INVALID_TABLE_PROPERTY, format("Sorting columns %s not present in schema", Sets.difference(ImmutableSet.copyOf(sortedBy), ImmutableSet.copyOf(allColumns))));
+        }
+    }
+
     private static List<HiveColumnHandle> getColumnHandles(ConnectorTableMetadata tableMetadata, Set<String> partitionColumnNames, TypeTranslator typeTranslator)
     {
         validatePartitionColumns(tableMetadata);
         validateBucketColumns(tableMetadata);
+        validateSortColumns(tableMetadata);
 
         ImmutableList.Builder<HiveColumnHandle> columnHandles = ImmutableList.builder();
         int ordinal = 0;
