@@ -125,7 +125,6 @@ public final class GeoFunctions
         return serialize(geometryFromText(input));
     }
 
-    @SqlNullable
     @Description("Returns the Well-Known Text (WKT) representation of the geometry")
     @ScalarFunction("ST_AsText")
     @SqlType(StandardTypes.VARCHAR)
