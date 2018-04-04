@@ -21,6 +21,7 @@ import org.locationtech.jts.io.ParseException;
 import org.locationtech.jts.io.WKTReader;
 import org.testng.annotations.Test;
 
+import static com.esri.core.geometry.ogc.OGCGeometry.createFromEsriGeometry;
 import static com.facebook.presto.geospatial.GeometrySerde.deserialize;
 import static com.facebook.presto.geospatial.GeometrySerde.deserializeEnvelope;
 import static com.facebook.presto.geospatial.GeometrySerde.serialize;
@@ -119,6 +120,21 @@ public class TestGeometrySerialization
         testSerialization("GEOMETRYCOLLECTION (POINT EMPTY)");
         testSerialization("GEOMETRYCOLLECTION EMPTY");
         testSerialization("GEOMETRYCOLLECTION (MULTIPOLYGON (((30 20, 45 40, 10 40, 30 20))), GEOMETRYCOLLECTION (MULTIPOLYGON (((30 20, 45 40, 10 40, 30 20)))))");
+    }
+
+    @Test
+    public void testEnvelope()
+    {
+        testEnvelopeSerialization(new Envelope(0, 0, 1, 1));
+        testEnvelopeSerialization(new Envelope(1, 2, 3, 4));
+        testEnvelopeSerialization(new Envelope(10101, -2.05, -3e5, 0));
+    }
+
+    private void testEnvelopeSerialization(Envelope envelope)
+    {
+        assertEquals(deserialize(serialize(envelope)), createFromEsriGeometry(envelope, null));
+        assertEquals(deserializeEnvelope(serialize(envelope)), envelope);
+        assertEquals(JtsGeometrySerde.serialize(JtsGeometrySerde.deserialize(serialize(envelope))), serialize(createFromEsriGeometry(envelope, null)));
     }
 
     @Test

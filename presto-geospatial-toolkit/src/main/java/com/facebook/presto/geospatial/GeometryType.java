@@ -23,7 +23,8 @@ public enum GeometryType
     MULTI_LINE_STRING(3, true),
     POLYGON(4, false),
     MULTI_POLYGON(5, true),
-    GEOMETRY_COLLECTION(6, true);
+    GEOMETRY_COLLECTION(6, true),
+    ENVELOPE(7, false);
 
     private final int code;
     private final boolean multitype;
@@ -94,6 +95,8 @@ public enum GeometryType
                 return MULTI_POLYGON;
             case 6:
                 return GEOMETRY_COLLECTION;
+            case 7:
+                return ENVELOPE;
             default:
                 throw new IllegalArgumentException("Invalid type code: " + code);
         }
