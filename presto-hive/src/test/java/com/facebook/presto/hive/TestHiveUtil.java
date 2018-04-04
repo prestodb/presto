@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.google.common.collect.ImmutableList;
 import org.apache.hadoop.hive.metastore.Warehouse;
 import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.serde2.thrift.ThriftDeserializer;
@@ -30,6 +31,7 @@ import java.util.Properties;
 
 import static com.facebook.presto.hive.HiveUtil.getDeserializer;
 import static com.facebook.presto.hive.HiveUtil.parseHiveTimestamp;
+import static com.facebook.presto.hive.HiveUtil.toPartitionName;
 import static com.facebook.presto.hive.HiveUtil.toPartitionValues;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_CLASS;
@@ -59,6 +61,16 @@ public class TestHiveUtil
         schema.setProperty(SERIALIZATION_FORMAT, TBinaryProtocol.class.getName());
 
         assertInstanceOf(getDeserializer(schema), ThriftDeserializer.class);
+    }
+
+    @Test
+    public void testToPartitionName()
+    {
+        List<HivePartitionKey> partitionKeys = ImmutableList.of(
+                new HivePartitionKey("ds", "2015-12-30"),
+                new HivePartitionKey("event_type", "QueryCompletion"));
+
+        assertEquals("ds=2015-12-30/event_type=QueryCompletion", toPartitionName(partitionKeys));
     }
 
     @Test
