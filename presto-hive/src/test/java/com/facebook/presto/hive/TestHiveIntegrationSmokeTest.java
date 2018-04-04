@@ -1265,17 +1265,17 @@ public class TestHiveIntegrationSmokeTest
         assertQueryFails(
                 getSession(),
                 "SHOW COLUMNS FROM \"$partitions\"",
-                ".*Table 'hive.tpch.\\$partitions' does not exist");
+                ".*Table '.*\\.tpch\\.\\$partitions' does not exist");
 
         assertQueryFails(
                 getSession(),
                 "SHOW COLUMNS FROM \"orders$partitions\"",
-                ".*Table 'hive.tpch.orders\\$partitions' does not exist");
+                ".*Table '.*\\.tpch\\.orders\\$partitions' does not exist");
 
         assertQueryFails(
                 getSession(),
                 "SHOW COLUMNS FROM \"blah$partitions\"",
-                ".*Table 'hive.tpch.blah\\$partitions' does not exist");
+                ".*Table '.*\\.tpch\\.blah\\$partitions' does not exist");
     }
 
     @Test
@@ -1299,12 +1299,12 @@ public class TestHiveIntegrationSmokeTest
         assertQueryFails(
                 getSession(),
                 "SHOW PARTITIONS FROM \"" + tableName + "$partitions\"",
-                ".*Table does not have partition columns: hive.tpch.test_show_partitions_from_partitions\\$partitions");
+                ".*Table does not have partition columns: .*\\.tpch.test_show_partitions_from_partitions\\$partitions");
 
         assertQueryFails(
                 getSession(),
                 "SHOW PARTITIONS FROM \"non_existent$partitions\"",
-                ".*Table 'hive.tpch.non_existent\\$partitions' does not exist");
+                ".*Table '.*\\.tpch\\.non_existent\\$partitions' does not exist");
     }
 
     @Test
