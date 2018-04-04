@@ -145,6 +145,14 @@ public class GeometrySerde
         }
     }
 
+    public static GeometryType deserializeType(Slice shape)
+    {
+        requireNonNull(shape, "shape is null");
+        BasicSliceInput input = shape.getInput();
+        verify(input.available() > 0);
+        return GeometryType.getForCode(input.readByte());
+    }
+
     public static OGCGeometry deserialize(Slice shape)
     {
         requireNonNull(shape, "shape is null");

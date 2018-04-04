@@ -24,7 +24,16 @@ import org.testng.annotations.Test;
 import static com.esri.core.geometry.ogc.OGCGeometry.createFromEsriGeometry;
 import static com.facebook.presto.geospatial.GeometrySerde.deserialize;
 import static com.facebook.presto.geospatial.GeometrySerde.deserializeEnvelope;
+import static com.facebook.presto.geospatial.GeometrySerde.deserializeType;
 import static com.facebook.presto.geospatial.GeometrySerde.serialize;
+import static com.facebook.presto.geospatial.GeometryType.ENVELOPE;
+import static com.facebook.presto.geospatial.GeometryType.GEOMETRY_COLLECTION;
+import static com.facebook.presto.geospatial.GeometryType.LINE_STRING;
+import static com.facebook.presto.geospatial.GeometryType.MULTI_LINE_STRING;
+import static com.facebook.presto.geospatial.GeometryType.MULTI_POINT;
+import static com.facebook.presto.geospatial.GeometryType.MULTI_POLYGON;
+import static com.facebook.presto.geospatial.GeometryType.POINT;
+import static com.facebook.presto.geospatial.GeometryType.POLYGON;
 import static org.testng.Assert.assertEquals;
 
 public class TestGeometrySerialization
@@ -151,6 +160,27 @@ public class TestGeometrySerialization
         assertDeserializeEnvelope("GEOMETRYCOLLECTION (GEOMETRYCOLLECTION (POINT (2 7), LINESTRING (4 6, 7 10)), POINT (3 7), LINESTRING (4 6, 7 10))", new Envelope(2, 6, 7, 10));
     }
 
+    @Test
+    public void testDeserializeType()
+    {
+        assertDeserializeType("POINT (1 2)", POINT);
+        assertDeserializeType("POINT EMPTY", POINT);
+        assertDeserializeType("MULTIPOINT (20 20, 25 25)", MULTI_POINT);
+        assertDeserializeType("MULTIPOINT EMPTY", MULTI_POINT);
+        assertDeserializeType("LINESTRING (1 1, 5 1, 6 2))", LINE_STRING);
+        assertDeserializeType("LINESTRING EMPTY", LINE_STRING);
+        assertDeserializeType("MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))", MULTI_LINE_STRING);
+        assertDeserializeType("MULTILINESTRING EMPTY", MULTI_LINE_STRING);
+        assertDeserializeType("POLYGON ((0 0, 0 4, 4 0))", POLYGON);
+        assertDeserializeType("POLYGON EMPTY", POLYGON);
+        assertDeserializeType("MULTIPOLYGON (((0 0 , 0 2, 2 2, 2 0)), ((2 2, 2 4, 4 4, 4 2)))", MULTI_POLYGON);
+        assertDeserializeType("MULTIPOLYGON EMPTY", MULTI_POLYGON);
+        assertDeserializeType("GEOMETRYCOLLECTION (POINT (3 7), LINESTRING (4 6, 7 10))", GEOMETRY_COLLECTION);
+        assertDeserializeType("GEOMETRYCOLLECTION EMPTY", GEOMETRY_COLLECTION);
+
+        assertEquals(deserializeType(serialize(new Envelope(1, 2, 3, 4))), ENVELOPE);
+    }
+
     private static void testSerialization(String wkt)
     {
         testEsriSerialization(wkt);
@@ -203,6 +233,11 @@ public class TestGeometrySerialization
     private static void assertDeserializeEnvelope(String geometry, Envelope expectedEnvelope)
     {
         assertEquals(deserializeEnvelope(geometryFromText(geometry)), expectedEnvelope);
+    }
+
+    private static void assertDeserializeType(String wkt, GeometryType expectedType)
+    {
+        assertEquals(deserializeType(geometryFromText(wkt)), expectedType);
     }
 
     private static void assertGeometryEquals(OGCGeometry actual, OGCGeometry expected)

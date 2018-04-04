@@ -47,7 +47,9 @@ import java.util.Set;
 import static com.esri.core.geometry.ogc.OGCGeometry.createFromEsriGeometry;
 import static com.facebook.presto.geospatial.GeometrySerde.deserialize;
 import static com.facebook.presto.geospatial.GeometrySerde.deserializeEnvelope;
+import static com.facebook.presto.geospatial.GeometrySerde.deserializeType;
 import static com.facebook.presto.geospatial.GeometrySerde.serialize;
+import static com.facebook.presto.geospatial.GeometryType.ENVELOPE;
 import static com.facebook.presto.geospatial.GeometryType.LINE_STRING;
 import static com.facebook.presto.geospatial.GeometryType.MULTI_LINE_STRING;
 import static com.facebook.presto.geospatial.GeometryType.MULTI_POINT;
@@ -525,6 +527,30 @@ public final class GeoFunctions
     @SqlType(GEOMETRY_TYPE_NAME)
     public static Slice stIntersection(@SqlType(GEOMETRY_TYPE_NAME) Slice left, @SqlType(GEOMETRY_TYPE_NAME) Slice right)
     {
+        if (deserializeType(left) == ENVELOPE && deserializeType(right) == ENVELOPE) {
+            Envelope leftEnvelope = deserializeEnvelope(left);
+            Envelope rightEnvelope = deserializeEnvelope(right);
+
+            // Envelope#intersect updates leftEnvelope to the intersection of the two envelopes
+            if (!leftEnvelope.intersect(rightEnvelope)) {
+                return EMPTY_POLYGON;
+            }
+
+            Envelope intersection = leftEnvelope;
+            if (intersection.getXMin() == intersection.getXMax()) {
+                if (intersection.getYMin() == intersection.getYMax()) {
+                    return serialize(createFromEsriGeometry(new Point(intersection.getXMin(), intersection.getXMax()), null));
+                }
+                return serialize(createFromEsriGeometry(new Polyline(new Point(intersection.getXMin(), intersection.getYMin()), new Point(intersection.getXMin(), intersection.getYMax())), null));
+            }
+
+            if (intersection.getYMin() == intersection.getYMax()) {
+                return serialize(createFromEsriGeometry(new Polyline(new Point(intersection.getXMin(), intersection.getYMin()), new Point(intersection.getXMax(), intersection.getYMin())), null));
+            }
+
+            return serialize(intersection);
+        }
+
         OGCGeometry leftGeometry = deserialize(left);
         OGCGeometry rightGeometry = deserialize(right);
         verifySameSpatialReference(leftGeometry, rightGeometry);
