@@ -219,6 +219,13 @@ Accessors
 
     Returns the cardinality of the collection of interior rings of a polygon.
 
+.. function:: line_locate_point(LineString, Point) -> double
+
+    Returns a float between 0 and 1 representing the location of the closest point on
+    the LineString to the given Point, as a fraction of total 2d line length.
+
+    Returns ``null`` if a LineString or a Point is empty of ``null``.
+
 .. function:: geometry_invalid_reason(Geometry) -> varchar
 
     Returns the reason for why the input geometry is not valid.

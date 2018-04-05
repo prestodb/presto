@@ -37,6 +37,7 @@ import com.facebook.presto.spi.type.StandardTypes;
 import com.google.common.base.Joiner;
 import io.airlift.slice.Slice;
 import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.linearref.LengthIndexedLine;
 import org.locationtech.jts.operation.valid.IsValidOp;
 import org.locationtech.jts.operation.valid.TopologyValidationError;
 
@@ -54,6 +55,7 @@ import static com.facebook.presto.geospatial.GeometryType.MULTI_POINT;
 import static com.facebook.presto.geospatial.GeometryType.MULTI_POLYGON;
 import static com.facebook.presto.geospatial.GeometryType.POINT;
 import static com.facebook.presto.geospatial.GeometryType.POLYGON;
+import static com.facebook.presto.geospatial.GeometryType.getForJtsGeometryType;
 import static com.facebook.presto.plugin.geospatial.GeometryType.GEOMETRY_TYPE_NAME;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.StandardTypes.DOUBLE;
@@ -284,6 +286,32 @@ public final class GeoFunctions
         OGCGeometry geometry = deserialize(input);
         validateType("ST_Length", geometry, EnumSet.of(LINE_STRING, MULTI_LINE_STRING));
         return geometry.getEsriGeometry().calculateLength2D();
+    }
+
+    @SqlNullable
+    @Description("Returns a float between 0 and 1 representing the location of the closest point on the LineString to the given Point, as a fraction of total 2d line length.")
+    @ScalarFunction("line_locate_point")
+    @SqlType(DOUBLE)
+    public static Double lineLocatePoint(@SqlType(GEOMETRY_TYPE_NAME) Slice lineSlice, @SqlType(GEOMETRY_TYPE_NAME) Slice pointSlice)
+    {
+        Geometry line = JtsGeometrySerde.deserialize(lineSlice);
+        Geometry point = JtsGeometrySerde.deserialize(pointSlice);
+
+        if (line.isEmpty() || point.isEmpty()) {
+            return null;
+        }
+
+        GeometryType lineType = getForJtsGeometryType(line.getGeometryType());
+        if (lineType != LINE_STRING && lineType != MULTI_LINE_STRING) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("First argument to line_locate_point must be a LineString or a MultiLineString. Got: %s", line.getGeometryType()));
+        }
+
+        GeometryType pointType = getForJtsGeometryType(point.getGeometryType());
+        if (pointType != POINT) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Second argument to line_locate_point must be a Point. Got: %s", point.getGeometryType()));
+        }
+
+        return new LengthIndexedLine(line).indexOf(point.getCoordinate());
     }
 
     @SqlNullable

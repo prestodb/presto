@@ -46,6 +46,16 @@ public enum GeometryType
 
     public static GeometryType getForEsriGeometryType(String type)
     {
+        return getForInternalLibraryName(type);
+    }
+
+    public static GeometryType getForJtsGeometryType(String type)
+    {
+        return getForInternalLibraryName(type);
+    }
+
+    private static GeometryType getForInternalLibraryName(String type)
+    {
         requireNonNull(type, "type is null");
         switch (type) {
             case "Point":
