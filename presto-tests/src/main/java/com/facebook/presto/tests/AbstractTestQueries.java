@@ -51,6 +51,7 @@ import java.util.Set;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.SystemSessionProperties.LEGACY_ORDER_BY;
+import static com.facebook.presto.SystemSessionProperties.REORDER_JOINS;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.INFORMATION_SCHEMA;
 import static com.facebook.presto.operator.scalar.ApplyFunction.APPLY_FUNCTION;
 import static com.facebook.presto.operator.scalar.InvokeFunction.INVOKE_FUNCTION;
@@ -2802,13 +2803,13 @@ public abstract class AbstractTestQueries
     @Test
     public void testBuildFilteredLeftJoin()
     {
-        assertQuery("SELECT * FROM lineitem LEFT JOIN (SELECT * FROM orders WHERE orderkey % 2 = 0) a ON lineitem.orderkey = a.orderkey");
+        assertQuery(noJoinReordering(), "SELECT * FROM lineitem LEFT JOIN (SELECT * FROM orders WHERE orderkey % 2 = 0) a ON lineitem.orderkey = a.orderkey");
     }
 
     @Test
     public void testProbeFilteredLeftJoin()
     {
-        assertQuery("SELECT * FROM (SELECT * FROM lineitem WHERE orderkey % 2 = 0) a LEFT JOIN orders ON a.orderkey = orders.orderkey");
+        assertQuery(noJoinReordering(), "SELECT * FROM (SELECT * FROM lineitem WHERE orderkey % 2 = 0) a LEFT JOIN orders ON a.orderkey = orders.orderkey");
     }
 
     @Test
@@ -2920,13 +2921,13 @@ public abstract class AbstractTestQueries
     @Test
     public void testBuildFilteredRightJoin()
     {
-        assertQuery("SELECT custkey, linestatus, tax, totalprice, orderstatus FROM (SELECT * FROM lineitem WHERE orderkey % 2 = 0) a RIGHT JOIN orders ON a.orderkey = orders.orderkey");
+        assertQuery(noJoinReordering(), "SELECT custkey, linestatus, tax, totalprice, orderstatus FROM (SELECT * FROM lineitem WHERE orderkey % 2 = 0) a RIGHT JOIN orders ON a.orderkey = orders.orderkey");
     }
 
     @Test
     public void testProbeFilteredRightJoin()
     {
-        assertQuery("SELECT custkey, linestatus, tax, totalprice, orderstatus FROM lineitem RIGHT JOIN (SELECT *  FROM orders WHERE orderkey % 2 = 0) a ON lineitem.orderkey = a.orderkey");
+        assertQuery(noJoinReordering(), "SELECT custkey, linestatus, tax, totalprice, orderstatus FROM lineitem RIGHT JOIN (SELECT *  FROM orders WHERE orderkey % 2 = 0) a ON lineitem.orderkey = a.orderkey");
     }
 
     @Test
@@ -8039,5 +8040,12 @@ public abstract class AbstractTestQueries
                 "SELECT lineitem.orderkey FROM lineitem FULL OUTER JOIN small_part ON lineitem.partkey = small_part.partkey");
 
         assertEquals(actual.getRowCount(), 60175);
+    }
+
+    protected Session noJoinReordering()
+    {
+        return Session.builder(getSession())
+                .setSystemProperty(REORDER_JOINS, "false")
+                .build();
     }
 }
