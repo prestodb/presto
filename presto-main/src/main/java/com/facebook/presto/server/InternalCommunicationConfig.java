@@ -14,6 +14,7 @@
 package com.facebook.presto.server;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigSecuritySensitive;
 
 public class InternalCommunicationConfig
 {
@@ -51,6 +52,7 @@ public class InternalCommunicationConfig
     }
 
     @Config("internal-communication.https.keystore.key")
+    @ConfigSecuritySensitive
     public InternalCommunicationConfig setKeyStorePassword(String keyStorePassword)
     {
         this.keyStorePassword = keyStorePassword;
