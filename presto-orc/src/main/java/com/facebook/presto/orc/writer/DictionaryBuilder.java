@@ -19,7 +19,7 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
 import org.openjdk.jol.info.ClassLayout;
 
-import static com.facebook.presto.spi.block.BlockBuilderStatus.DEFAULT_MAX_BLOCK_SIZE_IN_BYTES;
+import static com.facebook.presto.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
@@ -51,7 +51,7 @@ public class DictionaryBuilder
         checkArgument(expectedSize >= 0, "expectedSize must not be negative");
 
         // todo we can do better
-        int expectedEntries = min(expectedSize, DEFAULT_MAX_BLOCK_SIZE_IN_BYTES / EXPECTED_BYTES_PER_ENTRY);
+        int expectedEntries = min(expectedSize, DEFAULT_MAX_PAGE_SIZE_IN_BYTES / EXPECTED_BYTES_PER_ENTRY);
         // it is guaranteed expectedEntries * EXPECTED_BYTES_PER_ENTRY will not overflow
         this.elementBlock = new VariableWidthBlockBuilder(
                 null,
