@@ -37,8 +37,7 @@ public class TestVariableWidthBlockBuilder
     @Test
     public void testFixedBlockIsFull()
     {
-        testIsFull(new PageBuilderStatus(VARCHAR_ENTRY_SIZE * EXPECTED_ENTRY_COUNT, 1024));
-        testIsFull(new PageBuilderStatus(1024, VARCHAR_ENTRY_SIZE * EXPECTED_ENTRY_COUNT));
+        testIsFull(new PageBuilderStatus(VARCHAR_ENTRY_SIZE * EXPECTED_ENTRY_COUNT));
     }
 
     @Test

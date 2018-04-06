@@ -107,12 +107,12 @@ public class TestMarkDistinctOperator
     @Test(dataProvider = "dataType")
     public void testMemoryReservationYield(Type type)
     {
-        List<Page> input = createPagesWithDistinctHashKeys(type, 5_000, 500);
+        List<Page> input = createPagesWithDistinctHashKeys(type, 6_000, 600);
 
         OperatorFactory operatorFactory = new MarkDistinctOperatorFactory(0, new PlanNodeId("test"), ImmutableList.of(type), ImmutableList.of(0), Optional.of(1), joinCompiler);
 
         // get result with yield; pick a relatively small buffer for partitionRowCount's memory usage
-        GroupByHashYieldAssertion.GroupByHashYieldResult result = finishOperatorWithYieldingGroupByHash(input, type, operatorFactory, operator -> ((MarkDistinctOperator) operator).getCapacity(), 170_000);
+        GroupByHashYieldAssertion.GroupByHashYieldResult result = finishOperatorWithYieldingGroupByHash(input, type, operatorFactory, operator -> ((MarkDistinctOperator) operator).getCapacity(), 1_500_000);
         assertGreaterThan(result.getYieldCount(), 5);
         assertGreaterThan(result.getMaxReservedBytes(), 20L << 20);
 
@@ -124,6 +124,6 @@ public class TestMarkDistinctOperator
                 count++;
             }
         }
-        assertEquals(count, 5_000 * 500);
+        assertEquals(count, 6_000 * 600);
     }
 }

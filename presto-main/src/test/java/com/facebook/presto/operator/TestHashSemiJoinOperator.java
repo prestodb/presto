@@ -164,9 +164,9 @@ public class TestHashSemiJoinOperator
                 type,
                 setBuilderOperatorFactory,
                 operator -> ((SetBuilderOperator) operator).getCapacity(),
-                170_000);
+                1_500_000);
 
-        assertGreaterThanOrEqual(result.getYieldCount(), 7);
+        assertGreaterThanOrEqual(result.getYieldCount(), 5);
         assertGreaterThan(result.getMaxReservedBytes(), 20L << 20);
         assertEquals(result.getOutput().stream().mapToInt(Page::getPositionCount).sum(), 0);
     }

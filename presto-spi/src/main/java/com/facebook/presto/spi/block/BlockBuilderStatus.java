@@ -24,38 +24,31 @@ import static java.util.Objects.requireNonNull;
 public class BlockBuilderStatus
 {
     public static final int INSTANCE_SIZE = deepInstanceSize(BlockBuilderStatus.class);
-    public static final int DEFAULT_MAX_BLOCK_SIZE_IN_BYTES = 64 * 1024;
 
     private final PageBuilderStatus pageBuilderStatus;
-    private final int maxBlockSizeInBytes;
 
     private int currentSize;
 
-    BlockBuilderStatus(PageBuilderStatus pageBuilderStatus, int maxBlockSizeInBytes)
+    BlockBuilderStatus(PageBuilderStatus pageBuilderStatus)
     {
         this.pageBuilderStatus = requireNonNull(pageBuilderStatus, "pageBuilderStatus must not be null");
-        this.maxBlockSizeInBytes = maxBlockSizeInBytes;
     }
 
-    public int getMaxBlockSizeInBytes()
+    public int getMaxPageSizeInBytes()
     {
-        return maxBlockSizeInBytes;
+        return pageBuilderStatus.getMaxPageSizeInBytes();
     }
 
     public void addBytes(int bytes)
     {
         currentSize += bytes;
         pageBuilderStatus.addBytes(bytes);
-        if (currentSize >= maxBlockSizeInBytes) {
-            pageBuilderStatus.setFull();
-        }
     }
 
     @Override
     public String toString()
     {
         StringBuilder buffer = new StringBuilder("BlockBuilderStatus{");
-        buffer.append("maxSizeInBytes=").append(maxBlockSizeInBytes);
         buffer.append(", currentSize=").append(currentSize);
         buffer.append('}');
         return buffer.toString();
