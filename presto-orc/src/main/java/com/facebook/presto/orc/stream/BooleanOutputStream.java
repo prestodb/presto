@@ -80,7 +80,7 @@ public class BooleanOutputStream
         if (bitsInData != 0) {
             int bitsToWrite = Math.min(count, 8 - bitsInData);
             if (value) {
-                data |= getLowBitMask(bitsToWrite);
+                data |= getLowBitMask(bitsToWrite) << (8 - bitsInData - bitsToWrite);
             }
 
             bitsInData += bitsToWrite;
