@@ -13,37 +13,27 @@
  */
 package com.facebook.presto.spi.block;
 
-import static com.facebook.presto.spi.block.BlockBuilderStatus.DEFAULT_MAX_BLOCK_SIZE_IN_BYTES;
-
 public class PageBuilderStatus
 {
     public static final int DEFAULT_MAX_PAGE_SIZE_IN_BYTES = 1024 * 1024;
 
     private final int maxPageSizeInBytes;
-    private final int maxBlockSizeInBytes;
 
-    private boolean full;
     private int currentSize;
 
     public PageBuilderStatus()
     {
-        this(DEFAULT_MAX_PAGE_SIZE_IN_BYTES, DEFAULT_MAX_BLOCK_SIZE_IN_BYTES);
+        this(DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
     }
 
-    public PageBuilderStatus(int maxPageSizeInBytes, int maxBlockSizeInBytes)
+    public PageBuilderStatus(int maxPageSizeInBytes)
     {
         this.maxPageSizeInBytes = maxPageSizeInBytes;
-        this.maxBlockSizeInBytes = maxBlockSizeInBytes;
     }
 
     public BlockBuilderStatus createBlockBuilderStatus()
     {
-        return new BlockBuilderStatus(this, maxBlockSizeInBytes);
-    }
-
-    public int getMaxBlockSizeInBytes()
-    {
-        return maxBlockSizeInBytes;
+        return new BlockBuilderStatus(this);
     }
 
     public int getMaxPageSizeInBytes()
@@ -58,12 +48,7 @@ public class PageBuilderStatus
 
     public boolean isFull()
     {
-        return full || currentSize >= maxPageSizeInBytes;
-    }
-
-    void setFull()
-    {
-        this.full = true;
+        return currentSize >= maxPageSizeInBytes;
     }
 
     void addBytes(int bytes)
@@ -81,7 +66,6 @@ public class PageBuilderStatus
     {
         StringBuilder buffer = new StringBuilder("BlockBuilderStatus{");
         buffer.append("maxSizeInBytes=").append(maxPageSizeInBytes);
-        buffer.append(", full=").append(full);
         buffer.append(", currentSize=").append(currentSize);
         buffer.append('}');
         return buffer.toString();

@@ -112,7 +112,7 @@ public class TestMemoryPools
         // query will reserve all memory in the user pool and discard the output
         setUp(() -> {
             OutputFactory outputFactory = new PageConsumerOutputFactory(types -> (page -> {}));
-            return localQueryRunner.createDrivers("SELECT COUNT(*) FROM orders JOIN lineitem USING (orderkey)", outputFactory, taskContext);
+            return localQueryRunner.createDrivers("SELECT COUNT(*) FROM orders JOIN lineitem ON CAST(orders.orderkey AS VARCHAR) = CAST(lineitem.orderkey AS VARCHAR)", outputFactory, taskContext);
         });
     }
 

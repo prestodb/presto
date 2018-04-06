@@ -64,7 +64,6 @@ import static com.facebook.presto.operator.OperatorAssertion.dropChannel;
 import static com.facebook.presto.operator.OperatorAssertion.toMaterializedResult;
 import static com.facebook.presto.operator.OperatorAssertion.toPages;
 import static com.facebook.presto.operator.OperatorAssertion.without;
-import static com.facebook.presto.spi.block.BlockBuilderStatus.DEFAULT_MAX_BLOCK_SIZE_IN_BYTES;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -102,6 +101,8 @@ public class TestHashAggregationOperator
             new Signature("sum", AGGREGATE, BIGINT.getTypeSignature(), BIGINT.getTypeSignature()));
     private static final InternalAggregationFunction COUNT = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
             new Signature("count", AGGREGATE, BIGINT.getTypeSignature()));
+
+    private static final int MAX_BLOCK_SIZE_IN_BYTES = 64 * 1024;
 
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
@@ -343,8 +344,8 @@ public class TestHashAggregationOperator
     @Test(dataProvider = "hashEnabledAndMemoryLimitForMergeValues")
     public void testHashBuilderResize(boolean hashEnabled, long memoryLimitForMerge, long memoryLimitForMergeWithMemory)
     {
-        BlockBuilder builder = VARCHAR.createBlockBuilder(null, 1, DEFAULT_MAX_BLOCK_SIZE_IN_BYTES);
-        VARCHAR.writeSlice(builder, Slices.allocate(200_000)); // this must be larger than DEFAULT_MAX_BLOCK_SIZE, 64K
+        BlockBuilder builder = VARCHAR.createBlockBuilder(null, 1, MAX_BLOCK_SIZE_IN_BYTES);
+        VARCHAR.writeSlice(builder, Slices.allocate(200_000)); // this must be larger than MAX_BLOCK_SIZE_IN_BYTES, 64K
         builder.build();
 
         List<Integer> hashChannels = Ints.asList(0);
@@ -382,7 +383,7 @@ public class TestHashAggregationOperator
     @Test(dataProvider = "dataType")
     public void testMemoryReservationYield(Type type)
     {
-        List<Page> input = createPagesWithDistinctHashKeys(type, 5_000, 500);
+        List<Page> input = createPagesWithDistinctHashKeys(type, 6_000, 600);
         OperatorFactory operatorFactory = new HashAggregationOperatorFactory(
                         0,
                         new PlanNodeId("test"),
@@ -398,7 +399,8 @@ public class TestHashAggregationOperator
                         joinCompiler);
 
         // get result with yield; pick a relatively small buffer for aggregator's memory usage
-        GroupByHashYieldResult result = finishOperatorWithYieldingGroupByHash(input, type, operatorFactory, this::getHashCapacity, 350_000);
+        GroupByHashYieldResult result;
+        result = finishOperatorWithYieldingGroupByHash(input, type, operatorFactory, this::getHashCapacity, 1_400_000);
         assertGreaterThan(result.getYieldCount(), 5);
         assertGreaterThan(result.getMaxReservedBytes(), 20L << 20);
 
@@ -411,14 +413,14 @@ public class TestHashAggregationOperator
                 count++;
             }
         }
-        assertEquals(count, 5_000 * 500);
+        assertEquals(count, 6_000 * 600);
     }
 
     @Test(dataProvider = "hashEnabled", expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded local memory limit of 3MB")
     public void testHashBuilderResizeLimit(boolean hashEnabled)
     {
-        BlockBuilder builder = VARCHAR.createBlockBuilder(null, 1, DEFAULT_MAX_BLOCK_SIZE_IN_BYTES);
-        VARCHAR.writeSlice(builder, Slices.allocate(5_000_000)); // this must be larger than DEFAULT_MAX_BLOCK_SIZE, 64K
+        BlockBuilder builder = VARCHAR.createBlockBuilder(null, 1, MAX_BLOCK_SIZE_IN_BYTES);
+        VARCHAR.writeSlice(builder, Slices.allocate(5_000_000)); // this must be larger than MAX_BLOCK_SIZE_IN_BYTES, 64K
         builder.build();
 
         List<Integer> hashChannels = Ints.asList(0);
@@ -458,7 +460,6 @@ public class TestHashAggregationOperator
         int fixedWidthSize = SIZE_OF_LONG + SIZE_OF_LONG +  // Used by BigintGroupByHash, see BigintGroupByHash.TYPES_WITH_RAW_HASH
                 SIZE_OF_LONG + SIZE_OF_DOUBLE;              // Used by COUNT and LONG_AVERAGE aggregators;
         int multiSlicePositionCount = (int) (1.5 * PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES / fixedWidthSize);
-        multiSlicePositionCount = Math.min((int) (1.5 * DEFAULT_MAX_BLOCK_SIZE_IN_BYTES / SIZE_OF_DOUBLE), multiSlicePositionCount);
 
         List<Integer> hashChannels = Ints.asList(1);
         RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, hashChannels, BIGINT, BIGINT);
