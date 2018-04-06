@@ -27,7 +27,7 @@ public class TestJsonWebTokenConfig
     public void testDefaults()
     {
         assertRecordedDefaults(ConfigAssertions.recordDefaults(JsonWebTokenConfig.class)
-                .setKey(null)
+                .setKeyFile(null)
                 .setRequiredAudience(null)
                 .setRequiredIssuer(null));
     }
@@ -36,13 +36,13 @@ public class TestJsonWebTokenConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("http.authentication.jwt.key", "secret-key")
+                .put("http.authentication.jwt.key-file", "public.pem")
                 .put("http.authentication.jwt.required-audience", "some-audience")
                 .put("http.authentication.jwt.required-issuer", "some-issuer")
                 .build();
 
         JsonWebTokenConfig expected = new JsonWebTokenConfig()
-                .setKey("secret-key")
+                .setKeyFile("public.pem")
                 .setRequiredAudience("some-audience")
                 .setRequiredIssuer("some-issuer");
 

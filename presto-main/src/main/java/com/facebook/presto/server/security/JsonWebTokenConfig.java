@@ -14,27 +14,25 @@
 package com.facebook.presto.server.security;
 
 import io.airlift.configuration.Config;
-import io.airlift.configuration.ConfigSecuritySensitive;
 
 import javax.validation.constraints.NotNull;
 
 public class JsonWebTokenConfig
 {
-    private String key;
+    private String keyFile;
     private String requiredIssuer;
     private String requiredAudience;
 
     @NotNull
-    public String getKey()
+    public String getKeyFile()
     {
-        return key;
+        return keyFile;
     }
 
-    @Config("http.authentication.jwt.key")
-    @ConfigSecuritySensitive
-    public JsonWebTokenConfig setKey(String key)
+    @Config("http.authentication.jwt.key-file")
+    public JsonWebTokenConfig setKeyFile(String keyFile)
     {
-        this.key = key;
+        this.keyFile = keyFile;
         return this;
     }
 
