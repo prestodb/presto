@@ -884,7 +884,7 @@ public class ExpressionInterpreter
                 }
             }
 
-            if (left == null && right == null) {
+            if (left == null || right == null) {
                 return null;
             }
 
