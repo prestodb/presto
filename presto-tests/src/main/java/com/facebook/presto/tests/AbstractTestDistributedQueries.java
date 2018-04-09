@@ -892,6 +892,12 @@ public abstract class AbstractTestDistributedQueries
                 "Cannot select from table .*.orders.*",
                 privilege(viewOwnerSession.getUser(), "orders", CREATE_VIEW_WITH_SELECT_TABLE));
 
+        // verify the view owner can select from the view even without special view creation privileges
+        assertAccessAllowed(
+                viewOwnerSession,
+                "SELECT * FROM test_view_access",
+                privilege(viewOwnerSession.getUser(), "orders", CREATE_VIEW_WITH_SELECT_TABLE));
+
         // verify selecting from a view over a table does not require the session user to have SELECT privileges on the underlying table
         assertAccessAllowed(
                 "SELECT * FROM test_view_access",
