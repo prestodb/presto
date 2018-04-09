@@ -22,6 +22,7 @@ import com.facebook.presto.execution.CreateTableTask;
 import com.facebook.presto.execution.CreateViewTask;
 import com.facebook.presto.execution.DataDefinitionTask;
 import com.facebook.presto.execution.DeallocateTask;
+import com.facebook.presto.execution.DispatchQueryExecution.DispatchQueryExecutionFactory;
 import com.facebook.presto.execution.DropColumnTask;
 import com.facebook.presto.execution.DropSchemaTask;
 import com.facebook.presto.execution.DropTableTask;
@@ -162,7 +163,8 @@ public class MasterModule
         jaxrsBinder(binder).bind(ResourceGroupStateInfoResource.class);
         binder.bind(QueryIdGenerator.class).in(Scopes.SINGLETON);
         if (serverConfig.isDispatcher() && !serverConfig.isCoordinator()) {
-            // TODO: add dispatcher query manager
+            binder.bind(new TypeLiteral<QueryManager<QueryResults>>() {}).to(new TypeLiteral<SqlQueryManager<QueryResults>>() {}).in(Scopes.SINGLETON);
+            binder.bind(QueryManager.class).to(new TypeLiteral<QueryManager<QueryResults>>() {});
         }
         else {
             binder.bind(new TypeLiteral<QueryManager<QueryOutputInfo>>() {}).to(new TypeLiteral<SqlQueryManager<QueryOutputInfo>>() {}).in(Scopes.SINGLETON);
@@ -222,7 +224,10 @@ public class MasterModule
         newExporter(binder).export(QueryExecutionMBean.class).as(generatedNameOf(QueryExecution.class));
 
         if (serverConfig.isDispatcher() && !serverConfig.isCoordinator()) {
-            // TODO: add dispatcher query manager
+            MapBinder<Class<? extends Statement>, QueryExecutionFactory<? extends QueryExecution<QueryResults>>> executionBinder = newMapBinder(binder,
+                    new TypeLiteral<Class<? extends Statement>>() {}, new TypeLiteral<QueryExecutionFactory<? extends QueryExecution<QueryResults>>>() {});
+
+            getAllQueryTypes().keySet().forEach(statement -> executionBinder.addBinding(statement).to(DispatchQueryExecutionFactory.class).in(Scopes.SINGLETON));
         }
         else {
             MapBinder<Class<? extends Statement>, QueryExecutionFactory<? extends QueryExecution<QueryOutputInfo>>> executionBinder = newMapBinder(binder,
