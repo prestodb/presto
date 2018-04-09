@@ -748,7 +748,7 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testQueryLoggingCount()
     {
-        QueryManager queryManager = ((DistributedQueryRunner) getQueryRunner()).getCoordinator().getQueryManager();
+        QueryManager<?> queryManager = ((DistributedQueryRunner) getQueryRunner()).getCoordinator().getQueryManager();
         executeExclusively(() -> {
             assertUntilTimeout(
                     () -> assertEquals(

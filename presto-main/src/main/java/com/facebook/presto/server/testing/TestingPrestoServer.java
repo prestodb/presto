@@ -119,7 +119,7 @@ public class TestingPrestoServer
     private final InternalNodeManager nodeManager;
     private final ServiceSelectorManager serviceSelectorManager;
     private final Announcer announcer;
-    private final QueryManager queryManager;
+    private final QueryManager<?> queryManager;
     private final TaskManager taskManager;
     private final GracefulShutdownHandler gracefulShutdownHandler;
     private final ShutdownAction shutdownAction;
@@ -322,7 +322,7 @@ public class TestingPrestoServer
         pluginManager.installPlugin(plugin);
     }
 
-    public QueryManager getQueryManager()
+    public QueryManager<?> getQueryManager()
     {
         return queryManager;
     }

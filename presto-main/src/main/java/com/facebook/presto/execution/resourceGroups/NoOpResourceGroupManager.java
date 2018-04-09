@@ -31,7 +31,7 @@ public final class NoOpResourceGroupManager
         implements ResourceGroupManager<Void>
 {
     @Override
-    public void submit(Statement statement, QueryExecution queryExecution, SelectionContext<Void> selectionContext, Executor executor)
+    public void submit(Statement statement, QueryExecution<?> queryExecution, SelectionContext<Void> selectionContext, Executor executor)
     {
         throw new UnsupportedOperationException();
     }

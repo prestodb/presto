@@ -60,7 +60,7 @@ public class QuerySystemTable
             .column("end", TIMESTAMP)
             .build();
 
-    private final QueryManager queryManager;
+    private final QueryManager<?> queryManager;
     private final String nodeId;
 
     @Inject

@@ -103,8 +103,8 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
 @ThreadSafe
-public class SqlQueryManager
-        implements QueryManager
+public class SqlQueryManager<T>
+        implements QueryManager<T>
 {
     private static final Logger log = Logger.get(SqlQueryManager.class);
 
@@ -124,8 +124,8 @@ public class SqlQueryManager
     private final long initialNanos;
     private final Duration maxQueryCpuTime;
 
-    private final ConcurrentMap<QueryId, QueryExecution> queries = new ConcurrentHashMap<>();
-    private final Queue<QueryExecution> expirationQueue = new LinkedBlockingQueue<>();
+    private final ConcurrentMap<QueryId, QueryExecution<T>> queries = new ConcurrentHashMap<>();
+    private final Queue<QueryExecution<T>> expirationQueue = new LinkedBlockingQueue<>();
 
     private final Duration clientTimeout;
 
@@ -142,7 +142,7 @@ public class SqlQueryManager
 
     private final InternalNodeManager internalNodeManager;
 
-    private final Map<Class<? extends Statement>, QueryExecutionFactory<?>> executionFactories;
+    private final Map<Class<? extends Statement>, QueryExecutionFactory<? extends QueryExecution<T>>> executionFactories;
 
     private final SqlQueryManagerStats stats = new SqlQueryManagerStats();
 
@@ -160,7 +160,7 @@ public class SqlQueryManager
             TransactionManager transactionManager,
             SessionSupplier sessionSupplier,
             InternalNodeManager internalNodeManager,
-            Map<Class<? extends Statement>, QueryExecutionFactory<?>> executionFactories,
+            Map<Class<? extends Statement>, QueryExecutionFactory<? extends QueryExecution<T>>> executionFactories,
             Metadata metadata)
     {
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
@@ -256,7 +256,7 @@ public class SqlQueryManager
     public void stop()
     {
         boolean queryCancelled = false;
-        for (QueryExecution queryExecution : queries.values()) {
+        for (QueryExecution<T> queryExecution : queries.values()) {
             if (queryExecution.getState().isDone()) {
                 continue;
             }
@@ -294,11 +294,11 @@ public class SqlQueryManager
     }
 
     @Override
-    public void addOutputInfoListener(QueryId queryId, Consumer<QueryOutputInfo> listener)
+    public void addOutputListener(QueryId queryId, Consumer<T> listener)
     {
         requireNonNull(listener, "listener is null");
 
-        getQuery(queryId).addOutputInfoListener(listener);
+        getQuery(queryId).addOutputListener(listener);
     }
 
     @Override
@@ -361,7 +361,7 @@ public class SqlQueryManager
 
         Session session = null;
         SelectionContext<?> selectionContext;
-        QueryExecution queryExecution;
+        QueryExecution<T> queryExecution;
         Statement statement;
         try {
             if (!acceptQueries.get()) {
@@ -396,7 +396,7 @@ public class SqlQueryManager
             statement = unwrapExecuteStatement(wrappedStatement, sqlParser, session);
             List<Expression> parameters = wrappedStatement instanceof Execute ? ((Execute) wrappedStatement).getParameters() : emptyList();
             validateParameters(statement, parameters);
-            QueryExecutionFactory<?> queryExecutionFactory = executionFactories.get(statement.getClass());
+            QueryExecutionFactory<? extends QueryExecution<T>> queryExecutionFactory = executionFactories.get(statement.getClass());
             if (queryExecutionFactory == null) {
                 throw new PrestoException(NOT_SUPPORTED, "Unsupported statement type: " + statement.getClass().getSimpleName());
             }
@@ -421,7 +421,7 @@ public class SqlQueryManager
                         .setIdentity(sessionContext.getIdentity())
                         .build();
             }
-            QueryExecution execution = new FailedQueryExecution(
+            QueryExecution<T> execution = new FailedQueryExecution<>(
                     queryId,
                     query,
                     Optional.empty(),
@@ -570,7 +570,7 @@ public class SqlQueryManager
      */
     public void enforceTimeLimits()
     {
-        for (QueryExecution query : queries.values()) {
+        for (QueryExecution<T> query : queries.values()) {
             if (query.getState().isDone()) {
                 continue;
             }
@@ -592,7 +592,7 @@ public class SqlQueryManager
      */
     public void enforceCpuLimits()
     {
-        for (QueryExecution query : queries.values()) {
+        for (QueryExecution<T> query : queries.values()) {
             Duration cpuTime = query.getTotalCpuTime();
             Duration sessionLimit = getQueryMaxCpuTime(query.getSession());
             Duration limit = Ordering.natural().min(maxQueryCpuTime, sessionLimit);
@@ -613,7 +613,7 @@ public class SqlQueryManager
 
         int count = 0;
         // we're willing to keep full info for up to maxQueryHistory queries
-        for (QueryExecution query : expirationQueue) {
+        for (QueryExecution<T> query : expirationQueue) {
             if (expirationQueue.size() - count <= maxQueryHistory) {
                 break;
             }
@@ -651,7 +651,7 @@ public class SqlQueryManager
 
     public void failAbandonedQueries()
     {
-        for (QueryExecution queryExecution : queries.values()) {
+        for (QueryExecution<T> queryExecution : queries.values()) {
             try {
                 QueryInfo queryInfo = queryExecution.getQueryInfo();
                 if (queryInfo.getState().isDone()) {
@@ -677,7 +677,7 @@ public class SqlQueryManager
         return lastHeartbeat != null && lastHeartbeat.isBefore(oldestAllowedHeartbeat);
     }
 
-    private void addStatsListeners(QueryExecution queryExecution)
+    private void addStatsListeners(QueryExecution<T> queryExecution)
     {
         Object lock = new Object();
 
@@ -718,7 +718,7 @@ public class SqlQueryManager
     /**
      * Set up a callback to fire when a query is completed. The callback will be called at most once.
      */
-    static void addCompletionCallback(QueryExecution queryExecution, Runnable callback)
+    static void addCompletionCallback(QueryExecution<?> queryExecution, Runnable callback)
     {
         AtomicBoolean taskExecuted = new AtomicBoolean();
         queryExecution.addStateChangeListener(newValue -> {
@@ -732,13 +732,13 @@ public class SqlQueryManager
         }
     }
 
-    private QueryExecution getQuery(QueryId queryId)
+    private QueryExecution<T> getQuery(QueryId queryId)
     {
         return tryGetQuery(queryId)
                 .orElseThrow(NoSuchElementException::new);
     }
 
-    private Optional<QueryExecution> tryGetQuery(QueryId queryId)
+    private Optional<QueryExecution<T>> tryGetQuery(QueryId queryId)
     {
         requireNonNull(queryId, "queryId is null");
         return Optional.ofNullable(queries.get(queryId));

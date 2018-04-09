@@ -85,7 +85,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 
 @ThreadSafe
 public final class SqlQueryExecution
-        implements QueryExecution
+        implements QueryExecution<QueryOutputInfo>
 {
     private static final Logger log = Logger.get(SqlQueryExecution.class);
 
@@ -447,7 +447,7 @@ public final class SqlQueryExecution
     }
 
     @Override
-    public void addOutputInfoListener(Consumer<QueryOutputInfo> listener)
+    public void addOutputListener(Consumer<QueryOutputInfo> listener)
     {
         stateMachine.addOutputInfoListener(listener);
     }

@@ -44,7 +44,7 @@ import static javax.ws.rs.core.Response.Status.NOT_FOUND;
 @Path("/v1/queryState")
 public class QueryStateInfoResource
 {
-    private final QueryManager queryManager;
+    private final QueryManager<?> queryManager;
     private final ResourceGroupManager resourceGroupManager;
 
     @Inject

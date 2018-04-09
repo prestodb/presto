@@ -18,7 +18,6 @@ import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.client.QueryError;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
-import com.facebook.presto.execution.QueryOutputInfo;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.QueryId;
@@ -44,7 +43,7 @@ abstract class AbstractQuery<T>
 {
     private static final Logger log = Logger.get(AbstractQuery.class);
 
-    final QueryManager queryManager;
+    final QueryManager<T> queryManager;
 
     final QueryId queryId;
     final Session session;
@@ -73,10 +72,9 @@ abstract class AbstractQuery<T>
     @GuardedBy("this")
     private boolean clearTransactionId;
 
-    // TODO: replace QueryOutputInfo with T in the next commit
-    abstract void setOutput(QueryOutputInfo output);
+    abstract void setOutput(T output);
 
-    AbstractQuery(QueryManager queryManager, QueryId queryId, Session session)
+    AbstractQuery(QueryManager<T> queryManager, QueryId queryId, Session session)
     {
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
         this.queryId = requireNonNull(queryId, "queryId is null");
