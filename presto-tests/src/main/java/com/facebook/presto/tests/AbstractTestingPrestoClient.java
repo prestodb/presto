@@ -38,6 +38,7 @@ import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.client.StatementClientFactory.newStatementClient;
@@ -108,7 +109,8 @@ public abstract class AbstractTestingPrestoClient<T>
             }
 
             if (error.getFailureInfo() != null) {
-                throw error.getFailureInfo().toException();
+                RuntimeException remoteException = error.getFailureInfo().toException();
+                throw new RuntimeException(Optional.ofNullable(remoteException.getMessage()).orElseGet(remoteException::toString), remoteException);
             }
             throw new RuntimeException("Query failed: " + error.getMessage());
 
