@@ -861,7 +861,6 @@ public class ExpressionInterpreter
 
             switch (node.getType()) {
                 case AND: {
-                    // if either left or right is false, result is always false regardless of nulls
                     if (Boolean.FALSE.equals(left) || Boolean.TRUE.equals(right)) {
                         return left;
                     }
@@ -872,7 +871,6 @@ public class ExpressionInterpreter
                     break;
                 }
                 case OR: {
-                    // if either left or right is true, result is always true regardless of nulls
                     if (Boolean.TRUE.equals(left) || Boolean.FALSE.equals(right)) {
                         return left;
                     }
