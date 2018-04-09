@@ -20,9 +20,9 @@ import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StageStats;
 import com.facebook.presto.client.StatementStats;
-import com.facebook.presto.execution.QueryExecution;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
+import com.facebook.presto.execution.QueryOutputInfo;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.QueryStats;
 import com.facebook.presto.execution.StageInfo;
@@ -434,7 +434,7 @@ class Query
         }
     }
 
-    private synchronized void setQueryOutputInfo(QueryExecution.QueryOutputInfo outputInfo)
+    private synchronized void setQueryOutputInfo(QueryOutputInfo outputInfo)
     {
         // if first callback, set column names
         if (columns == null) {
