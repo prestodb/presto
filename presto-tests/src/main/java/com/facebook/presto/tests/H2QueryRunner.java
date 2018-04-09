@@ -80,6 +80,7 @@ import static com.google.common.collect.Lists.newArrayList;
 import static io.airlift.tpch.TpchTable.LINE_ITEM;
 import static io.airlift.tpch.TpchTable.NATION;
 import static io.airlift.tpch.TpchTable.ORDERS;
+import static io.airlift.tpch.TpchTable.PART;
 import static io.airlift.tpch.TpchTable.REGION;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
@@ -143,6 +144,19 @@ public class H2QueryRunner
                 "  comment VARCHAR(115) NOT NULL\n" +
                 ")");
         insertRows(tpchMetadata, REGION);
+
+        handle.execute("CREATE TABLE part(\n" +
+                "  partkey BIGINT PRIMARY KEY,\n" +
+                "  name VARCHAR(55) NOT NULL,\n" +
+                "  mfgr VARCHAR(25) NOT NULL,\n" +
+                "  brand VARCHAR(10) NOT NULL,\n" +
+                "  type VARCHAR(25) NOT NULL,\n" +
+                "  size INTEGER NOT NULL,\n" +
+                "  container VARCHAR(10) NOT NULL,\n" +
+                "  retailprice DOUBLE NOT NULL,\n" +
+                "  comment VARCHAR(23) NOT NULL\n" +
+                ")");
+        insertRows(tpchMetadata, PART);
     }
 
     private void insertRows(TpchMetadata tpchMetadata, TpchTable tpchTable)
