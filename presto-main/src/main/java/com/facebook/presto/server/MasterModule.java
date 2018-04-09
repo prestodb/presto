@@ -64,6 +64,7 @@ import com.facebook.presto.memory.NoneLowMemoryKiller;
 import com.facebook.presto.memory.TotalReservationLowMemoryKiller;
 import com.facebook.presto.memory.TotalReservationOnBlockedNodesLowMemoryKiller;
 import com.facebook.presto.operator.ForScheduler;
+import com.facebook.presto.server.protocol.DispatchQuery.DispatchQueryFactory;
 import com.facebook.presto.server.protocol.Query.QueryFactory;
 import com.facebook.presto.server.protocol.SqlQuery.SqlQueryFactory;
 import com.facebook.presto.server.protocol.StatementResource;
@@ -165,6 +166,7 @@ public class MasterModule
         if (serverConfig.isDispatcher() && !serverConfig.isCoordinator()) {
             binder.bind(new TypeLiteral<QueryManager<QueryResults>>() {}).to(new TypeLiteral<SqlQueryManager<QueryResults>>() {}).in(Scopes.SINGLETON);
             binder.bind(QueryManager.class).to(new TypeLiteral<QueryManager<QueryResults>>() {});
+            binder.bind(QueryFactory.class).to(DispatchQueryFactory.class).in(Scopes.SINGLETON);
         }
         else {
             binder.bind(new TypeLiteral<QueryManager<QueryOutputInfo>>() {}).to(new TypeLiteral<SqlQueryManager<QueryOutputInfo>>() {}).in(Scopes.SINGLETON);
