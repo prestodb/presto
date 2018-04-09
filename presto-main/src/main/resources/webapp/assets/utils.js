@@ -28,6 +28,9 @@ var STATE_COLOR_MAP = {
     USER_CANCELED: '#858959',
     INSUFFICIENT_RESOURCES: '#7f5b72',
     EXTERNAL_ERROR: '#ca7640',
+    SUBMITTING: '#50df13',
+    SUBMITTED: '#14bf13',
+    ACKNOWLEDGED: '#1a4629',
     UNKNOWN_ERROR: '#943524'
 };
 
@@ -61,6 +64,12 @@ function getQueryStateColor(query)
             }
         case "FINISHED":
             return STATE_COLOR_MAP.FINISHED;
+        case "SUBMITTING":
+            return STATE_COLOR_MAP.SUBMITTING;
+        case "SUBMITTED":
+            return STATE_COLOR_MAP.SUBMITTED;
+        case "ACKNOWLEDGED":
+            return STATE_COLOR_MAP.ACKNOWLEDGED;
         default:
             return STATE_COLOR_MAP.QUEUED;
     }
@@ -139,7 +148,7 @@ function getProgressBarPercentage(query)
     var progress = query.queryStats.progressPercentage;
 
     // progress bars should appear 'full' when query progress is not meaningful
-    if (!progress || query.state !== "RUNNING") {
+    if (!progress || (query.state !== "RUNNING" && query.state !== "SUBMITTED" )) {
         return 100;
     }
 
@@ -148,7 +157,7 @@ function getProgressBarPercentage(query)
 
 function getProgressBarTitle(query)
 {
-    if (query.queryStats.progressPercentage && query.state === "RUNNING") {
+    if (query.queryStats.progressPercentage && (query.state === "RUNNING" || query.state === "SUBMITTED")) {
         return getHumanReadableState(query) + " (" + getProgressBarPercentage(query) + "%)"
     }
 
@@ -266,8 +275,20 @@ function computeSources(nodeInfo)
 
 function updateClusterInfo() {
     $.get("/v1/info", function (info) {
+        var type;
+        if (info.dispatcher && !info.coordinator) {
+            type = "dispatcher";
+        }
+        else if (!info.dispatcher && info.coordinator) {
+            type = "coordinator";
+        }
+        else if (info.dispatcher && info.coordinator) {
+            type = "dispatcher/coordinator";
+        }
+
         $('#version-number').text(info.nodeVersion.version);
         $('#environment').text(info.environment);
+        $('#node-type').text(type);
         $('#uptime').text(info.uptime);
         $('#status-indicator').removeClass("status-light-red").removeClass("status-light-green").addClass("status-light-green");
     }).error(function() {
