@@ -90,10 +90,15 @@ public class ExchangeClientStatus
     }
 
     @JsonProperty
-
     public List<PageBufferClientStatus> getPageBufferClientStatuses()
     {
         return pageBufferClientStatuses;
+    }
+
+    @Override
+    public boolean isFinal()
+    {
+        return true;
     }
 
     @Override
@@ -101,7 +106,7 @@ public class ExchangeClientStatus
     {
         return toStringHelper(this)
                 .add("bufferBytes", bufferedBytes)
-                .add("maxBufferBytes", maxBufferedBytes)
+                .add("maxBufferedBytes", maxBufferedBytes)
                 .add("averageBytesPerRequest", averageBytesPerRequest)
                 .add("successfulRequestsCount", successfulRequestsCount)
                 .add("bufferedPages", bufferedPages)
