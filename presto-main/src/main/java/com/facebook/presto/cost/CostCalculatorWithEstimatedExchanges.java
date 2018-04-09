@@ -57,7 +57,7 @@ public class CostCalculatorWithEstimatedExchanges
     @Inject
     public CostCalculatorWithEstimatedExchanges(CostCalculator costCalculator, NodeSchedulerConfig nodeSchedulerConfig, InternalNodeManager nodeManager)
     {
-        this(costCalculator, currentNumberOfWorkerNodes(nodeSchedulerConfig.isIncludeCoordinator(), nodeManager));
+        this(costCalculator, currentNumberOfWorkerNodes(nodeSchedulerConfig.isIncludeCoordinator(), nodeSchedulerConfig.isIncludeDispatcher(), nodeManager));
     }
 
     public CostCalculatorWithEstimatedExchanges(CostCalculator costCalculator, IntSupplier numberOfNodes)

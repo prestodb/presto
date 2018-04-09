@@ -43,6 +43,7 @@ system| runtime| nodes| node_id| varchar| YES| null| null|
 system| runtime| nodes| http_uri| varchar| YES| null| null|
 system| runtime| nodes| node_version| varchar| YES| null| null|
 system| runtime| nodes| coordinator| boolean| YES| null| null|
+system| runtime| nodes| dispatcher| boolean| YES| null| null|
 system| runtime| nodes| state| varchar| YES| null| null|
 system| runtime| queries| node_id| varchar| YES| null| null|
 system| runtime| queries| query_id| varchar| YES| null| null|

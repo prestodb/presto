@@ -29,6 +29,8 @@ public interface InternalNodeManager
 
     Set<Node> getCoordinators();
 
+    Set<Node> getDispatchers();
+
     AllNodes getAllNodes();
 
     void refreshNodes();

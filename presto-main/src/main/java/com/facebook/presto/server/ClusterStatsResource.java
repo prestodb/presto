@@ -18,6 +18,7 @@ import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.metadata.InternalNodeManager;
+import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeState;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -37,11 +38,13 @@ public class ClusterStatsResource
     private final InternalNodeManager nodeManager;
     private final QueryManager queryManager;
     private final boolean isIncludeCoordinator;
+    private final boolean isIncludeDispatcher;
 
     @Inject
     public ClusterStatsResource(NodeSchedulerConfig nodeSchedulerConfig, InternalNodeManager nodeManager, QueryManager queryManager)
     {
         this.isIncludeCoordinator = requireNonNull(nodeSchedulerConfig, "nodeSchedulerConfig is null").isIncludeCoordinator();
+        this.isIncludeDispatcher = requireNonNull(nodeSchedulerConfig, "nodeSchedulerConfig is null").isIncludeDispatcher();
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
     }
@@ -55,8 +58,14 @@ public class ClusterStatsResource
         long queuedQueries = 0;
 
         long activeNodes = nodeManager.getNodes(NodeState.ACTIVE).size();
-        if (!isIncludeCoordinator) {
-            activeNodes -= 1;
+        if (!isIncludeCoordinator || !isIncludeDispatcher) {
+            int overlap = 0;
+            for (Node node : nodeManager.getDispatchers()) {
+                if (nodeManager.getCoordinators().contains(node)) {
+                    overlap++;
+                }
+            }
+            activeNodes -= nodeManager.getCoordinators().size() + nodeManager.getDispatchers().size() - overlap;
         }
 
         long runningDrivers = 0;

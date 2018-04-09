@@ -26,16 +26,19 @@ public class NodeMap
     private final SetMultimap<InetAddress, Node> nodesByHost;
     private final SetMultimap<NetworkLocation, Node> workersByNetworkPath;
     private final Set<String> coordinatorNodeIds;
+    private final Set<String> dispatcherNodeIds;
 
     public NodeMap(SetMultimap<HostAddress, Node> nodesByHostAndPort,
             SetMultimap<InetAddress, Node> nodesByHost,
             SetMultimap<NetworkLocation, Node> workersByNetworkPath,
-            Set<String> coordinatorNodeIds)
+            Set<String> coordinatorNodeIds,
+            Set<String> dispatcherNodeIds)
     {
         this.nodesByHostAndPort = nodesByHostAndPort;
         this.nodesByHost = nodesByHost;
         this.workersByNetworkPath = workersByNetworkPath;
         this.coordinatorNodeIds = coordinatorNodeIds;
+        this.dispatcherNodeIds = dispatcherNodeIds;
     }
 
     public SetMultimap<HostAddress, Node> getNodesByHostAndPort()
@@ -56,5 +59,10 @@ public class NodeMap
     public Set<String> getCoordinatorNodeIds()
     {
         return coordinatorNodeIds;
+    }
+
+    public Set<String> getDispatcherNodeIds()
+    {
+        return dispatcherNodeIds;
     }
 }

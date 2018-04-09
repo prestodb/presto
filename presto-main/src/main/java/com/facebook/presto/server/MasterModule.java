@@ -124,16 +124,24 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.weakref.jmx.ObjectNames.generatedNameOf;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
-public class CoordinatorModule
+public class MasterModule
         extends AbstractConfigurationAwareModule
 {
     @Override
     protected void setup(Binder binder)
     {
+        ServerConfig serverConfig = buildConfigObject(ServerConfig.class);
+
         httpServerBinder(binder).bindResource("/", "webapp").withWelcomeFile("index.html");
 
-        // presto coordinator announcement
-        discoveryBinder(binder).bindHttpAnnouncement("presto-coordinator");
+        if (serverConfig.isDispatcher()) {
+            // presto dispatcher announcement
+            discoveryBinder(binder).bindHttpAnnouncement("presto-dispatcher");
+        }
+        if (serverConfig.isCoordinator()) {
+            // presto coordinator announcement
+            discoveryBinder(binder).bindHttpAnnouncement("presto-coordinator");
+        }
 
         // statement resource
         jsonCodecBinder(binder).bindJsonCodec(QueryInfo.class);

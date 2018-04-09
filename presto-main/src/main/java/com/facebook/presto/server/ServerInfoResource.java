@@ -45,6 +45,7 @@ public class ServerInfoResource
     private final NodeVersion version;
     private final String environment;
     private final boolean coordinator;
+    private final boolean dispatcher;
     private final GracefulShutdownHandler shutdownHandler;
     private final long startTime = System.nanoTime();
 
@@ -54,6 +55,7 @@ public class ServerInfoResource
         this.version = requireNonNull(nodeVersion, "nodeVersion is null");
         this.environment = requireNonNull(nodeInfo, "nodeInfo is null").getEnvironment();
         this.coordinator = requireNonNull(serverConfig, "serverConfig is null").isCoordinator();
+        this.dispatcher = requireNonNull(serverConfig, "serverConfig is null").isDispatcher();
         this.shutdownHandler = requireNonNull(shutdownHandler, "shutdownHandler is null");
     }
 
@@ -61,7 +63,7 @@ public class ServerInfoResource
     @Produces(APPLICATION_JSON)
     public ServerInfo getInfo()
     {
-        return new ServerInfo(version, environment, coordinator, Optional.of(nanosSince(startTime)));
+        return new ServerInfo(version, environment, coordinator, dispatcher, Optional.of(nanosSince(startTime)));
     }
 
     @PUT
@@ -113,6 +115,18 @@ public class ServerInfoResource
             return Response.ok().build();
         }
         // return 404 to allow load balancers to only send traffic to the coordinator
+        return Response.status(Response.Status.NOT_FOUND).build();
+    }
+
+    @GET
+    @Path("dispatcher")
+    @Produces(TEXT_PLAIN)
+    public Response getServerDispatcher()
+    {
+        if (dispatcher) {
+            return Response.ok().build();
+        }
+        // return 404 to allow load balancers to only send traffic to the dispatcher
         return Response.status(Response.Status.NOT_FOUND).build();
     }
 }

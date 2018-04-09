@@ -46,7 +46,7 @@ public class LowMemoryKillerTestingUtils
             Map<String, Long> reservationByNode = entry.getValue();
 
             for (Map.Entry<String, Long> nodeEntry : reservationByNode.entrySet()) {
-                PrestoNode node = new PrestoNode(nodeEntry.getKey(), URI.create("http://localhost"), new NodeVersion("version"), false);
+                PrestoNode node = new PrestoNode(nodeEntry.getKey(), URI.create("http://localhost"), new NodeVersion("version"), false, false);
                 long bytes = nodeEntry.getValue();
                 if (bytes == 0) {
                     continue;

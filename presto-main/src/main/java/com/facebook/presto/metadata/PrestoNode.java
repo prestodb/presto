@@ -34,14 +34,16 @@ public class PrestoNode
     private final URI httpUri;
     private final NodeVersion nodeVersion;
     private final boolean coordinator;
+    private final boolean dispatcher;
 
-    public PrestoNode(String nodeIdentifier, URI httpUri, NodeVersion nodeVersion, boolean coordinator)
+    public PrestoNode(String nodeIdentifier, URI httpUri, NodeVersion nodeVersion, boolean coordinator, boolean dispatcher)
     {
         nodeIdentifier = emptyToNull(nullToEmpty(nodeIdentifier).trim());
         this.nodeIdentifier = requireNonNull(nodeIdentifier, "nodeIdentifier is null or empty");
         this.httpUri = requireNonNull(httpUri, "httpUri is null");
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         this.coordinator = coordinator;
+        this.dispatcher = dispatcher;
     }
 
     @Override
@@ -72,6 +74,12 @@ public class PrestoNode
     public boolean isCoordinator()
     {
         return coordinator;
+    }
+
+    @Override
+    public boolean isDispatcher()
+    {
+        return dispatcher;
     }
 
     public NodeVersion getNodeVersion()

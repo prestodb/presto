@@ -56,6 +56,7 @@ public class TopologyAwareNodeSelector
     private final InternalNodeManager nodeManager;
     private final NodeTaskMap nodeTaskMap;
     private final boolean includeCoordinator;
+    private final boolean includeDispatcher;
     private final AtomicReference<Supplier<NodeMap>> nodeMap;
     private final int minCandidates;
     private final int maxSplitsPerNode;
@@ -68,6 +69,7 @@ public class TopologyAwareNodeSelector
             InternalNodeManager nodeManager,
             NodeTaskMap nodeTaskMap,
             boolean includeCoordinator,
+            boolean includeDispatcher,
             Supplier<NodeMap> nodeMap,
             int minCandidates,
             int maxSplitsPerNode,
@@ -79,6 +81,7 @@ public class TopologyAwareNodeSelector
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
         this.includeCoordinator = includeCoordinator;
+        this.includeDispatcher = includeDispatcher;
         this.nodeMap = new AtomicReference<>(nodeMap);
         this.minCandidates = minCandidates;
         this.maxSplitsPerNode = maxSplitsPerNode;
@@ -110,7 +113,7 @@ public class TopologyAwareNodeSelector
     @Override
     public List<Node> selectRandomNodes(int limit, Set<Node> excludedNodes)
     {
-        return selectNodes(limit, randomizedNodes(nodeMap.get().get(), includeCoordinator, excludedNodes));
+        return selectNodes(limit, randomizedNodes(nodeMap.get().get(), includeCoordinator, includeDispatcher, excludedNodes));
     }
 
     @Override
@@ -126,7 +129,7 @@ public class TopologyAwareNodeSelector
         boolean splitWaitingForAnyNode = false;
         for (Split split : splits) {
             if (!split.isRemotelyAccessible()) {
-                List<Node> candidateNodes = selectExactNodes(nodeMap, split.getAddresses(), includeCoordinator);
+                List<Node> candidateNodes = selectExactNodes(nodeMap, split.getAddresses(), includeCoordinator, includeDispatcher);
                 if (candidateNodes.isEmpty()) {
                     log.debug("No nodes available to schedule %s. Available nodes %s", split, nodeMap.getNodesByHost().keys());
                     throw new PrestoException(NO_NODES_AVAILABLE, "No nodes available to run query");

@@ -159,8 +159,9 @@ public class PrestoServer
         // automatically build connectorIds if not configured
         if (connectorIds.isEmpty()) {
             List<Catalog> catalogs = metadata.getCatalogs();
-            // if this is a dedicated coordinator, only add jmx
-            if (serverConfig.isCoordinator() && !schedulerConfig.isIncludeCoordinator()) {
+            // if this is a dedicated coordinator or dispatcher, only add jmx
+            if ((serverConfig.isCoordinator() && !schedulerConfig.isIncludeCoordinator()) ||
+                    (serverConfig.isDispatcher() && !schedulerConfig.isIncludeDispatcher())) {
                 catalogs.stream()
                         .map(Catalog::getConnectorId)
                         .filter(connectorId -> connectorId.getCatalogName().equals("jmx"))
