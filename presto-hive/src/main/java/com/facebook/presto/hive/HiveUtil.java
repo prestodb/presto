@@ -39,6 +39,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.common.JavaUtils;
+import org.apache.hadoop.hive.ql.exec.Utilities;
 import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
 import org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat;
 import org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe;
@@ -48,6 +49,8 @@ import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
 import org.apache.hadoop.hive.serde2.typeinfo.StructTypeInfo;
+import org.apache.hadoop.io.Writable;
+import org.apache.hadoop.io.WritableComparable;
 import org.apache.hadoop.mapred.FileSplit;
 import org.apache.hadoop.mapred.InputFormat;
 import org.apache.hadoop.mapred.JobConf;
@@ -195,7 +198,14 @@ public final class HiveUtil
         jobConf.set("io.compression.codecs", codecs.stream().collect(joining(",")));
 
         try {
-            return inputFormat.getRecordReader(fileSplit, jobConf, Reporter.NULL);
+            RecordReader<WritableComparable, Writable> recordReader = (RecordReader<WritableComparable, Writable>) inputFormat.getRecordReader(fileSplit, jobConf, Reporter.NULL);
+
+            int headerCount = getHeaderCount(schema);
+            if (headerCount > 0) {
+                Utilities.skipHeader(recordReader, headerCount, recordReader.createKey(), recordReader.createValue());
+            }
+
+            return recordReader;
         }
         catch (IOException e) {
             throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, format("Error opening Hive split %s (offset=%s, length=%s) using %s: %s",
@@ -839,5 +849,16 @@ public final class HiveUtil
         return ((StructTypeInfo) hiveType.getTypeInfo()).getAllStructFieldTypeInfos().stream()
                 .map(typeInfo -> HiveType.valueOf(typeInfo.getTypeName()))
                 .collect(toImmutableList());
+    }
+
+    public static int getHeaderCount(Properties schema)
+    {
+        String headerCount = schema.getProperty("skip.header.line.count", "0");
+        try {
+            return Integer.parseInt(headerCount);
+        }
+        catch (NumberFormatException e) {
+            throw new PrestoException(HIVE_INVALID_METADATA, "Invalid value for skip.header.line.count property: " + headerCount);
+        }
     }
 }
