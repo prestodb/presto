@@ -62,6 +62,8 @@ import com.facebook.presto.memory.NoneLowMemoryKiller;
 import com.facebook.presto.memory.TotalReservationLowMemoryKiller;
 import com.facebook.presto.memory.TotalReservationOnBlockedNodesLowMemoryKiller;
 import com.facebook.presto.operator.ForScheduler;
+import com.facebook.presto.server.protocol.Query.QueryFactory;
+import com.facebook.presto.server.protocol.SqlQuery.SqlQueryFactory;
 import com.facebook.presto.server.protocol.StatementResource;
 import com.facebook.presto.server.remotetask.RemoteTaskStats;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
@@ -158,7 +160,14 @@ public class MasterModule
         jaxrsBinder(binder).bind(QueryStateInfoResource.class);
         jaxrsBinder(binder).bind(ResourceGroupStateInfoResource.class);
         binder.bind(QueryIdGenerator.class).in(Scopes.SINGLETON);
-        binder.bind(QueryManager.class).to(SqlQueryManager.class).in(Scopes.SINGLETON);
+        if (serverConfig.isDispatcher() && !serverConfig.isCoordinator()) {
+            // TODO: add dispatcher query manager
+        }
+        else {
+            binder.bind(SqlQueryManager.class).in(Scopes.SINGLETON);
+            binder.bind(QueryManager.class).to(SqlQueryManager.class);
+            binder.bind(QueryFactory.class).to(SqlQueryFactory.class).in(Scopes.SINGLETON);
+        }
         binder.bind(SessionSupplier.class).to(QuerySessionSupplier.class).in(Scopes.SINGLETON);
         binder.bind(InternalResourceGroupManager.class).in(Scopes.SINGLETON);
         newExporter(binder).export(InternalResourceGroupManager.class).withGeneratedName();
