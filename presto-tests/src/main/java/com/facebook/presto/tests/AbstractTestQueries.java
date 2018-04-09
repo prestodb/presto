@@ -8005,9 +8005,10 @@ public abstract class AbstractTestQueries
     @Test
     public void testInnerJoinWithEmptyBuildSide()
     {
-        MaterializedResult actual = computeActual("" +
+        MaterializedResult actual = computeActual(
+                noJoinReordering(),
                 "WITH small_part AS (SELECT * FROM part WHERE name = 'a') " +
-                "SELECT lineitem.orderkey FROM lineitem INNER JOIN small_part ON lineitem.partkey = small_part.partkey");
+                        "SELECT lineitem.orderkey FROM lineitem INNER JOIN small_part ON lineitem.partkey = small_part.partkey");
 
         assertEquals(actual.getRowCount(), 0);
     }
@@ -8015,9 +8016,10 @@ public abstract class AbstractTestQueries
     @Test
     public void testRightJoinWithEmptyBuildSide()
     {
-        MaterializedResult actual = computeActual("" +
+        MaterializedResult actual = computeActual(
+                noJoinReordering(),
                 "WITH small_part AS (SELECT * FROM part WHERE name = 'a') " +
-                "SELECT lineitem.orderkey FROM lineitem RIGHT JOIN small_part ON lineitem.partkey = small_part.partkey");
+                        "SELECT lineitem.orderkey FROM lineitem RIGHT JOIN small_part ON lineitem.partkey = small_part.partkey");
 
         assertEquals(actual.getRowCount(), 0);
     }
@@ -8025,9 +8027,10 @@ public abstract class AbstractTestQueries
     @Test
     public void testLeftJoinWithEmptyBuildSide()
     {
-        MaterializedResult actual = computeActual("" +
+        MaterializedResult actual = computeActual(
+                noJoinReordering(),
                 "WITH small_part AS (SELECT * FROM part WHERE name = 'a') " +
-                "SELECT lineitem.orderkey FROM lineitem LEFT JOIN small_part ON lineitem.partkey = small_part.partkey");
+                        "SELECT lineitem.orderkey FROM lineitem LEFT JOIN small_part ON lineitem.partkey = small_part.partkey");
 
         assertEquals(actual.getRowCount(), 60175);
     }
@@ -8035,9 +8038,10 @@ public abstract class AbstractTestQueries
     @Test
     public void testFullJoinWithEmptyBuildSide()
     {
-        MaterializedResult actual = computeActual("" +
+        MaterializedResult actual = computeActual(
+                noJoinReordering(),
                 "WITH small_part AS (SELECT * FROM part WHERE name = 'a') " +
-                "SELECT lineitem.orderkey FROM lineitem FULL OUTER JOIN small_part ON lineitem.partkey = small_part.partkey");
+                        "SELECT lineitem.orderkey FROM lineitem FULL OUTER JOIN small_part ON lineitem.partkey = small_part.partkey");
 
         assertEquals(actual.getRowCount(), 60175);
     }
