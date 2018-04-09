@@ -93,7 +93,7 @@ class H2TestUtil
     public static void waitForQueryCount(DistributedQueryRunner queryRunner, Set<QueryState> countingStates, int expectedCount)
             throws InterruptedException
     {
-        QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
+        QueryManager<?> queryManager = queryRunner.getCoordinator().getQueryManager();
         while (queryManager.getAllQueryInfo().stream()
                 .filter(q -> countingStates.contains(q.getState())).count() != expectedCount) {
             MILLISECONDS.sleep(500);

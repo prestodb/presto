@@ -112,7 +112,7 @@ public class SqlQuery
             QueryId queryId,
             SessionContext sessionContext,
             String query,
-            QueryManager queryManager,
+            QueryManager<QueryOutputInfo> queryManager,
             SessionPropertyManager sessionPropertyManager,
             ExchangeClient exchangeClient,
             Executor dataProcessorExecutor,
@@ -145,7 +145,7 @@ public class SqlQuery
     private SqlQuery(
             QueryId queryId,
             Session session,
-            QueryManager queryManager,
+            QueryManager<QueryOutputInfo> queryManager,
             ExchangeClient exchangeClient,
             Executor resultsProcessorExecutor,
             ScheduledExecutorService timeoutExecutor,
@@ -157,7 +157,7 @@ public class SqlQuery
         this.timeoutExecutor = requireNonNull(timeoutExecutor, "timeoutExecutor is null");
         this.serde = new PagesSerdeFactory(requireNonNull(blockEncodingSerde, "serde is null"), isExchangeCompressionEnabled(session)).createPagesSerde();
 
-        queryManager.addOutputInfoListener(getQueryId(), this::setOutput);
+        queryManager.addOutputListener(getQueryId(), this::setOutput);
     }
 
     @Override
@@ -470,7 +470,7 @@ public class SqlQuery
     public static class SqlQueryFactory
             implements QueryFactory<SqlQuery>
     {
-        private final QueryManager queryManager;
+        private final QueryManager<QueryOutputInfo> queryManager;
         private final SessionPropertyManager sessionPropertyManager;
         private final ExchangeClientSupplier exchangeClientSupplier;
         private final Executor dataProcessorExecutor;
@@ -479,7 +479,7 @@ public class SqlQuery
 
         @Inject
         SqlQueryFactory(
-                QueryManager queryManager,
+                QueryManager<QueryOutputInfo> queryManager,
                 SessionPropertyManager sessionPropertyManager,
                 ExchangeClientSupplier exchangeClientSupplier,
                 @ForStatementResource BoundedExecutor dataProcessorExecutor,

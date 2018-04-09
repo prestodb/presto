@@ -426,7 +426,7 @@ public class DistributedQueryRunner
 
     private void cancelAllQueries()
     {
-        QueryManager queryManager = coordinator.getQueryManager();
+        QueryManager<?> queryManager = coordinator.getQueryManager();
         for (QueryInfo queryInfo : queryManager.getAllQueryInfo()) {
             if (!queryInfo.getState().isDone()) {
                 queryManager.cancelQuery(queryInfo.getQueryId());

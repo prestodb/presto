@@ -49,7 +49,7 @@ public final class TestQueryRunnerUtil
     public static void waitForQueryState(DistributedQueryRunner queryRunner, QueryId queryId, Set<QueryState> expectedQueryStates)
             throws InterruptedException
     {
-        QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
+        QueryManager<?> queryManager = queryRunner.getCoordinator().getQueryManager();
         do {
             // Heartbeat all the running queries, so they don't die while we're waiting
             for (QueryInfo queryInfo : queryManager.getAllQueryInfo()) {

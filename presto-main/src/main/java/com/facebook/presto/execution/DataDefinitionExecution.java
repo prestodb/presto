@@ -46,7 +46,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class DataDefinitionExecution<T extends Statement>
-        implements QueryExecution
+        implements QueryExecution<QueryOutputInfo>
 {
     private final DataDefinitionTask<T> task;
     private final T statement;
@@ -139,7 +139,7 @@ public class DataDefinitionExecution<T extends Statement>
     }
 
     @Override
-    public void addOutputInfoListener(Consumer<QueryOutputInfo> listener)
+    public void addOutputListener(Consumer<QueryOutputInfo> listener)
     {
         // DDL does not have an output
     }

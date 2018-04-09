@@ -44,7 +44,7 @@ import static java.util.Objects.requireNonNull;
 @Path("/v1/query")
 public class QueryResource
 {
-    private final QueryManager queryManager;
+    private final QueryManager<?> queryManager;
 
     @Inject
     public QueryResource(QueryManager queryManager)

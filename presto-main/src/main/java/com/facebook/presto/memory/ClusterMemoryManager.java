@@ -141,7 +141,7 @@ public class ClusterMemoryManager
         changeListeners.computeIfAbsent(poolId, id -> new ArrayList<>()).add(listener);
     }
 
-    public synchronized void process(Iterable<QueryExecution> queries)
+    public synchronized void process(Iterable<QueryExecution<?>> queries)
     {
         if (!enabled) {
             return;
@@ -154,7 +154,7 @@ public class ClusterMemoryManager
 
         boolean queryKilled = false;
         long totalBytes = 0;
-        for (QueryExecution query : queries) {
+        for (QueryExecution<?> query : queries) {
             long bytes = query.getUserMemoryReservation();
             DataSize sessionMaxQueryMemory = getQueryMaxMemory(query.getSession());
             long queryMemoryLimit = Math.min(maxQueryMemory.toBytes(), sessionMaxQueryMemory.toBytes());
@@ -189,7 +189,7 @@ public class ClusterMemoryManager
                     .collect(toImmutableList());
             Optional<QueryId> chosenQueryId = lowMemoryKiller.chooseQueryToKill(queryMemoryInfoList, nodeMemoryInfos);
             if (chosenQueryId.isPresent()) {
-                Optional<QueryExecution> chosenQuery = Streams.stream(queries).filter(query -> chosenQueryId.get().equals(query.getQueryId())).collect(toOptional());
+                Optional<QueryExecution<?>> chosenQuery = Streams.stream(queries).filter(query -> chosenQueryId.get().equals(query.getQueryId())).collect(toOptional());
                 if (chosenQuery.isPresent()) {
                     // See comments in  isLastKilledQueryGone for why chosenQuery might be absent.
                     chosenQuery.get().fail(new PrestoException(CLUSTER_OUT_OF_MEMORY, "Query killed because the cluster is out of memory. Please try again in a few minutes."));
@@ -201,7 +201,7 @@ public class ClusterMemoryManager
         }
 
         Map<MemoryPoolId, Integer> countByPool = new HashMap<>();
-        for (QueryExecution query : queries) {
+        for (QueryExecution<?> query : queries) {
             MemoryPoolId id = query.getMemoryPool().getId();
             countByPool.put(id, countByPool.getOrDefault(id, 0) + 1);
         }
@@ -263,7 +263,7 @@ public class ClusterMemoryManager
         return reservedPool != null && generalPool != null && reservedPool.getAssignedQueries() > 0 && generalPool.getBlockedNodes() > 0;
     }
 
-    private synchronized MemoryPoolAssignmentsRequest updateAssignments(Iterable<QueryExecution> queries)
+    private synchronized MemoryPoolAssignmentsRequest updateAssignments(Iterable<QueryExecution<?>> queries)
     {
         ClusterMemoryPool reservedPool = pools.get(RESERVED_POOL);
         ClusterMemoryPool generalPool = pools.get(GENERAL_POOL);
@@ -272,9 +272,9 @@ public class ClusterMemoryManager
         // and is more of a safety check than a guarantee
         if (reservedPool != null && generalPool != null && allAssignmentsHavePropagated(queries)) {
             if (reservedPool.getAssignedQueries() == 0 && generalPool.getBlockedNodes() > 0) {
-                QueryExecution biggestQuery = null;
+                QueryExecution<?> biggestQuery = null;
                 long maxMemory = -1;
-                for (QueryExecution queryExecution : queries) {
+                for (QueryExecution<?> queryExecution : queries) {
                     if (resourceOvercommit(queryExecution.getSession())) {
                         // Don't promote queries that requested resource overcommit to the reserved pool,
                         // since their memory usage is unbounded.
@@ -293,13 +293,13 @@ public class ClusterMemoryManager
         }
 
         ImmutableList.Builder<MemoryPoolAssignment> assignments = ImmutableList.builder();
-        for (QueryExecution queryExecution : queries) {
+        for (QueryExecution<?> queryExecution : queries) {
             assignments.add(new MemoryPoolAssignment(queryExecution.getQueryId(), queryExecution.getMemoryPool().getId()));
         }
         return new MemoryPoolAssignmentsRequest(coordinatorId, version, assignments.build());
     }
 
-    private boolean allAssignmentsHavePropagated(Iterable<QueryExecution> queries)
+    private boolean allAssignmentsHavePropagated(Iterable<QueryExecution<?>> queries)
     {
         if (nodes.isEmpty()) {
             // Assignments can't have propagated, if there are no visible nodes.

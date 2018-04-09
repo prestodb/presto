@@ -36,7 +36,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public class ClusterStatsResource
 {
     private final InternalNodeManager nodeManager;
-    private final QueryManager queryManager;
+    private final QueryManager<?> queryManager;
     private final boolean isIncludeCoordinator;
     private final boolean isIncludeDispatcher;
 

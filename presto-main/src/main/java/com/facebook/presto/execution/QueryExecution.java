@@ -28,7 +28,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
 
-public interface QueryExecution
+public interface QueryExecution<E>
 {
     QueryId getQueryId();
 
@@ -38,7 +38,7 @@ public interface QueryExecution
 
     ListenableFuture<QueryState> getStateChange(QueryState currentState);
 
-    void addOutputInfoListener(Consumer<QueryOutputInfo> listener);
+    void addOutputListener(Consumer<E> listener);
 
     Optional<ResourceGroupId> getResourceGroup();
 
@@ -73,7 +73,7 @@ public interface QueryExecution
 
     void addFinalQueryInfoListener(StateChangeListener<QueryInfo> stateChangeListener);
 
-    interface QueryExecutionFactory<T extends QueryExecution>
+    interface QueryExecutionFactory<T extends QueryExecution<?>>
     {
         T createQueryExecution(QueryId queryId, String query, Session session, Statement statement, List<Expression> parameters);
     }

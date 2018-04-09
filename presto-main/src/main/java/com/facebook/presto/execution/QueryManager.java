@@ -24,11 +24,11 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
 
-public interface QueryManager
+public interface QueryManager<T>
 {
     List<QueryInfo> getAllQueryInfo();
 
-    void addOutputInfoListener(QueryId queryId, Consumer<QueryOutputInfo> listener);
+    void addOutputListener(QueryId queryId, Consumer<T> listener);
 
     void addStateChangeListener(QueryId queryId, StateChangeListener<QueryState> listener);
 
