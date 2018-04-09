@@ -869,6 +869,8 @@ public final class DispatchQueryExecution
 
         private void recordEnd()
         {
+            queuedTime.compareAndSet(null, succinctNanos(tickerNanos() - createNanos).convertToMostSuccinctTimeUnit());
+            submitTime.compareAndSet(null, DateTime.now());
             endTime.compareAndSet(null, DateTime.now());
             endNanos.compareAndSet(0, tickerNanos());
         }
