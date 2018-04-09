@@ -8017,34 +8017,27 @@ public abstract class AbstractTestQueries
     @Test
     public void testRightJoinWithEmptyBuildSide()
     {
-        MaterializedResult actual = computeActual(
+        assertQuery(
                 noJoinReordering(),
-                "WITH small_part AS (SELECT * FROM part WHERE name = 'a') " +
-                        "SELECT lineitem.orderkey FROM lineitem RIGHT JOIN small_part ON lineitem.partkey = small_part.partkey");
-
-        assertEquals(actual.getRowCount(), 0);
+                "WITH small_part AS (SELECT * FROM part WHERE name = 'a') SELECT lineitem.orderkey FROM lineitem RIGHT JOIN small_part ON lineitem.partkey = small_part.partkey");
     }
 
     @Test
     public void testLeftJoinWithEmptyBuildSide()
     {
-        MaterializedResult actual = computeActual(
+        assertQuery(
                 noJoinReordering(),
-                "WITH small_part AS (SELECT * FROM part WHERE name = 'a') " +
-                        "SELECT lineitem.orderkey FROM lineitem LEFT JOIN small_part ON lineitem.partkey = small_part.partkey");
-
-        assertEquals(actual.getRowCount(), 60175);
+                "WITH small_part AS (SELECT * FROM part WHERE name = 'a') SELECT lineitem.orderkey FROM lineitem LEFT JOIN small_part ON lineitem.partkey = small_part.partkey");
     }
 
     @Test
     public void testFullJoinWithEmptyBuildSide()
     {
-        MaterializedResult actual = computeActual(
+        assertQuery(
                 noJoinReordering(),
-                "WITH small_part AS (SELECT * FROM part WHERE name = 'a') " +
-                        "SELECT lineitem.orderkey FROM lineitem FULL OUTER JOIN small_part ON lineitem.partkey = small_part.partkey");
-
-        assertEquals(actual.getRowCount(), 60175);
+                "WITH small_part AS (SELECT * FROM part WHERE name = 'a') SELECT lineitem.orderkey FROM lineitem FULL OUTER JOIN small_part ON lineitem.partkey = small_part.partkey",
+                // H2 doesn't support FULL OUTER
+                "WITH small_part AS (SELECT * FROM part WHERE name = 'a') SELECT lineitem.orderkey FROM lineitem LEFT JOIN small_part ON lineitem.partkey = small_part.partkey");
     }
 
     protected Session noJoinReordering()
