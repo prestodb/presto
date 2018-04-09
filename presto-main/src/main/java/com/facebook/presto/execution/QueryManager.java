@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.execution.QueryExecution.QueryOutputInfo;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.server.SessionContext;
 import com.facebook.presto.spi.QueryId;

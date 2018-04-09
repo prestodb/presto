@@ -18,7 +18,6 @@ import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.execution.QueryExecution.QueryExecutionFactory;
-import com.facebook.presto.execution.QueryExecution.QueryOutputInfo;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
