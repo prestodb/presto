@@ -66,19 +66,19 @@ public class CostCalculatorUsingExchanges
     @Inject
     public CostCalculatorUsingExchanges(NodeSchedulerConfig nodeSchedulerConfig, InternalNodeManager nodeManager)
     {
-        this(currentNumberOfWorkerNodes(nodeSchedulerConfig.isIncludeCoordinator(), nodeManager));
+        this(currentNumberOfWorkerNodes(nodeSchedulerConfig.isIncludeCoordinator(), nodeSchedulerConfig.isIncludeDispatcher(), nodeManager));
     }
 
-    static IntSupplier currentNumberOfWorkerNodes(boolean includeCoordinator, InternalNodeManager nodeManager)
+    static IntSupplier currentNumberOfWorkerNodes(boolean includeCoordinator, boolean includeDispatcher, InternalNodeManager nodeManager)
     {
         requireNonNull(nodeManager, "nodeManager is null");
         return () -> {
             Set<Node> activeNodes = nodeManager.getAllNodes().getActiveNodes();
-            if (includeCoordinator) {
+            if (includeCoordinator && includeDispatcher) {
                 return activeNodes.size();
             }
             return toIntExact(activeNodes.stream()
-                    .filter(node -> !node.isCoordinator())
+                    .filter(node -> (includeCoordinator || !node.isCoordinator()) && (includeDispatcher || !node.isDispatcher()))
                     .count());
         };
     }

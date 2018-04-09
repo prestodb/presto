@@ -124,6 +124,7 @@ public class TestingPrestoServer
     private final GracefulShutdownHandler gracefulShutdownHandler;
     private final ShutdownAction shutdownAction;
     private final boolean coordinator;
+    private final boolean dispatcher;
 
     public static class TestShutdownAction
             implements ShutdownAction
@@ -161,10 +162,12 @@ public class TestingPrestoServer
     public TestingPrestoServer(List<Module> additionalModules)
             throws Exception
     {
-        this(true, ImmutableMap.of(), null, null, new SqlParserOptions(), additionalModules);
+        this(true, true, ImmutableMap.of(), null, null, new SqlParserOptions(), additionalModules);
     }
 
-    public TestingPrestoServer(boolean coordinator,
+    public TestingPrestoServer(
+            boolean coordinator,
+            boolean dispatcher,
             Map<String, String> properties,
             String environment,
             URI discoveryUri,
@@ -173,6 +176,7 @@ public class TestingPrestoServer
             throws Exception
     {
         this.coordinator = coordinator;
+        this.dispatcher = dispatcher;
         baseDataDir = Files.createTempDirectory("PrestoTest");
 
         properties = new HashMap<>(properties);
@@ -180,10 +184,12 @@ public class TestingPrestoServer
         if (coordinatorPort == null) {
             coordinatorPort = "0";
         }
+        // TODO: bind dispatcher port
 
         ImmutableMap.Builder<String, String> serverProperties = ImmutableMap.<String, String>builder()
                 .putAll(properties)
                 .put("coordinator", String.valueOf(coordinator))
+                .put("dispatcher", String.valueOf(dispatcher))
                 .put("presto.version", "testversion")
                 .put("task.concurrency", "4")
                 .put("task.max-worker-threads", "4")
@@ -264,16 +270,21 @@ public class TestingPrestoServer
         accessControl = injector.getInstance(TestingAccessControlManager.class);
         procedureTester = injector.getInstance(ProcedureTester.class);
         splitManager = injector.getInstance(SplitManager.class);
+
+        InternalResourceGroupManager resourceGroupManager = null;
+        NodePartitioningManager nodePartitioningManager = null;
+        ClusterMemoryManager clusterMemoryManager = null;
         if (coordinator) {
-            resourceGroupManager = Optional.of((InternalResourceGroupManager) injector.getInstance(ResourceGroupManager.class));
             nodePartitioningManager = injector.getInstance(NodePartitioningManager.class);
             clusterMemoryManager = injector.getInstance(ClusterMemoryManager.class);
         }
-        else {
-            resourceGroupManager = Optional.empty();
-            nodePartitioningManager = null;
-            clusterMemoryManager = null;
+        if (dispatcher) {
+            resourceGroupManager = (InternalResourceGroupManager) injector.getInstance(ResourceGroupManager.class);
         }
+        this.resourceGroupManager = Optional.ofNullable(resourceGroupManager);
+        this.nodePartitioningManager = nodePartitioningManager;
+        this.clusterMemoryManager = clusterMemoryManager;
+
         localMemoryManager = injector.getInstance(LocalMemoryManager.class);
         nodeManager = injector.getInstance(InternalNodeManager.class);
         serviceSelectorManager = injector.getInstance(ServiceSelectorManager.class);
@@ -428,6 +439,11 @@ public class TestingPrestoServer
     public boolean isCoordinator()
     {
         return coordinator;
+    }
+
+    public boolean isDispatcher()
+    {
+        return dispatcher;
     }
 
     public final AllNodes refreshNodes()

@@ -60,7 +60,7 @@ public class TestMemoryWorkerCrash
     {
         int nodeCount = queryRunner.getNodeCount();
         TestingPrestoServer worker = queryRunner.getServers().stream()
-                .filter(server -> !server.isCoordinator())
+                .filter(server -> !server.isCoordinator() && !server.isDispatcher())
                 .findAny()
                 .orElseThrow(() -> new IllegalStateException("No worker nodes"));
         worker.close();

@@ -65,6 +65,7 @@ public class NodeScheduler
     private final InternalNodeManager nodeManager;
     private final int minCandidates;
     private final boolean includeCoordinator;
+    private final boolean includeDispatcher;
     private final int maxSplitsPerNode;
     private final int maxPendingSplitsPerTask;
     private final NodeTaskMap nodeTaskMap;
@@ -87,6 +88,7 @@ public class NodeScheduler
         this.nodeManager = nodeManager;
         this.minCandidates = config.getMinCandidates();
         this.includeCoordinator = config.isIncludeCoordinator();
+        this.includeDispatcher = config.isIncludeDispatcher();
         this.maxSplitsPerNode = config.getMaxSplitsPerNode();
         this.maxPendingSplitsPerTask = config.getMaxPendingSplitsPerTask();
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
@@ -141,9 +143,14 @@ public class NodeScheduler
             Set<String> coordinatorNodeIds = nodeManager.getCoordinators().stream()
                     .map(Node::getNodeIdentifier)
                     .collect(toImmutableSet());
+            Set<String> dispatcherNodeIds = nodeManager.getDispatchers().stream()
+                    .map(Node::getNodeIdentifier)
+                    .collect(toImmutableSet());
 
             for (Node node : nodes) {
-                if (useNetworkTopology && (includeCoordinator || !coordinatorNodeIds.contains(node.getNodeIdentifier()))) {
+                if (useNetworkTopology &&
+                        (includeCoordinator || !coordinatorNodeIds.contains(node.getNodeIdentifier())) &&
+                        (includeDispatcher || !dispatcherNodeIds.contains(node.getNodeIdentifier()))) {
                     NetworkLocation location = networkLocationCache.get(node.getHostAndPort());
                     for (int i = 0; i <= location.getSegments().size(); i++) {
                         workersByNetworkPath.put(location.subLocation(0, i), node);
@@ -160,7 +167,7 @@ public class NodeScheduler
                 }
             }
 
-            return new NodeMap(byHostAndPort.build(), byHost.build(), workersByNetworkPath.build(), coordinatorNodeIds);
+            return new NodeMap(byHostAndPort.build(), byHost.build(), workersByNetworkPath.build(), coordinatorNodeIds, dispatcherNodeIds);
         }, 5, TimeUnit.SECONDS);
 
         if (useNetworkTopology) {
@@ -168,6 +175,7 @@ public class NodeScheduler
                     nodeManager,
                     nodeTaskMap,
                     includeCoordinator,
+                    includeDispatcher,
                     nodeMap,
                     minCandidates,
                     maxSplitsPerNode,
@@ -177,7 +185,7 @@ public class NodeScheduler
                     networkLocationCache);
         }
         else {
-            return new SimpleNodeSelector(nodeManager, nodeTaskMap, includeCoordinator, nodeMap, minCandidates, maxSplitsPerNode, maxPendingSplitsPerTask);
+            return new SimpleNodeSelector(nodeManager, nodeTaskMap, includeCoordinator, includeDispatcher, nodeMap, minCandidates, maxSplitsPerNode, maxPendingSplitsPerTask);
         }
     }
 
@@ -193,23 +201,26 @@ public class NodeScheduler
         return selected;
     }
 
-    public static ResettableRandomizedIterator<Node> randomizedNodes(NodeMap nodeMap, boolean includeCoordinator, Set<Node> excludedNodes)
+    public static ResettableRandomizedIterator<Node> randomizedNodes(NodeMap nodeMap, boolean includeCoordinator, boolean includeDispatcher, Set<Node> excludedNodes)
     {
         ImmutableList<Node> nodes = nodeMap.getNodesByHostAndPort().values().stream()
-                .filter(node -> includeCoordinator || !nodeMap.getCoordinatorNodeIds().contains(node.getNodeIdentifier()))
+                .filter(node -> (includeCoordinator || !nodeMap.getCoordinatorNodeIds().contains(node.getNodeIdentifier())) &&
+                        (includeDispatcher || !nodeMap.getDispatcherNodeIds().contains(node.getNodeIdentifier())))
                 .filter(node -> !excludedNodes.contains(node))
                 .collect(toImmutableList());
         return new ResettableRandomizedIterator<>(nodes);
     }
 
-    public static List<Node> selectExactNodes(NodeMap nodeMap, List<HostAddress> hosts, boolean includeCoordinator)
+    public static List<Node> selectExactNodes(NodeMap nodeMap, List<HostAddress> hosts, boolean includeCoordinator, boolean includeDispatcher)
     {
         Set<Node> chosen = new LinkedHashSet<>();
         Set<String> coordinatorIds = nodeMap.getCoordinatorNodeIds();
+        Set<String> dispatcherIds = nodeMap.getDispatcherNodeIds();
 
         for (HostAddress host : hosts) {
             nodeMap.getNodesByHostAndPort().get(host).stream()
-                    .filter(node -> includeCoordinator || !coordinatorIds.contains(node.getNodeIdentifier()))
+                    .filter(node -> (includeCoordinator || !coordinatorIds.contains(node.getNodeIdentifier())) &&
+                            (includeDispatcher || !dispatcherIds.contains(node.getNodeIdentifier())))
                     .forEach(chosen::add);
 
             InetAddress address;
@@ -224,13 +235,14 @@ public class NodeScheduler
             // consider a split with a host without a port as being accessible by all nodes in that host
             if (!host.hasPort()) {
                 nodeMap.getNodesByHost().get(address).stream()
-                        .filter(node -> includeCoordinator || !coordinatorIds.contains(node.getNodeIdentifier()))
+                        .filter(node -> (includeCoordinator || !coordinatorIds.contains(node.getNodeIdentifier())) &&
+                                (includeDispatcher || !dispatcherIds.contains(node.getNodeIdentifier())))
                         .forEach(chosen::add);
             }
         }
 
-        // if the chosen set is empty and the host is the coordinator, force pick the coordinator
-        if (chosen.isEmpty() && !includeCoordinator) {
+        // if the chosen set is empty and the host is the coordinator/dispatcher, force pick the coordinator/dispatcher
+        if (chosen.isEmpty() && (!includeCoordinator || !includeDispatcher)) {
             for (HostAddress host : hosts) {
                 // In the code below, before calling `chosen::add`, it could have been checked that
                 // `coordinatorIds.contains(node.getNodeIdentifier())`. But checking the condition isn't necessary

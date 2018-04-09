@@ -122,7 +122,7 @@ public class DistributedQueryRunner
             ImmutableList.Builder<TestingPrestoServer> servers = ImmutableList.builder();
 
             for (int i = 1; i < nodeCount; i++) {
-                TestingPrestoServer worker = closer.register(createTestingPrestoServer(discoveryServer.getBaseUrl(), false, extraProperties, parserOptions, environment));
+                TestingPrestoServer worker = closer.register(createTestingPrestoServer(discoveryServer.getBaseUrl(), false, false, extraProperties, parserOptions, environment));
                 servers.add(worker);
             }
 
@@ -130,7 +130,8 @@ public class DistributedQueryRunner
             extraCoordinatorProperties.put("experimental.iterative-optimizer-enabled", "true");
             extraCoordinatorProperties.putAll(extraProperties);
             extraCoordinatorProperties.putAll(coordinatorProperties);
-            coordinator = closer.register(createTestingPrestoServer(discoveryServer.getBaseUrl(), true, extraCoordinatorProperties, parserOptions, environment));
+            // coordinator servers as dispatcher as well
+            coordinator = closer.register(createTestingPrestoServer(discoveryServer.getBaseUrl(), true, true, extraCoordinatorProperties, parserOptions, environment));
             servers.add(coordinator);
 
             this.servers = servers.build();
@@ -172,7 +173,13 @@ public class DistributedQueryRunner
         }
     }
 
-    private static TestingPrestoServer createTestingPrestoServer(URI discoveryUri, boolean coordinator, Map<String, String> extraProperties, SqlParserOptions parserOptions, String environment)
+    private static TestingPrestoServer createTestingPrestoServer(
+            URI discoveryUri,
+            boolean coordinator,
+            boolean dispatcher,
+            Map<String, String> extraProperties,
+            SqlParserOptions parserOptions,
+            String environment)
             throws Exception
     {
         long start = System.nanoTime();
@@ -186,10 +193,13 @@ public class DistributedQueryRunner
             propertiesBuilder.put("node-scheduler.include-coordinator", "true");
             propertiesBuilder.put("distributed-joins-enabled", "true");
         }
+        if (dispatcher) {
+            propertiesBuilder.put("node-scheduler.include-dispatcher", "true");
+        }
         HashMap<String, String> properties = new HashMap<>(propertiesBuilder.build());
         properties.putAll(extraProperties);
 
-        TestingPrestoServer server = new TestingPrestoServer(coordinator, properties, environment, discoveryUri, parserOptions, ImmutableList.of());
+        TestingPrestoServer server = new TestingPrestoServer(coordinator, dispatcher, properties, environment, discoveryUri, parserOptions, ImmutableList.of());
 
         log.info("Created TestingPrestoServer in %s", nanosSince(start).convertToMostSuccinctTimeUnit());
 

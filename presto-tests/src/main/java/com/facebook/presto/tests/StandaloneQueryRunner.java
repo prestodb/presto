@@ -247,6 +247,6 @@ public final class StandaloneQueryRunner
                 .put("node-scheduler.min-candidates", "1")
                 .put("datasources", "system");
 
-        return new TestingPrestoServer(true, properties.build(), null, null, new SqlParserOptions(), ImmutableList.of());
+        return new TestingPrestoServer(true, true, properties.build(), null, null, new SqlParserOptions(), ImmutableList.of());
     }
 }

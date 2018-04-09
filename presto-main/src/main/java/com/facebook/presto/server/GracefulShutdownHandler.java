@@ -50,6 +50,7 @@ public class GracefulShutdownHandler
     private final LifeCycleManager lifeCycleManager;
     private final TaskManager sqlTaskManager;
     private final boolean isCoordinator;
+    private final boolean isDispatcher;
     private final ShutdownAction shutdownAction;
     private final Duration gracePeriod;
 
@@ -67,6 +68,7 @@ public class GracefulShutdownHandler
         this.shutdownAction = requireNonNull(shutdownAction, "shutdownAction is null");
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.isCoordinator = requireNonNull(serverConfig, "serverConfig is null").isCoordinator();
+        this.isDispatcher = requireNonNull(serverConfig, "serverConfig is null").isDispatcher();
         this.gracePeriod = serverConfig.getGracePeriod();
     }
 
@@ -76,6 +78,9 @@ public class GracefulShutdownHandler
 
         if (isCoordinator) {
             throw new UnsupportedOperationException("Cannot shutdown coordinator");
+        }
+        if (isDispatcher) {
+            throw new UnsupportedOperationException("Cannot shutdown dispatcher");
         }
 
         if (isShutdownRequested()) {

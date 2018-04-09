@@ -43,7 +43,7 @@ public class TestingNodeManager
 
     public TestingNodeManager(String environment)
     {
-        this(environment, new PrestoNode("local", URI.create("local://127.0.0.1"), NodeVersion.UNKNOWN, true), ImmutableSet.of());
+        this(environment, new PrestoNode("local", URI.create("local://127.0.0.1"), NodeVersion.UNKNOWN, true, false), ImmutableSet.of());
     }
 
     public TestingNodeManager(Node localNode)

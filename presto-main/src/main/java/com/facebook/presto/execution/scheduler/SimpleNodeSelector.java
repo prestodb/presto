@@ -51,6 +51,7 @@ public class SimpleNodeSelector
     private final InternalNodeManager nodeManager;
     private final NodeTaskMap nodeTaskMap;
     private final boolean includeCoordinator;
+    private final boolean includeDispatcher;
     private final AtomicReference<Supplier<NodeMap>> nodeMap;
     private final int minCandidates;
     private final int maxSplitsPerNode;
@@ -60,6 +61,7 @@ public class SimpleNodeSelector
             InternalNodeManager nodeManager,
             NodeTaskMap nodeTaskMap,
             boolean includeCoordinator,
+            boolean includeDispatcher,
             Supplier<NodeMap> nodeMap,
             int minCandidates,
             int maxSplitsPerNode,
@@ -68,6 +70,7 @@ public class SimpleNodeSelector
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
         this.includeCoordinator = includeCoordinator;
+        this.includeDispatcher = includeDispatcher;
         this.nodeMap = new AtomicReference<>(nodeMap);
         this.minCandidates = minCandidates;
         this.maxSplitsPerNode = maxSplitsPerNode;
@@ -96,7 +99,7 @@ public class SimpleNodeSelector
     @Override
     public List<Node> selectRandomNodes(int limit, Set<Node> excludedNodes)
     {
-        return selectNodes(limit, randomizedNodes(nodeMap.get().get(), includeCoordinator, excludedNodes));
+        return selectNodes(limit, randomizedNodes(nodeMap.get().get(), includeCoordinator, includeDispatcher, excludedNodes));
     }
 
     @Override
@@ -106,7 +109,7 @@ public class SimpleNodeSelector
         NodeMap nodeMap = this.nodeMap.get().get();
         NodeAssignmentStats assignmentStats = new NodeAssignmentStats(nodeTaskMap, nodeMap, existingTasks);
 
-        ResettableRandomizedIterator<Node> randomCandidates = randomizedNodes(nodeMap, includeCoordinator, ImmutableSet.of());
+        ResettableRandomizedIterator<Node> randomCandidates = randomizedNodes(nodeMap, includeCoordinator, includeDispatcher, ImmutableSet.of());
         Set<Node> blockedExactNodes = new HashSet<>();
         boolean splitWaitingForAnyNode = false;
         for (Split split : splits) {
@@ -114,7 +117,7 @@ public class SimpleNodeSelector
 
             List<Node> candidateNodes;
             if (!split.isRemotelyAccessible()) {
-                candidateNodes = selectExactNodes(nodeMap, split.getAddresses(), includeCoordinator);
+                candidateNodes = selectExactNodes(nodeMap, split.getAddresses(), includeCoordinator, includeDispatcher);
             }
             else {
                 candidateNodes = selectNodes(minCandidates, randomCandidates);

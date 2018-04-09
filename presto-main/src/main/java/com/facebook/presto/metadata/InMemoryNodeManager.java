@@ -42,7 +42,7 @@ public class InMemoryNodeManager
 
     public InMemoryNodeManager(URI localUri)
     {
-        localNode = new PrestoNode("local", localUri, NodeVersion.UNKNOWN, false);
+        localNode = new PrestoNode("local", localUri, NodeVersion.UNKNOWN, false, false);
     }
 
     public void addCurrentNodeConnector(ConnectorId connectorId)
@@ -97,6 +97,13 @@ public class InMemoryNodeManager
     public Set<Node> getCoordinators()
     {
         // always use localNode as coordinator
+        return ImmutableSet.of(localNode);
+    }
+
+    @Override
+    public Set<Node> getDispatchers()
+    {
+        // always use localNode as dispatcher
         return ImmutableSet.of(localNode);
     }
 

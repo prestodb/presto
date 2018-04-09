@@ -32,6 +32,7 @@ public class NodeSchedulerConfig
 
     private int minCandidates = 10;
     private boolean includeCoordinator = true;
+    private boolean includeDispatcher = true;
     private int maxSplitsPerNode = 100;
     private int maxPendingSplitsPerTask = 10;
     private String networkTopology = NetworkTopologyType.LEGACY;
@@ -65,6 +66,18 @@ public class NodeSchedulerConfig
     public boolean isIncludeCoordinator()
     {
         return includeCoordinator;
+    }
+
+    @Config("node-scheduler.include-dispatcher")
+    public NodeSchedulerConfig setIncludeDispatcher(boolean includeDispatcher)
+    {
+        this.includeDispatcher = includeDispatcher;
+        return this;
+    }
+
+    public boolean isIncludeDispatcher()
+    {
+        return includeDispatcher;
     }
 
     @Config("node-scheduler.include-coordinator")
