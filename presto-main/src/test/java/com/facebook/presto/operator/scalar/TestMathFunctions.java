@@ -763,14 +763,28 @@ public class TestMathFunctions
 
         assertFunction("round(TINYINT '3', TINYINT '0')", TINYINT, (byte) 3);
         assertFunction("round(TINYINT '3', 0)", TINYINT, (byte) 3);
+        assertFunction("round(TINYINT '9', -1)", TINYINT, (byte) 10);
+        assertFunction("round(TINYINT '-9', -1)", TINYINT, (byte) -10);
         assertFunction("round(SMALLINT '3', SMALLINT '0')", SMALLINT, (short) 3);
+        assertFunction("round(SMALLINT '99', SMALLINT '-1')", SMALLINT, (short) 100);
+        assertFunction("round(SMALLINT '-99', SMALLINT '-1')", SMALLINT, (short) -100);
         assertFunction("round(SMALLINT '3', 0)", SMALLINT, (short) 3);
+        assertFunction("round(SMALLINT '99', -1)", SMALLINT, (short) 100);
+        assertFunction("round(SMALLINT '-99', -1)", SMALLINT, (short) -100);
         assertFunction("round(3, 0)", INTEGER, 3);
         assertFunction("round(-3, 0)", INTEGER, -3);
+        assertFunction("round(99, -1)", INTEGER, 100);
+        assertFunction("round(-99, -1)", INTEGER, -100);
         assertFunction("round(-3, INTEGER '0')", INTEGER, -3);
+        assertFunction("round(99, INTEGER '-1')", INTEGER, 100);
+        assertFunction("round(-99, INTEGER '-1')", INTEGER, -100);
         assertFunction("round(BIGINT '3', 0)", BIGINT, 3L);
+        assertFunction("round(BIGINT '99', -1)", BIGINT, 100L);
+        assertFunction("round(BIGINT '-99', -1)", BIGINT, -100L);
         assertFunction("round( 3000000000, 0)", BIGINT, 3000000000L);
         assertFunction("round(-3000000000, 0)", BIGINT, -3000000000L);
+        assertFunction("round( 3999999999, -1)", BIGINT, 4000000000L);
+        assertFunction("round(-3999999999, -1)", BIGINT, -4000000000L);
         assertFunction("round(3.0E0, 0)", DOUBLE, 3.0);
         assertFunction("round(-3.0E0, 0)", DOUBLE, -3.0);
         assertFunction("round(3.499E0, 0)", DOUBLE, 3.0);

@@ -663,8 +663,7 @@ public final class MathFunctions
     @SqlType(StandardTypes.TINYINT)
     public static long roundTinyint(@SqlType(StandardTypes.TINYINT) long num, @SqlType(StandardTypes.INTEGER) long decimals)
     {
-        // TODO implement support for `decimals < 0`
-        return num;
+        return roundLong(num, decimals);
     }
 
     @Description("round to nearest integer")
@@ -681,8 +680,7 @@ public final class MathFunctions
     @SqlType(StandardTypes.SMALLINT)
     public static long roundSmallint(@SqlType(StandardTypes.SMALLINT) long num, @SqlType(StandardTypes.INTEGER) long decimals)
     {
-        // TODO implement support for `decimals < 0`
-        return num;
+        return roundLong(num, decimals);
     }
 
     @Description("round to nearest integer")
@@ -699,8 +697,7 @@ public final class MathFunctions
     @SqlType(StandardTypes.INTEGER)
     public static long roundInteger(@SqlType(StandardTypes.INTEGER) long num, @SqlType(StandardTypes.INTEGER) long decimals)
     {
-        // TODO implement support for `decimals < 0`
-        return num;
+        return roundLong(num, decimals);
     }
 
     @Description("round to nearest integer")
@@ -717,8 +714,17 @@ public final class MathFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long round(@SqlType(StandardTypes.BIGINT) long num, @SqlType(StandardTypes.INTEGER) long decimals)
     {
-        // TODO implement support for `decimals < 0`
-        return num;
+        return roundLong(num, decimals);
+    }
+
+    private static long roundLong(long num, long decimals)
+    {
+        if (decimals >= 0) {
+            return num;
+        }
+
+        double factor = Math.pow(10, decimals);
+        return (long) (Math.round(num * factor) / factor);
     }
 
     @Description("round to nearest integer")
