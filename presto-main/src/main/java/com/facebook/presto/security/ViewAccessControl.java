@@ -32,7 +32,7 @@ public class ViewAccessControl
     @Override
     public void checkCanSelectFromTable(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
     {
-        delegate.checkCanCreateViewWithSelectFromTable(transactionId, identity, tableName);
+        delegate.checkCanSelectFromTable(transactionId, identity, tableName);
     }
 
     @Override
