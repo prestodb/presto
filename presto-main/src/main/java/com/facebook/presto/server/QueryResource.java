@@ -79,6 +79,21 @@ public class QueryResource
         }
     }
 
+    @GET
+    @Path("{queryId}/basic")
+    public Response getBasicQueryInfo(@PathParam("queryId") QueryId queryId)
+    {
+        requireNonNull(queryId, "queryId is null");
+
+        try {
+            QueryInfo queryInfo = queryManager.getQueryInfo(queryId);
+            return Response.ok(new BasicQueryInfo(queryInfo)).build();
+        }
+        catch (NoSuchElementException e) {
+            return Response.status(Status.GONE).build();
+        }
+    }
+
     @DELETE
     @Path("{queryId}")
     public void cancelQuery(@PathParam("queryId") QueryId queryId)
