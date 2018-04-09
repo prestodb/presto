@@ -79,9 +79,9 @@ public class ExchangeClient
     private final List<SettableFuture<?>> blockedCallers = new ArrayList<>();
 
     @GuardedBy("this")
-    private long bufferBytes;
+    private long bufferRetainedSizeInBytes;
     @GuardedBy("this")
-    private long maxBufferBytes;
+    private long maxBufferRetainedSizeInBytes;
     @GuardedBy("this")
     private long successfulRequests;
     @GuardedBy("this")
@@ -114,7 +114,7 @@ public class ExchangeClient
         this.httpClient = httpClient;
         this.scheduler = scheduler;
         this.systemMemoryContext = systemMemoryContext;
-        this.maxBufferBytes = Long.MIN_VALUE;
+        this.maxBufferRetainedSizeInBytes = Long.MIN_VALUE;
         this.pageBufferClientCallbackExecutor = requireNonNull(pageBufferClientCallbackExecutor, "pageBufferClientCallbackExecutor is null");
     }
 
@@ -133,7 +133,7 @@ public class ExchangeClient
             if (bufferedPages > 0 && pageBuffer.peekLast() == NO_MORE_PAGES) {
                 bufferedPages--;
             }
-            return new ExchangeClientStatus(bufferBytes, maxBufferBytes, averageBytesPerRequest, successfulRequests, bufferedPages, noMoreLocations, pageBufferClientStatus);
+            return new ExchangeClientStatus(bufferRetainedSizeInBytes, maxBufferRetainedSizeInBytes, averageBytesPerRequest, successfulRequests, bufferedPages, noMoreLocations, pageBufferClientStatus);
         }
     }
 
@@ -210,8 +210,8 @@ public class ExchangeClient
 
         synchronized (this) {
             if (!closed.get()) {
-                bufferBytes -= page.getRetainedSizeInBytes();
-                systemMemoryContext.setBytes(bufferBytes);
+                bufferRetainedSizeInBytes -= page.getRetainedSizeInBytes();
+                systemMemoryContext.setBytes(bufferRetainedSizeInBytes);
                 if (pageBuffer.peek() == NO_MORE_PAGES) {
                     close();
                 }
@@ -245,7 +245,7 @@ public class ExchangeClient
         }
         pageBuffer.clear();
         systemMemoryContext.setBytes(0);
-        bufferBytes = 0;
+        bufferRetainedSizeInBytes = 0;
         if (pageBuffer.peekLast() != NO_MORE_PAGES) {
             checkState(pageBuffer.add(NO_MORE_PAGES), "Could not add no more pages marker");
         }
@@ -270,7 +270,7 @@ public class ExchangeClient
             return;
         }
 
-        long neededBytes = bufferCapacity - bufferBytes;
+        long neededBytes = bufferCapacity - bufferRetainedSizeInBytes;
         if (neededBytes <= 0) {
             return;
         }
@@ -314,13 +314,13 @@ public class ExchangeClient
             notifyBlockedCallers();
         }
 
-        long memorySize = pages.stream()
+        long pagesRetainedSizeInBytes = pages.stream()
                 .mapToLong(SerializedPage::getRetainedSizeInBytes)
                 .sum();
 
-        bufferBytes += memorySize;
-        maxBufferBytes = Math.max(maxBufferBytes, bufferBytes);
-        systemMemoryContext.setBytes(bufferBytes);
+        bufferRetainedSizeInBytes += pagesRetainedSizeInBytes;
+        maxBufferRetainedSizeInBytes = Math.max(maxBufferRetainedSizeInBytes, bufferRetainedSizeInBytes);
+        systemMemoryContext.setBytes(bufferRetainedSizeInBytes);
         successfulRequests++;
 
         long responseSize = pages.stream()
