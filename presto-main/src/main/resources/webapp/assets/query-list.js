@@ -115,7 +115,7 @@
                     <div className="col-xs-4">
                         <div className="row stat-row query-header query-header-queryid">
                             <div className="col-xs-9" data-toggle="tooltip" data-placement="bottom" title="Query ID">
-                                <a href={ "query.html?" + query.queryId } target="_blank">{ query.queryId }</a>
+                                <a href={ query.self.match('http.*:[0-9]+')[0] + "/query.html?" + query.queryId } target="_blank">{ query.queryId }</a>
                             </div>
                             <div className="col-xs-3 query-header-timestamp" data-toggle="tooltip" data-placement="bottom" title="Submit time">
                                 <span>{ formatShortTime(new Date(Date.parse(query.queryStats.createTime))) }</span>
@@ -187,10 +187,11 @@ let DisplayedQueriesList = React.createClass({
 
 const FILTER_TYPE = {
     RUNNING_BLOCKED: function (query) {
-        return query.state === "PLANNING" || query.state === "STARTING" || query.state === "RUNNING" || query.state === "FINISHING";
+        return query.state === "PLANNING" || query.state === "STARTING" || query.state === "RUNNING" ||
+            query.state === "FINISHING" || query.state === "SUBMITTING" || query.state === "SUBMITTED"
     },
     QUEUED: function (query) { return query.state === "QUEUED"},
-    FINISHED: function (query) { return query.state === "FINISHED"},
+    FINISHED: function (query) { return query.state === "FINISHED" || query.state === "ACKNOWLEDGED"},
     FAILED: function (query) { return query.state === "FAILED" && query.errorType !== "USER_ERROR"},
     USER_ERROR: function (query) { return query.state === "FAILED" && query.errorType === "USER_ERROR"},
 };
