@@ -43,6 +43,7 @@ import static com.facebook.presto.operator.LookupJoinOperators.JoinType.FULL_OUT
 import static com.facebook.presto.operator.LookupJoinOperators.JoinType.PROBE_OUTER;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static io.airlift.concurrent.MoreFutures.checkSuccess;
 import static io.airlift.concurrent.MoreFutures.getDone;
 import static java.lang.String.format;
@@ -182,6 +183,10 @@ public class LookupJoinOperator
             return unspilledLookupSource.get();
         }
 
+        if (finishing) {
+            return NOT_BLOCKED;
+        }
+
         return lookupSourceProviderFuture;
     }
 
@@ -290,7 +295,14 @@ public class LookupJoinOperator
         }
 
         if (!tryFetchLookupSourceProvider()) {
-            return null;
+            if (!finishing) {
+                return null;
+            }
+
+            verify(finishing);
+            // We are no longer interested in the build side (the lookupSourceProviderFuture's value).
+            addSuccessCallback(lookupSourceProviderFuture, LookupSourceProvider::close);
+            lookupSourceProvider = new StaticLookupSourceProvider(new EmptyLookupSource());
         }
 
         if (probe == null && finishing && !unspilling) {
