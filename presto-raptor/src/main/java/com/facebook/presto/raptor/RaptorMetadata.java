@@ -27,7 +27,6 @@ import com.facebook.presto.spi.ColumnIdentity;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorNewTableLayout;
-import com.facebook.presto.spi.ConnectorNodePartitioning;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
@@ -35,6 +34,7 @@ import com.facebook.presto.spi.ConnectorTableLayout;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.ConnectorTablePartitioning;
 import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
@@ -137,7 +137,7 @@ public class RaptorMetadata
 
     public RaptorMetadata(String connectorId, IDBI dbi, ShardManager shardManager)
     {
-        this(connectorId, dbi, shardManager, tableId -> { });
+        this(connectorId, dbi, shardManager, tableId -> {});
     }
 
     public RaptorMetadata(
@@ -313,7 +313,7 @@ public class RaptorMetadata
                 new RaptorTableLayoutHandle(handle, constraint, Optional.of(partitioning)),
                 Optional.empty(),
                 TupleDomain.all(),
-                Optional.of(new ConnectorNodePartitioning(
+                Optional.of(new ConnectorTablePartitioning(
                         partitioning,
                         ImmutableList.copyOf(bucketColumnHandles))),
                 oneSplitPerBucket ? Optional.of(ImmutableSet.copyOf(bucketColumnHandles)) : Optional.empty(),
@@ -415,7 +415,7 @@ public class RaptorMetadata
     }
 
     @Override
-    public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
     {
         Optional<ConnectorNewTableLayout> layout = getNewTableLayout(session, tableMetadata);
         finishCreateTable(session, beginCreateTable(session, tableMetadata, layout), ImmutableList.of());
@@ -445,11 +445,10 @@ public class RaptorMetadata
         RaptorTableHandle table = (RaptorTableHandle) tableHandle;
 
         // Always add new columns to the end.
-        // TODO: This needs to be updated when we support dropping columns.
         List<TableColumn> existingColumns = dao.listTableColumns(table.getSchemaName(), table.getTableName());
         TableColumn lastColumn = existingColumns.get(existingColumns.size() - 1);
         long columnId = lastColumn.getColumnId() + 1;
-        int ordinalPosition = existingColumns.size();
+        int ordinalPosition = lastColumn.getOrdinalPosition() + 1;
 
         String type = column.getType().getTypeSignature().toString();
         daoTransaction(dbi, MetadataDao.class, dao -> {

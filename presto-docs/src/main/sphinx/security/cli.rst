@@ -57,7 +57,6 @@ options. The simplest way to invoke the CLI is with a wrapper script.
 
     ./presto \
       --server https://presto-coordinator.example.com:7778 \
-      --enable-authentication \
       --krb5-config-path /etc/krb5.conf \
       --krb5-principal someuser@EXAMPLE.COM \
       --krb5-keytab-path /home/someuser/someuser.keytab \
@@ -73,7 +72,6 @@ Option                          Description
 ``--server``                    The address and port of the Presto coordinator.  The port must
                                 be set to the port the Presto coordinator is listening for HTTPS
                                 connections on.
-``--enable-authentication``     Enables Kerberos authentication.
 ``--krb5-config-path``          Kerberos configuration file.
 ``--krb5-principal``            The principal to use when authenticating to the coordinator.
 ``--krb5-keytab-path``          The location of the the keytab that can be used to
@@ -108,7 +106,6 @@ file cannot pass the option to the JVM.
       -Dsun.security.krb5.debug=true \
       -jar presto-cli-*-executable.jar \
       --server https://presto-coordinator.example.com:7778 \
-      --enable-authentication \
       --krb5-config-path /etc/krb5.conf \
       --krb5-principal someuser@EXAMPLE.COM \
       --krb5-keytab-path /home/someuser/someuser.keytab \

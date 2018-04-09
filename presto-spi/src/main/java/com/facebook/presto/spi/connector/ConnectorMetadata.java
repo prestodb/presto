@@ -164,8 +164,10 @@ public interface ConnectorMetadata
 
     /**
      * Creates a table using the specified table metadata.
+     *
+     * @throws PrestoException with {@code ALREADY_EXISTS} if the table already exists and {@param ignoreExisting} is not set
      */
-    default void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    default void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support creating tables");
     }
@@ -228,7 +230,7 @@ public interface ConnectorMetadata
         List<ConnectorTableLayout> layouts = getTableLayouts(session, tableHandle, new Constraint<>(TupleDomain.all(), map -> true), Optional.empty())
                 .stream()
                 .map(ConnectorTableLayoutResult::getTableLayout)
-                .filter(layout -> layout.getNodePartitioning().isPresent())
+                .filter(layout -> layout.getTablePartitioning().isPresent())
                 .collect(toList());
 
         if (layouts.isEmpty()) {
@@ -240,10 +242,10 @@ public interface ConnectorMetadata
         }
 
         ConnectorTableLayout layout = layouts.get(0);
-        ConnectorPartitioningHandle partitioningHandle = layout.getNodePartitioning().get().getPartitioningHandle();
+        ConnectorPartitioningHandle partitioningHandle = layout.getTablePartitioning().get().getPartitioningHandle();
         Map<ColumnHandle, String> columnNamesByHandle = getColumnHandles(session, tableHandle).entrySet().stream()
                 .collect(Collectors.toMap(Map.Entry::getValue, Map.Entry::getKey));
-        List<String> partitionColumns = layout.getNodePartitioning().get().getPartitioningColumns().stream()
+        List<String> partitionColumns = layout.getTablePartitioning().get().getPartitioningColumns().stream()
                 .map(columnNamesByHandle::get)
                 .collect(toList());
 

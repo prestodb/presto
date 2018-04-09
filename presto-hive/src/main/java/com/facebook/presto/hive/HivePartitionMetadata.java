@@ -24,9 +24,9 @@ public class HivePartitionMetadata
 {
     private final Optional<Partition> partition;
     private final HivePartition hivePartition;
-    private final Map<Integer, HiveType> columnCoercions;
+    private final Map<Integer, HiveTypeName> columnCoercions;
 
-    HivePartitionMetadata(HivePartition hivePartition, Optional<Partition> partition, Map<Integer, HiveType> columnCoercions)
+    HivePartitionMetadata(HivePartition hivePartition, Optional<Partition> partition, Map<Integer, HiveTypeName> columnCoercions)
     {
         this.partition = requireNonNull(partition, "partition is null");
         this.hivePartition = requireNonNull(hivePartition, "hivePartition is null");
@@ -46,7 +46,7 @@ public class HivePartitionMetadata
         return partition;
     }
 
-    public Map<Integer, HiveType> getColumnCoercions()
+    public Map<Integer, HiveTypeName> getColumnCoercions()
     {
         return columnCoercions;
     }

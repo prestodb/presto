@@ -14,17 +14,17 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.cost.CostCalculator;
+import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryPerformanceFetcher;
 import com.facebook.presto.execution.StageId;
 import com.facebook.presto.execution.StageInfo;
-import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -44,17 +44,26 @@ public class ExplainAnalyzeOperator
         private final int operatorId;
         private final PlanNodeId planNodeId;
         private final QueryPerformanceFetcher queryPerformanceFetcher;
-        private final Metadata metadata;
+        private final FunctionRegistry functionRegistry;
+        private final StatsCalculator statsCalculator;
         private final CostCalculator costCalculator;
         private final boolean verbose;
         private boolean closed;
 
-        public ExplainAnalyzeOperatorFactory(int operatorId, PlanNodeId planNodeId, QueryPerformanceFetcher queryPerformanceFetcher, Metadata metadata, CostCalculator costCalculator, boolean verbose)
+        public ExplainAnalyzeOperatorFactory(
+                int operatorId,
+                PlanNodeId planNodeId,
+                QueryPerformanceFetcher queryPerformanceFetcher,
+                FunctionRegistry functionRegistry,
+                StatsCalculator statsCalculator,
+                CostCalculator costCalculator,
+                boolean verbose)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.queryPerformanceFetcher = requireNonNull(queryPerformanceFetcher, "queryPerformanceFetcher is null");
-            this.metadata = requireNonNull(metadata, "metadata is null");
+            this.functionRegistry = requireNonNull(functionRegistry, "functionRegistry is null");
+            this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
             this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
             this.verbose = verbose;
         }
@@ -70,11 +79,11 @@ public class ExplainAnalyzeOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, ExplainAnalyzeOperator.class.getSimpleName());
-            return new ExplainAnalyzeOperator(operatorContext, queryPerformanceFetcher, metadata, costCalculator, verbose);
+            return new ExplainAnalyzeOperator(operatorContext, queryPerformanceFetcher, functionRegistry, statsCalculator, costCalculator, verbose);
         }
 
         @Override
-        public void close()
+        public void noMoreOperators()
         {
             closed = true;
         }
@@ -82,23 +91,31 @@ public class ExplainAnalyzeOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new ExplainAnalyzeOperatorFactory(operatorId, planNodeId, queryPerformanceFetcher, metadata, costCalculator, verbose);
+            return new ExplainAnalyzeOperatorFactory(operatorId, planNodeId, queryPerformanceFetcher, functionRegistry, statsCalculator, costCalculator, verbose);
         }
     }
 
     private final OperatorContext operatorContext;
     private final QueryPerformanceFetcher queryPerformanceFetcher;
-    private final Metadata metadata;
+    private final FunctionRegistry functionRegistry;
+    private final StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
     private final boolean verbose;
     private boolean finishing;
     private boolean outputConsumed;
 
-    public ExplainAnalyzeOperator(OperatorContext operatorContext, QueryPerformanceFetcher queryPerformanceFetcher, Metadata metadata, CostCalculator costCalculator, boolean verbose)
+    public ExplainAnalyzeOperator(
+            OperatorContext operatorContext,
+            QueryPerformanceFetcher queryPerformanceFetcher,
+            FunctionRegistry functionRegistry,
+            StatsCalculator statsCalculator,
+            CostCalculator costCalculator,
+            boolean verbose)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.queryPerformanceFetcher = requireNonNull(queryPerformanceFetcher, "queryPerformanceFetcher is null");
-        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.functionRegistry = requireNonNull(functionRegistry, "functionRegistry is null");
+        this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
         this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
         this.verbose = verbose;
     }
@@ -150,12 +167,13 @@ public class ExplainAnalyzeOperator
 
         QueryInfo queryInfo = queryPerformanceFetcher.getQueryInfo(operatorContext.getDriverContext().getTaskId().getQueryId());
         checkState(queryInfo.getOutputStage().isPresent(), "Output stage is missing");
+        checkState(queryInfo.getOutputStage().get().getSubStages().size() == 1, "Expected one sub stage of explain node");
 
         if (!hasFinalStageInfo(queryInfo.getOutputStage().get())) {
             return null;
         }
 
-        String plan = textDistributedPlan(queryInfo.getOutputStage().get(), metadata, costCalculator, operatorContext.getSession(), verbose);
+        String plan = textDistributedPlan(queryInfo.getOutputStage().get().getSubStages().get(0), functionRegistry, statsCalculator, costCalculator, operatorContext.getSession(), verbose);
         BlockBuilder builder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 1);
         VARCHAR.writeString(builder, plan);
 
@@ -171,7 +189,7 @@ public class ExplainAnalyzeOperator
                 TimeUnit.MILLISECONDS.sleep(100);
             }
             catch (InterruptedException e) {
-                throw Throwables.propagate(e);
+                throw new RuntimeException(e);
             }
         }
         return isFinalStageInfo(stageInfo);

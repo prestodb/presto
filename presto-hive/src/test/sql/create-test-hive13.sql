@@ -15,6 +15,7 @@ CREATE TABLE presto_test_types_textfile (
 , t_map MAP<STRING, STRING>
 , t_array_string ARRAY<STRING>
 , t_array_struct ARRAY<STRUCT<s_string: STRING, s_double:DOUBLE>>
+, t_struct STRUCT<s_string: STRING, s_double:DOUBLE>
 , t_complex MAP<INT, ARRAY<STRUCT<s_string: STRING, s_double:DOUBLE>>>
 )
 STORED AS TEXTFILE
@@ -40,6 +41,8 @@ SELECT
 , CASE WHEN n % 31 = 0 THEN NULL ELSE
      array(named_struct('s_string', 'test abc', 's_double', 0.1),
            named_struct('s_string' , 'test xyz', 's_double', 0.2)) END
+, CASE WHEN n % 31 = 0 THEN NULL ELSE
+     named_struct('s_string', 'test abc', 's_double', 0.1) END
 , CASE WHEN n % 33 = 0 THEN NULL ELSE
      map(1, array(named_struct('s_string', 'test abc', 's_double', 0.1),
                   named_struct('s_string' , 'test xyz', 's_double', 0.2))) END
@@ -82,7 +85,6 @@ SELECT * FROM presto_test_types_textfile
 ;
 
 
--- Parquet fails when trying to use complex nested types.
 -- Parquet is missing TIMESTAMP and BINARY.
 CREATE TABLE presto_test_types_parquet (
   t_string STRING
@@ -99,6 +101,8 @@ CREATE TABLE presto_test_types_parquet (
 , t_map MAP<STRING, STRING>
 , t_array_string ARRAY<STRING>
 , t_array_struct ARRAY<STRUCT<s_string: STRING, s_double:DOUBLE>>
+, t_struct STRUCT<s_string: STRING, s_double:DOUBLE>
+, t_complex MAP<INT, ARRAY<STRUCT<s_string: STRING, s_double:DOUBLE>>>
 )
 STORED AS PARQUET
 ;
@@ -119,6 +123,8 @@ SELECT
 , t_map
 , t_array_string
 , t_array_struct
+, t_struct
+, t_complex
 FROM presto_test_types_textfile
 ;
 

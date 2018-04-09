@@ -25,6 +25,9 @@ import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskState;
+import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.operator.DriverStats;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.TableFinishInfo;
@@ -45,7 +48,6 @@ import com.facebook.presto.spi.eventlistener.StageCpuDistribution;
 import com.facebook.presto.transaction.TransactionId;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
@@ -64,6 +66,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.cost.PlanNodeCostEstimate.UNKNOWN_COST;
+import static com.facebook.presto.cost.PlanNodeStatsEstimate.UNKNOWN_STATS;
+import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.textDistributedPlan;
 import static java.lang.Math.max;
 import static java.lang.Math.toIntExact;
 import static java.time.Duration.ofMillis;
@@ -80,7 +85,9 @@ public class QueryMonitor
     private final String serverVersion;
     private final String serverAddress;
     private final String environment;
-    private final QueryMonitorConfig config;
+    private final SessionPropertyManager sessionPropertyManager;
+    private final FunctionRegistry functionRegistry;
+    private final int maxJsonLimit;
 
     @Inject
     public QueryMonitor(
@@ -89,6 +96,8 @@ public class QueryMonitor
             EventListenerManager eventListenerManager,
             NodeInfo nodeInfo,
             NodeVersion nodeVersion,
+            SessionPropertyManager sessionPropertyManager,
+            Metadata metadata,
             QueryMonitorConfig config)
     {
         this.eventListenerManager = requireNonNull(eventListenerManager, "eventListenerManager is null");
@@ -97,7 +106,9 @@ public class QueryMonitor
         this.serverVersion = requireNonNull(nodeVersion, "nodeVersion is null").toString();
         this.serverAddress = requireNonNull(nodeInfo, "nodeInfo is null").getExternalAddress();
         this.environment = requireNonNull(nodeInfo, "nodeInfo is null").getEnvironment();
-        this.config = requireNonNull(config, "config is null");
+        this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
+        this.functionRegistry = requireNonNull(metadata, "metadata is null").getFunctionRegistry();
+        this.maxJsonLimit = toIntExact(requireNonNull(config, "config is null").getMaxOutputStageJsonSize().toBytes());
     }
 
     public void queryCreatedEvent(QueryInfo queryInfo)
@@ -111,6 +122,7 @@ public class QueryMonitor
                                 queryInfo.getSession().getRemoteUserAddress(),
                                 queryInfo.getSession().getUserAgent(),
                                 queryInfo.getSession().getClientInfo(),
+                                queryInfo.getSession().getClientTags(),
                                 queryInfo.getSession().getSource(),
                                 queryInfo.getSession().getCatalog(),
                                 queryInfo.getSession().getSchema(),
@@ -125,6 +137,7 @@ public class QueryMonitor
                                 queryInfo.getQuery(),
                                 queryInfo.getState().toString(),
                                 queryInfo.getSelf(),
+                                Optional.empty(),
                                 Optional.empty())));
     }
 
@@ -153,7 +166,7 @@ public class QueryMonitor
                         input.getSchema(),
                         input.getTable(),
                         input.getColumns().stream()
-                                .map(Column::toString).collect(Collectors.toList()),
+                                .map(Column::getName).collect(Collectors.toList()),
                         input.getConnectorInfo()));
             }
 
@@ -181,6 +194,24 @@ public class QueryMonitor
                 operatorSummaries.add(objectMapper.writeValueAsString(summary));
             }
 
+            Optional<String> plan = Optional.empty();
+            try {
+                if (queryInfo.getOutputStage().isPresent()) {
+                    // Stats and costs are suppress, since transaction is already completed
+                    plan = Optional.of(textDistributedPlan(
+                            queryInfo.getOutputStage().get(),
+                            functionRegistry,
+                            (node, sourceStats, lookup, session, types) -> UNKNOWN_STATS,
+                            (node, stats, lookup, session, types) -> UNKNOWN_COST,
+                            queryInfo.getSession().toSession(sessionPropertyManager),
+                            false));
+                }
+            }
+            catch (Exception e) {
+                // don't fail to create event if the plan can not be created
+                log.debug(e, "Error creating explain plan");
+            }
+
             eventListenerManager.queryCompleted(
                     new QueryCompletedEvent(
                             new QueryMetadata(
@@ -189,17 +220,25 @@ public class QueryMonitor
                                     queryInfo.getQuery(),
                                     queryInfo.getState().toString(),
                                     queryInfo.getSelf(),
-                                    queryInfo.getOutputStage().flatMap(stage -> stageInfoCodec.toJsonWithLengthLimit(stage, toIntExact(config.getMaxOutputStageJsonSize().toBytes())))),
+                                    plan,
+                                    queryInfo.getOutputStage().flatMap(stage -> stageInfoCodec.toJsonWithLengthLimit(stage, maxJsonLimit))),
                             new QueryStatistics(
                                     ofMillis(queryStats.getTotalCpuTime().toMillis()),
                                     ofMillis(queryStats.getTotalScheduledTime().toMillis()),
                                     ofMillis(queryStats.getQueuedTime().toMillis()),
                                     Optional.ofNullable(queryStats.getAnalysisTime()).map(duration -> ofMillis(duration.toMillis())),
                                     Optional.ofNullable(queryStats.getDistributedPlanningTime()).map(duration -> ofMillis(duration.toMillis())),
-                                    queryStats.getPeakMemoryReservation().toBytes(),
+                                    queryStats.getPeakUserMemoryReservation().toBytes(),
+                                    queryStats.getPeakTotalMemoryReservation().toBytes(),
+                                    queryStats.getPeakTaskTotalMemory().toBytes(),
                                     queryStats.getRawInputDataSize().toBytes(),
                                     queryStats.getRawInputPositions(),
-                                    queryStats.getCumulativeMemory(),
+                                    queryStats.getOutputDataSize().toBytes(),
+                                    queryStats.getOutputPositions(),
+                                    queryStats.getLogicalWrittenDataSize().toBytes(),
+                                    queryStats.getWrittenPositions(),
+                                    queryStats.getCumulativeUserMemory(),
+                                    queryStats.getStageGcStatistics(),
                                     queryStats.getCompletedDrivers(),
                                     queryInfo.isCompleteInfo(),
                                     getCpuDistributions(queryInfo),
@@ -210,6 +249,7 @@ public class QueryMonitor
                                     queryInfo.getSession().getRemoteUserAddress(),
                                     queryInfo.getSession().getUserAgent(),
                                     queryInfo.getSession().getClientInfo(),
+                                    queryInfo.getSession().getClientTags(),
                                     queryInfo.getSession().getSource(),
                                     queryInfo.getSession().getCatalog(),
                                     queryInfo.getSession().getSchema(),
@@ -227,7 +267,7 @@ public class QueryMonitor
             logQueryTimeline(queryInfo);
         }
         catch (JsonProcessingException e) {
-            throw Throwables.propagate(e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -367,7 +407,6 @@ public class QueryMonitor
                                     ofMillis(driverStats.getRawInputReadTime().toMillis()),
                                     driverStats.getRawInputPositions(),
                                     driverStats.getRawInputDataSize().toBytes(),
-                                    driverStats.getPeakMemoryReservation().toBytes(),
                                     timeToStart,
                                     timeToEnd),
                             splitFailureMetadata,

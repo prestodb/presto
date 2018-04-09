@@ -22,14 +22,12 @@ public class TestPrestoSystemRequirements
 {
     @Test
     public void testVerifyJvmRequirements()
-            throws Exception
     {
         verifyJvmRequirements();
     }
 
     @Test
     public void testSystemTimeSanityCheck()
-            throws Exception
     {
         verifySystemTimeIsReasonable();
     }

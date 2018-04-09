@@ -18,12 +18,15 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.util.function.BiConsumer;
 
+import static java.lang.String.format;
+
 public class SingleMapBlockWriter
         extends AbstractSingleMapBlock
         implements BlockBuilder
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleMapBlockWriter.class).instanceSize();
 
+    private final int offset;
     private final BlockBuilder keyBlockBuilder;
     private final BlockBuilder valueBlockBuilder;
     private final long initialBlockBuilderSize;
@@ -33,10 +36,28 @@ public class SingleMapBlockWriter
 
     SingleMapBlockWriter(int start, BlockBuilder keyBlockBuilder, BlockBuilder valueBlockBuilder)
     {
-        super(start, keyBlockBuilder, valueBlockBuilder);
+        this.offset = start;
         this.keyBlockBuilder = keyBlockBuilder;
         this.valueBlockBuilder = valueBlockBuilder;
         this.initialBlockBuilderSize = keyBlockBuilder.getSizeInBytes() + valueBlockBuilder.getSizeInBytes();
+    }
+
+    @Override
+    int getOffset()
+    {
+        return offset;
+    }
+
+    @Override
+    Block getKeyBlock()
+    {
+        return keyBlockBuilder;
+    }
+
+    @Override
+    Block getValueBlock()
+    {
+        return valueBlockBuilder;
     }
 
     @Override
@@ -203,9 +224,6 @@ public class SingleMapBlockWriter
     @Override
     public String toString()
     {
-        StringBuilder sb = new StringBuilder("SingleMapBlockWriter{");
-        sb.append("positionCount=").append(getPositionCount());
-        sb.append('}');
-        return sb.toString();
+        return format("SingleMapBlockWriter{positionCount=%d}", getPositionCount());
     }
 }

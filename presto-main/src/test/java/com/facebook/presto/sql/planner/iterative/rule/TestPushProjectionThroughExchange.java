@@ -32,7 +32,6 @@ public class TestPushProjectionThroughExchange
 {
     @Test
     public void testDoesNotFireNoExchange()
-            throws Exception
     {
         tester().assertThat(new PushProjectionThroughExchange())
                 .on(p ->
@@ -44,7 +43,6 @@ public class TestPushProjectionThroughExchange
 
     @Test
     public void testDoesNotFireNarrowingProjection()
-            throws Exception
     {
         tester().assertThat(new PushProjectionThroughExchange())
                 .on(p -> {
@@ -67,7 +65,6 @@ public class TestPushProjectionThroughExchange
 
     @Test
     public void testSimpleMultipleInputs()
-            throws Exception
     {
         tester().assertThat(new PushProjectionThroughExchange())
                 .on(p -> {
@@ -79,8 +76,7 @@ public class TestPushProjectionThroughExchange
                     return p.project(
                             Assignments.of(
                                     x, new LongLiteral("3"),
-                                    c2, new SymbolReference("c")
-                            ),
+                                    c2, new SymbolReference("c")),
                             p.exchange(e -> e
                                     .addSource(
                                             p.values(a))
@@ -93,14 +89,11 @@ public class TestPushProjectionThroughExchange
                 .matches(
                         exchange(
                                 project(
-                                        values(ImmutableList.of("a"))
-                                )
+                                        values(ImmutableList.of("a")))
                                         .withAlias("x1", expression("3")),
                                 project(
-                                        values(ImmutableList.of("b"))
-                                )
-                                        .withAlias("x2", expression("3"))
-                        )
+                                        values(ImmutableList.of("b")))
+                                        .withAlias("x2", expression("3")))
                                 // verify that data originally on symbols aliased as x1 and x2 is part of exchange output
                                 .withAlias("x1")
                                 .withAlias("x2"));
@@ -108,7 +101,6 @@ public class TestPushProjectionThroughExchange
 
     @Test
     public void testPartitioningColumnAndHashWithoutIdentityMappingInProjection()
-            throws Exception
     {
         tester().assertThat(new PushProjectionThroughExchange())
                 .on(p -> {
@@ -138,15 +130,13 @@ public class TestPushProjectionThroughExchange
                                 exchange(
                                         project(
                                                 values(
-                                                        ImmutableList.of("a", "b", "h")
-                                                )
+                                                        ImmutableList.of("a", "b", "h"))
                                         ).withNumberOfOutputColumns(5)
                                                 .withAlias("b", expression("b"))
                                                 .withAlias("h", expression("h"))
                                                 .withAlias("a_times_5", expression("a * 5"))
                                                 .withAlias("b_times_5", expression("b * 5"))
-                                                .withAlias("h_times_5", expression("h * 5"))
-                                )
+                                                .withAlias("h_times_5", expression("h * 5")))
                         ).withNumberOfOutputColumns(3)
                                 .withExactOutputs("a_times_5", "b_times_5", "h_times_5"));
     }

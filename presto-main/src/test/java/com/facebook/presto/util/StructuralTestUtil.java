@@ -18,7 +18,6 @@ import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.InterleavedBlockBuilder;
 import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.SqlDecimal;
@@ -59,12 +58,15 @@ public final class StructuralTestUtil
 
     public static Block mapBlockOf(Type keyType, Type valueType, Map<?, ?> value)
     {
-        BlockBuilder blockBuilder = new InterleavedBlockBuilder(ImmutableList.of(keyType, valueType), new BlockBuilderStatus(), value.size() * 2);
+        MapType mapType = mapType(keyType, valueType);
+        BlockBuilder mapArrayBuilder = mapType.createBlockBuilder(new BlockBuilderStatus(), 1);
+        BlockBuilder singleMapWriter = mapArrayBuilder.beginBlockEntry();
         for (Map.Entry<?, ?> entry : value.entrySet()) {
-            appendToBlockBuilder(keyType, entry.getKey(), blockBuilder);
-            appendToBlockBuilder(valueType, entry.getValue(), blockBuilder);
+            appendToBlockBuilder(keyType, entry.getKey(), singleMapWriter);
+            appendToBlockBuilder(valueType, entry.getValue(), singleMapWriter);
         }
-        return blockBuilder.build();
+        mapArrayBuilder.closeEntry();
+        return mapType.getObject(mapArrayBuilder, 0);
     }
 
     public static MapType mapType(Type keyType, Type valueType)

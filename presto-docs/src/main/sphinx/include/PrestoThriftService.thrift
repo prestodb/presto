@@ -73,7 +73,7 @@ struct PrestoThriftDouble {
  * Elements of {@code nulls} array determine if a value for a corresponding row is null.
  * Each elements of {@code sizes} array contains the length in bytes for the corresponding element.
  * If row is null then the corresponding element in {@code sizes} is ignored.
- * {@code bytes} array contains uft8 encoded byte values.
+ * {@code bytes} array contains UTF-8 encoded byte values.
  * Values for all rows are written to {@code bytes} array one after another.
  * The total number of bytes must be equal to the sum of all sizes.
  */
@@ -122,7 +122,7 @@ struct PrestoThriftTimestamp {
  * Elements of {@code nulls} array determine if a value for a corresponding row is null.
  * Each elements of {@code sizes} array contains the length in bytes for the corresponding element.
  * If row is null then the corresponding element in {@code sizes} is ignored.
- * {@code bytes} array contains uft8 encoded byte values for string representation of json.
+ * {@code bytes} array contains UTF-8 encoded byte values for string representation of json.
  * Values for all rows are written to {@code bytes} array one after another.
  * The total number of bytes must be equal to the sum of all sizes.
  */
@@ -175,6 +175,13 @@ struct PrestoThriftTableMetadata {
   1:  PrestoThriftSchemaTableName schemaTableName;
   2:  list<PrestoThriftColumnMetadata> columns;
   3: optional string comment;
+
+  /**
+   * Returns a list of key sets which can be used for index lookups.
+   * The list is expected to have only unique key sets.
+   * {@code set<set<string>>} is not used here because some languages (like php) don't support it.
+   */
+  4: optional list<set<string>> indexableKeys;
 }
 
 struct PrestoThriftBlock {
@@ -311,6 +318,21 @@ service PrestoThriftService {
    * @return a batch of splits
    */
   PrestoThriftSplitBatch prestoGetSplits(1:  PrestoThriftSchemaTableName schemaTableName, 2:  PrestoThriftNullableColumnSet desiredColumns, 3:  PrestoThriftTupleDomain outputConstraint, 4:  i32 maxSplitCount, 5:  PrestoThriftNullableToken nextToken) throws (1: PrestoThriftServiceException ex1);
+
+  /**
+   * Returns a batch of index splits for the given batch of keys.
+   * This method is called if index join strategy is chosen for a query.
+   * 
+   * @param schemaTableName schema and table name
+   * @param indexColumnNames specifies columns and their order for keys
+   * @param outputColumnNames a list of column names to return
+   * @param keys keys for which records need to be returned
+   * @param outputConstraint constraint on the returned data
+   * @param maxSplitCount maximum number of splits to return
+   * @param nextToken token from a previous split batch or {@literal null} if it is the first call
+   * @return a batch of splits
+   */
+  PrestoThriftSplitBatch prestoGetIndexSplits(1:  PrestoThriftSchemaTableName schemaTableName, 2:  list<string> indexColumnNames, 3:  list<string> outputColumnNames, 4:  PrestoThriftPageResult keys, 5:  PrestoThriftTupleDomain outputConstraint, 6:  i32 maxSplitCount, 7:  PrestoThriftNullableToken nextToken) throws (1: PrestoThriftServiceException ex1);
 
   /**
    * Returns a batch of rows for the given split.

@@ -16,6 +16,7 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
@@ -24,6 +25,7 @@ import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
+import com.facebook.presto.sql.gen.PageFunctionCompiler;
 import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.google.common.collect.ImmutableList;
@@ -70,10 +72,9 @@ public class BenchmarkJsonToArrayCast
 
     @Benchmark
     @OperationsPerInvocation(POSITION_COUNT)
-    public List<Page> benchmark(BenchmarkData data)
-            throws Throwable
+    public List<Optional<Page>> benchmark(BenchmarkData data)
     {
-        return ImmutableList.copyOf(data.getPageProcessor().process(SESSION, data.getPage()));
+        return ImmutableList.copyOf(data.getPageProcessor().process(SESSION, new DriverYieldSignal(), data.getPage()));
     }
 
     @SuppressWarnings("FieldMayBeFinal")
@@ -109,7 +110,8 @@ public class BenchmarkJsonToArrayCast
             List<RowExpression> projections = ImmutableList.of(
                     new CallExpression(signature, new ArrayType(elementType), ImmutableList.of(field(0, JSON))));
 
-            pageProcessor = new ExpressionCompiler(MetadataManager.createTestMetadataManager())
+            MetadataManager metadata = MetadataManager.createTestMetadataManager();
+            pageProcessor = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0))
                     .compilePageProcessor(Optional.empty(), projections)
                     .get();
 
@@ -174,7 +176,6 @@ public class BenchmarkJsonToArrayCast
 
     @Test
     public void verify()
-            throws Throwable
     {
         BenchmarkData data = new BenchmarkData();
         data.setup();

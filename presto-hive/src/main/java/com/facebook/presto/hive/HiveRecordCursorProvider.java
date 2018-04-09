@@ -28,7 +28,6 @@ import java.util.Properties;
 public interface HiveRecordCursorProvider
 {
     Optional<RecordCursor> createRecordCursor(
-            String clientId,
             Configuration configuration,
             ConnectorSession session,
             Path path,

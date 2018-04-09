@@ -113,51 +113,25 @@ public class CachingHiveMetastore
         requireNonNull(executor, "executor is null");
 
         databaseNamesCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize)
-                .build(asyncReloading(new CacheLoader<String, List<String>>()
-                {
-                    @Override
-                    public List<String> load(String key)
-                            throws Exception
-                    {
-                        return loadAllDatabases();
-                    }
-                }, executor));
+                .build(asyncReloading(CacheLoader.from(this::loadAllDatabases), executor));
 
         databaseCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize)
-                .build(asyncReloading(new CacheLoader<String, Optional<Database>>()
-                {
-                    @Override
-                    public Optional<Database> load(String databaseName)
-                            throws Exception
-                    {
-                        return loadDatabase(databaseName);
-                    }
-                }, executor));
+                .build(asyncReloading(CacheLoader.from(this::loadDatabase), executor));
 
         tableNamesCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize)
-                .build(asyncReloading(new CacheLoader<String, Optional<List<String>>>()
-                {
-                    @Override
-                    public Optional<List<String>> load(String databaseName)
-                            throws Exception
-                    {
-                        return loadAllTables(databaseName);
-                    }
-                }, executor));
+                .build(asyncReloading(CacheLoader.from(this::loadAllTables), executor));
 
         tableColumnStatisticsCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize)
                 .build(asyncReloading(new CacheLoader<TableColumnStatisticsCacheKey, Optional<HiveColumnStatistics>>()
                 {
                     @Override
                     public Optional<HiveColumnStatistics> load(TableColumnStatisticsCacheKey key)
-                            throws Exception
                     {
                         return loadAll(ImmutableList.of(key)).get(key);
                     }
 
                     @Override
                     public Map<TableColumnStatisticsCacheKey, Optional<HiveColumnStatistics>> loadAll(Iterable<? extends TableColumnStatisticsCacheKey> keys)
-                            throws Exception
                     {
                         return loadColumnStatistics(keys);
                     }
@@ -168,102 +142,50 @@ public class CachingHiveMetastore
                 {
                     @Override
                     public Optional<HiveColumnStatistics> load(PartitionColumnStatisticsCacheKey key)
-                            throws Exception
                     {
                         return loadAll(ImmutableList.of(key)).get(key);
                     }
 
                     @Override
                     public Map<PartitionColumnStatisticsCacheKey, Optional<HiveColumnStatistics>> loadAll(Iterable<? extends PartitionColumnStatisticsCacheKey> keys)
-                            throws Exception
                     {
                         return loadPartitionColumnStatistics(keys);
                     }
                 }, executor));
 
         tableCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize)
-                .build(asyncReloading(new CacheLoader<HiveTableName, Optional<Table>>()
-                {
-                    @Override
-                    public Optional<Table> load(HiveTableName hiveTableName)
-                            throws Exception
-                    {
-                        return loadTable(hiveTableName);
-                    }
-                }, executor));
+                .build(asyncReloading(CacheLoader.from(this::loadTable), executor));
 
         viewNamesCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize)
-                .build(asyncReloading(new CacheLoader<String, Optional<List<String>>>()
-                {
-                    @Override
-                    public Optional<List<String>> load(String databaseName)
-                            throws Exception
-                    {
-                        return loadAllViews(databaseName);
-                    }
-                }, executor));
+                .build(asyncReloading(CacheLoader.from(this::loadAllViews), executor));
 
         partitionNamesCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize)
-                .build(asyncReloading(new CacheLoader<HiveTableName, Optional<List<String>>>()
-                {
-                    @Override
-                    public Optional<List<String>> load(HiveTableName hiveTableName)
-                            throws Exception
-                    {
-                        return loadPartitionNames(hiveTableName);
-                    }
-                }, executor));
+                .build(asyncReloading(CacheLoader.from(this::loadPartitionNames), executor));
 
         partitionFilterCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize)
-                .build(asyncReloading(new CacheLoader<PartitionFilter, Optional<List<String>>>()
-                {
-                    @Override
-                    public Optional<List<String>> load(PartitionFilter partitionFilter)
-                            throws Exception
-                    {
-                        return loadPartitionNamesByParts(partitionFilter);
-                    }
-                }, executor));
+                .build(asyncReloading(CacheLoader.from(this::loadPartitionNamesByParts), executor));
 
         partitionCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize)
                 .build(asyncReloading(new CacheLoader<HivePartitionName, Optional<Partition>>()
                 {
                     @Override
                     public Optional<Partition> load(HivePartitionName partitionName)
-                            throws Exception
                     {
                         return loadPartitionByName(partitionName);
                     }
 
                     @Override
                     public Map<HivePartitionName, Optional<Partition>> loadAll(Iterable<? extends HivePartitionName> partitionNames)
-                            throws Exception
                     {
                         return loadPartitionsByNames(partitionNames);
                     }
                 }, executor));
 
         userRolesCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize)
-                .build(asyncReloading(new CacheLoader<String, Set<String>>()
-                {
-                    @Override
-                    public Set<String> load(String user)
-                            throws Exception
-                    {
-                        return loadRoles(user);
-                    }
-                }, executor));
+                .build(asyncReloading(CacheLoader.from(this::loadRoles), executor));
 
         userTablePrivileges = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize)
-                .build(asyncReloading(new CacheLoader<UserTableKey, Set<HivePrivilegeInfo>>()
-                {
-                    @Override
-                    public Set<HivePrivilegeInfo> load(UserTableKey key)
-                            throws Exception
-                    {
-                        return loadTablePrivileges(key.getUser(), key.getDatabase(), key.getTable());
-                    }
-                }, executor));
+                .build(asyncReloading(CacheLoader.from(key -> loadTablePrivileges(key.getUser(), key.getDatabase(), key.getTable())), executor));
     }
 
     @Managed
@@ -307,7 +229,6 @@ public class CachingHiveMetastore
     }
 
     private Optional<Database> loadDatabase(String databaseName)
-            throws Exception
     {
         return delegate.getDatabase(databaseName);
     }
@@ -319,7 +240,6 @@ public class CachingHiveMetastore
     }
 
     private List<String> loadAllDatabases()
-            throws Exception
     {
         return delegate.getAllDatabases();
     }
@@ -331,7 +251,6 @@ public class CachingHiveMetastore
     }
 
     private Optional<Table> loadTable(HiveTableName hiveTableName)
-            throws Exception
     {
         return delegate.getTable(hiveTableName.getDatabaseName(), hiveTableName.getTableName());
     }
@@ -440,7 +359,6 @@ public class CachingHiveMetastore
     }
 
     private Optional<List<String>> loadAllTables(String databaseName)
-            throws Exception
     {
         return delegate.getAllTables(databaseName);
     }
@@ -452,7 +370,6 @@ public class CachingHiveMetastore
     }
 
     private Optional<List<String>> loadAllViews(String databaseName)
-            throws Exception
     {
         return delegate.getAllViews(databaseName);
     }
@@ -601,7 +518,6 @@ public class CachingHiveMetastore
     }
 
     private Optional<List<String>> loadPartitionNames(HiveTableName hiveTableName)
-            throws Exception
     {
         return delegate.getPartitionNames(hiveTableName.getDatabaseName(), hiveTableName.getTableName());
     }
@@ -613,7 +529,6 @@ public class CachingHiveMetastore
     }
 
     private Optional<List<String>> loadPartitionNamesByParts(PartitionFilter partitionFilter)
-            throws Exception
     {
         return delegate.getPartitionNamesByParts(
                 partitionFilter.getHiveTableName().getDatabaseName(),
@@ -635,7 +550,6 @@ public class CachingHiveMetastore
     }
 
     private Optional<Partition> loadPartitionByName(HivePartitionName partitionName)
-            throws Exception
     {
         return delegate.getPartition(
                 partitionName.getHiveTableName().getDatabaseName(),
@@ -644,7 +558,6 @@ public class CachingHiveMetastore
     }
 
     private Map<HivePartitionName, Optional<Partition>> loadPartitionsByNames(Iterable<? extends HivePartitionName> partitionNames)
-            throws Exception
     {
         requireNonNull(partitionNames, "partitionNames is null");
         checkArgument(!Iterables.isEmpty(partitionNames), "partitionNames is empty");
@@ -722,7 +635,6 @@ public class CachingHiveMetastore
     }
 
     private Set<String> loadRoles(String user)
-            throws Exception
     {
         return delegate.getRoles(user);
     }

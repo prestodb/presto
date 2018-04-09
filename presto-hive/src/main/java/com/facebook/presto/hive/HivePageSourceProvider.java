@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.HdfsEnvironment.HdfsContext;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
@@ -87,8 +88,7 @@ public class HivePageSourceProvider
         Optional<ConnectorPageSource> pageSource = createHivePageSource(
                 cursorProviders,
                 pageSourceFactories,
-                hiveSplit.getClientId(),
-                hdfsEnvironment.getConfiguration(path),
+                hdfsEnvironment.getConfiguration(new HdfsContext(session, hiveSplit.getDatabase(), hiveSplit.getTable()), path),
                 session,
                 path,
                 hiveSplit.getBucketNumber(),
@@ -111,7 +111,6 @@ public class HivePageSourceProvider
     public static Optional<ConnectorPageSource> createHivePageSource(
             Set<HiveRecordCursorProvider> cursorProviders,
             Set<HivePageSourceFactory> pageSourceFactories,
-            String clientId,
             Configuration configuration,
             ConnectorSession session,
             Path path,
@@ -141,8 +140,7 @@ public class HivePageSourceProvider
                     schema,
                     extractRegularColumnHandles(regularColumnMappings, true),
                     effectivePredicate,
-                    hiveStorageTimeZone
-            );
+                    hiveStorageTimeZone);
             if (pageSource.isPresent()) {
                 return Optional.of(
                         new HivePageSource(
@@ -158,7 +156,6 @@ public class HivePageSourceProvider
             boolean doCoercion = !(provider instanceof GenericHiveRecordCursorProvider);
 
             Optional<RecordCursor> cursor = provider.createRecordCursor(
-                    clientId,
                     configuration,
                     session,
                     path,
@@ -298,7 +295,7 @@ public class HivePageSourceProvider
                         if (!doCoercion || !columnMapping.getCoercionFrom().isPresent()) {
                             return columnHandle;
                         }
-                        return new HiveColumnHandle(columnHandle.getClientId(),
+                        return new HiveColumnHandle(
                                 columnHandle.getName(),
                                 columnMapping.getCoercionFrom().get(),
                                 columnMapping.getCoercionFrom().get().getTypeSignature(),

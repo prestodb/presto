@@ -13,46 +13,42 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.FilterNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.Expression;
 
-import java.util.Optional;
-
+import static com.facebook.presto.sql.planner.plan.Patterns.filter;
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static java.util.Collections.emptyList;
-import static java.util.Optional.empty;
 
 public class RemoveTrivialFilters
-        implements Rule
+        implements Rule<FilterNode>
 {
-    private static final Pattern PATTERN = Pattern.typeOf(FilterNode.class);
+    private static final Pattern<FilterNode> PATTERN = filter();
 
     @Override
-    public Pattern getPattern()
+    public Pattern<FilterNode> getPattern()
     {
         return PATTERN;
     }
 
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Context context)
+    public Result apply(FilterNode filterNode, Captures captures, Context context)
     {
-        FilterNode filterNode = (FilterNode) node;
-
         Expression predicate = filterNode.getPredicate();
 
         if (predicate.equals(TRUE_LITERAL)) {
-            return Optional.of(filterNode.getSource());
+            return Result.ofPlanNode(filterNode.getSource());
         }
 
         if (predicate.equals(FALSE_LITERAL)) {
-            return Optional.of(new ValuesNode(context.getIdAllocator().getNextId(), filterNode.getOutputSymbols(), emptyList()));
+            return Result.ofPlanNode(new ValuesNode(context.getIdAllocator().getNextId(), filterNode.getOutputSymbols(), emptyList()));
         }
 
-        return empty();
+        return Result.empty();
     }
 }

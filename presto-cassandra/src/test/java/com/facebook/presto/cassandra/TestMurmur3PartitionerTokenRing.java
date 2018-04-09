@@ -27,7 +27,6 @@ public class TestMurmur3PartitionerTokenRing
 
     @Test
     public void testGetTokenCountInRange()
-            throws Exception
     {
         assertEquals(tokenRing.getTokenCountInRange("0", "1"), ONE);
         assertEquals(tokenRing.getTokenCountInRange("-1", "1"), new BigInteger("2"));
@@ -42,7 +41,6 @@ public class TestMurmur3PartitionerTokenRing
 
     @Test
     public void testGetRingFraction()
-            throws Exception
     {
         assertEquals(tokenRing.getRingFraction("1", "1"), 0.0, 0.001);
         assertEquals(tokenRing.getRingFraction("1", "0"), 1.0, 0.001);

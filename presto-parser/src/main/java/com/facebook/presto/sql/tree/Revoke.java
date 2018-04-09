@@ -29,19 +29,19 @@ public class Revoke
     private final Optional<List<String>> privileges; // missing means ALL PRIVILEGES
     private final boolean table;
     private final QualifiedName tableName;
-    private final String grantee;
+    private final Identifier grantee;
 
-    public Revoke(boolean grantOptionFor, Optional<List<String>> privileges, boolean table, QualifiedName tableName, String grantee)
+    public Revoke(boolean grantOptionFor, Optional<List<String>> privileges, boolean table, QualifiedName tableName, Identifier grantee)
     {
         this(Optional.empty(), grantOptionFor, privileges, table, tableName, grantee);
     }
 
-    public Revoke(NodeLocation location, boolean grantOptionFor, Optional<List<String>> privileges, boolean table, QualifiedName tableName, String grantee)
+    public Revoke(NodeLocation location, boolean grantOptionFor, Optional<List<String>> privileges, boolean table, QualifiedName tableName, Identifier grantee)
     {
         this(Optional.of(location), grantOptionFor, privileges, table, tableName, grantee);
     }
 
-    private Revoke(Optional<NodeLocation> location, boolean grantOptionFor, Optional<List<String>> privileges, boolean table, QualifiedName tableName, String grantee)
+    private Revoke(Optional<NodeLocation> location, boolean grantOptionFor, Optional<List<String>> privileges, boolean table, QualifiedName tableName, Identifier grantee)
     {
         super(location);
         this.grantOptionFor = grantOptionFor;
@@ -72,7 +72,7 @@ public class Revoke
         return tableName;
     }
 
-    public String getGrantee()
+    public Identifier getGrantee()
     {
         return grantee;
     }

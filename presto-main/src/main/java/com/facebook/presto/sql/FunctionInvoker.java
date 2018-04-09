@@ -16,6 +16,7 @@ package com.facebook.presto.sql;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
+import com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty;
 import com.facebook.presto.spi.ConnectorSession;
 import com.google.common.base.Defaults;
 import com.google.common.base.Throwables;
@@ -24,8 +25,9 @@ import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentType.VALUE_TYPE;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_NULL_FLAG;
 import static java.lang.invoke.MethodHandleProxies.asInterfaceInstance;
 import static java.util.Objects.requireNonNull;
 
@@ -62,19 +64,22 @@ public class FunctionInvoker
         List<Object> actualArguments = new ArrayList<>();
         for (int i = 0; i < arguments.size(); i++) {
             Object argument = arguments.get(i);
-            Optional<Class> lambdaArgument = implementation.getLambdaInterface().get(i);
-            if (lambdaArgument.isPresent() && !MethodHandle.class.equals(lambdaArgument.get())) {
-                argument = asInterfaceInstance(lambdaArgument.get(), (MethodHandle) argument);
-            }
-            if (implementation.getNullFlags().get(i)) {
-                boolean isNull = argument == null;
-                if (isNull) {
-                    argument = Defaults.defaultValue(method.type().parameterType(actualArguments.size()));
+            ArgumentProperty argumentProperty = implementation.getArgumentProperty(i);
+            if (argumentProperty.getArgumentType() == VALUE_TYPE) {
+                if (implementation.getArgumentProperty(i).getNullConvention() == USE_NULL_FLAG) {
+                    boolean isNull = argument == null;
+                    if (isNull) {
+                        argument = Defaults.defaultValue(method.type().parameterType(actualArguments.size()));
+                    }
+                    actualArguments.add(argument);
+                    actualArguments.add(isNull);
                 }
-                actualArguments.add(argument);
-                actualArguments.add(isNull);
+                else {
+                    actualArguments.add(argument);
+                }
             }
             else {
+                argument = asInterfaceInstance(argumentProperty.getLambdaInterface(), (MethodHandle) argument);
                 actualArguments.add(argument);
             }
         }

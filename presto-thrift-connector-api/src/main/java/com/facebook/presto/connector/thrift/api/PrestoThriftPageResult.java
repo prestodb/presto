@@ -14,17 +14,22 @@
 package com.facebook.presto.connector.thrift.api;
 
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.RecordCursor;
+import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.swift.codec.ThriftConstructor;
 import com.facebook.swift.codec.ThriftField;
 import com.facebook.swift.codec.ThriftStruct;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nullable;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
+import static com.facebook.presto.connector.thrift.api.PrestoThriftBlock.fromRecordSetColumn;
 import static com.facebook.swift.codec.ThriftField.Requiredness.OPTIONAL;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -120,6 +125,21 @@ public final class PrestoThriftPageResult
                 .toString();
     }
 
+    public static PrestoThriftPageResult fromRecordSet(RecordSet recordSet)
+    {
+        List<Type> types = recordSet.getColumnTypes();
+        int numberOfColumns = types.size();
+        int positions = totalRecords(recordSet);
+        if (numberOfColumns == 0) {
+            return new PrestoThriftPageResult(ImmutableList.of(), positions, null);
+        }
+        List<PrestoThriftBlock> thriftBlocks = new ArrayList<>(numberOfColumns);
+        for (int columnIndex = 0; columnIndex < numberOfColumns; columnIndex++) {
+            thriftBlocks.add(fromRecordSetColumn(recordSet, columnIndex, positions));
+        }
+        return new PrestoThriftPageResult(thriftBlocks, positions, null);
+    }
+
     private static void checkAllColumnsAreOfExpectedSize(List<PrestoThriftBlock> columnBlocks, int expectedNumberOfRows)
     {
         for (int i = 0; i < columnBlocks.size(); i++) {
@@ -127,5 +147,15 @@ public final class PrestoThriftPageResult
                     "Incorrect number of records for column with index %s: expected %s, got %s",
                     i, expectedNumberOfRows, columnBlocks.get(i).numberOfRecords());
         }
+    }
+
+    private static int totalRecords(RecordSet recordSet)
+    {
+        RecordCursor cursor = recordSet.cursor();
+        int result = 0;
+        while (cursor.advanceNextPosition()) {
+            result++;
+        }
+        return result;
     }
 }

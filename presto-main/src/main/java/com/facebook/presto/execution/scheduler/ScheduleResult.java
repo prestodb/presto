@@ -28,8 +28,30 @@ public class ScheduleResult
 {
     public enum BlockedReason
     {
+        WRITER_SCALING,
+        NO_ACTIVE_DRIVER_GROUP,
         SPLIT_QUEUES_FULL,
-        WAITING_FOR_SOURCE
+        WAITING_FOR_SOURCE,
+        MIXED_SPLIT_QUEUES_FULL_AND_WAITING_FOR_SOURCE,
+        /**/;
+
+        public BlockedReason combineWith(BlockedReason other)
+        {
+            switch (this) {
+                case WRITER_SCALING:
+                    throw new IllegalArgumentException("cannot be combined");
+                case NO_ACTIVE_DRIVER_GROUP:
+                    return other;
+                case SPLIT_QUEUES_FULL:
+                    return other == SPLIT_QUEUES_FULL || other == NO_ACTIVE_DRIVER_GROUP ? SPLIT_QUEUES_FULL : MIXED_SPLIT_QUEUES_FULL_AND_WAITING_FOR_SOURCE;
+                case WAITING_FOR_SOURCE:
+                    return other == WAITING_FOR_SOURCE || other == NO_ACTIVE_DRIVER_GROUP ? WAITING_FOR_SOURCE : MIXED_SPLIT_QUEUES_FULL_AND_WAITING_FOR_SOURCE;
+                case MIXED_SPLIT_QUEUES_FULL_AND_WAITING_FOR_SOURCE:
+                    return MIXED_SPLIT_QUEUES_FULL_AND_WAITING_FOR_SOURCE;
+                default:
+                    throw new IllegalArgumentException("Unknown blocked reason: " + other);
+            }
+        }
     }
 
     private final Set<RemoteTask> newTasks;

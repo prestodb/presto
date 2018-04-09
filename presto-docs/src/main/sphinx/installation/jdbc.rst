@@ -77,6 +77,9 @@ Name                              Description
 ``socksProxy``                    SOCKS proxy host and port. Example: ``localhost:1080``
 ``httpProxy``                     HTTP proxy host and port. Example: ``localhost:8888``
 ``SSL``                           Use HTTPS for connections
+``SSLKeyStorePath``               The location of the Java KeyStore file that contains the certificate
+                                  and private key to use for authentication.
+``SSLKeyStorePassword``           The password for the KeyStore.
 ``SSLTrustStorePath``             The location of the Java TrustStore file that will be used
                                   to validate HTTPS server certificates.
 ``SSLTrustStorePassword``         The password for the TrustStore.

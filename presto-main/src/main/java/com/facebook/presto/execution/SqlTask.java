@@ -22,6 +22,8 @@ import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.execution.buffer.LazyOutputBuffer;
 import com.facebook.presto.execution.buffer.OutputBuffer;
 import com.facebook.presto.memory.QueryContext;
+import com.facebook.presto.operator.PipelineContext;
+import com.facebook.presto.operator.PipelineStatus;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.sql.planner.PlanFragment;
@@ -34,6 +36,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.SetThreadName;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;
@@ -52,7 +55,10 @@ import static com.facebook.presto.util.Failures.toFailures;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.airlift.units.DataSize.succinctBytes;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class SqlTask
 {
@@ -61,6 +67,7 @@ public class SqlTask
     private final TaskId taskId;
     private final String taskInstanceId;
     private final URI location;
+    private final String nodeId;
     private final TaskStateMachine taskStateMachine;
     private final OutputBuffer outputBuffer;
     private final QueryContext queryContext;
@@ -76,6 +83,7 @@ public class SqlTask
     public SqlTask(
             TaskId taskId,
             URI location,
+            String nodeId,
             QueryContext queryContext,
             SqlTaskExecutionFactory sqlTaskExecutionFactory,
             ExecutorService taskNotificationExecutor,
@@ -85,13 +93,21 @@ public class SqlTask
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.taskInstanceId = UUID.randomUUID().toString();
         this.location = requireNonNull(location, "location is null");
+        this.nodeId = requireNonNull(nodeId, "nodeId is null");
         this.queryContext = requireNonNull(queryContext, "queryContext is null");
         this.sqlTaskExecutionFactory = requireNonNull(sqlTaskExecutionFactory, "sqlTaskExecutionFactory is null");
         requireNonNull(taskNotificationExecutor, "taskNotificationExecutor is null");
         requireNonNull(onDone, "onDone is null");
         requireNonNull(maxBufferSize, "maxBufferSize is null");
 
-        outputBuffer = new LazyOutputBuffer(taskId, taskInstanceId, taskNotificationExecutor, maxBufferSize, new UpdateSystemMemory(queryContext));
+        outputBuffer = new LazyOutputBuffer(
+                taskId,
+                taskInstanceId,
+                taskNotificationExecutor,
+                maxBufferSize,
+                // Pass a memory context supplier instead of a memory context to the output buffer,
+                // because we haven't created the task context that holds the the memory context yet.
+                () -> queryContext.getTaskContextByTaskId(taskId).localSystemMemoryContext());
         taskStateMachine = new TaskStateMachine(taskId, taskNotificationExecutor);
         taskStateMachine.addStateChangeListener(new StateChangeListener<TaskState>()
         {
@@ -135,26 +151,9 @@ public class SqlTask
         });
     }
 
-    private static final class UpdateSystemMemory
-            implements SystemMemoryUsageListener
+    public boolean isOutputBufferOverutilized()
     {
-        private final QueryContext queryContext;
-
-        public UpdateSystemMemory(QueryContext queryContext)
-        {
-            this.queryContext = requireNonNull(queryContext, "queryContext is null");
-        }
-
-        @Override
-        public void updateSystemMemoryUsage(long deltaMemoryInBytes)
-        {
-            if (deltaMemoryInBytes > 0) {
-                queryContext.reserveSystemMemory(deltaMemoryInBytes);
-            }
-            else {
-                queryContext.freeSystemMemory(-deltaMemoryInBytes);
-            }
-        }
+        return outputBuffer.isOverutilized();
     }
 
     public SqlTaskIoStats getIoStats()
@@ -203,16 +202,58 @@ public class SqlTask
             failures = toFailures(taskStateMachine.getFailureCauses());
         }
 
-        TaskStats taskStats = getTaskStats(taskHolder);
+        int queuedPartitionedDrivers = 0;
+        int runningPartitionedDrivers = 0;
+        DataSize physicalWrittenDataSize = new DataSize(0, BYTE);
+        DataSize userMemoryReservation = new DataSize(0, BYTE);
+        DataSize systemMemoryReservation = new DataSize(0, BYTE);
+        // TODO: add a mechanism to avoid sending the whole completedDriverGroups set over the wire for every task status reply
+        Set<Lifespan> completedDriverGroups = ImmutableSet.of();
+        long fullGcCount = 0;
+        Duration fullGcTime = new Duration(0, MILLISECONDS);
+        if (taskHolder.getFinalTaskInfo() != null) {
+            TaskStats taskStats = taskHolder.getFinalTaskInfo().getStats();
+            queuedPartitionedDrivers = taskStats.getQueuedPartitionedDrivers();
+            runningPartitionedDrivers = taskStats.getRunningPartitionedDrivers();
+            physicalWrittenDataSize = taskStats.getPhysicalWrittenDataSize();
+            userMemoryReservation = taskStats.getUserMemoryReservation();
+            systemMemoryReservation = taskStats.getSystemMemoryReservation();
+            fullGcCount = taskStats.getFullGcCount();
+            fullGcTime = taskStats.getFullGcTime();
+        }
+        else if (taskHolder.getTaskExecution() != null) {
+            long physicalWrittenBytes = 0;
+            TaskContext taskContext = taskHolder.getTaskExecution().getTaskContext();
+            for (PipelineContext pipelineContext : taskContext.getPipelineContexts()) {
+                PipelineStatus pipelineStatus = pipelineContext.getPipelineStatus();
+                queuedPartitionedDrivers += pipelineStatus.getQueuedPartitionedDrivers();
+                runningPartitionedDrivers += pipelineStatus.getRunningPartitionedDrivers();
+                physicalWrittenBytes += pipelineContext.getPhysicalWrittenDataSize();
+            }
+            physicalWrittenDataSize = succinctBytes(physicalWrittenBytes);
+            userMemoryReservation = taskContext.getMemoryReservation();
+            systemMemoryReservation = taskContext.getSystemMemoryReservation();
+            completedDriverGroups = taskContext.getCompletedDriverGroups();
+            fullGcCount = taskContext.getFullGcCount();
+            fullGcTime = taskContext.getFullGcTime();
+        }
+
         return new TaskStatus(taskStateMachine.getTaskId(),
                 taskInstanceId,
                 versionNumber,
                 state,
                 location,
+                nodeId,
+                completedDriverGroups,
                 failures,
-                taskStats.getQueuedPartitionedDrivers(),
-                taskStats.getRunningPartitionedDrivers(),
-                taskStats.getMemoryReservation());
+                queuedPartitionedDrivers,
+                runningPartitionedDrivers,
+                isOutputBufferOverutilized(),
+                physicalWrittenDataSize,
+                userMemoryReservation,
+                systemMemoryReservation,
+                fullGcCount,
+                fullGcTime);
     }
 
     private TaskStats getTaskStats(TaskHolder taskHolder)
@@ -264,11 +305,11 @@ public class SqlTask
         requireNonNull(callersCurrentState, "callersCurrentState is null");
 
         if (callersCurrentState.isDone()) {
-            return immediateFuture(getTaskInfo().getTaskStatus());
+            return immediateFuture(getTaskStatus());
         }
 
         ListenableFuture<TaskState> futureTaskState = taskStateMachine.getStateChange(callersCurrentState);
-        return Futures.transform(futureTaskState, input -> getTaskInfo().getTaskStatus());
+        return Futures.transform(futureTaskState, input -> getTaskStatus());
     }
 
     public ListenableFuture<TaskInfo> getTaskInfo(TaskState callersCurrentState)
@@ -333,6 +374,13 @@ public class SqlTask
         checkArgument(maxSize.toBytes() > 0, "maxSize must be at least 1 byte");
 
         return outputBuffer.get(bufferId, startingSequenceId, maxSize);
+    }
+
+    public void acknowledgeTaskResults(OutputBufferId bufferId, long sequenceId)
+    {
+        requireNonNull(bufferId, "bufferId is null");
+
+        outputBuffer.acknowledge(bufferId, sequenceId);
     }
 
     public TaskInfo abortTaskResults(OutputBufferId bufferId)
@@ -433,5 +481,10 @@ public class SqlTask
     public void addStateChangeListener(StateChangeListener<TaskState> stateChangeListener)
     {
         taskStateMachine.addStateChangeListener(stateChangeListener);
+    }
+
+    public QueryContext getQueryContext()
+    {
+        return queryContext;
     }
 }

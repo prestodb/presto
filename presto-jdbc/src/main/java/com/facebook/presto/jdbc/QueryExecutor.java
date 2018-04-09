@@ -25,6 +25,7 @@ import okhttp3.Request;
 
 import java.net.URI;
 
+import static com.facebook.presto.client.StatementClientFactory.newStatementClient;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -42,7 +43,7 @@ class QueryExecutor
 
     public StatementClient startQuery(ClientSession session, String query)
     {
-        return new StatementClient(httpClient, session, query);
+        return newStatementClient(httpClient, session, query);
     }
 
     public ServerInfo getServerInfo(URI server)

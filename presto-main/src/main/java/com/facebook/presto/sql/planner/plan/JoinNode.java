@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
+import com.facebook.presto.sql.planner.SortExpressionContext;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.ComparisonExpressionType;
@@ -25,6 +26,7 @@ import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -32,6 +34,7 @@ import java.util.stream.Stream;
 
 import static com.facebook.presto.sql.planner.SortExpressionExtractor.extractSortExpression;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
+import static com.facebook.presto.util.SpatialJoinUtils.isSpatialJoinFilter;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
@@ -93,7 +96,7 @@ public class JoinNode
                 .addAll(left.getOutputSymbols())
                 .addAll(right.getOutputSymbols())
                 .build();
-        checkArgument(inputSymbols.containsAll(outputSymbols), "Left and right join inputs do not contain all output symbols");
+        checkArgument(new HashSet<>(inputSymbols).containsAll(outputSymbols), "Left and right join inputs do not contain all output symbols");
         checkArgument(!isCrossJoin() || inputSymbols.equals(outputSymbols), "Cross join does not support output symbols pruning or reordering");
 
         checkArgument(!(criteria.isEmpty() && leftHashSymbol.isPresent()), "Left hash symbol is only valid in an equijoin");
@@ -175,9 +178,10 @@ public class JoinNode
         return filter;
     }
 
-    public Optional<Expression> getSortExpression()
+    public Optional<SortExpressionContext> getSortExpressionContext()
     {
-        return filter.map(filter -> extractSortExpression(ImmutableSet.copyOf(right.getOutputSymbols()), filter).orElse(null));
+        return filter
+                .flatMap(filter -> extractSortExpression(ImmutableSet.copyOf(right.getOutputSymbols()), filter));
     }
 
     @JsonProperty("leftHashSymbol")
@@ -230,9 +234,19 @@ public class JoinNode
         return new JoinNode(getId(), type, newLeft, newRight, criteria, newOutputSymbols, filter, leftHashSymbol, rightHashSymbol, distributionType);
     }
 
+    public JoinNode withDistributionType(DistributionType distributionType)
+    {
+        return new JoinNode(getId(), type, left, right, criteria, outputSymbols, filter, leftHashSymbol, rightHashSymbol, Optional.of(distributionType));
+    }
+
     public boolean isCrossJoin()
     {
         return criteria.isEmpty() && !filter.isPresent() && type == INNER;
+    }
+
+    public boolean isSpatialJoin()
+    {
+        return type == INNER && criteria.isEmpty() && filter.isPresent() && isSpatialJoinFilter(left, right, filter.get());
     }
 
     public static class EquiJoinClause

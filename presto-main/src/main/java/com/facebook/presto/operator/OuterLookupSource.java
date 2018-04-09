@@ -52,7 +52,7 @@ public final class OuterLookupSource
     }
 
     @Override
-    public int getJoinPositionCount()
+    public long getJoinPositionCount()
     {
         return lookupSource.getJoinPositionCount();
     }
@@ -61,6 +61,12 @@ public final class OuterLookupSource
     public long getInMemorySizeInBytes()
     {
         return lookupSource.getInMemorySizeInBytes();
+    }
+
+    @Override
+    public long joinPositionWithinPartition(long joinPosition)
+    {
+        return lookupSource.joinPositionWithinPartition(joinPosition);
     }
 
     @Override
@@ -173,7 +179,7 @@ public final class OuterLookupSource
             this.lookupSourceSupplier = lookupSourceSupplier;
 
             try (LookupSource lookupSource = lookupSourceSupplier.get()) {
-                this.visitedPositions = new boolean[lookupSource.getJoinPositionCount()];
+                this.visitedPositions = new boolean[toIntExact(lookupSource.getJoinPositionCount())];
             }
         }
 

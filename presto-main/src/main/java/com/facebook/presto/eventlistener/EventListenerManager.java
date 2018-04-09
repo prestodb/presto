@@ -23,18 +23,16 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.util.PropertiesUtil.loadProperties;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static com.google.common.collect.Maps.fromProperties;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -106,17 +104,5 @@ public class EventListenerManager
         if (configuredEventListener.get().isPresent()) {
             configuredEventListener.get().get().splitCompleted(splitCompletedEvent);
         }
-    }
-
-    private static Map<String, String> loadProperties(File file)
-            throws Exception
-    {
-        requireNonNull(file, "file is null");
-
-        Properties properties = new Properties();
-        try (FileInputStream in = new FileInputStream(file)) {
-            properties.load(in);
-        }
-        return fromProperties(properties);
     }
 }

@@ -28,6 +28,7 @@ import com.facebook.presto.raptor.storage.organization.ShardCompactionManager;
 import com.facebook.presto.raptor.storage.organization.ShardCompactor;
 import com.facebook.presto.raptor.storage.organization.ShardOrganizationManager;
 import com.facebook.presto.raptor.storage.organization.ShardOrganizer;
+import com.facebook.presto.raptor.storage.organization.TemporalFunction;
 import com.google.common.base.Ticker;
 import com.google.inject.Binder;
 import com.google.inject.Module;
@@ -76,6 +77,7 @@ public class StorageModule
         binder.bind(BucketBalancer.class).in(Scopes.SINGLETON);
         binder.bind(ReaderAttributes.class).in(Scopes.SINGLETON);
         binder.bind(AssignmentLimiter.class).in(Scopes.SINGLETON);
+        binder.bind(TemporalFunction.class).in(Scopes.SINGLETON);
 
         newExporter(binder).export(ShardRecoveryManager.class).as(generatedNameOf(ShardRecoveryManager.class, connectorId));
         newExporter(binder).export(BackupManager.class).as(generatedNameOf(BackupManager.class, connectorId));

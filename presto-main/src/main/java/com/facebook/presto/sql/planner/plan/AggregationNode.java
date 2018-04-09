@@ -67,6 +67,13 @@ public class AggregationNode
         requireNonNull(groupingSets, "groupingSets is null");
         checkArgument(!groupingSets.isEmpty(), "grouping sets list cannot be empty");
         this.groupingSets = listOfListsCopy(groupingSets);
+
+        boolean hasOrderBy = aggregations.values().stream()
+                .map(Aggregation::getCall)
+                .map(FunctionCall::getOrderBy)
+                .noneMatch(Optional::isPresent);
+        checkArgument(hasOrderBy || step == SINGLE, "ORDER BY does not support distributed aggregation");
+
         this.step = step;
         this.hashSymbol = hashSymbol;
         this.groupIdSymbol = requireNonNull(groupIdSymbol);
@@ -161,6 +168,14 @@ public class AggregationNode
         return groupIdSymbol;
     }
 
+    public boolean hasOrderings()
+    {
+        return aggregations.values().stream()
+                .map(Aggregation::getCall)
+                .map(FunctionCall::getOrderBy)
+                .anyMatch(Optional::isPresent);
+    }
+
     @Override
     public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {
@@ -175,9 +190,36 @@ public class AggregationNode
 
     public boolean isDecomposable(FunctionRegistry functionRegistry)
     {
-        return getAggregations().entrySet().stream()
-                .map(entry -> functionRegistry.getAggregateFunctionImplementation(entry.getValue().getSignature()))
+        boolean hasOrderBy = getAggregations().values().stream()
+                .map(Aggregation::getCall)
+                .map(FunctionCall::getOrderBy)
+                .anyMatch(Optional::isPresent);
+
+        boolean hasDistinct = getAggregations().values().stream()
+                .map(Aggregation::getCall)
+                .anyMatch(FunctionCall::isDistinct);
+
+        boolean decomposableFunctions = getAggregations().values().stream()
+                .map(Aggregation::getSignature)
+                .map(functionRegistry::getAggregateFunctionImplementation)
                 .allMatch(InternalAggregationFunction::isDecomposable);
+
+        return !hasOrderBy && !hasDistinct && decomposableFunctions;
+    }
+
+    public boolean hasSingleNodeExecutionPreference(FunctionRegistry functionRegistry)
+    {
+        // There are two kinds of aggregations the have single node execution preference:
+        //
+        // 1. aggregations with only empty grouping sets like
+        //
+        // SELECT count(*) FROM lineitem;
+        //
+        // there is no need for distributed aggregation. Single node FINAL aggregation will suffice,
+        // since all input have to be aggregated into one line output.
+        //
+        // 2. aggregations that must produce default output and are not decomposable, we can not distribute them.
+        return (hasEmptyGroupingSet() && !hasNonEmptyGroupingSet()) || (hasDefaultOutput() && !isDecomposable(functionRegistry));
     }
 
     public enum Step

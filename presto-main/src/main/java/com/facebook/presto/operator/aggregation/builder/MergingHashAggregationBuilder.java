@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator.aggregation.builder;
 
-import com.facebook.presto.memory.LocalMemoryContext;
+import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.aggregation.AccumulatorFactory;
 import com.facebook.presto.spi.Page;
@@ -29,6 +29,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 
+import static com.google.common.base.Verify.verify;
+
 public class MergingHashAggregationBuilder
         implements Closeable
 {
@@ -42,7 +44,7 @@ public class MergingHashAggregationBuilder
     private InMemoryHashAggregationBuilder hashAggregationBuilder;
     private final List<Type> groupByTypes;
     private final LocalMemoryContext systemMemoryContext;
-    private final long memorySizeBeforeSpill;
+    private final long memoryLimitForMerge;
     private final int overwriteIntermediateChannelOffset;
     private final JoinCompiler joinCompiler;
 
@@ -55,7 +57,7 @@ public class MergingHashAggregationBuilder
             OperatorContext operatorContext,
             Iterator<Page> sortedPages,
             LocalMemoryContext systemMemoryContext,
-            long memorySizeBeforeSpill,
+            long memoryLimitForMerge,
             int overwriteIntermediateChannelOffset,
             JoinCompiler joinCompiler)
     {
@@ -73,7 +75,7 @@ public class MergingHashAggregationBuilder
         this.sortedPages = sortedPages;
         this.groupByTypes = groupByTypes;
         this.systemMemoryContext = systemMemoryContext;
-        this.memorySizeBeforeSpill = memorySizeBeforeSpill;
+        this.memoryLimitForMerge = memoryLimitForMerge;
         this.overwriteIntermediateChannelOffset = overwriteIntermediateChannelOffset;
         this.joinCompiler = joinCompiler;
 
@@ -102,7 +104,9 @@ public class MergingHashAggregationBuilder
                     // we can produce output  after every page, because sortedPages does not have
                     // hash values that span multiple pages (guaranteed by MergeHashSort)
                     while (sortedPages.hasNext() && !shouldProduceOutput(memorySize)) {
-                        hashAggregationBuilder.processPage(sortedPages.next());
+                        boolean done = hashAggregationBuilder.processPage(sortedPages.next()).process();
+                        // TODO: this class does not yield wrt memory limit; enable it
+                        verify(done);
                         memorySize = hashAggregationBuilder.getSizeInMemory();
                         systemMemoryContext.setBytes(memorySize);
                     }
@@ -122,7 +126,7 @@ public class MergingHashAggregationBuilder
 
     private boolean shouldProduceOutput(long memorySize)
     {
-        return (memorySizeBeforeSpill > 0 && memorySize > memorySizeBeforeSpill);
+        return (memoryLimitForMerge > 0 && memorySize > memoryLimitForMerge);
     }
 
     private void rebuildHashAggregationBuilder()
@@ -137,6 +141,7 @@ public class MergingHashAggregationBuilder
                 operatorContext,
                 DataSize.succinctBytes(0),
                 Optional.of(overwriteIntermediateChannelOffset),
-                joinCompiler);
+                joinCompiler,
+                false);
     }
 }

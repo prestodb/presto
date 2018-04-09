@@ -15,6 +15,8 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.operator.BlockedReason;
 import com.facebook.presto.operator.OperatorStats;
+import com.facebook.presto.operator.TableWriterOperator;
+import com.facebook.presto.spi.eventlistener.StageGcStatistics;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
@@ -29,6 +31,7 @@ import java.util.OptionalDouble;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.units.DataSize.succinctBytes;
 import static io.airlift.units.Duration.succinctNanos;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
@@ -59,9 +62,11 @@ public class QueryStats
     private final int blockedDrivers;
     private final int completedDrivers;
 
-    private final double cumulativeMemory;
-    private final DataSize totalMemoryReservation;
-    private final DataSize peakMemoryReservation;
+    private final double cumulativeUserMemory;
+    private final DataSize userMemoryReservation;
+    private final DataSize peakUserMemoryReservation;
+    private final DataSize peakTotalMemoryReservation;
+    private final DataSize peakTaskTotalMemory;
 
     private final boolean scheduled;
     private final Duration totalScheduledTime;
@@ -79,6 +84,10 @@ public class QueryStats
 
     private final DataSize outputDataSize;
     private final long outputPositions;
+
+    private final DataSize physicalWrittenDataSize;
+
+    private final List<StageGcStatistics> stageGcStatistics;
 
     private final List<OperatorStats> operatorSummaries;
 
@@ -103,9 +112,11 @@ public class QueryStats
         this.queuedDrivers = 0;
         this.runningDrivers = 0;
         this.completedDrivers = 0;
-        this.cumulativeMemory = 0.0;
-        this.totalMemoryReservation = null;
-        this.peakMemoryReservation = null;
+        this.cumulativeUserMemory = 0.0;
+        this.userMemoryReservation = null;
+        this.peakUserMemoryReservation = null;
+        this.peakTotalMemoryReservation = null;
+        this.peakTaskTotalMemory = null;
         this.scheduled = false;
         this.totalScheduledTime = null;
         this.totalCpuTime = null;
@@ -119,6 +130,8 @@ public class QueryStats
         this.processedInputPositions = 0;
         this.outputDataSize = null;
         this.outputPositions = 0;
+        this.physicalWrittenDataSize = null;
+        this.stageGcStatistics = null;
         this.operatorSummaries = null;
     }
 
@@ -146,9 +159,11 @@ public class QueryStats
             @JsonProperty("blockedDrivers") int blockedDrivers,
             @JsonProperty("completedDrivers") int completedDrivers,
 
-            @JsonProperty("cumulativeMemory") double cumulativeMemory,
-            @JsonProperty("totalMemoryReservation") DataSize totalMemoryReservation,
-            @JsonProperty("peakMemoryReservation") DataSize peakMemoryReservation,
+            @JsonProperty("cumulativeUserMemory") double cumulativeUserMemory,
+            @JsonProperty("userMemoryReservation") DataSize userMemoryReservation,
+            @JsonProperty("peakUserMemoryReservation") DataSize peakUserMemoryReservation,
+            @JsonProperty("peakTotalMemoryReservation") DataSize peakTotalMemoryReservation,
+            @JsonProperty("peakTaskTotalMemory") DataSize peakTaskTotalMemory,
 
             @JsonProperty("scheduled") boolean scheduled,
             @JsonProperty("totalScheduledTime") Duration totalScheduledTime,
@@ -166,6 +181,10 @@ public class QueryStats
 
             @JsonProperty("outputDataSize") DataSize outputDataSize,
             @JsonProperty("outputPositions") long outputPositions,
+
+            @JsonProperty("physicalWrittenDataSize") DataSize physicalWrittenDataSize,
+
+            @JsonProperty("stageGcStatistics") List<StageGcStatistics> stageGcStatistics,
 
             @JsonProperty("operatorSummaries") List<OperatorStats> operatorSummaries)
     {
@@ -198,10 +217,12 @@ public class QueryStats
         this.blockedDrivers = blockedDrivers;
         checkArgument(completedDrivers >= 0, "completedDrivers is negative");
         this.completedDrivers = completedDrivers;
-
-        this.cumulativeMemory = requireNonNull(cumulativeMemory, "cumulativeMemory is null");
-        this.totalMemoryReservation = requireNonNull(totalMemoryReservation, "totalMemoryReservation is null");
-        this.peakMemoryReservation = requireNonNull(peakMemoryReservation, "peakMemoryReservation is null");
+        checkArgument(cumulativeUserMemory >= 0, "cumulativeUserMemory is negative");
+        this.cumulativeUserMemory = cumulativeUserMemory;
+        this.userMemoryReservation = requireNonNull(userMemoryReservation, "userMemoryReservation is null");
+        this.peakUserMemoryReservation = requireNonNull(peakUserMemoryReservation, "peakUserMemoryReservation is null");
+        this.peakTotalMemoryReservation = requireNonNull(peakTotalMemoryReservation, "peakTotalMemoryReservation is null");
+        this.peakTaskTotalMemory = requireNonNull(peakTaskTotalMemory, "peakTaskTotalMemory is null");
         this.scheduled = scheduled;
         this.totalScheduledTime = requireNonNull(totalScheduledTime, "totalScheduledTime is null");
         this.totalCpuTime = requireNonNull(totalCpuTime, "totalCpuTime is null");
@@ -221,6 +242,11 @@ public class QueryStats
         this.outputDataSize = requireNonNull(outputDataSize, "outputDataSize is null");
         checkArgument(outputPositions >= 0, "outputPositions is negative");
         this.outputPositions = outputPositions;
+
+        this.physicalWrittenDataSize = requireNonNull(physicalWrittenDataSize, "physicalWrittenDataSize is null");
+
+        this.stageGcStatistics = ImmutableList.copyOf(requireNonNull(stageGcStatistics, "stageGcStatistics is null"));
+
         this.operatorSummaries = ImmutableList.copyOf(requireNonNull(operatorSummaries, "operatorSummaries is null"));
     }
 
@@ -257,6 +283,10 @@ public class QueryStats
     @JsonProperty
     public Duration getQueuedTime()
     {
+        if (queuedTime == null) {
+            // counter-intuitively, this means that the query is still queued
+            return elapsedTime;
+        }
         return queuedTime;
     }
 
@@ -267,7 +297,8 @@ public class QueryStats
             // counter-intuitively, this means that the query is still queued
             return new Duration(0, NANOSECONDS);
         }
-        return succinctNanos((long) elapsedTime.getValue(NANOSECONDS) - (long) queuedTime.getValue(NANOSECONDS));
+        long executionNanos = (long) elapsedTime.getValue(NANOSECONDS) - (long) queuedTime.getValue(NANOSECONDS);
+        return succinctNanos(Math.max(0, executionNanos));
     }
 
     @JsonProperty
@@ -343,21 +374,33 @@ public class QueryStats
     }
 
     @JsonProperty
-    public double getCumulativeMemory()
+    public double getCumulativeUserMemory()
     {
-        return cumulativeMemory;
+        return cumulativeUserMemory;
     }
 
     @JsonProperty
-    public DataSize getTotalMemoryReservation()
+    public DataSize getUserMemoryReservation()
     {
-        return totalMemoryReservation;
+        return userMemoryReservation;
     }
 
     @JsonProperty
-    public DataSize getPeakMemoryReservation()
+    public DataSize getPeakUserMemoryReservation()
     {
-        return peakMemoryReservation;
+        return peakUserMemoryReservation;
+    }
+
+    @JsonProperty
+    public DataSize getPeakTotalMemoryReservation()
+    {
+        return peakTotalMemoryReservation;
+    }
+
+    @JsonProperty
+    public DataSize getPeakTaskTotalMemory()
+    {
+        return peakTaskTotalMemory;
     }
 
     @JsonProperty
@@ -436,6 +479,37 @@ public class QueryStats
     public long getOutputPositions()
     {
         return outputPositions;
+    }
+
+    @JsonProperty
+    public DataSize getPhysicalWrittenDataSize()
+    {
+        return physicalWrittenDataSize;
+    }
+
+    @JsonProperty
+    public long getWrittenPositions()
+    {
+        return operatorSummaries.stream()
+                .filter(stats -> stats.getOperatorType().equals(TableWriterOperator.class.getSimpleName()))
+                .mapToLong(stats -> stats.getInputPositions())
+                .sum();
+    }
+
+    @JsonProperty
+    public DataSize getLogicalWrittenDataSize()
+    {
+        return succinctBytes(
+                operatorSummaries.stream()
+                        .filter(stats -> stats.getOperatorType().equals(TableWriterOperator.class.getSimpleName()))
+                        .mapToLong(stats -> stats.getInputDataSize().toBytes())
+                        .sum());
+    }
+
+    @JsonProperty
+    public List<StageGcStatistics> getStageGcStatistics()
+    {
+        return stageGcStatistics;
     }
 
     @JsonProperty

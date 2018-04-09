@@ -33,9 +33,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCatalogAccess;
+import static com.facebook.presto.spi.security.AccessDeniedException.denySetUser;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static java.util.Objects.requireNonNull;
@@ -46,10 +48,12 @@ public class FileBasedSystemAccessControl
     public static final String NAME = "file";
 
     private final List<CatalogAccessControlRule> catalogRules;
+    private final List<Pattern> userPatterns;
 
-    private FileBasedSystemAccessControl(List<CatalogAccessControlRule> catalogRules)
+    private FileBasedSystemAccessControl(List<CatalogAccessControlRule> catalogRules, List<Pattern> userPatterns)
     {
         this.catalogRules = catalogRules;
+        this.userPatterns = userPatterns;
     }
 
     public static class Factory
@@ -80,10 +84,14 @@ public class FileBasedSystemAccessControl
                 }
                 path.toFile().canRead();
 
+                FileBasedSystemAccessControlRules rules = jsonCodec(FileBasedSystemAccessControlRules.class)
+                        .fromJson(Files.readAllBytes(path));
+
                 ImmutableList.Builder<CatalogAccessControlRule> catalogRulesBuilder = ImmutableList.builder();
-                catalogRulesBuilder.addAll(jsonCodec(FileBasedSystemAccessControlRules.class)
-                        .fromJson(Files.readAllBytes(path))
-                        .getCatalogRules());
+                catalogRulesBuilder.addAll(rules.getCatalogRules());
+
+                ImmutableList.Builder<Pattern> userPatternsBuilder = ImmutableList.builder();
+                userPatternsBuilder.addAll(rules.getUserPatterns());
 
                 // Hack to allow Presto Admin to access the "system" catalog for retrieving server status.
                 // todo Change userRegex from ".*" to one particular user that Presto Admin will be restricted to run as
@@ -92,7 +100,7 @@ public class FileBasedSystemAccessControl
                         Optional.of(Pattern.compile(".*")),
                         Optional.of(Pattern.compile("system"))));
 
-                return new FileBasedSystemAccessControl(catalogRulesBuilder.build());
+                return new FileBasedSystemAccessControl(catalogRulesBuilder.build(), userPatternsBuilder.build());
             }
             catch (SecurityException | IOException | InvalidPathException e) {
                 throw new RuntimeException(e);
@@ -103,6 +111,29 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanSetUser(Principal principal, String userName)
     {
+        if (userPatterns.isEmpty()) {
+            return;
+        }
+
+        if (principal == null) {
+            denySetUser(principal, userName);
+        }
+
+        String principalName = principal.getName();
+
+        for (Pattern pattern : userPatterns) {
+            Matcher matcher = pattern.matcher(principalName);
+            if (matcher.matches()) {
+                for (int i = 1; i <= matcher.groupCount(); i++) {
+                    String extractedUsername = matcher.group(i);
+                    if (userName.equals(extractedUsername)) {
+                        return;
+                    }
+                }
+            }
+        }
+
+        denySetUser(principal, userName);
     }
 
     @Override

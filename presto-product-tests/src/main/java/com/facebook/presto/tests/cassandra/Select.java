@@ -14,16 +14,14 @@
 package com.facebook.presto.tests.cassandra;
 
 import com.datastax.driver.core.utils.Bytes;
-import com.teradata.tempto.ProductTest;
-import com.teradata.tempto.Requirement;
-import com.teradata.tempto.RequirementsProvider;
-import com.teradata.tempto.configuration.Configuration;
-import com.teradata.tempto.query.QueryResult;
+import io.prestodb.tempto.ProductTest;
+import io.prestodb.tempto.Requirement;
+import io.prestodb.tempto.RequirementsProvider;
+import io.prestodb.tempto.configuration.Configuration;
+import io.prestodb.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
-import java.sql.SQLException;
-import java.sql.Timestamp;
-
+import static com.facebook.presto.tests.TemptoProductTestRunner.PRODUCT_TESTS_TIME_ZONE;
 import static com.facebook.presto.tests.TestGroups.CASSANDRA;
 import static com.facebook.presto.tests.TpchTableResults.PRESTO_NATION_RESULT;
 import static com.facebook.presto.tests.cassandra.CassandraTpchTableDefinitions.CASSANDRA_NATION;
@@ -32,11 +30,12 @@ import static com.facebook.presto.tests.cassandra.DataTypesTableDefinition.CASSA
 import static com.facebook.presto.tests.cassandra.TestConstants.CONNECTOR_NAME;
 import static com.facebook.presto.tests.cassandra.TestConstants.KEY_SPACE;
 import static com.facebook.presto.tests.utils.QueryExecutors.onPresto;
-import static com.teradata.tempto.Requirements.compose;
-import static com.teradata.tempto.assertions.QueryAssert.Row.row;
-import static com.teradata.tempto.assertions.QueryAssert.assertThat;
-import static com.teradata.tempto.fulfillment.table.TableRequirements.immutableTable;
-import static com.teradata.tempto.query.QueryExecutor.query;
+import static io.prestodb.tempto.Requirements.compose;
+import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
+import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
+import static io.prestodb.tempto.fulfillment.table.TableRequirements.immutableTable;
+import static io.prestodb.tempto.query.QueryExecutor.query;
+import static io.prestodb.tempto.util.DateTimeUtils.parseTimestampInLocalTime;
 import static java.lang.String.format;
 import static java.sql.JDBCType.BIGINT;
 import static java.sql.JDBCType.BOOLEAN;
@@ -62,7 +61,6 @@ public class Select
 
     @Test(groups = CASSANDRA)
     public void testSelectNation()
-            throws SQLException
     {
         String sql = format(
                 "SELECT n_nationkey, n_name, n_regionkey, n_comment FROM %s.%s.%s",
@@ -77,7 +75,6 @@ public class Select
 
     @Test(groups = CASSANDRA)
     public void testSelectWithEqualityFilterOnPartitioningKey()
-            throws SQLException
     {
         String sql = format(
                 "SELECT n_nationkey FROM %s.%s.%s WHERE n_nationkey = 0",
@@ -92,7 +89,6 @@ public class Select
 
     @Test(groups = CASSANDRA)
     public void testSelectWithFilterOnPartitioningKey()
-            throws SQLException
     {
         String sql = format(
                 "SELECT n_nationkey FROM %s.%s.%s WHERE n_nationkey > 23",
@@ -107,7 +103,6 @@ public class Select
 
     @Test(groups = CASSANDRA)
     public void testSelectWithEqualityFilterOnNonPartitioningKey()
-            throws SQLException
     {
         String sql = format(
                 "SELECT n_name FROM %s.%s.%s WHERE n_name = 'UNITED STATES'",
@@ -122,7 +117,6 @@ public class Select
 
     @Test(groups = CASSANDRA)
     public void testSelectWithNonEqualityFilterOnNonPartitioningKey()
-            throws SQLException
     {
         String sql = format(
                 "SELECT n_name FROM %s.%s.%s WHERE n_name < 'B'",
@@ -137,7 +131,6 @@ public class Select
 
     @Test(groups = CASSANDRA)
     public void testSelectWithMorePartitioningKeysThanLimit()
-            throws SQLException
     {
         String sql = format(
                 "SELECT s_suppkey FROM %s.%s.%s WHERE s_suppkey = 10",
@@ -152,7 +145,6 @@ public class Select
 
     @Test(groups = CASSANDRA)
     public void testSelectWithMorePartitioningKeysThanLimitNonPK()
-            throws SQLException
     {
         String sql = format(
                 "SELECT s_suppkey FROM %s.%s.%s WHERE s_name = 'Supplier#000000010'",
@@ -167,7 +159,6 @@ public class Select
 
     @Test(groups = CASSANDRA)
     public void testAllDatatypes()
-            throws SQLException
     {
         // NOTE: DECIMAL is treated like DOUBLE
         QueryResult query = query(format(
@@ -181,13 +172,13 @@ public class Select
                 .containsOnly(
                         row("\0", Long.MIN_VALUE, Bytes.fromHexString("0x00").array(), false, 0f, Double.MIN_VALUE,
                                 Float.MIN_VALUE, "[0]", "0.0.0.0", Integer.MIN_VALUE, "[0]", "{\"\\u0000\":-2147483648,\"a\":0}",
-                                "[0]", "\0", Timestamp.valueOf("1970-01-01 00:00:00.0"),
+                                "[0]", "\0", parseTimestampInLocalTime("1970-01-01 00:00:00.0", PRODUCT_TESTS_TIME_ZONE),
                                 "d2177dd0-eaa2-11de-a572-001b779c76e3", "01234567-0123-0123-0123-0123456789ab",
                                 "\0", String.valueOf(Long.MIN_VALUE)),
                         row("the quick brown fox jumped over the lazy dog", 9223372036854775807L, "01234".getBytes(),
                                 true, new Double("99999999999999999999999999999999999999"), Double.MAX_VALUE,
                                 Float.MAX_VALUE, "[4,5,6,7]", "255.255.255.255", Integer.MAX_VALUE, "[4,5,6]",
-                                "{\"a\":1,\"b\":2}", "[4,5,6]", "this is a text value", Timestamp.valueOf("9999-12-31 23:59:59"),
+                                "{\"a\":1,\"b\":2}", "[4,5,6]", "this is a text value", parseTimestampInLocalTime("9999-12-31 23:59:59", PRODUCT_TESTS_TIME_ZONE),
                                 "d2177dd0-eaa2-11de-a572-001b779c76e3", "01234567-0123-0123-0123-0123456789ab",
                                 "abc", String.valueOf(Long.MAX_VALUE)),
                         row("def", null, null, null, null, null, null, null, null, null, null, null,
@@ -196,7 +187,6 @@ public class Select
 
     @Test(groups = CASSANDRA)
     public void testNationJoinNation()
-            throws SQLException
     {
         String tableName = format("%s.%s.%s", CONNECTOR_NAME, KEY_SPACE, CASSANDRA_NATION.getName());
         String sql = format(
@@ -218,7 +208,6 @@ public class Select
 
     @Test(groups = CASSANDRA)
     public void testNationJoinRegion()
-            throws SQLException
     {
         String sql = format(
                 "SELECT c.n_name, t.name FROM %s.%s.%s c JOIN " +

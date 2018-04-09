@@ -15,15 +15,15 @@ package com.facebook.presto.tests.hive;
 
 import com.facebook.presto.jdbc.PrestoResultSet;
 import com.facebook.presto.tests.querystats.QueryStatsClient;
-import com.teradata.tempto.BeforeTestWithContext;
-import com.teradata.tempto.ProductTest;
-import com.teradata.tempto.query.QueryResult;
+import io.prestodb.tempto.BeforeTestWithContext;
+import io.prestodb.tempto.ProductTest;
+import io.prestodb.tempto.query.QueryResult;
 
 import javax.inject.Inject;
 
 import java.sql.SQLException;
 
-import static com.teradata.tempto.query.QueryExecutor.query;
+import static io.prestodb.tempto.query.QueryExecutor.query;
 import static java.lang.String.format;
 
 public abstract class HivePartitioningTest

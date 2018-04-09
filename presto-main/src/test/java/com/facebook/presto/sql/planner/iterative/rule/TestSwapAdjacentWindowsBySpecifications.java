@@ -60,22 +60,19 @@ public class TestSwapAdjacentWindowsBySpecifications
 
     @Test
     public void doesNotFireOnPlanWithoutWindowFunctions()
-            throws Exception
     {
-        tester().assertThat(new SwapAdjacentWindowsBySpecifications())
+        tester().assertThat(new GatherAndMergeWindows.SwapAdjacentWindowsBySpecifications(0))
                 .on(p -> p.values(p.symbol("a")))
                 .doesNotFire();
     }
 
     @Test
     public void doesNotFireOnPlanWithSingleWindowNode()
-            throws Exception
     {
-        tester().assertThat(new SwapAdjacentWindowsBySpecifications())
+        tester().assertThat(new GatherAndMergeWindows.SwapAdjacentWindowsBySpecifications(0))
                 .on(p -> p.window(new WindowNode.Specification(
                                 ImmutableList.of(p.symbol("a")),
-                                ImmutableList.of(),
-                                ImmutableMap.of()),
+                                Optional.empty()),
                         ImmutableMap.of(p.symbol("avg_1"),
                                 new WindowNode.Function(new FunctionCall(QualifiedName.of("avg"), ImmutableList.of()), signature, frame)),
                         p.values(p.symbol("a"))))
@@ -84,7 +81,6 @@ public class TestSwapAdjacentWindowsBySpecifications
 
     @Test
     public void subsetComesFirst()
-            throws Exception
     {
         String columnAAlias = "ALIAS_A";
         String columnBAlias = "ALIAS_B";
@@ -95,18 +91,16 @@ public class TestSwapAdjacentWindowsBySpecifications
         Optional<Window> windowAB = Optional.of(new Window(ImmutableList.of(new SymbolReference("a"), new SymbolReference("b")), Optional.empty(), Optional.empty()));
         Optional<Window> windowA = Optional.of(new Window(ImmutableList.of(new SymbolReference("a")), Optional.empty(), Optional.empty()));
 
-        tester().assertThat(new SwapAdjacentWindowsBySpecifications())
+        tester().assertThat(new GatherAndMergeWindows.SwapAdjacentWindowsBySpecifications(0))
                 .on(p ->
                         p.window(new WindowNode.Specification(
                                         ImmutableList.of(p.symbol("a")),
-                                        ImmutableList.of(),
-                                        ImmutableMap.of()),
+                                        Optional.empty()),
                                 ImmutableMap.of(p.symbol("avg_1", DOUBLE),
                                         new WindowNode.Function(new FunctionCall(QualifiedName.of("avg"), windowA, false, ImmutableList.of(new SymbolReference("a"))), signature, frame)),
                                 p.window(new WindowNode.Specification(
                                                 ImmutableList.of(p.symbol("a"), p.symbol("b")),
-                                                ImmutableList.of(),
-                                                ImmutableMap.of()),
+                                                Optional.empty()),
                                         ImmutableMap.of(p.symbol("avg_2", DOUBLE),
                                                 new WindowNode.Function(new FunctionCall(QualifiedName.of("avg"), windowAB, false, ImmutableList.of(new SymbolReference("b"))), signature, frame)),
                                         p.values(p.symbol("a"), p.symbol("b")))))
@@ -122,22 +116,19 @@ public class TestSwapAdjacentWindowsBySpecifications
 
     @Test
     public void dependentWindowsAreNotReordered()
-            throws Exception
     {
         Optional<Window> windowA = Optional.of(new Window(ImmutableList.of(new SymbolReference("a")), Optional.empty(), Optional.empty()));
 
-        tester().assertThat(new SwapAdjacentWindowsBySpecifications())
+        tester().assertThat(new GatherAndMergeWindows.SwapAdjacentWindowsBySpecifications(0))
                 .on(p ->
                         p.window(new WindowNode.Specification(
                                         ImmutableList.of(p.symbol("a")),
-                                        ImmutableList.of(),
-                                        ImmutableMap.of()),
+                                        Optional.empty()),
                                 ImmutableMap.of(p.symbol("avg_1"),
                                         new WindowNode.Function(new FunctionCall(QualifiedName.of("avg"), windowA, false, ImmutableList.of(new SymbolReference("avg_2"))), signature, frame)),
                                 p.window(new WindowNode.Specification(
                                                 ImmutableList.of(p.symbol("a"), p.symbol("b")),
-                                                ImmutableList.of(),
-                                                ImmutableMap.of()),
+                                                Optional.empty()),
                                         ImmutableMap.of(p.symbol("avg_2"),
                                                 new WindowNode.Function(new FunctionCall(QualifiedName.of("avg"), windowA, false, ImmutableList.of(new SymbolReference("a"))), signature, frame)),
                                         p.values(p.symbol("a"), p.symbol("b")))))

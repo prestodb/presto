@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.Session;
+import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
@@ -28,7 +30,6 @@ import com.google.common.collect.Streams;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -36,59 +37,60 @@ import static com.facebook.presto.SystemSessionProperties.isPushAggregationThrou
 import static com.facebook.presto.sql.planner.SymbolsExtractor.extractUnique;
 import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictOutputs;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.PARTIAL;
+import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.intersection;
 
 public class PushPartialAggregationThroughJoin
-        implements Rule
+        implements Rule<AggregationNode>
 {
-    private static final Pattern PATTERN = Pattern.typeOf(AggregationNode.class);
+    private static final Pattern<AggregationNode> PATTERN = aggregation();
 
     @Override
-    public Pattern getPattern()
+    public Pattern<AggregationNode> getPattern()
     {
         return PATTERN;
     }
 
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Context context)
+    public boolean isEnabled(Session session)
     {
-        if (!isPushAggregationThroughJoin(context.getSession())) {
-            return Optional.empty();
-        }
+        return isPushAggregationThroughJoin(session);
+    }
 
-        AggregationNode aggregationNode = (AggregationNode) node;
-
+    @Override
+    public Result apply(AggregationNode aggregationNode, Captures captures, Context context)
+    {
         if (aggregationNode.getStep() != PARTIAL || aggregationNode.getGroupingSets().size() != 1) {
-            return Optional.empty();
+            return Result.empty();
         }
 
         if (aggregationNode.getHashSymbol().isPresent()) {
             // TODO: add support for hash symbol in aggregation node
-            return Optional.empty();
+            return Result.empty();
         }
 
         PlanNode childNode = context.getLookup().resolve(aggregationNode.getSource());
         if (!(childNode instanceof JoinNode)) {
-            return Optional.empty();
+            return Result.empty();
         }
 
         JoinNode joinNode = (JoinNode) childNode;
 
         if (joinNode.getType() != JoinNode.Type.INNER) {
-            return Optional.empty();
+            return Result.empty();
         }
 
         // TODO: leave partial aggregation above Join?
         if (allAggregationsOn(aggregationNode.getAggregations(), joinNode.getLeft().getOutputSymbols())) {
-            return Optional.of(pushPartialToLeftChild(aggregationNode, joinNode, context));
+            return Result.ofPlanNode(pushPartialToLeftChild(aggregationNode, joinNode, context));
         }
         else if (allAggregationsOn(aggregationNode.getAggregations(), joinNode.getRight().getOutputSymbols())) {
-            return Optional.of(pushPartialToRightChild(aggregationNode, joinNode, context));
+            return Result.ofPlanNode(pushPartialToRightChild(aggregationNode, joinNode, context));
         }
 
-        return Optional.empty();
+        return Result.empty();
     }
 
     private boolean allAggregationsOn(Map<Symbol, AggregationNode.Aggregation> aggregations, List<Symbol> symbols)

@@ -48,8 +48,8 @@ public final class DecimalSaturatedFloorCasts
                     .operatorType(SATURATED_FLOOR_CAST)
                     .argumentTypes(parseTypeSignature("decimal(source_precision,source_scale)", ImmutableSet.of("source_precision", "source_scale")))
                     .returnType(parseTypeSignature("decimal(result_precision,result_scale)", ImmutableSet.of("result_precision", "result_scale")))
-                    .build()
-            )
+                    .build())
+            .deterministic(true)
             .implementation(b -> b
                     .methods("shortDecimalToShortDecimal", "shortDecimalToLongDecimal", "longDecimalToShortDecimal", "longDecimalToLongDecimal")
                     .withExtraParameters((context) -> {
@@ -58,8 +58,8 @@ public final class DecimalSaturatedFloorCasts
                         int resultPrecision = toIntExact(context.getLiteral("result_precision"));
                         int resultScale = toIntExact(context.getLiteral("result_scale"));
                         return ImmutableList.of(sourcePrecision, sourceScale, resultPrecision, resultScale);
-                    })
-            ).build();
+                    }))
+            .build();
 
     @UsedByGeneratedCode
     public static long shortDecimalToShortDecimal(long value, int sourcePrecision, int sourceScale, int resultPrecision, int resultScale)
@@ -118,15 +118,15 @@ public final class DecimalSaturatedFloorCasts
                         .operatorType(SATURATED_FLOOR_CAST)
                         .argumentTypes(parseTypeSignature("decimal(source_precision,source_scale)", ImmutableSet.of("source_precision", "source_scale")))
                         .returnType(type.getTypeSignature())
-                        .build()
-                )
+                        .build())
+                .deterministic(true)
                 .implementation(b -> b
                         .methods("shortDecimalToGenericIntegerType", "longDecimalToGenericIntegerType")
                         .withExtraParameters((context) -> {
                             int sourceScale = toIntExact(context.getLiteral("source_scale"));
                             return ImmutableList.of(sourceScale, minValue, maxValue);
-                        })
-                ).build();
+                        }))
+                .build();
     }
 
     @UsedByGeneratedCode
@@ -167,16 +167,16 @@ public final class DecimalSaturatedFloorCasts
                         .operatorType(SATURATED_FLOOR_CAST)
                         .argumentTypes(integerType.getTypeSignature())
                         .returnType(parseTypeSignature("decimal(result_precision,result_scale)", ImmutableSet.of("result_precision", "result_scale")))
-                        .build()
-                )
+                        .build())
+                .deterministic(true)
                 .implementation(b -> b
                         .methods("genericIntegerTypeToShortDecimal", "genericIntegerTypeToLongDecimal")
                         .withExtraParameters((context) -> {
                             int resultPrecision = toIntExact(context.getLiteral("result_precision"));
                             int resultScale = toIntExact(context.getLiteral("result_scale"));
                             return ImmutableList.of(resultPrecision, resultScale);
-                        })
-                ).build();
+                        }))
+                .build();
     }
 
     @UsedByGeneratedCode

@@ -17,6 +17,7 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
 
 import java.util.ArrayList;
@@ -42,7 +43,7 @@ class AppendingRecordSet
         for (int i = 0; i < appendedValues.size(); i++) {
             Object value = appendedValues.get(i);
             if (value != null) {
-                checkArgument(appendedTypes.get(i).getJavaType().isInstance(value), "Object value does not match declared type");
+                checkArgument(Primitives.wrap(appendedTypes.get(i).getJavaType()).isInstance(value), "Object value does not match declared type");
             }
         }
     }
@@ -78,12 +79,6 @@ class AppendingRecordSet
             this.appendedValues = requireNonNull(appendedValues, "appendedValues is null"); // May contain null elements
             this.appendedTypes = ImmutableList.copyOf(requireNonNull(appendedTypes, "appendedTypes is null"));
             checkArgument(appendedValues.size() == appendedTypes.size(), "appendedValues must have the same size as appendedTypes");
-        }
-
-        @Override
-        public long getTotalBytes()
-        {
-            return 0;
         }
 
         @Override

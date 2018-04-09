@@ -13,38 +13,82 @@
  */
 package com.facebook.presto.orc.metadata.statistics;
 
+import org.openjdk.jol.info.ClassLayout;
+
+import java.util.Objects;
+
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 
 public class DateStatistics
         implements RangeStatistics<Integer>
 {
-    private final Integer minimum;
-    private final Integer maximum;
+    // 1 byte to denote if null + 4 bytes for the value (date is of integer type)
+    public static final long DATE_VALUE_BYTES = Byte.BYTES + Integer.BYTES;
+
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(DateStatistics.class).instanceSize();
+
+    private final boolean hasMinimum;
+    private final boolean hasMaximum;
+
+    private final int minimum;
+    private final int maximum;
 
     public DateStatistics(Integer minimum, Integer maximum)
     {
-        this.minimum = minimum;
-        this.maximum = maximum;
+        checkArgument(minimum == null || maximum == null || minimum <= maximum, "minimum is not less than maximum");
+
+        this.hasMinimum = minimum != null;
+        this.minimum = hasMinimum ? minimum : 0;
+
+        this.hasMaximum = maximum != null;
+        this.maximum = hasMaximum ? maximum : 0;
     }
 
     @Override
     public Integer getMin()
     {
-        return minimum;
+        return hasMinimum ? minimum : null;
     }
 
     @Override
     public Integer getMax()
     {
-        return maximum;
+        return hasMaximum ? maximum : null;
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE;
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        DateStatistics that = (DateStatistics) o;
+        return Objects.equals(getMin(), that.getMin()) &&
+                Objects.equals(getMax(), that.getMax());
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(getMin(), getMax());
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("min", minimum)
-                .add("max", maximum)
+                .add("min", getMin())
+                .add("max", getMax())
                 .toString();
     }
 }

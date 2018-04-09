@@ -16,12 +16,12 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableLayout;
-import com.facebook.presto.metadata.TableLayout.NodePartitioning;
+import com.facebook.presto.metadata.TableLayout.TablePartitioning;
+import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
-import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.MetadataDeleteNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
@@ -30,7 +30,6 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
-import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
@@ -46,8 +45,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Consumer;
 
+import static com.facebook.presto.SystemSessionProperties.isForceSingleNodeOutput;
+import static com.facebook.presto.operator.PipelineExecutionStrategy.GROUPED_EXECUTION;
+import static com.facebook.presto.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
+import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
+import static com.facebook.presto.sql.planner.SchedulingOrderVisitor.scheduleOrder;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
@@ -68,19 +71,37 @@ public class PlanFragmenter
     {
     }
 
-    public static SubPlan createSubPlans(Session session, Metadata metadata, Plan plan)
+    public static SubPlan createSubPlans(Session session, Metadata metadata, NodePartitioningManager nodePartitioningManager, Plan plan, boolean forceSingleNode)
     {
         Fragmenter fragmenter = new Fragmenter(session, metadata, plan.getTypes());
 
-        FragmentProperties properties = new FragmentProperties(new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), plan.getRoot().getOutputSymbols()))
-                .setSingleNodeDistribution();
+        FragmentProperties properties = new FragmentProperties(new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), plan.getRoot().getOutputSymbols()));
+        if (forceSingleNode || isForceSingleNodeOutput(session)) {
+            properties = properties.setSingleNodeDistribution();
+        }
         PlanNode root = SimplePlanRewriter.rewriteWith(fragmenter, plan.getRoot(), properties);
 
-        SubPlan result = fragmenter.buildRootFragment(root, properties);
-        checkState(result.getFragment().getPartitioning().isSingleNode(), "Root of PlanFragment is not single node");
-        result.sanityCheck();
+        SubPlan subPlan = fragmenter.buildRootFragment(root, properties);
+        subPlan = analyzeGroupedExecution(session, metadata, nodePartitioningManager, subPlan);
 
-        return result;
+        checkState(!isForceSingleNodeOutput(session) || subPlan.getFragment().getPartitioning().isSingleNode(), "Root of PlanFragment is not single node");
+        subPlan.sanityCheck();
+
+        return subPlan;
+    }
+
+    private static SubPlan analyzeGroupedExecution(Session session, Metadata metadata, NodePartitioningManager nodePartitioningManager, SubPlan subPlan)
+    {
+        PlanFragment fragment = subPlan.getFragment();
+        GroupedExecutionProperties properties = fragment.getRoot().accept(new GroupedExecutionTagger(session, metadata, nodePartitioningManager), null);
+        if (properties.isSubTreeUseful()) {
+            fragment = fragment.withGroupedExecution(GROUPED_EXECUTION);
+        }
+        ImmutableList.Builder<SubPlan> result = ImmutableList.builder();
+        for (SubPlan child : subPlan.getChildren()) {
+            result.add(analyzeGroupedExecution(session, metadata, nodePartitioningManager, child));
+        }
+        return new SubPlan(fragment, result.build());
     }
 
     private static class Fragmenter
@@ -112,9 +133,9 @@ public class PlanFragmenter
 
         private SubPlan buildFragment(PlanNode root, FragmentProperties properties, PlanFragmentId fragmentId)
         {
-            Set<Symbol> dependencies = SymbolExtractor.extract(root);
+            Set<Symbol> dependencies = SymbolsExtractor.extractOutputSymbols(root);
 
-            List<PlanNodeId> schedulingOrder = new SchedulingOrderVisitor().getSchedulingOrder(root);
+            List<PlanNodeId> schedulingOrder = scheduleOrder(root);
             boolean equals = properties.getPartitionedSources().equals(ImmutableSet.copyOf(schedulingOrder));
             checkArgument(equals, "Expected scheduling order (%s) to contain an entry for all partitioned sources (%s)", schedulingOrder, properties.getPartitionedSources());
 
@@ -124,7 +145,8 @@ public class PlanFragmenter
                     Maps.filterKeys(types, in(dependencies)),
                     properties.getPartitioningHandle(),
                     schedulingOrder,
-                    properties.getPartitioningScheme());
+                    properties.getPartitioningScheme(),
+                    UNGROUPED_EXECUTION);
 
             return new SubPlan(fragment, properties.getChildren());
         }
@@ -132,7 +154,9 @@ public class PlanFragmenter
         @Override
         public PlanNode visitOutput(OutputNode node, RewriteContext<FragmentProperties> context)
         {
-            context.get().setSingleNodeDistribution(); // TODO: add support for distributed output
+            if (isForceSingleNodeOutput(session)) {
+                context.get().setSingleNodeDistribution();
+            }
 
             return context.defaultRewrite(node, context.get());
         }
@@ -163,8 +187,8 @@ public class PlanFragmenter
         {
             PartitioningHandle partitioning = node.getLayout()
                     .map(layout -> metadata.getLayout(session, layout))
-                    .flatMap(TableLayout::getNodePartitioning)
-                    .map(NodePartitioning::getPartitioningHandle)
+                    .flatMap(TableLayout::getTablePartitioning)
+                    .map(TablePartitioning::getPartitioningHandle)
                     .orElse(SOURCE_DISTRIBUTION);
 
             context.get().addSourceDistribution(node.getId(), partitioning);
@@ -362,54 +386,89 @@ public class PlanFragmenter
         }
     }
 
-    private static class SchedulingOrderVisitor
-            extends PlanVisitor<Void, Consumer<PlanNodeId>>
+    private static class GroupedExecutionTagger
+            extends PlanVisitor<GroupedExecutionProperties, Void>
     {
-        public List<PlanNodeId> getSchedulingOrder(PlanNode node)
+        private final Session session;
+        private final Metadata metadata;
+        private final NodePartitioningManager nodePartitioningManager;
+
+        public GroupedExecutionTagger(Session session, Metadata metadata, NodePartitioningManager nodePartitioningManager)
         {
-            ImmutableList.Builder<PlanNodeId> schedulingOrder = ImmutableList.builder();
-            node.accept(this, schedulingOrder::add);
-            return schedulingOrder.build();
+            this.session = requireNonNull(session, "session is null");
+            this.metadata = requireNonNull(metadata, "metadata is null");
+            this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
         }
 
         @Override
-        protected Void visitPlan(PlanNode node, Consumer<PlanNodeId> schedulingOrder)
+        protected GroupedExecutionProperties visitPlan(PlanNode node, Void context)
         {
-            for (PlanNode source : node.getSources()) {
-                source.accept(this, schedulingOrder);
+            if (node.getSources().isEmpty()) {
+                return new GroupedExecutionProperties(false, false);
             }
-            return null;
+            return processChildren(node);
         }
 
         @Override
-        public Void visitJoin(JoinNode node, Consumer<PlanNodeId> schedulingOrder)
+        public GroupedExecutionProperties visitJoin(JoinNode node, Void context)
         {
-            node.getRight().accept(this, schedulingOrder);
-            node.getLeft().accept(this, schedulingOrder);
-            return null;
+            GroupedExecutionProperties properties = processChildren(node);
+            if (properties.isCurrentNodeCapable()) {
+                return new GroupedExecutionProperties(true, true);
+            }
+            return properties;
         }
 
         @Override
-        public Void visitSemiJoin(SemiJoinNode node, Consumer<PlanNodeId> schedulingOrder)
+        public GroupedExecutionProperties visitTableScan(TableScanNode node, Void context)
         {
-            node.getFilteringSource().accept(this, schedulingOrder);
-            node.getSource().accept(this, schedulingOrder);
-            return null;
+            Optional<TablePartitioning> tablePartitioning = metadata.getLayout(session, node.getLayout().get()).getTablePartitioning();
+            if (!tablePartitioning.isPresent()) {
+                return new GroupedExecutionProperties(false, false);
+            }
+            List<ConnectorPartitionHandle> partitionHandles = nodePartitioningManager.listPartitionHandles(session, tablePartitioning.get().getPartitioningHandle());
+            return new GroupedExecutionProperties(
+                    !ImmutableList.of(NOT_PARTITIONED).equals(partitionHandles),
+                    false);
         }
 
-        @Override
-        public Void visitIndexJoin(IndexJoinNode node, Consumer<PlanNodeId> schedulingOrder)
+        private GroupedExecutionProperties processChildren(PlanNode node)
         {
-            node.getIndexSource().accept(this, schedulingOrder);
-            node.getProbeSource().accept(this, schedulingOrder);
-            return null;
+            // Each fragment has a partitioning handle, which is derived from leaf nodes in the fragment.
+            // Leaf nodes with different partitioning handle are not allowed to share a single fragment
+            // (except for special cases as detailed in addSourceDistribution).
+            // As a result, it is not necessary to check the compatibility between node.getSources because
+            // they are guaranteed to be compatible.
+            boolean currentNodeCapable = true;
+            boolean subTreeUseful = false;
+            for (PlanNode source : node.getSources()) {
+                GroupedExecutionProperties properties = source.accept(this, null);
+                currentNodeCapable &= properties.isCurrentNodeCapable();
+                subTreeUseful |= properties.isSubTreeUseful();
+            }
+            return new GroupedExecutionProperties(currentNodeCapable, subTreeUseful);
+        }
+    }
+
+    private static class GroupedExecutionProperties
+    {
+        private final boolean currentNodeCapable;
+        private final boolean subTreeUseful;
+
+        public GroupedExecutionProperties(boolean currentNodeCapable, boolean subTreeUseful)
+        {
+            this.currentNodeCapable = currentNodeCapable;
+            this.subTreeUseful = subTreeUseful;
         }
 
-        @Override
-        public Void visitTableScan(TableScanNode node, Consumer<PlanNodeId> schedulingOrder)
+        public boolean isCurrentNodeCapable()
         {
-            schedulingOrder.accept(node.getId());
-            return null;
+            return currentNodeCapable;
+        }
+
+        public boolean isSubTreeUseful()
+        {
+            return subTreeUseful;
         }
     }
 }

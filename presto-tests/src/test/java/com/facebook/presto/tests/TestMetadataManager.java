@@ -13,18 +13,20 @@
  */
 package com.facebook.presto.tests;
 
+import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
-import com.facebook.presto.execution.TestingSessionFactory;
+import com.facebook.presto.execution.TestingSessionContext;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.RUNNING;
-import static com.facebook.presto.tests.tpch.TpchQueryRunner.createQueryRunner;
 import static org.testng.Assert.assertEquals;
 
 /**
@@ -43,7 +45,7 @@ public class TestMetadataManager
     public void setUp()
             throws Exception
     {
-        queryRunner = createQueryRunner();
+        queryRunner = TpchQueryRunnerBuilder.builder().build();
         metadataManager = (MetadataManager) queryRunner.getMetadata();
     }
 
@@ -81,12 +83,17 @@ public class TestMetadataManager
             throws Exception
     {
         QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
-        QueryId queryId = queryManager.createQuery(new TestingSessionFactory(TEST_SESSION),
+        QueryId queryId = queryManager.createQuery(new TestingSessionContext(TEST_SESSION),
                 "SELECT * FROM lineitem").getQueryId();
 
         // wait until query starts running
         while (true) {
-            if (queryManager.getQueryInfo(queryId).getState() == RUNNING) {
+            QueryInfo queryInfo = queryManager.getQueryInfo(queryId);
+            if (queryInfo.getState().isDone()) {
+                assertEquals(queryInfo.getState(), FAILED);
+                throw queryInfo.getFailureInfo().toException();
+            }
+            if (queryInfo.getState() == RUNNING) {
                 break;
             }
             Thread.sleep(100);

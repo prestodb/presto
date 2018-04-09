@@ -31,6 +31,8 @@ import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 import java.util.stream.IntStream;
 
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.sql.gen.TestVarArgsToArrayAdapterGenerator.TestVarArgsSum.VAR_ARGS_SUM;
 import static com.facebook.presto.sql.gen.VarArgsToArrayAdapterGenerator.generateVarArgsToArrayAdapter;
@@ -50,7 +52,6 @@ public class TestVarArgsToArrayAdapterGenerator
 
     @Test
     public void testArrayElements()
-            throws Exception
     {
         assertFunction("var_args_sum()", INTEGER, 0);
         assertFunction("var_args_sum(1)", INTEGER, 1);
@@ -114,9 +115,7 @@ public class TestVarArgsToArrayAdapterGenerator
                     USER_STATE_FACTORY);
             return new ScalarFunctionImplementation(
                     false,
-                    nCopies(arity, false),
-                    nCopies(arity, false),
-                    nCopies(arity, Optional.empty()),
+                    nCopies(arity, valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
                     methodHandleAndConstructor.getMethodHandle(),
                     Optional.of(methodHandleAndConstructor.getConstructor()),
                     isDeterministic());

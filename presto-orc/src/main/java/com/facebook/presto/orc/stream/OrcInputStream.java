@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.orc.stream;
 
+import com.facebook.presto.memory.context.AggregatedMemoryContext;
+import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcDataSourceId;
 import com.facebook.presto.orc.OrcDecompressor;
-import com.facebook.presto.orc.memory.AbstractAggregatedMemoryContext;
-import com.facebook.presto.orc.memory.LocalMemoryContext;
 import io.airlift.slice.FixedLengthSliceInput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -56,7 +56,7 @@ public final class OrcInputStream
     // * Memory pointed to by `current` is always part of `buffer`. It shouldn't be counted again.
     private final LocalMemoryContext fixedMemoryUsage;
 
-    public OrcInputStream(OrcDataSourceId orcDataSourceId, FixedLengthSliceInput sliceInput, Optional<OrcDecompressor> decompressor, AbstractAggregatedMemoryContext systemMemoryContext)
+    public OrcInputStream(OrcDataSourceId orcDataSourceId, FixedLengthSliceInput sliceInput, Optional<OrcDecompressor> decompressor, AggregatedMemoryContext systemMemoryContext)
     {
         this.orcDataSourceId = requireNonNull(orcDataSourceId, "orcDataSource is null");
 
@@ -81,7 +81,6 @@ public final class OrcInputStream
 
     @Override
     public void close()
-            throws IOException
     {
         current = null;
         fixedMemoryUsage.setBytes(compressedSliceInput.length()); // see comments above for fixedMemoryUsage
@@ -92,7 +91,6 @@ public final class OrcInputStream
 
     @Override
     public int available()
-            throws IOException
     {
         if (current == null) {
             return 0;

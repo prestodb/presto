@@ -34,8 +34,13 @@ public class TestZipWithFunction
         extends AbstractTestFunctions
 {
     @Test
+    public void testRetainedSizeBounded()
+    {
+        assertCachedInstanceHasBoundedRetainedSize("zip_with(ARRAY [25, 26, 27], ARRAY [1, 2, 3], (x, y) -> x + y)");
+    }
+
+    @Test
     public void testSameLength()
-            throws Exception
     {
         assertFunction("zip_with(ARRAY[], ARRAY[], (x, y) -> (y, x))",
                 new ArrayType(new RowType(ImmutableList.of(UNKNOWN, UNKNOWN), Optional.empty())),
@@ -72,7 +77,6 @@ public class TestZipWithFunction
 
     @Test
     public void testDifferentLength()
-            throws Exception
     {
         assertInvalidFunction("zip_with(ARRAY[1], ARRAY['a', 'b'], (x, y) -> (y, x))", "Arrays must have the same length");
         assertInvalidFunction("zip_with(ARRAY[NULL, 2], ARRAY['a'], (x, y) -> (y, x))", "Arrays must have the same length");
@@ -81,7 +85,6 @@ public class TestZipWithFunction
 
     @Test
     public void testWithNull()
-            throws Exception
     {
         assertFunction("zip_with(CAST(NULL AS ARRAY(UNKNOWN)), ARRAY[], (x, y) -> (y, x))",
                 new ArrayType(new RowType(ImmutableList.of(UNKNOWN, UNKNOWN), Optional.empty())),

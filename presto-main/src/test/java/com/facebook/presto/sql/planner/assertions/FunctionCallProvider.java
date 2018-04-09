@@ -13,15 +13,20 @@
  */
 package com.facebook.presto.sql.planner.assertions;
 
+import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.OrderBy;
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.WindowFrame;
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.toSymbolReferences;
 import static java.lang.String.format;
@@ -35,35 +40,47 @@ class FunctionCallProvider
     private final Optional<WindowFrame> frame;
     private final boolean distinct;
     private final List<PlanTestSymbol> args;
+    private final List<PlanMatchPattern.Ordering> orderBy;
 
-    private FunctionCallProvider(boolean isWindowFunction, QualifiedName name, Optional<WindowFrame> frame, boolean distinct, List<PlanTestSymbol> args)
+    private FunctionCallProvider(boolean isWindowFunction, QualifiedName name, Optional<WindowFrame> frame, boolean distinct, List<PlanTestSymbol> args, List<PlanMatchPattern.Ordering> orderBy)
     {
         this.isWindowFunction = isWindowFunction;
         this.name = requireNonNull(name, "name is null");
         this.frame = requireNonNull(frame, "frame is null");
         this.distinct = distinct;
         this.args = requireNonNull(args, "args is null");
+        this.orderBy = requireNonNull(orderBy, "orderBy is null");
     }
 
     FunctionCallProvider(QualifiedName name, Optional<WindowFrame> frame, boolean distinct, List<PlanTestSymbol> args)
     {
-        this(true, name, frame, distinct, args);
+        this(true, name, frame, distinct, args, ImmutableList.of());
     }
 
     FunctionCallProvider(QualifiedName name, boolean distinct, List<PlanTestSymbol> args)
     {
-        this(false, name, Optional.empty(), distinct, args);
+        this(false, name, Optional.empty(), distinct, args, ImmutableList.of());
+    }
+
+    FunctionCallProvider(QualifiedName name, List<PlanTestSymbol> args, List<PlanMatchPattern.Ordering> orderBy)
+    {
+        this(false, name, Optional.empty(), false, args, orderBy);
     }
 
     FunctionCallProvider(QualifiedName name, List<PlanTestSymbol> args)
     {
-        this(false, name, Optional.empty(), false, args);
+        this(false, name, Optional.empty(), false, args, ImmutableList.of());
     }
 
     @Override
     public String toString()
     {
-        return format("%s%s (%s) %s", distinct ? "DISTINCT" : "", name, Joiner.on(", ").join(args), frame.isPresent() ? frame.get().toString() : "");
+        return format("%s%s (%s%s) %s",
+                distinct ? "DISTINCT" : "",
+                name,
+                Joiner.on(", ").join(args),
+                orderBy.isEmpty() ? "" : " ORDER BY " + Joiner.on(", ").join(orderBy),
+                frame.isPresent() ? frame.get().toString() : "");
     }
 
     public FunctionCall getExpectedValue(SymbolAliases aliases)
@@ -73,7 +90,17 @@ class FunctionCallProvider
             return new ExpectedWindowFunctionCall(symbolReferences);
         }
 
-        return new FunctionCall(name, symbolReferences);
+        Optional<OrderBy> orderByClause = Optional.empty();
+        if (!orderBy.isEmpty()) {
+            orderByClause = Optional.of(new OrderBy(orderBy.stream()
+                    .map(item -> new SortItem(
+                            Symbol.from(aliases.get(item.getField())).toSymbolReference(),
+                            item.getOrdering(),
+                            item.getNullOrdering()))
+                    .collect(Collectors.toList())));
+        }
+
+        return new FunctionCall(name, Optional.empty(), Optional.empty(), orderByClause, distinct, symbolReferences);
     }
 
     private class ExpectedWindowFunctionCall

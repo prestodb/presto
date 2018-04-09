@@ -19,8 +19,8 @@ import com.facebook.presto.sql.tree.SymbolReference;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
-import static org.testng.AssertJUnit.assertFalse;
 
 public class TestExpressionVerifier
 {
@@ -45,7 +45,6 @@ public class TestExpressionVerifier
 
     @Test
     public void testCast()
-            throws Exception
     {
         SymbolAliases aliases = SymbolAliases.builder()
                 .put("X", new SymbolReference("orderkey"))
@@ -59,7 +58,6 @@ public class TestExpressionVerifier
 
     @Test
     public void testBetween()
-            throws Exception
     {
         SymbolAliases symbolAliases = SymbolAliases.builder()
                 .put("X", new SymbolReference("orderkey"))

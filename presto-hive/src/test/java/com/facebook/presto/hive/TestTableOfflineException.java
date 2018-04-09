@@ -22,7 +22,6 @@ public class TestTableOfflineException
 {
     @Test
     public void testMessage()
-            throws Exception
     {
         assertMessage(new SchemaTableName("schema", "table"), false, "", "Table 'schema.table' is offline");
         assertMessage(new SchemaTableName("schema", "table"), false, null, "Table 'schema.table' is offline");

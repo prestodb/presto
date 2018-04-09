@@ -48,6 +48,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.sql.QueryUtil.identifier;
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.EQUAL;
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.GREATER_THAN;
 import static com.google.common.base.Predicates.not;
@@ -61,7 +62,6 @@ public class TestEqualityInference
 {
     @Test
     public void testTransitivity()
-            throws Exception
     {
         EqualityInference.Builder builder = new EqualityInference.Builder();
         addEquality("a1", "b1", builder);
@@ -102,7 +102,6 @@ public class TestEqualityInference
 
     @Test
     public void testTriviallyRewritable()
-            throws Exception
     {
         EqualityInference.Builder builder = new EqualityInference.Builder();
         Expression expression = builder.build()
@@ -113,7 +112,6 @@ public class TestEqualityInference
 
     @Test
     public void testUnrewritable()
-            throws Exception
     {
         EqualityInference.Builder builder = new EqualityInference.Builder();
         addEquality("a1", "b1", builder);
@@ -126,7 +124,6 @@ public class TestEqualityInference
 
     @Test
     public void testParseEqualityExpression()
-            throws Exception
     {
         EqualityInference inference = new EqualityInference.Builder()
                 .addEquality(equals("a1", "b1"))
@@ -140,7 +137,6 @@ public class TestEqualityInference
 
     @Test(expectedExceptions = IllegalArgumentException.class)
     public void testInvalidEqualityExpression1()
-            throws Exception
     {
         new EqualityInference.Builder()
                 .addEquality(equals("a1", "a1"));
@@ -148,7 +144,6 @@ public class TestEqualityInference
 
     @Test(expectedExceptions = IllegalArgumentException.class)
     public void testInvalidEqualityExpression2()
-            throws Exception
     {
         new EqualityInference.Builder()
                 .addEquality(someExpression("a1", "b1"));
@@ -156,7 +151,6 @@ public class TestEqualityInference
 
     @Test(expectedExceptions = IllegalArgumentException.class)
     public void testInvalidEqualityExpression3()
-            throws Exception
     {
         EqualityInference.Builder builder = new EqualityInference.Builder();
         addEquality("a1", "a1", builder);
@@ -164,7 +158,6 @@ public class TestEqualityInference
 
     @Test
     public void testExtractInferrableEqualities()
-            throws Exception
     {
         EqualityInference inference = new EqualityInference.Builder()
                 .extractInferenceCandidates(ExpressionUtils.and(equals("a1", "b1"), equals("b1", "c1"), someExpression("c1", "d1")))
@@ -179,7 +172,6 @@ public class TestEqualityInference
 
     @Test
     public void testEqualityPartitionGeneration()
-            throws Exception
     {
         EqualityInference.Builder builder = new EqualityInference.Builder();
         builder.addEquality(nameReference("a1"), nameReference("b1"));
@@ -232,7 +224,6 @@ public class TestEqualityInference
 
     @Test
     public void testMultipleEqualitySetsPredicateGeneration()
-            throws Exception
     {
         EqualityInference.Builder builder = new EqualityInference.Builder();
         addEquality("a1", "b1", builder);
@@ -280,7 +271,6 @@ public class TestEqualityInference
 
     @Test
     public void testSubExpressionRewrites()
-            throws Exception
     {
         EqualityInference.Builder builder = new EqualityInference.Builder();
         builder.addEquality(nameReference("a1"), add("b", "c")); // a1 = b + c
@@ -300,7 +290,6 @@ public class TestEqualityInference
 
     @Test
     public void testConstantEqualities()
-            throws Exception
     {
         EqualityInference.Builder builder = new EqualityInference.Builder();
         addEquality("a1", "b1", builder);
@@ -324,7 +313,6 @@ public class TestEqualityInference
 
     @Test
     public void testEqualityGeneration()
-            throws Exception
     {
         EqualityInference.Builder builder = new EqualityInference.Builder();
         builder.addEquality(nameReference("a1"), add("b", "c")); // a1 = b + c
@@ -338,14 +326,13 @@ public class TestEqualityInference
 
     @Test
     public void testExpressionsThatMayReturnNullOnNonNullInput()
-            throws Exception
     {
         List<Expression> candidates = ImmutableList.of(
                 new Cast(nameReference("b"), "BIGINT", true), // try_cast
                 new FunctionCall(QualifiedName.of("try"), ImmutableList.of(nameReference("b"))),
                 new NullIfExpression(nameReference("b"), number(1)),
                 new IfExpression(nameReference("b"), number(1), new NullLiteral()),
-                new DereferenceExpression(nameReference("b"), "x"),
+                new DereferenceExpression(nameReference("b"), identifier("x")),
                 new InPredicate(nameReference("b"), new InListExpression(ImmutableList.of(new NullLiteral()))),
                 new SearchedCaseExpression(ImmutableList.of(new WhenClause(new IsNotNullPredicate(nameReference("b")), new NullLiteral())), Optional.empty()),
                 new SimpleCaseExpression(nameReference("b"), ImmutableList.of(new WhenClause(number(1), new NullLiteral())), Optional.empty()),

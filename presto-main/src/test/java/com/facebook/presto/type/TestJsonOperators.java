@@ -14,8 +14,20 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.type.ArrayType;
+import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.SqlTimestamp;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.testing.LocalQueryRunner;
+import com.facebook.presto.testing.MaterializedResult;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
+
+import java.util.Optional;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
@@ -29,13 +41,35 @@ import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.type.JsonType.JSON;
+import static com.facebook.presto.util.StructuralTestUtil.mapType;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.POSITIVE_INFINITY;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.fail;
 
 public class TestJsonOperators
         extends AbstractTestFunctions
 {
     // Some of the tests in this class are expected to fail when coercion between primitive presto types changes behavior
+
+    private LocalQueryRunner runner;
+
+    @BeforeClass
+    public void setUp()
+    {
+        runner = new LocalQueryRunner(TEST_SESSION);
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void destroy()
+    {
+        if (runner != null) {
+            runner.close();
+            runner = null;
+        }
+    }
+
+    // todo add cases for decimal
 
     @Test
     public void testCastToBigint()
@@ -136,7 +170,6 @@ public class TestJsonOperators
 
     @Test
     public void testTypeConstructor()
-            throws Exception
     {
         assertFunction("JSON '123'", JSON, "123");
         assertFunction("JSON '[4,5,6]'", JSON, "[4,5,6]");
@@ -158,7 +191,6 @@ public class TestJsonOperators
 
     @Test
     public void testCastToDouble()
-            throws Exception
     {
         assertFunction("cast(JSON 'null' as DOUBLE)", DOUBLE, null);
         assertFunction("cast(JSON '128' as DOUBLE)", DOUBLE, 128.0);
@@ -185,10 +217,9 @@ public class TestJsonOperators
 
     @Test
     public void testCastFromDouble()
-            throws Exception
     {
         assertFunction("cast(cast(null as double) as JSON)", JSON, null);
-        assertFunction("cast(3.14 as JSON)", JSON, "3.14");
+        assertFunction("cast(3.14E0 as JSON)", JSON, "3.14");
         assertFunction("cast(nan() as JSON)", JSON, "\"NaN\"");
         assertFunction("cast(infinity() as JSON)", JSON, "\"Infinity\"");
         assertFunction("cast(-infinity() as JSON)", JSON, "\"-Infinity\"");
@@ -196,7 +227,6 @@ public class TestJsonOperators
 
     @Test
     public void testCastFromReal()
-            throws Exception
     {
         assertFunction("cast(cast(null as REAL) as JSON)", JSON, null);
         assertFunction("cast(REAL '3.14' as JSON)", JSON, "3.14");
@@ -207,7 +237,6 @@ public class TestJsonOperators
 
     @Test
     public void testCastToReal()
-            throws Exception
     {
         assertFunction("cast(JSON 'null' as REAL)", REAL, null);
         assertFunction("cast(JSON '-128' as REAL)", REAL, -128.0f);
@@ -235,7 +264,6 @@ public class TestJsonOperators
 
     @Test
     public void testCastToDecimal()
-            throws Exception
     {
         assertFunction("cast(JSON 'null' as DECIMAL(10,3))", createDecimalType(10, 3), null);
         assertFunction("cast(JSON '128' as DECIMAL(10,3))", createDecimalType(10, 3), decimal("128.000"));
@@ -250,7 +278,6 @@ public class TestJsonOperators
 
     @Test
     public void testCastFromDecimal()
-            throws Exception
     {
         assertFunction("cast(cast(null as decimal(5,2)) as JSON)", JSON, null);
         assertFunction("cast(DECIMAL '3.14' as JSON)", JSON, "3.14");
@@ -326,8 +353,70 @@ public class TestJsonOperators
         assertFunction("CAST(from_unixtime(1) AS JSON)", JSON, "\"" + sqlTimestamp(1000).toString() + "\"");
     }
 
+    @Test
+    public void testCastWithJsonParse()
+    {
+        // the test is to make sure ExpressionOptimizer works with cast + json_parse
+        assertCastWithJsonParse("[[1,1], [2,2]]", "ARRAY<ARRAY<INTEGER>>", new ArrayType(new ArrayType(INTEGER)), ImmutableList.of(ImmutableList.of(1, 1), ImmutableList.of(2, 2)));
+        assertInvalidCastWithJsonParse("[1, \"abc\"]", "ARRAY<INTEGER>", "Cannot cast to array(integer). Cannot cast 'abc' to INT\n[1, \"abc\"]");
+
+        // Since we will not reformat the JSON string before parse and cast with the optimization,
+        // these extra whitespaces in JSON string is to make sure the cast will work in such cases.
+        assertCastWithJsonParse("{\"a\"\n:1,  \"b\":\t2}", "MAP<VARCHAR,INTEGER>", mapType(VARCHAR, INTEGER), ImmutableMap.of("a", 1, "b", 2));
+        assertInvalidCastWithJsonParse("{\"[1, 1]\":[2, 2]}", "MAP<ARRAY<INTEGER>,ARRAY<INTEGER>>", "Cannot cast JSON to map(array(integer),array(integer))");
+        assertInvalidCastWithJsonParse("{true: false, false:false}", "MAP<BOOLEAN,BOOLEAN>", "Cannot cast to map(boolean,boolean).\n{true: false, false:false}");
+
+        assertCastWithJsonParse(
+                "{\"a\"  \n  :1,  \"b\":  \t  [2, 3]}",
+                "ROW(a INTEGER, b ARRAY<INTEGER>)",
+                new RowType(ImmutableList.of(INTEGER, new ArrayType(INTEGER)), Optional.of(ImmutableList.of("a", "b"))),
+                ImmutableList.of(1, ImmutableList.of(2, 3)));
+        assertCastWithJsonParse(
+                "[  1,  [2, 3]  ]",
+                "ROW(INTEGER, ARRAY<INTEGER>)",
+                new RowType(ImmutableList.of(INTEGER, new ArrayType(INTEGER)), Optional.empty()),
+                ImmutableList.of(1, ImmutableList.of(2, 3)));
+        assertInvalidCastWithJsonParse(
+                "{\"a\" :1,  \"b\": {} }",
+                "ROW(a INTEGER, b ARRAY<INTEGER>)",
+                "Cannot cast to row(a integer,b array(integer)). Expected a json array, but got {\n{\"a\" :1,  \"b\": {} }");
+        assertInvalidCastWithJsonParse(
+                "[  1,  {}  ]",
+                "ROW(INTEGER, ARRAY<INTEGER>)",
+                "Cannot cast to row(field0 integer,field1 array(integer)). Expected a json array, but got {\n[  1,  {}  ]");
+    }
+
     private static SqlTimestamp sqlTimestamp(long millisUtc)
     {
         return new SqlTimestamp(millisUtc, TEST_SESSION.getTimeZoneKey());
+    }
+
+    private void assertCastWithJsonParse(String json, String castSqlType, Type expectedType, Object expected)
+    {
+        String query = "" +
+                "SELECT CAST(JSON_PARSE(col) AS " + castSqlType + ") " +
+                "FROM (VALUES('" + json + "')) AS t(col)";
+
+        // building queries with VALUES to avoid constant folding
+        MaterializedResult result = runner.execute(query);
+        assertEquals(result.getTypes().size(), 1);
+        assertEquals(result.getTypes().get(0), expectedType);
+        assertEquals(result.getOnlyValue(), expected);
+    }
+
+    private void assertInvalidCastWithJsonParse(String json, String castSqlType, String message)
+    {
+        String query = "" +
+                "SELECT CAST(JSON_PARSE(col) AS " + castSqlType + ") " +
+                "FROM (VALUES('" + json + "')) AS t(col)";
+
+        try {
+            runner.execute(query);
+            fail("Expected to throw an INVALID_CAST_ARGUMENT exception");
+        }
+        catch (PrestoException e) {
+            assertEquals(e.getErrorCode(), INVALID_CAST_ARGUMENT.toErrorCode());
+            assertEquals(e.getMessage(), message);
+        }
     }
 }

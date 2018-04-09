@@ -13,15 +13,9 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.bytecode.BytecodeBlock;
-import com.facebook.presto.bytecode.BytecodeNode;
-import com.facebook.presto.bytecode.Scope;
-import com.facebook.presto.bytecode.Variable;
-import com.facebook.presto.bytecode.control.IfStatement;
-import com.facebook.presto.bytecode.expression.BytecodeExpression;
-import com.facebook.presto.bytecode.instruction.LabelNode;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
+import com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
@@ -29,6 +23,13 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.primitives.Primitives;
+import io.airlift.bytecode.BytecodeBlock;
+import io.airlift.bytecode.BytecodeNode;
+import io.airlift.bytecode.Scope;
+import io.airlift.bytecode.Variable;
+import io.airlift.bytecode.control.IfStatement;
+import io.airlift.bytecode.expression.BytecodeExpression;
+import io.airlift.bytecode.instruction.LabelNode;
 import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandles;
@@ -37,13 +38,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.bytecode.OpCode.NOP;
-import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantFalse;
-import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantTrue;
-import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invokeDynamic;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentType.VALUE_TYPE;
 import static com.facebook.presto.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.bytecode.OpCode.NOP;
+import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
+import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
+import static io.airlift.bytecode.expression.BytecodeExpressions.invokeDynamic;
 import static java.lang.String.format;
 
 public final class BytecodeUtils
@@ -193,23 +195,31 @@ public final class BytecodeUtils
             }
             else {
                 block.append(arguments.get(realParameterIndex));
-                if (!function.getNullableArguments().get(realParameterIndex)) {
-                    checkArgument(!Primitives.isWrapperType(type), "Non-nullable argument must not be primitive wrapper type");
-                    block.append(ifWasNullPopAndGoto(scope, end, unboxedReturnType, Lists.reverse(stackTypes)));
-                }
-                else {
-                    if (function.getNullFlags().get(realParameterIndex)) {
-                        if (type == Void.class) {
+                ArgumentProperty argumentProperty = function.getArgumentProperty(realParameterIndex);
+
+                if (argumentProperty.getArgumentType() == VALUE_TYPE) {
+                    // apply null convention for value type argument
+                    switch (argumentProperty.getNullConvention()) {
+                        case RETURN_NULL_ON_NULL:
+                            checkArgument(!Primitives.isWrapperType(type), "Non-nullable argument must not be primitive wrapper type");
+                            block.append(ifWasNullPopAndGoto(scope, end, unboxedReturnType, Lists.reverse(stackTypes)));
+                            break;
+                        case USE_NULL_FLAG:
+                            if (type == Void.class) {
+                                block.append(boxPrimitiveIfNecessary(scope, type));
+                            }
+                            block.append(scope.getVariable("wasNull"));
+                            block.append(scope.getVariable("wasNull").set(constantFalse()));
+                            stackTypes.add(boolean.class);
+                            currentParameterIndex++;
+                            break;
+                        case USE_BOXED_TYPE:
                             block.append(boxPrimitiveIfNecessary(scope, type));
-                        }
-                        block.append(scope.getVariable("wasNull"));
-                        stackTypes.add(boolean.class);
-                        currentParameterIndex++;
+                            block.append(scope.getVariable("wasNull").set(constantFalse()));
+                            break;
+                        default:
+                            throw new UnsupportedOperationException(format("Unsupported null convention: %s", argumentProperty.getNullConvention()));
                     }
-                    else {
-                        block.append(boxPrimitiveIfNecessary(scope, type));
-                    }
-                    block.append(scope.getVariable("wasNull").set(constantFalse()));
                 }
                 realParameterIndex++;
             }

@@ -25,21 +25,21 @@ import static java.util.Objects.requireNonNull;
 public final class ColumnDefinition
         extends TableElement
 {
-    private final String name;
+    private final Identifier name;
     private final String type;
     private final Optional<String> comment;
 
-    public ColumnDefinition(String name, String type, Optional<String> comment)
+    public ColumnDefinition(Identifier name, String type, Optional<String> comment)
     {
         this(Optional.empty(), name, type, comment);
     }
 
-    public ColumnDefinition(NodeLocation location, String name, String type, Optional<String> comment)
+    public ColumnDefinition(NodeLocation location, Identifier name, String type, Optional<String> comment)
     {
         this(Optional.of(location), name, type, comment);
     }
 
-    private ColumnDefinition(Optional<NodeLocation> location, String name, String type, Optional<String> comment)
+    private ColumnDefinition(Optional<NodeLocation> location, Identifier name, String type, Optional<String> comment)
     {
         super(location);
         this.name = requireNonNull(name, "name is null");
@@ -47,7 +47,7 @@ public final class ColumnDefinition
         this.comment = requireNonNull(comment, "comment is null");
     }
 
-    public String getName()
+    public Identifier getName()
     {
         return name;
     }

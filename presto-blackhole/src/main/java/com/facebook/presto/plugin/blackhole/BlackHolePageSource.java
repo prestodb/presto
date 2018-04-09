@@ -18,7 +18,6 @@ import com.facebook.presto.spi.Page;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import io.airlift.units.Duration;
 
-import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -34,7 +33,6 @@ class BlackHolePageSource
     private int pagesLeft;
     private final ListeningScheduledExecutorService executorService;
     private final long pageProcessingDelayInMillis;
-    private final long totalBytes;
     private long completedBytes;
     private final long memoryUsageBytes;
     private boolean closed;
@@ -47,7 +45,6 @@ class BlackHolePageSource
         this.pagesLeft = count;
         this.executorService = requireNonNull(executorService, "executorService is null");
         this.pageProcessingDelayInMillis = requireNonNull(pageProcessingDelay, "pageProcessingDelay is null").toMillis();
-        this.totalBytes = page.getSizeInBytes() * count;
         this.memoryUsageBytes = page.getSizeInBytes();
     }
 
@@ -93,15 +90,8 @@ class BlackHolePageSource
 
     @Override
     public void close()
-            throws IOException
     {
         closed = true;
-    }
-
-    @Override
-    public long getTotalBytes()
-    {
-        return totalBytes;
     }
 
     @Override

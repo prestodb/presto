@@ -35,7 +35,7 @@ import static com.facebook.presto.util.Failures.checkCondition;
 public final class ApproximateCountDistinctAggregations
 {
     private static final double DEFAULT_STANDARD_ERROR = 0.023;
-    private static final double LOWEST_MAX_STANDARD_ERROR = 0.01150;
+    private static final double LOWEST_MAX_STANDARD_ERROR = 0.0040625;
     private static final double HIGHEST_MAX_STANDARD_ERROR = 0.26000;
 
     private ApproximateCountDistinctAggregations() {}

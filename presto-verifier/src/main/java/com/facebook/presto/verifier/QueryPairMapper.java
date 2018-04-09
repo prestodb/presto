@@ -16,8 +16,8 @@ package com.facebook.presto.verifier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
-import org.skife.jdbi.v2.StatementContext;
-import org.skife.jdbi.v2.tweak.ResultSetMapper;
+import org.jdbi.v3.core.mapper.RowMapper;
+import org.jdbi.v3.core.statement.StatementContext;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -25,13 +25,13 @@ import java.util.List;
 import java.util.Map;
 
 public class QueryPairMapper
-        implements ResultSetMapper<QueryPair>
+        implements RowMapper<QueryPair>
 {
     private static final JsonCodec<Map<String, String>> propertiesJsonCodec = JsonCodec.mapJsonCodec(String.class, String.class);
     private static final JsonCodec<List<String>> queriesJsonCodec = JsonCodec.listJsonCodec(String.class);
 
     @Override
-    public QueryPair map(int index, ResultSet resultSet, StatementContext statementContext)
+    public QueryPair map(ResultSet resultSet, StatementContext context)
             throws SQLException
     {
         Map<String, String> sessionProperties = ImmutableMap.of();
@@ -52,7 +52,6 @@ public class QueryPairMapper
     }
 
     private static List<String> fromJsonString(String jsonString)
-            throws SQLException
     {
         return jsonString == null ? ImmutableList.of() : queriesJsonCodec.fromJson(jsonString);
     }

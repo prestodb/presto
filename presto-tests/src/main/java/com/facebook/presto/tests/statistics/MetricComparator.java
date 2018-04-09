@@ -13,90 +13,110 @@
  */
 package com.facebook.presto.tests.statistics;
 
-import com.facebook.presto.cost.PlanNodeCost;
-import com.facebook.presto.execution.StageInfo;
-import com.facebook.presto.spi.statistics.Estimate;
+import com.facebook.presto.Session;
+import com.facebook.presto.cost.PlanNodeStatsEstimate;
+import com.facebook.presto.cost.StatsCalculator;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.Plan;
+import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.sql.planner.planPrinter.PlanNodeStats;
-import com.facebook.presto.sql.planner.planPrinter.PlanNodeStatsSummarizer;
+import com.facebook.presto.testing.MaterializedRow;
+import com.facebook.presto.testing.QueryRunner;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
-import java.util.function.BinaryOperator;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
+import java.util.OptionalDouble;
 
-import static com.facebook.presto.execution.StageInfo.getAllStages;
-import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
-import static com.facebook.presto.util.MoreMaps.mergeMaps;
-import static com.google.common.collect.Maps.transformValues;
-import static java.util.Arrays.asList;
+import static com.facebook.presto.sql.planner.iterative.Lookup.noLookup;
+import static com.facebook.presto.transaction.TransactionBuilder.transaction;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.getOnlyElement;
+import static java.lang.String.format;
+import static java.util.stream.Collectors.joining;
 
-public class MetricComparator
+final class MetricComparator
 {
-    private final List<Metric> metrics = asList(Metric.values());
-    private final double tolerance = 0.1;
+    private MetricComparator() {}
 
-    public List<MetricComparison> getMetricComparisons(Plan queryPlan, StageInfo outputStageInfo)
+    static List<MetricComparison> getMetricComparisons(String query, QueryRunner runner, List<Metric> metrics)
     {
-        return metrics.stream().flatMap(metric -> {
-            Map<PlanNodeId, PlanNodeCost> estimates = queryPlan.getPlanNodeCosts();
-            Map<PlanNodeId, PlanNodeCost> actuals = extractActualCosts(outputStageInfo);
-            return estimates.entrySet().stream().map(entry -> {
-                // todo refactor to stay in PlanNodeId domain ????
-                PlanNode node = planNodeForId(queryPlan, entry.getKey());
-                PlanNodeCost estimate = entry.getValue();
-                Optional<PlanNodeCost> execution = Optional.ofNullable(actuals.get(node.getId()));
-                return createMetricComparison(metric, node, estimate, execution);
-            });
-        }).collect(Collectors.toList());
+        List<OptionalDouble> estimatedValues = getEstimatedValues(metrics, query, runner);
+        List<OptionalDouble> actualValues = getActualValues(metrics, query, runner);
+
+        ImmutableList.Builder<MetricComparison> metricComparisons = ImmutableList.builder();
+        for (int i = 0; i < metrics.size(); ++i) {
+            //noinspection unchecked
+            metricComparisons.add(new MetricComparison(
+                    metrics.get(i),
+                    estimatedValues.get(i),
+                    actualValues.get(i)));
+        }
+        return metricComparisons.build();
     }
 
-    private PlanNode planNodeForId(Plan queryPlan, PlanNodeId id)
+    private static List<OptionalDouble> getEstimatedValues(List<Metric> metrics, String query, QueryRunner runner)
     {
-        return searchFrom(queryPlan.getRoot())
-                .where(node -> node.getId().equals(id))
-                .findOnlyElement();
+        return transaction(runner.getTransactionManager(), runner.getAccessControl())
+                .singleStatement()
+                .execute(runner.getDefaultSession(), (Session session) -> getEstimatedValuesInternal(metrics, query, runner, session));
     }
 
-    private Map<PlanNodeId, PlanNodeCost> extractActualCosts(StageInfo outputStageInfo)
+    private static List<OptionalDouble> getEstimatedValuesInternal(List<Metric> metrics, String query, QueryRunner runner, Session session)
+            // TODO inline back this method
     {
-        Stream<Map<PlanNodeId, PlanNodeStats>> stagesStatsStream =
-                getAllStages(Optional.of(outputStageInfo)).stream()
-                        .map(PlanNodeStatsSummarizer::aggregatePlanNodeStats);
-
-        Map<PlanNodeId, PlanNodeStats> mergedStats = mergeStats(stagesStatsStream);
-        return transformValues(mergedStats, this::toPlanNodeCost);
+        Plan queryPlan = runner.createPlan(session, query);
+        OutputNode outputNode = (OutputNode) queryPlan.getRoot();
+        PlanNodeStatsEstimate outputNodeStats = calculateStats(outputNode, runner.getStatsCalculator(), session, queryPlan.getTypes());
+        StatsContext statsContext = buildStatsContext(queryPlan, outputNode);
+        return getEstimatedValues(metrics, outputNodeStats, statsContext);
     }
 
-    private Map<PlanNodeId, PlanNodeStats> mergeStats(Stream<Map<PlanNodeId, PlanNodeStats>> stagesStatsStream)
+    private static PlanNodeStatsEstimate calculateStats(PlanNode node, StatsCalculator statsCalculator, Session session, Map<Symbol, Type> types)
     {
-        BinaryOperator<PlanNodeStats> allowNoDuplicates = (a, b) -> {
-            throw new IllegalArgumentException("PlanNodeIds must be unique");
-        };
-        return mergeMaps(stagesStatsStream, allowNoDuplicates);
+        // We calculate stats one-off, so caching is not necessary
+        return statsCalculator.calculateStats(
+                node,
+                source -> calculateStats(source, statsCalculator, session, types),
+                noLookup(),
+                session,
+                types);
     }
 
-    private PlanNodeCost toPlanNodeCost(PlanNodeStats operatorStats)
+    private static StatsContext buildStatsContext(Plan queryPlan, OutputNode outputNode)
     {
-        return PlanNodeCost.builder()
-                .setOutputRowCount(new Estimate(operatorStats.getPlanNodeOutputPositions()))
-                .setOutputSizeInBytes(new Estimate(operatorStats.getPlanNodeOutputDataSize().toBytes()))
-                .build();
+        ImmutableMap.Builder<String, Symbol> columnSymbols = ImmutableMap.builder();
+        for (int columnId = 0; columnId < outputNode.getColumnNames().size(); ++columnId) {
+            columnSymbols.put(outputNode.getColumnNames().get(columnId), outputNode.getOutputSymbols().get(columnId));
+        }
+        return new StatsContext(columnSymbols.build(), queryPlan.getTypes());
     }
 
-    private MetricComparison createMetricComparison(Metric metric, PlanNode node, PlanNodeCost estimate, Optional<PlanNodeCost> execution)
+    private static List<OptionalDouble> getActualValues(List<Metric> metrics, String query, QueryRunner runner)
     {
-        Optional<Double> estimatedCost = asOptional(metric.getValue(estimate));
-        Optional<Double> executionCost = execution.flatMap(e -> asOptional(metric.getValue(e)));
-        return new MetricComparison(node, metric, estimatedCost, executionCost, tolerance);
+        String statsQuery = "SELECT "
+                + metrics.stream().map(Metric::getComputingAggregationSql).collect(joining(","))
+                + " FROM (" + query + ")";
+        try {
+            MaterializedRow actualValuesRow = getOnlyElement(runner.execute(statsQuery).getMaterializedRows());
+
+            ImmutableList.Builder<OptionalDouble> actualValues = ImmutableList.builder();
+            for (int i = 0; i < metrics.size(); ++i) {
+                actualValues.add(metrics.get(i).getValueFromAggregationQueryResult(actualValuesRow.getField(i)));
+            }
+            return actualValues.build();
+        }
+        catch (Exception e) {
+            throw new RuntimeException(format("Failed to execute query to compute actual values: %s", statsQuery), e);
+        }
     }
 
-    private Optional<Double> asOptional(Estimate estimate)
+    private static List<OptionalDouble> getEstimatedValues(List<Metric> metrics, PlanNodeStatsEstimate outputNodeStatisticsEstimates, StatsContext statsContext)
     {
-        return estimate.isValueUnknown() ? Optional.empty() : Optional.of(estimate.getValue());
+        return metrics.stream()
+                .map(metric -> metric.getValueFromPlanNodeEstimate(outputNodeStatisticsEstimates, statsContext))
+                .collect(toImmutableList());
     }
 }

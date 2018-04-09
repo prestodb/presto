@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.raptor.storage;
 
+import com.facebook.presto.spi.type.TimeZoneKey;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -49,6 +50,7 @@ public class TestStorageManagerConfig
                 .setOrcMaxMergeDistance(new DataSize(1, MEGABYTE))
                 .setOrcMaxReadSize(new DataSize(8, MEGABYTE))
                 .setOrcStreamBufferSize(new DataSize(8, MEGABYTE))
+                .setOrcLazyReadSmallRanges(true)
                 .setDeletionThreads(max(1, getRuntime().availableProcessors() / 2))
                 .setShardRecoveryTimeout(new Duration(30, SECONDS))
                 .setMissingShardDiscoveryInterval(new Duration(5, MINUTES))
@@ -62,7 +64,8 @@ public class TestStorageManagerConfig
                 .setMaxShardRows(1_000_000)
                 .setMaxShardSize(new DataSize(256, MEGABYTE))
                 .setMaxBufferSize(new DataSize(256, MEGABYTE))
-                .setOneSplitPerBucketThreshold(0));
+                .setOneSplitPerBucketThreshold(0)
+                .setShardDayBoundaryTimeZone(TimeZoneKey.UTC_KEY.getId()));
     }
 
     @Test
@@ -74,6 +77,7 @@ public class TestStorageManagerConfig
                 .put("storage.orc.max-merge-distance", "16kB")
                 .put("storage.orc.max-read-size", "16kB")
                 .put("storage.orc.stream-buffer-size", "16kB")
+                .put("storage.orc.lazy-read-small-ranges", "false")
                 .put("storage.max-deletion-threads", "999")
                 .put("storage.shard-recovery-timeout", "1m")
                 .put("storage.missing-shard-discovery-interval", "4m")
@@ -88,6 +92,7 @@ public class TestStorageManagerConfig
                 .put("storage.max-shard-size", "10MB")
                 .put("storage.max-buffer-size", "512MB")
                 .put("storage.one-split-per-bucket-threshold", "4")
+                .put("storage.shard-day-boundary-time-zone", "PST")
                 .build();
 
         StorageManagerConfig expected = new StorageManagerConfig()
@@ -96,6 +101,7 @@ public class TestStorageManagerConfig
                 .setOrcMaxMergeDistance(new DataSize(16, KILOBYTE))
                 .setOrcMaxReadSize(new DataSize(16, KILOBYTE))
                 .setOrcStreamBufferSize(new DataSize(16, KILOBYTE))
+                .setOrcLazyReadSmallRanges(false)
                 .setDeletionThreads(999)
                 .setShardRecoveryTimeout(new Duration(1, MINUTES))
                 .setMissingShardDiscoveryInterval(new Duration(4, MINUTES))
@@ -109,7 +115,8 @@ public class TestStorageManagerConfig
                 .setMaxShardRows(10_000)
                 .setMaxShardSize(new DataSize(10, MEGABYTE))
                 .setMaxBufferSize(new DataSize(512, MEGABYTE))
-                .setOneSplitPerBucketThreshold(4);
+                .setOneSplitPerBucketThreshold(4)
+                .setShardDayBoundaryTimeZone("PST");
 
         assertFullMapping(properties, expected);
     }

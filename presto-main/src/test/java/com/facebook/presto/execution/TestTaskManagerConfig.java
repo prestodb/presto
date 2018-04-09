@@ -46,6 +46,7 @@ public class TestTaskManagerConfig
                 .setMaxIndexMemoryUsage(new DataSize(64, Unit.MEGABYTE))
                 .setShareIndexLoading(false)
                 .setMaxPartialAggregationMemoryUsage(new DataSize(16, Unit.MEGABYTE))
+                .setMaxLocalExchangeBufferSize(new DataSize(32, Unit.MEGABYTE))
                 .setSinkMaxBufferSize(new DataSize(32, Unit.MEGABYTE))
                 .setMaxPagePartitioningBufferSize(new DataSize(32, Unit.MEGABYTE))
                 .setWriterCount(1)
@@ -53,9 +54,10 @@ public class TestTaskManagerConfig
                 .setHttpResponseThreads(100)
                 .setHttpTimeoutThreads(3)
                 .setTaskNotificationThreads(5)
-                .setLevelAbsolutePriority(true)
+                .setTaskYieldThreads(3)
+                .setLevelAbsolutePriority(false)
                 .setLevelTimeMultiplier(new BigDecimal("2"))
-                .setLegacySchedulingBehavior(true));
+                .setLegacySchedulingBehavior(false));
     }
 
     @Test
@@ -71,6 +73,7 @@ public class TestTaskManagerConfig
                 .put("task.max-index-memory", "512MB")
                 .put("task.share-index-loading", "true")
                 .put("task.max-partial-aggregation-memory", "32MB")
+                .put("task.max-local-exchange-buffer-size", "33MB")
                 .put("task.max-worker-threads", "3")
                 .put("task.min-drivers", "2")
                 .put("task.info.max-age", "22m")
@@ -82,9 +85,10 @@ public class TestTaskManagerConfig
                 .put("task.http-response-threads", "4")
                 .put("task.http-timeout-threads", "10")
                 .put("task.task-notification-threads", "13")
-                .put("task.level-absolute-priority", "false")
+                .put("task.task-yield-threads", "8")
+                .put("task.level-absolute-priority", "true")
                 .put("task.level-time-multiplier", "2.1")
-                .put("task.legacy-scheduling-behavior", "false")
+                .put("task.legacy-scheduling-behavior", "true")
                 .build();
 
         TaskManagerConfig expected = new TaskManagerConfig()
@@ -97,6 +101,7 @@ public class TestTaskManagerConfig
                 .setMaxIndexMemoryUsage(new DataSize(512, Unit.MEGABYTE))
                 .setShareIndexLoading(true)
                 .setMaxPartialAggregationMemoryUsage(new DataSize(32, Unit.MEGABYTE))
+                .setMaxLocalExchangeBufferSize(new DataSize(33, Unit.MEGABYTE))
                 .setMaxWorkerThreads(3)
                 .setMinDrivers(2)
                 .setInfoMaxAge(new Duration(22, TimeUnit.MINUTES))
@@ -108,9 +113,10 @@ public class TestTaskManagerConfig
                 .setHttpResponseThreads(4)
                 .setHttpTimeoutThreads(10)
                 .setTaskNotificationThreads(13)
-                .setLevelAbsolutePriority(false)
+                .setTaskYieldThreads(8)
+                .setLevelAbsolutePriority(true)
                 .setLevelTimeMultiplier(new BigDecimal("2.1"))
-                .setLegacySchedulingBehavior(false);
+                .setLegacySchedulingBehavior(true);
 
         assertFullMapping(properties, expected);
     }

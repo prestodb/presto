@@ -48,7 +48,6 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
-import static java.lang.String.valueOf;
 import static java.math.RoundingMode.FLOOR;
 
 public final class RealOperators
@@ -170,7 +169,7 @@ public final class RealOperators
     @SqlType("varchar(x)")
     public static Slice castToVarchar(@SqlType(StandardTypes.REAL) long value)
     {
-        return utf8Slice(valueOf(intBitsToFloat((int) value)));
+        return utf8Slice(String.valueOf(intBitsToFloat((int) value)));
     }
 
     @ScalarOperator(CAST)

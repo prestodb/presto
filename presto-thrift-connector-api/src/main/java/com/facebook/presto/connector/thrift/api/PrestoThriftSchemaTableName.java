@@ -36,6 +36,11 @@ public final class PrestoThriftSchemaTableName
         this.tableName = checkValidName(tableName);
     }
 
+    public PrestoThriftSchemaTableName(SchemaTableName schemaTableName)
+    {
+        this(schemaTableName.getSchemaName(), schemaTableName.getTableName());
+    }
+
     @ThriftField(1)
     public String getSchemaName()
     {
@@ -80,10 +85,5 @@ public final class PrestoThriftSchemaTableName
     public SchemaTableName toSchemaTableName()
     {
         return new SchemaTableName(getSchemaName(), getTableName());
-    }
-
-    public static PrestoThriftSchemaTableName fromSchemaTableName(SchemaTableName schemaTableName)
-    {
-        return new PrestoThriftSchemaTableName(schemaTableName.getSchemaName(), schemaTableName.getTableName());
     }
 }

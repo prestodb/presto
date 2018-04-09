@@ -137,15 +137,11 @@ public final class ParquetPredicateUtils
             if (descriptor.isPresent()) {
                 ColumnDescriptor columnDescriptor = descriptor.get();
                 if (isOnlyDictionaryEncodingPages(columnMetaData.getEncodings()) && isColumnPredicate(columnDescriptor, parquetTupleDomain)) {
-                    try {
-                        int totalSize = toIntExact(columnMetaData.getTotalSize());
-                        byte[] buffer = new byte[totalSize];
-                        dataSource.readFully(columnMetaData.getStartingPos(), buffer);
-                        Optional<ParquetDictionaryPage> dictionaryPage = readDictionaryPage(buffer, columnMetaData.getCodec());
-                        dictionaries.put(columnDescriptor, new ParquetDictionaryDescriptor(columnDescriptor, dictionaryPage));
-                    }
-                    catch (IOException ignored) {
-                    }
+                    int totalSize = toIntExact(columnMetaData.getTotalSize());
+                    byte[] buffer = new byte[totalSize];
+                    dataSource.readFully(columnMetaData.getStartingPos(), buffer);
+                    Optional<ParquetDictionaryPage> dictionaryPage = readDictionaryPage(buffer, columnMetaData.getCodec());
+                    dictionaries.put(columnDescriptor, new ParquetDictionaryDescriptor(columnDescriptor, dictionaryPage));
                     break;
                 }
             }

@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.execution.SystemMemoryUsageListener;
 import com.facebook.presto.execution.buffer.SerializedPage;
+import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.HttpPageBufferClient.ClientCallback;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -38,9 +38,9 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -59,10 +59,10 @@ public class ExchangeClient
     private final long bufferCapacity;
     private final DataSize maxResponseSize;
     private final int concurrentRequestMultiplier;
-    private final Duration minErrorDuration;
     private final Duration maxErrorDuration;
+    private final boolean acknowledgePages;
     private final HttpClient httpClient;
-    private final ScheduledExecutorService executor;
+    private final ScheduledExecutorService scheduler;
 
     @GuardedBy("this")
     private boolean noMoreLocations;
@@ -90,7 +90,8 @@ public class ExchangeClient
     private final AtomicBoolean closed = new AtomicBoolean();
     private final AtomicReference<Throwable> failure = new AtomicReference<>();
 
-    private final SystemMemoryUsageListener systemMemoryUsageListener;
+    private final LocalMemoryContext systemMemoryContext;
+    private final Executor pageBufferClientCallbackExecutor;
 
     // ExchangeClientStatus.mergeWith assumes all clients have the same bufferCapacity.
     // Please change that method accordingly when this assumption becomes not true.
@@ -98,35 +99,42 @@ public class ExchangeClient
             DataSize bufferCapacity,
             DataSize maxResponseSize,
             int concurrentRequestMultiplier,
-            Duration minErrorDuration,
             Duration maxErrorDuration,
+            boolean acknowledgePages,
             HttpClient httpClient,
-            ScheduledExecutorService executor,
-            SystemMemoryUsageListener systemMemoryUsageListener)
+            ScheduledExecutorService scheduler,
+            LocalMemoryContext systemMemoryContext,
+            Executor pageBufferClientCallbackExecutor)
     {
         this.bufferCapacity = bufferCapacity.toBytes();
         this.maxResponseSize = maxResponseSize;
         this.concurrentRequestMultiplier = concurrentRequestMultiplier;
-        this.minErrorDuration = minErrorDuration;
         this.maxErrorDuration = maxErrorDuration;
+        this.acknowledgePages = acknowledgePages;
         this.httpClient = httpClient;
-        this.executor = executor;
-        this.systemMemoryUsageListener = systemMemoryUsageListener;
+        this.scheduler = scheduler;
+        this.systemMemoryContext = systemMemoryContext;
         this.maxBufferBytes = Long.MIN_VALUE;
+        this.pageBufferClientCallbackExecutor = requireNonNull(pageBufferClientCallbackExecutor, "pageBufferClientCallbackExecutor is null");
     }
 
-    public synchronized ExchangeClientStatus getStatus()
+    public ExchangeClientStatus getStatus()
     {
-        int bufferedPages = pageBuffer.size();
-        if (bufferedPages > 0 && pageBuffer.peekLast() == NO_MORE_PAGES) {
-            bufferedPages--;
-        }
-
-        ImmutableList.Builder<PageBufferClientStatus> exchangeStatus = ImmutableList.builder();
+        // The stats created by this method is only for diagnostics.
+        // It does not guarantee a consistent view between different exchange clients.
+        // Guaranteeing a consistent view introduces significant lock contention.
+        ImmutableList.Builder<PageBufferClientStatus> pageBufferClientStatusBuilder = ImmutableList.builder();
         for (HttpPageBufferClient client : allClients.values()) {
-            exchangeStatus.add(client.getStatus());
+            pageBufferClientStatusBuilder.add(client.getStatus());
         }
-        return new ExchangeClientStatus(bufferBytes, maxBufferBytes, averageBytesPerRequest, successfulRequests, bufferedPages, noMoreLocations, exchangeStatus.build());
+        List<PageBufferClientStatus> pageBufferClientStatus = pageBufferClientStatusBuilder.build();
+        synchronized (this) {
+            int bufferedPages = pageBuffer.size();
+            if (bufferedPages > 0 && pageBuffer.peekLast() == NO_MORE_PAGES) {
+                bufferedPages--;
+            }
+            return new ExchangeClientStatus(bufferBytes, maxBufferBytes, averageBytesPerRequest, successfulRequests, bufferedPages, noMoreLocations, pageBufferClientStatus);
+        }
     }
 
     public synchronized void addLocation(URI location)
@@ -149,11 +157,12 @@ public class ExchangeClient
         HttpPageBufferClient client = new HttpPageBufferClient(
                 httpClient,
                 maxResponseSize,
-                minErrorDuration,
                 maxErrorDuration,
+                acknowledgePages,
                 location,
                 new ExchangeClientCallback(),
-                executor);
+                scheduler,
+                pageBufferClientCallbackExecutor);
         allClients.put(location, client);
         queuedClients.add(client);
 
@@ -181,29 +190,6 @@ public class ExchangeClient
         return postProcessPage(page);
     }
 
-    @Nullable
-    public SerializedPage getNextPage(Duration maxWaitTime)
-            throws InterruptedException
-    {
-        checkState(!Thread.holdsLock(this), "Can not get next page while holding a lock on this");
-
-        throwIfFailed();
-
-        if (closed.get()) {
-            return null;
-        }
-
-        scheduleRequestIfNecessary();
-
-        SerializedPage page = pageBuffer.poll();
-        // only wait for a page if we have remote clients
-        if (page == null && maxWaitTime.toMillis() >= 1 && !allClients.isEmpty()) {
-            page = pageBuffer.poll(maxWaitTime.toMillis(), TimeUnit.MILLISECONDS);
-        }
-
-        return postProcessPage(page);
-    }
-
     private SerializedPage postProcessPage(SerializedPage page)
     {
         checkState(!Thread.holdsLock(this), "Can not get next page while holding a lock on this");
@@ -225,7 +211,7 @@ public class ExchangeClient
         synchronized (this) {
             if (!closed.get()) {
                 bufferBytes -= page.getRetainedSizeInBytes();
-                systemMemoryUsageListener.updateSystemMemoryUsage(-page.getRetainedSizeInBytes());
+                systemMemoryContext.setBytes(bufferBytes);
                 if (pageBuffer.peek() == NO_MORE_PAGES) {
                     close();
                 }
@@ -258,7 +244,7 @@ public class ExchangeClient
             closeQuietly(client);
         }
         pageBuffer.clear();
-        systemMemoryUsageListener.updateSystemMemoryUsage(-bufferBytes);
+        systemMemoryContext.setBytes(0);
         bufferBytes = 0;
         if (pageBuffer.peekLast() != NO_MORE_PAGES) {
             checkState(pageBuffer.add(NO_MORE_PAGES), "Could not add no more pages marker");
@@ -334,7 +320,7 @@ public class ExchangeClient
 
         bufferBytes += memorySize;
         maxBufferBytes = Math.max(maxBufferBytes, bufferBytes);
-        systemMemoryUsageListener.updateSystemMemoryUsage(memorySize);
+        systemMemoryContext.setBytes(bufferBytes);
         successfulRequests++;
 
         long responseSize = pages.stream()
@@ -351,7 +337,8 @@ public class ExchangeClient
         List<SettableFuture<?>> callers = ImmutableList.copyOf(blockedCallers);
         blockedCallers.clear();
         for (SettableFuture<?> blockedCaller : callers) {
-            blockedCaller.set(null);
+            // Notify callers in a separate thread to avoid callbacks while holding a lock
+            scheduler.execute(() -> blockedCaller.set(null));
         }
     }
 

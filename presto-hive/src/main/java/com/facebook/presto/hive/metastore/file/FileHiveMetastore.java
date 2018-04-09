@@ -14,6 +14,7 @@
 package com.facebook.presto.hive.metastore.file;
 
 import com.facebook.presto.hive.HdfsEnvironment;
+import com.facebook.presto.hive.HdfsEnvironment.HdfsContext;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.SchemaAlreadyExistsException;
 import com.facebook.presto.hive.TableAlreadyExistsException;
@@ -31,6 +32,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
+import com.facebook.presto.spi.security.Identity;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -75,6 +77,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
+import static org.apache.hadoop.hive.common.FileUtils.unescapePathName;
 import static org.apache.hadoop.hive.metastore.TableType.EXTERNAL_TABLE;
 import static org.apache.hadoop.hive.metastore.TableType.MANAGED_TABLE;
 import static org.apache.hadoop.hive.metastore.TableType.VIRTUAL_VIEW;
@@ -89,7 +92,7 @@ public class FileHiveMetastore
 
     private final HdfsEnvironment hdfsEnvironment;
     private final Path catalogDirectory;
-    private final String metastoreUser;
+    private final HdfsContext hdfsContext;
     private final FileSystem metadataFileSystem;
 
     private final JsonCodec<DatabaseMetadata> databaseCodec = JsonCodec.jsonCodec(DatabaseMetadata.class);
@@ -107,9 +110,9 @@ public class FileHiveMetastore
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.catalogDirectory = new Path(requireNonNull(catalogDirectory, "baseDirectory is null"));
-        this.metastoreUser = requireNonNull(metastoreUser, "metastoreUser is null");
+        this.hdfsContext = new HdfsContext(new Identity(metastoreUser, Optional.empty()));
         try {
-            metadataFileSystem = hdfsEnvironment.getFileSystem(metastoreUser, this.catalogDirectory);
+            metadataFileSystem = hdfsEnvironment.getFileSystem(hdfsContext, this.catalogDirectory);
         }
         catch (IOException e) {
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
@@ -214,7 +217,7 @@ public class FileHiveMetastore
         else if (table.getTableType().equals(EXTERNAL_TABLE.name())) {
             try {
                 Path externalLocation = new Path(table.getStorage().getLocation());
-                FileSystem externalFileSystem = hdfsEnvironment.getFileSystem(metastoreUser, externalLocation);
+                FileSystem externalFileSystem = hdfsEnvironment.getFileSystem(hdfsContext, externalLocation);
                 if (!externalFileSystem.isDirectory(externalLocation)) {
                     throw new PrestoException(HIVE_METASTORE_ERROR, "External table location does not exist");
                 }
@@ -531,7 +534,7 @@ public class FileHiveMetastore
         else if (table.getTableType().equals(EXTERNAL_TABLE.name())) {
             try {
                 Path externalLocation = new Path(partition.getStorage().getLocation());
-                FileSystem externalFileSystem = hdfsEnvironment.getFileSystem(metastoreUser, externalLocation);
+                FileSystem externalFileSystem = hdfsEnvironment.getFileSystem(hdfsContext, externalLocation);
                 if (!externalFileSystem.isDirectory(externalLocation)) {
                     throw new PrestoException(HIVE_METASTORE_ERROR, "External partition location does not exist");
                 }
@@ -630,7 +633,7 @@ public class FileHiveMetastore
                     childPartitionValues = listPartitions(fileStatus.getPath(), partitionColumns.subList(1, partitionColumns.size()));
                 }
 
-                String value = fileStatus.getPath().getName().substring(directoryPrefix.length());
+                String value = unescapePathName(fileStatus.getPath().getName().substring(directoryPrefix.length()));
                 for (ArrayDeque<String> childPartition : childPartitionValues) {
                     childPartition.addFirst(value);
                     partitionValues.add(childPartition);

@@ -24,7 +24,6 @@ import com.facebook.presto.spi.type.VarbinaryType;
 import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
@@ -224,12 +223,10 @@ public class OrcFileWriter
         {
             @Override
             public void preStripeWrite(OrcFile.WriterContext context)
-                    throws IOException
             {}
 
             @Override
             public void preFooterWrite(OrcFile.WriterContext context)
-                    throws IOException
             {
                 ImmutableMap.Builder<Long, TypeSignature> columnTypesMap = ImmutableMap.builder();
                 for (int i = 0; i < columnIds.size(); i++) {
@@ -252,7 +249,7 @@ public class OrcFileWriter
             return constructor;
         }
         catch (ReflectiveOperationException e) {
-            throw Throwables.propagate(e);
+            throw new RuntimeException(e);
         }
     }
 

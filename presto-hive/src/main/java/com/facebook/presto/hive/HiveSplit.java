@@ -33,7 +33,6 @@ import static java.util.Objects.requireNonNull;
 public class HiveSplit
         implements ConnectorSplit
 {
-    private final String clientId;
     private final String path;
     private final long start;
     private final long length;
@@ -51,7 +50,6 @@ public class HiveSplit
 
     @JsonCreator
     public HiveSplit(
-            @JsonProperty("clientId") String clientId,
             @JsonProperty("database") String database,
             @JsonProperty("table") String table,
             @JsonProperty("partitionName") String partitionName,
@@ -67,7 +65,6 @@ public class HiveSplit
             @JsonProperty("effectivePredicate") TupleDomain<HiveColumnHandle> effectivePredicate,
             @JsonProperty("columnCoercions") Map<Integer, HiveType> columnCoercions)
     {
-        requireNonNull(clientId, "clientId is null");
         checkArgument(start >= 0, "start must be positive");
         checkArgument(length >= 0, "length must be positive");
         checkArgument(fileSize >= 0, "fileSize must be positive");
@@ -82,7 +79,6 @@ public class HiveSplit
         requireNonNull(effectivePredicate, "tupleDomain is null");
         requireNonNull(columnCoercions, "columnCoercions is null");
 
-        this.clientId = clientId;
         this.database = database;
         this.table = table;
         this.partitionName = partitionName;
@@ -97,12 +93,6 @@ public class HiveSplit
         this.forceLocalScheduling = forceLocalScheduling;
         this.effectivePredicate = effectivePredicate;
         this.columnCoercions = columnCoercions;
-    }
-
-    @JsonProperty
-    public String getClientId()
-    {
-        return clientId;
     }
 
     @JsonProperty

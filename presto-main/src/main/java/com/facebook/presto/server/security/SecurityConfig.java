@@ -13,35 +13,57 @@
  */
 package com.facebook.presto.server.security;
 
+import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
 
 import javax.validation.constraints.NotNull;
 
+import java.util.List;
+
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Streams.stream;
+
 @DefunctConfig("http.server.authentication.enabled")
 public class SecurityConfig
 {
-    private AuthenticationType authenticationType = AuthenticationType.NONE;
+    private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
+
+    private List<AuthenticationType> authenticationTypes = ImmutableList.of();
 
     public enum AuthenticationType
     {
-        NONE,
+        CERTIFICATE,
         KERBEROS,
-        LDAP
+        PASSWORD
     }
 
     @NotNull
-    public AuthenticationType getAuthenticationType()
+    public List<AuthenticationType> getAuthenticationTypes()
     {
-        return authenticationType;
+        return authenticationTypes;
+    }
+
+    public SecurityConfig setAuthenticationTypes(List<AuthenticationType> authenticationTypes)
+    {
+        this.authenticationTypes = ImmutableList.copyOf(authenticationTypes);
+        return this;
     }
 
     @Config("http-server.authentication.type")
-    @ConfigDescription("Authentication type (supported types: NONE, KERBEROS, LDAP)")
-    public SecurityConfig setAuthenticationType(AuthenticationType authenticationType)
+    @ConfigDescription("Authentication types (supported types: CERTIFICATE, KERBEROS, PASSWORD)")
+    public SecurityConfig setAuthenticationTypes(String types)
     {
-        this.authenticationType = authenticationType;
+        if (types == null) {
+            authenticationTypes = null;
+            return this;
+        }
+
+        authenticationTypes = stream(SPLITTER.split(types))
+                .map(AuthenticationType::valueOf)
+                .collect(toImmutableList());
         return this;
     }
 }

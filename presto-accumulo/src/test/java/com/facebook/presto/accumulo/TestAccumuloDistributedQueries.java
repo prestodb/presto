@@ -38,7 +38,6 @@ public class TestAccumuloDistributedQueries
         extends AbstractTestDistributedQueries
 {
     public TestAccumuloDistributedQueries()
-            throws Exception
     {
         super(() -> createAccumuloQueryRunner(ImmutableMap.of()));
     }
@@ -178,14 +177,6 @@ public class TestAccumuloDistributedQueries
                 + "extendedprice, discount, tax, returnflag, linestatus, "
                 + "shipdate, commitdate, receiptdate, shipinstruct, shipmode, a.comment "
                 + "FROM (SELECT * FROM lineitem WHERE orderkey % 2 = 0) a LEFT JOIN orders ON a.orderkey = orders.orderkey");
-    }
-
-    @Override
-    @Test
-    public void testJoinWithDuplicateRelations()
-    {
-        // Override because of extra UUID column in lineitem table, cannot SELECT *
-        // Cannot munge test to pass due to aliased data sets 'x' containing duplicate orderkey and comment columns
     }
 
     @Override

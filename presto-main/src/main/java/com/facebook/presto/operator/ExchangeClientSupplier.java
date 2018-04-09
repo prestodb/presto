@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.execution.SystemMemoryUsageListener;
+import com.facebook.presto.memory.context.LocalMemoryContext;
 
 public interface ExchangeClientSupplier
 {
-    ExchangeClient get(SystemMemoryUsageListener systemMemoryUsageListener);
+    ExchangeClient get(LocalMemoryContext systemMemoryContext);
 }

@@ -31,7 +31,7 @@ public class CachingKerberosHadoopAuthentication
 
     private final Object lock = new Object();
     @GuardedBy("lock")
-    private UserGroupInformation userGroupInformation = null;
+    private UserGroupInformation userGroupInformation;
     @GuardedBy("lock")
     private long nextRefreshTime = Long.MIN_VALUE;
 

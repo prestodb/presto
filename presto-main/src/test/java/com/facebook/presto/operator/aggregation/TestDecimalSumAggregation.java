@@ -128,7 +128,7 @@ public class TestDecimalSumAggregation
         addToState(state, TWO.pow(126));
 
         assertEquals(state.getOverflow(), 1);
-        DecimalSumAggregation.outputLongDecimal(TYPE, state, new VariableWidthBlockBuilder(new BlockBuilderStatus(), 10, 10));
+        DecimalSumAggregation.outputLongDecimal(TYPE, state, new VariableWidthBlockBuilder(new BlockBuilderStatus(), 10, 100));
     }
 
     private static void addToState(LongDecimalWithOverflowState state, BigInteger value)

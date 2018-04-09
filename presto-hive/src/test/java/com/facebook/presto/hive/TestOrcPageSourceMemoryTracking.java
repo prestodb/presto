@@ -15,13 +15,14 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.hive.orc.OrcPageSourceFactory;
+import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Split;
-import com.facebook.presto.operator.CursorProcessor;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory;
 import com.facebook.presto.operator.SourceOperator;
 import com.facebook.presto.operator.SourceOperatorFactory;
 import com.facebook.presto.operator.TableScanOperator.TableScanOperatorFactory;
+import com.facebook.presto.operator.project.CursorProcessor;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -32,6 +33,7 @@ import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
+import com.facebook.presto.sql.gen.PageFunctionCompiler;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.testing.TestingConnectorSession;
@@ -75,7 +77,6 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.File;
-import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -86,6 +87,7 @@ import java.util.OptionalInt;
 import java.util.Properties;
 import java.util.Random;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -108,6 +110,7 @@ import static io.airlift.testing.Assertions.assertBetweenInclusive;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
 import static org.apache.hadoop.hive.ql.io.orc.CompressionKind.ZLIB;
@@ -129,7 +132,8 @@ public class TestOrcPageSourceMemoryTracking
     private static final Configuration CONFIGURATION = new Configuration();
     private static final int NUM_ROWS = 50000;
     private static final int STRIPE_ROWS = 20000;
-    private static final ExpressionCompiler EXPRESSION_COMPILER = new ExpressionCompiler(createTestMetadataManager());
+    private static final MetadataManager metadata = createTestMetadataManager();
+    private static final ExpressionCompiler EXPRESSION_COMPILER = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
 
     private final Random random = new Random();
     private final List<TestColumn> testColumns = ImmutableList.<TestColumn>builder()
@@ -155,9 +159,8 @@ public class TestOrcPageSourceMemoryTracking
         testPreparer = new TestPreparer(tempFile.getAbsolutePath());
     }
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void tearDown()
-            throws Exception
     {
         tempFile.delete();
     }
@@ -236,7 +239,6 @@ public class TestOrcPageSourceMemoryTracking
         assertTrue(pageSource.isFinished());
         assertEquals(pageSource.getSystemMemoryUsage(), 0);
         pageSource.close();
-        assertEquals((int) stats.getLoadedBlockBytes().getAllTime().getCount(), 50);
     }
 
     @Test(dataProvider = "rowCount")
@@ -246,7 +248,7 @@ public class TestOrcPageSourceMemoryTracking
         int maxReadBytes = 1_000;
         HiveClientConfig config = new HiveClientConfig();
         config.setOrcMaxReadBlockSize(new DataSize(maxReadBytes, BYTE));
-        ConnectorSession session = new TestingConnectorSession(new HiveSessionProperties(config).getSessionProperties());
+        ConnectorSession session = new TestingConnectorSession(new HiveSessionProperties(config, new OrcFileWriterConfig()).getSessionProperties());
         FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
 
         // Build a table where every row gets larger, so we can test that the "batchSize" reduces
@@ -288,7 +290,8 @@ public class TestOrcPageSourceMemoryTracking
             // verify the stats are correctly recorded
             Distribution distribution = stats.getMaxCombinedBytesPerRow().getAllTime();
             assertEquals((int) distribution.getCount(), 1);
-            assertEquals((int) distribution.getMax(), Arrays.stream(dataColumns).mapToInt(GrowingTestColumn::getMaxSize).sum());
+            // the block is VariableWidthBlock that contains valueIsNull and offsets arrays as overhead
+            assertEquals((int) distribution.getMax(), Arrays.stream(dataColumns).mapToInt(GrowingTestColumn::getMaxSize).sum() + (Integer.BYTES + Byte.BYTES) * numColumns);
             pageSource.close();
         }
         finally {
@@ -298,7 +301,6 @@ public class TestOrcPageSourceMemoryTracking
 
     @Test
     public void testTableScanOperator()
-            throws Exception
     {
         // Numbers used in assertions in this test may change when implementation is modified,
         // feel free to change them if they break in the future
@@ -361,7 +363,6 @@ public class TestOrcPageSourceMemoryTracking
 
     @Test
     public void testScanFilterAndProjectOperator()
-            throws Exception
     {
         // Numbers used in assertions in this test may change when implementation is modified,
         // feel free to change them if they break in the future
@@ -380,7 +381,7 @@ public class TestOrcPageSourceMemoryTracking
         // done... in the current implementation finish is not set until output returns a null page
         assertNull(operator.getOutput());
         assertTrue(operator.isFinished());
-        assertEquals(driverContext.getSystemMemoryUsage(), 0);
+        assertBetweenInclusive(driverContext.getSystemMemoryUsage(), 0L, 500L);
     }
 
     private class TestPreparer
@@ -390,7 +391,8 @@ public class TestOrcPageSourceMemoryTracking
         private final List<HiveColumnHandle> columns;
         private final List<Type> types;
         private final List<HivePartitionKey> partitionKeys;
-        private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
+        private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test-executor-%s"));
+        private final ScheduledExecutorService scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
 
         public TestPreparer(String tempFilePath)
                 throws Exception
@@ -416,7 +418,7 @@ public class TestOrcPageSourceMemoryTracking
 
             partitionKeys = testColumns.stream()
                     .filter(TestColumn::isPartitionKey)
-                    .map(input -> new HivePartitionKey(input.getName(), HiveType.valueOf(input.getObjectInspector().getTypeName()), (String) input.getWriteValue()))
+                    .map(input -> new HivePartitionKey(input.getName(), (String) input.getWriteValue()))
                     .collect(toList());
 
             ImmutableList.Builder<HiveColumnHandle> columnsBuilder = ImmutableList.builder();
@@ -430,7 +432,7 @@ public class TestOrcPageSourceMemoryTracking
                 HiveType hiveType = HiveType.valueOf(inspector.getTypeName());
                 Type type = hiveType.getType(TYPE_MANAGER);
 
-                columnsBuilder.add(new HiveColumnHandle("client_id", testColumn.getName(), hiveType, type.getTypeSignature(), columnIndex, testColumn.isPartitionKey() ? PARTITION_KEY : REGULAR, Optional.empty()));
+                columnsBuilder.add(new HiveColumnHandle(testColumn.getName(), hiveType, type.getTypeSignature(), columnIndex, testColumn.isPartitionKey() ? PARTITION_KEY : REGULAR, Optional.empty()));
                 typesBuilder.add(type);
             }
             columns = columnsBuilder.build();
@@ -455,7 +457,6 @@ public class TestOrcPageSourceMemoryTracking
             return HivePageSourceProvider.createHivePageSource(
                     ImmutableSet.of(),
                     ImmutableSet.of(orcPageSourceFactory),
-                    "test",
                     new Configuration(),
                     session,
                     fileSplit.getPath(),
@@ -481,8 +482,7 @@ public class TestOrcPageSourceMemoryTracking
                     new PlanNodeId("0"),
                     (session, split, columnHandles) -> pageSource,
                     types,
-                    columns.stream().map(columnHandle -> (ColumnHandle) columnHandle).collect(toList())
-            );
+                    columns.stream().map(columnHandle -> (ColumnHandle) columnHandle).collect(toList()));
             SourceOperator operator = sourceOperatorFactory.createOperator(driverContext);
             operator.addSplit(new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit()));
             return operator;
@@ -505,8 +505,9 @@ public class TestOrcPageSourceMemoryTracking
                     cursorProcessor,
                     pageProcessor,
                     columns.stream().map(columnHandle -> (ColumnHandle) columnHandle).collect(toList()),
-                    types
-            );
+                    types,
+                    new DataSize(0, BYTE),
+                    0);
             SourceOperator operator = sourceOperatorFactory.createOperator(driverContext);
             operator.addSplit(new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit()));
             return operator;
@@ -514,7 +515,7 @@ public class TestOrcPageSourceMemoryTracking
 
         private DriverContext newDriverContext()
         {
-            return createTaskContext(executor, testSessionBuilder().build())
+            return createTaskContext(executor, scheduledExecutor, testSessionBuilder().build())
                     .addPipelineContext(0, true, true)
                     .addDriverContext();
         }
@@ -599,7 +600,6 @@ public class TestOrcPageSourceMemoryTracking
     }
 
     private static RecordWriter createRecordWriter(Path target, Configuration conf)
-            throws IOException
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(FileSystem.class.getClassLoader())) {
             WriterOptions options = new OrcWriterOptions(conf)

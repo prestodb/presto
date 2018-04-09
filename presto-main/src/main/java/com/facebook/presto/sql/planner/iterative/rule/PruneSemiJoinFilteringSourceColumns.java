@@ -13,37 +13,35 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictOutputs;
+import static com.facebook.presto.sql.planner.plan.Patterns.semiJoin;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 public class PruneSemiJoinFilteringSourceColumns
-        implements Rule
+        implements Rule<SemiJoinNode>
 {
-    private static final Pattern PATTERN = Pattern.typeOf(SemiJoinNode.class);
+    private static final Pattern<SemiJoinNode> PATTERN = semiJoin();
 
     @Override
-    public Pattern getPattern()
+    public Pattern<SemiJoinNode> getPattern()
     {
         return PATTERN;
     }
 
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Context context)
+    public Result apply(SemiJoinNode semiJoinNode, Captures captures, Context context)
     {
-        SemiJoinNode semiJoinNode = (SemiJoinNode) node;
-
         Set<Symbol> requiredFilteringSourceInputs = Streams.concat(
                 Stream.of(semiJoinNode.getFilteringSourceJoinSymbol()),
                 semiJoinNode.getFilteringSourceHashSymbol().map(Stream::of).orElse(Stream.empty()))
@@ -51,7 +49,8 @@ public class PruneSemiJoinFilteringSourceColumns
 
         return restrictOutputs(context.getIdAllocator(), semiJoinNode.getFilteringSource(), requiredFilteringSourceInputs)
                 .map(newFilteringSource ->
-                        semiJoinNode.replaceChildren(ImmutableList.of(
-                                semiJoinNode.getSource(), newFilteringSource)));
+                        semiJoinNode.replaceChildren(ImmutableList.of(semiJoinNode.getSource(), newFilteringSource)))
+                .map(Result::ofPlanNode)
+                .orElse(Result.empty());
     }
 }

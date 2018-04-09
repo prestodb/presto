@@ -13,23 +13,22 @@
  */
 package com.facebook.presto.tests.hive;
 
-import com.teradata.tempto.Requirement;
-import com.teradata.tempto.RequirementsProvider;
-import com.teradata.tempto.configuration.Configuration;
-import com.teradata.tempto.query.QueryResult;
+import io.prestodb.tempto.Requirement;
+import io.prestodb.tempto.RequirementsProvider;
+import io.prestodb.tempto.configuration.Configuration;
+import io.prestodb.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.tests.TestGroups.HIVE_CONNECTOR;
 import static com.facebook.presto.tests.TestGroups.SMOKE;
 import static com.facebook.presto.tests.hive.HiveTableDefinitions.NATION_PARTITIONED_BY_REGIONKEY;
 import static com.facebook.presto.tests.hive.HiveTableDefinitions.NATION_PARTITIONED_BY_REGIONKEY_NUMBER_OF_LINES_PER_SPLIT;
-import static com.teradata.tempto.Requirements.compose;
-import static com.teradata.tempto.fulfillment.table.MutableTableRequirement.State.CREATED;
-import static com.teradata.tempto.fulfillment.table.MutableTablesState.mutableTablesState;
-import static com.teradata.tempto.fulfillment.table.TableRequirements.mutableTable;
-import static com.teradata.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
-import static com.teradata.tempto.query.QueryExecutor.query;
-import static com.teradata.tempto.query.QueryType.UPDATE;
+import static io.prestodb.tempto.Requirements.compose;
+import static io.prestodb.tempto.fulfillment.table.MutableTableRequirement.State.CREATED;
+import static io.prestodb.tempto.fulfillment.table.MutableTablesState.mutableTablesState;
+import static io.prestodb.tempto.fulfillment.table.TableRequirements.mutableTable;
+import static io.prestodb.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
+import static io.prestodb.tempto.query.QueryExecutor.query;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestTablePartitioningInsertInto
@@ -78,7 +77,7 @@ public class TestTablePartitioningInsertInto
                 targetNation,
                 partitionedNation,
                 condition);
-        QueryResult queryResult = query(query, UPDATE);
+        QueryResult queryResult = query(query);
 
         long processedLinesCount = getProcessedLinesCount(query, queryResult);
         int expectedLinesCount = expectedProcessedSplits * NATION_PARTITIONED_BY_REGIONKEY_NUMBER_OF_LINES_PER_SPLIT;

@@ -44,7 +44,6 @@ public class TestTupleDomainParquetPredicate
 {
     @Test
     public void testBoolean()
-            throws Exception
     {
         assertEquals(getDomain(BOOLEAN, 0, null), all(BOOLEAN));
 
@@ -63,7 +62,6 @@ public class TestTupleDomainParquetPredicate
 
     @Test
     public void testBigint()
-            throws Exception
     {
         assertEquals(getDomain(BIGINT, 0, null), all(BIGINT));
 
@@ -81,7 +79,6 @@ public class TestTupleDomainParquetPredicate
 
     @Test
     public void testInteger()
-            throws Exception
     {
         assertEquals(getDomain(INTEGER, 0, null), all(INTEGER));
 
@@ -94,7 +91,6 @@ public class TestTupleDomainParquetPredicate
 
     @Test
     public void testSmallint()
-            throws Exception
     {
         assertEquals(getDomain(SMALLINT, 0, null), all(SMALLINT));
 
@@ -107,7 +103,6 @@ public class TestTupleDomainParquetPredicate
 
     @Test
     public void testTinyint()
-            throws Exception
     {
         assertEquals(getDomain(TINYINT, 0, null), all(TINYINT));
 
@@ -120,7 +115,6 @@ public class TestTupleDomainParquetPredicate
 
     @Test
     public void testDouble()
-            throws Exception
     {
         assertEquals(getDomain(DOUBLE, 0, null), all(DOUBLE));
 
@@ -138,7 +132,6 @@ public class TestTupleDomainParquetPredicate
 
     @Test
     public void testString()
-            throws Exception
     {
         assertEquals(getDomain(createUnboundedVarcharType(), 0, null), all(createUnboundedVarcharType()));
 
@@ -158,7 +151,6 @@ public class TestTupleDomainParquetPredicate
 
     @Test
     public void testFloat()
-            throws Exception
     {
         assertEquals(getDomain(REAL, 0, null), all(REAL));
 
@@ -169,8 +161,7 @@ public class TestTupleDomainParquetPredicate
 
         assertEquals(
                 getDomain(REAL, 10, floatColumnStats(minimum, maximum)),
-                create(ValueSet.ofRanges(range(REAL, (long) floatToRawIntBits(minimum), true, (long) floatToRawIntBits(maximum), true)), false)
-        );
+                create(ValueSet.ofRanges(range(REAL, (long) floatToRawIntBits(minimum), true, (long) floatToRawIntBits(maximum), true)), false));
 
         assertEquals(getDomain(REAL, 10, floatColumnStats(maximum, minimum)), create(ValueSet.all(REAL), false));
     }

@@ -47,8 +47,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static org.testng.Assert.assertEquals;
-import static org.testng.AssertJUnit.assertFalse;
-import static org.testng.AssertJUnit.assertTrue;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
 public class TestEliminateCrossJoins
@@ -238,12 +238,10 @@ public class TestEliminateCrossJoins
             return p.join(INNER,
                     p.join(secondJoinType,
                             p.values(axSymbol),
-                            p.values(bySymbol)
-                    ),
+                            p.values(bySymbol)),
                     p.values(cxSymbol, cySymbol),
                     new EquiJoinClause(cxSymbol, axSymbol),
-                    new EquiJoinClause(cySymbol, bySymbol)
-            );
+                    new EquiJoinClause(cySymbol, bySymbol));
         };
     }
 

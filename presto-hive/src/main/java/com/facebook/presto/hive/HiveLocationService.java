@@ -13,9 +13,11 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.HdfsEnvironment.HdfsContext;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
 import com.facebook.presto.hive.metastore.Table;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import org.apache.hadoop.fs.Path;
 
@@ -43,18 +45,19 @@ public class HiveLocationService
     }
 
     @Override
-    public LocationHandle forNewTable(SemiTransactionalHiveMetastore metastore, String user, String queryId, String schemaName, String tableName)
+    public LocationHandle forNewTable(SemiTransactionalHiveMetastore metastore, ConnectorSession session, String schemaName, String tableName)
     {
-        Path targetPath = getTableDefaultLocation(user, metastore, hdfsEnvironment, schemaName, tableName);
+        HdfsContext context = new HdfsContext(session, schemaName, tableName);
+        Path targetPath = getTableDefaultLocation(context, metastore, hdfsEnvironment, schemaName, tableName);
 
         // verify the target directory for the table
-        if (pathExists(user, hdfsEnvironment, targetPath)) {
+        if (pathExists(context, hdfsEnvironment, targetPath)) {
             throw new PrestoException(HIVE_PATH_ALREADY_EXISTS, format("Target directory for table '%s.%s' already exists: %s", schemaName, tableName, targetPath));
         }
 
         Path writePath;
-        if (shouldUseTemporaryDirectory(user, targetPath)) {
-            writePath = createTemporaryPath(user, hdfsEnvironment, targetPath);
+        if (shouldUseTemporaryDirectory(context, targetPath)) {
+            writePath = createTemporaryPath(context, hdfsEnvironment, targetPath);
         }
         else {
             writePath = targetPath;
@@ -64,13 +67,14 @@ public class HiveLocationService
     }
 
     @Override
-    public LocationHandle forExistingTable(SemiTransactionalHiveMetastore metastore, String user, String queryId, Table table)
+    public LocationHandle forExistingTable(SemiTransactionalHiveMetastore metastore, ConnectorSession session, Table table)
     {
+        HdfsContext context = new HdfsContext(session, table.getDatabaseName(), table.getTableName());
         Path targetPath = new Path(table.getStorage().getLocation());
 
         Optional<Path> writePath;
-        if (shouldUseTemporaryDirectory(user, targetPath)) {
-            writePath = Optional.of(createTemporaryPath(user, hdfsEnvironment, targetPath));
+        if (shouldUseTemporaryDirectory(context, targetPath)) {
+            writePath = Optional.of(createTemporaryPath(context, hdfsEnvironment, targetPath));
         }
         else {
             writePath = Optional.empty();
@@ -79,10 +83,10 @@ public class HiveLocationService
         return new LocationHandle(targetPath, writePath, true);
     }
 
-    private boolean shouldUseTemporaryDirectory(String user, Path path)
+    private boolean shouldUseTemporaryDirectory(HdfsContext context, Path path)
     {
         // skip using temporary directory for S3
-        return !isS3FileSystem(user, hdfsEnvironment, path);
+        return !isS3FileSystem(context, hdfsEnvironment, path);
     }
 
     @Override

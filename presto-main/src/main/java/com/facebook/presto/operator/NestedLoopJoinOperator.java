@@ -75,7 +75,7 @@ public class NestedLoopJoinOperator
         }
 
         @Override
-        public void close()
+        public void noMoreOperators()
         {
             if (closed) {
                 return;
@@ -307,7 +307,9 @@ public class NestedLoopJoinOperator
             }
 
             // Put the page with more rows in the blocks array
-            System.arraycopy(largePage.getBlocks(), 0, blocks, indexForPageBlocks, largePage.getChannelCount());
+            for (int i = 0; i < largePage.getChannelCount(); i++) {
+                blocks[indexForPageBlocks + i] = largePage.getBlock(i);
+            }
 
             return new Page(largePage.getPositionCount(), blocks);
         }

@@ -34,6 +34,7 @@ import java.util.Set;
 
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
+import static com.facebook.presto.metadata.Signature.orderableTypeParameter;
 import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.facebook.presto.metadata.Signature.withVariadicBound;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -43,6 +44,7 @@ import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -57,6 +59,7 @@ public class TestSignatureBinder
 {
     private final TypeManager typeRegistry = new TypeRegistry();
 
+    TestSignatureBinder()
     {
         // associate typeRegistry with a function registry
         new FunctionRegistry(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig());
@@ -81,9 +84,7 @@ public class TestSignatureBinder
                                 "p1", 2L,
                                 "s1", 1L,
                                 "p2", 1L,
-                                "s2", 0L
-                        )
-                ));
+                                "s2", 0L)));
     }
 
     @Test
@@ -99,8 +100,7 @@ public class TestSignatureBinder
                 .withCoercion()
                 .produces(new BoundVariables(
                         ImmutableMap.of(),
-                        ImmutableMap.of("s", 1L)
-                ));
+                        ImmutableMap.of("s", 1L)));
 
         function = functionSignature()
                 .returnType(parseTypeSignature(StandardTypes.BOOLEAN))
@@ -112,23 +112,20 @@ public class TestSignatureBinder
                 .withCoercion()
                 .produces(new BoundVariables(
                         ImmutableMap.of(),
-                        ImmutableMap.of("p", 3L)
-                ));
+                        ImmutableMap.of("p", 3L)));
 
         assertThat(function)
                 .boundTo("decimal(2,1)")
                 .produces(new BoundVariables(
                         ImmutableMap.of(),
-                        ImmutableMap.of("p", 2L)
-                ));
+                        ImmutableMap.of("p", 2L)));
 
         assertThat(function)
                 .boundTo("bigint")
                 .withCoercion()
                 .produces(new BoundVariables(
                         ImmutableMap.of(),
-                        ImmutableMap.of("p", 20L)
-                ));
+                        ImmutableMap.of("p", 20L)));
     }
 
     @Test
@@ -148,9 +145,7 @@ public class TestSignatureBinder
                         ImmutableMap.of(),
                         ImmutableMap.of(
                                 "x", 42L,
-                                "y", 44L
-                        )
-                ));
+                                "y", 44L)));
 
         assertThat(function)
                 .boundTo("unknown", "varchar(44)")
@@ -159,9 +154,7 @@ public class TestSignatureBinder
                         ImmutableMap.of(),
                         ImmutableMap.of(
                                 "x", 0L,
-                                "y", 44L
-                        )
-                ));
+                                "y", 44L)));
     }
 
     @Test
@@ -179,29 +172,25 @@ public class TestSignatureBinder
                 .boundTo("varchar(44)", "varchar(44)")
                 .produces(new BoundVariables(
                         ImmutableMap.of(),
-                        ImmutableMap.of("x", 44L)
-                ));
+                        ImmutableMap.of("x", 44L)));
         assertThat(function)
                 .boundTo("varchar(44)", "varchar(42)")
                 .withCoercion()
                 .produces(new BoundVariables(
                         ImmutableMap.of(),
-                        ImmutableMap.of("x", 44L)
-                ));
+                        ImmutableMap.of("x", 44L)));
         assertThat(function)
                 .boundTo("varchar(42)", "varchar(44)")
                 .withCoercion()
                 .produces(new BoundVariables(
                         ImmutableMap.of(),
-                        ImmutableMap.of("x", 44L)
-                ));
+                        ImmutableMap.of("x", 44L)));
         assertThat(function)
                 .boundTo("unknown", "varchar(44)")
                 .withCoercion()
                 .produces(new BoundVariables(
                         ImmutableMap.of(),
-                        ImmutableMap.of("x", 44L)
-                ));
+                        ImmutableMap.of("x", 44L)));
     }
 
     @Test
@@ -219,34 +208,29 @@ public class TestSignatureBinder
                 .boundTo("decimal(10,5)", "decimal(10,5)")
                 .produces(new BoundVariables(
                         ImmutableMap.of(),
-                        ImmutableMap.of("p", 10L, "s", 5L)
-                ));
+                        ImmutableMap.of("p", 10L, "s", 5L)));
         assertThat(function)
                 .boundTo("decimal(10,8)", "decimal(9,8)")
                 .withCoercion()
                 .produces(new BoundVariables(
                         ImmutableMap.of(),
-                        ImmutableMap.of("p", 10L, "s", 8L)
-                ));
+                        ImmutableMap.of("p", 10L, "s", 8L)));
         assertThat(function)
                 .boundTo("decimal(10,2)", "decimal(10,8)")
                 .withCoercion()
                 .produces(new BoundVariables(
                         ImmutableMap.of(),
-                        ImmutableMap.of("p", 16L, "s", 8L)
-                ));
+                        ImmutableMap.of("p", 16L, "s", 8L)));
         assertThat(function)
                 .boundTo("unknown", "decimal(10,5)")
                 .withCoercion()
                 .produces(new BoundVariables(
                         ImmutableMap.of(),
-                        ImmutableMap.of("p", 10L, "s", 5L)
-                ));
+                        ImmutableMap.of("p", 10L, "s", 5L)));
     }
 
     @Test
     public void testBindLiteralForRepeatedVarchar()
-            throws Exception
     {
         Set<String> literalParameters = ImmutableSet.of("x");
         TypeSignature leftType = parseTypeSignature("varchar(x)", literalParameters);
@@ -263,20 +247,14 @@ public class TestSignatureBinder
                 .boundTo(ImmutableList.of("varchar(3)", "varchar(5)"), "varchar(5)")
                 .produces(new BoundVariables(
                         ImmutableMap.of(),
-                        ImmutableMap.of(
-                                "x", 5L
-                        )
-                ));
+                        ImmutableMap.of("x", 5L)));
 
         assertThat(function)
                 .withCoercion()
                 .boundTo(ImmutableList.of("varchar(3)", "varchar(5)"), "varchar(6)")
                 .produces(new BoundVariables(
                         ImmutableMap.of(),
-                        ImmutableMap.of(
-                                "x", 6L
-                        )
-                ));
+                        ImmutableMap.of("x", 6L)));
     }
 
     @Test
@@ -299,7 +277,6 @@ public class TestSignatureBinder
 
     @Test
     public void testBindMixedLiteralAndTypeVariables()
-            throws Exception
     {
         Signature function = functionSignature()
                 .returnType(parseTypeSignature(StandardTypes.BOOLEAN))
@@ -312,18 +289,14 @@ public class TestSignatureBinder
                 .withCoercion()
                 .produces(new BoundVariables(
                         ImmutableMap.of(
-                                "T", type("decimal(2,1)")
-                        ),
+                                "T", type("decimal(2,1)")),
                         ImmutableMap.of(
                                 "p", 3L,
-                                "s", 1L
-                        )
-                ));
+                                "s", 1L)));
     }
 
     @Test
     public void testBindDifferentLiteralParameters()
-            throws Exception
     {
         TypeSignature argType = parseTypeSignature("decimal(p,s)", ImmutableSet.of("p", "s"));
 
@@ -339,7 +312,6 @@ public class TestSignatureBinder
 
     @Test(expectedExceptions = UnsupportedOperationException.class)
     public void testNoVariableReuseAcrossTypes()
-            throws Exception
     {
         Set<String> literalParameters = ImmutableSet.of("p1", "p2", "s");
         TypeSignature leftType = parseTypeSignature("decimal(p1,s)", literalParameters);
@@ -354,13 +326,11 @@ public class TestSignatureBinder
                 .boundTo("decimal(2,1)", "decimal(3,1)")
                 .produces(new BoundVariables(
                         ImmutableMap.of(),
-                        ImmutableMap.of()
-                ));
+                        ImmutableMap.of()));
     }
 
     @Test
     public void testBindUnknownToDecimal()
-            throws Exception
     {
         Signature function = functionSignature()
                 .returnType(parseTypeSignature("boolean"))
@@ -374,9 +344,7 @@ public class TestSignatureBinder
                         ImmutableMap.of(),
                         ImmutableMap.of(
                                 "p", 1L,
-                                "s", 0L
-                        )
-                ));
+                                "s", 0L)));
     }
 
     @Test
@@ -407,8 +375,7 @@ public class TestSignatureBinder
                 .withCoercion()
                 .produces(new BoundVariables(
                         ImmutableMap.of("T", type("decimal(2,1)")),
-                        ImmutableMap.of()
-                ));
+                        ImmutableMap.of()));
     }
 
     @Test
@@ -444,13 +411,11 @@ public class TestSignatureBinder
                 .withCoercion()
                 .produces(new BoundVariables(
                         ImmutableMap.of("T", type("unknown")),
-                        ImmutableMap.of()
-                ));
+                        ImmutableMap.of()));
     }
 
     @Test
     public void testBindDoubleToBigint()
-            throws Exception
     {
         Signature function = functionSignature()
                 .returnType(parseTypeSignature(StandardTypes.BOOLEAN))
@@ -471,8 +436,7 @@ public class TestSignatureBinder
                 .argumentTypes(parseTypeSignature("T1"))
                 .typeVariableConstraints(ImmutableList.of(
                         new TypeVariableConstraint("T1", true, false, "varchar"),
-                        new TypeVariableConstraint("T2", true, false, "varchar")
-                ))
+                        new TypeVariableConstraint("T2", true, false, "varchar")))
                 .build();
 
         assertThat(function)
@@ -480,10 +444,8 @@ public class TestSignatureBinder
                 .produces(new BoundVariables(
                         ImmutableMap.of(
                                 "T1", type("varchar(42)"),
-                                "T2", type("varchar(1)")
-                        ),
-                        ImmutableMap.of()
-                ));
+                                "T2", type("varchar(1)")),
+                        ImmutableMap.of()));
     }
 
     @Test
@@ -516,7 +478,6 @@ public class TestSignatureBinder
 
     @Test
     public void testBindUnparametrizedVarchar()
-            throws Exception
     {
         Signature function = functionSignature()
                 .returnType(parseTypeSignature("boolean"))
@@ -527,15 +488,11 @@ public class TestSignatureBinder
                 .boundTo("varchar")
                 .produces(new BoundVariables(
                         ImmutableMap.of(),
-                        ImmutableMap.of(
-                                "x", (long) Integer.MAX_VALUE
-                        )
-                ));
+                        ImmutableMap.of("x", (long) Integer.MAX_VALUE)));
     }
 
     @Test
     public void testBindToUnparametrizedVarcharIsImpossible()
-            throws Exception
     {
         Signature function = functionSignature()
                 .returnType(parseTypeSignature("boolean"))
@@ -555,7 +512,6 @@ public class TestSignatureBinder
 
     @Test
     public void testBasic()
-            throws Exception
     {
         Signature function = functionSignature()
                 .typeVariableConstraints(ImmutableList.of(typeVariable("T")))
@@ -567,15 +523,13 @@ public class TestSignatureBinder
                 .boundTo("bigint")
                 .produces(new BoundVariables(
                         ImmutableMap.of("T", type("bigint")),
-                        ImmutableMap.of()
-                ));
+                        ImmutableMap.of()));
 
         assertThat(function)
                 .boundTo("varchar")
                 .produces(new BoundVariables(
                         ImmutableMap.of("T", type("varchar")),
-                        ImmutableMap.of()
-                ));
+                        ImmutableMap.of()));
 
         assertThat(function)
                 .boundTo("varchar", "bigint")
@@ -585,13 +539,11 @@ public class TestSignatureBinder
                 .boundTo("array(bigint)")
                 .produces(new BoundVariables(
                         ImmutableMap.of("T", type("array(bigint)")),
-                        ImmutableMap.of()
-                ));
+                        ImmutableMap.of()));
     }
 
     @Test
     public void testMismatchedArgumentCount()
-            throws Exception
     {
         Signature function = functionSignature()
                 .returnType(parseTypeSignature(StandardTypes.BOOLEAN))
@@ -609,7 +561,6 @@ public class TestSignatureBinder
 
     @Test
     public void testNonParametric()
-            throws Exception
     {
         Signature function = functionSignature()
                 .returnType(parseTypeSignature(StandardTypes.BOOLEAN))
@@ -638,7 +589,6 @@ public class TestSignatureBinder
 
     @Test
     public void testArray()
-            throws Exception
     {
         Signature getFunction = functionSignature()
                 .returnType(parseTypeSignature("T"))
@@ -650,8 +600,7 @@ public class TestSignatureBinder
                 .boundTo("array(bigint)")
                 .produces(new BoundVariables(
                         ImmutableMap.of("T", type("bigint")),
-                        ImmutableMap.of()
-                ));
+                        ImmutableMap.of()));
 
         assertThat(getFunction)
                 .boundTo("bigint")
@@ -673,8 +622,7 @@ public class TestSignatureBinder
                 .boundTo("array(bigint)", "bigint")
                 .produces(new BoundVariables(
                         ImmutableMap.of("T", type("bigint")),
-                        ImmutableMap.of()
-                ));
+                        ImmutableMap.of()));
 
         assertThat(containsFunction)
                 .boundTo("array(bigint)", "varchar")
@@ -698,10 +646,8 @@ public class TestSignatureBinder
                 .produces(new BoundVariables(
                         ImmutableMap.of(
                                 "T1", type("unknown"),
-                                "T2", type("decimal(2,1)")
-                        ),
-                        ImmutableMap.of()
-                ));
+                                "T2", type("decimal(2,1)")),
+                        ImmutableMap.of()));
 
         Signature fooFunction = functionSignature()
                 .returnType(parseTypeSignature("T"))
@@ -713,8 +659,7 @@ public class TestSignatureBinder
                 .boundTo("array(bigint)", "array(bigint)")
                 .produces(new BoundVariables(
                         ImmutableMap.of("T", type("bigint")),
-                        ImmutableMap.of()
-                ));
+                        ImmutableMap.of()));
 
         assertThat(fooFunction)
                 .boundTo("array(bigint)", "array(varchar)")
@@ -724,7 +669,6 @@ public class TestSignatureBinder
 
     @Test
     public void testMap()
-            throws Exception
     {
         Signature getValueFunction = functionSignature()
                 .returnType(parseTypeSignature("V"))
@@ -737,10 +681,8 @@ public class TestSignatureBinder
                 .produces(new BoundVariables(
                         ImmutableMap.of(
                                 "K", type("bigint"),
-                                "V", type("varchar")
-                        ),
-                        ImmutableMap.of()
-                ));
+                                "V", type("varchar")),
+                        ImmutableMap.of()));
 
         assertThat(getValueFunction)
                 .boundTo("map(bigint,varchar)", "varchar")
@@ -750,22 +692,26 @@ public class TestSignatureBinder
 
     @Test
     public void testRow()
-            throws Exception
     {
         Signature function = functionSignature()
                 .returnType(BOOLEAN.getTypeSignature())
-                .argumentTypes(parseTypeSignature("row(bigint)"))
+                .argumentTypes(parseTypeSignature("row(integer)"))
                 .build();
 
         assertThat(function)
-                .boundTo("row(bigint)")
+                .boundTo("row(tinyint)")
                 .withCoercion()
                 .produces(new BoundVariables(
                         ImmutableMap.of(),
-                        ImmutableMap.of()
-                ));
+                        ImmutableMap.of()));
         assertThat(function)
                 .boundTo("row(integer)")
+                .withCoercion()
+                .produces(new BoundVariables(
+                        ImmutableMap.of(),
+                        ImmutableMap.of()));
+        assertThat(function)
+                .boundTo("row(bigint)")
                 .withCoercion()
                 .fails();
 
@@ -780,17 +726,17 @@ public class TestSignatureBinder
                 .withCoercion()
                 .produces(new BoundVariables(
                         ImmutableMap.of("T", type("bigint")),
-                        ImmutableMap.of()
-                ));
+                        ImmutableMap.of()));
         assertThat(biFunction)
                 .boundTo("row(integer)", "row(bigint)")
                 .withCoercion()
-                .fails();
+                .produces(new BoundVariables(
+                        ImmutableMap.of("T", type("bigint")),
+                        ImmutableMap.of()));
     }
 
     @Test
     public void testVariadic()
-            throws Exception
     {
         Signature mapVariadicBoundFunction = functionSignature()
                 .returnType(parseTypeSignature(StandardTypes.BIGINT))
@@ -802,8 +748,7 @@ public class TestSignatureBinder
                 .boundTo("map(bigint,bigint)")
                 .produces(new BoundVariables(
                         ImmutableMap.of("T", type("map(bigint,bigint)")),
-                        ImmutableMap.of()
-                ));
+                        ImmutableMap.of()));
 
         assertThat(mapVariadicBoundFunction)
                 .boundTo("array(bigint)")
@@ -824,8 +769,7 @@ public class TestSignatureBinder
                 .boundTo("decimal(2,1)")
                 .produces(new BoundVariables(
                         ImmutableMap.of("T", type("decimal(2,1)")),
-                        ImmutableMap.of()
-                ));
+                        ImmutableMap.of()));
 
         assertThat(decimalVariadicBoundFunction)
                 .boundTo("bigint")
@@ -846,8 +790,7 @@ public class TestSignatureBinder
                 .withCoercion()
                 .produces(new BoundVariables(
                         ImmutableMap.of("T", type("row(a bigint)")),
-                        ImmutableMap.of()
-                ));
+                        ImmutableMap.of()));
 
         Signature arrayFunction = functionSignature()
                 .returnType(parseTypeSignature(StandardTypes.BOOLEAN))
@@ -860,13 +803,11 @@ public class TestSignatureBinder
                 .withCoercion()
                 .produces(new BoundVariables(
                         ImmutableMap.of("T", type("array(bigint)")),
-                        ImmutableMap.of()
-                ));
+                        ImmutableMap.of()));
     }
 
     @Test
     public void testVarArgs()
-            throws Exception
     {
         Signature variableArityFunction = functionSignature()
                 .returnType(parseTypeSignature(StandardTypes.BOOLEAN))
@@ -879,22 +820,19 @@ public class TestSignatureBinder
                 .boundTo("bigint")
                 .produces(new BoundVariables(
                         ImmutableMap.of("T", type("bigint")),
-                        ImmutableMap.of()
-                ));
+                        ImmutableMap.of()));
 
         assertThat(variableArityFunction)
                 .boundTo("varchar")
                 .produces(new BoundVariables(
                         ImmutableMap.of("T", type("varchar")),
-                        ImmutableMap.of()
-                ));
+                        ImmutableMap.of()));
 
         assertThat(variableArityFunction)
                 .boundTo("bigint", "bigint")
                 .produces(new BoundVariables(
                         ImmutableMap.of("T", type("bigint")),
-                        ImmutableMap.of()
-                ));
+                        ImmutableMap.of()));
 
         assertThat(variableArityFunction)
                 .boundTo("bigint", "varchar")
@@ -904,7 +842,6 @@ public class TestSignatureBinder
 
     @Test
     public void testCoercion()
-            throws Exception
     {
         Signature function = functionSignature()
                 .returnType(parseTypeSignature(StandardTypes.BOOLEAN))
@@ -917,24 +854,21 @@ public class TestSignatureBinder
                 .withCoercion()
                 .produces(new BoundVariables(
                         ImmutableMap.of("T", type("double")),
-                        ImmutableMap.of()
-                ));
+                        ImmutableMap.of()));
 
         assertThat(function)
                 .boundTo("bigint", "bigint")
                 .withCoercion()
                 .produces(new BoundVariables(
                         ImmutableMap.of("T", type("bigint")),
-                        ImmutableMap.of()
-                ));
+                        ImmutableMap.of()));
 
         assertThat(function)
                 .boundTo("varchar", "bigint")
                 .withCoercion()
                 .produces(new BoundVariables(
                         ImmutableMap.of("T", type("varchar")),
-                        ImmutableMap.of()
-                ));
+                        ImmutableMap.of()));
 
         assertThat(function)
                 .boundTo("bigint", "varchar")
@@ -944,7 +878,6 @@ public class TestSignatureBinder
 
     @Test
     public void testUnknownCoercion()
-            throws Exception
     {
         Signature foo = functionSignature()
                 .returnType(parseTypeSignature("boolean"))
@@ -956,16 +889,14 @@ public class TestSignatureBinder
                 .boundTo("unknown", "unknown")
                 .produces(new BoundVariables(
                         ImmutableMap.of("T", type("unknown")),
-                        ImmutableMap.of()
-                ));
+                        ImmutableMap.of()));
 
         assertThat(foo)
                 .boundTo("unknown", "bigint")
                 .withCoercion()
                 .produces(new BoundVariables(
                         ImmutableMap.of("T", type("bigint")),
-                        ImmutableMap.of()
-                ));
+                        ImmutableMap.of()));
 
         assertThat(foo)
                 .boundTo("varchar", "bigint")
@@ -983,8 +914,7 @@ public class TestSignatureBinder
                 .withCoercion()
                 .produces(new BoundVariables(
                         ImmutableMap.of("T", type("bigint")),
-                        ImmutableMap.of()
-                ));
+                        ImmutableMap.of()));
 
         assertThat(bar)
                 .boundTo("varchar", "bigint")
@@ -999,7 +929,6 @@ public class TestSignatureBinder
 
     @Test
     public void testFunction()
-            throws Exception
     {
         Signature simple = functionSignature()
                 .returnType(parseTypeSignature("boolean"))
@@ -1107,11 +1036,33 @@ public class TestSignatureBinder
                 .withCoercion()
                 .boundTo("integer", new TypeSignatureProvider(paramTypes -> new FunctionType(paramTypes, SMALLINT).getTypeSignature()))
                 .fails();
+
+        // TODO: Support coercion of return type of lambda
+        // Without coercion support for return type of lambda, the return type of lambda must be `varchar(x)` to avoid need for coercions.
+        Signature varcharApply = functionSignature()
+                .returnType(parseTypeSignature("varchar"))
+                .argumentTypes(parseTypeSignature("varchar"), parseTypeSignature("function(varchar, varchar(x))", ImmutableSet.of("x")))
+                .build();
+        assertThat(varcharApply)
+                .withCoercion()
+                .boundTo("varchar(10)", new TypeSignatureProvider(paramTypes -> new FunctionType(paramTypes, createVarcharType(1)).getTypeSignature()))
+                .succeeds();
+
+        Signature sortByKey = functionSignature()
+                .returnType(parseTypeSignature("array(T)"))
+                .argumentTypes(parseTypeSignature("array(T)"), parseTypeSignature("function(T,E)"))
+                .typeVariableConstraints(typeVariable("T"), orderableTypeParameter("E"))
+                .build();
+        assertThat(sortByKey)
+                .boundTo("array(integer)", new TypeSignatureProvider(paramTypes -> new FunctionType(paramTypes, VARCHAR).getTypeSignature()))
+                .produces(BoundVariables.builder()
+                        .setTypeVariable("T", INTEGER)
+                        .setTypeVariable("E", VARCHAR)
+                        .build());
     }
 
     @Test
     public void testBindParameters()
-            throws Exception
     {
         BoundVariables boundVariables = BoundVariables.builder()
                 .setTypeVariable("T1", DOUBLE)
@@ -1153,8 +1104,7 @@ public class TestSignatureBinder
     {
         assertEquals(
                 SignatureBinder.applyBoundVariables(parseTypeSignature(typeSignature, ImmutableSet.of("p", "s")), boundVariables).toString(),
-                expectedTypeSignature
-        );
+                expectedTypeSignature);
     }
 
     private static SignatureBuilder functionSignature()
@@ -1186,9 +1136,9 @@ public class TestSignatureBinder
     private class BindSignatureAssertion
     {
         private final Signature function;
-        private List<TypeSignatureProvider> argumentTypes = null;
-        private Type returnType = null;
-        private boolean allowCoercion = false;
+        private List<TypeSignatureProvider> argumentTypes;
+        private Type returnType;
+        private boolean allowCoercion;
 
         private BindSignatureAssertion(Signature function)
         {

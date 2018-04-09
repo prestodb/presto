@@ -49,6 +49,8 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
@@ -85,49 +87,49 @@ public class TestExchangeOperator
     private static final String TASK_2_ID = "task2";
     private static final String TASK_3_ID = "task3";
 
-    private final LoadingCache<String, TaskBuffer> taskBuffers = CacheBuilder.newBuilder().build(new CacheLoader<String, TaskBuffer>()
-    {
-        @Override
-        public TaskBuffer load(String key)
-                throws Exception
-        {
-            return new TaskBuffer();
-        }
-    });
+    private final LoadingCache<String, TaskBuffer> taskBuffers = CacheBuilder.newBuilder().build(CacheLoader.from(TaskBuffer::new));
 
-    private ScheduledExecutorService executor;
+    private ScheduledExecutorService scheduler;
+    private ScheduledExecutorService scheduledExecutor;
     private HttpClient httpClient;
     private ExchangeClientSupplier exchangeClientSupplier;
+    private ExecutorService pageBufferClientCallbackExecutor;
 
     @SuppressWarnings("resource")
     @BeforeClass
     public void setUp()
-            throws Exception
     {
-        executor = newScheduledThreadPool(4, daemonThreadsNamed("test-%s"));
-
-        httpClient = new TestingHttpClient(new HttpClientHandler(taskBuffers), executor);
+        scheduler = newScheduledThreadPool(4, daemonThreadsNamed("test-%s"));
+        scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
+        pageBufferClientCallbackExecutor = Executors.newSingleThreadExecutor();
+        httpClient = new TestingHttpClient(new HttpClientHandler(taskBuffers), scheduler);
 
         exchangeClientSupplier = (systemMemoryUsageListener) -> new ExchangeClient(
                 new DataSize(32, MEGABYTE),
                 new DataSize(10, MEGABYTE),
                 3,
                 new Duration(1, TimeUnit.MINUTES),
-                new Duration(1, TimeUnit.MINUTES),
+                true,
                 httpClient,
-                executor,
-                systemMemoryUsageListener);
+                scheduler,
+                systemMemoryUsageListener,
+                pageBufferClientCallbackExecutor);
     }
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void tearDown()
-            throws Exception
     {
         httpClient.close();
         httpClient = null;
 
-        executor.shutdownNow();
-        executor = null;
+        scheduler.shutdownNow();
+        scheduler = null;
+
+        scheduledExecutor.shutdownNow();
+        scheduledExecutor = null;
+
+        pageBufferClientCallbackExecutor.shutdownNow();
+        pageBufferClientCallbackExecutor = null;
     }
 
     @BeforeMethod
@@ -268,7 +270,7 @@ public class TestExchangeOperator
     {
         ExchangeOperatorFactory operatorFactory = new ExchangeOperatorFactory(0, new PlanNodeId("test"), exchangeClientSupplier, SERDE_FACTORY, TYPES);
 
-        DriverContext driverContext = createTaskContext(executor, TEST_SESSION)
+        DriverContext driverContext = createTaskContext(scheduler, scheduledExecutor, TEST_SESSION)
                 .addPipelineContext(0, true, true)
                 .addDriverContext();
 
@@ -285,7 +287,7 @@ public class TestExchangeOperator
         List<Page> outputPages = new ArrayList<>();
 
         boolean greaterThanZero = false;
-        while (System.nanoTime() < endTime) {
+        while (System.nanoTime() - endTime < 0) {
             if (operator.isFinished()) {
                 break;
             }
@@ -338,7 +340,7 @@ public class TestExchangeOperator
     {
         // wait for finished or until 10 seconds has passed
         long endTime = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
-        while (System.nanoTime() < endTime) {
+        while (System.nanoTime() - endTime < 0) {
             assertEquals(operator.needsInput(), false);
             assertNull(operator.getOutput());
             if (operator.isFinished()) {

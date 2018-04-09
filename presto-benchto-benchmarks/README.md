@@ -69,7 +69,7 @@ This is useful for instance when one wants to use different number of benchmark
 runs or different underlying schemas. Create a simple `overrides.yaml` file:
 
 ```yaml
-runs:10
+runs: 10
 tpch_medium: tpcds_10gb_txt
 ```
 

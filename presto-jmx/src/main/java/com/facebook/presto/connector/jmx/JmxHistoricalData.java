@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -58,24 +59,24 @@ public class JmxHistoricalData
         tableData.get(lowerCaseTableName).add(row);
     }
 
-    public synchronized List<List<Object>> getRows(String tableName, List<Integer> selectedColumns)
+    public synchronized List<List<Object>> getRows(String objectName, List<Integer> selectedColumns)
     {
-        String lowerCaseTableName = tableName.toLowerCase();
-        if (!tableData.containsKey(lowerCaseTableName)) {
+        String lowerCaseObjectName = objectName.toLowerCase();
+        if (!tableData.containsKey(lowerCaseObjectName)) {
             return ImmutableList.of();
         }
-        return projectRows(tableData.get(lowerCaseTableName), selectedColumns);
+        return projectRows(tableData.get(lowerCaseObjectName), selectedColumns);
     }
 
     private List<List<Object>> projectRows(Collection<List<Object>> rows, List<Integer> selectedColumns)
     {
         ImmutableList.Builder<List<Object>> result = ImmutableList.builder();
         for (List<Object> row : rows) {
-            ImmutableList.Builder<Object> projectedRow = ImmutableList.builder();
+            List<Object> projectedRow = new ArrayList<>();
             for (Integer selectedColumn : selectedColumns) {
                 projectedRow.add(row.get(selectedColumn));
             }
-            result.add(projectedRow.build());
+            result.add(projectedRow);
         }
         return result.build();
     }

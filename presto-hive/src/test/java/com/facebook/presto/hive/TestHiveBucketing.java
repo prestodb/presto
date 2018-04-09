@@ -66,7 +66,6 @@ public class TestHiveBucketing
 {
     @Test
     public void testHashingBooleanLong()
-            throws Exception
     {
         List<Entry<ObjectInspector, Object>> bindings = ImmutableList.<Entry<ObjectInspector, Object>>builder()
                 .add(entry(javaBooleanObjectInspector, true))
@@ -81,7 +80,6 @@ public class TestHiveBucketing
 
     @Test
     public void testHashingString()
-            throws Exception
     {
         List<Entry<ObjectInspector, Object>> bindings = ImmutableList.<Entry<ObjectInspector, Object>>builder()
                 .add(entry(javaStringObjectInspector, utf8Slice("sequencefile test")))
@@ -165,12 +163,10 @@ public class TestHiveBucketing
         // multiple bucketing columns
         assertBucketEquals(
                 ImmutableList.of("float", "array<smallint>", "map<string,bigint>"),
-                ImmutableList.of(12.34F, ImmutableList.of((short) 5, (short) 8, (short) 13), ImmutableMap.of("key", 123L))
-        );
+                ImmutableList.of(12.34F, ImmutableList.of((short) 5, (short) 8, (short) 13), ImmutableMap.of("key", 123L)));
         assertBucketEquals(
                 ImmutableList.of("double", "array<smallint>", "boolean", "map<string,bigint>", "tinyint"),
-                asList(null, ImmutableList.of((short) 5, (short) 8, (short) 13), null, ImmutableMap.of("key", 123L), null)
-        );
+                asList(null, ImmutableList.of((short) 5, (short) 8, (short) 13), null, ImmutableMap.of("key", 123L), null));
     }
 
     private static void assertBucketEquals(String hiveTypeStrings, Object javaValues)

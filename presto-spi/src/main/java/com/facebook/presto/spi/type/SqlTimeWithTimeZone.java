@@ -26,6 +26,8 @@ import static com.facebook.presto.spi.type.DateTimeEncoding.unpackZoneKey;
 
 public final class SqlTimeWithTimeZone
 {
+    // This needs to be Locale-independent, Java Time's DateTimeFormatter compatible and should never change, as it defines the external API data format.
+    // TODO when support for political time zones is removed, change the pattern to "HH:mm:ss.SSS XXX" and reuse in TestingPrestoClient
     private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm:ss.SSS VV");
 
     private final long millisUtc;
@@ -75,8 +77,8 @@ public final class SqlTimeWithTimeZone
             return false;
         }
         SqlTimeWithTimeZone other = (SqlTimeWithTimeZone) obj;
-        return Objects.equals(this.millisUtc, other.millisUtc) &&
-                Objects.equals(this.timeZoneKey, other.timeZoneKey);
+        return this.millisUtc == other.millisUtc &&
+                this.timeZoneKey == other.timeZoneKey;
     }
 
     @JsonValue

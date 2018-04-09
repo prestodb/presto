@@ -13,22 +13,20 @@
  */
 package com.facebook.presto.tests.sqlserver;
 
-import com.teradata.tempto.ProductTest;
-import com.teradata.tempto.Requirement;
-import com.teradata.tempto.RequirementsProvider;
-import com.teradata.tempto.configuration.Configuration;
+import io.prestodb.tempto.ProductTest;
+import io.prestodb.tempto.Requirement;
+import io.prestodb.tempto.RequirementsProvider;
+import io.prestodb.tempto.configuration.Configuration;
 import org.testng.annotations.Test;
-
-import java.sql.SQLException;
 
 import static com.facebook.presto.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static com.facebook.presto.tests.TestGroups.SQL_SERVER;
 import static com.facebook.presto.tests.sqlserver.SqlServerTpchTableDefinitions.NATION;
 import static com.facebook.presto.tests.sqlserver.TestConstants.CONNECTOR_NAME;
 import static com.facebook.presto.tests.sqlserver.TestConstants.KEY_SPACE;
-import static com.teradata.tempto.assertions.QueryAssert.assertThat;
-import static com.teradata.tempto.fulfillment.table.TableRequirements.immutableTable;
-import static com.teradata.tempto.query.QueryExecutor.query;
+import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
+import static io.prestodb.tempto.fulfillment.table.TableRequirements.immutableTable;
+import static io.prestodb.tempto.query.QueryExecutor.query;
 import static java.lang.String.format;
 
 public class NegativeTests
@@ -43,7 +41,6 @@ public class NegativeTests
 
     @Test(groups = {SQL_SERVER, PROFILE_SPECIFIC_TESTS})
     public void testNonExistentTable()
-            throws SQLException
     {
         String tableName = format("%s.%s.%s", CONNECTOR_NAME, KEY_SPACE, "bogus");
         assertThat(() -> query(format("SELECT * FROM %s", tableName)))
@@ -52,7 +49,6 @@ public class NegativeTests
 
     @Test(groups = {SQL_SERVER, PROFILE_SPECIFIC_TESTS})
     public void testNonExistentSchema()
-            throws SQLException
     {
         String tableName = format("%s.%s.%s", CONNECTOR_NAME, "does_not_exist", "bogus");
         assertThat(() -> query(format("SELECT * FROM %s", tableName)))
@@ -61,7 +57,6 @@ public class NegativeTests
 
     @Test(groups = {SQL_SERVER, PROFILE_SPECIFIC_TESTS})
     public void testNonExistentColumn()
-            throws SQLException
     {
         String tableName = format("%s.%s.%s", CONNECTOR_NAME, KEY_SPACE, NATION.getName());
         assertThat(() -> query(format("SELECT bogus FROM %s", tableName)))

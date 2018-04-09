@@ -15,14 +15,15 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
-import com.facebook.presto.spi.block.SliceArrayBlock;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
+import com.facebook.presto.sql.gen.PageFunctionCompiler;
 import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.DeterminismEvaluator;
 import com.facebook.presto.sql.relational.InputReferenceExpression;
@@ -31,12 +32,15 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
 import static com.facebook.presto.block.BlockAssertions.createLongDictionaryBlock;
 import static com.facebook.presto.block.BlockAssertions.createRLEBlock;
+import static com.facebook.presto.block.BlockAssertions.createSlicesBlock;
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.metadata.Signature.internalOperator;
@@ -55,14 +59,26 @@ import static org.testng.Assert.assertTrue;
 
 public class TestPageProcessorCompiler
 {
-    private static final MetadataManager METADATA_MANAGER = createTestMetadataManager();
+    private MetadataManager metadataManager;
+    private ExpressionCompiler compiler;
+
+    @BeforeClass
+    public void setup()
+    {
+        metadataManager = createTestMetadataManager();
+        compiler = new ExpressionCompiler(metadataManager, new PageFunctionCompiler(metadataManager, 0));
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void tearDown()
+    {
+        metadataManager = null;
+        compiler = null;
+    }
 
     @Test
     public void testNoCaching()
-            throws Throwable
     {
-        MetadataManager metadata = METADATA_MANAGER;
-        ExpressionCompiler compiler = new ExpressionCompiler(metadata);
         ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
         ArrayType arrayType = new ArrayType(VARCHAR);
         Signature signature = new Signature("concat", SCALAR, arrayType.getTypeSignature(), arrayType.getTypeSignature(), arrayType.getTypeSignature());
@@ -76,14 +92,12 @@ public class TestPageProcessorCompiler
 
     @Test
     public void testSanityRLE()
-            throws Exception
     {
-        PageProcessor processor = new ExpressionCompiler(createTestMetadataManager())
-                .compilePageProcessor(Optional.empty(), ImmutableList.of(field(0, BIGINT), field(1, VARCHAR))).get();
+        PageProcessor processor = compiler.compilePageProcessor(Optional.empty(), ImmutableList.of(field(0, BIGINT), field(1, VARCHAR))).get();
 
         Slice varcharValue = Slices.utf8Slice("hello");
         Page page = new Page(RunLengthEncodedBlock.create(BIGINT, 123L, 100), RunLengthEncodedBlock.create(VARCHAR, varcharValue, 100));
-        Page outputPage = getOnlyElement(processor.process(null, page));
+        Page outputPage = getOnlyElement(processor.process(null, new DriverYieldSignal(), page)).orElseThrow(() -> new AssertionError("page is not present"));
 
         assertEquals(outputPage.getPositionCount(), 100);
         assertTrue(outputPage.getBlock(0) instanceof RunLengthEncodedBlock);
@@ -98,18 +112,16 @@ public class TestPageProcessorCompiler
 
     @Test
     public void testSanityFilterOnDictionary()
-            throws Exception
     {
         CallExpression lengthVarchar = new CallExpression(
                 new Signature("length", SCALAR, parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.VARCHAR)), BIGINT, ImmutableList.of(field(0, VARCHAR)));
         Signature lessThan = internalOperator(LESS_THAN, BOOLEAN, ImmutableList.of(BIGINT, BIGINT));
         CallExpression filter = new CallExpression(lessThan, BOOLEAN, ImmutableList.of(lengthVarchar, constant(10L, BIGINT)));
 
-        PageProcessor processor = new ExpressionCompiler(createTestMetadataManager())
-                .compilePageProcessor(Optional.of(filter), ImmutableList.of(field(0, VARCHAR))).get();
+        PageProcessor processor = compiler.compilePageProcessor(Optional.of(filter), ImmutableList.of(field(0, VARCHAR))).get();
 
         Page page = new Page(createDictionaryBlock(createExpectedValues(10), 100));
-        Page outputPage = getOnlyElement(processor.process(null, page));
+        Page outputPage = getOnlyElement(processor.process(null, new DriverYieldSignal(), page)).orElseThrow(() -> new AssertionError("page is not present"));
 
         assertEquals(outputPage.getPositionCount(), 100);
         assertTrue(outputPage.getBlock(0) instanceof DictionaryBlock);
@@ -118,7 +130,7 @@ public class TestPageProcessorCompiler
         assertEquals(dictionaryBlock.getDictionary().getPositionCount(), 10);
 
         // test filter caching
-        Page outputPage2 = getOnlyElement(processor.process(null, page));
+        Page outputPage2 = getOnlyElement(processor.process(null, new DriverYieldSignal(), page)).orElseThrow(() -> new AssertionError("page is not present"));
         assertEquals(outputPage2.getPositionCount(), 100);
         assertTrue(outputPage2.getBlock(0) instanceof DictionaryBlock);
 
@@ -129,16 +141,14 @@ public class TestPageProcessorCompiler
 
     @Test
     public void testSanityFilterOnRLE()
-            throws Exception
     {
         Signature lessThan = internalOperator(LESS_THAN, BOOLEAN, ImmutableList.of(BIGINT, BIGINT));
         CallExpression filter = new CallExpression(lessThan, BOOLEAN, ImmutableList.of(field(0, BIGINT), constant(10L, BIGINT)));
 
-        PageProcessor processor = new ExpressionCompiler(createTestMetadataManager())
-                .compilePageProcessor(Optional.of(filter), ImmutableList.of(field(0, BIGINT))).get();
+        PageProcessor processor = compiler.compilePageProcessor(Optional.of(filter), ImmutableList.of(field(0, BIGINT))).get();
 
         Page page = new Page(createRLEBlock(5L, 100));
-        Page outputPage = getOnlyElement(processor.process(null, page));
+        Page outputPage = getOnlyElement(processor.process(null, new DriverYieldSignal(), page)).orElseThrow(() -> new AssertionError("page is not present"));
 
         assertEquals(outputPage.getPositionCount(), 100);
         assertTrue(outputPage.getBlock(0) instanceof RunLengthEncodedBlock);
@@ -149,13 +159,11 @@ public class TestPageProcessorCompiler
 
     @Test
     public void testSanityColumnarDictionary()
-            throws Exception
     {
-        PageProcessor processor = new ExpressionCompiler(createTestMetadataManager())
-                .compilePageProcessor(Optional.empty(), ImmutableList.of(field(0, VARCHAR))).get();
+        PageProcessor processor = compiler.compilePageProcessor(Optional.empty(), ImmutableList.of(field(0, VARCHAR))).get();
 
         Page page = new Page(createDictionaryBlock(createExpectedValues(10), 100));
-        Page outputPage = getOnlyElement(processor.process(null, page));
+        Page outputPage = getOnlyElement(processor.process(null, new DriverYieldSignal(), page)).orElseThrow(() -> new AssertionError("page is not present"));
 
         assertEquals(outputPage.getPositionCount(), 100);
         assertTrue(outputPage.getBlock(0) instanceof DictionaryBlock);
@@ -166,7 +174,6 @@ public class TestPageProcessorCompiler
 
     @Test
     public void testNonDeterministicProject()
-            throws Exception
     {
         Signature lessThan = internalOperator(LESS_THAN, BOOLEAN, ImmutableList.of(BIGINT, BIGINT));
         CallExpression random = new CallExpression(
@@ -174,13 +181,12 @@ public class TestPageProcessorCompiler
         InputReferenceExpression col0 = field(0, BIGINT);
         CallExpression lessThanRandomExpression = new CallExpression(lessThan, BOOLEAN, ImmutableList.of(col0, random));
 
-        PageProcessor processor = new ExpressionCompiler(createTestMetadataManager())
-                .compilePageProcessor(Optional.empty(), ImmutableList.of(lessThanRandomExpression)).get();
+        PageProcessor processor = compiler.compilePageProcessor(Optional.empty(), ImmutableList.of(lessThanRandomExpression)).get();
 
-        assertFalse(new DeterminismEvaluator(METADATA_MANAGER.getFunctionRegistry()).isDeterministic(lessThanRandomExpression));
+        assertFalse(new DeterminismEvaluator(metadataManager.getFunctionRegistry()).isDeterministic(lessThanRandomExpression));
 
         Page page = new Page(createLongDictionaryBlock(1, 100));
-        Page outputPage = getOnlyElement(processor.process(null, page));
+        Page outputPage = getOnlyElement(processor.process(null, new DriverYieldSignal(), page)).orElseThrow(() -> new AssertionError("page is not present"));
         assertFalse(outputPage.getBlock(0) instanceof DictionaryBlock);
     }
 
@@ -192,7 +198,7 @@ public class TestPageProcessorCompiler
         for (int i = 0; i < positionCount; i++) {
             ids[i] = i % dictionarySize;
         }
-        return new DictionaryBlock(new SliceArrayBlock(dictionarySize, expectedValues), ids);
+        return new DictionaryBlock(createSlicesBlock(expectedValues), ids);
     }
 
     private static Slice[] createExpectedValues(int positionCount)

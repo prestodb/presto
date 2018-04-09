@@ -54,12 +54,9 @@ let TaskList = React.createClass({
 
         if (tasks === undefined || tasks.length === 0) {
             return (
-                <div className="row">
-                    <div className="col-xs-12">
-                        No tasks.
-                    </div>
-                </div>
-            );
+                <div className="row error-message">
+                    <div className="col-xs-12"><h4>No threads in the selected group</h4></div>
+                </div> );
         }
 
         const showPortNumbers = this.showPortNumbers(tasks);
@@ -78,7 +75,9 @@ let TaskList = React.createClass({
                             </a>
                         </Td>
                         <Td column="host" value={ getHostname(task.taskStatus.self) }>
-                            { showPortNumbers ? getHostAndPort(task.taskStatus.self) : getHostname(task.taskStatus.self) }
+                            <a href={ "/worker.html?" + task.taskStatus.nodeId } className="font-light" target="_blank">
+                                { showPortNumbers ? getHostAndPort(task.taskStatus.self) : getHostname(task.taskStatus.self) }
+                            </a>
                         </Td>
                         <Td column="state" value={ formatState(task.taskStatus.state, task.stats.fullyBlocked) }>
                             { formatState(task.taskStatus.state, task.stats.fullyBlocked) }
@@ -361,7 +360,7 @@ let StageDetail = React.createClass({
                                                     Cumulative
                                                 </td>
                                                 <td className="stage-table-stat-text">
-                                                    { formatDataSizeBytes(stage.stageStats.cumulativeMemory / 1000) }
+                                                    { formatDataSizeBytes(stage.stageStats.cumulativeUserMemory / 1000) }
                                                 </td>
                                             </tr>
                                             <tr>
@@ -369,7 +368,7 @@ let StageDetail = React.createClass({
                                                     Current
                                                 </td>
                                                 <td className="stage-table-stat-text">
-                                                    { stage.stageStats.totalMemoryReservation }
+                                                    { stage.stageStats.userMemoryReservation }
                                                 </td>
                                             </tr>
                                             <tr>
@@ -385,7 +384,7 @@ let StageDetail = React.createClass({
                                                     Peak
                                                 </td>
                                                 <td className="stage-table-stat-text">
-                                                    { stage.stageStats.peakMemoryReservation }
+                                                    { stage.stageStats.peakUserMemoryReservation }
                                                 </td>
                                             </tr>
                                         </tbody>
@@ -670,7 +669,7 @@ let QueryDetail = React.createClass({
                     cpuTimeRate: addToHistory(currentCpuTimeRate, this.state.cpuTimeRate),
                     rowInputRate: addToHistory(currentRowInputRate, this.state.rowInputRate),
                     byteInputRate: addToHistory(currentByteInputRate, this.state.byteInputRate),
-                    reservedMemory: addToHistory(parseDataSize(query.queryStats.totalMemoryReservation), this.state.reservedMemory),
+                    reservedMemory: addToHistory(parseDataSize(query.queryStats.userMemoryReservation), this.state.reservedMemory),
                 });
             }
             this.resetTimer();
@@ -783,7 +782,7 @@ let QueryDetail = React.createClass({
                         <h3>Tasks</h3>
                     </div>
                     <div className="col-xs-3">
-                        <table className="query-links">
+                        <table className="header-inline-links">
                             <tr>
                                 <td>
                                     <div className="input-group-btn text-right">
@@ -795,7 +794,7 @@ let QueryDetail = React.createClass({
                                             { this.renderTaskFilterListItem(TASK_FILTER.PLANNED, "Planned") }
                                             { this.renderTaskFilterListItem(TASK_FILTER.RUNNING, "Running") }
                                             { this.renderTaskFilterListItem(TASK_FILTER.FINISHED, "Finished") }
-                                            { this.renderTaskFilterListItem(TASK_FILTER.FINISHED, "Aborted/Canceled/Failed") }
+                                            { this.renderTaskFilterListItem(TASK_FILTER.FAILED, "Aborted/Canceled/Failed") }
                                         </ul>
                                     </div>
                                 </td>
@@ -824,7 +823,7 @@ let QueryDetail = React.createClass({
                         <h3>Stages</h3>
                     </div>
                     <div className="col-xs-3">
-                        <table className="query-links">
+                        <table className="header-inline-links">
                             <tr>
                                 <td>
                                     { this.renderStageRefreshButton() }
@@ -893,7 +892,7 @@ let QueryDetail = React.createClass({
                         </div>
                     </td>
                     <td>
-                        <a onClick={ () => $.ajax({url: 'v1/query/' + query.queryId, type: 'DELETE'}) } className="btn btn-warning" target="_blank">
+                        <a onClick={ () => $.ajax({url: 'v1/query/' + query.queryId + '/killed', type: 'PUT', data: "Killed via web UI"}) } className="btn btn-warning" target="_blank">
                             Kill
                         </a>
                     </td>
@@ -978,7 +977,7 @@ let QueryDetail = React.createClass({
                         </h3>
                     </div>
                     <div className="col-xs-6">
-                        <table className="query-links">
+                        <table className="header-inline-links">
                             <tbody>
                                 <tr>
                                     <td>
@@ -1043,6 +1042,14 @@ let QueryDetail = React.createClass({
                                     </td>
                                     <td className="info-text">
                                         { query.session.remoteUserAddress }
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td className="info-title">
+                                        Client Tags
+                                    </td>
+                                    <td className="info-text">
+                                        { query.session.clientTags.join(", ") }
                                     </td>
                                 </tr>
                                 <tr>
@@ -1198,7 +1205,7 @@ let QueryDetail = React.createClass({
                                                 Peak Memory
                                             </td>
                                             <td className="info-text">
-                                                { query.queryStats.peakMemoryReservation }
+                                                { query.queryStats.peakUserMemoryReservation }
                                             </td>
                                         </tr>
                                         <tr>
@@ -1214,7 +1221,47 @@ let QueryDetail = React.createClass({
                                                 Cumulative Memory
                                             </td>
                                             <td className="info-text">
-                                                { formatDataSizeBytes(query.queryStats.cumulativeMemory / 1000.0, "") + " seconds" }
+                                                { formatDataSizeBytes(query.queryStats.cumulativeUserMemory / 1000.0, "") + " seconds" }
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td className="info-title">
+                                                Output Rows
+                                            </td>
+                                            <td className="info-text">
+                                                { formatCount(query.queryStats.outputPositions) }
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td className="info-title">
+                                                Output Data
+                                            </td>
+                                            <td className="info-text">
+                                                { query.queryStats.outputDataSize }
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td className="info-title">
+                                                Written Rows
+                                            </td>
+                                            <td className="info-text">
+                                                { formatCount(query.queryStats.writtenPositions) }
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td className="info-title">
+                                                Logical Written Data
+                                            </td>
+                                            <td className="info-text">
+                                                { query.queryStats.logicalWrittenDataSize }
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td className="info-title">
+                                                Physical Written Data
+                                            </td>
+                                            <td className="info-text">
+                                                { query.queryStats.physicalWrittenDataSize }
                                             </td>
                                         </tr>
                                     </tbody>

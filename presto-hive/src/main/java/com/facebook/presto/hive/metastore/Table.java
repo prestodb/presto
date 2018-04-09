@@ -25,6 +25,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -249,6 +250,12 @@ public class Table
         public Builder setViewExpandedText(Optional<String> viewExpandedText)
         {
             this.viewExpandedText = viewExpandedText;
+            return this;
+        }
+
+        public Builder withStorage(Consumer<Storage.Builder> consumer)
+        {
+            consumer.accept(storageBuilder);
             return this;
         }
 

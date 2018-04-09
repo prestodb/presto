@@ -28,7 +28,9 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class SqlQueryManagerStats
 {
+    private final AtomicInteger queuedQueries = new AtomicInteger();
     private final AtomicInteger runningQueries = new AtomicInteger();
+    private final CounterStat submittedQueries = new CounterStat();
     private final CounterStat startedQueries = new CounterStat();
     private final CounterStat completedQueries = new CounterStat();
     private final CounterStat failedQueries = new CounterStat();
@@ -42,13 +44,21 @@ public class SqlQueryManagerStats
     private final CounterStat consumedInputBytes = new CounterStat();
     private final CounterStat consumedCpuTimeSecs = new CounterStat();
     private final TimeStat executionTime = new TimeStat(MILLISECONDS);
+    private final TimeStat queuedTime = new TimeStat(MILLISECONDS);
     private final DistributionStat wallInputBytesRate = new DistributionStat();
     private final DistributionStat cpuInputByteRate = new DistributionStat();
+
+    public void queryQueued()
+    {
+        submittedQueries.update(1);
+        queuedQueries.incrementAndGet();
+    }
 
     public void queryStarted()
     {
         startedQueries.update(1);
         runningQueries.incrementAndGet();
+        queuedQueries.decrementAndGet();
     }
 
     public void queryStopped()
@@ -66,6 +76,7 @@ public class SqlQueryManagerStats
         consumedInputBytes.update(info.getQueryStats().getRawInputDataSize().toBytes());
         consumedInputRows.update(info.getQueryStats().getRawInputPositions());
         executionTime.add(info.getQueryStats().getExecutionTime());
+        queuedTime.add(info.getQueryStats().getQueuedTime());
 
         long executionWallMillis = info.getQueryStats().getExecutionTime().toMillis();
         if (executionWallMillis > 0) {
@@ -111,10 +122,23 @@ public class SqlQueryManagerStats
     }
 
     @Managed
+    public long getQueuedQueries()
+    {
+        return queuedQueries.get();
+    }
+
+    @Managed
     @Nested
     public CounterStat getStartedQueries()
     {
         return startedQueries;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getSubmittedQueries()
+    {
+        return submittedQueries;
     }
 
     @Managed
@@ -157,6 +181,13 @@ public class SqlQueryManagerStats
     public TimeStat getExecutionTime()
     {
         return executionTime;
+    }
+
+    @Managed
+    @Nested
+    public TimeStat getQueuedTime()
+    {
+        return queuedTime;
     }
 
     @Managed

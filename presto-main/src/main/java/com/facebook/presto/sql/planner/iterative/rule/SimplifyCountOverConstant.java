@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.matching.Capture;
+import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.StandardTypes;
@@ -20,7 +22,6 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.Assignments;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -33,33 +34,32 @@ import com.google.common.collect.ImmutableList;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Optional;
 
+import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
+import static com.facebook.presto.sql.planner.plan.Patterns.project;
+import static com.facebook.presto.sql.planner.plan.Patterns.source;
 
 public class SimplifyCountOverConstant
-        implements Rule
+        implements Rule<AggregationNode>
 {
-    private static final Pattern PATTERN = Pattern.typeOf(AggregationNode.class);
+    private static final Capture<ProjectNode> CHILD = newCapture();
+
+    private static final Pattern<AggregationNode> PATTERN = aggregation()
+            .with(source().matching(project().capturedAs(CHILD)));
 
     @Override
-    public Pattern getPattern()
+    public Pattern<AggregationNode> getPattern()
     {
         return PATTERN;
     }
 
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Context context)
+    public Result apply(AggregationNode parent, Captures captures, Context context)
     {
-        AggregationNode parent = (AggregationNode) node;
-
-        PlanNode input = context.getLookup().resolve(parent.getSource());
-        if (!(input instanceof ProjectNode)) {
-            return Optional.empty();
-        }
-
-        ProjectNode child = (ProjectNode) input;
+        ProjectNode child = captures.get(CHILD);
 
         boolean changed = false;
         Map<Symbol, AggregationNode.Aggregation> aggregations = new LinkedHashMap<>(parent.getAggregations());
@@ -78,11 +78,11 @@ public class SimplifyCountOverConstant
         }
 
         if (!changed) {
-            return Optional.empty();
+            return Result.empty();
         }
 
-        return Optional.of(new AggregationNode(
-                node.getId(),
+        return Result.ofPlanNode(new AggregationNode(
+                parent.getId(),
                 child,
                 aggregations,
                 parent.getGroupingSets(),

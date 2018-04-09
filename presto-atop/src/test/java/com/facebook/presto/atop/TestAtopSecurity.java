@@ -33,13 +33,12 @@ public class TestAtopSecurity
 
     @BeforeClass
     public void setUp()
-            throws Exception
     {
         String path = this.getClass().getResource("security.json").getPath();
         queryRunner = createQueryRunner(ImmutableMap.of("atop.security", "file", "security.config-file", path), TestingAtopFactory.class);
     }
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void tearDown()
     {
         queryRunner.close();

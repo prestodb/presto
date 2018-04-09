@@ -17,10 +17,10 @@ import com.facebook.presto.execution.buffer.OutputBuffer;
 import com.facebook.presto.execution.buffer.PagesSerde;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.execution.buffer.SerializedPage;
+import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.PageBuilderStatus;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.type.Type;
@@ -45,6 +45,8 @@ import static com.facebook.presto.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_S
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.lang.Math.max;
+import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
 public class PartitionedOutputOperator
@@ -172,7 +174,7 @@ public class PartitionedOutputOperator
         }
 
         @Override
-        public void close()
+        public void noMoreOperators()
         {
         }
 
@@ -198,6 +200,8 @@ public class PartitionedOutputOperator
     private final OperatorContext operatorContext;
     private final Function<Page, Page> pagePreprocessor;
     private final PagePartitioner partitionFunction;
+    private final LocalMemoryContext systemMemoryContext;
+    private final long partitionsInitialRetainedSize;
     private ListenableFuture<?> blocked = NOT_BLOCKED;
     private boolean finished;
 
@@ -228,10 +232,9 @@ public class PartitionedOutputOperator
                 maxMemory);
 
         operatorContext.setInfoSupplier(this::getInfo);
-        // TODO: We should try to make this more accurate
-        // Recalculating the retained size of all the PageBuilders is somewhat expensive,
-        // so we only do it once here rather than in addInput(), and assume that the size will be constant.
-        operatorContext.getSystemMemoryContext().newLocalMemoryContext().setBytes(this.partitionFunction.getRetainedSizeInBytes());
+        this.systemMemoryContext = operatorContext.newLocalSystemMemoryContext();
+        this.partitionsInitialRetainedSize = this.partitionFunction.getRetainedSizeInBytes();
+        this.systemMemoryContext.setBytes(partitionsInitialRetainedSize);
     }
 
     @Override
@@ -293,6 +296,14 @@ public class PartitionedOutputOperator
         blocked = partitionFunction.partitionPage(page);
 
         operatorContext.recordGeneratedOutput(page.getSizeInBytes(), page.getPositionCount());
+
+        // We use getSizeInBytes() here instead of getRetainedSizeInBytes() for an approximation of
+        // the amount of memory used by the pageBuilders, because calculating the retained
+        // size can be expensive especially for complex types.
+        long partitionsSizeInBytes = partitionFunction.getSizeInBytes();
+
+        // We also add partitionsInitialRetainedSize as an approximation of the object overhead of the partitions.
+        systemMemoryContext.setBytes(partitionsSizeInBytes + partitionsInitialRetainedSize);
     }
 
     @Override
@@ -309,7 +320,7 @@ public class PartitionedOutputOperator
         private final List<Integer> partitionChannels;
         private final List<Optional<Block>> partitionConstants;
         private final PagesSerde serde;
-        private final List<PageBuilder> pageBuilders;
+        private final PageBuilder[] pageBuilders;
         private final boolean replicatesAnyRow;
         private final OptionalInt nullChannel; // when present, send the position to every partition if this channel is null.
         private final AtomicLong rowsAdded = new AtomicLong();
@@ -338,22 +349,37 @@ public class PartitionedOutputOperator
             this.sourceTypes = requireNonNull(sourceTypes, "sourceTypes is null");
             this.serde = requireNonNull(serdeFactory, "serdeFactory is null").createPagesSerde();
 
-            int pageSize = Math.min(PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES, ((int) maxMemory.toBytes()) / partitionFunction.getPartitionCount());
-            pageSize = Math.max(1, pageSize);
+            int partitionCount = partitionFunction.getPartitionCount();
+            int pageSize = min(DEFAULT_MAX_PAGE_SIZE_IN_BYTES, ((int) maxMemory.toBytes()) / partitionCount);
+            pageSize = max(1, pageSize);
 
-            ImmutableList.Builder<PageBuilder> pageBuilders = ImmutableList.builder();
-            for (int i = 0; i < partitionFunction.getPartitionCount(); i++) {
-                pageBuilders.add(PageBuilder.withMaxPageSize(pageSize, sourceTypes));
+            this.pageBuilders = new PageBuilder[partitionCount];
+            for (int i = 0; i < partitionCount; i++) {
+                pageBuilders[i] = PageBuilder.withMaxPageSize(pageSize, sourceTypes);
             }
-            this.pageBuilders = pageBuilders.build();
         }
 
-        // Does not include size of SharedBuffer
+        public long getSizeInBytes()
+        {
+            // We use a foreach loop instead of streams
+            // as it has much better performance.
+            long sizeInBytes = 0;
+            for (PageBuilder pageBuilder : pageBuilders) {
+                sizeInBytes += pageBuilder.getSizeInBytes();
+            }
+            return sizeInBytes;
+        }
+
+        /**
+         * This method can be expensive for complex types.
+         */
         public long getRetainedSizeInBytes()
         {
-            return pageBuilders.stream()
-                    .mapToLong(PageBuilder::getRetainedSizeInBytes)
-                    .sum();
+            long sizeInBytes = 0;
+            for (PageBuilder pageBuilder : pageBuilders) {
+                sizeInBytes += pageBuilder.getRetainedSizeInBytes();
+            }
+            return sizeInBytes;
         }
 
         public PartitionedOutputInfo getInfo()
@@ -377,9 +403,7 @@ public class PartitionedOutputOperator
                 }
                 else {
                     int partition = partitionFunction.getPartition(partitionFunctionArgs, position);
-
-                    PageBuilder pageBuilder = pageBuilders.get(partition);
-                    appendRow(pageBuilder, page, position);
+                    appendRow(pageBuilders[partition], page, position);
                 }
             }
             return flush(false);
@@ -414,8 +438,8 @@ public class PartitionedOutputOperator
         {
             // add all full pages to output buffer
             List<ListenableFuture<?>> blockedFutures = new ArrayList<>();
-            for (int partition = 0; partition < pageBuilders.size(); partition++) {
-                PageBuilder partitionPageBuilder = pageBuilders.get(partition);
+            for (int partition = 0; partition < pageBuilders.length; partition++) {
+                PageBuilder partitionPageBuilder = pageBuilders[partition];
                 if (!partitionPageBuilder.isEmpty() && (force || partitionPageBuilder.isFull())) {
                     Page pagePartition = partitionPageBuilder.build();
                     partitionPageBuilder.reset();

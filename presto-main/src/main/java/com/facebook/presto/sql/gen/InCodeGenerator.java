@@ -13,13 +13,6 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.bytecode.BytecodeBlock;
-import com.facebook.presto.bytecode.BytecodeNode;
-import com.facebook.presto.bytecode.Scope;
-import com.facebook.presto.bytecode.Variable;
-import com.facebook.presto.bytecode.control.IfStatement;
-import com.facebook.presto.bytecode.control.LookupSwitch;
-import com.facebook.presto.bytecode.instruction.LabelNode;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
@@ -34,6 +27,13 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.bytecode.BytecodeBlock;
+import io.airlift.bytecode.BytecodeNode;
+import io.airlift.bytecode.Scope;
+import io.airlift.bytecode.Variable;
+import io.airlift.bytecode.control.IfStatement;
+import io.airlift.bytecode.control.LookupSwitch;
+import io.airlift.bytecode.instruction.LabelNode;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Collection;
@@ -41,10 +41,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static com.facebook.presto.bytecode.control.LookupSwitch.lookupSwitchBuilder;
-import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantFalse;
-import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantTrue;
-import static com.facebook.presto.bytecode.instruction.JumpInstruction.jump;
 import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.facebook.presto.spi.function.OperatorType.EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
@@ -54,6 +50,10 @@ import static com.facebook.presto.sql.gen.BytecodeUtils.ifWasNullPopAndGoto;
 import static com.facebook.presto.sql.gen.BytecodeUtils.invoke;
 import static com.facebook.presto.sql.gen.BytecodeUtils.loadConstant;
 import static com.facebook.presto.util.FastutilSetHelper.toFastutilHashSet;
+import static io.airlift.bytecode.control.LookupSwitch.lookupSwitchBuilder;
+import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
+import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
+import static io.airlift.bytecode.instruction.JumpInstruction.jump;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -112,12 +112,6 @@ public class InCodeGenerator
         BytecodeNode value = generatorContext.generate(arguments.get(0));
 
         List<RowExpression> values = arguments.subList(1, arguments.size());
-
-        ImmutableList.Builder<BytecodeNode> valuesBytecode = ImmutableList.builder();
-        for (int i = 1; i < arguments.size(); i++) {
-            BytecodeNode testNode = generatorContext.generate(arguments.get(i));
-            valuesBytecode.add(testNode);
-        }
 
         Type type = arguments.get(0).getType();
         Class<?> javaType = type.getJavaType();

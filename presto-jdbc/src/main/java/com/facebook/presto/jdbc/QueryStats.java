@@ -35,8 +35,11 @@ public final class QueryStats
     private final long userTimeMillis;
     private final long cpuTimeMillis;
     private final long wallTimeMillis;
+    private final long queuedTimeMillis;
+    private final long elapsedTimeMillis;
     private final long processedRows;
     private final long processedBytes;
+    private final long peakMemoryBytes;
     private final Optional<StageStats> rootStage;
 
     public QueryStats(
@@ -52,8 +55,11 @@ public final class QueryStats
             long userTimeMillis,
             long cpuTimeMillis,
             long wallTimeMillis,
+            long queuedTimeMillis,
+            long elapsedTimeMillis,
             long processedRows,
             long processedBytes,
+            long peakMemoryBytes,
             Optional<StageStats> rootStage)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
@@ -68,8 +74,11 @@ public final class QueryStats
         this.userTimeMillis = userTimeMillis;
         this.cpuTimeMillis = cpuTimeMillis;
         this.wallTimeMillis = wallTimeMillis;
+        this.queuedTimeMillis = queuedTimeMillis;
+        this.elapsedTimeMillis = elapsedTimeMillis;
         this.processedRows = processedRows;
         this.processedBytes = processedBytes;
+        this.peakMemoryBytes = peakMemoryBytes;
         this.rootStage = requireNonNull(rootStage, "rootStage is null");
     }
 
@@ -88,8 +97,11 @@ public final class QueryStats
                 stats.getUserTimeMillis(),
                 stats.getCpuTimeMillis(),
                 stats.getWallTimeMillis(),
+                stats.getQueuedTimeMillis(),
+                stats.getElapsedTimeMillis(),
                 stats.getProcessedRows(),
                 stats.getProcessedBytes(),
+                stats.getPeakMemoryBytes(),
                 Optional.ofNullable(stats.getRootStage()).map(StageStats::create));
     }
 
@@ -153,6 +165,16 @@ public final class QueryStats
         return wallTimeMillis;
     }
 
+    public long getQueuedTimeMillis()
+    {
+        return queuedTimeMillis;
+    }
+
+    public long getElapsedTimeMillis()
+    {
+        return elapsedTimeMillis;
+    }
+
     public long getProcessedRows()
     {
         return processedRows;
@@ -161,6 +183,11 @@ public final class QueryStats
     public long getProcessedBytes()
     {
         return processedBytes;
+    }
+
+    public long getPeakMemoryBytes()
+    {
+        return peakMemoryBytes;
     }
 
     public Optional<StageStats> getRootStage()

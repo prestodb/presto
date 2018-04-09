@@ -11,28 +11,45 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
+import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.google.inject.BindingAnnotation;
 
+import javax.annotation.concurrent.ThreadSafe;
+
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
 import java.util.Map;
 
-/**
- * Interface of cost calculator.
- * <p>
- * It's responsibility is to provide approximation of cost of execution of plan node.
- * Example implementations may be based on table statistics or data samples.
- */
+import static java.lang.annotation.ElementType.PARAMETER;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
+
+@ThreadSafe
 public interface CostCalculator
 {
-    Map<PlanNodeId, PlanNodeCost> calculateCostForPlan(Session session, Map<Symbol, Type> types, PlanNode planNode);
+    /**
+     * Calculates non-cumulative cost of a node.
+     *
+     * @param node The node to compute cost for.
+     * @param stats The stats provider for node's stats and child nodes' stats, to be used if stats are needed to compute cost for the {@code node}
+     * @param lookup Lookup to be used when resolving source nodes, allowing cost calculation to work within {@link IterativeOptimizer}
+     */
+    PlanNodeCostEstimate calculateCost(
+            PlanNode node,
+            StatsProvider stats,
+            Lookup lookup,
+            Session session,
+            Map<Symbol, Type> types);
 
-    default PlanNodeCost calculateCostForNode(Session session, Map<Symbol, Type> types, PlanNode planNode)
-    {
-        return calculateCostForPlan(session, types, planNode).get(planNode.getId());
-    }
+    @BindingAnnotation
+    @Target({PARAMETER})
+    @Retention(RUNTIME)
+    @interface EstimatedExchanges {}
 }

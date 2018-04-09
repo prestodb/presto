@@ -20,7 +20,6 @@ public final class Presto
     private Presto() {}
 
     public static void main(String[] args)
-            throws Exception
     {
         Console console = singleCommand(Console.class).parse(args);
 
@@ -29,6 +28,6 @@ public final class Presto
             return;
         }
 
-        console.run();
+        System.exit(console.run() ? 0 : 1);
     }
 }

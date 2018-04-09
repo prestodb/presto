@@ -18,7 +18,6 @@ import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.testing.TestingConnectorContext;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Files;
-import io.airlift.testing.FileUtils;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -26,6 +25,8 @@ import java.util.Map;
 import java.util.ServiceLoader;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 
 public class TestRaptorPlugin
@@ -50,7 +51,7 @@ public class TestRaptorPlugin
             factory.create("test", config, new TestingConnectorContext());
         }
         finally {
-            FileUtils.deleteRecursively(tmpDir);
+            deleteRecursively(tmpDir.toPath(), ALLOW_INSECURE);
         }
     }
 

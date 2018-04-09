@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
@@ -44,15 +45,14 @@ import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
+import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
 public class PushPartialAggregationThroughExchange
-        implements Rule
+        implements Rule<AggregationNode>
 {
-    private static final Pattern PATTERN = Pattern.typeOf(AggregationNode.class);
-
     private final FunctionRegistry functionRegistry;
 
     public PushPartialAggregationThroughExchange(FunctionRegistry functionRegistry)
@@ -60,44 +60,48 @@ public class PushPartialAggregationThroughExchange
         this.functionRegistry = requireNonNull(functionRegistry, "functionRegistry is null");
     }
 
+    private static final Pattern<AggregationNode> PATTERN = aggregation();
+
     @Override
-    public Pattern getPattern()
+    public Pattern<AggregationNode> getPattern()
     {
         return PATTERN;
     }
 
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Context context)
+    public Result apply(AggregationNode aggregationNode, Captures captures, Context context)
     {
-        AggregationNode aggregationNode = (AggregationNode) node;
+        PlanNode childNode = context.getLookup().resolve(aggregationNode.getSource());
+        if (!(childNode instanceof ExchangeNode)) {
+            return Result.empty();
+        }
+
+        ExchangeNode exchangeNode = (ExchangeNode) childNode;
 
         boolean decomposable = aggregationNode.isDecomposable(functionRegistry);
 
         if (aggregationNode.getStep().equals(SINGLE) &&
                 aggregationNode.hasEmptyGroupingSet() &&
-                aggregationNode.hasNonEmptyGroupingSet()) {
+                aggregationNode.hasNonEmptyGroupingSet() &&
+                exchangeNode.getType() == REPARTITION) {
+            // single-step aggregation w/ empty grouping sets in a partitioned stage, so we need a partial that will produce
+            // the default intermediates for the empty grouping set that will be routed to the appropriate final aggregation.
+            // TODO: technically, AddExchanges generates a broken plan that this rule "fixes"
             checkState(
                     decomposable,
                     "Distributed aggregation with empty grouping set requires partial but functions are not decomposable");
-            return Optional.of(split(aggregationNode, context));
+            return Result.ofPlanNode(split(aggregationNode, context));
         }
 
         if (!decomposable) {
-            return Optional.empty();
+            return Result.empty();
         }
-
-        PlanNode childNode = context.getLookup().resolve(aggregationNode.getSource());
-        if (!(childNode instanceof ExchangeNode)) {
-            return Optional.empty();
-        }
-
-        ExchangeNode exchangeNode = (ExchangeNode) childNode;
 
         // partial aggregation can only be pushed through exchange that doesn't change
         // the cardinality of the stream (i.e., gather or repartition)
         if ((exchangeNode.getType() != GATHER && exchangeNode.getType() != REPARTITION) ||
                 exchangeNode.getPartitioningScheme().isReplicateNullsAndAny()) {
-            return Optional.empty();
+            return Result.empty();
         }
 
         if (exchangeNode.getType() == REPARTITION) {
@@ -112,24 +116,24 @@ public class PushPartialAggregationThroughExchange
                     .collect(Collectors.toList());
 
             if (!aggregationNode.getGroupingKeys().containsAll(partitioningColumns)) {
-                return Optional.empty();
+                return Result.empty();
             }
         }
 
         // currently, we only support plans that don't use pre-computed hash functions
         if (aggregationNode.getHashSymbol().isPresent() || exchangeNode.getPartitioningScheme().getHashColumn().isPresent()) {
-            return Optional.empty();
+            return Result.empty();
         }
 
         switch (aggregationNode.getStep()) {
             case SINGLE:
                 // Split it into a FINAL on top of a PARTIAL and
-                return Optional.of(split(aggregationNode, context));
+                return Result.ofPlanNode(split(aggregationNode, context));
             case PARTIAL:
                 // Push it underneath each branch of the exchange
-                return Optional.of(pushPartial(aggregationNode, exchangeNode, context));
+                return Result.ofPlanNode(pushPartial(aggregationNode, exchangeNode, context));
             default:
-                return Optional.empty();
+                return Result.empty();
         }
     }
 
@@ -193,6 +197,7 @@ public class PushPartialAggregationThroughExchange
             InternalAggregationFunction function = functionRegistry.getAggregateFunctionImplementation(signature);
             Symbol intermediateSymbol = context.getSymbolAllocator().newSymbol(signature.getName(), function.getIntermediateType());
 
+            checkState(!originalAggregation.getCall().getOrderBy().isPresent(), "Aggregate with ORDER BY does not support partial aggregation");
             intermediateAggregation.put(intermediateSymbol, new AggregationNode.Aggregation(originalAggregation.getCall(), signature, originalAggregation.getMask()));
 
             // rewrite final aggregation in terms of intermediate function

@@ -13,48 +13,68 @@
  */
 package com.facebook.presto.tests.hive;
 
-import com.teradata.tempto.ProductTest;
-import com.teradata.tempto.Requirement;
-import com.teradata.tempto.RequirementsProvider;
-import com.teradata.tempto.Requires;
-import com.teradata.tempto.configuration.Configuration;
+import io.prestodb.tempto.ProductTest;
+import io.prestodb.tempto.Requirement;
+import io.prestodb.tempto.RequirementsProvider;
+import io.prestodb.tempto.configuration.Configuration;
+import io.prestodb.tempto.fulfillment.table.TableDefinition;
+import io.prestodb.tempto.fulfillment.table.hive.HiveTableDefinition;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
 import java.sql.Date;
 
+import static com.facebook.presto.tests.TemptoProductTestRunner.PRODUCT_TESTS_TIME_ZONE;
 import static com.facebook.presto.tests.TestGroups.HIVE_CONNECTOR;
 import static com.facebook.presto.tests.TestGroups.POST_HIVE_1_0_1;
 import static com.facebook.presto.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_TEXTFILE;
-import static com.teradata.tempto.Requirements.compose;
-import static com.teradata.tempto.assertions.QueryAssert.Row.row;
-import static com.teradata.tempto.assertions.QueryAssert.assertThat;
-import static com.teradata.tempto.fulfillment.table.MutableTableRequirement.State.CREATED;
-import static com.teradata.tempto.fulfillment.table.MutableTablesState.mutableTablesState;
-import static com.teradata.tempto.fulfillment.table.TableRequirements.immutableTable;
-import static com.teradata.tempto.fulfillment.table.TableRequirements.mutableTable;
-import static com.teradata.tempto.query.QueryExecutor.query;
-import static com.teradata.tempto.util.DateTimeUtils.parseTimestampInUTC;
+import static io.prestodb.tempto.Requirements.compose;
+import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
+import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
+import static io.prestodb.tempto.fulfillment.table.MutableTableRequirement.State.CREATED;
+import static io.prestodb.tempto.fulfillment.table.MutableTablesState.mutableTablesState;
+import static io.prestodb.tempto.fulfillment.table.TableRequirements.immutableTable;
+import static io.prestodb.tempto.fulfillment.table.TableRequirements.mutableTable;
+import static io.prestodb.tempto.query.QueryExecutor.query;
+import static io.prestodb.tempto.util.DateTimeUtils.parseTimestampInLocalTime;
 
 public class TestInsertIntoHiveTable
         extends ProductTest
+        implements RequirementsProvider
 {
     private static final String TABLE_NAME = "target_table";
+    private static final String PARTITIONED_TABLE_WITH_SERDE = "target_partitioned_with_serde_property";
 
-    private static class AllSimpleTypesTables
-            implements RequirementsProvider
+    @Override
+    public Requirement getRequirements(Configuration configuration)
     {
-        @Override
-        public Requirement getRequirements(Configuration configuration)
-        {
-            return compose(
-                    mutableTable(ALL_HIVE_SIMPLE_TYPES_TEXTFILE, TABLE_NAME, CREATED),
-                    immutableTable(ALL_HIVE_SIMPLE_TYPES_TEXTFILE));
-        }
+        return compose(
+                mutableTable(ALL_HIVE_SIMPLE_TYPES_TEXTFILE, TABLE_NAME, CREATED),
+                mutableTable(partitionedTableDefinition(), PARTITIONED_TABLE_WITH_SERDE, CREATED),
+                immutableTable(ALL_HIVE_SIMPLE_TYPES_TEXTFILE));
+    }
+
+    private static TableDefinition partitionedTableDefinition()
+    {
+        String createTableDdl = "CREATE TABLE %NAME%( " +
+                "id int, " +
+                "name string " +
+                ") " +
+                "PARTITIONED BY (dt string) " +
+                "ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe' " +
+                "WITH SERDEPROPERTIES ( " +
+                "'field.delim'='\\t', " +
+                "'line.delim'='\\n', " +
+                "'serialization.format'='\\t' " +
+                ")";
+
+        return HiveTableDefinition.builder(PARTITIONED_TABLE_WITH_SERDE)
+                .setCreateTableDDLTemplate(createTableDdl)
+                .setNoData()
+                .build();
     }
 
     @Test(groups = {HIVE_CONNECTOR, POST_HIVE_1_0_1})
-    @Requires(AllSimpleTypesTables.class)
     public void testInsertIntoValuesToHiveTableAllHiveSimpleTypes()
     {
         String tableNameInDatabase = mutableTablesState().get(TABLE_NAME).getNameInDatabase();
@@ -87,7 +107,7 @@ public class TestInsertIntoHiveTable
                         234.567,
                         new BigDecimal("346"),
                         new BigDecimal("345.67800"),
-                        parseTimestampInUTC("2015-05-10 12:15:35.123"),
+                        parseTimestampInLocalTime("2015-05-10 12:15:35.123", PRODUCT_TESTS_TIME_ZONE),
                         Date.valueOf("2015-05-10"),
                         "ala ma kota",
                         "ala ma kot",
@@ -97,7 +117,6 @@ public class TestInsertIntoHiveTable
     }
 
     @Test(groups = {HIVE_CONNECTOR, POST_HIVE_1_0_1})
-    @Requires(AllSimpleTypesTables.class)
     public void testInsertIntoSelectToHiveTableAllHiveSimpleTypes()
     {
         String tableNameInDatabase = mutableTablesState().get(TABLE_NAME).getNameInDatabase();
@@ -113,12 +132,20 @@ public class TestInsertIntoHiveTable
                         234.567,
                         new BigDecimal("346"),
                         new BigDecimal("345.67800"),
-                        parseTimestampInUTC("2015-05-10 12:15:35.123"),
+                        parseTimestampInLocalTime("2015-05-10 12:15:35.123", PRODUCT_TESTS_TIME_ZONE),
                         Date.valueOf("2015-05-10"),
                         "ala ma kota",
                         "ala ma kot",
                         "ala ma    ",
                         true,
                         "kot binarny".getBytes()));
+    }
+
+    @Test(groups = {HIVE_CONNECTOR, POST_HIVE_1_0_1})
+    public void testInsertIntoPartitionedWithSerdePropety()
+    {
+        String tableNameInDatabase = mutableTablesState().get(PARTITIONED_TABLE_WITH_SERDE).getNameInDatabase();
+        assertThat(query("INSERT INTO " + tableNameInDatabase + " SELECT 1, 'presto', '2018-01-01'")).containsExactly(row(1));
+        assertThat(query("SELECT * FROM " + tableNameInDatabase)).containsExactly(row(1, "presto", "2018-01-01"));
     }
 }

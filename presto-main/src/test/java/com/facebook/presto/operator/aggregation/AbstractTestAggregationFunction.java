@@ -95,7 +95,6 @@ public abstract class AbstractTestAggregationFunction
 
     @Test
     public void testAllPositionsNull()
-            throws Exception
     {
         // if there are no parameters skip this test
         List<Type> parameterTypes = getFunction().getParameterTypes();

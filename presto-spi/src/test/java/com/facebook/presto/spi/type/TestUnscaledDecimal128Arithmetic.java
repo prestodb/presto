@@ -175,7 +175,6 @@ public class TestUnscaledDecimal128Arithmetic
 
     @Test
     public void testMultiply256()
-            throws Exception
     {
         assertMultiply256(MAX_DECIMAL, MAX_DECIMAL, wrappedLongArray(0xECEBBB8000000001L, 0xE0FF0CA0BC87870BL, 0x0764B4ABE8652978L, 0x161BCCA7119915B5L));
         assertMultiply256(MIN_DECIMAL, MIN_DECIMAL, wrappedLongArray(0xECEBBB8000000001L, 0xE0FF0CA0BC87870BL, 0x0764B4ABE8652978L, 0x161BCCA7119915B5L));
@@ -445,7 +444,6 @@ public class TestUnscaledDecimal128Arithmetic
 
     @Test
     public void testShiftLeftMultiPrecision()
-            throws Exception
     {
         assertEquals(shiftLeftMultiPrecision(
                 new int[] {0b10100001010001011010000101000101, 0b01010110100101101011010101010101, 0b01010010111110001111100010101010,
@@ -486,7 +484,6 @@ public class TestUnscaledDecimal128Arithmetic
 
     @Test
     public void testShiftRightMultiPrecision()
-            throws Exception
     {
         assertEquals(shiftRightMultiPrecision(
                 new int[] {0b10100001010001011010000101000101, 0b01010110100101101011010101010101, 0b01010010111110001111100010101010,
@@ -543,7 +540,6 @@ public class TestUnscaledDecimal128Arithmetic
 
     @Test
     public void testShiftLeft()
-            throws Exception
     {
         assertEquals(shiftLeft(wrappedLongArray(0x1234567890ABCDEFL, 0xEFDCBA0987654321L), 0), wrappedLongArray(0x1234567890ABCDEFL, 0xEFDCBA0987654321L));
         assertEquals(shiftLeft(wrappedLongArray(0x1234567890ABCDEFL, 0xEFDCBA0987654321L), 1), wrappedLongArray(0x2468ACF121579BDEL, 0xDFB974130ECA8642L));

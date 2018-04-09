@@ -14,8 +14,10 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.cost.CoefficientBasedCostCalculator;
 import com.facebook.presto.cost.CostCalculator;
+import com.facebook.presto.cost.CostCalculatorUsingExchanges;
+import com.facebook.presto.cost.CostCalculatorWithEstimatedExchanges;
+import com.facebook.presto.cost.CostComparator;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.security.AccessDeniedException;
 import com.facebook.presto.spi.type.Type;
@@ -42,6 +44,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
 
+import static com.facebook.presto.sql.ParsingUtil.createParsingOptions;
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.google.common.base.Preconditions.checkState;
@@ -60,7 +63,6 @@ public abstract class AbstractTestQueryFramework
     private QueryRunner queryRunner;
     private H2QueryRunner h2QueryRunner;
     private SqlParser sqlParser;
-    private CostCalculator costCalculator;
 
     protected AbstractTestQueryFramework(QueryRunnerSupplier supplier)
     {
@@ -74,7 +76,6 @@ public abstract class AbstractTestQueryFramework
         queryRunner = queryRunnerSupplier.get();
         h2QueryRunner = new H2QueryRunner();
         sqlParser = new SqlParser();
-        costCalculator = new CoefficientBasedCostCalculator(queryRunner.getMetadata());
     }
 
     @AfterClass(alwaysRun = true)
@@ -105,7 +106,12 @@ public abstract class AbstractTestQueryFramework
 
     protected MaterializedResult computeActual(Session session, @Language("SQL") String sql)
     {
-        return queryRunner.execute(session, sql).toJdbcTypes();
+        return queryRunner.execute(session, sql).toTestTypes();
+    }
+
+    protected Object computeScalar(@Language("SQL") String sql)
+    {
+        return computeActual(sql).getOnlyValue();
     }
 
     protected void assertQuery(@Language("SQL") String sql)
@@ -193,6 +199,11 @@ public abstract class AbstractTestQueryFramework
         QueryAssertions.assertQueryFails(queryRunner, session, sql, expectedMessageRegExp);
     }
 
+    protected void assertQueryReturnsEmptyResult(@Language("SQL") String sql)
+    {
+        QueryAssertions.assertQueryReturnsEmptyResult(queryRunner, getSession(), sql);
+    }
+
     protected void assertAccessAllowed(@Language("SQL") String sql, TestingPrivilege... deniedPrivileges)
     {
         assertAccessAllowed(getSession(), sql, deniedPrivileges);
@@ -272,7 +283,7 @@ public abstract class AbstractTestQueryFramework
 
     protected String formatSqlText(String sql)
     {
-        return formatSql(sqlParser.createStatement(sql), Optional.empty());
+        return formatSql(sqlParser.createStatement(sql, createParsingOptions(queryRunner.getDefaultSession())), Optional.empty());
     }
 
     public String getExplainPlan(String query, ExplainType.Type planType)
@@ -281,7 +292,7 @@ public abstract class AbstractTestQueryFramework
         return transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
                 .singleStatement()
                 .execute(queryRunner.getDefaultSession(), session -> {
-                    return explainer.getPlan(session, sqlParser.createStatement(query), planType, emptyList());
+                    return explainer.getPlan(session, sqlParser.createStatement(query, createParsingOptions(session)), planType, emptyList());
                 });
     }
 
@@ -291,7 +302,7 @@ public abstract class AbstractTestQueryFramework
         return transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
                 .singleStatement()
                 .execute(queryRunner.getDefaultSession(), session -> {
-                    return explainer.getGraphvizPlan(session, sqlParser.createStatement(query), planType, emptyList());
+                    return explainer.getGraphvizPlan(session, sqlParser.createStatement(query, createParsingOptions(session)), planType, emptyList());
                 });
     }
 
@@ -300,12 +311,24 @@ public abstract class AbstractTestQueryFramework
         Metadata metadata = queryRunner.getMetadata();
         FeaturesConfig featuresConfig = new FeaturesConfig().setOptimizeHashGeneration(true);
         boolean forceSingleNode = queryRunner.getNodeCount() == 1;
-        List<PlanOptimizer> optimizers = new PlanOptimizers(metadata, sqlParser, featuresConfig, forceSingleNode, new MBeanExporter(new TestingMBeanServer())).get();
+        CostCalculator costCalculator = new CostCalculatorUsingExchanges(queryRunner::getNodeCount);
+        List<PlanOptimizer> optimizers = new PlanOptimizers(
+                metadata,
+                sqlParser,
+                featuresConfig,
+                forceSingleNode,
+                new MBeanExporter(new TestingMBeanServer()),
+                queryRunner.getStatsCalculator(),
+                costCalculator,
+                new CostCalculatorWithEstimatedExchanges(costCalculator, queryRunner::getNodeCount),
+                new CostComparator(featuresConfig)).get();
         return new QueryExplainer(
                 optimizers,
                 metadata,
+                queryRunner.getNodePartitioningManager(),
                 queryRunner.getAccessControl(),
                 sqlParser,
+                queryRunner.getStatsCalculator(),
                 costCalculator,
                 ImmutableMap.of());
     }

@@ -61,14 +61,6 @@ public interface Connector
     }
 
     /**
-     * @throws UnsupportedOperationException if this connector does not support writing tables record at a time
-     */
-    default ConnectorRecordSinkProvider getRecordSinkProvider()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    /**
      * @throws UnsupportedOperationException if this connector does not support indexes
      */
     default ConnectorIndexProvider getIndexProvider()

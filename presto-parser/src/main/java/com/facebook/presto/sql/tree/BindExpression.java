@@ -35,9 +35,9 @@ import static java.util.Objects.requireNonNull;
  * Its type looks somewhat like:
  * <p><ul>
  * <li>X, (X) -> Y => () -> Y
- * <li>X1, (X1, X2) -> Y => (X1, X2) -> Y
- * <li>X1, (X1, X2, X3) -> Y => (X1, X2, X3) -> Y
- * <li>X1, (X1, X2, X3, X4) -> Y => (X1, X2, X3, X4) -> Y
+ * <li>X1, (X1, X2) -> Y => (X2) -> Y
+ * <li>X1, (X1, X2, X3) -> Y => (X2, X3) -> Y
+ * <li>X1, (X1, X2, X3, X4) -> Y => (X2, X3, X4) -> Y
  * <li>...
  * </ul>
  * <p>

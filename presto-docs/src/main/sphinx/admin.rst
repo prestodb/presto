@@ -8,5 +8,5 @@ Administration
     admin/web-interface
     admin/tuning
     admin/properties
-    admin/queue
+    admin/spill
     admin/resource-groups

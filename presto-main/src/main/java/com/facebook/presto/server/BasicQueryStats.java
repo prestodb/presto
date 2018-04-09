@@ -15,6 +15,7 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.execution.QueryStats;
 import com.facebook.presto.operator.BlockedReason;
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
@@ -47,9 +48,9 @@ public class BasicQueryStats
     private final int runningDrivers;
     private final int completedDrivers;
 
-    private final double cumulativeMemory;
-    private final DataSize totalMemoryReservation;
-    private final DataSize peakMemoryReservation;
+    private final double cumulativeUserMemory;
+    private final DataSize userMemoryReservation;
+    private final DataSize peakUserMemoryReservation;
     private final Duration totalCpuTime;
 
     private final boolean fullyBlocked;
@@ -57,22 +58,23 @@ public class BasicQueryStats
 
     private final OptionalDouble progressPercentage;
 
+    @JsonCreator
     public BasicQueryStats(
-            DateTime createTime,
-            DateTime endTime,
-            Duration elapsedTime,
-            Duration executionTime,
-            int totalDrivers,
-            int queuedDrivers,
-            int runningDrivers,
-            int completedDrivers,
-            double cumulativeMemory,
-            DataSize totalMemoryReservation,
-            DataSize peakMemoryReservation,
-            Duration totalCpuTime,
-            boolean fullyBlocked,
-            Set<BlockedReason> blockedReasons,
-            OptionalDouble progressPercentage)
+            @JsonProperty("createTime") DateTime createTime,
+            @JsonProperty("endTime") DateTime endTime,
+            @JsonProperty("elapsedTime") Duration elapsedTime,
+            @JsonProperty("executionTime") Duration executionTime,
+            @JsonProperty("totalDrivers") int totalDrivers,
+            @JsonProperty("queuedDrivers") int queuedDrivers,
+            @JsonProperty("runningDrivers") int runningDrivers,
+            @JsonProperty("completedDrivers") int completedDrivers,
+            @JsonProperty("cumulativeUserMemory") double cumulativeUserMemory,
+            @JsonProperty("userMemoryReservation") DataSize userMemoryReservation,
+            @JsonProperty("peakUserMemoryReservation") DataSize peakUserMemoryReservation,
+            @JsonProperty("totalCpuTime") Duration totalCpuTime,
+            @JsonProperty("fullyBlocked") boolean fullyBlocked,
+            @JsonProperty("blockedReasons") Set<BlockedReason> blockedReasons,
+            @JsonProperty("progressPercentage") OptionalDouble progressPercentage)
     {
         this.createTime = createTime;
         this.endTime = endTime;
@@ -89,9 +91,9 @@ public class BasicQueryStats
         checkArgument(completedDrivers >= 0, "completedDrivers is negative");
         this.completedDrivers = completedDrivers;
 
-        this.cumulativeMemory = cumulativeMemory;
-        this.totalMemoryReservation = totalMemoryReservation;
-        this.peakMemoryReservation = peakMemoryReservation;
+        this.cumulativeUserMemory = cumulativeUserMemory;
+        this.userMemoryReservation = userMemoryReservation;
+        this.peakUserMemoryReservation = peakUserMemoryReservation;
         this.totalCpuTime = totalCpuTime;
 
         this.fullyBlocked = fullyBlocked;
@@ -110,9 +112,9 @@ public class BasicQueryStats
                 queryStats.getQueuedDrivers(),
                 queryStats.getRunningDrivers(),
                 queryStats.getCompletedDrivers(),
-                queryStats.getCumulativeMemory(),
-                queryStats.getTotalMemoryReservation(),
-                queryStats.getPeakMemoryReservation(),
+                queryStats.getCumulativeUserMemory(),
+                queryStats.getUserMemoryReservation(),
+                queryStats.getPeakUserMemoryReservation(),
                 queryStats.getTotalCpuTime(),
                 queryStats.isFullyBlocked(),
                 queryStats.getBlockedReasons(),
@@ -168,21 +170,21 @@ public class BasicQueryStats
     }
 
     @JsonProperty
-    public double getCumulativeMemory()
+    public double getCumulativeUserMemory()
     {
-        return cumulativeMemory;
+        return cumulativeUserMemory;
     }
 
     @JsonProperty
-    public DataSize getTotalMemoryReservation()
+    public DataSize getUserMemoryReservation()
     {
-        return totalMemoryReservation;
+        return userMemoryReservation;
     }
 
     @JsonProperty
-    public DataSize getPeakMemoryReservation()
+    public DataSize getPeakUserMemoryReservation()
     {
-        return peakMemoryReservation;
+        return peakUserMemoryReservation;
     }
 
     @JsonProperty

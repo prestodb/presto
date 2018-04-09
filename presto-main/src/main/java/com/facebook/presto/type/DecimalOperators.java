@@ -90,14 +90,13 @@ public final class DecimalOperators
                 .build();
         return SqlScalarFunction.builder(DecimalOperators.class)
                 .signature(signature)
+                .deterministic(true)
                 .implementation(b -> b
                         .methods("addShortShortShort")
-                        .withExtraParameters(DecimalOperators::calculateShortRescaleParameters)
-                )
+                        .withExtraParameters(DecimalOperators::calculateShortRescaleParameters))
                 .implementation(b -> b
                         .methods("addShortShortLong", "addLongLongLong", "addShortLongLong", "addLongShortLong")
-                        .withExtraParameters(DecimalOperators::calculateLongRescaleParameters)
-                )
+                        .withExtraParameters(DecimalOperators::calculateLongRescaleParameters))
                 .build();
     }
 
@@ -172,14 +171,13 @@ public final class DecimalOperators
                 .build();
         return SqlScalarFunction.builder(DecimalOperators.class)
                 .signature(signature)
+                .deterministic(true)
                 .implementation(b -> b
                         .methods("subtractShortShortShort")
-                        .withExtraParameters(DecimalOperators::calculateShortRescaleParameters)
-                )
+                        .withExtraParameters(DecimalOperators::calculateShortRescaleParameters))
                 .implementation(b -> b
                         .methods("subtractShortShortLong", "subtractLongLongLong", "subtractShortLongLong", "subtractLongShortLong")
-                        .withExtraParameters(DecimalOperators::calculateLongRescaleParameters)
-                )
+                        .withExtraParameters(DecimalOperators::calculateLongRescaleParameters))
                 .build();
     }
 
@@ -244,13 +242,13 @@ public final class DecimalOperators
                 .operatorType(MULTIPLY)
                 .longVariableConstraints(
                         longVariableExpression("r_precision", "min(38, a_precision + b_precision)"),
-                        longVariableExpression("r_scale", "a_scale + b_scale")
-                )
+                        longVariableExpression("r_scale", "a_scale + b_scale"))
                 .argumentTypes(decimalLeftSignature, decimalRightSignature)
                 .returnType(decimalResultSignature)
                 .build();
         return SqlScalarFunction.builder(DecimalOperators.class)
                 .signature(signature)
+                .deterministic(true)
                 .implementation(b -> b.methods("multiplyShortShortShort", "multiplyShortShortLong", "multiplyLongLongLong", "multiplyShortLongLong", "multiplyLongShortLong"))
                 .build();
     }
@@ -307,17 +305,16 @@ public final class DecimalOperators
                 .operatorType(DIVIDE)
                 .longVariableConstraints(
                         longVariableExpression("r_precision", "min(38, a_precision + b_scale + max(b_scale - a_scale, 0))"),
-                        longVariableExpression("r_scale", "max(a_scale, b_scale)")
-                )
+                        longVariableExpression("r_scale", "max(a_scale, b_scale)"))
                 .argumentTypes(decimalLeftSignature, decimalRightSignature)
                 .returnType(decimalResultSignature)
                 .build();
         return SqlScalarFunction.builder(DecimalOperators.class)
                 .signature(signature)
+                .deterministic(true)
                 .implementation(b -> b
                         .methods("divideShortShortShort", "divideShortLongShort", "divideLongShortShort", "divideShortShortLong", "divideLongLongLong", "divideShortLongLong", "divideLongShortLong")
-                        .withExtraParameters(DecimalOperators::divideRescaleFactor)
-                )
+                        .withExtraParameters(DecimalOperators::divideRescaleFactor))
                 .build();
     }
 
@@ -454,10 +451,10 @@ public final class DecimalOperators
     {
         return SqlScalarFunction.builder(DecimalOperators.class)
                 .signature(signature)
+                .deterministic(true)
                 .implementation(b -> b
                         .methods("modulusShortShortShort", "modulusLongLongLong", "modulusShortLongLong", "modulusShortLongShort", "modulusLongShortShort", "modulusLongShortLong")
-                        .withExtraParameters(DecimalOperators::modulusRescaleParameters)
-                )
+                        .withExtraParameters(DecimalOperators::modulusRescaleParameters))
                 .build();
     }
 
@@ -470,8 +467,7 @@ public final class DecimalOperators
         return Signature.builder()
                 .longVariableConstraints(
                         longVariableExpression("r_precision", "min(b_precision - b_scale, a_precision - a_scale) + max(a_scale, b_scale)"),
-                        longVariableExpression("r_scale", "max(a_scale, b_scale)")
-                )
+                        longVariableExpression("r_scale", "max(a_scale, b_scale)"))
                 .argumentTypes(decimalLeftSignature, decimalRightSignature)
                 .returnType(decimalResultSignature);
     }

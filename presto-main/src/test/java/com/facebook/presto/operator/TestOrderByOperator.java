@@ -27,6 +27,7 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
@@ -41,18 +42,21 @@ import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newScheduledThreadPool;
 
 @Test(singleThreaded = true)
 public class TestOrderByOperator
 {
     private ExecutorService executor;
+    private ScheduledExecutorService scheduledExecutor;
     private DriverContext driverContext;
 
     @BeforeMethod
     public void setUp()
     {
-        executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
-        driverContext = createTaskContext(executor, TEST_SESSION)
+        executor = newCachedThreadPool(daemonThreadsNamed("test-executor-%s"));
+        scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
+        driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION)
                 .addPipelineContext(0, true, true)
                 .addDriverContext();
     }
@@ -61,11 +65,11 @@ public class TestOrderByOperator
     public void tearDown()
     {
         executor.shutdownNow();
+        scheduledExecutor.shutdownNow();
     }
 
     @Test
     public void testSingleFieldKey()
-            throws Exception
     {
         List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
                 .row(1L, 0.1)
@@ -83,7 +87,7 @@ public class TestOrderByOperator
                 10,
                 ImmutableList.of(0),
                 ImmutableList.of(ASC_NULLS_LAST),
-                new PagesIndex.TestingFactory());
+                new PagesIndex.TestingFactory(false));
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), DOUBLE)
                 .row(-0.1)
@@ -97,7 +101,6 @@ public class TestOrderByOperator
 
     @Test
     public void testMultiFieldKey()
-            throws Exception
     {
         List<Page> input = rowPagesBuilder(VARCHAR, BIGINT)
                 .row("a", 1L)
@@ -115,7 +118,7 @@ public class TestOrderByOperator
                 10,
                 ImmutableList.of(0, 1),
                 ImmutableList.of(ASC_NULLS_LAST, DESC_NULLS_LAST),
-                new PagesIndex.TestingFactory());
+                new PagesIndex.TestingFactory(false));
 
         MaterializedResult expected = MaterializedResult.resultBuilder(driverContext.getSession(), VARCHAR, BIGINT)
                 .row("a", 4L)
@@ -129,7 +132,6 @@ public class TestOrderByOperator
 
     @Test
     public void testReverseOrder()
-            throws Exception
     {
         List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
                 .row(1L, 0.1)
@@ -147,7 +149,7 @@ public class TestOrderByOperator
                 10,
                 ImmutableList.of(0),
                 ImmutableList.of(DESC_NULLS_LAST),
-                new PagesIndex.TestingFactory());
+                new PagesIndex.TestingFactory(false));
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT)
                 .row(4L)
@@ -161,7 +163,6 @@ public class TestOrderByOperator
 
     @Test(expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded local memory limit of 10B")
     public void testMemoryLimit()
-            throws Exception
     {
         List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
                 .row(1L, 0.1)
@@ -171,7 +172,7 @@ public class TestOrderByOperator
                 .row(4L, 0.4)
                 .build();
 
-        DriverContext driverContext = createTaskContext(executor, TEST_SESSION, new DataSize(10, Unit.BYTE))
+        DriverContext driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION, new DataSize(10, Unit.BYTE))
                 .addPipelineContext(0, true, true)
                 .addDriverContext();
 
@@ -183,7 +184,7 @@ public class TestOrderByOperator
                 10,
                 ImmutableList.of(0),
                 ImmutableList.of(ASC_NULLS_LAST),
-                new PagesIndex.TestingFactory());
+                new PagesIndex.TestingFactory(false));
 
         toPages(operatorFactory, driverContext, input);
     }

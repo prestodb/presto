@@ -18,18 +18,18 @@ import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HivePageSourceFactory;
+import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcDataSourceId;
+import com.facebook.presto.orc.OrcEncoding;
 import com.facebook.presto.orc.OrcPredicate;
 import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.OrcRecordReader;
 import com.facebook.presto.orc.TupleDomainOrcPredicate;
 import com.facebook.presto.orc.TupleDomainOrcPredicate.ColumnReference;
-import com.facebook.presto.orc.memory.AggregatedMemoryContext;
-import com.facebook.presto.orc.metadata.MetadataReader;
-import com.facebook.presto.orc.metadata.OrcMetadataReader;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
@@ -58,12 +58,15 @@ import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILE_MISSING_COLUMN_NAMES;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_MISSING_DATA;
+import static com.facebook.presto.hive.HiveSessionProperties.getOrcLazyReadSmallRanges;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxBufferSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxMergeDistance;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxReadBlockSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcStreamBufferSize;
 import static com.facebook.presto.hive.HiveSessionProperties.isOrcBloomFiltersEnabled;
 import static com.facebook.presto.hive.HiveUtil.isDeserializerClass;
+import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.google.common.base.Strings.nullToEmpty;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -108,8 +111,13 @@ public class OrcPageSourceFactory
             return Optional.empty();
         }
 
+        // per HIVE-13040 and ORC-162, empty files are allowed
+        if (fileSize == 0) {
+            return Optional.of(new FixedPageSource(ImmutableList.of()));
+        }
+
         return Optional.of(createOrcPageSource(
-                new OrcMetadataReader(),
+                ORC,
                 hdfsEnvironment,
                 session.getUser(),
                 configuration,
@@ -126,12 +134,13 @@ public class OrcPageSourceFactory
                 getOrcMaxBufferSize(session),
                 getOrcStreamBufferSize(session),
                 getOrcMaxReadBlockSize(session),
+                getOrcLazyReadSmallRanges(session),
                 isOrcBloomFiltersEnabled(session),
                 stats));
     }
 
     public static OrcPageSource createOrcPageSource(
-            MetadataReader metadataReader,
+            OrcEncoding orcEncoding,
             HdfsEnvironment hdfsEnvironment,
             String sessionUser,
             Configuration configuration,
@@ -148,6 +157,7 @@ public class OrcPageSourceFactory
             DataSize maxBufferSize,
             DataSize streamBufferSize,
             DataSize maxReadBlockSize,
+            boolean lazyReadSmallRanges,
             boolean orcBloomFiltersEnabled,
             FileFormatDataSourceStats stats)
     {
@@ -155,7 +165,15 @@ public class OrcPageSourceFactory
         try {
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(sessionUser, path, configuration);
             FSDataInputStream inputStream = fileSystem.open(path);
-            orcDataSource = new HdfsOrcDataSource(new OrcDataSourceId(path.toString()), fileSize, maxMergeDistance, maxBufferSize, streamBufferSize, inputStream, stats);
+            orcDataSource = new HdfsOrcDataSource(
+                    new OrcDataSourceId(path.toString()),
+                    fileSize,
+                    maxMergeDistance,
+                    maxBufferSize,
+                    streamBufferSize,
+                    lazyReadSmallRanges,
+                    inputStream,
+                    stats);
         }
         catch (Exception e) {
             if (nullToEmpty(e.getMessage()).trim().equals("Filesystem closed") ||
@@ -165,9 +183,9 @@ public class OrcPageSourceFactory
             throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, splitError(e, path, start, length), e);
         }
 
-        AggregatedMemoryContext systemMemoryUsage = new AggregatedMemoryContext();
+        AggregatedMemoryContext systemMemoryUsage = newSimpleAggregatedMemoryContext();
         try {
-            OrcReader reader = new OrcReader(orcDataSource, metadataReader, maxMergeDistance, maxBufferSize, maxReadBlockSize);
+            OrcReader reader = new OrcReader(orcDataSource, orcEncoding, maxMergeDistance, maxBufferSize, maxReadBlockSize);
 
             List<HiveColumnHandle> physicalColumns = getPhysicalHiveColumnHandles(columns, useOrcColumnNames, reader, path);
             ImmutableMap.Builder<Integer, Type> includedColumns = ImmutableMap.builder();
@@ -240,7 +258,7 @@ public class OrcPageSourceFactory
                 physicalOrdinal = nextMissingColumnIndex;
                 nextMissingColumnIndex++;
             }
-            physicalColumns.add(new HiveColumnHandle(column.getClientId(), column.getName(), column.getHiveType(), column.getTypeSignature(), physicalOrdinal, column.getColumnType(), column.getComment()));
+            physicalColumns.add(new HiveColumnHandle(column.getName(), column.getHiveType(), column.getTypeSignature(), physicalOrdinal, column.getColumnType(), column.getComment()));
         }
         return physicalColumns.build();
     }

@@ -20,6 +20,9 @@ import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.ParametricImplementation;
 import com.facebook.presto.operator.annotations.FunctionsParserHelper;
 import com.facebook.presto.operator.annotations.ImplementationDependency;
+import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
+import com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty;
+import com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.function.IsNull;
 import com.facebook.presto.spi.function.SqlNullable;
@@ -60,6 +63,13 @@ import static com.facebook.presto.operator.annotations.ImplementationDependency.
 import static com.facebook.presto.operator.annotations.ImplementationDependency.checkTypeParameters;
 import static com.facebook.presto.operator.annotations.ImplementationDependency.getImplementationDependencyAnnotation;
 import static com.facebook.presto.operator.annotations.ImplementationDependency.validateImplementationDependencyAnnotation;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.functionTypeArgumentProperty;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentType.FUNCTION_TYPE;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentType.VALUE_TYPE;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_BOXED_TYPE;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_NULL_FLAG;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.Failures.checkCondition;
@@ -77,9 +87,7 @@ public class ScalarImplementation
 {
     private final Signature signature;
     private final boolean nullable;
-    private final List<Boolean> nullableArguments;
-    private final List<Boolean> nullFlags;
-    private final List<Optional<Class>> lambdaInterface;
+    private final List<ArgumentProperty> argumentProperties;
     private final MethodHandle methodHandle;
     private final List<ImplementationDependency> dependencies;
     private final Optional<MethodHandle> constructor;
@@ -90,9 +98,7 @@ public class ScalarImplementation
     public ScalarImplementation(
             Signature signature,
             boolean nullable,
-            List<Boolean> nullableArguments,
-            List<Boolean> nullFlags,
-            List<Optional<Class>> lambdaInterface,
+            List<ArgumentProperty> argumentProperties,
             MethodHandle methodHandle,
             List<ImplementationDependency> dependencies,
             Optional<MethodHandle> constructor,
@@ -102,9 +108,7 @@ public class ScalarImplementation
     {
         this.signature = requireNonNull(signature, "signature is null");
         this.nullable = nullable;
-        this.nullableArguments = ImmutableList.copyOf(requireNonNull(nullableArguments, "nullableArguments is null"));
-        this.nullFlags = ImmutableList.copyOf(requireNonNull(nullFlags, "nullFlags is null"));
-        this.lambdaInterface = ImmutableList.copyOf(requireNonNull(lambdaInterface, "lambdaInterface is null"));
+        this.argumentProperties = ImmutableList.copyOf(requireNonNull(argumentProperties, "argumentProperties is null"));
         this.methodHandle = requireNonNull(methodHandle, "methodHandle is null");
         this.dependencies = ImmutableList.copyOf(requireNonNull(dependencies, "dependencies is null"));
         this.constructor = requireNonNull(constructor, "constructor is null");
@@ -125,17 +129,19 @@ public class ScalarImplementation
             return Optional.empty();
         }
         for (int i = 0; i < boundSignature.getArgumentTypes().size(); i++) {
+            ScalarFunctionImplementation.ArgumentProperty argumentProperty = argumentProperties.get(i);
             if (boundSignature.getArgumentTypes().get(i).getBase().equals(FunctionType.NAME)) {
-                // function does not have a corresponding Java type, an instance of specified interface
-                // with single abstract method will be generated.
-                if (!lambdaInterface.get(i).isPresent()) {
+                if (argumentProperty.getArgumentType() != FUNCTION_TYPE) {
                     return Optional.empty();
                 }
             }
             else {
+                if (argumentProperty.getArgumentType() != VALUE_TYPE) {
+                    return Optional.empty();
+                }
+
                 Class<?> argumentType = typeManager.getType(boundSignature.getArgumentTypes().get(i)).getJavaType();
-                boolean nullableParameter = isParameterNullable(argumentType, nullableArguments.get(i), nullFlags.get(i));
-                Class<?> argumentContainerType = getNullAwareContainerType(argumentType, nullableParameter);
+                Class<?> argumentContainerType = getNullAwareContainerType(argumentType, argumentProperty.getNullConvention());
                 if (!argumentNativeContainerTypes.get(i).isAssignableFrom(argumentContainerType)) {
                     return Optional.empty();
                 }
@@ -154,30 +160,15 @@ public class ScalarImplementation
         return clazz;
     }
 
-    private static Class<?> getNullAwareContainerType(Class<?> clazz, boolean nullable)
+    private static Class<?> getNullAwareContainerType(Class<?> clazz, NullConvention nullConvention)
     {
         if (clazz == void.class) {
             return Primitives.wrap(clazz);
         }
-        if (nullable) {
+        if (nullConvention == USE_BOXED_TYPE) {
             return Primitives.wrap(clazz);
         }
         return clazz;
-    }
-
-    private static boolean isParameterNullable(Class<?> type, boolean nullableArgument, boolean nullFlag)
-    {
-        if (!nullableArgument) {
-            return false;
-        }
-        // void must be nullable even if the null flag is present
-        if (type == void.class) {
-            return true;
-        }
-        if (nullFlag) {
-            return !type.isPrimitive();
-        }
-        return true;
     }
 
     @Override
@@ -197,19 +188,9 @@ public class ScalarImplementation
         return nullable;
     }
 
-    public List<Boolean> getNullableArguments()
+    public List<ArgumentProperty> getArgumentProperties()
     {
-        return nullableArguments;
-    }
-
-    public List<Boolean> getNullFlags()
-    {
-        return nullFlags;
-    }
-
-    public List<Optional<Class>> getLambdaInterface()
-    {
-        return lambdaInterface;
+        return argumentProperties;
     }
 
     public MethodHandle getMethodHandle()
@@ -254,9 +235,7 @@ public class ScalarImplementation
     {
         private final String functionName;
         private final boolean nullable;
-        private final List<Boolean> nullableArguments = new ArrayList<>();
-        private final List<Boolean> nullFlags = new ArrayList<>();
-        private final List<Optional<Class>> lambdaInterface = new ArrayList<>();
+        private final List<ArgumentProperty> argumentProperties = new ArrayList<>();
         private final TypeSignature returnType;
         private final List<TypeSignature> argumentTypes = new ArrayList<>();
         private final List<Class<?>> argumentNativeContainerTypes = new ArrayList<>();
@@ -380,14 +359,19 @@ public class ScalarImplementation
                         i++;
                     }
 
-                    nullableArguments.add(nullableArgument);
-                    nullFlags.add(hasNullFlag);
                     if (typeSignature.getBase().equals(FunctionType.NAME)) {
                         checkCondition(parameterType.isAnnotationPresent(FunctionalInterface.class), FUNCTION_IMPLEMENTATION_ERROR, "argument %s is marked as lambda but the function interface class is not annotated: %s", i, methodHandle);
-                        lambdaInterface.add(Optional.of(parameterType));
+                        argumentProperties.add(functionTypeArgumentProperty(parameterType));
                     }
                     else {
-                        lambdaInterface.add(Optional.empty());
+                        NullConvention nullConvention;
+                        if (!nullableArgument) {
+                            nullConvention = RETURN_NULL_ON_NULL;
+                        }
+                        else {
+                            nullConvention = hasNullFlag ? USE_NULL_FLAG : USE_BOXED_TYPE;
+                        }
+                        argumentProperties.add(valueTypeArgumentProperty(nullConvention));
                     }
                 }
             }
@@ -452,9 +436,7 @@ public class ScalarImplementation
             return new ScalarImplementation(
                     signature,
                     nullable,
-                    nullableArguments,
-                    nullFlags,
-                    lambdaInterface,
+                    argumentProperties,
                     methodHandle,
                     dependencies,
                     constructorMethodHandle,

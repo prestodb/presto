@@ -18,6 +18,7 @@ import com.facebook.presto.rcfile.RcFileWriteValidation.RcFileWriteValidationBui
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.io.Closer;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
@@ -34,6 +35,7 @@ import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Consumer;
 
+import static com.facebook.presto.rcfile.PageSplitterUtil.splitPage;
 import static com.facebook.presto.rcfile.RcFileDecoderUtils.writeLengthPrefixedString;
 import static com.facebook.presto.rcfile.RcFileDecoderUtils.writeVInt;
 import static com.facebook.presto.rcfile.RcFileReader.validateFile;
@@ -189,15 +191,13 @@ public class RcFileWriter
     public void close()
             throws IOException
     {
-        try {
-            writeRowGroup();
-            output.close();
-        }
-        finally {
-            keySectionOutput.destroy();
+        try (Closer closer = Closer.create()) {
+            closer.register(output);
+            closer.register(keySectionOutput::destroy);
             for (ColumnEncoder columnEncoder : columnEncoders) {
-                columnEncoder.destroy();
+                closer.register(columnEncoder::destroy);
             }
+            writeRowGroup();
         }
     }
 
@@ -237,18 +237,10 @@ public class RcFileWriter
         if (page.getPositionCount() == 0) {
             return;
         }
-
-        long pageSize = page.getSizeInBytes();
-        if (pageSize <= targetMaxRowGroupSize || page.getPositionCount() == 1) {
-            bufferPage(page);
-            return;
+        List<Page> pages = splitPage(page, targetMaxRowGroupSize);
+        for (Page splitPage : pages) {
+            bufferPage(splitPage);
         }
-
-        // recursively split page until it is less than the max row group size
-        int positionCount = page.getPositionCount();
-        int half = positionCount / 2;
-        write(page.getRegion(0, half));
-        write(page.getRegion(half, positionCount - half));
     }
 
     private void bufferPage(Page page)
@@ -257,9 +249,8 @@ public class RcFileWriter
         bufferedRows += page.getPositionCount();
 
         bufferedSize = 0;
-        Block[] blocks = page.getBlocks();
-        for (int i = 0; i < blocks.length; i++) {
-            Block block = blocks[i];
+        for (int i = 0; i < page.getChannelCount(); i++) {
+            Block block = page.getBlock(i);
             columnEncoders[i].writeBlock(block);
             bufferedSize += columnEncoders[i].getBufferedSize();
         }
@@ -347,7 +338,6 @@ public class RcFileWriter
         private boolean columnClosed;
 
         public ColumnEncoder(ColumnEncoding columnEncoding, RcFileCompressor compressor)
-                throws IOException
         {
             this.columnEncoding = columnEncoding;
             this.output = compressor.createCompressedSliceOutput((int) MIN_BUFFER_SIZE.toBytes(), (int) MAX_BUFFER_SIZE.toBytes());
@@ -402,7 +392,6 @@ public class RcFileWriter
         }
 
         public void reset()
-                throws IOException
         {
             checkArgument(columnClosed, "Column is open");
             lengthOutput.reset();
@@ -414,6 +403,7 @@ public class RcFileWriter
         }
 
         public void destroy()
+                throws IOException
         {
             output.destroy();
         }

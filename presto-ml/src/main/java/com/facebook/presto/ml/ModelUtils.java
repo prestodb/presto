@@ -15,7 +15,6 @@ package com.facebook.presto.ml;
 
 import com.facebook.presto.spi.block.Block;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Throwables;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
@@ -154,7 +153,7 @@ public final class ModelUtils
             return (Model) deserialize.invoke(null, new Object[] {data});
         }
         catch (NoSuchMethodException | InvocationTargetException | IllegalAccessException e) {
-            throw Throwables.propagate(e);
+            throw new RuntimeException(e);
         }
     }
 

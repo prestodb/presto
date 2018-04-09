@@ -33,7 +33,7 @@ public interface MetadataDao
 
     String TABLE_COLUMN_SELECT = "" +
             "SELECT t.schema_name, t.table_name,\n" +
-            "  c.column_id, c.column_name, c.data_type,\n" +
+            "  c.column_id, c.column_name, c.data_type, c.ordinal_position,\n" +
             "  c.bucket_ordinal_position, c.sort_ordinal_position,\n" +
             "  t.temporal_column_id = c.column_id AS temporal\n" +
             "FROM tables t\n" +

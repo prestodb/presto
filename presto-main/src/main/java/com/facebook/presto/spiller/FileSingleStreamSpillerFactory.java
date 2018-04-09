@@ -14,7 +14,7 @@
 package com.facebook.presto.spiller;
 
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
-import com.facebook.presto.memory.LocalMemoryContext;
+import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.SpillContext;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
@@ -27,6 +27,7 @@ import com.google.inject.Inject;
 import io.airlift.log.Logger;
 
 import javax.annotation.PostConstruct;
+import javax.annotation.PreDestroy;
 
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
@@ -76,6 +77,7 @@ public class FileSingleStreamSpillerFactory
                 requireNonNull(featuresConfig, "featuresConfig is null").getSpillMaxUsedSpaceThreshold());
     }
 
+    @VisibleForTesting
     public FileSingleStreamSpillerFactory(
             ListeningExecutorService executor,
             BlockEncodingSerde blockEncodingSerde,
@@ -101,7 +103,7 @@ public class FileSingleStreamSpillerFactory
                         format("spill path %s is not writable; adjust experimental.spiller-spill-path config property or filesystem permissions", path));
             }
         });
-        this.maxUsedSpaceThreshold = requireNonNull(maxUsedSpaceThreshold, "maxUsedSpaceThreshold can not be null");
+        this.maxUsedSpaceThreshold = maxUsedSpaceThreshold;
         this.roundRobinIndex = 0;
     }
 
@@ -109,6 +111,12 @@ public class FileSingleStreamSpillerFactory
     public void cleanupOldSpillFiles()
     {
         spillPaths.forEach(FileSingleStreamSpillerFactory::cleanupOldSpillFiles);
+    }
+
+    @PreDestroy
+    public void destroy()
+    {
+        executor.shutdownNow();
     }
 
     private static void cleanupOldSpillFiles(Path path)
@@ -145,6 +153,9 @@ public class FileSingleStreamSpillerFactory
                 roundRobinIndex = (roundRobinIndex + i + 1) % spillPathsCount;
                 return path;
             }
+        }
+        if (spillPaths.isEmpty()) {
+            throw new PrestoException(OUT_OF_SPILL_SPACE, "No spill paths configured");
         }
         throw new PrestoException(OUT_OF_SPILL_SPACE, "No free space available for spill");
     }

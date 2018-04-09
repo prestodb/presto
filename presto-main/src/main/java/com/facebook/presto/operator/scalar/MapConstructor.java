@@ -36,6 +36,8 @@ import java.util.Optional;
 
 import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
 import static com.facebook.presto.metadata.Signature.typeVariable;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.StandardTypes.MAP;
 import static com.facebook.presto.util.Failures.checkCondition;
@@ -93,9 +95,9 @@ public final class MapConstructor
 
         return new ScalarFunctionImplementation(
                 false,
-                ImmutableList.of(false, false),
-                ImmutableList.of(false, false),
-                ImmutableList.of(Optional.empty(), Optional.empty()),
+                ImmutableList.of(
+                        valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
+                        valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
                 METHOD_HANDLE.bindTo(mapType).bindTo(keyEqual).bindTo(keyHashCode),
                 Optional.of(instanceFactory),
                 isDeterministic());

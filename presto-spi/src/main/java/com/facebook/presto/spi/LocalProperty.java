@@ -34,6 +34,11 @@ public interface LocalProperty<E>
     <T> Optional<LocalProperty<T>> translate(Function<E, Optional<T>> translator);
 
     /**
+     * Returns true if reordering breaks this LocalProperty
+     */
+    boolean isOrderSensitive();
+
+    /**
      * Return true if the actual LocalProperty can be used to simplify this LocalProperty
      */
     boolean isSimplifiedBy(LocalProperty<E> actual);

@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.bytecode.MethodDefinition;
 import com.facebook.presto.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
 import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.bytecode.MethodDefinition;
 
 import java.util.Map;
 

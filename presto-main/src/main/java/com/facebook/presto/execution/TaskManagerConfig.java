@@ -42,6 +42,7 @@ public class TaskManagerConfig
     private boolean verboseStats;
     private boolean taskCpuTimerEnabled = true;
     private DataSize maxPartialAggregationMemoryUsage = new DataSize(16, Unit.MEGABYTE);
+    private DataSize maxLocalExchangeBufferSize = new DataSize(32, Unit.MEGABYTE);
     private DataSize maxIndexMemoryUsage = new DataSize(64, Unit.MEGABYTE);
     private boolean shareIndexLoading;
     private int maxWorkerThreads = Runtime.getRuntime().availableProcessors() * 2;
@@ -64,11 +65,12 @@ public class TaskManagerConfig
     private int httpTimeoutThreads = 3;
 
     private int taskNotificationThreads = 5;
+    private int taskYieldThreads = 3;
 
-    private boolean levelAbsolutePriority = true;
+    private boolean levelAbsolutePriority;
     private BigDecimal levelTimeMultiplier = new BigDecimal(2.0);
 
-    private boolean legacySchedulingBehavior = true;
+    private boolean legacySchedulingBehavior;
 
     @MinDuration("1ms")
     @MaxDuration("10s")
@@ -135,6 +137,19 @@ public class TaskManagerConfig
     public TaskManagerConfig setMaxPartialAggregationMemoryUsage(DataSize maxPartialAggregationMemoryUsage)
     {
         this.maxPartialAggregationMemoryUsage = maxPartialAggregationMemoryUsage;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getMaxLocalExchangeBufferSize()
+    {
+        return maxLocalExchangeBufferSize;
+    }
+
+    @Config("task.max-local-exchange-buffer-size")
+    public TaskManagerConfig setMaxLocalExchangeBufferSize(DataSize size)
+    {
+        this.maxLocalExchangeBufferSize = size;
         return this;
     }
 
@@ -372,6 +387,20 @@ public class TaskManagerConfig
     public TaskManagerConfig setTaskNotificationThreads(int taskNotificationThreads)
     {
         this.taskNotificationThreads = taskNotificationThreads;
+        return this;
+    }
+
+    @Min(1)
+    public int getTaskYieldThreads()
+    {
+        return taskYieldThreads;
+    }
+
+    @Config("task.task-yield-threads")
+    @ConfigDescription("Number of threads used for setting yield signals")
+    public TaskManagerConfig setTaskYieldThreads(int taskYieldThreads)
+    {
+        this.taskYieldThreads = taskYieldThreads;
         return this;
     }
 

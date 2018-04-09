@@ -17,10 +17,12 @@ import com.facebook.presto.operator.FilterAndProjectOperator;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
+import com.facebook.presto.sql.gen.PageFunctionCompiler;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.google.common.collect.ImmutableList;
+import io.airlift.units.DataSize;
 
 import java.util.List;
 import java.util.Optional;
@@ -34,6 +36,7 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.field;
+import static io.airlift.units.DataSize.Unit.BYTE;
 
 public class PredicateFilterBenchmark
         extends AbstractSimpleOperatorBenchmark
@@ -52,14 +55,16 @@ public class PredicateFilterBenchmark
                 BOOLEAN,
                 field(0, DOUBLE),
                 constant(50000.0, DOUBLE));
-        ExpressionCompiler expressionCompiler = new ExpressionCompiler(localQueryRunner.getMetadata());
+        ExpressionCompiler expressionCompiler = new ExpressionCompiler(localQueryRunner.getMetadata(), new PageFunctionCompiler(localQueryRunner.getMetadata(), 0));
         Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(Optional.of(filter), ImmutableList.of(field(0, DOUBLE)));
 
         FilterAndProjectOperator.FilterAndProjectOperatorFactory filterAndProjectOperator = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
                 1,
                 new PlanNodeId("test"),
                 pageProcessor,
-                ImmutableList.of(DOUBLE));
+                ImmutableList.of(DOUBLE),
+                new DataSize(0, BYTE),
+                0);
 
         return ImmutableList.of(tableScanOperator, filterAndProjectOperator);
     }

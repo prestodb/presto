@@ -32,6 +32,7 @@ class OrcZlibDecompressor
         this.maxBufferSize = maxBufferSize;
     }
 
+    @Override
     public int decompress(byte[] input, int offset, int length, OutputBuffer output)
             throws OrcCorruptionException
     {

@@ -18,6 +18,7 @@ import com.facebook.presto.metadata.IndexHandle;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TableHandle;
+import com.facebook.presto.metadata.TableLayoutHandle;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.block.SortOrder;
@@ -26,6 +27,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
@@ -42,6 +44,7 @@ import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
+import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
@@ -61,6 +64,7 @@ import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.testing.TestingMetadata.TestingTableHandle;
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
@@ -88,6 +92,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
+import static java.util.Collections.emptyList;
 
 public class PlanBuilder
 {
@@ -108,6 +113,43 @@ public class PlanBuilder
                 source,
                 columnNames,
                 outputs);
+    }
+
+    public OutputNode output(Consumer<OutputBuilder> outputBuilderConsumer)
+    {
+        OutputBuilder outputBuilder = new OutputBuilder();
+        outputBuilderConsumer.accept(outputBuilder);
+        return outputBuilder.build();
+    }
+
+    public class OutputBuilder
+    {
+        private PlanNode source;
+        private List<String> columnNames = new ArrayList<>();
+        private List<Symbol> outputs = new ArrayList<>();
+
+        public OutputBuilder source(PlanNode source)
+        {
+            this.source = source;
+            return this;
+        }
+
+        public OutputBuilder column(Symbol symbol)
+        {
+            return column(symbol, symbol.getName());
+        }
+
+        public OutputBuilder column(Symbol symbol, String columnName)
+        {
+            outputs.add(symbol);
+            columnNames.add(columnName);
+            return this;
+        }
+
+        protected OutputNode build()
+        {
+            return new OutputNode(idAllocator.getNextId(), source, columnNames, outputs);
+        }
     }
 
     public ValuesNode values(Symbol... columns)
@@ -144,8 +186,9 @@ public class PlanBuilder
                 idAllocator.getNextId(),
                 source,
                 count,
-                orderBy,
-                Maps.toMap(orderBy, Functions.constant(SortOrder.ASC_NULLS_FIRST)),
+                new OrderingScheme(
+                        orderBy,
+                        Maps.toMap(orderBy, Functions.constant(SortOrder.ASC_NULLS_FIRST))),
                 TopNNode.Step.SINGLE);
     }
 
@@ -198,10 +241,20 @@ public class PlanBuilder
 
         public AggregationBuilder addAggregation(Symbol output, Expression expression, List<Type> inputTypes)
         {
+            return addAggregation(output, expression, inputTypes, Optional.empty());
+        }
+
+        public AggregationBuilder addAggregation(Symbol output, Expression expression, List<Type> inputTypes, Symbol mask)
+        {
+            return addAggregation(output, expression, inputTypes, Optional.of(mask));
+        }
+
+        private AggregationBuilder addAggregation(Symbol output, Expression expression, List<Type> inputTypes, Optional<Symbol> mask)
+        {
             checkArgument(expression instanceof FunctionCall);
             FunctionCall aggregation = (FunctionCall) expression;
             Signature signature = metadata.getFunctionRegistry().resolveFunction(aggregation.getName(), TypeSignatureProvider.fromTypes(inputTypes));
-            return addAggregation(output, new Aggregation(aggregation, signature, Optional.empty()));
+            return addAggregation(output, new Aggregation(aggregation, signature, mask));
         }
 
         public AggregationBuilder addAggregation(Symbol output, Aggregation aggregation)
@@ -267,12 +320,14 @@ public class PlanBuilder
 
     public ApplyNode apply(Assignments subqueryAssignments, List<Symbol> correlation, PlanNode input, PlanNode subquery)
     {
-        return new ApplyNode(idAllocator.getNextId(), input, subquery, subqueryAssignments, correlation);
+        NullLiteral originSubquery = new NullLiteral(); // does not matter for tests
+        return new ApplyNode(idAllocator.getNextId(), input, subquery, subqueryAssignments, correlation, originSubquery);
     }
 
     public LateralJoinNode lateral(List<Symbol> correlation, PlanNode input, PlanNode subquery)
     {
-        return new LateralJoinNode(idAllocator.getNextId(), input, subquery, correlation, LateralJoinNode.Type.INNER);
+        NullLiteral originSubquery = new NullLiteral(); // does not matter for tests
+        return new LateralJoinNode(idAllocator.getNextId(), input, subquery, correlation, LateralJoinNode.Type.INNER, originSubquery);
     }
 
     public TableScanNode tableScan(List<Symbol> symbols, Map<Symbol, ColumnHandle> assignments)
@@ -283,25 +338,49 @@ public class PlanBuilder
     public TableScanNode tableScan(List<Symbol> symbols, Map<Symbol, ColumnHandle> assignments, Expression originalConstraint)
     {
         TableHandle tableHandle = new TableHandle(new ConnectorId("testConnector"), new TestingTableHandle());
-        return tableScan(tableHandle, symbols, assignments, originalConstraint);
+        return tableScan(tableHandle, symbols, assignments, Optional.empty(), TupleDomain.all(), originalConstraint);
     }
 
     public TableScanNode tableScan(TableHandle tableHandle, List<Symbol> symbols, Map<Symbol, ColumnHandle> assignments)
     {
-        return tableScan(tableHandle, symbols, assignments, null);
+        return tableScan(tableHandle, symbols, assignments, Optional.empty());
     }
 
-    public TableScanNode tableScan(TableHandle tableHandle, List<Symbol> symbols, Map<Symbol, ColumnHandle> assignments, Expression originalConstraint)
+    public TableScanNode tableScan(
+            TableHandle tableHandle,
+            List<Symbol> symbols,
+            Map<Symbol, ColumnHandle> assignments,
+            Optional<TableLayoutHandle> tableLayout)
+    {
+        return tableScan(tableHandle, symbols, assignments, tableLayout, TupleDomain.all());
+    }
+
+    public TableScanNode tableScan(
+            TableHandle tableHandle,
+            List<Symbol> symbols,
+            Map<Symbol, ColumnHandle> assignments,
+            Optional<TableLayoutHandle> tableLayout,
+            TupleDomain<ColumnHandle> tupleDomain)
+    {
+        return tableScan(tableHandle, symbols, assignments, tableLayout, tupleDomain, null);
+    }
+
+    public TableScanNode tableScan(
+            TableHandle tableHandle,
+            List<Symbol> symbols,
+            Map<Symbol, ColumnHandle> assignments,
+            Optional<TableLayoutHandle> tableLayout,
+            TupleDomain<ColumnHandle> tupleDomain,
+            Expression originalConstraint)
     {
         return new TableScanNode(
                 idAllocator.getNextId(),
                 tableHandle,
                 symbols,
                 assignments,
-                Optional.empty(),
-                TupleDomain.all(),
-                originalConstraint
-        );
+                tableLayout,
+                tupleDomain,
+                originalConstraint);
     }
 
     public TableFinishNode tableDelete(SchemaTableName schemaTableName, PlanNode deleteSource, Symbol deleteRowId)
@@ -310,8 +389,7 @@ public class PlanBuilder
                 new TableHandle(
                         new ConnectorId("testConnector"),
                         new TestingTableHandle()),
-                schemaTableName
-        );
+                schemaTableName);
         return new TableFinishNode(
                 idAllocator.getNextId(),
                 exchange(e -> e
@@ -320,14 +398,11 @@ public class PlanBuilder
                                 deleteSource,
                                 deleteHandle,
                                 deleteRowId,
-                                ImmutableList.of(deleteRowId)
-                        ))
+                                ImmutableList.of(deleteRowId)))
                         .addInputsSet(deleteRowId)
-                        .singleDistributionPartitioningScheme(deleteRowId)
-                ),
+                        .singleDistributionPartitioningScheme(deleteRowId)),
                 deleteHandle,
-                ImmutableList.of(deleteRowId)
-        );
+                ImmutableList.of(deleteRowId));
     }
 
     public ExchangeNode gatheringExchange(ExchangeNode.Scope scope, PlanNode child)
@@ -419,12 +494,19 @@ public class PlanBuilder
 
         public ExchangeBuilder fixedHashDistributionParitioningScheme(List<Symbol> outputSymbols, List<Symbol> partitioningSymbols)
         {
-            return partitioningScheme(new PartitioningScheme(Partitioning.create(FIXED_HASH_DISTRIBUTION, ImmutableList.copyOf(partitioningSymbols)), ImmutableList.copyOf(outputSymbols)));
+            return partitioningScheme(new PartitioningScheme(Partitioning.create(
+                    FIXED_HASH_DISTRIBUTION,
+                    ImmutableList.copyOf(partitioningSymbols)),
+                    ImmutableList.copyOf(outputSymbols)));
         }
 
         public ExchangeBuilder fixedHashDistributionParitioningScheme(List<Symbol> outputSymbols, List<Symbol> partitioningSymbols, Symbol hashSymbol)
         {
-            return partitioningScheme(new PartitioningScheme(Partitioning.create(FIXED_HASH_DISTRIBUTION, ImmutableList.copyOf(partitioningSymbols)), ImmutableList.copyOf(outputSymbols), Optional.of(hashSymbol)));
+            return partitioningScheme(new PartitioningScheme(Partitioning.create(
+                    FIXED_HASH_DISTRIBUTION,
+                    ImmutableList.copyOf(partitioningSymbols)),
+                    ImmutableList.copyOf(outputSymbols),
+                    Optional.of(hashSymbol)));
         }
 
         public ExchangeBuilder partitioningScheme(PartitioningScheme partitioningScheme)
@@ -482,6 +564,11 @@ public class PlanBuilder
                 Optional.empty());
     }
 
+    public JoinNode join(JoinNode.Type type, PlanNode left, PlanNode right, List<JoinNode.EquiJoinClause> criteria, List<Symbol> outputSymbols, Optional<Expression> filter)
+    {
+        return join(type, left, right, criteria, outputSymbols, filter, Optional.empty(), Optional.empty());
+    }
+
     public JoinNode join(
             JoinNode.Type type,
             PlanNode left,
@@ -492,7 +579,33 @@ public class PlanBuilder
             Optional<Symbol> leftHashSymbol,
             Optional<Symbol> rightHashSymbol)
     {
-        return new JoinNode(idAllocator.getNextId(), type, left, right, criteria, outputSymbols, filter, leftHashSymbol, rightHashSymbol, Optional.empty());
+        return join(type, left, right, criteria, outputSymbols, filter, leftHashSymbol, rightHashSymbol, Optional.empty());
+    }
+
+    public JoinNode join(
+            JoinNode.Type type,
+            PlanNode left,
+            PlanNode right,
+            List<JoinNode.EquiJoinClause> criteria,
+            List<Symbol> outputSymbols,
+            Optional<Expression> filter,
+            Optional<Symbol> leftHashSymbol,
+            Optional<Symbol> rightHashSymbol,
+            Optional<JoinNode.DistributionType> distributionType)
+    {
+        return new JoinNode(idAllocator.getNextId(), type, left, right, criteria, outputSymbols, filter, leftHashSymbol, rightHashSymbol, distributionType);
+    }
+
+    public PlanNode indexJoin(IndexJoinNode.Type type, TableScanNode probe, TableScanNode index)
+    {
+        return new IndexJoinNode(
+                idAllocator.getNextId(),
+                type,
+                probe,
+                index,
+                emptyList(),
+                Optional.empty(),
+                Optional.empty());
     }
 
     public UnionNode union(ListMultimap<Symbol, Symbol> outputsToInputs, List<PlanNode> sources)
@@ -542,6 +655,18 @@ public class PlanBuilder
                 specification,
                 ImmutableMap.copyOf(functions),
                 Optional.empty(),
+                ImmutableSet.of(),
+                0);
+    }
+
+    public WindowNode window(WindowNode.Specification specification, Map<Symbol, WindowNode.Function> functions, Symbol hashSymbol, PlanNode source)
+    {
+        return new WindowNode(
+                idAllocator.getNextId(),
+                source,
+                specification,
+                ImmutableMap.copyOf(functions),
+                Optional.of(hashSymbol),
                 ImmutableSet.of(),
                 0);
     }

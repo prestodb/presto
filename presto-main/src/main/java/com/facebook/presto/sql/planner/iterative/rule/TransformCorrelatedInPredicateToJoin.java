@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.Signature;
@@ -22,8 +23,6 @@ import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.optimizations.TransformCorrelatedScalarAggregationToJoin;
-import com.facebook.presto.sql.planner.optimizations.TransformUncorrelatedInPredicateSubqueryToSemiJoin;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
@@ -61,10 +60,13 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.matching.Pattern.nonEmpty;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.ExpressionUtils.and;
 import static com.facebook.presto.sql.ExpressionUtils.or;
+import static com.facebook.presto.sql.planner.plan.Patterns.Apply.correlation;
+import static com.facebook.presto.sql.planner.plan.Patterns.applyNode;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 
@@ -89,39 +91,29 @@ import static java.util.Objects.requireNonNull;
  * <p>
  *
  * @see TransformCorrelatedScalarAggregationToJoin
- * @see TransformUncorrelatedInPredicateSubqueryToSemiJoin
  */
 public class TransformCorrelatedInPredicateToJoin
-        implements Rule
+        implements Rule<ApplyNode>
 {
-    private static final Pattern PATTERN = Pattern.typeOf(ApplyNode.class);
+    private static final Pattern<ApplyNode> PATTERN = applyNode()
+            .with(nonEmpty(correlation()));
 
     @Override
-    public Pattern getPattern()
+    public Pattern<ApplyNode> getPattern()
     {
         return PATTERN;
     }
 
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Context context)
+    public Result apply(ApplyNode apply, Captures captures, Context context)
     {
-        if (!(node instanceof ApplyNode)) {
-            return Optional.empty();
-        }
-
-        ApplyNode apply = (ApplyNode) node;
-
-        if (apply.getCorrelation().isEmpty()) {
-            return Optional.empty();
-        }
-
         Assignments subqueryAssignments = apply.getSubqueryAssignments();
         if (subqueryAssignments.size() != 1) {
-            return Optional.empty();
+            return Result.empty();
         }
         Expression assignmentExpression = getOnlyElement(subqueryAssignments.getExpressions());
         if (!(assignmentExpression instanceof InPredicate)) {
-            return Optional.empty();
+            return Result.empty();
         }
 
         InPredicate inPredicate = (InPredicate) assignmentExpression;
@@ -130,7 +122,7 @@ public class TransformCorrelatedInPredicateToJoin
         return apply(apply, inPredicate, inPredicateOutputSymbol, context.getLookup(), context.getIdAllocator(), context.getSymbolAllocator());
     }
 
-    private Optional<PlanNode> apply(
+    private Result apply(
             ApplyNode apply,
             InPredicate inPredicate,
             Symbol inPredicateOutputSymbol,
@@ -142,7 +134,7 @@ public class TransformCorrelatedInPredicateToJoin
                 .decorrelate(apply.getSubquery());
 
         if (!decorrelated.isPresent()) {
-            return Optional.empty();
+            return Result.empty();
         }
 
         PlanNode projection = buildInPredicateEquivalent(
@@ -151,10 +143,9 @@ public class TransformCorrelatedInPredicateToJoin
                 inPredicateOutputSymbol,
                 decorrelated.get(),
                 idAllocator,
-                symbolAllocator
-        );
+                symbolAllocator);
 
-        return Optional.of(projection);
+        return Result.ofPlanNode(projection);
     }
 
     private PlanNode buildInPredicateEquivalent(
@@ -180,8 +171,7 @@ public class TransformCorrelatedInPredicateToJoin
                 Assignments.builder()
                         .putIdentities(decorrelatedBuildSource.getOutputSymbols())
                         .put(buildSideKnownNonNull, bigint(0))
-                        .build()
-        );
+                        .build());
 
         Symbol probeSideSymbol = Symbol.from(inPredicate.getValue());
         Symbol buildSideSymbol = Symbol.from(inPredicate.getValueList());
@@ -190,10 +180,8 @@ public class TransformCorrelatedInPredicateToJoin
                 or(
                         new IsNullPredicate(probeSideSymbol.toSymbolReference()),
                         new ComparisonExpression(ComparisonExpressionType.EQUAL, probeSideSymbol.toSymbolReference(), buildSideSymbol.toSymbolReference()),
-                        new IsNullPredicate(buildSideSymbol.toSymbolReference())
-                ),
-                correlationCondition
-        );
+                        new IsNullPredicate(buildSideSymbol.toSymbolReference())),
+                correlationCondition);
 
         JoinNode leftOuterJoin = leftOuterJoin(idAllocator, probeSide, buildSide, joinExpression);
 
@@ -202,13 +190,11 @@ public class TransformCorrelatedInPredicateToJoin
 
         Expression matchCondition = and(
                 isNotNull(probeSideSymbol),
-                isNotNull(buildSideSymbol)
-        );
+                isNotNull(buildSideSymbol));
 
         Expression nullMatchCondition = and(
                 isNotNull(buildSideKnownNonNull),
-                not(matchCondition)
-        );
+                not(matchCondition));
 
         AggregationNode aggregation = new AggregationNode(
                 idAllocator.getNextId(),
@@ -220,25 +206,21 @@ public class TransformCorrelatedInPredicateToJoin
                 ImmutableList.of(probeSide.getOutputSymbols()),
                 AggregationNode.Step.SINGLE,
                 Optional.empty(),
-                Optional.empty()
-        );
+                Optional.empty());
 
         // TODO since we care only about "some count > 0", we could have specialized node instead of leftOuterJoin that does the job without materializing join results
         SearchedCaseExpression inPredicateEquivalent = new SearchedCaseExpression(
                 ImmutableList.of(
                         new WhenClause(isGreaterThan(countMatchesSymbol, 0), booleanConstant(true)),
-                        new WhenClause(isGreaterThan(countNullMatchesSymbol, 0), booleanConstant(null))
-                ),
-                Optional.of(booleanConstant(false))
-        );
+                        new WhenClause(isGreaterThan(countNullMatchesSymbol, 0), booleanConstant(null))),
+                Optional.of(booleanConstant(false)));
         return new ProjectNode(
                 idAllocator.getNextId(),
                 aggregation,
                 Assignments.builder()
                         .putIdentities(apply.getInput().getOutputSymbols())
                         .put(inPredicateOutputSymbol, inPredicateEquivalent)
-                        .build()
-        );
+                        .build());
     }
 
     private static JoinNode leftOuterJoin(PlanNodeIdAllocator idAllocator, AssignUniqueId probeSide, ProjectNode buildSide, Expression joinExpression)
@@ -265,15 +247,14 @@ public class TransformCorrelatedInPredicateToJoin
                 QualifiedName.of("count"),
                 Optional.<Window>empty(),
                 Optional.of(condition),
+                Optional.empty(),
                 false,
-                ImmutableList.<Expression>of() /* arguments */
-        );
+                ImmutableList.<Expression>of()); /* arguments */
 
         return new AggregationNode.Aggregation(
                 countCall,
                 new Signature("count", FunctionKind.AGGREGATE, BIGINT.getTypeSignature()),
-                Optional.<Symbol>empty() /* mask */
-        );
+                Optional.<Symbol>empty()); /* mask */
     }
 
     private static Expression isGreaterThan(Symbol symbol, long value)
@@ -281,8 +262,7 @@ public class TransformCorrelatedInPredicateToJoin
         return new ComparisonExpression(
                 ComparisonExpressionType.GREATER_THAN,
                 symbol.toSymbolReference(),
-                bigint(value)
-        );
+                bigint(value));
     }
 
     private static Expression not(Expression booleanExpression)
@@ -308,9 +288,6 @@ public class TransformCorrelatedInPredicateToJoin
         return new BooleanLiteral(value.toString());
     }
 
-    /**
-     * TODO consult comon parts with {@link com.facebook.presto.sql.planner.optimizations.TransformCorrelatedScalarAggregationToJoin.Rewriter#decorrelateFilters}
-     */
     private static class DecorrelatingVisitor
             extends PlanVisitor<Optional<Decorrelated>, PlanNode>
     {
@@ -354,9 +331,7 @@ public class TransformCorrelatedInPredicateToJoin
                         new ProjectNode(
                                 node.getId(), // FIXME should I reuse or not?
                                 decorrelated.getDecorrelatedNode(),
-                                assignments.build()
-                        )
-                );
+                                assignments.build()));
             });
         }
 
@@ -371,8 +346,7 @@ public class TransformCorrelatedInPredicateToJoin
                                     // No need to retain uncorrelated conditions, predicate push down will push them back
                                     .add(node.getPredicate())
                                     .build(),
-                            decorrelated.getDecorrelatedNode()
-                    ));
+                            decorrelated.getDecorrelatedNode()));
         }
 
         @Override

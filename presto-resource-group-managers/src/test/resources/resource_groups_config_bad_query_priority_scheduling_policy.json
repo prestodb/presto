@@ -3,7 +3,7 @@
     {
       "name": "requests",
       "softMemoryLimit": "80%",
-      "maxRunning": 10,
+      "hardConcurrencyLimit": 10,
       "maxQueued": 100,
       "schedulingPolicy": "query_priority",
       "jmxExport" : true,
@@ -11,7 +11,7 @@
         {
           "name": "regular",
           "softMemoryLimit": "80%",
-          "maxRunning": 10,
+          "hardConcurrencyLimit": 10,
           "maxQueued": 100,
           "schedulingWeight": 1000,
           "schedulingPolicy": "query_priority",
@@ -20,7 +20,7 @@
         {
           "name": "low-pri",
           "softMemoryLimit": "80%",
-          "maxRunning": 1,
+          "hardConcurrencyLimit": 1,
           "maxQueued": 10,
           "schedulingWeight": 1,
           "schedulingPolicy": "query_priority",

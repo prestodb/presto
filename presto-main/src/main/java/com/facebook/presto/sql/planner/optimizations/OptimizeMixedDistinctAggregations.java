@@ -122,6 +122,11 @@ public class OptimizeMixedDistinctAggregations
                 return context.defaultRewrite(node, Optional.empty());
             }
 
+            if (node.hasOrderings()) {
+                // Skip if any aggregation contains a order by
+                return context.defaultRewrite(node, Optional.empty());
+            }
+
             AggregateInfo aggregateInfo = new AggregateInfo(
                     node.getGroupingKeys(),
                     Iterables.getOnlyElement(uniqueMasks),
@@ -146,7 +151,7 @@ public class OptimizeMixedDistinctAggregations
             ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
             for (Map.Entry<Symbol, Aggregation> entry : node.getAggregations().entrySet()) {
                 FunctionCall functionCall = entry.getValue().getCall();
-                if (functionCall.isDistinct()) {
+                if (entry.getValue().getMask().isPresent()) {
                     aggregations.put(entry.getKey(), new Aggregation(
                             new FunctionCall(
                                     functionCall.getName(),
@@ -383,13 +388,12 @@ public class OptimizeMixedDistinctAggregations
                 Set<Symbol> groupByKeys,
                 GroupIdNode groupIdNode,
                 MarkDistinctNode originalNode,
-                ImmutableMap.Builder<Symbol, Symbol> aggregationOutputSymbolsMapBuilder
-        )
+                ImmutableMap.Builder<Symbol, Symbol> aggregationOutputSymbolsMapBuilder)
         {
             ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
             for (Map.Entry<Symbol, Aggregation> entry : aggregateInfo.getAggregations().entrySet()) {
                 FunctionCall functionCall = entry.getValue().getCall();
-                if (!functionCall.isDistinct()) {
+                if (!entry.getValue().getMask().isPresent()) {
                     Symbol newSymbol = symbolAllocator.newSymbol(entry.getKey().toSymbolReference(), symbolAllocator.getTypes().get(entry.getKey()));
                     aggregationOutputSymbolsMapBuilder.put(newSymbol, entry.getKey());
                     if (!duplicatedDistinctSymbol.equals(distinctSymbol)) {
@@ -462,8 +466,8 @@ public class OptimizeMixedDistinctAggregations
         public List<Symbol> getOriginalNonDistinctAggregateArgs()
         {
             return aggregations.values().stream()
+                    .filter(aggregation -> !aggregation.getMask().isPresent())
                     .map(Aggregation::getCall)
-                    .filter(function -> !function.isDistinct())
                     .flatMap(function -> function.getArguments().stream())
                     .distinct()
                     .map(Symbol::from)
@@ -473,8 +477,8 @@ public class OptimizeMixedDistinctAggregations
         public List<Symbol> getOriginalDistinctAggregateArgs()
         {
             return aggregations.values().stream()
+                    .filter(aggregation -> aggregation.getMask().isPresent())
                     .map(Aggregation::getCall)
-                    .filter(FunctionCall::isDistinct)
                     .flatMap(function -> function.getArguments().stream())
                     .distinct()
                     .map(Symbol::from)

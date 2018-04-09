@@ -46,4 +46,4 @@ make it executable with ``chmod +x``, then run it:
 
 .. code-block:: none
 
-    ./verifier config.properties
+    ./verifier verify config.properties

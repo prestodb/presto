@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.bytecode.DynamicClassLoader;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
@@ -31,6 +30,7 @@ import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import io.airlift.bytecode.DynamicClassLoader;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
@@ -111,6 +111,7 @@ public class ParametricAggregation
                 stateSerializer.getSerializedType(),
                 outputType,
                 details.isDecomposable(),
+                details.isOrderSensitive(),
                 new LazyAccumulatorFactoryBinder(metadata, classLoader));
     }
 

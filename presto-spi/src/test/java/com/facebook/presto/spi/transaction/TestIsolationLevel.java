@@ -27,7 +27,6 @@ public class TestIsolationLevel
 {
     @Test
     public void testMeetsRequirementOf()
-            throws Exception
     {
         assertTrue(READ_UNCOMMITTED.meetsRequirementOf(READ_UNCOMMITTED));
         assertFalse(READ_UNCOMMITTED.meetsRequirementOf(READ_COMMITTED));
@@ -52,7 +51,6 @@ public class TestIsolationLevel
 
     @Test
     public void testToString()
-            throws Exception
     {
         assertEquals(READ_UNCOMMITTED.toString(), "READ UNCOMMITTED");
         assertEquals(READ_COMMITTED.toString(), "READ COMMITTED");

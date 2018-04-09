@@ -32,7 +32,6 @@ import com.facebook.presto.spiller.LocalSpillManager;
 import com.facebook.presto.spiller.NodeSpillConfig;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
-import com.google.common.base.Preconditions;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -41,6 +40,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
+import io.airlift.stats.GcMonitor;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
@@ -64,6 +64,7 @@ import java.util.concurrent.TimeUnit;
 import static com.facebook.presto.SystemSessionProperties.resourceOvercommit;
 import static com.facebook.presto.spi.StandardErrorCode.ABANDONED_TASK;
 import static com.facebook.presto.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.notNull;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
@@ -82,7 +83,7 @@ public class SqlTaskManager
     private final ThreadPoolExecutorMBean taskNotificationExecutorMBean;
 
     private final ScheduledExecutorService taskManagementExecutor;
-    private final ThreadPoolExecutorMBean taskManagementExecutorMBean;
+    private final ScheduledExecutorService driverYieldExecutor;
 
     private final Duration infoCacheTime;
     private final Duration clientTimeout;
@@ -107,10 +108,12 @@ public class SqlTaskManager
             QueryMonitor queryMonitor,
             NodeInfo nodeInfo,
             LocalMemoryManager localMemoryManager,
+            TaskManagementExecutor taskManagementExecutor,
             TaskManagerConfig config,
             NodeMemoryConfig nodeMemoryConfig,
             LocalSpillManager localSpillManager,
-            NodeSpillConfig nodeSpillConfig)
+            NodeSpillConfig nodeSpillConfig,
+            GcMonitor gcMonitor)
     {
         requireNonNull(nodeInfo, "nodeInfo is null");
         requireNonNull(config, "config is null");
@@ -122,8 +125,8 @@ public class SqlTaskManager
         taskNotificationExecutor = newFixedThreadPool(config.getTaskNotificationThreads(), threadsNamed("task-notification-%s"));
         taskNotificationExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) taskNotificationExecutor);
 
-        taskManagementExecutor = newScheduledThreadPool(5, threadsNamed("task-management-%s"));
-        taskManagementExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) taskManagementExecutor);
+        this.taskManagementExecutor = requireNonNull(taskManagementExecutor, "taskManagementExecutor cannot be null").getExecutor();
+        this.driverYieldExecutor = newScheduledThreadPool(config.getTaskYieldThreads(), threadsNamed("task-yield-%s"));
 
         SqlTaskExecutionFactory sqlTaskExecutionFactory = new SqlTaskExecutionFactory(taskNotificationExecutor, taskExecutor, planner, queryMonitor, config);
 
@@ -132,32 +135,23 @@ public class SqlTaskManager
 
         DataSize maxQuerySpillPerNode = nodeSpillConfig.getQueryMaxSpillPerNode();
 
-        queryContexts = CacheBuilder.newBuilder().weakValues().build(new CacheLoader<QueryId, QueryContext>()
-        {
-            @Override
-            public QueryContext load(QueryId key)
-                    throws Exception
-            {
-                return new QueryContext(
-                        key,
+        queryContexts = CacheBuilder.newBuilder().weakValues().build(CacheLoader.from(
+                queryId -> new QueryContext(
+                        queryId,
                         maxQueryMemoryPerNode,
                         localMemoryManager.getPool(LocalMemoryManager.GENERAL_POOL),
                         localMemoryManager.getPool(LocalMemoryManager.SYSTEM_POOL),
+                        gcMonitor,
                         taskNotificationExecutor,
+                        driverYieldExecutor,
                         maxQuerySpillPerNode,
-                        localSpillManager.getSpillSpaceTracker());
-            }
-        });
+                        localSpillManager.getSpillSpaceTracker())));
 
-        tasks = CacheBuilder.newBuilder().build(new CacheLoader<TaskId, SqlTask>()
-        {
-            @Override
-            public SqlTask load(TaskId taskId)
-                    throws Exception
-            {
-                return new SqlTask(
+        tasks = CacheBuilder.newBuilder().build(CacheLoader.from(
+                taskId -> new SqlTask(
                         taskId,
                         locationFactory.createLocalTaskLocation(taskId),
+                        nodeInfo.getNodeId(),
                         queryContexts.getUnchecked(taskId.getQueryId()),
                         sqlTaskExecutionFactory,
                         taskNotificationExecutor,
@@ -165,9 +159,7 @@ public class SqlTaskManager
                             finishedTaskStats.merge(sqlTask.getIoStats());
                             return null;
                         },
-                        maxBufferSize);
-            }
-        });
+                        maxBufferSize)));
     }
 
     @Override
@@ -221,7 +213,7 @@ public class SqlTaskManager
     {
         boolean taskCanceled = false;
         for (SqlTask task : tasks.asMap().values()) {
-            if (task.getTaskInfo().getTaskStatus().getState().isDone()) {
+            if (task.getTaskStatus().getState().isDone()) {
                 continue;
             }
             task.failed(new PrestoException(SERVER_SHUTTING_DOWN, format("Server is shutting down. Task %s has been canceled", task.getTaskId())));
@@ -236,7 +228,6 @@ public class SqlTaskManager
             }
         }
         taskNotificationExecutor.shutdownNow();
-        taskManagementExecutor.shutdownNow();
     }
 
     @Managed
@@ -253,11 +244,9 @@ public class SqlTaskManager
         return taskNotificationExecutorMBean;
     }
 
-    @Managed(description = "Task garbage collector executor")
-    @Nested
-    public ThreadPoolExecutorMBean getTaskManagementExecutor()
+    public List<SqlTask> getAllTasks()
     {
-        return taskManagementExecutorMBean;
+        return ImmutableList.copyOf(tasks.asMap().values());
     }
 
     @Override
@@ -340,10 +329,20 @@ public class SqlTaskManager
     {
         requireNonNull(taskId, "taskId is null");
         requireNonNull(bufferId, "bufferId is null");
-        Preconditions.checkArgument(startingSequenceId >= 0, "startingSequenceId is negative");
+        checkArgument(startingSequenceId >= 0, "startingSequenceId is negative");
         requireNonNull(maxSize, "maxSize is null");
 
         return tasks.getUnchecked(taskId).getTaskResults(bufferId, startingSequenceId, maxSize);
+    }
+
+    @Override
+    public void acknowledgeTaskResults(TaskId taskId, OutputBufferId bufferId, long sequenceId)
+    {
+        requireNonNull(taskId, "taskId is null");
+        requireNonNull(bufferId, "bufferId is null");
+        checkArgument(sequenceId >= 0, "sequenceId is negative");
+
+        tasks.getUnchecked(taskId).acknowledgeTaskResults(bufferId, sequenceId);
     }
 
     @Override
@@ -425,7 +424,7 @@ public class SqlTaskManager
         // already merged the final stats, we could miss the stats from this task
         // which would result in an under-count, but we will not get an over-count.
         tasks.asMap().values().stream()
-                .filter(task -> !task.getTaskInfo().getTaskStatus().getState().isDone())
+                .filter(task -> !task.getTaskStatus().getState().isDone())
                 .forEach(task -> tempIoStats.merge(task.getIoStats()));
 
         cachedStats.resetTo(tempIoStats);

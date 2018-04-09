@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.HiveClientConfig.HdfsAuthenticationType;
 import com.facebook.presto.hive.HiveClientConfig.HiveMetastoreAuthenticationType;
+import com.facebook.presto.hive.s3.S3FileSystemType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
@@ -40,6 +41,7 @@ public class TestHiveClientConfig
                 .setMaxSplitSize(new DataSize(64, Unit.MEGABYTE))
                 .setMaxPartitionsPerScan(100_000)
                 .setMaxOutstandingSplits(1_000)
+                .setMaxOutstandingSplitsSize(new DataSize(256, Unit.MEGABYTE))
                 .setMaxSplitIteratorThreads(1_000)
                 .setAllowCorruptWritesForTesting(false)
                 .setMetastoreCacheTtl(new Duration(0, TimeUnit.SECONDS))
@@ -53,6 +55,7 @@ public class TestHiveClientConfig
                 .setMaxPartitionBatchSize(100)
                 .setMaxInitialSplits(200)
                 .setMaxInitialSplitSize(new DataSize(32, Unit.MEGABYTE))
+                .setSplitLoaderConcurrency(4)
                 .setDomainCompactionThreshold(100)
                 .setForceLocalScheduling(false)
                 .setMaxConcurrentFileRenames(20)
@@ -63,6 +66,7 @@ public class TestHiveClientConfig
                 .setDfsConnectMaxRetries(5)
                 .setVerifyChecksum(true)
                 .setDomainSocketPath(null)
+                .setS3FileSystemType(S3FileSystemType.PRESTO)
                 .setResourceConfigFiles((String) null)
                 .setHiveStorageFormat(HiveStorageFormat.RCBINARY)
                 .setHiveCompressionCodec(HiveCompressionCodec.GZIP)
@@ -81,8 +85,11 @@ public class TestHiveClientConfig
                 .setOrcMaxBufferSize(new DataSize(8, Unit.MEGABYTE))
                 .setOrcStreamBufferSize(new DataSize(8, Unit.MEGABYTE))
                 .setOrcMaxReadBlockSize(new DataSize(16, Unit.MEGABYTE))
+                .setOrcLazyReadSmallRanges(true)
                 .setRcfileOptimizedWriterEnabled(true)
                 .setRcfileWriterValidate(false)
+                .setOrcOptimizedWriterEnabled(false)
+                .setOrcWriterValidate(true)
                 .setHiveMetastoreAuthenticationType(HiveMetastoreAuthenticationType.NONE)
                 .setHdfsAuthenticationType(HdfsAuthenticationType.NONE)
                 .setHdfsImpersonationEnabled(false)
@@ -90,7 +97,9 @@ public class TestHiveClientConfig
                 .setBucketExecutionEnabled(true)
                 .setBucketWritingEnabled(true)
                 .setFileSystemMaxCacheSize(1000)
-                .setWritesToNonManagedTablesEnabled(false));
+                .setTableStatisticsEnabled(true)
+                .setWritesToNonManagedTablesEnabled(false)
+                .setCreatesOfNonManagedTablesEnabled(true));
     }
 
     @Test
@@ -101,6 +110,7 @@ public class TestHiveClientConfig
                 .put("hive.max-split-size", "256MB")
                 .put("hive.max-partitions-per-scan", "123")
                 .put("hive.max-outstanding-splits", "10")
+                .put("hive.max-outstanding-splits-size", "32MB")
                 .put("hive.max-split-iterator-threads", "10")
                 .put("hive.allow-corrupt-writes-for-testing", "true")
                 .put("hive.metastore-cache-ttl", "2h")
@@ -118,9 +128,11 @@ public class TestHiveClientConfig
                 .put("hive.dfs.connect.max-retries", "10")
                 .put("hive.dfs.verify-checksum", "false")
                 .put("hive.dfs.domain-socket-path", "/foo")
+                .put("hive.s3-file-system-type", "EMRFS")
                 .put("hive.config.resources", "/foo.xml,/bar.xml")
                 .put("hive.max-initial-splits", "10")
                 .put("hive.max-initial-split-size", "16MB")
+                .put("hive.split-loader-concurrency", "1")
                 .put("hive.domain-compaction-threshold", "42")
                 .put("hive.recursive-directories", "true")
                 .put("hive.storage-format", "SEQUENCEFILE")
@@ -142,8 +154,11 @@ public class TestHiveClientConfig
                 .put("hive.orc.max-buffer-size", "44kB")
                 .put("hive.orc.stream-buffer-size", "55kB")
                 .put("hive.orc.max-read-block-size", "66kB")
+                .put("hive.orc.lazy-read-small-ranges", "false")
                 .put("hive.rcfile-optimized-writer.enabled", "false")
                 .put("hive.rcfile.writer.validate", "true")
+                .put("hive.orc.optimized-writer.enabled", "true")
+                .put("hive.orc.writer.validate", "false")
                 .put("hive.metastore.authentication.type", "KERBEROS")
                 .put("hive.hdfs.authentication.type", "KERBEROS")
                 .put("hive.hdfs.impersonation.enabled", "true")
@@ -151,7 +166,9 @@ public class TestHiveClientConfig
                 .put("hive.bucket-execution", "false")
                 .put("hive.bucket-writing", "false")
                 .put("hive.fs.cache.max-size", "1010")
+                .put("hive.table-statistics-enabled", "false")
                 .put("hive.non-managed-table-writes-enabled", "true")
+                .put("hive.non-managed-table-creates-enabled", "false")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -159,6 +176,7 @@ public class TestHiveClientConfig
                 .setMaxSplitSize(new DataSize(256, Unit.MEGABYTE))
                 .setMaxPartitionsPerScan(123)
                 .setMaxOutstandingSplits(10)
+                .setMaxOutstandingSplitsSize(new DataSize(32, Unit.MEGABYTE))
                 .setMaxSplitIteratorThreads(10)
                 .setAllowCorruptWritesForTesting(true)
                 .setMetastoreCacheTtl(new Duration(2, TimeUnit.HOURS))
@@ -172,6 +190,7 @@ public class TestHiveClientConfig
                 .setMaxPartitionBatchSize(1000)
                 .setMaxInitialSplits(10)
                 .setMaxInitialSplitSize(new DataSize(16, Unit.MEGABYTE))
+                .setSplitLoaderConcurrency(1)
                 .setDomainCompactionThreshold(42)
                 .setForceLocalScheduling(true)
                 .setMaxConcurrentFileRenames(100)
@@ -189,6 +208,7 @@ public class TestHiveClientConfig
                 .setMaxPartitionsPerWriter(222)
                 .setWriteValidationThreads(11)
                 .setDomainSocketPath("/foo")
+                .setS3FileSystemType(S3FileSystemType.EMRFS)
                 .setUseParquetColumnNames(true)
                 .setUseOrcColumnNames(true)
                 .setParquetPredicatePushdownEnabled(true)
@@ -200,8 +220,11 @@ public class TestHiveClientConfig
                 .setOrcMaxBufferSize(new DataSize(44, Unit.KILOBYTE))
                 .setOrcStreamBufferSize(new DataSize(55, Unit.KILOBYTE))
                 .setOrcMaxReadBlockSize(new DataSize(66, Unit.KILOBYTE))
+                .setOrcLazyReadSmallRanges(false)
                 .setRcfileOptimizedWriterEnabled(false)
                 .setRcfileWriterValidate(true)
+                .setOrcOptimizedWriterEnabled(true)
+                .setOrcWriterValidate(false)
                 .setHiveMetastoreAuthenticationType(HiveMetastoreAuthenticationType.KERBEROS)
                 .setHdfsAuthenticationType(HdfsAuthenticationType.KERBEROS)
                 .setHdfsImpersonationEnabled(true)
@@ -209,7 +232,9 @@ public class TestHiveClientConfig
                 .setBucketExecutionEnabled(false)
                 .setBucketWritingEnabled(false)
                 .setFileSystemMaxCacheSize(1010)
-                .setWritesToNonManagedTablesEnabled(true);
+                .setTableStatisticsEnabled(false)
+                .setWritesToNonManagedTablesEnabled(true)
+                .setCreatesOfNonManagedTablesEnabled(false);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

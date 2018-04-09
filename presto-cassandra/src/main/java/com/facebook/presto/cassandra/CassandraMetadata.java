@@ -185,7 +185,7 @@ public class CassandraMetadata
 
     private List<SchemaTableName> listTables(ConnectorSession session, SchemaTablePrefix prefix)
     {
-        if (prefix.getSchemaName() == null) {
+        if (prefix.getTableName() == null) {
             return listTables(session, prefix.getSchemaName());
         }
         return ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
@@ -239,7 +239,7 @@ public class CassandraMetadata
     }
 
     @Override
-    public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
     {
         throw new PrestoException(NOT_SUPPORTED, "CREATE TABLE not yet supported for Cassandra");
     }

@@ -21,12 +21,13 @@ import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.scalar.ArraySubscriptOperator;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.InterleavedBlockBuilder;
+import com.facebook.presto.spi.block.RowBlockBuilder;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.RowType;
@@ -39,7 +40,6 @@ import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
 import com.facebook.presto.sql.analyzer.Scope;
 import com.facebook.presto.sql.analyzer.SemanticErrorCode;
 import com.facebook.presto.sql.analyzer.SemanticException;
-import com.facebook.presto.sql.planner.optimizations.CanonicalizeExpressions;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
 import com.facebook.presto.sql.tree.ArrayConstructor;
@@ -85,13 +85,11 @@ import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.SymbolReference;
-import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.type.FunctionType;
 import com.facebook.presto.type.LikeFunctions;
 import com.facebook.presto.util.Failures;
 import com.facebook.presto.util.FastutilSetHelper;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -112,6 +110,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.TypeUtils.writeNativeValue;
@@ -119,10 +118,10 @@ import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.createConstantAnalyzer;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.EXPRESSION_NOT_CONSTANT;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static com.facebook.presto.sql.gen.TryCodeGenerator.tryExpressionExceptionHandler;
 import static com.facebook.presto.sql.gen.VarArgsToMapAdapterGenerator.generateVarArgsToMapAdapter;
 import static com.facebook.presto.sql.planner.LiteralInterpreter.toExpression;
 import static com.facebook.presto.sql.planner.LiteralInterpreter.toExpressions;
+import static com.facebook.presto.sql.planner.iterative.rule.CanonicalizeExpressionRewriter.canonicalizeExpression;
 import static com.facebook.presto.type.LikeFunctions.isLikePattern;
 import static com.facebook.presto.type.LikeFunctions.unescapeLiteralLikePattern;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -220,11 +219,11 @@ public class ExpressionInterpreter
         analyzer.analyze(rewrite, Scope.create());
 
         // remove syntax sugar
-        rewrite = ExpressionTreeRewriter.rewriteWith(new DesugaringRewriter(analyzer.getExpressionTypes()), rewrite);
+        rewrite = DesugarAtTimeZoneRewriter.rewrite(rewrite, analyzer.getExpressionTypes());
 
         // expressionInterpreter/optimizer only understands a subset of expression types
         // TODO: remove this when the new expression tree is implemented
-        Expression canonicalized = CanonicalizeExpressions.canonicalizeExpression(rewrite);
+        Expression canonicalized = canonicalizeExpression(rewrite);
 
         // The optimization above may have rewritten the expression tree which breaks all the identity maps, so redo the analysis
         // to re-analyze coercions that might be necessary
@@ -232,7 +231,7 @@ public class ExpressionInterpreter
         analyzer.analyze(canonicalized, Scope.create());
 
         // evaluate the expression
-        Object result = expressionInterpreter(canonicalized, metadata, session, analyzer.getExpressionTypes()).evaluate(0);
+        Object result = expressionInterpreter(canonicalized, metadata, session, analyzer.getExpressionTypes()).evaluate();
         verify(!(result instanceof Expression), "Expression interpreter returned an unresolved expression");
         return result;
     }
@@ -260,22 +259,16 @@ public class ExpressionInterpreter
         return expressionTypes.get(NodeRef.of(expression));
     }
 
-    public Object evaluate(RecordCursor inputs)
+    public Object evaluate()
     {
-        checkState(!optimize, "evaluate(RecordCursor) not allowed for optimizer");
-        return visitor.process(expression, inputs);
+        checkState(!optimize, "evaluate() not allowed for optimizer");
+        return visitor.process(expression, new NoPagePositionContext());
     }
 
-    public Object evaluate(int position, Block... inputs)
+    public Object evaluate(int position, Page page)
     {
-        checkState(!optimize, "evaluate(int, Block...) not allowed for optimizer");
-        return visitor.process(expression, new SinglePagePositionContext(position, inputs));
-    }
-
-    public Object evaluate(int leftPosition, Block[] leftBlocks, int rightPosition, Block[] rightBlocks)
-    {
-        checkState(!optimize, "evaluate(int, Block[], int, Block[]) not allowed for optimizer");
-        return visitor.process(expression, new TwoPagesPositionContext(leftPosition, leftBlocks, rightPosition, rightBlocks));
+        checkState(!optimize, "evaluate(int, Page) not allowed for optimizer");
+        return visitor.process(expression, new SinglePagePositionContext(position, page));
     }
 
     public Object optimize(SymbolResolver inputs)
@@ -385,7 +378,7 @@ public class ExpressionInterpreter
                     throw new UnsupportedOperationException("not yet implemented");
                 }
             }
-            throw new UnsupportedOperationException("Inputs or cursor myst be set");
+            throw new UnsupportedOperationException("Inputs or cursor must be set");
         }
 
         @Override
@@ -404,7 +397,7 @@ public class ExpressionInterpreter
             }
 
             if (hasUnresolvedValue(base)) {
-                return new DereferenceExpression(toExpression(base, type), node.getFieldName());
+                return new DereferenceExpression(toExpression(base, type), node.getField());
             }
 
             RowType rowType = (RowType) type;
@@ -414,12 +407,12 @@ public class ExpressionInterpreter
             int index = -1;
             for (int i = 0; i < fields.size(); i++) {
                 RowField field = fields.get(i);
-                if (field.getName().isPresent() && field.getName().get().equalsIgnoreCase(node.getFieldName())) {
+                if (field.getName().isPresent() && field.getName().get().equalsIgnoreCase(node.getField().getValue())) {
                     checkArgument(index < 0, "Ambiguous field %s in type %s", field, rowType.getDisplayName());
                     index = i;
                 }
             }
-            checkState(index >= 0, "could not find field name: %s", node.getFieldName());
+            checkState(index >= 0, "could not find field name: %s", node.getField());
             if (row.isNull(index)) {
                 return null;
             }
@@ -445,7 +438,11 @@ public class ExpressionInterpreter
         @Override
         protected Object visitIdentifier(Identifier node, Object context)
         {
-            return node;
+            // Identifier only exists before planning.
+            // ExpressionInterpreter should only be invoked after planning.
+            // As a result, this method should be unreachable.
+            // However, RelationPlanner.visitUnnest and visitValues invokes evaluateConstantExpression.
+            return ((SymbolResolver) context).getValue(new Symbol(node.getValue()));
         }
 
         @Override
@@ -533,8 +530,7 @@ public class ExpressionInterpreter
                 return new IfExpression(
                         toExpression(condition, type(node.getCondition())),
                         toExpression(trueValue, type(node.getTrueValue())),
-                        falseValueExpression
-                );
+                        falseValueExpression);
             }
             else if (Boolean.TRUE.equals(condition)) {
                 return trueValue;
@@ -639,9 +635,6 @@ public class ExpressionInterpreter
         protected Object visitInPredicate(InPredicate node, Object context)
         {
             Object value = process(node.getValue(), context);
-            if (value == null) {
-                return null;
-            }
 
             Expression valueListExpression = node.getValueList();
             if (!(valueListExpression instanceof InListExpression)) {
@@ -651,6 +644,10 @@ public class ExpressionInterpreter
                 return node;
             }
             InListExpression valueList = (InListExpression) valueListExpression;
+            verify(!valueList.getValues().isEmpty()); // `NULL IN ()` would be false, but is not possible
+            if (value == null) {
+                return null;
+            }
 
             Set<?> set = inListCache.get(valueList);
 
@@ -961,13 +958,13 @@ public class ExpressionInterpreter
             ScalarFunctionImplementation function = metadata.getFunctionRegistry().getScalarFunctionImplementation(functionSignature);
             for (int i = 0; i < argumentValues.size(); i++) {
                 Object value = argumentValues.get(i);
-                if (value == null && !function.getNullableArguments().get(i)) {
+                if (value == null && function.getArgumentProperty(i).getNullConvention() == RETURN_NULL_ON_NULL) {
                     return null;
                 }
             }
 
             // do not optimize non-deterministic functions
-            if (optimize && (!function.isDeterministic() || hasUnresolvedValue(argumentValues))) {
+            if (optimize && (!function.isDeterministic() || hasUnresolvedValue(argumentValues) || node.getName().equals(QualifiedName.of("fail")))) {
                 return new FunctionCall(node.getName(), node.getWindow(), node.isDistinct(), toExpressions(argumentValues, argumentTypes));
             }
             return functionInvoker.invoke(functionSignature, session, argumentValues);
@@ -985,6 +982,7 @@ public class ExpressionInterpreter
             Expression body = node.getBody();
             List<String> argumentNames = node.getArguments().stream()
                     .map(LambdaArgumentDeclaration::getName)
+                    .map(Identifier::getValue)
                     .collect(toImmutableList());
             FunctionType functionType = (FunctionType) expressionTypes.get(NodeRef.<Expression>of(node));
             checkArgument(argumentNames.size() == functionType.getArgumentTypes().size());
@@ -1119,28 +1117,20 @@ public class ExpressionInterpreter
         }
 
         @Override
-        protected Object visitTryExpression(TryExpression node, Object context)
-        {
-            try {
-                Object innerExpression = process(node.getInnerExpression(), context);
-                if (innerExpression instanceof Expression) {
-                    return new TryExpression((Expression) innerExpression);
-                }
-
-                return innerExpression;
-            }
-            catch (PrestoException e) {
-                tryExpressionExceptionHandler(e);
-            }
-            return null;
-        }
-
-        @Override
         public Object visitCast(Cast node, Object context)
         {
             Object value = process(node.getExpression(), context);
+            Type targetType = metadata.getType(parseTypeSignature(node.getType()));
+            if (targetType == null) {
+                throw new IllegalArgumentException("Unsupported type: " + node.getType());
+            }
 
+            Type sourceType = type(node.getExpression());
             if (value instanceof Expression) {
+                if (targetType.equals(sourceType)) {
+                    return value;
+                }
+
                 return new Cast((Expression) value, node.getType(), node.isSafe(), node.isTypeOnly());
             }
 
@@ -1151,19 +1141,14 @@ public class ExpressionInterpreter
             // hack!!! don't optimize CASTs for types that cannot be represented in the SQL AST
             // TODO: this will not be an issue when we migrate to RowExpression tree for this, which allows arbitrary literals.
             if (optimize && !FunctionRegistry.isSupportedLiteralType(type(node))) {
-                return new Cast(toExpression(value, type(node.getExpression())), node.getType(), node.isSafe(), node.isTypeOnly());
+                return new Cast(toExpression(value, sourceType), node.getType(), node.isSafe(), node.isTypeOnly());
             }
 
             if (value == null) {
                 return null;
             }
 
-            Type type = metadata.getType(parseTypeSignature(node.getType()));
-            if (type == null) {
-                throw new IllegalArgumentException("Unsupported type: " + node.getType());
-            }
-
-            Signature operator = metadata.getFunctionRegistry().getCoercion(type(node.getExpression()), type);
+            Signature operator = metadata.getFunctionRegistry().getCoercion(sourceType, targetType);
 
             try {
                 return functionInvoker.invoke(operator, session, ImmutableList.of(value));
@@ -1209,11 +1194,13 @@ public class ExpressionInterpreter
                 return new Row(toExpressions(values, parameterTypes));
             }
             else {
-                BlockBuilder blockBuilder = new InterleavedBlockBuilder(parameterTypes, new BlockBuilderStatus(), cardinality);
+                BlockBuilder blockBuilder = new RowBlockBuilder(parameterTypes, new BlockBuilderStatus(), 1);
+                BlockBuilder singleRowBlockWriter = blockBuilder.beginBlockEntry();
                 for (int i = 0; i < cardinality; ++i) {
-                    writeNativeValue(parameterTypes.get(i), blockBuilder, values.get(i));
+                    writeNativeValue(parameterTypes.get(i), singleRowBlockWriter, values.get(i));
                 }
-                return blockBuilder.build();
+                blockBuilder.closeEntry();
+                return rowType.getObject(blockBuilder, 0);
             }
         }
 
@@ -1292,22 +1279,38 @@ public class ExpressionInterpreter
         int getPosition(int channel);
     }
 
+    private static class NoPagePositionContext
+            implements PagePositionContext
+    {
+        @Override
+        public Block getBlock(int channel)
+        {
+            throw new IllegalArgumentException("Context does not contain any blocks");
+        }
+
+        @Override
+        public int getPosition(int channel)
+        {
+            throw new IllegalArgumentException("Context does not have a position");
+        }
+    }
+
     private static class SinglePagePositionContext
             implements PagePositionContext
     {
         private final int position;
-        private final Block[] blocks;
+        private final Page page;
 
-        private SinglePagePositionContext(int position, Block[] blocks)
+        private SinglePagePositionContext(int position, Page page)
         {
             this.position = position;
-            this.blocks = blocks;
+            this.page = page;
         }
 
         @Override
         public Block getBlock(int channel)
         {
-            return blocks[channel];
+            return page.getBlock(channel);
         }
 
         @Override
@@ -1317,47 +1320,7 @@ public class ExpressionInterpreter
         }
     }
 
-    private static class TwoPagesPositionContext
-            implements PagePositionContext
-    {
-        private final int leftPosition;
-        private final int rightPosition;
-        private final Block[] leftBlocks;
-        private final Block[] rightBlocks;
-
-        private TwoPagesPositionContext(int leftPosition, Block[] leftBlocks, int rightPosition, Block[] rightBlocks)
-        {
-            this.leftPosition = leftPosition;
-            this.rightPosition = rightPosition;
-            this.leftBlocks = leftBlocks;
-            this.rightBlocks = rightBlocks;
-        }
-
-        @Override
-        public Block getBlock(int channel)
-        {
-            if (channel < leftBlocks.length) {
-                return leftBlocks[channel];
-            }
-            else {
-                return rightBlocks[channel - leftBlocks.length];
-            }
-        }
-
-        @Override
-        public int getPosition(int channel)
-        {
-            if (channel < leftBlocks.length) {
-                return leftPosition;
-            }
-            else {
-                return rightPosition;
-            }
-        }
-    }
-
-    @VisibleForTesting
-    public static Expression createFailureFunction(RuntimeException exception, Type type)
+    private static Expression createFailureFunction(RuntimeException exception, Type type)
     {
         requireNonNull(exception, "Exception is null");
 

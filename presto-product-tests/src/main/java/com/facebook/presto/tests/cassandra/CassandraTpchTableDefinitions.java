@@ -14,9 +14,9 @@
 package com.facebook.presto.tests.cassandra;
 
 import com.google.common.collect.ImmutableList;
-import com.teradata.tempto.internal.fulfillment.table.cassandra.CassandraTableDefinition;
-import com.teradata.tempto.internal.fulfillment.table.cassandra.tpch.CassandraTpchDataSource;
 import io.airlift.tpch.TpchTable;
+import io.prestodb.tempto.internal.fulfillment.table.cassandra.CassandraTableDefinition;
+import io.prestodb.tempto.internal.fulfillment.table.cassandra.tpch.CassandraTpchDataSource;
 
 import java.sql.JDBCType;
 

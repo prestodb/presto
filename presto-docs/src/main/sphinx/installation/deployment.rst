@@ -172,12 +172,14 @@ These properties require some explanation:
 
 You may also wish to set the following properties:
 
-* ``query.queue-config-file``:
-  Specifies the file to read the :doc:`/admin/queue` from.
+* ``jmx.rmiregistry.port``:
+  Specifies the port for the JMX RMI registry. JMX clients should connect to this port.
 
 * ``jmx.rmiserver.port``:
   Specifies the port for the JMX RMI server. Presto exports many metrics
   that are useful for monitoring via JMX.
+
+See also :doc:`/admin/resource-groups`.
 
 Log Levels
 ^^^^^^^^^^

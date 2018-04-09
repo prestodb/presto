@@ -19,7 +19,7 @@ cluster_name: 'Test Cluster'
 # the heaviest-loaded existing node.  If there is no load information
 # available, such as is the case with a new cluster, it will pick
 # a random token, which will lead to hot spots.
-#initial_token:
+initial_token: -9223372036854775808
 
 # See http://wiki.apache.org/cassandra/HintedHandoff
 hinted_handoff_enabled: false

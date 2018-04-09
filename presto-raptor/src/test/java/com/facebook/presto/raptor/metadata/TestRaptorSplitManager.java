@@ -46,6 +46,7 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
@@ -55,14 +56,17 @@ import java.util.UUID;
 import static com.facebook.presto.raptor.metadata.DatabaseShardManager.shardIndexTable;
 import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static com.facebook.presto.raptor.metadata.TestDatabaseShardManager.shardInfo;
+import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
+import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.google.common.base.Ticker.systemTicker;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.io.Files.createTempDir;
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.testing.Assertions.assertInstanceOf;
-import static io.airlift.testing.FileUtils.deleteRecursively;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.toList;
@@ -106,7 +110,7 @@ public class TestRaptorSplitManager
         RaptorConnectorId connectorId = new RaptorConnectorId("raptor");
         metadata = new RaptorMetadata(connectorId.toString(), dbi, shardManager);
 
-        metadata.createTable(SESSION, TEST_TABLE);
+        metadata.createTable(SESSION, TEST_TABLE, false);
         tableHandle = metadata.getTableHandle(SESSION, TEST_TABLE.getTable());
 
         List<ShardInfo> shards = ImmutableList.<ShardInfo>builder()
@@ -131,14 +135,14 @@ public class TestRaptorSplitManager
 
     @AfterMethod
     public void teardown()
+            throws IOException
     {
         dummyHandle.close();
-        deleteRecursively(temporary);
+        deleteRecursively(temporary.toPath(), ALLOW_INSECURE);
     }
 
     @Test
     public void testSanity()
-            throws InterruptedException
     {
         List<ConnectorTableLayoutResult> layouts = metadata.getTableLayouts(SESSION, tableHandle, Constraint.alwaysTrue(), Optional.empty());
         assertEquals(layouts.size(), 1);
@@ -148,25 +152,24 @@ public class TestRaptorSplitManager
         ConnectorSplitSource splitSource = getSplits(raptorSplitManager, layout);
         int splitCount = 0;
         while (!splitSource.isFinished()) {
-            splitCount += getFutureValue(splitSource.getNextBatch(1000)).size();
+            splitCount += getSplits(splitSource, 1000).size();
         }
         assertEquals(splitCount, 4);
     }
 
     @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "No host for shard .* found: \\[\\]")
     public void testNoHostForShard()
-            throws InterruptedException
     {
         deleteShardNodes();
 
         ConnectorTableLayoutResult layout = getOnlyElement(metadata.getTableLayouts(SESSION, tableHandle, Constraint.alwaysTrue(), Optional.empty()));
         ConnectorSplitSource splitSource = getSplits(raptorSplitManager, layout);
-        getFutureValue(splitSource.getNextBatch(1000));
+        getSplits(splitSource, 1000);
     }
 
     @Test
     public void testAssignRandomNodeWhenBackupAvailable()
-            throws InterruptedException, URISyntaxException
+            throws URISyntaxException
     {
         TestingNodeManager nodeManager = new TestingNodeManager();
         RaptorConnectorId connectorId = new RaptorConnectorId("raptor");
@@ -179,20 +182,19 @@ public class TestRaptorSplitManager
 
         ConnectorTableLayoutResult layout = getOnlyElement(metadata.getTableLayouts(SESSION, tableHandle, Constraint.alwaysTrue(), Optional.empty()));
         ConnectorSplitSource partitionSplit = getSplits(raptorSplitManagerWithBackup, layout);
-        List<ConnectorSplit> batch = getFutureValue(partitionSplit.getNextBatch(1), PrestoException.class);
+        List<ConnectorSplit> batch = getSplits(partitionSplit, 1);
         assertEquals(getOnlyElement(getOnlyElement(batch).getAddresses()), node.getHostAndPort());
     }
 
     @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "No nodes available to run query")
     public void testNoNodes()
-            throws InterruptedException, URISyntaxException
     {
         deleteShardNodes();
 
         RaptorSplitManager raptorSplitManagerWithBackup = new RaptorSplitManager(new RaptorConnectorId("fbraptor"), ImmutableSet::of, shardManager, true);
         ConnectorTableLayoutResult layout = getOnlyElement(metadata.getTableLayouts(SESSION, tableHandle, Constraint.alwaysTrue(), Optional.empty()));
         ConnectorSplitSource splitSource = getSplits(raptorSplitManagerWithBackup, layout);
-        getFutureValue(splitSource.getNextBatch(1000), PrestoException.class);
+        getSplits(splitSource, 1000);
     }
 
     private void deleteShardNodes()
@@ -204,6 +206,11 @@ public class TestRaptorSplitManager
     private static ConnectorSplitSource getSplits(RaptorSplitManager splitManager, ConnectorTableLayoutResult layout)
     {
         ConnectorTransactionHandle transaction = new RaptorTransactionHandle();
-        return splitManager.getSplits(transaction, SESSION, layout.getTableLayout().getHandle());
+        return splitManager.getSplits(transaction, SESSION, layout.getTableLayout().getHandle(), UNGROUPED_SCHEDULING);
+    }
+
+    private static List<ConnectorSplit> getSplits(ConnectorSplitSource source, int maxSize)
+    {
+        return getFutureValue(source.getNextBatch(NOT_PARTITIONED, maxSize)).getSplits();
     }
 }

@@ -84,7 +84,7 @@ public class ClusterStatsResource
                 totalInputRows += query.getQueryStats().getRawInputPositions();
                 totalCpuTimeSecs += query.getQueryStats().getTotalCpuTime().getValue(SECONDS);
 
-                memoryReservation += query.getQueryStats().getTotalMemoryReservation().toBytes();
+                memoryReservation += query.getQueryStats().getUserMemoryReservation().toBytes();
                 runningDrivers += query.getQueryStats().getRunningDrivers();
             }
         }

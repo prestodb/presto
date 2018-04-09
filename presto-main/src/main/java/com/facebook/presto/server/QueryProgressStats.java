@@ -19,18 +19,20 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.joda.time.DateTime;
 
+import java.util.Optional;
 import java.util.OptionalDouble;
 
 import static java.util.Objects.requireNonNull;
 
 public class QueryProgressStats
 {
-    private final DateTime executionStartTime;
+    private final Optional<DateTime> executionStartTime;
     private final long elapsedTimeMillis;
     private final long queuedTimeMillis;
     private final long cpuTimeMillis;
     private final long scheduledTimeMillis;
     private final long blockedTimeMillis;
+    private final long currentMemoryBytes;
     private final long peakMemoryBytes;
     private final long inputRows;
     private final long inputBytes;
@@ -39,12 +41,13 @@ public class QueryProgressStats
 
     @JsonCreator
     public QueryProgressStats(
-            @JsonProperty("executionStartTime") DateTime executionStartTime,
+            @JsonProperty("executionStartTime") Optional<DateTime> executionStartTime,
             @JsonProperty("elapsedTimeMillis") long elapsedTimeMillis,
             @JsonProperty("queuedTimeMillis") long queuedTimeMillis,
             @JsonProperty("cpuTimeMillis") long cpuTimeMillis,
             @JsonProperty("scheduledTimeMillis") long scheduledTimeMillis,
             @JsonProperty("blockedTimeMillis") long blockedTimeMillis,
+            @JsonProperty("currentMemoryBytes") long currentMemoryBytes,
             @JsonProperty("peakMemoryBytes") long peakMemoryBytes,
             @JsonProperty("inputRows") long inputRows,
             @JsonProperty("inputBytes") long inputBytes,
@@ -57,6 +60,7 @@ public class QueryProgressStats
         this.cpuTimeMillis = cpuTimeMillis;
         this.scheduledTimeMillis = scheduledTimeMillis;
         this.blockedTimeMillis = blockedTimeMillis;
+        this.currentMemoryBytes = currentMemoryBytes;
         this.peakMemoryBytes = peakMemoryBytes;
         this.inputRows = inputRows;
         this.inputBytes = inputBytes;
@@ -67,13 +71,14 @@ public class QueryProgressStats
     public static QueryProgressStats createQueryProgressStats(QueryStats queryStats)
     {
         return new QueryProgressStats(
-                queryStats.getExecutionStartTime(),
+                Optional.ofNullable(queryStats.getExecutionStartTime()),
                 queryStats.getElapsedTime().toMillis(),
                 queryStats.getQueuedTime().toMillis(),
                 queryStats.getTotalCpuTime().toMillis(),
                 queryStats.getTotalScheduledTime().toMillis(),
                 queryStats.getTotalBlockedTime().toMillis(),
-                queryStats.getPeakMemoryReservation().toBytes(),
+                queryStats.getUserMemoryReservation().toBytes(),
+                queryStats.getPeakUserMemoryReservation().toBytes(),
                 queryStats.getRawInputPositions(),
                 queryStats.getRawInputDataSize().toBytes(),
                 queryStats.isFullyBlocked(),
@@ -81,7 +86,7 @@ public class QueryProgressStats
     }
 
     @JsonProperty
-    public DateTime getExecutionStartTime()
+    public Optional<DateTime> getExecutionStartTime()
     {
         return executionStartTime;
     }
@@ -114,6 +119,12 @@ public class QueryProgressStats
     public long getBlockedTimeMillis()
     {
         return blockedTimeMillis;
+    }
+
+    @JsonProperty
+    public long getCurrentMemoryBytes()
+    {
+        return currentMemoryBytes;
     }
 
     @JsonProperty

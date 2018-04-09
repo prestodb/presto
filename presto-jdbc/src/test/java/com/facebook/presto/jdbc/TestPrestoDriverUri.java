@@ -53,7 +53,7 @@ public class TestPrestoDriverUri
         assertInvalid("jdbc:presto://localhost:8080/hive/default?ShoeSize=13", "Unrecognized connection property 'ShoeSize'");
 
         // empty property
-        assertInvalid("jdbc:presto://localhost:8080/hive/default?password=", "Connection property 'password' value is empty");
+        assertInvalid("jdbc:presto://localhost:8080/hive/default?SSL=", "Connection property 'SSL' value is empty");
 
         // property in url multiple times
         assertInvalid("presto://localhost:8080/blackhole?password=a&password=b", "Connection property 'password' is in URL multiple times");
@@ -71,11 +71,20 @@ public class TestPrestoDriverUri
         assertInvalid("jdbc:presto://localhost:8080?SSL=2", "Connection property 'SSL' value is invalid: 2");
         assertInvalid("jdbc:presto://localhost:8080?SSL=abc", "Connection property 'SSL' value is invalid: abc");
 
+        // ssl key store password without path
+        assertInvalid("jdbc:presto://localhost:8080?SSL=true&SSLKeyStorePassword=password", "Connection property 'SSLKeyStorePassword' is not allowed");
+
         // ssl trust store password without path
         assertInvalid("jdbc:presto://localhost:8080?SSL=true&SSLTrustStorePassword=password", "Connection property 'SSLTrustStorePassword' is not allowed");
 
+        // key store path without ssl
+        assertInvalid("jdbc:presto://localhost:8080?SSLKeyStorePath=keystore.jks", "Connection property 'SSLKeyStorePath' is not allowed");
+
         // trust store path without ssl
         assertInvalid("jdbc:presto://localhost:8080?SSLTrustStorePath=truststore.jks", "Connection property 'SSLTrustStorePath' is not allowed");
+
+        // key store password without ssl
+        assertInvalid("jdbc:presto://localhost:8080?SSLKeyStorePassword=password", "Connection property 'SSLKeyStorePassword' is not allowed");
 
         // trust store password without ssl
         assertInvalid("jdbc:presto://localhost:8080?SSLTrustStorePassword=password", "Connection property 'SSLTrustStorePassword' is not allowed");
@@ -89,6 +98,29 @@ public class TestPrestoDriverUri
             throws Exception
     {
         new PrestoDriverUri("jdbc:presto://localhost:8080", new Properties());
+    }
+
+    @Test(expectedExceptions = SQLException.class, expectedExceptionsMessageRegExp = "Connection property 'user' value is empty")
+    public void testEmptyUser()
+            throws Exception
+    {
+        new PrestoDriverUri("jdbc:presto://localhost:8080?user=", new Properties());
+    }
+
+    @Test
+    public void testEmptyPassword()
+            throws SQLException
+    {
+        PrestoDriverUri parameters = createDriverUri("presto://localhost:8080?password=");
+        assertEquals(parameters.getProperties().getProperty("password"), "");
+    }
+
+    @Test
+    public void testNonEmptyPassword()
+            throws SQLException
+    {
+        PrestoDriverUri parameters = createDriverUri("presto://localhost:8080?password=secret");
+        assertEquals(parameters.getProperties().getProperty("password"), "secret");
     }
 
     @Test
@@ -122,14 +154,6 @@ public class TestPrestoDriverUri
     }
 
     @Test
-    public void testUriWithSslPortDoesNotUseSsl()
-            throws SQLException
-    {
-        PrestoDriverUri parameters = createDriverUri("presto://somelocalhost:443/blackhole");
-        assertUriPortScheme(parameters, 443, "http");
-    }
-
-    @Test
     public void testUriWithSslDisabled()
             throws SQLException
     {
@@ -147,6 +171,22 @@ public class TestPrestoDriverUri
         Properties properties = parameters.getProperties();
         assertNull(properties.getProperty(SSL_TRUST_STORE_PATH.getKey()));
         assertNull(properties.getProperty(SSL_TRUST_STORE_PASSWORD.getKey()));
+    }
+
+    @Test
+    public void testUriWithSslDisabledUsing443()
+            throws SQLException
+    {
+        PrestoDriverUri parameters = createDriverUri("presto://localhost:443/blackhole?SSL=false");
+        assertUriPortScheme(parameters, 443, "http");
+    }
+
+    @Test
+    public void testUriWithSslEnabledUsing443()
+            throws SQLException
+    {
+        PrestoDriverUri parameters = createDriverUri("presto://localhost:443/blackhole");
+        assertUriPortScheme(parameters, 443, "https");
     }
 
     @Test

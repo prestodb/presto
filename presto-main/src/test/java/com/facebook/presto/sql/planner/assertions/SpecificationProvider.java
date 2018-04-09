@@ -14,12 +14,14 @@
 package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.spi.block.SortOrder;
+import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -46,19 +48,25 @@ public class SpecificationProvider
     @Override
     public WindowNode.Specification getExpectedValue(SymbolAliases aliases)
     {
+        Optional<OrderingScheme> orderingScheme = Optional.empty();
+        if (!orderBy.isEmpty()) {
+            orderingScheme = Optional.of(new OrderingScheme(
+                    orderBy
+                            .stream()
+                            .map(alias -> alias.toSymbol(aliases))
+                            .collect(toImmutableList()),
+                    orderings
+                            .entrySet()
+                            .stream()
+                            .collect(toImmutableMap(entry -> entry.getKey().toSymbol(aliases), Map.Entry::getValue))));
+        }
+
         return new WindowNode.Specification(
                 partitionBy
                         .stream()
                         .map(alias -> alias.toSymbol(aliases))
                         .collect(toImmutableList()),
-                orderBy
-                        .stream()
-                        .map(alias -> alias.toSymbol(aliases))
-                        .collect(toImmutableList()),
-                orderings
-                        .entrySet()
-                        .stream()
-                        .collect(toImmutableMap(entry -> entry.getKey().toSymbol(aliases), Map.Entry::getValue)));
+                orderingScheme);
     }
 
     @Override

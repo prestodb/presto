@@ -28,38 +28,41 @@ import org.testng.annotations.Test;
 import java.net.URI;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 public class TestFixedCountScheduler
 {
     private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("stageExecutor-%s"));
+    private final ScheduledExecutorService scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("stageScheduledExecutor-%s"));
     private final MockRemoteTaskFactory taskFactory;
 
     public TestFixedCountScheduler()
     {
-        taskFactory = new MockRemoteTaskFactory(executor);
+        taskFactory = new MockRemoteTaskFactory(executor, scheduledExecutor);
     }
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void destroyExecutor()
     {
         executor.shutdownNow();
+        scheduledExecutor.shutdown();
     }
 
     @Test
     public void testSingleNode()
-            throws Exception
     {
         FixedCountScheduler nodeScheduler = new FixedCountScheduler(
                 (node, partition) -> taskFactory.createTableScanTask(
                         new TaskId("test", 1, 1),
                         node, ImmutableList.of(),
-                        new PartitionedSplitCountTracker(delta -> { })),
+                        new PartitionedSplitCountTracker(delta -> {})),
                 generateRandomNodes(1));
 
         ScheduleResult result = nodeScheduler.schedule();
@@ -71,13 +74,12 @@ public class TestFixedCountScheduler
 
     @Test
     public void testMultipleNodes()
-            throws Exception
     {
         FixedCountScheduler nodeScheduler = new FixedCountScheduler(
                 (node, partition) -> taskFactory.createTableScanTask(
                         new TaskId("test", 1, 1),
                         node, ImmutableList.of(),
-                        new PartitionedSplitCountTracker(delta -> { })),
+                        new PartitionedSplitCountTracker(delta -> {})),
                 generateRandomNodes(5));
 
         ScheduleResult result = nodeScheduler.schedule();

@@ -21,7 +21,6 @@ public class TestTypeOfFunction
 {
     @Test
     public void testSimpleType()
-            throws Exception
     {
         assertFunction("typeof(CAST(1 AS BIGINT))", VarcharType.VARCHAR, "bigint");
         assertFunction("typeof(CAST(1 AS INTEGER))", VarcharType.VARCHAR, "integer");
@@ -34,7 +33,6 @@ public class TestTypeOfFunction
 
     @Test
     public void testParametricType()
-            throws Exception
     {
         assertFunction("typeof(CAST(NULL AS VARCHAR(10)))", VarcharType.VARCHAR, "varchar(10)");
         assertFunction("typeof(CAST(NULL AS DECIMAL(5,1)))", VarcharType.VARCHAR, "decimal(5,1)");
@@ -46,7 +44,6 @@ public class TestTypeOfFunction
 
     @Test
     public void testNestedType()
-            throws Exception
     {
         assertFunction("typeof(CAST(NULL AS ARRAY(ARRAY(ARRAY(INTEGER)))))", VarcharType.VARCHAR, "array(array(array(integer)))");
         assertFunction("typeof(CAST(NULL AS ARRAY(ARRAY(ARRAY(DECIMAL(5,1))))))", VarcharType.VARCHAR, "array(array(array(decimal(5,1))))");
@@ -54,7 +51,6 @@ public class TestTypeOfFunction
 
     @Test
     public void testComplex()
-            throws Exception
     {
         assertFunction("typeof(CONCAT('ala','ma','kota'))", VarcharType.VARCHAR, "varchar");
         assertFunction("typeof(CONCAT(CONCAT('ala','ma','kota'), 'baz'))", VarcharType.VARCHAR, "varchar");

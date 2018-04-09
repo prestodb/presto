@@ -37,12 +37,10 @@ public class TestPrestoThriftBigint
 {
     @Test
     public void testReadBlock()
-            throws Exception
     {
         PrestoThriftBlock columnsData = longColumn(
                 new boolean[] {false, true, false, false, false, false, true},
-                new long[] {2, 0, 1, 3, 8, 4, 0}
-        );
+                new long[] {2, 0, 1, 3, 8, 4, 0});
         Block actual = columnsData.toBlock(BIGINT);
         assertBlockEquals(actual, list(2L, null, 1L, 3L, 8L, 4L, null));
     }
@@ -52,8 +50,7 @@ public class TestPrestoThriftBigint
     {
         PrestoThriftBlock columnsData = longColumn(
                 new boolean[] {true, true, true, true, true, true, true},
-                null
-        );
+                null);
         Block actual = columnsData.toBlock(BIGINT);
         assertBlockEquals(actual, list(null, null, null, null, null, null, null));
     }
@@ -63,39 +60,33 @@ public class TestPrestoThriftBigint
     {
         PrestoThriftBlock columnsData = longColumn(
                 new boolean[] {true, true, true, true, true, true, true},
-                new long[] {0, 0, 0, 0, 0, 0, 0}
-        );
+                new long[] {0, 0, 0, 0, 0, 0, 0});
         Block actual = columnsData.toBlock(BIGINT);
         assertBlockEquals(actual, list(null, null, null, null, null, null, null));
     }
 
     @Test
     public void testReadBlockAllNonNullOption1()
-            throws Exception
     {
         PrestoThriftBlock columnsData = longColumn(
                 null,
-                new long[] {2, 7, 1, 3, 8, 4, 5}
-        );
+                new long[] {2, 7, 1, 3, 8, 4, 5});
         Block actual = columnsData.toBlock(BIGINT);
         assertBlockEquals(actual, list(2L, 7L, 1L, 3L, 8L, 4L, 5L));
     }
 
     @Test
     public void testReadBlockAllNonNullOption2()
-            throws Exception
     {
         PrestoThriftBlock columnsData = longColumn(
                 new boolean[] {false, false, false, false, false, false, false},
-                new long[] {2, 7, 1, 3, 8, 4, 5}
-        );
+                new long[] {2, 7, 1, 3, 8, 4, 5});
         Block actual = columnsData.toBlock(BIGINT);
         assertBlockEquals(actual, list(2L, 7L, 1L, 3L, 8L, 4L, 5L));
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class)
     public void testReadBlockWrongActualType()
-            throws Exception
     {
         PrestoThriftBlock columnsData = integerData(new PrestoThriftInteger(null, null));
         columnsData.toBlock(BIGINT);
@@ -103,7 +94,6 @@ public class TestPrestoThriftBigint
 
     @Test(expectedExceptions = IllegalArgumentException.class)
     public void testReadBlockWrongDesiredType()
-            throws Exception
     {
         PrestoThriftBlock columnsData = longColumn(null, null);
         columnsData.toBlock(INTEGER);
@@ -111,7 +101,6 @@ public class TestPrestoThriftBigint
 
     @Test
     public void testWriteBlockAlternating()
-            throws Exception
     {
         Block source = longBlock(1, null, 2, null, 3, null, 4, null, 5, null, 6, null, 7, null);
         PrestoThriftBlock column = fromBlock(source);
@@ -124,7 +113,6 @@ public class TestPrestoThriftBigint
 
     @Test
     public void testWriteBlockAllNulls()
-            throws Exception
     {
         Block source = longBlock(null, null, null, null, null);
         PrestoThriftBlock column = fromBlock(source);
@@ -135,7 +123,6 @@ public class TestPrestoThriftBigint
 
     @Test
     public void testWriteBlockAllNonNull()
-            throws Exception
     {
         Block source = longBlock(1, 2, 3, 4, 5);
         PrestoThriftBlock column = fromBlock(source);
@@ -146,7 +133,6 @@ public class TestPrestoThriftBigint
 
     @Test
     public void testWriteBlockEmpty()
-            throws Exception
     {
         PrestoThriftBlock column = fromBlock(longBlock());
         assertNotNull(column.getBigintData());
@@ -156,7 +142,6 @@ public class TestPrestoThriftBigint
 
     @Test
     public void testWriteBlockSingleValue()
-            throws Exception
     {
         PrestoThriftBlock column = fromBlock(longBlock(1));
         assertNotNull(column.getBigintData());

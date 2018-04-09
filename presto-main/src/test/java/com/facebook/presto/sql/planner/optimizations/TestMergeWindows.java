@@ -14,21 +14,18 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.spi.block.SortOrder;
-import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.StatsRecorder;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.assertions.ExpectedValueProvider;
-import com.facebook.presto.sql.planner.assertions.PlanAssert;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
-import com.facebook.presto.sql.planner.iterative.rule.MergeAdjacentWindows;
+import com.facebook.presto.sql.planner.iterative.Rule;
+import com.facebook.presto.sql.planner.iterative.rule.GatherAndMergeWindows;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
-import com.facebook.presto.sql.planner.iterative.rule.SwapAdjacentWindowsBySpecifications;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.WindowFrame;
-import com.facebook.presto.testing.LocalQueryRunner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -191,31 +188,7 @@ public class TestMergeWindows
     {
         @Language("SQL") String sql = "SELECT " +
                 "SUM(quantity) OVER (PARTITION BY suppkey ORDER BY orderkey ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_quantity_A, " +
-                "LAG(quantity, 1, 0.0) OVER (PARTITION BY orderkey ORDER BY shipdate ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_quantity_B, " +
-                "SUM(discount) OVER (PARTITION BY suppkey ORDER BY orderkey ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_discount_A " +
-                "FROM lineitem";
-
-        assertUnitPlan(sql,
-                anyTree(
-                        window(windowMatcherBuilder -> windowMatcherBuilder
-                                        .specification(specificationA)
-                                        .addFunction(functionCall("sum", COMMON_FRAME, ImmutableList.of(DISCOUNT_ALIAS))),
-                                window(windowMatcherBuilder -> windowMatcherBuilder
-                                                .specification(specificationB)
-                                                .addFunction(functionCall("lag", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS, "ONE", "ZERO"))),
-                                        project(ImmutableMap.of("ONE", expression("CAST(1 AS bigint)"), "ZERO", expression("0.0")),
-                                                window(windowMatcherBuilder -> windowMatcherBuilder
-                                                                .specification(specificationA)
-                                                                .addFunction(functionCall("sum", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS))),
-                                                        LINEITEM_TABLESCAN_DOQSS))))));
-    }
-
-    @Test
-    public void testIdenticalWindowSpecificationsAAcpA()
-    {
-        @Language("SQL") String sql = "SELECT " +
-                "SUM(quantity) OVER (PARTITION BY suppkey ORDER BY orderkey ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_quantity_A, " +
-                "LAG(quantity, 1, 0.0) OVER (PARTITION BY suppkey ORDER BY orderkey ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_quantity_B, " +
+                "LAG(quantity, 1, 0.0E0) OVER (PARTITION BY orderkey ORDER BY shipdate ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_quantity_B, " +
                 "SUM(discount) OVER (PARTITION BY suppkey ORDER BY orderkey ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_discount_A " +
                 "FROM lineitem";
 
@@ -224,12 +197,94 @@ public class TestMergeWindows
                         window(windowMatcherBuilder -> windowMatcherBuilder
                                         .specification(specificationA)
                                         .addFunction(functionCall("sum", COMMON_FRAME, ImmutableList.of(DISCOUNT_ALIAS)))
-                                        .addFunction(functionCall("lag", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS, "ONE", "ZERO"))),
-                                project(ImmutableMap.of("ONE", expression("CAST(1 AS bigint)"), "ZERO", expression("0.0")),
-                                        window(windowMatcherBuilder -> windowMatcherBuilder
-                                                        .specification(specificationA)
-                                                        .addFunction(functionCall("sum", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS))),
-                                                LINEITEM_TABLESCAN_DOQS)))));
+                                        .addFunction(functionCall("sum", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS))),
+                                window(windowMatcherBuilder -> windowMatcherBuilder
+                                                .specification(specificationB)
+                                                .addFunction(functionCall("lag", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS, "ONE", "ZERO"))),
+                                        project(ImmutableMap.of("ONE", expression("CAST(1 AS bigint)"), "ZERO", expression("0.0E0")),
+                                                LINEITEM_TABLESCAN_DOQSS)))));
+    }
+
+    @Test
+    public void testIdenticalWindowSpecificationsABfilterA()
+    {
+        // This test makes sure that we don't merge window nodes across filter nodes, which obviously would affect
+        // the result of the window function by removing some input values.
+        @Language("SQL") String sql = "" +
+                "SELECT" +
+                "  sum_discount_A, " +
+                "  SUM(quantity) OVER (PARTITION BY suppkey ORDER BY orderkey ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_quantity_A, " +
+                "  SUM(quantity) OVER (PARTITION BY orderkey ORDER BY shipdate ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_quantity_B " +
+                "FROM (" +
+                "  SELECT" +
+                "    *, " +
+                "    SUM(discount) OVER (PARTITION BY suppkey ORDER BY orderkey ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_discount_A " +
+                "  FROM lineitem)" +
+                "WHERE shipdate IS NOT NULL";
+
+        assertUnitPlan(sql,
+                anyTree(
+                        window(windowMatcherBuilder -> windowMatcherBuilder
+                                        .specification(specificationA)
+                                        .addFunction(functionCall("sum", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS))),
+                                window(windowMatcherBuilder -> windowMatcherBuilder
+                                                .specification(specificationB)
+                                                .addFunction(functionCall("sum", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS))),
+                                        filter(SHIPDATE_ALIAS + " IS NOT NULL",
+                                                project(
+                                                        window(windowMatcherBuilder -> windowMatcherBuilder
+                                                                        .specification(specificationA)
+                                                                        .addFunction(functionCall("sum", COMMON_FRAME, ImmutableList.of(DISCOUNT_ALIAS))),
+                                                                LINEITEM_TABLESCAN_DOQSS)))))));
+    }
+
+    @Test
+    public void testIdenticalWindowSpecificationsAAcpA()
+    {
+        @Language("SQL") String sql = "SELECT " +
+                "SUM(quantity) OVER (PARTITION BY suppkey ORDER BY orderkey ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_quantity_A, " +
+                "LAG(quantity, 1, 0.0E0) OVER (PARTITION BY suppkey ORDER BY orderkey ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_quantity_B, " +
+                "SUM(discount) OVER (PARTITION BY suppkey ORDER BY orderkey ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_discount_A " +
+                "FROM lineitem";
+
+        assertUnitPlan(sql,
+                anyTree(
+                        window(windowMatcherBuilder -> windowMatcherBuilder
+                                        .specification(specificationA)
+                                        .addFunction(functionCall("sum", COMMON_FRAME, ImmutableList.of(DISCOUNT_ALIAS)))
+                                        .addFunction(functionCall("lag", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS, "ONE", "ZERO")))
+                                        .addFunction(functionCall("sum", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS))),
+                                project(ImmutableMap.of("ONE", expression("CAST(1 AS bigint)"), "ZERO", expression("0.0E0")),
+                                        LINEITEM_TABLESCAN_DOQS))));
+    }
+
+    @Test
+    public void testIdenticalWindowSpecificationsAAfilterA()
+    {
+        @Language("SQL") String sql = "" +
+                "SELECT" +
+                "  sum_discount_A, " +
+                "  SUM(quantity) OVER (PARTITION BY suppkey ORDER BY orderkey ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_quantity_A, " +
+                "  AVG(quantity) OVER (PARTITION BY suppkey ORDER BY orderkey ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) avg_quantity_A " +
+                "FROM (" +
+                "  SELECT" +
+                "    *, " +
+                "    SUM(discount) OVER (PARTITION BY suppkey ORDER BY orderkey ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_discount_A " +
+                "  FROM lineitem)" +
+                "WHERE shipdate IS NOT NULL";
+
+        assertUnitPlan(sql,
+                anyTree(
+                        window(windowMatcherBuilder -> windowMatcherBuilder
+                                        .specification(specificationA)
+                                        .addFunction(functionCall("sum", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS)))
+                                        .addFunction(functionCall("avg", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS))),
+                                filter(SHIPDATE_ALIAS + " IS NOT NULL",
+                                        project(
+                                                window(windowMatcherBuilder -> windowMatcherBuilder
+                                                                .specification(specificationA)
+                                                                .addFunction(functionCall("sum", COMMON_FRAME, ImmutableList.of(DISCOUNT_ALIAS))),
+                                                        LINEITEM_TABLESCAN_DOQSS))))));
     }
 
     @Test
@@ -497,18 +552,17 @@ public class TestMergeWindows
 
     private void assertUnitPlan(@Language("SQL") String sql, PlanMatchPattern pattern)
     {
-        LocalQueryRunner queryRunner = getQueryRunner();
         List<PlanOptimizer> optimizers = ImmutableList.of(
                 new UnaliasSymbolReferences(),
-                new IterativeOptimizer(new StatsRecorder(), ImmutableSet.of(
-                        new RemoveRedundantIdentityProjections(),
-                        new SwapAdjacentWindowsBySpecifications(),
-                        new MergeAdjacentWindows())),
+                new IterativeOptimizer(
+                        new StatsRecorder(),
+                        getQueryRunner().getStatsCalculator(),
+                        getQueryRunner().getEstimatedExchangesCostCalculator(),
+                        ImmutableSet.<Rule<?>>builder()
+                                .add(new RemoveRedundantIdentityProjections())
+                                .addAll(GatherAndMergeWindows.rules())
+                                .build()),
                 new PruneUnreferencedOutputs());
-        queryRunner.inTransaction(transactionSession -> {
-            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, optimizers);
-            PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), queryRunner.getCostCalculator(), actualPlan, pattern);
-            return null;
-        });
+        assertPlan(sql, pattern, optimizers);
     }
 }

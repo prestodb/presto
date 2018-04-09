@@ -48,6 +48,7 @@ import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.operator.UpdateMemory.NOOP;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
 
@@ -70,8 +71,8 @@ public class BenchmarkGroupByHash
     @OperationsPerInvocation(POSITIONS)
     public Object groupByHashPreCompute(BenchmarkData data)
     {
-        GroupByHash groupByHash = new MultiChannelGroupByHash(data.getTypes(), data.getChannels(), data.getHashChannel(), EXPECTED_SIZE, false, JOIN_COMPILER);
-        data.getPages().forEach(groupByHash::getGroupIds);
+        GroupByHash groupByHash = new MultiChannelGroupByHash(data.getTypes(), data.getChannels(), data.getHashChannel(), EXPECTED_SIZE, false, JOIN_COMPILER, NOOP);
+        data.getPages().forEach(p -> groupByHash.getGroupIds(p).process());
 
         ImmutableList.Builder<Page> pages = ImmutableList.builder();
         PageBuilder pageBuilder = new PageBuilder(groupByHash.getTypes());
@@ -91,8 +92,8 @@ public class BenchmarkGroupByHash
     @OperationsPerInvocation(POSITIONS)
     public Object addPagePreCompute(BenchmarkData data)
     {
-        GroupByHash groupByHash = new MultiChannelGroupByHash(data.getTypes(), data.getChannels(), data.getHashChannel(), EXPECTED_SIZE, false, JOIN_COMPILER);
-        data.getPages().forEach(groupByHash::addPage);
+        GroupByHash groupByHash = new MultiChannelGroupByHash(data.getTypes(), data.getChannels(), data.getHashChannel(), EXPECTED_SIZE, false, JOIN_COMPILER, NOOP);
+        data.getPages().forEach(p -> groupByHash.addPage(p).process());
 
         ImmutableList.Builder<Page> pages = ImmutableList.builder();
         PageBuilder pageBuilder = new PageBuilder(groupByHash.getTypes());
@@ -112,8 +113,8 @@ public class BenchmarkGroupByHash
     @OperationsPerInvocation(POSITIONS)
     public Object bigintGroupByHash(SingleChannelBenchmarkData data)
     {
-        GroupByHash groupByHash = new BigintGroupByHash(0, data.getHashEnabled(), EXPECTED_SIZE);
-        data.getPages().forEach(groupByHash::addPage);
+        GroupByHash groupByHash = new BigintGroupByHash(0, data.getHashEnabled(), EXPECTED_SIZE, NOOP);
+        data.getPages().forEach(p -> groupByHash.addPage(p).process());
 
         ImmutableList.Builder<Page> pages = ImmutableList.builder();
         PageBuilder pageBuilder = new PageBuilder(groupByHash.getTypes());

@@ -39,6 +39,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
@@ -57,6 +58,7 @@ import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
@@ -65,37 +67,33 @@ public class TestWindowOperator
     private static final FrameInfo UNBOUNDED_FRAME = new FrameInfo(RANGE, UNBOUNDED_PRECEDING, Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty());
 
     private static final List<WindowFunctionDefinition> ROW_NUMBER = ImmutableList.of(
-            window(new ReflectionWindowFunctionSupplier<>("row_number", BIGINT, ImmutableList.of(), RowNumberFunction.class), BIGINT, UNBOUNDED_FRAME)
-    );
+            window(new ReflectionWindowFunctionSupplier<>("row_number", BIGINT, ImmutableList.of(), RowNumberFunction.class), BIGINT, UNBOUNDED_FRAME));
 
     private static final List<WindowFunctionDefinition> FIRST_VALUE = ImmutableList.of(
-            window(new ReflectionWindowFunctionSupplier<>("first_value", VARCHAR, ImmutableList.<Type>of(VARCHAR), FirstValueFunction.class), VARCHAR, UNBOUNDED_FRAME, 1)
-    );
+            window(new ReflectionWindowFunctionSupplier<>("first_value", VARCHAR, ImmutableList.<Type>of(VARCHAR), FirstValueFunction.class), VARCHAR, UNBOUNDED_FRAME, 1));
 
     private static final List<WindowFunctionDefinition> LAST_VALUE = ImmutableList.of(
-            window(new ReflectionWindowFunctionSupplier<>("last_value", VARCHAR, ImmutableList.<Type>of(VARCHAR), LastValueFunction.class), VARCHAR, UNBOUNDED_FRAME, 1)
-    );
+            window(new ReflectionWindowFunctionSupplier<>("last_value", VARCHAR, ImmutableList.<Type>of(VARCHAR), LastValueFunction.class), VARCHAR, UNBOUNDED_FRAME, 1));
 
     private static final List<WindowFunctionDefinition> NTH_VALUE = ImmutableList.of(
-            window(new ReflectionWindowFunctionSupplier<>("nth_value", VARCHAR, ImmutableList.of(VARCHAR, BIGINT), NthValueFunction.class), VARCHAR, UNBOUNDED_FRAME, 1, 3)
-    );
+            window(new ReflectionWindowFunctionSupplier<>("nth_value", VARCHAR, ImmutableList.of(VARCHAR, BIGINT), NthValueFunction.class), VARCHAR, UNBOUNDED_FRAME, 1, 3));
 
     private static final List<WindowFunctionDefinition> LAG = ImmutableList.of(
-            window(new ReflectionWindowFunctionSupplier<>("lag", VARCHAR, ImmutableList.of(VARCHAR, BIGINT, VARCHAR), LagFunction.class), VARCHAR, UNBOUNDED_FRAME, 1, 3, 4)
-    );
+            window(new ReflectionWindowFunctionSupplier<>("lag", VARCHAR, ImmutableList.of(VARCHAR, BIGINT, VARCHAR), LagFunction.class), VARCHAR, UNBOUNDED_FRAME, 1, 3, 4));
 
     private static final List<WindowFunctionDefinition> LEAD = ImmutableList.of(
-            window(new ReflectionWindowFunctionSupplier<>("lead", VARCHAR, ImmutableList.of(VARCHAR, BIGINT, VARCHAR), LeadFunction.class), VARCHAR, UNBOUNDED_FRAME, 1, 3, 4)
-    );
+            window(new ReflectionWindowFunctionSupplier<>("lead", VARCHAR, ImmutableList.of(VARCHAR, BIGINT, VARCHAR), LeadFunction.class), VARCHAR, UNBOUNDED_FRAME, 1, 3, 4));
 
     private ExecutorService executor;
+    private ScheduledExecutorService scheduledExecutor;
     private DriverContext driverContext;
 
     @BeforeMethod
     public void setUp()
     {
-        executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
-        driverContext = createTaskContext(executor, TEST_SESSION)
+        executor = newCachedThreadPool(daemonThreadsNamed("test-executor-%s"));
+        scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
+        driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION)
                 .addPipelineContext(0, true, true)
                 .addDriverContext();
     }
@@ -104,11 +102,11 @@ public class TestWindowOperator
     public void tearDown()
     {
         executor.shutdownNow();
+        scheduledExecutor.shutdownNow();
     }
 
     @Test
     public void testRowNumber()
-            throws Exception
     {
         List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
                 .row(2L, 0.3)
@@ -140,7 +138,6 @@ public class TestWindowOperator
 
     @Test
     public void testRowNumberPartition()
-            throws Exception
     {
         List<Page> input = rowPagesBuilder(VARCHAR, BIGINT, DOUBLE, BOOLEAN)
                 .row("b", -1L, -0.1, true)
@@ -172,7 +169,6 @@ public class TestWindowOperator
 
     @Test
     public void testRowNumberArbitrary()
-            throws Exception
     {
         List<Page> input = rowPagesBuilder(BIGINT)
                 .row(1L)
@@ -210,7 +206,6 @@ public class TestWindowOperator
 
     @Test(expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded local memory limit of 10B")
     public void testMemoryLimit()
-            throws Exception
     {
         List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
                 .row(1L, 0.1)
@@ -220,7 +215,7 @@ public class TestWindowOperator
                 .row(4L, 0.4)
                 .build();
 
-        DriverContext driverContext = createTaskContext(executor, TEST_SESSION, new DataSize(10, Unit.BYTE))
+        DriverContext driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION, new DataSize(10, Unit.BYTE))
                 .addPipelineContext(0, true, true)
                 .addDriverContext();
 
@@ -237,7 +232,6 @@ public class TestWindowOperator
 
     @Test
     public void testFirstValuePartition()
-            throws Exception
     {
         List<Page> input = rowPagesBuilder(VARCHAR, VARCHAR, BIGINT, BOOLEAN, VARCHAR)
                 .row("b", "A1", 1L, true, "")
@@ -271,7 +265,6 @@ public class TestWindowOperator
 
     @Test
     public void testLastValuePartition()
-            throws Exception
     {
         List<Page> input = rowPagesBuilder(VARCHAR, VARCHAR, BIGINT, BOOLEAN, VARCHAR)
                 .row("b", "A1", 1L, true, "")
@@ -304,7 +297,6 @@ public class TestWindowOperator
 
     @Test
     public void testNthValuePartition()
-            throws Exception
     {
         List<Page> input = rowPagesBuilder(VARCHAR, VARCHAR, BIGINT, BIGINT, BOOLEAN, VARCHAR)
                 .row("b", "A1", 1L, 2L, true, "")
@@ -338,7 +330,6 @@ public class TestWindowOperator
 
     @Test
     public void testLagPartition()
-            throws Exception
     {
         List<Page> input = rowPagesBuilder(VARCHAR, VARCHAR, BIGINT, BIGINT, VARCHAR, BOOLEAN, VARCHAR)
                 .row("b", "A1", 1L, 1L, "D", true, "")
@@ -372,7 +363,6 @@ public class TestWindowOperator
 
     @Test
     public void testLeadPartition()
-            throws Exception
     {
         List<Page> input = rowPagesBuilder(VARCHAR, VARCHAR, BIGINT, BIGINT, VARCHAR, BOOLEAN, VARCHAR)
                 .row("b", "A1", 1L, 1L, "D", true, "")
@@ -406,7 +396,6 @@ public class TestWindowOperator
 
     @Test
     public void testPartiallyPreGroupedPartitionWithEmptyInput()
-            throws Exception
     {
         List<Page> input = rowPagesBuilder(BIGINT, VARCHAR, BIGINT, VARCHAR)
                 .pageBreak()
@@ -431,7 +420,6 @@ public class TestWindowOperator
 
     @Test
     public void testPartiallyPreGroupedPartition()
-            throws Exception
     {
         List<Page> input = rowPagesBuilder(BIGINT, VARCHAR, BIGINT, VARCHAR)
                 .pageBreak()
@@ -470,7 +458,6 @@ public class TestWindowOperator
 
     @Test
     public void testFullyPreGroupedPartition()
-            throws Exception
     {
         List<Page> input = rowPagesBuilder(BIGINT, VARCHAR, BIGINT, VARCHAR)
                 .pageBreak()
@@ -511,7 +498,6 @@ public class TestWindowOperator
 
     @Test
     public void testFullyPreGroupedAndPartiallySortedPartition()
-            throws Exception
     {
         List<Page> input = rowPagesBuilder(BIGINT, VARCHAR, BIGINT, VARCHAR)
                 .pageBreak()
@@ -554,7 +540,6 @@ public class TestWindowOperator
 
     @Test
     public void testFullyPreGroupedAndFullySortedPartition()
-            throws Exception
     {
         List<Page> input = rowPagesBuilder(BIGINT, VARCHAR, BIGINT, VARCHAR)
                 .pageBreak()
@@ -670,6 +655,6 @@ public class TestWindowOperator
                 sortOrder,
                 preSortedChannelPrefix,
                 10,
-                new PagesIndex.TestingFactory());
+                new PagesIndex.TestingFactory(false));
     }
 }

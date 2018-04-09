@@ -123,10 +123,10 @@ public class TaskInfo
                 .toString();
     }
 
-    public static TaskInfo createInitialTask(TaskId taskId, URI location, List<BufferInfo> bufferStates, TaskStats taskStats)
+    public static TaskInfo createInitialTask(TaskId taskId, URI location, String nodeId, List<BufferInfo> bufferStates, TaskStats taskStats)
     {
         return new TaskInfo(
-                initialTaskStatus(taskId, location),
+                initialTaskStatus(taskId, location, nodeId),
                 DateTime.now(),
                 new OutputBufferInfo("UNINITIALIZED", OPEN, true, true, 0, 0, 0, 0, bufferStates),
                 ImmutableSet.of(),

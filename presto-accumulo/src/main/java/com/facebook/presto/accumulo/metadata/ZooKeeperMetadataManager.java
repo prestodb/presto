@@ -21,22 +21,22 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.json.ObjectMapperProvider;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.CuratorFrameworkFactory;
 import org.apache.curator.retry.RetryForever;
 import org.apache.zookeeper.KeeperException;
 
-import javax.activity.InvalidActivityException;
 import javax.inject.Inject;
 
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.Locale;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static com.facebook.presto.accumulo.AccumuloErrorCode.ZOOKEEPER_ERROR;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.zookeeper.KeeperException.Code.NONODE;
@@ -106,30 +106,22 @@ public class ZooKeeperMetadataManager
     public Set<String> getTableNames(String schema)
     {
         String schemaPath = getSchemaPath(schema);
-        boolean exists;
         try {
-            exists = curator.checkExists().forPath(schemaPath) != null;
+            if (curator.checkExists().forPath(schemaPath) == null) {
+                return ImmutableSet.of();
+            }
         }
         catch (Exception e) {
             throw new PrestoException(ZOOKEEPER_ERROR, "Error checking if schema exists", e);
         }
 
-        if (exists) {
-            try {
-                Set<String> tables = new HashSet<>();
-                tables.addAll(
-                        curator.getChildren().forPath(schemaPath)
-                                .stream()
-                                .filter(x -> isAccumuloTable(new SchemaTableName(schema, x)))
-                                .collect(Collectors.toList()));
-                return tables;
-            }
-            catch (Exception e) {
-                throw new PrestoException(ZOOKEEPER_ERROR, "Error fetching schemas", e);
-            }
+        try {
+            return curator.getChildren().forPath(schemaPath).stream()
+                    .filter(x -> isAccumuloTable(new SchemaTableName(schema, x)))
+                    .collect(toImmutableSet());
         }
-        else {
-            throw new PrestoException(ZOOKEEPER_ERROR, "No metadata for schema" + schema);
+        catch (Exception e) {
+            throw new PrestoException(ZOOKEEPER_ERROR, "Error fetching schemas", e);
         }
     }
 
@@ -155,30 +147,22 @@ public class ZooKeeperMetadataManager
     public Set<String> getViewNames(String schema)
     {
         String schemaPath = getSchemaPath(schema);
-        boolean exists;
         try {
-            exists = curator.checkExists().forPath(schemaPath) != null;
+            if (curator.checkExists().forPath(schemaPath) == null) {
+                return ImmutableSet.of();
+            }
         }
         catch (Exception e) {
             throw new PrestoException(ZOOKEEPER_ERROR, "Error checking if schema exists", e);
         }
 
-        if (exists) {
-            try {
-                Set<String> tables = new HashSet<>();
-                tables.addAll(
-                        curator.getChildren().forPath(schemaPath)
-                                .stream()
-                                .filter(x -> isAccumuloView(new SchemaTableName(schema, x)))
-                                .collect(Collectors.toList()));
-                return tables;
-            }
-            catch (Exception e) {
-                throw new PrestoException(ZOOKEEPER_ERROR, "Error fetching schemas", e);
-            }
+        try {
+            return curator.getChildren().forPath(schemaPath).stream()
+                    .filter(x -> isAccumuloView(new SchemaTableName(schema, x)))
+                    .collect(toImmutableSet());
         }
-        else {
-            throw new PrestoException(ZOOKEEPER_ERROR, "No metadata for schema " + schema);
+        catch (Exception e) {
+            throw new PrestoException(ZOOKEEPER_ERROR, "Error fetching schemas", e);
         }
     }
 
@@ -208,7 +192,7 @@ public class ZooKeeperMetadataManager
         String tablePath = getTablePath(tableName);
         try {
             if (curator.checkExists().forPath(tablePath) != null) {
-                throw new InvalidActivityException(format("Metadata for table %s already exists", tableName));
+                throw new IOException(format("Metadata for table %s already exists", tableName));
             }
         }
         catch (Exception e) {
@@ -239,7 +223,7 @@ public class ZooKeeperMetadataManager
         String viewPath = getTablePath(tableName);
         try {
             if (curator.checkExists().forPath(viewPath) != null) {
-                throw new InvalidActivityException(format("Metadata for view %s already exists", tableName));
+                throw new IOException(format("Metadata for view %s already exists", tableName));
             }
         }
         catch (Exception e) {

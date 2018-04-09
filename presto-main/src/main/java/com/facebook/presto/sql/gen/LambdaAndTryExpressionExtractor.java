@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.ConstantExpression;
 import com.facebook.presto.sql.relational.InputReferenceExpression;
@@ -25,10 +23,6 @@ import com.facebook.presto.sql.relational.VariableReferenceExpression;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
-
-import static com.facebook.presto.sql.relational.Signatures.TRY;
-import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.Iterables.getOnlyElement;
 
 public class LambdaAndTryExpressionExtractor
 {
@@ -58,22 +52,10 @@ public class LambdaAndTryExpressionExtractor
         @Override
         public Void visitCall(CallExpression call, Context context)
         {
-            boolean isTry = call.getSignature().getName().equals(TRY);
-            if (isTry) {
-                checkState(call.getArguments().size() == 1, "try call expressions must have a single argument");
-                checkState(getOnlyElement(call.getArguments()) instanceof CallExpression, "try call expression argument must be a call expression");
-                if (context.isInLambda()) {
-                    throw new PrestoException(StandardErrorCode.NOT_SUPPORTED, "Try expression inside lambda expression is not support yet");
-                }
-            }
-
             for (RowExpression rowExpression : call.getArguments()) {
                 rowExpression.accept(this, context);
             }
 
-            if (isTry) {
-                lambdaAndTryExpressions.add(getOnlyElement(call.getArguments()));
-            }
             return null;
         }
 

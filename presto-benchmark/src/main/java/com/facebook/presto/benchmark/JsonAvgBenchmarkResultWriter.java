@@ -14,11 +14,11 @@
 package com.facebook.presto.benchmark;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Throwables;
 import io.airlift.json.JsonCodec;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.UncheckedIOException;
 import java.util.Map;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -86,7 +86,7 @@ public class JsonAvgBenchmarkResultWriter
             outputStream.write(json.getBytes(UTF_8));
         }
         catch (IOException e) {
-            throw Throwables.propagate(e);
+            throw new UncheckedIOException(e);
         }
     }
 

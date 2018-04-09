@@ -16,6 +16,8 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.metadata.SqlScalarFunctionBuilder.MethodsGroup;
 import com.facebook.presto.metadata.SqlScalarFunctionBuilder.SpecializeContext;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
+import com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty;
+import com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -29,6 +31,8 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.metadata.SignatureBinder.applyBoundVariables;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_BOXED_TYPE;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_NULL_FLAG;
 import static com.facebook.presto.type.TypeUtils.resolveTypes;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -42,8 +46,7 @@ class PolymorphicScalarFunction
     private final boolean hidden;
     private final boolean deterministic;
     private final boolean nullableResult;
-    private final List<Boolean> nullableArguments;
-    private final List<Boolean> nullFlags;
+    private final List<ArgumentProperty> argumentProperties;
     private final List<MethodsGroup> methodsGroups;
 
     PolymorphicScalarFunction(
@@ -52,8 +55,7 @@ class PolymorphicScalarFunction
             boolean hidden,
             boolean deterministic,
             boolean nullableResult,
-            List<Boolean> nullableArguments,
-            List<Boolean> nullFlags,
+            List<ArgumentProperty> argumentProperties,
             List<MethodsGroup> methodsGroups)
     {
         super(signature);
@@ -62,8 +64,7 @@ class PolymorphicScalarFunction
         this.hidden = hidden;
         this.deterministic = deterministic;
         this.nullableResult = nullableResult;
-        this.nullableArguments = requireNonNull(nullableArguments, "nullableArguments is null");
-        this.nullFlags = requireNonNull(nullFlags, "nullFlags is null");
+        this.argumentProperties = requireNonNull(argumentProperties, "argumentProperties is null");
         this.methodsGroups = requireNonNull(methodsGroups, "methodsWithExtraParametersFunctions is null");
     }
 
@@ -120,8 +121,7 @@ class PolymorphicScalarFunction
 
         return new ScalarFunctionImplementation(
                 nullableResult,
-                nullableArguments,
-                nullFlags,
+                argumentProperties,
                 matchingMethodHandle,
                 deterministic);
     }
@@ -133,11 +133,12 @@ class PolymorphicScalarFunction
 
         Class<?>[] methodParameterJavaTypes = method.getParameterTypes();
         for (int i = 0, methodParameterIndex = 0; i < resolvedTypes.size(); i++) {
-            Class<?> type = getNullAwareContainerType(resolvedTypes.get(i).getJavaType(), nullableArguments.get(i) && !nullFlags.get(i));
+            NullConvention nullConvention = argumentProperties.get(i).getNullConvention();
+            Class<?> type = getNullAwareContainerType(resolvedTypes.get(i).getJavaType(), nullConvention == USE_BOXED_TYPE);
             if (!methodParameterJavaTypes[methodParameterIndex].equals(type)) {
                 return false;
             }
-            methodParameterIndex += nullFlags.get(i) ? 2 : 1;
+            methodParameterIndex += nullConvention == USE_NULL_FLAG ? 2 : 1;
         }
         return method.getReturnType().equals(getNullAwareContainerType(returnType.getJavaType(), nullableResult));
     }
@@ -159,13 +160,9 @@ class PolymorphicScalarFunction
 
     private int getNullFlagsCount()
     {
-        int count = 0;
-        for (boolean flag : nullFlags) {
-            if (flag) {
-                count++;
-            }
-        }
-        return count;
+        return (int) argumentProperties.stream()
+                .filter(argumentProperty -> argumentProperty.getNullConvention() == USE_NULL_FLAG)
+                .count();
     }
 
     private MethodHandle applyExtraParameters(Method matchingMethod, List<Object> extraParameters)

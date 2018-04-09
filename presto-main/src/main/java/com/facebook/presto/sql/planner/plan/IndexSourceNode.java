@@ -42,7 +42,7 @@ public class IndexSourceNode
     private final Set<Symbol> lookupSymbols;
     private final List<Symbol> outputSymbols;
     private final Map<Symbol, ColumnHandle> assignments; // symbol -> column
-    private final TupleDomain<ColumnHandle> effectiveTupleDomain; // general summary of how the output columns will be constrained
+    private final TupleDomain<ColumnHandle> currentConstraint; // constraint over the input data the operator will guarantee
 
     @JsonCreator
     public IndexSourceNode(
@@ -53,7 +53,7 @@ public class IndexSourceNode
             @JsonProperty("lookupSymbols") Set<Symbol> lookupSymbols,
             @JsonProperty("outputSymbols") List<Symbol> outputSymbols,
             @JsonProperty("assignments") Map<Symbol, ColumnHandle> assignments,
-            @JsonProperty("effectiveTupleDomain") TupleDomain<ColumnHandle> effectiveTupleDomain)
+            @JsonProperty("currentConstraint") TupleDomain<ColumnHandle> currentConstraint)
     {
         super(id);
         this.indexHandle = requireNonNull(indexHandle, "indexHandle is null");
@@ -62,16 +62,11 @@ public class IndexSourceNode
         this.lookupSymbols = ImmutableSet.copyOf(requireNonNull(lookupSymbols, "lookupSymbols is null"));
         this.outputSymbols = ImmutableList.copyOf(requireNonNull(outputSymbols, "outputSymbols is null"));
         this.assignments = ImmutableMap.copyOf(requireNonNull(assignments, "assignments is null"));
-        this.effectiveTupleDomain = requireNonNull(effectiveTupleDomain, "effectiveTupleDomain is null");
+        this.currentConstraint = requireNonNull(currentConstraint, "effectiveTupleDomain is null");
         checkArgument(!lookupSymbols.isEmpty(), "lookupSymbols is empty");
         checkArgument(!outputSymbols.isEmpty(), "outputSymbols is empty");
         checkArgument(assignments.keySet().containsAll(lookupSymbols), "Assignments do not include all lookup symbols");
         checkArgument(outputSymbols.containsAll(lookupSymbols), "Lookup symbols need to be part of the output symbols");
-        Set<ColumnHandle> assignedColumnHandles = ImmutableSet.copyOf(assignments.values());
-        effectiveTupleDomain.getDomains().ifPresent(handleToDomain ->
-                checkArgument(
-                        assignedColumnHandles.containsAll(handleToDomain.keySet()),
-                        "Tuple domain handles must have assigned symbols"));
     }
 
     @JsonProperty
@@ -112,9 +107,9 @@ public class IndexSourceNode
     }
 
     @JsonProperty
-    public TupleDomain<ColumnHandle> getEffectiveTupleDomain()
+    public TupleDomain<ColumnHandle> getCurrentConstraint()
     {
-        return effectiveTupleDomain;
+        return currentConstraint;
     }
 
     @Override

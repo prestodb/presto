@@ -1,0 +1,50 @@
+{
+  "rowCount" : 200000,
+  "columns" : {
+    "p_partkey" : {
+      "distinctValuesCount" : 200000,
+      "min" : 1,
+      "max" : 200000
+    },
+    "p_name" : {
+      "distinctValuesCount" : 199997,
+      "min" : "almond antique blue royal burnished",
+      "max" : "yellow white seashell lavender black"
+    },
+    "p_mfgr" : {
+      "distinctValuesCount" : 5,
+      "min" : "Manufacturer#1",
+      "max" : "Manufacturer#5"
+    },
+    "p_brand" : {
+      "distinctValuesCount" : 25,
+      "min" : "Brand#11",
+      "max" : "Brand#55"
+    },
+    "p_type" : {
+      "distinctValuesCount" : 150,
+      "min" : "ECONOMY ANODIZED BRASS",
+      "max" : "STANDARD POLISHED TIN"
+    },
+    "p_size" : {
+      "distinctValuesCount" : 50,
+      "min" : 1,
+      "max" : 50
+    },
+    "p_container" : {
+      "distinctValuesCount" : 40,
+      "min" : "JUMBO BAG",
+      "max" : "WRAP PKG"
+    },
+    "p_retailprice" : {
+      "distinctValuesCount" : 20899,
+      "min" : 901.0,
+      "max" : 2098.99
+    },
+    "p_comment" : {
+      "distinctValuesCount" : 131753,
+      "min" : " Tire",
+      "max" : "zzle. quickly si"
+    }
+  }
+}

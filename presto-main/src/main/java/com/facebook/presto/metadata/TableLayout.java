@@ -69,10 +69,10 @@ public class TableLayout
         return handle;
     }
 
-    public Optional<NodePartitioning> getNodePartitioning()
+    public Optional<TablePartitioning> getTablePartitioning()
     {
-        return layout.getNodePartitioning()
-                .map(nodePartitioning -> new NodePartitioning(
+        return layout.getTablePartitioning()
+                .map(nodePartitioning -> new TablePartitioning(
                         new PartitioningHandle(
                                 Optional.of(handle.getConnectorId()),
                                 Optional.of(handle.getTransactionHandle()),
@@ -80,7 +80,7 @@ public class TableLayout
                         nodePartitioning.getPartitioningColumns()));
     }
 
-    public Optional<Set<ColumnHandle>> getPartitioningColumns()
+    public Optional<Set<ColumnHandle>> getStreamPartitioningColumns()
     {
         return layout.getStreamPartitioningColumns();
     }
@@ -95,12 +95,12 @@ public class TableLayout
         return new TableLayout(new TableLayoutHandle(connectorId, transactionHandle, layout.getHandle()), layout);
     }
 
-    public static class NodePartitioning
+    public static class TablePartitioning
     {
         private final PartitioningHandle partitioningHandle;
         private final List<ColumnHandle> partitioningColumns;
 
-        public NodePartitioning(PartitioningHandle partitioningHandle, List<ColumnHandle> partitioningColumns)
+        public TablePartitioning(PartitioningHandle partitioningHandle, List<ColumnHandle> partitioningColumns)
         {
             this.partitioningHandle = requireNonNull(partitioningHandle, "partitioningHandle is null");
             this.partitioningColumns = ImmutableList.copyOf(requireNonNull(partitioningColumns, "partitioningColumns is null"));
@@ -125,7 +125,7 @@ public class TableLayout
             if (o == null || getClass() != o.getClass()) {
                 return false;
             }
-            NodePartitioning that = (NodePartitioning) o;
+            TablePartitioning that = (TablePartitioning) o;
             return Objects.equals(partitioningHandle, that.partitioningHandle) &&
                     Objects.equals(partitioningColumns, that.partitioningColumns);
         }

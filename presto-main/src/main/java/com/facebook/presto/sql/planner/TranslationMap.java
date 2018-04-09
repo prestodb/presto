@@ -258,12 +258,14 @@ class TranslationMap
             @Override
             public Expression rewriteDereferenceExpression(DereferenceExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
-                Optional<ResolvedField> resolvedField = rewriteBase.getScope().tryResolveField(node);
-                if (resolvedField.isPresent()) {
-                    if (resolvedField.get().isLocal()) {
-                        return getSymbol(rewriteBase, node)
-                                .map(symbol -> coerceIfNecessary(node, symbol.toSymbolReference()))
-                                .orElseThrow(() -> new IllegalStateException("No symbol mapping for node " + node));
+                if (analysis.isColumnReference(node)) {
+                    Optional<ResolvedField> resolvedField = rewriteBase.getScope().tryResolveField(node);
+                    if (resolvedField.isPresent()) {
+                        if (resolvedField.get().isLocal()) {
+                            return getSymbol(rewriteBase, node)
+                                    .map(symbol -> coerceIfNecessary(node, symbol.toSymbolReference()))
+                                    .orElseThrow(() -> new IllegalStateException("No symbol mapping for node " + node));
+                        }
                     }
                     // do not rewrite outer references, it will be handled in outer scope planner
                     return node;
@@ -279,7 +281,7 @@ class TranslationMap
                 ImmutableList.Builder<LambdaArgumentDeclaration> newArguments = ImmutableList.builder();
                 for (LambdaArgumentDeclaration argument : node.getArguments()) {
                     Symbol symbol = lambdaDeclarationToSymbolMap.get(NodeRef.of(argument));
-                    newArguments.add(new LambdaArgumentDeclaration(symbol.getName()));
+                    newArguments.add(new LambdaArgumentDeclaration(new Identifier(symbol.getName())));
                 }
                 Expression rewrittenBody = treeRewriter.rewrite(node.getBody(), null);
                 return new LambdaExpression(newArguments.build(), rewrittenBody);
@@ -300,11 +302,16 @@ class TranslationMap
         }, expression, null);
     }
 
-    Optional<Symbol> getSymbol(RelationPlan plan, Expression expression)
+    private Optional<Symbol> getSymbol(RelationPlan plan, Expression expression)
     {
+        if (!analysis.isColumnReference(expression)) {
+            // Expression can be a reference to lambda argument (or DereferenceExpression based on lambda argument reference).
+            // In such case, the expression might still be resolvable with plan.getScope() but we should not resolve it.
+            return Optional.empty();
+        }
         return plan.getScope()
                 .tryResolveField(expression)
                 .filter(ResolvedField::isLocal)
-                .map(field -> plan.getFieldMappings().get(field.getHierarchyFieldIndex()));
+                .map(field -> requireNonNull(plan.getFieldMappings().get(field.getHierarchyFieldIndex())));
     }
 }

@@ -250,7 +250,8 @@ class SubqueryPlanner
                         subPlan.getRoot(),
                         subqueryNode,
                         ImmutableList.copyOf(SymbolsExtractor.extractUnique(correlation.values())),
-                        LateralJoinNode.Type.INNER),
+                        LateralJoinNode.Type.INNER,
+                        query),
                 analysis.getParameters());
     }
 
@@ -447,7 +448,8 @@ class SubqueryPlanner
                         root,
                         subqueryNode,
                         subqueryAssignments,
-                        ImmutableList.copyOf(SymbolsExtractor.extractUnique(correlation.values()))),
+                        ImmutableList.copyOf(SymbolsExtractor.extractUnique(correlation.values())),
+                        subquery),
                 analysis.getParameters());
     }
 

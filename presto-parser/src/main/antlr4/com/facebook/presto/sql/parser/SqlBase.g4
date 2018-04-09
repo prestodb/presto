@@ -31,17 +31,17 @@ statement
     | USE schema=identifier                                            #use
     | USE catalog=identifier '.' schema=identifier                     #use
     | CREATE SCHEMA (IF NOT EXISTS)? qualifiedName
-        (WITH tableProperties)?                                        #createSchema
+        (WITH properties)?                                             #createSchema
     | DROP SCHEMA (IF EXISTS)? qualifiedName (CASCADE | RESTRICT)?     #dropSchema
     | ALTER SCHEMA qualifiedName RENAME TO identifier                  #renameSchema
     | CREATE TABLE (IF NOT EXISTS)? qualifiedName columnAliases?
         (COMMENT string)?
-        (WITH tableProperties)? AS (query | '('query')')
+        (WITH properties)? AS (query | '('query')')
         (WITH (NO)? DATA)?                                             #createTableAsSelect
     | CREATE TABLE (IF NOT EXISTS)? qualifiedName
         '(' tableElement (',' tableElement)* ')'
          (COMMENT string)?
-         (WITH tableProperties)?                                       #createTable
+         (WITH properties)?                                            #createTable
     | DROP TABLE (IF EXISTS)? qualifiedName                            #dropTable
     | INSERT INTO qualifiedName columnAliases? query                   #insertInto
     | DELETE FROM qualifiedName (WHERE booleanExpression)?             #delete
@@ -69,8 +69,10 @@ statement
         ('(' explainOption (',' explainOption)* ')')? statement        #explain
     | SHOW CREATE TABLE qualifiedName                                  #showCreateTable
     | SHOW CREATE VIEW qualifiedName                                   #showCreateView
-    | SHOW TABLES ((FROM | IN) qualifiedName)? (LIKE pattern=string)?  #showTables
-    | SHOW SCHEMAS ((FROM | IN) identifier)? (LIKE pattern=string)?    #showSchemas
+    | SHOW TABLES ((FROM | IN) qualifiedName)?
+        (LIKE pattern=string (ESCAPE escape=string)?)?                 #showTables
+    | SHOW SCHEMAS ((FROM | IN) identifier)?
+        (LIKE pattern=string (ESCAPE escape=string)?)?                 #showSchemas
     | SHOW CATALOGS (LIKE pattern=string)?                             #showCatalogs
     | SHOW COLUMNS (FROM | IN) qualifiedName                           #showColumns
     | SHOW STATS (FOR | ON) qualifiedName                              #showStats
@@ -116,11 +118,11 @@ likeClause
     : LIKE qualifiedName (optionType=(INCLUDING | EXCLUDING) PROPERTIES)?
     ;
 
-tableProperties
-    : '(' tableProperty (',' tableProperty)* ')'
+properties
+    : '(' property (',' property)* ')'
     ;
 
-tableProperty
+property
     : identifier EQ expression
     ;
 
@@ -291,9 +293,10 @@ primaryExpression
     | '(' expression (',' expression)+ ')'                                                #rowConstructor
     | ROW '(' expression (',' expression)* ')'                                            #rowConstructor
     | qualifiedName '(' ASTERISK ')' filter? over?                                        #functionCall
-    | qualifiedName '(' (setQuantifier? expression (',' expression)*)? ')' filter? over?  #functionCall
+    | qualifiedName '(' (setQuantifier? expression (',' expression)*)?
+        (ORDER BY sortItem (',' sortItem)*)? ')' filter? over?                             #functionCall
     | identifier '->' expression                                                          #lambda
-    | '(' identifier (',' identifier)* ')' '->' expression                                #lambda
+    | '(' (identifier (',' identifier)*)? ')' '->' expression                             #lambda
     | '(' query ')'                                                                       #subqueryExpression
     // This is an extension to ANSI SQL, which considers EXISTS to be a <boolean expression>
     | EXISTS '(' query ')'                                                                #exists
@@ -357,6 +360,7 @@ type
     | MAP '<' type ',' type '>'
     | ROW '(' identifier type (',' identifier type)* ')'
     | baseType ('(' typeParameter (',' typeParameter)* ')')?
+    | INTERVAL from=intervalField TO to=intervalField
     ;
 
 typeParameter
@@ -433,18 +437,15 @@ qualifiedName
 
 identifier
     : IDENTIFIER             #unquotedIdentifier
-    | quotedIdentifier       #quotedIdentifierAlternative
+    | QUOTED_IDENTIFIER      #quotedIdentifier
     | nonReserved            #unquotedIdentifier
     | BACKQUOTED_IDENTIFIER  #backQuotedIdentifier
     | DIGIT_IDENTIFIER       #digitIdentifier
     ;
 
-quotedIdentifier
-    : QUOTED_IDENTIFIER
-    ;
-
 number
     : DECIMAL_VALUE  #decimalLiteral
+    | DOUBLE_VALUE   #doubleLiteral
     | INTEGER_VALUE  #integerLiteral
     ;
 
@@ -692,7 +693,10 @@ INTEGER_VALUE
 DECIMAL_VALUE
     : DIGIT+ '.' DIGIT*
     | '.' DIGIT+
-    | DIGIT+ ('.' DIGIT*)? EXPONENT
+    ;
+
+DOUBLE_VALUE
+    : DIGIT+ ('.' DIGIT*)? EXPONENT
     | '.' DIGIT+ EXPONENT
     ;
 

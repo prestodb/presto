@@ -36,7 +36,6 @@ public class HiveOutputTableHandle
 
     @JsonCreator
     public HiveOutputTableHandle(
-            @JsonProperty("clientId") String clientId,
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("inputColumns") List<HiveColumnHandle> inputColumns,
@@ -51,7 +50,6 @@ public class HiveOutputTableHandle
             @JsonProperty("additionalTableParameters") Map<String, String> additionalTableParameters)
     {
         super(
-                clientId,
                 schemaName,
                 tableName,
                 inputColumns,

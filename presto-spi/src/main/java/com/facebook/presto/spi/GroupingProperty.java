@@ -40,6 +40,12 @@ public final class GroupingProperty<E>
         this.columns = Collections.unmodifiableSet(new HashSet<>(columns));
     }
 
+    @Override
+    public boolean isOrderSensitive()
+    {
+        return true;
+    }
+
     @JsonProperty
     public Set<E> getColumns()
     {

@@ -29,14 +29,16 @@ import com.facebook.presto.sql.tree.Table;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
-import org.skife.jdbi.v2.DBI;
-import org.skife.jdbi.v2.Handle;
+import org.jdbi.v3.core.Handle;
+import org.jdbi.v3.core.Jdbi;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static com.facebook.presto.sql.QueryUtil.identifier;
 import static com.facebook.presto.verifier.QueryType.READ;
+import static com.facebook.presto.verifier.VerifyCommand.statementToQueryType;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -52,10 +54,10 @@ public class TestShadowing
 
     public TestShadowing()
     {
-        handle = DBI.open(URL);
+        handle = Jdbi.open(URL);
     }
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void close()
     {
         handle.close();
@@ -67,7 +69,7 @@ public class TestShadowing
     {
         handle.execute("CREATE TABLE \"my_test_table\" (column1 BIGINT, column2 DOUBLE)");
         SqlParser parser = new SqlParser();
-        Query query = new Query(CATALOG, SCHEMA, ImmutableList.of(), "CREATE TABLE my_test_table AS SELECT 1 column1, CAST(2.0 AS DOUBLE) column2 LIMIT 1", ImmutableList.of(), null, null, ImmutableMap.of());
+        Query query = new Query(CATALOG, SCHEMA, ImmutableList.of(), "CREATE TABLE my_test_table AS SELECT 1 column1, CAST('2.0' AS DOUBLE) column2 LIMIT 1", ImmutableList.of(), null, null, ImmutableMap.of());
         QueryRewriter rewriter = new QueryRewriter(parser, URL, QualifiedName.of("tmp_"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), 1, new Duration(10, SECONDS));
         Query rewrittenQuery = rewriter.shadowQuery(query);
         assertEquals(rewrittenQuery.getPreQueries().size(), 1);
@@ -78,11 +80,11 @@ public class TestShadowing
         assertTrue(createTableAs.getName().getSuffix().startsWith("tmp_"));
         assertFalse(createTableAs.getName().getSuffix().contains("my_test_table"));
 
-        assertEquals(PrestoVerifier.statementToQueryType(parser, rewrittenQuery.getQuery()), READ);
+        assertEquals(statementToQueryType(parser, rewrittenQuery.getQuery()), READ);
 
         Table table = new Table(createTableAs.getName());
-        SingleColumn column1 = new SingleColumn(new FunctionCall(QualifiedName.of("checksum"), ImmutableList.of(new Identifier("column1"))));
-        SingleColumn column2 = new SingleColumn(new FunctionCall(QualifiedName.of("checksum"), ImmutableList.of(new FunctionCall(QualifiedName.of("round"), ImmutableList.of(new Identifier("column2"), new LongLiteral("1"))))));
+        SingleColumn column1 = new SingleColumn(new FunctionCall(QualifiedName.of("checksum"), ImmutableList.of(new Identifier("COLUMN1"))));
+        SingleColumn column2 = new SingleColumn(new FunctionCall(QualifiedName.of("checksum"), ImmutableList.of(new FunctionCall(QualifiedName.of("round"), ImmutableList.of(new Identifier("COLUMN2"), new LongLiteral("1"))))));
         Select select = new Select(false, ImmutableList.of(column1, column2));
         QuerySpecification querySpecification = new QuerySpecification(select, Optional.of(table), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
         assertEquals(parser.createStatement(rewrittenQuery.getQuery()), new com.facebook.presto.sql.tree.Query(Optional.empty(), querySpecification, Optional.empty(), Optional.empty()));
@@ -96,7 +98,7 @@ public class TestShadowing
     {
         handle.execute("CREATE TABLE \"my_test_table2\" (column1 BIGINT, column2 DOUBLE)");
         SqlParser parser = new SqlParser();
-        Query query = new Query(CATALOG, SCHEMA, ImmutableList.of(), "CREATE TABLE public.my_test_table2 AS SELECT 1 column1, 2.0 column2", ImmutableList.of(), null, null, ImmutableMap.of());
+        Query query = new Query(CATALOG, SCHEMA, ImmutableList.of(), "CREATE TABLE public.my_test_table2 AS SELECT 1 column1, 2E0 column2", ImmutableList.of(), null, null, ImmutableMap.of());
         QueryRewriter rewriter = new QueryRewriter(parser, URL, QualifiedName.of("other_catalog", "other_schema", "tmp_"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), 1, new Duration(10, SECONDS));
         Query rewrittenQuery = rewriter.shadowQuery(query);
         assertEquals(rewrittenQuery.getPreQueries().size(), 1);
@@ -126,7 +128,7 @@ public class TestShadowing
 
         Insert insert = (Insert) parser.createStatement(rewrittenQuery.getPreQueries().get(1));
         assertEquals(insert.getTarget(), createTable.getName());
-        assertEquals(insert.getColumns(), Optional.of(ImmutableList.of("b", "a", "c")));
+        assertEquals(insert.getColumns(), Optional.of(ImmutableList.of(identifier("b"), identifier("a"), identifier("c"))));
 
         Table table = new Table(createTable.getName());
         SingleColumn columnA = new SingleColumn(new FunctionCall(QualifiedName.of("checksum"), ImmutableList.of(new Identifier("A"))));

@@ -26,19 +26,19 @@ public class DropColumn
         extends Statement
 {
     private final QualifiedName table;
-    private final String column;
+    private final Identifier column;
 
-    public DropColumn(QualifiedName table, String column)
+    public DropColumn(QualifiedName table, Identifier column)
     {
         this(Optional.empty(), table, column);
     }
 
-    public DropColumn(NodeLocation location, QualifiedName table, String column)
+    public DropColumn(NodeLocation location, QualifiedName table, Identifier column)
     {
         this(Optional.of(location), table, column);
     }
 
-    private DropColumn(Optional<NodeLocation> location, QualifiedName table, String column)
+    private DropColumn(Optional<NodeLocation> location, QualifiedName table, Identifier column)
     {
         super(location);
         this.table = requireNonNull(table, "table is null");
@@ -50,7 +50,7 @@ public class DropColumn
         return table;
     }
 
-    public String getColumn()
+    public Identifier getColumn()
     {
         return column;
     }

@@ -14,31 +14,28 @@
 
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 
-import java.util.Optional;
+import static com.facebook.presto.sql.planner.plan.Patterns.applyNode;
 
 public class RemoveUnreferencedScalarApplyNodes
-        implements Rule
+        implements Rule<ApplyNode>
 {
-    private static final Pattern PATTERN = Pattern.typeOf(ApplyNode.class);
+    private static final Pattern<ApplyNode> PATTERN = applyNode()
+            .matching(applyNode -> applyNode.getSubqueryAssignments().isEmpty());
 
     @Override
-    public Pattern getPattern()
+    public Pattern<ApplyNode> getPattern()
     {
         return PATTERN;
     }
 
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Context context)
+    public Result apply(ApplyNode applyNode, Captures captures, Context context)
     {
-        ApplyNode applyNode = (ApplyNode) node;
-        if (applyNode.getSubqueryAssignments().isEmpty()) {
-            return Optional.of(applyNode.getInput());
-        }
-        return Optional.empty();
+        return Result.ofPlanNode(applyNode.getInput());
     }
 }

@@ -21,7 +21,8 @@ import java.io.File;
 import java.util.UUID;
 
 import static com.google.common.io.Files.createTempDir;
-import static io.airlift.testing.FileUtils.deleteRecursively;
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 
@@ -30,7 +31,6 @@ public class TestFileBackupStore
 {
     @BeforeClass
     public void setup()
-            throws Exception
     {
         temporary = createTempDir();
         store = new FileBackupStore(new File(temporary, "backup"));
@@ -41,7 +41,7 @@ public class TestFileBackupStore
     public void tearDown()
             throws Exception
     {
-        deleteRecursively(temporary);
+        deleteRecursively(temporary.toPath(), ALLOW_INSECURE);
     }
 
     @Test

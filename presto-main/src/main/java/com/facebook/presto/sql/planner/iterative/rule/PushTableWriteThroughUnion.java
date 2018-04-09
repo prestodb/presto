@@ -13,6 +13,10 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.Session;
+import com.facebook.presto.matching.Capture;
+import com.facebook.presto.matching.Captures;
+import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -21,47 +25,49 @@ import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 
-import java.util.Optional;
-
 import static com.facebook.presto.SystemSessionProperties.isPushTableWriteThroughUnion;
+import static com.facebook.presto.matching.Capture.newCapture;
+import static com.facebook.presto.sql.planner.plan.Patterns.source;
+import static com.facebook.presto.sql.planner.plan.Patterns.tableWriterNode;
+import static com.facebook.presto.sql.planner.plan.Patterns.union;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class PushTableWriteThroughUnion
-        implements Rule
+        implements Rule<TableWriterNode>
 {
-    @Override
-    public Optional<PlanNode> apply(PlanNode node, Context context)
-    {
-        if (!isPushTableWriteThroughUnion(context.getSession())) {
-            return Optional.empty();
-        }
+    private static final Capture<UnionNode> CHILD = newCapture();
 
-        if (!(node instanceof TableWriterNode)) {
-            return Optional.empty();
-        }
-
-        TableWriterNode tableWriterNode = (TableWriterNode) node;
-        if (tableWriterNode.getPartitioningScheme().isPresent()) {
+    private static final Pattern<TableWriterNode> PATTERN = tableWriterNode()
             // The primary incentive of this optimizer is to increase the parallelism for table
             // write. For a table with partitioning scheme, parallelism for table writing is
             // guaranteed regardless of this optimizer. The level of local parallelism will be
             // determined by LocalExecutionPlanner separately, and shouldn't be a concern of
             // this optimizer.
-            return Optional.empty();
-        }
+            .matching(tableWriter -> !tableWriter.getPartitioningScheme().isPresent())
+            .with(source().matching(union().capturedAs(CHILD)));
 
-        PlanNode child = context.getLookup().resolve(tableWriterNode.getSource());
-        if (!(child instanceof UnionNode)) {
-            return Optional.empty();
-        }
+    @Override
+    public Pattern<TableWriterNode> getPattern()
+    {
+        return PATTERN;
+    }
 
-        UnionNode unionNode = (UnionNode) child;
+    @Override
+    public boolean isEnabled(Session session)
+    {
+        return isPushTableWriteThroughUnion(session);
+    }
+
+    @Override
+    public Result apply(TableWriterNode tableWriterNode, Captures captures, Context context)
+    {
+        UnionNode unionNode = captures.get(CHILD);
         ImmutableList.Builder<PlanNode> rewrittenSources = ImmutableList.builder();
         ImmutableListMultimap.Builder<Symbol, Symbol> mappings = ImmutableListMultimap.builder();
         for (int i = 0; i < unionNode.getSources().size(); i++) {
             int index = i;
             ImmutableList.Builder<Symbol> newSymbols = ImmutableList.builder();
-            for (Symbol outputSymbol : node.getOutputSymbols()) {
+            for (Symbol outputSymbol : tableWriterNode.getOutputSymbols()) {
                 Symbol newSymbol = context.getSymbolAllocator().newSymbol(outputSymbol);
                 newSymbols.add(newSymbol);
                 mappings.put(outputSymbol, newSymbol);
@@ -78,6 +84,6 @@ public class PushTableWriteThroughUnion
                     tableWriterNode.getPartitioningScheme()));
         }
 
-        return Optional.of(new UnionNode(context.getIdAllocator().getNextId(), rewrittenSources.build(), mappings.build(), ImmutableList.copyOf(mappings.build().keySet())));
+        return Result.ofPlanNode(new UnionNode(context.getIdAllocator().getNextId(), rewrittenSources.build(), mappings.build(), ImmutableList.copyOf(mappings.build().keySet())));
     }
 }

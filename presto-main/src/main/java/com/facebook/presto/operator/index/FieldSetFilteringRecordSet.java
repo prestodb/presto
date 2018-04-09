@@ -108,12 +108,6 @@ public class FieldSetFilteringRecordSet
         }
 
         @Override
-        public long getTotalBytes()
-        {
-            return delegate.getTotalBytes();
-        }
-
-        @Override
         public long getCompletedBytes()
         {
             return delegate.getCompletedBytes();

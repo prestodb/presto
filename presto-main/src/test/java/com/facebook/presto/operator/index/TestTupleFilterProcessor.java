@@ -13,9 +13,11 @@
  */
 package com.facebook.presto.operator.index;
 
+import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.gen.PageFunctionCompiler;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -37,7 +39,6 @@ public class TestTupleFilterProcessor
 {
     @Test
     public void testFilter()
-            throws Exception
     {
         Page tuplePage = Iterables.getOnlyElement(rowPagesBuilder(BIGINT, VARCHAR, DOUBLE)
                 .row(1L, "a", 0.1)
@@ -58,9 +59,9 @@ public class TestTupleFilterProcessor
                 new int[] {0, 1, 2},
                 new int[] {1, 0, 3},
                 outputTypes,
-                createTestMetadataManager());
+                new PageFunctionCompiler(createTestMetadataManager(), 0));
         PageProcessor tupleFilterProcessor = filterFactory.createPageProcessor(tuplePage).get();
-        Page actualPage = getOnlyElement(tupleFilterProcessor.process(SESSION, inputPage));
+        Page actualPage = getOnlyElement(tupleFilterProcessor.process(SESSION, new DriverYieldSignal(), inputPage)).orElseThrow(() -> new AssertionError("page is not present"));
 
         Page expectedPage = Iterables.getOnlyElement(rowPagesBuilder(outputTypes)
                 .row("a", 1L, true, 0.1, 0.0)

@@ -86,7 +86,6 @@ public class TestServer
 
     @Test
     public void testInvalidSessionError()
-            throws Exception
     {
         String invalidTimeZone = "this_is_an_invalid_time_zone";
         Request request = preparePost().setHeader(PRESTO_USER, "user")
@@ -111,7 +110,6 @@ public class TestServer
 
     @Test
     public void testServerStarts()
-            throws Exception
     {
         StatusResponseHandler.StatusResponse response = client.execute(
                 prepareGet().setUri(server.resolve("/v1/query")).build(),
@@ -122,7 +120,6 @@ public class TestServer
 
     @Test
     public void testQuery()
-            throws Exception
     {
         // start query
         Request request = preparePost()
@@ -179,7 +176,6 @@ public class TestServer
 
     @Test
     public void testTransactionSupport()
-            throws Exception
     {
         Request request = preparePost()
                 .setUri(uriFor("/v1/statement"))
@@ -207,7 +203,6 @@ public class TestServer
 
     @Test
     public void testNoTransactionSupport()
-            throws Exception
     {
         Request request = preparePost()
                 .setUri(uriFor("/v1/statement"))

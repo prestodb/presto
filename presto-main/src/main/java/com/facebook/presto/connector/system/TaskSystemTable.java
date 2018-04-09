@@ -71,6 +71,8 @@ public class TaskSystemTable
             .column("output_bytes", BIGINT)
             .column("output_rows", BIGINT)
 
+            .column("physical_written_bytes", BIGINT)
+
             .column("created", TIMESTAMP)
             .column("start", TIMESTAMP)
             .column("last_heartbeat", TIMESTAMP)
@@ -132,6 +134,8 @@ public class TaskSystemTable
 
                     toBytes(stats.getOutputDataSize()),
                     stats.getOutputPositions(),
+
+                    toBytes(stats.getPhysicalWrittenDataSize()),
 
                     toTimeStamp(stats.getCreateTime()),
                     toTimeStamp(stats.getFirstStartTime()),

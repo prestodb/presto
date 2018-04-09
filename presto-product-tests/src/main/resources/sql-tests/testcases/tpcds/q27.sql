@@ -1,5 +1,4 @@
--- database: presto_tpcds; groups: tpcds, quarantine; requires: com.teradata.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
---- quarantined as grouping is not yet supported, see https://github.com/prestodb/presto/pull/6704
+-- database: presto_tpcds; groups: tpcds; requires: io.prestodb.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
 SELECT
   "i_item_id"
 , "s_state"
@@ -32,4 +31,3 @@ WHERE ("ss_sold_date_sk" = "d_date_sk")
 GROUP BY ROLLUP (i_item_id, s_state)
 ORDER BY "i_item_id" ASC, "s_state" ASC
 LIMIT 100
-;

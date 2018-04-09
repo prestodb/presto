@@ -13,19 +13,19 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.bytecode.BytecodeNode;
-import com.facebook.presto.bytecode.MethodGenerationContext;
-import com.facebook.presto.bytecode.expression.BytecodeExpression;
-import com.facebook.presto.bytecode.instruction.InvokeInstruction;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+import io.airlift.bytecode.BytecodeNode;
+import io.airlift.bytecode.MethodGenerationContext;
+import io.airlift.bytecode.expression.BytecodeExpression;
+import io.airlift.bytecode.instruction.InvokeInstruction;
 import io.airlift.slice.Slice;
 
 import java.lang.reflect.Method;
 import java.util.List;
 
-import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static com.facebook.presto.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
+import static io.airlift.bytecode.ParameterizedType.type;
 import static java.util.Objects.requireNonNull;
 
 public class SqlTypeBytecodeExpression

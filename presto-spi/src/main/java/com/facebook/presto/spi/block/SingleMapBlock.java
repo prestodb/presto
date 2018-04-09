@@ -26,6 +26,7 @@ import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.block.AbstractMapBlock.HASH_MULTIPLIER;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.SizeOf.sizeOfIntArray;
+import static java.lang.String.format;
 
 public class SingleMapBlock
         extends AbstractSingleMapBlock
@@ -43,8 +44,6 @@ public class SingleMapBlock
 
     SingleMapBlock(int offset, int positionCount, Block keyBlock, Block valueBlock, int[] hashTable, Type keyType, MethodHandle keyNativeHashCode, MethodHandle keyBlockNativeEquals)
     {
-        super(offset, keyBlock, valueBlock);
-
         this.offset = offset;
         this.positionCount = positionCount;
         this.keyBlock = keyBlock;
@@ -90,19 +89,28 @@ public class SingleMapBlock
         return new SingleMapBlockEncoding(keyType, keyNativeHashCode, keyBlockNativeEquals, keyBlock.getEncoding(), valueBlock.getEncoding());
     }
 
+    @Override
     public int getOffset()
     {
         return offset;
     }
 
+    @Override
     Block getKeyBlock()
     {
         return keyBlock;
     }
 
+    @Override
     Block getValueBlock()
     {
         return valueBlock;
+    }
+
+    @Override
+    public String toString()
+    {
+        return format("SingleMapBlock{positionCount=%d}", getPositionCount());
     }
 
     int[] getHashTable()

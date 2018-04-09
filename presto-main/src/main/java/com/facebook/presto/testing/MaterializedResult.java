@@ -37,11 +37,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slices;
-import org.joda.time.DateTimeZone;
 
-import java.sql.Date;
-import java.sql.Time;
-import java.sql.Timestamp;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.OffsetTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
@@ -52,7 +54,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -73,9 +75,12 @@ import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.Float.floatToRawIntBits;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class MaterializedResult
         implements Iterable<MaterializedRow>
@@ -189,12 +194,16 @@ public class MaterializedResult
                 .toString();
     }
 
-    public Set<String> getOnlyColumnAsSet()
+    public Stream<Object> getOnlyColumn()
     {
         checkState(types.size() == 1, "result set must have exactly one column");
         return rows.stream()
-                .map(row -> (String) row.getField(0))
-                .collect(toImmutableSet());
+                .map(row -> row.getField(0));
+    }
+
+    public Set<Object> getOnlyColumnAsSet()
+    {
+        return getOnlyColumn().collect(toImmutableSet());
     }
 
     public Object getOnlyValue()
@@ -315,14 +324,15 @@ public class MaterializedResult
         }
     }
 
-    public MaterializedResult toJdbcTypes()
+    /**
+     * Converts this {@link MaterializedResult} to a new one, representing the data using the same type domain as returned by {@code TestingPrestoClient}.
+     */
+    public MaterializedResult toTestTypes()
     {
-        ImmutableList.Builder<MaterializedRow> jdbcRows = ImmutableList.builder();
-        for (MaterializedRow row : rows) {
-            jdbcRows.add(convertToJdbcTypes(row));
-        }
         return new MaterializedResult(
-                jdbcRows.build(),
+                rows.stream()
+                        .map(MaterializedResult::convertToTestTypes)
+                        .collect(toImmutableList()),
                 types,
                 setSessionProperties,
                 resetSessionProperties,
@@ -330,61 +340,55 @@ public class MaterializedResult
                 updateCount);
     }
 
-    private static MaterializedRow convertToJdbcTypes(MaterializedRow prestoRow)
+    private static MaterializedRow convertToTestTypes(MaterializedRow prestoRow)
     {
-        List<Object> jdbcValues = new ArrayList<>();
+        List<Object> convertedValues = new ArrayList<>();
         for (int field = 0; field < prestoRow.getFieldCount(); field++) {
             Object prestoValue = prestoRow.getField(field);
-            Object jdbcValue;
+            Object convertedValue;
             if (prestoValue instanceof SqlDate) {
-                int days = ((SqlDate) prestoValue).getDays();
-                jdbcValue = new Date(TimeUnit.DAYS.toMillis(days));
+                convertedValue = LocalDate.ofEpochDay(((SqlDate) prestoValue).getDays());
             }
             else if (prestoValue instanceof SqlTime) {
-                jdbcValue = new Time(((SqlTime) prestoValue).getMillisUtc());
+                convertedValue = LocalTime.ofNanoOfDay(MILLISECONDS.toNanos(((SqlTime) prestoValue).getMillisUtc()));
             }
             else if (prestoValue instanceof SqlTimeWithTimeZone) {
-                jdbcValue = new Time(((SqlTimeWithTimeZone) prestoValue).getMillisUtc());
+                // Political timezone cannot be represented in OffsetTime and there isn't any better representation.
+                long millisUtc = ((SqlTimeWithTimeZone) prestoValue).getMillisUtc();
+                ZoneOffset zone = toZoneOffset(((SqlTimeWithTimeZone) prestoValue).getTimeZoneKey());
+                convertedValue = OffsetTime.of(
+                        LocalTime.ofNanoOfDay(MILLISECONDS.toNanos(millisUtc) + SECONDS.toNanos(zone.getTotalSeconds())),
+                        zone);
             }
             else if (prestoValue instanceof SqlTimestamp) {
-                jdbcValue = new Timestamp(((SqlTimestamp) prestoValue).getMillisUtc());
+                convertedValue = Instant.ofEpochMilli(((SqlTimestamp) prestoValue).getMillisUtc())
+                        .atZone(ZoneOffset.UTC)
+                        .toLocalDateTime();
             }
             else if (prestoValue instanceof SqlTimestampWithTimeZone) {
-                jdbcValue = new Timestamp(((SqlTimestampWithTimeZone) prestoValue).getMillisUtc());
+                convertedValue = Instant.ofEpochMilli(((SqlTimestampWithTimeZone) prestoValue).getMillisUtc())
+                        .atZone(ZoneId.of(((SqlTimestampWithTimeZone) prestoValue).getTimeZoneKey().getId()));
             }
             else if (prestoValue instanceof SqlDecimal) {
-                jdbcValue = ((SqlDecimal) prestoValue).toBigDecimal();
+                convertedValue = ((SqlDecimal) prestoValue).toBigDecimal();
             }
             else {
-                jdbcValue = prestoValue;
+                convertedValue = prestoValue;
             }
-            jdbcValues.add(jdbcValue);
+            convertedValues.add(convertedValue);
         }
-        return new MaterializedRow(prestoRow.getPrecision(), jdbcValues);
+        return new MaterializedRow(prestoRow.getPrecision(), convertedValues);
     }
 
-    public MaterializedResult toTimeZone(DateTimeZone oldTimeZone, DateTimeZone newTimeZone)
+    private static ZoneOffset toZoneOffset(TimeZoneKey timeZoneKey)
     {
-        ImmutableList.Builder<MaterializedRow> jdbcRows = ImmutableList.builder();
-        for (MaterializedRow row : rows) {
-            jdbcRows.add(toTimeZone(row, oldTimeZone, newTimeZone));
+        requireNonNull(timeZoneKey, "timeZoneKey is null");
+        if (Objects.equals("UTC", timeZoneKey.getId())) {
+            return ZoneOffset.UTC;
         }
-        return new MaterializedResult(jdbcRows.build(), types);
-    }
 
-    private static MaterializedRow toTimeZone(MaterializedRow prestoRow, DateTimeZone oldTimeZone, DateTimeZone newTimeZone)
-    {
-        List<Object> values = new ArrayList<>();
-        for (int field = 0; field < prestoRow.getFieldCount(); field++) {
-            Object value = prestoRow.getField(field);
-            if (value instanceof Date) {
-                long oldMillis = ((Date) value).getTime();
-                long newMillis = oldTimeZone.getMillisKeepLocal(newTimeZone, oldMillis);
-                value = new Date(newMillis);
-            }
-            values.add(value);
-        }
-        return new MaterializedRow(prestoRow.getPrecision(), values);
+        checkArgument(timeZoneKey.getId().matches("[+-]\\d\\d:\\d\\d"), "Not a zone-offset timezone: %s", timeZoneKey);
+        return ZoneOffset.of(timeZoneKey.getId());
     }
 
     public static MaterializedResult materializeSourceDataStream(Session session, ConnectorPageSource pageSource, List<Type> types)

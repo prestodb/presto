@@ -40,7 +40,7 @@ import java.util.function.Function;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.Chars.isCharType;
-import static com.facebook.presto.spi.type.Chars.trimSpacesAndTruncateToLength;
+import static com.facebook.presto.spi.type.Chars.truncateToLengthAndTrimSpaces;
 import static com.facebook.presto.spi.type.Decimals.encodeUnscaledValue;
 import static com.facebook.presto.spi.type.Decimals.isLongDecimal;
 import static com.facebook.presto.spi.type.Decimals.isShortDecimal;
@@ -217,7 +217,7 @@ public class TupleDomainOrcPredicate<C>
             return createDomain(type, hasNullValue, columnStatistics.getDecimalStatistics(), value -> encodeUnscaledValue(rescale(value, (DecimalType) type).unscaledValue()));
         }
         else if (isCharType(type) && columnStatistics.getStringStatistics() != null) {
-            return createDomain(type, hasNullValue, columnStatistics.getStringStatistics(), value -> trimSpacesAndTruncateToLength(value, type));
+            return createDomain(type, hasNullValue, columnStatistics.getStringStatistics(), value -> truncateToLengthAndTrimSpaces(value, type));
         }
         else if (isVarcharType(type) && columnStatistics.getStringStatistics() != null) {
             return createDomain(type, hasNullValue, columnStatistics.getStringStatistics());

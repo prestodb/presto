@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.rcfile;
 
-import com.google.common.base.Throwables;
 import org.apache.hadoop.io.compress.CompressionCodec;
 import org.apache.hadoop.io.compress.CompressionOutputStream;
 import org.apache.hadoop.io.compress.Compressor;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
@@ -60,10 +60,10 @@ public class AircompressorCompressor
                 compressor.reset();
                 compressedOutput.reset();
                 CompressionOutputStream compressionStream = codec.createOutputStream(compressedOutput, compressor);
-                return new CompressedSliceOutput(compressionStream, compressedOutput, this, () -> { });
+                return new CompressedSliceOutput(compressionStream, compressedOutput, this, () -> {});
             }
             catch (IOException e) {
-                throw Throwables.propagate(e);
+                throw new UncheckedIOException(e);
             }
         }
     }

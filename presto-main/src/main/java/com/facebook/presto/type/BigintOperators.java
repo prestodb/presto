@@ -48,7 +48,6 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
-import static java.lang.String.valueOf;
 
 public final class BigintOperators
 {
@@ -264,7 +263,7 @@ public final class BigintOperators
     public static Slice castToVarchar(@SqlType(StandardTypes.BIGINT) long value)
     {
         // todo optimize me
-        return utf8Slice(valueOf(value));
+        return utf8Slice(String.valueOf(value));
     }
 
     @ScalarOperator(HASH_CODE)

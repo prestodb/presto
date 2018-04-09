@@ -20,6 +20,7 @@ import com.facebook.presto.operator.BlockedReason;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.PipelineStats;
 import com.facebook.presto.operator.TaskStats;
+import com.facebook.presto.spi.eventlistener.StageGcStatistics;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.util.Failures;
 import com.google.common.collect.ImmutableList;
@@ -54,8 +55,10 @@ import static com.facebook.presto.execution.StageState.TERMINAL_STAGE_STATES;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.airlift.units.Duration.succinctDuration;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 @ThreadSafe
 public class StageStateMachine
@@ -76,8 +79,8 @@ public class StageStateMachine
     private final Distribution scheduleTaskDistribution = new Distribution();
     private final Distribution addSplitDistribution = new Distribution();
 
-    private final AtomicLong peakMemory = new AtomicLong();
-    private final AtomicLong currentMemory = new AtomicLong();
+    private final AtomicLong peakUserMemory = new AtomicLong();
+    private final AtomicLong currentUserMemory = new AtomicLong();
 
     public StageStateMachine(
             StageId stageId,
@@ -178,21 +181,16 @@ public class StageStateMachine
         return failed;
     }
 
-    public long getPeakMemoryInBytes()
+    public long getUserMemoryReservation()
     {
-        return peakMemory.get();
+        return currentUserMemory.get();
     }
 
-    public long getMemoryReservation()
+    public void updateMemoryUsage(long deltaUserMemoryInBytes)
     {
-        return currentMemory.get();
-    }
-
-    public void updateMemoryUsage(long deltaMemoryInBytes)
-    {
-        long currentMemoryValue = currentMemory.addAndGet(deltaMemoryInBytes);
-        if (currentMemoryValue > peakMemory.get()) {
-            peakMemory.updateAndGet(x -> currentMemoryValue > x ? currentMemoryValue : x);
+        long currentMemoryValue = currentUserMemory.addAndGet(deltaUserMemoryInBytes);
+        if (currentMemoryValue > peakUserMemory.get()) {
+            peakUserMemory.updateAndGet(x -> currentMemoryValue > x ? currentMemoryValue : x);
         }
     }
 
@@ -217,9 +215,9 @@ public class StageStateMachine
         int blockedDrivers = 0;
         int completedDrivers = 0;
 
-        long cumulativeMemory = 0;
-        long totalMemoryReservation = 0;
-        long peakMemoryReservation = getPeakMemoryInBytes();
+        long cumulativeUserMemory = 0;
+        long userMemoryReservation = 0;
+        long peakUserMemoryReservation = peakUserMemory.get();
 
         long totalScheduledTime = 0;
         long totalCpuTime = 0;
@@ -235,6 +233,14 @@ public class StageStateMachine
         long bufferedDataSize = 0;
         long outputDataSize = 0;
         long outputPositions = 0;
+
+        long physicalWrittenDataSize = 0;
+
+        int fullGcCount = 0;
+        int fullGcTaskCount = 0;
+        int minFullGcSec = 0;
+        int maxFullGcSec = 0;
+        int totalFullGcSec = 0;
 
         boolean fullyBlocked = true;
         Set<BlockedReason> blockedReasons = new HashSet<>();
@@ -257,8 +263,8 @@ public class StageStateMachine
             blockedDrivers += taskStats.getBlockedDrivers();
             completedDrivers += taskStats.getCompletedDrivers();
 
-            cumulativeMemory += taskStats.getCumulativeMemory();
-            totalMemoryReservation += taskStats.getMemoryReservation().toBytes();
+            cumulativeUserMemory += taskStats.getCumulativeUserMemory();
+            userMemoryReservation += taskStats.getUserMemoryReservation().toBytes();
 
             totalScheduledTime += taskStats.getTotalScheduledTime().roundTo(NANOSECONDS);
             totalCpuTime += taskStats.getTotalCpuTime().roundTo(NANOSECONDS);
@@ -278,6 +284,16 @@ public class StageStateMachine
             bufferedDataSize += taskInfo.getOutputBuffers().getTotalBufferedBytes();
             outputDataSize += taskStats.getOutputDataSize().toBytes();
             outputPositions += taskStats.getOutputPositions();
+
+            physicalWrittenDataSize += taskStats.getPhysicalWrittenDataSize().toBytes();
+
+            fullGcCount += taskStats.getFullGcCount();
+            fullGcTaskCount += taskStats.getFullGcCount() > 0 ? 1 : 0;
+
+            int gcSec = toIntExact(taskStats.getFullGcTime().roundTo(SECONDS));
+            totalFullGcSec += gcSec;
+            minFullGcSec = Math.min(minFullGcSec, gcSec);
+            maxFullGcSec = Math.max(maxFullGcSec, gcSec);
 
             for (PipelineStats pipeline : taskStats.getPipelines()) {
                 for (OperatorStats operatorStats : pipeline.getOperatorSummaries()) {
@@ -303,9 +319,9 @@ public class StageStateMachine
                 blockedDrivers,
                 completedDrivers,
 
-                cumulativeMemory,
-                succinctBytes(totalMemoryReservation),
-                succinctBytes(peakMemoryReservation),
+                cumulativeUserMemory,
+                succinctBytes(userMemoryReservation),
+                succinctBytes(peakUserMemoryReservation),
                 succinctDuration(totalScheduledTime, NANOSECONDS),
                 succinctDuration(totalCpuTime, NANOSECONDS),
                 succinctDuration(totalUserTime, NANOSECONDS),
@@ -320,6 +336,17 @@ public class StageStateMachine
                 succinctBytes(bufferedDataSize),
                 succinctBytes(outputDataSize),
                 outputPositions,
+                succinctBytes(physicalWrittenDataSize),
+
+                new StageGcStatistics(
+                        stageId.getId(),
+                        totalTasks,
+                        fullGcTaskCount,
+                        minFullGcSec,
+                        maxFullGcSec,
+                        totalFullGcSec,
+                        (int) (1.0 * totalFullGcSec / fullGcCount)),
+
                 ImmutableList.copyOf(operatorToStats.values()));
 
         ExecutionFailureInfo failureInfo = null;

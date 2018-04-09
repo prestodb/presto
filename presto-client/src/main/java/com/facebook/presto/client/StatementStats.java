@@ -16,9 +16,9 @@ package com.facebook.presto.client;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
-import javax.validation.constraints.NotNull;
 
 import java.util.OptionalDouble;
 
@@ -40,8 +40,11 @@ public class StatementStats
     private final long userTimeMillis;
     private final long cpuTimeMillis;
     private final long wallTimeMillis;
+    private final long queuedTimeMillis;
+    private final long elapsedTimeMillis;
     private final long processedRows;
     private final long processedBytes;
+    private final long peakMemoryBytes;
     private final StageStats rootStage;
 
     @JsonCreator
@@ -57,8 +60,11 @@ public class StatementStats
             @JsonProperty("userTimeMillis") long userTimeMillis,
             @JsonProperty("cpuTimeMillis") long cpuTimeMillis,
             @JsonProperty("wallTimeMillis") long wallTimeMillis,
+            @JsonProperty("queuedTimeMillis") long queuedTimeMillis,
+            @JsonProperty("elapsedTimeMillis") long elapsedTimeMillis,
             @JsonProperty("processedRows") long processedRows,
             @JsonProperty("processedBytes") long processedBytes,
+            @JsonProperty("peakMemoryBytes") long peakMemoryBytes,
             @JsonProperty("rootStage") StageStats rootStage)
     {
         this.state = requireNonNull(state, "state is null");
@@ -72,12 +78,15 @@ public class StatementStats
         this.userTimeMillis = userTimeMillis;
         this.cpuTimeMillis = cpuTimeMillis;
         this.wallTimeMillis = wallTimeMillis;
+        this.queuedTimeMillis = queuedTimeMillis;
+        this.elapsedTimeMillis = elapsedTimeMillis;
         this.processedRows = processedRows;
         this.processedBytes = processedBytes;
+        this.peakMemoryBytes = peakMemoryBytes;
         this.rootStage = rootStage;
     }
 
-    @NotNull
+    @Nonnull
     @JsonProperty
     public String getState()
     {
@@ -145,6 +154,18 @@ public class StatementStats
     }
 
     @JsonProperty
+    public long getQueuedTimeMillis()
+    {
+        return queuedTimeMillis;
+    }
+
+    @JsonProperty
+    public long getElapsedTimeMillis()
+    {
+        return elapsedTimeMillis;
+    }
+
+    @JsonProperty
     public long getProcessedRows()
     {
         return processedRows;
@@ -154,6 +175,12 @@ public class StatementStats
     public long getProcessedBytes()
     {
         return processedBytes;
+    }
+
+    @JsonProperty
+    public long getPeakMemoryBytes()
+    {
+        return peakMemoryBytes;
     }
 
     @Nullable
@@ -187,8 +214,11 @@ public class StatementStats
                 .add("userTimeMillis", userTimeMillis)
                 .add("cpuTimeMillis", cpuTimeMillis)
                 .add("wallTimeMillis", wallTimeMillis)
+                .add("queuedTimeMillis", queuedTimeMillis)
+                .add("elapsedTimeMillis", elapsedTimeMillis)
                 .add("processedRows", processedRows)
                 .add("processedBytes", processedBytes)
+                .add("peakMemoryBytes", peakMemoryBytes)
                 .add("rootStage", rootStage)
                 .toString();
     }
@@ -211,8 +241,11 @@ public class StatementStats
         private long userTimeMillis;
         private long cpuTimeMillis;
         private long wallTimeMillis;
+        private long queuedTimeMillis;
+        private long elapsedTimeMillis;
         private long processedRows;
         private long processedBytes;
+        private long peakMemoryBytes;
         private StageStats rootStage;
 
         private Builder() {}
@@ -283,6 +316,18 @@ public class StatementStats
             return this;
         }
 
+        public Builder setQueuedTimeMillis(long queuedTimeMillis)
+        {
+            this.queuedTimeMillis = queuedTimeMillis;
+            return this;
+        }
+
+        public Builder setElapsedTimeMillis(long elapsedTimeMillis)
+        {
+            this.elapsedTimeMillis = elapsedTimeMillis;
+            return this;
+        }
+
         public Builder setProcessedRows(long processedRows)
         {
             this.processedRows = processedRows;
@@ -292,6 +337,12 @@ public class StatementStats
         public Builder setProcessedBytes(long processedBytes)
         {
             this.processedBytes = processedBytes;
+            return this;
+        }
+
+        public Builder setPeakMemoryBytes(long peakMemoryBytes)
+        {
+            this.peakMemoryBytes = peakMemoryBytes;
             return this;
         }
 
@@ -315,8 +366,11 @@ public class StatementStats
                     userTimeMillis,
                     cpuTimeMillis,
                     wallTimeMillis,
+                    queuedTimeMillis,
+                    elapsedTimeMillis,
                     processedRows,
                     processedBytes,
+                    peakMemoryBytes,
                     rootStage);
         }
     }

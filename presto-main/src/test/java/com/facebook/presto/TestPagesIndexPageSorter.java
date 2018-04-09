@@ -36,11 +36,10 @@ import static org.testng.Assert.assertEquals;
 
 public class TestPagesIndexPageSorter
 {
-    private static final PagesIndexPageSorter sorter = new PagesIndexPageSorter(new PagesIndex.TestingFactory());
+    private static final PagesIndexPageSorter sorter = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
 
     @Test
     public void testPageSorter()
-            throws Exception
     {
         List<Type> types = ImmutableList.of(BIGINT, DOUBLE, VARCHAR);
         List<Integer> sortChannels = Ints.asList(0);
@@ -67,7 +66,6 @@ public class TestPagesIndexPageSorter
 
     @Test
     public void testPageSorterMultipleChannels()
-            throws Exception
     {
         List<Type> types = ImmutableList.of(BIGINT, DOUBLE, VARCHAR);
         List<Integer> sortChannels = Ints.asList(0, 1, 2);
@@ -99,7 +97,6 @@ public class TestPagesIndexPageSorter
 
     @Test
     public void testPageSorterSorted()
-            throws Exception
     {
         List<Type> types = ImmutableList.of(BIGINT, DOUBLE, VARCHAR);
         List<Integer> sortChannels = Ints.asList(0);
@@ -125,7 +122,6 @@ public class TestPagesIndexPageSorter
 
     @Test
     public void testPageSorterForceExpansion()
-            throws Exception
     {
         List<Type> types = ImmutableList.of(BIGINT, DOUBLE, VARCHAR);
         List<Integer> sortChannels = Ints.asList(0);

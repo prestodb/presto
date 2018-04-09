@@ -44,7 +44,7 @@ public final class ArrayUnionFunction
     {
         int leftArrayCount = leftArray.getPositionCount();
         int rightArrayCount = rightArray.getPositionCount();
-        TypedSet typedSet = new TypedSet(type, leftArrayCount + rightArrayCount);
+        TypedSet typedSet = new TypedSet(type, leftArrayCount + rightArrayCount, "array_union");
         BlockBuilder distinctElementBlockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), leftArrayCount + rightArrayCount);
         appendTypedArray(leftArray, type, typedSet, distinctElementBlockBuilder);
         appendTypedArray(rightArray, type, typedSet, distinctElementBlockBuilder);

@@ -99,7 +99,7 @@ public class GroupIdOperator
         }
 
         @Override
-        public void close()
+        public void noMoreOperators()
         {
             closed = true;
         }
@@ -117,8 +117,8 @@ public class GroupIdOperator
     private final Block[] nullBlocks;
     private final Block[] groupIdBlocks;
 
-    private Page currentPage = null;
-    private int currentGroupingSet = 0;
+    private Page currentPage;
+    private int currentGroupingSet;
     private boolean finishing;
 
     public GroupIdOperator(

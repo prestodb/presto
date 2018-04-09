@@ -27,6 +27,8 @@ import io.airlift.slice.Slice;
 import java.lang.invoke.MethodHandle;
 
 import static com.facebook.presto.metadata.Signature.typeVariable;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.function.OperatorType.SUBSCRIPT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
@@ -83,7 +85,13 @@ public class ArraySubscriptOperator
         }
         methodHandle = methodHandle.bindTo(elementType);
         requireNonNull(methodHandle, "methodHandle is null");
-        return new ScalarFunctionImplementation(true, ImmutableList.of(false, false), methodHandle, isDeterministic());
+        return new ScalarFunctionImplementation(
+                true,
+                ImmutableList.of(
+                        valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
+                        valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
+                methodHandle,
+                isDeterministic());
     }
 
     @UsedByGeneratedCode

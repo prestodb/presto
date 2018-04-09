@@ -15,25 +15,21 @@ package com.facebook.presto.sql.planner.iterative.rule.test;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
+import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.iterative.RuleSet;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableMap;
 
 import java.io.Closeable;
-import java.util.Optional;
-import java.util.Set;
+import java.util.List;
+import java.util.Map;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
-import static com.google.common.collect.Iterables.getOnlyElement;
-import static java.util.Optional.empty;
-import static java.util.stream.Collectors.toSet;
+import static java.util.Collections.emptyList;
 
 public class RuleTester
         implements Closeable
@@ -42,7 +38,6 @@ public class RuleTester
     public static final ConnectorId CONNECTOR_ID = new ConnectorId(CATALOG_ID);
 
     private final Metadata metadata;
-    private final CostCalculator costCalculator;
     private final Session session;
     private final LocalQueryRunner queryRunner;
     private final TransactionManager transactionManager;
@@ -50,31 +45,41 @@ public class RuleTester
 
     public RuleTester()
     {
-        session = testSessionBuilder()
+        this(emptyList());
+    }
+
+    public RuleTester(List<Plugin> plugins)
+    {
+        this(plugins, ImmutableMap.of());
+    }
+
+    public RuleTester(List<Plugin> plugins, Map<String, String> properties)
+    {
+        Session.SessionBuilder sessionBuilder = testSessionBuilder()
                 .setCatalog(CATALOG_ID)
                 .setSchema("tiny")
-                .setSystemProperty("task_concurrency", "1") // these tests don't handle exchanges from local parallel
-                .build();
+                .setSystemProperty("task_concurrency", "1"); // these tests don't handle exchanges from local parallel
+
+        for (Map.Entry<String, String> entry : properties.entrySet()) {
+            sessionBuilder.setSystemProperty(entry.getKey(), entry.getValue());
+        }
+
+        session = sessionBuilder.build();
 
         queryRunner = new LocalQueryRunner(session);
         queryRunner.createCatalog(session.getCatalog().get(),
                 new TpchConnectorFactory(1),
                 ImmutableMap.of());
+        plugins.stream().forEach(queryRunner::installPlugin);
 
         this.metadata = queryRunner.getMetadata();
-        this.costCalculator = queryRunner.getCostCalculator();
         this.transactionManager = queryRunner.getTransactionManager();
         this.accessControl = queryRunner.getAccessControl();
     }
 
     public RuleAssert assertThat(Rule rule)
     {
-        return new RuleAssert(metadata, costCalculator, session, rule, transactionManager, accessControl);
-    }
-
-    public RuleAssert assertThat(RuleSet rules)
-    {
-        return assertThat(new RuleSetAdapter(rules));
+        return new RuleAssert(metadata, queryRunner.getStatsCalculator(), queryRunner.getEstimatedExchangesCostCalculator(), session, rule, transactionManager, accessControl);
     }
 
     @Override
@@ -83,25 +88,13 @@ public class RuleTester
         queryRunner.close();
     }
 
-    private class RuleSetAdapter
-            implements Rule
+    public Metadata getMetadata()
     {
-        private final RuleSet ruleSet;
+        return metadata;
+    }
 
-        RuleSetAdapter(RuleSet ruleSet)
-        {
-            this.ruleSet = ruleSet;
-        }
-
-        @Override
-        public Optional<PlanNode> apply(PlanNode node, Context context)
-        {
-            Set<Rule> matching = ruleSet.rules().stream().filter(rule -> rule.getPattern().matches(node)).collect(toSet());
-            if (matching.size() == 0) {
-                return empty();
-            }
-
-            return getOnlyElement(matching).apply(node, context);
-        }
+    public ConnectorId getCurrentConnectorId()
+    {
+        return queryRunner.inTransaction(transactionSession -> metadata.getCatalogHandle(transactionSession, session.getCatalog().get())).get();
     }
 }

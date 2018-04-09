@@ -24,6 +24,7 @@ import java.util.Arrays;
 import java.util.function.BiConsumer;
 
 import static com.facebook.presto.spi.block.BlockUtil.calculateBlockResetSize;
+import static com.facebook.presto.spi.block.MapBlock.createMapBlockInternal;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -34,11 +35,10 @@ public class MapBlockBuilder
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(MapBlockBuilder.class).instanceSize();
 
-    private final boolean useNewMapBlock;
     private final MethodHandle keyBlockHashCode;
 
     @Nullable
-    private BlockBuilderStatus blockBuilderStatus;
+    private final BlockBuilderStatus blockBuilderStatus;
 
     private int positionCount;
     private int[] offsets;
@@ -50,7 +50,6 @@ public class MapBlockBuilder
     private boolean currentEntryOpened;
 
     public MapBlockBuilder(
-            boolean useNewMapBlock,
             Type keyType,
             Type valueType,
             MethodHandle keyBlockNativeEquals,
@@ -60,7 +59,6 @@ public class MapBlockBuilder
             int expectedEntries)
     {
         this(
-                useNewMapBlock,
                 keyType,
                 keyBlockNativeEquals,
                 keyNativeHashCode,
@@ -74,7 +72,6 @@ public class MapBlockBuilder
     }
 
     private MapBlockBuilder(
-            boolean useNewMapBlock,
             Type keyType,
             MethodHandle keyBlockNativeEquals,
             MethodHandle keyNativeHashCode,
@@ -88,15 +85,7 @@ public class MapBlockBuilder
     {
         super(keyType, keyNativeHashCode, keyBlockNativeEquals);
 
-        this.useNewMapBlock = useNewMapBlock;
-        if (useNewMapBlock) {
-            requireNonNull(keyBlockHashCode, "keyBlockHashCode is null");
-        }
-        else {
-            if (keyBlockHashCode != null) {
-                throw new IllegalArgumentException("When useNewMapBlock is false, keyBlockHashCode should be null.");
-            }
-        }
+        requireNonNull(keyBlockHashCode, "keyBlockHashCode is null");
         this.keyBlockHashCode = keyBlockHashCode;
         this.blockBuilderStatus = blockBuilderStatus;
 
@@ -208,7 +197,7 @@ public class MapBlockBuilder
             hashTables = Arrays.copyOf(hashTables, newSize);
             Arrays.fill(hashTables, oldSize, hashTables.length, -1);
         }
-        buildHashTable(useNewMapBlock, keyBlockBuilder, previousAggregatedEntryCount, entryCount, keyBlockHashCode, hashTables, previousAggregatedEntryCount * HASH_MULTIPLIER, entryCount * HASH_MULTIPLIER);
+        buildHashTable(keyBlockBuilder, previousAggregatedEntryCount, entryCount, keyBlockHashCode, hashTables, previousAggregatedEntryCount * HASH_MULTIPLIER, entryCount * HASH_MULTIPLIER);
         if (blockBuilderStatus != null) {
             blockBuilderStatus.addBytes(entryCount * HASH_MULTIPLIER * Integer.BYTES);
         }
@@ -252,7 +241,7 @@ public class MapBlockBuilder
         if (currentEntryOpened) {
             throw new IllegalStateException("Current entry must be closed before the block can be built");
         }
-        return new MapBlock(
+        return createMapBlockInternal(
                 0,
                 positionCount,
                 mapIsNull,
@@ -261,8 +250,7 @@ public class MapBlockBuilder
                 valueBlockBuilder.build(),
                 Arrays.copyOf(hashTables, offsets[positionCount] * HASH_MULTIPLIER),
                 keyType,
-                keyBlockNativeEquals, keyNativeHashCode
-        );
+                keyBlockNativeEquals, keyNativeHashCode);
     }
 
     @Override
@@ -310,7 +298,6 @@ public class MapBlockBuilder
     {
         int newSize = calculateBlockResetSize(getPositionCount());
         return new MapBlockBuilder(
-                useNewMapBlock,
                 keyType,
                 keyBlockNativeEquals,
                 keyNativeHashCode,
@@ -330,12 +317,8 @@ public class MapBlockBuilder
         return hashTable;
     }
 
-    static void buildHashTable(boolean useNewMapBlock, Block keyBlock, int keyOffset, int keyCount, MethodHandle keyBlockHashCode, int[] outputHashTable, int hashTableOffset, int hashTableSize)
+    static void buildHashTable(Block keyBlock, int keyOffset, int keyCount, MethodHandle keyBlockHashCode, int[] outputHashTable, int hashTableOffset, int hashTableSize)
     {
-        if (!useNewMapBlock) {
-            return;
-        }
-
         // This method assumes that keyBlock has no duplicated entries (in the specified range)
         for (int i = 0; i < keyCount; i++) {
             if (keyBlock.isNull(keyOffset + i)) {

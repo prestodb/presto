@@ -1,0 +1,161 @@
+{
+  "rowCount" : 30,
+  "columns" : {
+    "web_site_sk" : {
+      "distinctValuesCount" : 30,
+      "nullsCount" : 0,
+      "min" : 1,
+      "max" : 30
+    },
+    "web_site_id" : {
+      "distinctValuesCount" : 15,
+      "nullsCount" : 0,
+      "min" : "AAAAAAAAABAAAAAA",
+      "max" : "AAAAAAAAOAAAAAAA"
+    },
+    "web_rec_start_date" : {
+      "distinctValuesCount" : 4,
+      "nullsCount" : 0,
+      "min" : 10089,
+      "max" : 11550
+    },
+    "web_rec_end_date" : {
+      "distinctValuesCount" : 3,
+      "nullsCount" : 15,
+      "min" : 10819,
+      "max" : 11549
+    },
+    "web_name" : {
+      "distinctValuesCount" : 5,
+      "nullsCount" : 0,
+      "min" : "site_0",
+      "max" : "site_4"
+    },
+    "web_open_date_sk" : {
+      "distinctValuesCount" : 15,
+      "nullsCount" : 0,
+      "min" : 2450577,
+      "max" : 2450807
+    },
+    "web_close_date_sk" : {
+      "distinctValuesCount" : 10,
+      "nullsCount" : 5,
+      "min" : 2446944,
+      "max" : 2448956
+    },
+    "web_class" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "Unknown",
+      "max" : "Unknown"
+    },
+    "web_manager" : {
+      "distinctValuesCount" : 22,
+      "nullsCount" : 0,
+      "min" : "Adam Stonge",
+      "max" : "William Carter"
+    },
+    "web_mkt_id" : {
+      "distinctValuesCount" : 6,
+      "nullsCount" : 0,
+      "min" : 1,
+      "max" : 6
+    },
+    "web_mkt_class" : {
+      "distinctValuesCount" : 22,
+      "nullsCount" : 0,
+      "min" : "About rural reasons shall no",
+      "max" : "Wide, final representat"
+    },
+    "web_mkt_desc" : {
+      "distinctValuesCount" : 18,
+      "nullsCount" : 0,
+      "min" : "Acres see else children. Mutual too",
+      "max" : "Well similar decisions used to keep hardly democratic, personal priorities."
+    },
+    "web_market_manager" : {
+      "distinctValuesCount" : 25,
+      "nullsCount" : 0,
+      "min" : "Albert Leung",
+      "max" : "Zachery Oneil"
+    },
+    "web_company_id" : {
+      "distinctValuesCount" : 6,
+      "nullsCount" : 0,
+      "min" : 1,
+      "max" : 6
+    },
+    "web_company_name" : {
+      "distinctValuesCount" : 6,
+      "nullsCount" : 0,
+      "min" : "able",
+      "max" : "pri"
+    },
+    "web_street_number" : {
+      "distinctValuesCount" : 18,
+      "nullsCount" : 0,
+      "min" : "184",
+      "max" : "973"
+    },
+    "web_street_name" : {
+      "distinctValuesCount" : 30,
+      "nullsCount" : 0,
+      "min" : "11th ",
+      "max" : "Wilson Ridge"
+    },
+    "web_street_type" : {
+      "distinctValuesCount" : 15,
+      "nullsCount" : 0,
+      "min" : "Avenue",
+      "max" : "Wy"
+    },
+    "web_suite_number" : {
+      "distinctValuesCount" : 23,
+      "nullsCount" : 0,
+      "min" : "Suite 100",
+      "max" : "Suite U"
+    },
+    "web_city" : {
+      "distinctValuesCount" : 2,
+      "nullsCount" : 0,
+      "min" : "Fairview",
+      "max" : "Midway"
+    },
+    "web_county" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "Williamson County",
+      "max" : "Williamson County"
+    },
+    "web_state" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "TN",
+      "max" : "TN"
+    },
+    "web_zip" : {
+      "distinctValuesCount" : 2,
+      "nullsCount" : 0,
+      "min" : "31904",
+      "max" : "35709"
+    },
+    "web_country" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "United States",
+      "max" : "United States"
+    },
+    "web_gmt_offset" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : -500,
+      "max" : -500
+    },
+    "web_tax_percentage" : {
+      "distinctValuesCount" : 10,
+      "nullsCount" : 0,
+      "min" : 0,
+      "max" : 12
+    }
+  }
+}

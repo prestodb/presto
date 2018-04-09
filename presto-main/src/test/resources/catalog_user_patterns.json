@@ -1,0 +1,11 @@
+{
+  "catalog": [
+    {
+      "allow": true
+    }
+  ],
+  "user_patterns": [
+    "(.*)",
+    "([a-zA-Z]+)/?.*@.*"
+  ]
+}

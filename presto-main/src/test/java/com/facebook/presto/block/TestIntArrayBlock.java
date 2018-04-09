@@ -16,7 +16,6 @@ package com.facebook.presto.block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.IntArrayBlockBuilder;
-import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
@@ -37,16 +36,14 @@ public class TestIntArrayBlock
 
     @Test
     public void testCopyPositions()
-            throws Exception
     {
         Slice[] expectedValues = (Slice[]) alternatingNullValues(createTestValue(17));
         BlockBuilder blockBuilder = createBlockBuilderWithValues(expectedValues);
-        assertBlockFilteredPositions(expectedValues, blockBuilder.build(), Ints.asList(0, 2, 4, 6, 7, 9, 10, 16));
+        assertBlockFilteredPositions(expectedValues, blockBuilder.build(), 0, 2, 4, 6, 7, 9, 10, 16);
     }
 
     @Test
     public void testLazyBlockBuilderInitialization()
-            throws Exception
     {
         Slice[] expectedValues = createTestValue(100);
         BlockBuilder emptyBlockBuilder = new IntArrayBlockBuilder(new BlockBuilderStatus(), 0);

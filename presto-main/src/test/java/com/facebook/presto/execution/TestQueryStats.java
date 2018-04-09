@@ -13,6 +13,11 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.operator.FilterAndProjectOperator;
+import com.facebook.presto.operator.OperatorStats;
+import com.facebook.presto.operator.TableWriterOperator;
+import com.facebook.presto.spi.eventlistener.StageGcStatistics;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
@@ -21,13 +26,109 @@ import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 import org.testng.annotations.Test;
 
+import java.util.List;
+import java.util.Optional;
+
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.airlift.units.DataSize.succinctBytes;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
 
 public class TestQueryStats
 {
+    public static final List<OperatorStats> operatorSummaries = ImmutableList.of(
+            new OperatorStats(
+                    1,
+                    1,
+                    new PlanNodeId("1"),
+                    TableWriterOperator.class.getSimpleName(),
+                    0L,
+                    0L,
+                    new Duration(1, NANOSECONDS),
+                    new Duration(1, NANOSECONDS),
+                    new Duration(1, NANOSECONDS),
+                    succinctBytes(500L),
+                    100L,
+                    1.0,
+                    0L,
+                    new Duration(1, NANOSECONDS),
+                    new Duration(1, NANOSECONDS),
+                    new Duration(1, NANOSECONDS),
+                    succinctBytes(1L),
+                    1L,
+                    succinctBytes(1L),
+                    new Duration(1, NANOSECONDS),
+                    0L,
+                    new Duration(1, NANOSECONDS),
+                    new Duration(1, NANOSECONDS),
+                    new Duration(1, NANOSECONDS),
+                    succinctBytes(1L),
+                    succinctBytes(1L),
+                    succinctBytes(1L),
+                    Optional.empty(),
+                    null),
+            new OperatorStats(
+                    1,
+                    1,
+                    new PlanNodeId("2"),
+                    FilterAndProjectOperator.class.getSimpleName(),
+                    0L,
+                    0L,
+                    new Duration(1, NANOSECONDS),
+                    new Duration(1, NANOSECONDS),
+                    new Duration(1, NANOSECONDS),
+                    succinctBytes(1L),
+                    1L,
+                    1.0,
+                    0L,
+                    new Duration(1, NANOSECONDS),
+                    new Duration(1, NANOSECONDS),
+                    new Duration(1, NANOSECONDS),
+                    succinctBytes(500L),
+                    100L,
+                    succinctBytes(1L),
+                    new Duration(1, NANOSECONDS),
+                    0L,
+                    new Duration(1, NANOSECONDS),
+                    new Duration(1, NANOSECONDS),
+                    new Duration(1, NANOSECONDS),
+                    succinctBytes(1L),
+                    succinctBytes(1L),
+                    succinctBytes(1L),
+                    Optional.empty(),
+                    null),
+            new OperatorStats(
+                    1,
+                    1,
+                    new PlanNodeId("3"),
+                    TableWriterOperator.class.getSimpleName(),
+                    0L,
+                    0L,
+                    new Duration(1, NANOSECONDS),
+                    new Duration(1, NANOSECONDS),
+                    new Duration(1, NANOSECONDS),
+                    succinctBytes(1000L),
+                    300L,
+                    1.0,
+                    0L,
+                    new Duration(1, NANOSECONDS),
+                    new Duration(1, NANOSECONDS),
+                    new Duration(1, NANOSECONDS),
+                    succinctBytes(1L),
+                    1L,
+                    succinctBytes(1L),
+                    new Duration(1, NANOSECONDS),
+                    0L,
+                    new Duration(1, NANOSECONDS),
+                    new Duration(1, NANOSECONDS),
+                    new Duration(1, NANOSECONDS),
+                    succinctBytes(1L),
+                    succinctBytes(1L),
+                    succinctBytes(1L),
+                    Optional.empty(),
+                    null));
+
     public static final QueryStats EXPECTED = new QueryStats(
             new DateTime(1),
             new DateTime(2),
@@ -54,6 +155,8 @@ public class TestQueryStats
             17.0,
             new DataSize(18, BYTE),
             new DataSize(19, BYTE),
+            new DataSize(20, BYTE),
+            new DataSize(21, BYTE),
 
             true,
             new Duration(20, NANOSECONDS),
@@ -71,7 +174,19 @@ public class TestQueryStats
 
             new DataSize(28, BYTE),
             29,
-            ImmutableList.of());
+
+            new DataSize(30, BYTE),
+
+            ImmutableList.of(new StageGcStatistics(
+                    101,
+                    102,
+                    103,
+                    104,
+                    105,
+                    106,
+                    107)),
+
+            operatorSummaries);
 
     @Test
     public void testJson()
@@ -110,9 +225,10 @@ public class TestQueryStats
         assertEquals(actual.getBlockedDrivers(), 30);
         assertEquals(actual.getCompletedDrivers(), 16);
 
-        assertEquals(actual.getCumulativeMemory(), 17.0);
-        assertEquals(actual.getTotalMemoryReservation(), new DataSize(18, BYTE));
-        assertEquals(actual.getPeakMemoryReservation(), new DataSize(19, BYTE));
+        assertEquals(actual.getCumulativeUserMemory(), 17.0);
+        assertEquals(actual.getUserMemoryReservation(), new DataSize(18, BYTE));
+        assertEquals(actual.getPeakUserMemoryReservation(), new DataSize(19, BYTE));
+        assertEquals(actual.getPeakTotalMemoryReservation(), new DataSize(20, BYTE));
 
         assertEquals(actual.getTotalScheduledTime(), new Duration(20, NANOSECONDS));
         assertEquals(actual.getTotalCpuTime(), new Duration(21, NANOSECONDS));
@@ -127,5 +243,20 @@ public class TestQueryStats
 
         assertEquals(actual.getOutputDataSize(), new DataSize(28, BYTE));
         assertEquals(actual.getOutputPositions(), 29);
+
+        assertEquals(actual.getPhysicalWrittenDataSize(), new DataSize(30, BYTE));
+
+        assertEquals(actual.getStageGcStatistics().size(), 1);
+        StageGcStatistics gcStatistics = actual.getStageGcStatistics().get(0);
+        assertEquals(gcStatistics.getStageId(), 101);
+        assertEquals(gcStatistics.getTasks(), 102);
+        assertEquals(gcStatistics.getFullGcTasks(), 103);
+        assertEquals(gcStatistics.getMinFullGcSec(), 104);
+        assertEquals(gcStatistics.getMaxFullGcSec(), 105);
+        assertEquals(gcStatistics.getTotalFullGcSec(), 106);
+        assertEquals(gcStatistics.getAverageFullGcSec(), 107);
+
+        assertEquals(400L, actual.getWrittenPositions());
+        assertEquals(1500L, actual.getLogicalWrittenDataSize().toBytes());
     }
 }

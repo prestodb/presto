@@ -20,6 +20,7 @@ import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.SingleMapBlock;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.Type;
@@ -32,9 +33,10 @@ import java.lang.invoke.MethodHandle;
 
 import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.facebook.presto.metadata.Signature.typeVariable;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
-import static com.facebook.presto.util.Failures.internalError;
 import static com.facebook.presto.util.Reflection.methodHandle;
 
 public class MapElementAtFunction
@@ -112,86 +114,67 @@ public class MapElementAtFunction
             methodHandle = methodHandle.asType(methodHandle.type().changeReturnType(Primitives.wrap(valueType.getJavaType())));
         }
 
-        return new ScalarFunctionImplementation(true, ImmutableList.of(false, false), methodHandle, isDeterministic());
+        return new ScalarFunctionImplementation(
+                true,
+                ImmutableList.of(
+                        valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
+                        valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
+                methodHandle,
+                isDeterministic());
     }
 
     @UsedByGeneratedCode
     public static Object elementAt(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Block map, boolean key)
     {
-        for (int position = 0; position < map.getPositionCount(); position += 2) {
-            try {
-                if ((boolean) keyEqualsMethod.invokeExact(keyType.getBoolean(map, position), key)) {
-                    return readNativeValue(valueType, map, position + 1); // position + 1: value position
-                }
-            }
-            catch (Throwable t) {
-                throw internalError(t);
-            }
+        SingleMapBlock mapBlock = (SingleMapBlock) map;
+        int valuePosition = mapBlock.seekKeyExact(key);
+        if (valuePosition == -1) {
+            return null;
         }
-        return null;
+        return readNativeValue(valueType, mapBlock, valuePosition);
     }
 
     @UsedByGeneratedCode
     public static Object elementAt(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Block map, long key)
     {
-        for (int position = 0; position < map.getPositionCount(); position += 2) {
-            try {
-                if ((boolean) keyEqualsMethod.invokeExact(keyType.getLong(map, position), key)) {
-                    return readNativeValue(valueType, map, position + 1); // position + 1: value position
-                }
-            }
-            catch (Throwable t) {
-                throw internalError(t);
-            }
+        SingleMapBlock mapBlock = (SingleMapBlock) map;
+        int valuePosition = mapBlock.seekKeyExact(key);
+        if (valuePosition == -1) {
+            return null;
         }
-        return null;
+        return readNativeValue(valueType, mapBlock, valuePosition);
     }
 
     @UsedByGeneratedCode
     public static Object elementAt(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Block map, double key)
     {
-        for (int position = 0; position < map.getPositionCount(); position += 2) {
-            try {
-                if ((boolean) keyEqualsMethod.invokeExact(keyType.getDouble(map, position), key)) {
-                    return readNativeValue(valueType, map, position + 1); // position + 1: value position
-                }
-            }
-            catch (Throwable t) {
-                throw internalError(t);
-            }
+        SingleMapBlock mapBlock = (SingleMapBlock) map;
+        int valuePosition = mapBlock.seekKeyExact(key);
+        if (valuePosition == -1) {
+            return null;
         }
-        return null;
+        return readNativeValue(valueType, mapBlock, valuePosition);
     }
 
     @UsedByGeneratedCode
     public static Object elementAt(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Block map, Slice key)
     {
-        for (int position = 0; position < map.getPositionCount(); position += 2) {
-            try {
-                if ((boolean) keyEqualsMethod.invokeExact(keyType.getSlice(map, position), key)) {
-                    return readNativeValue(valueType, map, position + 1); // position + 1: value position
-                }
-            }
-            catch (Throwable t) {
-                throw internalError(t);
-            }
+        SingleMapBlock mapBlock = (SingleMapBlock) map;
+        int valuePosition = mapBlock.seekKeyExact(key);
+        if (valuePosition == -1) {
+            return null;
         }
-        return null;
+        return readNativeValue(valueType, mapBlock, valuePosition);
     }
 
     @UsedByGeneratedCode
     public static Object elementAt(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Block map, Object key)
     {
-        for (int position = 0; position < map.getPositionCount(); position += 2) {
-            try {
-                if ((boolean) keyEqualsMethod.invokeExact(keyType.getObject(map, position), key)) {
-                    return readNativeValue(valueType, map, position + 1); // position + 1: value position
-                }
-            }
-            catch (Throwable t) {
-                throw internalError(t);
-            }
+        SingleMapBlock mapBlock = (SingleMapBlock) map;
+        int valuePosition = mapBlock.seekKeyExact((Block) key);
+        if (valuePosition == -1) {
+            return null;
         }
-        return null;
+        return readNativeValue(valueType, mapBlock, valuePosition);
     }
 }

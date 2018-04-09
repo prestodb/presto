@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.sql.planner.optimizations;
 
-import com.facebook.presto.metadata.DummyMetadata;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Range;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.metadata.AbstractMockMetadata.dummyMetadata;
 import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.extractCardinality;
 import static java.util.Collections.emptyList;
 import static org.testng.Assert.assertEquals;
@@ -29,7 +29,7 @@ public class TestCardinalityExtractorPlanVisitor
     @Test
     public void testLimitOnTopOfValues()
     {
-        PlanBuilder planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), new DummyMetadata());
+        PlanBuilder planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), dummyMetadata());
 
         assertEquals(
                 extractCardinality(planBuilder.limit(3, planBuilder.values(emptyList(), ImmutableList.of(emptyList())))),

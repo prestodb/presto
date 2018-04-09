@@ -25,7 +25,6 @@ public class TestMySqlPlugin
 {
     @Test
     public void testCreateConnector()
-            throws Exception
     {
         Plugin plugin = new MySqlPlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
