@@ -178,11 +178,6 @@ public final class ExpressionUtils
 
     public static Expression combineConjuncts(Collection<Expression> expressions)
     {
-        return combineConjunctsWithDefault(expressions, TRUE_LITERAL);
-    }
-
-    public static Expression combineConjunctsWithDefault(Collection<Expression> expressions, Expression emptyDefault)
-    {
         requireNonNull(expressions, "expressions is null");
 
         List<Expression> conjuncts = expressions.stream()
@@ -196,7 +191,7 @@ public final class ExpressionUtils
             return FALSE_LITERAL;
         }
 
-        return conjuncts.isEmpty() ? emptyDefault : and(conjuncts);
+        return conjuncts.isEmpty() ? TRUE_LITERAL : and(conjuncts);
     }
 
     public static Expression combineDisjuncts(Expression... expressions)
