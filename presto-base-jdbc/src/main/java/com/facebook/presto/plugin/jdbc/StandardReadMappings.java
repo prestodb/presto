@@ -209,15 +209,6 @@ public final class StandardReadMappings
                 int charLength = min(columnSize, CharType.MAX_LENGTH);
                 return Optional.of(charReadMapping(createCharType(charLength)));
 
-            case Types.VARCHAR:
-            case Types.NVARCHAR:
-            case Types.LONGVARCHAR:
-            case Types.LONGNVARCHAR:
-                if (columnSize > VarcharType.MAX_LENGTH) {
-                    return Optional.of(varcharReadMapping(createUnboundedVarcharType()));
-                }
-                return Optional.of(varcharReadMapping(createVarcharType(columnSize)));
-
             case Types.BINARY:
             case Types.VARBINARY:
             case Types.LONGVARBINARY:
