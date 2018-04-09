@@ -8040,6 +8040,22 @@ public abstract class AbstractTestQueries
                 "WITH small_part AS (SELECT * FROM part WHERE name = 'a') SELECT lineitem.orderkey FROM lineitem LEFT JOIN small_part ON lineitem.partkey = small_part.partkey");
     }
 
+    @Test
+    public void testInnerJoinWithEmptyProbeSide()
+    {
+        assertQuery(
+                noJoinReordering(),
+                "WITH small_part AS (SELECT * FROM part WHERE name = 'a') SELECT lineitem.orderkey FROM small_part INNER JOIN lineitem ON small_part.partkey = lineitem.partkey");
+    }
+
+    @Test
+    public void testRightJoinWithEmptyProbeSide()
+    {
+        assertQuery(
+                noJoinReordering(),
+                "WITH small_part AS (SELECT * FROM part WHERE name = 'a') SELECT lineitem.orderkey FROM small_part RIGHT JOIN lineitem ON  small_part.partkey = lineitem.partkey");
+    }
+
     protected Session noJoinReordering()
     {
         return Session.builder(getSession())
