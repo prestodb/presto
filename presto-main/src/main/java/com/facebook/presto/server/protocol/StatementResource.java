@@ -14,6 +14,7 @@
 package com.facebook.presto.server.protocol;
 
 import com.facebook.presto.client.QueryResults;
+import com.facebook.presto.execution.QueryIdGenerator;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.memory.context.SimpleLocalMemoryContext;
 import com.facebook.presto.metadata.SessionPropertyManager;
@@ -82,6 +83,7 @@ public class StatementResource
     private static final Ordering<Comparable<Duration>> WAIT_ORDERING = Ordering.natural().nullsLast();
 
     private final QueryManager queryManager;
+    private final QueryIdGenerator queryIdGenerator;
     private final SessionPropertyManager sessionPropertyManager;
     private final ExchangeClientSupplier exchangeClientSupplier;
     private final BlockEncodingSerde blockEncodingSerde;
@@ -94,6 +96,7 @@ public class StatementResource
     @Inject
     public StatementResource(
             QueryManager queryManager,
+            QueryIdGenerator queryIdGenerator,
             SessionPropertyManager sessionPropertyManager,
             ExchangeClientSupplier exchangeClientSupplier,
             BlockEncodingSerde blockEncodingSerde,
@@ -101,6 +104,7 @@ public class StatementResource
             @ForStatementResource ScheduledExecutorService timeoutExecutor)
     {
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
+        this.queryIdGenerator = requireNonNull(queryIdGenerator, "queryIdGenerator is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.exchangeClientSupplier = requireNonNull(exchangeClientSupplier, "exchangeClientSupplier is null");
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
@@ -135,7 +139,9 @@ public class StatementResource
         SessionContext sessionContext = new HttpRequestSessionContext(servletRequest);
 
         ExchangeClient exchangeClient = exchangeClientSupplier.get(new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext()));
+        // TODO: wire in server type (dispatcher vs coordinator) to assert the existence of query ID.
         Query query = Query.create(
+                sessionContext.getQueryId() == null ? queryIdGenerator.createNextQueryId() : sessionContext.getQueryId(),
                 sessionContext,
                 statement,
                 queryManager,
