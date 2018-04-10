@@ -27,6 +27,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.server.SessionContext;
 import com.facebook.presto.server.SessionSupplier;
+import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.QueryType;
@@ -60,12 +61,15 @@ import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Queue;
+import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
@@ -470,6 +474,13 @@ public class SqlQueryManager<T>
         addStatsListeners(queryExecution);
 
         queries.put(queryId, queryExecution);
+
+        if (queryExecution instanceof DispatchQueryExecution || queryExecution instanceof LazyQueryExecution) {
+            Set<Node> nodes = internalNodeManager.getCoordinators();
+            int size = nodes.size();
+            List<Node> list = new ArrayList<>(nodes);
+            queryExecution.setCoordinator(list.get(new Random().nextInt(size)).getHttpUri());
+        }
 
         // start the query in the background
         resourceGroupManager.submit(statement, queryExecution, selectionContext, queryExecutor);

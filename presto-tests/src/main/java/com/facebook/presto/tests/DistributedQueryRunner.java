@@ -74,7 +74,7 @@ public class DistributedQueryRunner
     private static final SqlParserOptions DEFAULT_SQL_PARSER_OPTIONS = new SqlParserOptions();
 
     private final TestingDiscoveryServer discoveryServer;
-    private final TestingPrestoServer coordinator;
+    private final TestingPrestoServer dispatcher;
     private final List<TestingPrestoServer> servers;
 
     private final Closer closer = Closer.create();
@@ -121,7 +121,7 @@ public class DistributedQueryRunner
 
             ImmutableList.Builder<TestingPrestoServer> servers = ImmutableList.builder();
 
-            for (int i = 1; i < nodeCount; i++) {
+            for (int i = 2; i < nodeCount; i++) {
                 TestingPrestoServer worker = closer.register(createTestingPrestoServer(discoveryServer.getBaseUrl(), false, false, extraProperties, parserOptions, environment));
                 servers.add(worker);
             }
@@ -130,9 +130,13 @@ public class DistributedQueryRunner
             extraCoordinatorProperties.put("experimental.iterative-optimizer-enabled", "true");
             extraCoordinatorProperties.putAll(extraProperties);
             extraCoordinatorProperties.putAll(coordinatorProperties);
-            // coordinator servers as dispatcher as well
-            coordinator = closer.register(createTestingPrestoServer(discoveryServer.getBaseUrl(), true, true, extraCoordinatorProperties, parserOptions, environment));
+
+            TestingPrestoServer coordinator = closer.register(createTestingPrestoServer(discoveryServer.getBaseUrl(), true, false, extraCoordinatorProperties, parserOptions, environment));
             servers.add(coordinator);
+
+            // dispatcher servers as dispatcher as well
+            dispatcher = closer.register(createTestingPrestoServer(discoveryServer.getBaseUrl(), true, true, extraProperties, parserOptions, environment));
+            servers.add(dispatcher);
 
             this.servers = servers.build();
         }
@@ -145,9 +149,9 @@ public class DistributedQueryRunner
             }
         }
 
-        // copy session using property manager in coordinator
-        defaultSession = defaultSession.toSessionRepresentation().toSession(coordinator.getMetadata().getSessionPropertyManager());
-        this.prestoClient = closer.register(new TestingPrestoClient(coordinator, defaultSession));
+        // copy session using property manager in dispatcher
+        defaultSession = defaultSession.toSessionRepresentation().toSession(dispatcher.getMetadata().getSessionPropertyManager());
+        this.prestoClient = closer.register(new TestingPrestoClient(dispatcher, defaultSession));
 
         long start = System.nanoTime();
         while (!allNodesGloballyVisible()) {
@@ -194,7 +198,7 @@ public class DistributedQueryRunner
             propertiesBuilder.put("distributed-joins-enabled", "true");
         }
         if (dispatcher) {
-            propertiesBuilder.put("node-scheduler.include-dispatcher", "true");
+            propertiesBuilder.put("node-scheduler.include-dispatcher", "false");
         }
         HashMap<String, String> properties = new HashMap<>(propertiesBuilder.build());
         properties.putAll(extraProperties);
@@ -238,36 +242,36 @@ public class DistributedQueryRunner
     @Override
     public TransactionManager getTransactionManager()
     {
-        return coordinator.getTransactionManager();
+        return dispatcher.getTransactionManager();
     }
 
     @Override
     public Metadata getMetadata()
     {
-        return coordinator.getMetadata();
+        return dispatcher.getMetadata();
     }
 
     @Override
     public NodePartitioningManager getNodePartitioningManager()
     {
-        return coordinator.getNodePartitioningManager();
+        return dispatcher.getNodePartitioningManager();
     }
 
     @Override
     public StatsCalculator getStatsCalculator()
     {
-        return coordinator.getStatsCalculator();
+        return dispatcher.getStatsCalculator();
     }
 
     @Override
     public TestingAccessControlManager getAccessControl()
     {
-        return coordinator.getAccessControl();
+        return dispatcher.getAccessControl();
     }
 
     public TestingPrestoServer getCoordinator()
     {
-        return coordinator;
+        return dispatcher;
     }
 
     public List<TestingPrestoServer> getServers()
@@ -392,18 +396,18 @@ public class DistributedQueryRunner
     {
         QueryId queryId = executeWithQueryId(session, sql).getQueryId();
         Plan queryPlan = getQueryPlan(queryId);
-        coordinator.getQueryManager().cancelQuery(queryId);
+        dispatcher.getQueryManager().cancelQuery(queryId);
         return queryPlan;
     }
 
     public QueryInfo getQueryInfo(QueryId queryId)
     {
-        return coordinator.getQueryManager().getQueryInfo(queryId);
+        return dispatcher.getQueryManager().getQueryInfo(queryId);
     }
 
     public Plan getQueryPlan(QueryId queryId)
     {
-        return coordinator.getQueryManager().getQueryPlan(queryId);
+        return dispatcher.getQueryManager().getQueryPlan(queryId);
     }
 
     @Override
@@ -426,7 +430,7 @@ public class DistributedQueryRunner
 
     private void cancelAllQueries()
     {
-        QueryManager<?> queryManager = coordinator.getQueryManager();
+        QueryManager<?> queryManager = dispatcher.getQueryManager();
         for (QueryInfo queryInfo : queryManager.getAllQueryInfo()) {
             if (!queryInfo.getState().isDone()) {
                 queryManager.cancelQuery(queryInfo.getQueryId());
@@ -448,7 +452,7 @@ public class DistributedQueryRunner
     public static class Builder
     {
         private final Session defaultSession;
-        private int nodeCount = 4;
+        private int nodeCount = 6;
         private Map<String, String> extraProperties = ImmutableMap.of();
         private Map<String, String> coordinatorProperties = ImmutableMap.of();
         private SqlParserOptions parserOptions = DEFAULT_SQL_PARSER_OPTIONS;
@@ -488,9 +492,9 @@ public class DistributedQueryRunner
         }
 
         /**
-         * Sets coordinator properties being equal to a map containing given key and value.
+         * Sets dispatcher properties being equal to a map containing given key and value.
          * Note, that calling this method OVERWRITES previously set property values.
-         * As a result, it should only be used when only one coordinator property needs to be set.
+         * As a result, it should only be used when only one dispatcher property needs to be set.
          */
         public Builder setSingleCoordinatorProperty(String key, String value)
         {
