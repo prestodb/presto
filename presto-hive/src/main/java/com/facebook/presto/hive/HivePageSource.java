@@ -43,6 +43,7 @@ import java.util.List;
 import java.util.function.Function;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
+import static com.facebook.presto.hive.HivePageSourceProvider.ColumnMappingKind.PREFILLED;
 import static com.facebook.presto.hive.HiveType.HIVE_BYTE;
 import static com.facebook.presto.hive.HiveType.HIVE_DOUBLE;
 import static com.facebook.presto.hive.HiveType.HIVE_FLOAT;
@@ -131,7 +132,7 @@ public class HivePageSource
                 coercers[columnIndex] = createCoercer(typeManager, columnMapping.getCoercionFrom().get(), columnMapping.getHiveColumnHandle().getHiveType());
             }
 
-            if (columnMapping.isPrefilled()) {
+            if (columnMapping.getKind() == PREFILLED) {
                 String columnValue = columnMapping.getPrefilledValue();
                 byte[] bytes = columnValue.getBytes(UTF_8);
 
@@ -217,14 +218,16 @@ public class HivePageSource
             int batchSize = dataPage.getPositionCount();
             for (int fieldId = 0; fieldId < blocks.length; fieldId++) {
                 ColumnMapping columnMapping = columnMappings.get(fieldId);
-                if (columnMapping.isPrefilled()) {
-                    blocks[fieldId] = RunLengthEncodedBlock.create(types[fieldId], prefilledValues[fieldId], batchSize);
-                }
-                else {
-                    blocks[fieldId] = dataPage.getBlock(columnMapping.getIndex());
-                    if (coercers[fieldId] != null) {
-                        blocks[fieldId] = new LazyBlock(batchSize, new CoercionLazyBlockLoader(blocks[fieldId], coercers[fieldId]));
-                    }
+                switch (columnMapping.getKind()) {
+                    case PREFILLED:
+                        blocks[fieldId] = RunLengthEncodedBlock.create(types[fieldId], prefilledValues[fieldId], batchSize);
+                        break;
+                    case REGULAR:
+                        blocks[fieldId] = dataPage.getBlock(columnMapping.getIndex());
+                        if (coercers[fieldId] != null) {
+                            blocks[fieldId] = new LazyBlock(batchSize, new CoercionLazyBlockLoader(blocks[fieldId], coercers[fieldId]));
+                        }
+                        break;
                 }
             }
             return new Page(batchSize, blocks);

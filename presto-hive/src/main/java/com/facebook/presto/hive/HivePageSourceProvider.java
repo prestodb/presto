@@ -40,7 +40,9 @@ import java.util.OptionalInt;
 import java.util.Properties;
 import java.util.Set;
 
+import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.SYNTHESIZED;
 import static com.facebook.presto.hive.HivePageSourceProvider.ColumnMapping.extractRegularColumnHandles;
 import static com.facebook.presto.hive.HiveUtil.getPrefilledColumnValue;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -194,37 +196,45 @@ public class HivePageSourceProvider
 
     public static class ColumnMapping
     {
+        private final ColumnMappingKind kind;
         private final HiveColumnHandle hiveColumnHandle;
-        private final String prefilledValue;
-        private final int index;
+        private final Optional<String> prefilledValue;
+        /**
+         * ordinal of this column in the underlying page source or record cursor
+         */
+        private final OptionalInt index;
         private final Optional<HiveType> coercionFrom;
 
-        private ColumnMapping(HiveColumnHandle hiveColumnHandle, String prefilledValue, int index, Optional<HiveType> coercionFrom)
+        public static ColumnMapping regular(HiveColumnHandle hiveColumnHandle, int index, Optional<HiveType> coerceFrom)
         {
-            requireNonNull(hiveColumnHandle, "hiveColumnHandle is null");
-            if (isPrefilled(hiveColumnHandle)) {
-                requireNonNull(prefilledValue, "prefilledValue is null when it is a prefilled column");
-                checkArgument(index == -1, "index should be -1");
-            }
-            else {
-                checkArgument(index >= 0, "index should be greater than or equal to 0");
-            }
-
-            this.hiveColumnHandle = hiveColumnHandle;
-            this.prefilledValue = prefilledValue;
-            this.index = index;
-            this.coercionFrom = requireNonNull(coercionFrom, "coercionFrom is null while coercion is needed");
+            checkArgument(hiveColumnHandle.getColumnType() == REGULAR);
+            return new ColumnMapping(ColumnMappingKind.REGULAR, hiveColumnHandle, Optional.empty(), OptionalInt.of(index), coerceFrom);
         }
 
-        public boolean isPrefilled()
+        public static ColumnMapping prefilled(HiveColumnHandle hiveColumnHandle, String prefilledValue, Optional<HiveType> coerceFrom)
         {
-            return isPrefilled(hiveColumnHandle);
+            checkArgument(hiveColumnHandle.getColumnType() == PARTITION_KEY || hiveColumnHandle.getColumnType() == SYNTHESIZED);
+            return new ColumnMapping(ColumnMappingKind.PREFILLED, hiveColumnHandle, Optional.of(prefilledValue), OptionalInt.empty(), coerceFrom);
+        }
+
+        private ColumnMapping(ColumnMappingKind kind, HiveColumnHandle hiveColumnHandle, Optional<String> prefilledValue, OptionalInt index, Optional<HiveType> coerceFrom)
+        {
+            this.kind = requireNonNull(kind, "kind is null");
+            this.hiveColumnHandle = requireNonNull(hiveColumnHandle, "hiveColumnHandle is null");
+            this.prefilledValue = requireNonNull(prefilledValue, "prefilledValue is null");
+            this.index = requireNonNull(index, "index is null");
+            this.coercionFrom = requireNonNull(coerceFrom, "coerceFrom is null");
+        }
+
+        public ColumnMappingKind getKind()
+        {
+            return kind;
         }
 
         public String getPrefilledValue()
         {
-            checkState(isPrefilled(), "This is column is not prefilled");
-            return prefilledValue;
+            checkState(kind == ColumnMappingKind.PREFILLED);
+            return prefilledValue.get();
         }
 
         public HiveColumnHandle getHiveColumnHandle()
@@ -234,17 +244,13 @@ public class HivePageSourceProvider
 
         public int getIndex()
         {
-            return index;
+            checkState(kind == ColumnMappingKind.REGULAR);
+            return index.getAsInt();
         }
 
         public Optional<HiveType> getCoercionFrom()
         {
             return coercionFrom;
-        }
-
-        private static boolean isPrefilled(HiveColumnHandle hiveColumnHandle)
-        {
-            return hiveColumnHandle.getColumnType() != REGULAR;
         }
 
         public static List<ColumnMapping> buildColumnMappings(
@@ -259,23 +265,17 @@ public class HivePageSourceProvider
             ImmutableList.Builder<ColumnMapping> columnMappings = ImmutableList.builder();
             for (int i = 0; i < columns.size(); i++) {
                 HiveColumnHandle column = columns.get(i);
-                int currentIndex;
-                String prefilledValue = null;
+                Optional<HiveType> coercionFrom = Optional.ofNullable(columnCoercions.get(column.getHiveColumnIndex()));
                 if (column.getColumnType() == REGULAR) {
-                    currentIndex = regularIndex;
+                    columnMappings.add(regular(column, regularIndex, coercionFrom));
                     regularIndex++;
                 }
                 else {
-                    currentIndex = -1;
-
-                    // prepare the prefilled value
-                    HivePartitionKey partitionKey = partitionKeysByName.get(column.getName());
-                    prefilledValue = getPrefilledColumnValue(column, partitionKey, path, bucketNumber);
+                    columnMappings.add(prefilled(
+                            column,
+                            getPrefilledColumnValue(column, partitionKeysByName.get(column.getName()), path, bucketNumber),
+                            coercionFrom));
                 }
-
-                Optional<HiveType> coercionFrom = Optional.ofNullable(columnCoercions.get(column.getHiveColumnIndex()));
-
-                columnMappings.add(new ColumnMapping(column, prefilledValue, currentIndex, coercionFrom));
             }
             return columnMappings.build();
         }
@@ -283,7 +283,7 @@ public class HivePageSourceProvider
         public static List<ColumnMapping> extractRegularColumnMappings(List<ColumnMapping> columnMappings)
         {
             return columnMappings.stream()
-                    .filter(columnMapping -> !columnMapping.isPrefilled())
+                    .filter(columnMapping -> columnMapping.getKind() == ColumnMappingKind.REGULAR)
                     .collect(toList());
         }
 
@@ -305,5 +305,11 @@ public class HivePageSourceProvider
                     })
                     .collect(toList());
         }
+    }
+
+    public enum ColumnMappingKind
+    {
+        REGULAR,
+        PREFILLED,
     }
 }
