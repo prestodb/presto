@@ -17,14 +17,33 @@ import com.facebook.presto.Session;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.google.common.collect.ImmutableMap;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.airlift.testing.Closeables.closeAllRuntimeException;
 
 public class TestQueryPlansDeterministic
 {
-    private final PlanDeterminismChecker determinismChecker = new PlanDeterminismChecker(createLocalQueryRunner());
+    private LocalQueryRunner runner;
+    private PlanDeterminismChecker determinismChecker;
+
+    @BeforeClass
+    public void setUp()
+    {
+        runner = createLocalQueryRunner();
+        determinismChecker = new PlanDeterminismChecker(runner);
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void destroy()
+    {
+        closeAllRuntimeException(runner);
+        runner = null;
+        determinismChecker = null;
+    }
 
     private static LocalQueryRunner createLocalQueryRunner()
     {
