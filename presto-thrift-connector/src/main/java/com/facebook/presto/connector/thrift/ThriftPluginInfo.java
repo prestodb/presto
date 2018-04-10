@@ -32,4 +32,9 @@ public class ThriftPluginInfo
                 .bindDriftClient(PrestoThriftService.class)
                 .withAddressSelector(extendedSimpleAddressSelector());
     }
+
+    public SessionPropertyProvider getPluginSessionProperties()
+    {
+        return new DefaultSessionPropertyProvider();
+    }
 }

@@ -38,11 +38,13 @@ public class ThriftConnectorFactory
 {
     private final String name;
     private final Module locationModule;
+    private final SessionPropertyProvider sessionPropertyProvider;
 
-    public ThriftConnectorFactory(String name, Module locationModule)
+    public ThriftConnectorFactory(String name, Module locationModule, SessionPropertyProvider sessionPropertyProvider)
     {
         this.name = requireNonNull(name, "name is null");
         this.locationModule = requireNonNull(locationModule, "locationModule is null");
+        this.sessionPropertyProvider = requireNonNull(sessionPropertyProvider, "sessionPropertyProvider is null");
     }
 
     @Override
@@ -67,6 +69,7 @@ public class ThriftConnectorFactory
                     binder -> {
                         binder.bind(MBeanServer.class).toInstance(new RebindSafeMBeanServer(getPlatformMBeanServer()));
                         binder.bind(TypeManager.class).toInstance(context.getTypeManager());
+                        binder.bind(SessionPropertyProvider.class).toInstance(sessionPropertyProvider);
                     },
                     locationModule,
                     new ThriftModule(connectorId));

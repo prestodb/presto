@@ -13,12 +13,18 @@
  */
 package com.facebook.presto.connector.thrift;
 
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Map;
+
+import static com.google.common.collect.ImmutableMap.builder;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Internal session properties are those defined by the connector itself.
@@ -27,15 +33,42 @@ import java.util.List;
 public final class ThriftSessionProperties
 {
     private final List<PropertyMetadata<?>> sessionProperties;
+    private final Map<String, PropertyMetadata<?>> headerProperties;
 
     @Inject
-    public ThriftSessionProperties(ThriftConnectorConfig config)
+    public ThriftSessionProperties(SessionPropertyProvider sessionPropertyProvider)
     {
-        sessionProperties = ImmutableList.of();
+        requireNonNull(sessionPropertyProvider, "sessionPropertyProvider is null");
+        headerProperties = requireNonNull(sessionPropertyProvider.getHeaderProperties(), "sessionPropertyProvider returns null header properties");
+        headerProperties.values().stream().forEach(sessionProperty -> checkIfTypeSupported(sessionProperty.getJavaType()));
+        sessionProperties = ImmutableList.copyOf(headerProperties.values());
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
     {
         return sessionProperties;
+    }
+
+    public Map<String, String> createHeaderFromSession(ConnectorSession session)
+    {
+        ImmutableMap.Builder<String, String> header = builder();
+        headerProperties.forEach((name, property) -> {
+            Object value = session.getProperty(property.getName(), property.getJavaType());
+            if (value != null && !value.equals(property.getDefaultValue())) {
+                header.put(name, value.toString());
+            }
+        });
+        return header.build();
+    }
+
+    private void checkIfTypeSupported(Class<?> javaType)
+    {
+        if (javaType != Long.class
+                && javaType != Double.class
+                && javaType != Integer.class
+                && javaType != Boolean.class
+                && javaType != String.class) {
+            throw new UnsupportedOperationException(String.format("Java type %s is not supported to be passed to thrift header", javaType));
+        }
     }
 }

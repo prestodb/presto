@@ -33,6 +33,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -88,6 +89,7 @@ public class TestThriftIndexPageSource
         long pageSizeReceived = 0;
         ThriftIndexPageSource pageSource = new ThriftIndexPageSource(
                 (context, headers) -> client,
+                ImmutableMap.of(),
                 stats,
                 new ThriftIndexHandle(new SchemaTableName("default", "table1"), TupleDomain.all()),
                 ImmutableList.of(column("a", INTEGER)),
@@ -186,6 +188,7 @@ public class TestThriftIndexPageSource
         TestingThriftService client = new TestingThriftService(rowsPerSplit, true, twoSplitBatches);
         ThriftIndexPageSource pageSource = new ThriftIndexPageSource(
                 (context, headers) -> client,
+                ImmutableMap.of(),
                 new ThriftConnectorStats(),
                 new ThriftIndexHandle(new SchemaTableName("default", "table1"), TupleDomain.all()),
                 ImmutableList.of(column("a", INTEGER)),
