@@ -203,7 +203,7 @@ public class PickTableLayout
         List<TableLayoutResult> layouts = metadata.getLayouts(
                 context.getSession(),
                 node.getTable(),
-                new Constraint<>(simplifiedConstraint, bindings -> true),
+                new Constraint<>(simplifiedConstraint),
                 Optional.of(ImmutableSet.copyOf(node.getAssignments().values())));
         if (layouts.isEmpty()) {
             return new ValuesNode(context.getIdAllocator().getNextId(), node.getOutputSymbols(), ImmutableList.of());
