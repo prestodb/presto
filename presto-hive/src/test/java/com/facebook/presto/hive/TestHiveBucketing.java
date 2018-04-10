@@ -221,7 +221,7 @@ public class TestHiveBucketing
             blockListBuilder.add(block);
         }
         ImmutableList<Block> blockList = blockListBuilder.build();
-        return HiveBucketing.getHiveBucket(hiveTypeInfos, new Page(blockList.toArray(new Block[blockList.size()])), 2, bucketCount);
+        return HiveBucketing.getHiveBucket(bucketCount, hiveTypeInfos, new Page(blockList.toArray(new Block[blockList.size()])), 2);
     }
 
     public static int getHiveBucket(List<Entry<ObjectInspector, Object>> columnBindings, int bucketCount)
