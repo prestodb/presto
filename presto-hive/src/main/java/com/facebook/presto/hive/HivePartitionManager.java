@@ -197,7 +197,7 @@ public class HivePartitionManager
         }
         Map<ColumnHandle, NullableValue> values = builder.build();
 
-        if (!constraint.predicate().test(values)) {
+        if (constraint.predicate().isPresent() && !constraint.predicate().get().test(values)) {
             return Optional.empty();
         }
 

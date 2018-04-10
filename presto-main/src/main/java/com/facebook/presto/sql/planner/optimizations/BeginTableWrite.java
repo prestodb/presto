@@ -168,7 +168,7 @@ public class BeginTableWrite
                 List<TableLayoutResult> layouts = metadata.getLayouts(
                         session,
                         handle,
-                        new Constraint<>(scan.getCurrentConstraint(), bindings -> true),
+                        new Constraint<>(scan.getCurrentConstraint()),
                         Optional.of(ImmutableSet.copyOf(scan.getAssignments().values())));
                 verify(layouts.size() == 1, "Expected exactly one layout for delete");
                 TableLayoutHandle layout = Iterables.getOnlyElement(layouts).getLayout().getHandle();
