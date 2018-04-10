@@ -200,6 +200,13 @@ public class LazyBlock
     }
 
     @Override
+    public Block getPositions(int[] positions, int offset, int length)
+    {
+        assureLoaded();
+        return block.getPositions(positions, offset, length);
+    }
+
+    @Override
     public Block copyPositions(int[] positions, int offset, int length)
     {
         assureLoaded();

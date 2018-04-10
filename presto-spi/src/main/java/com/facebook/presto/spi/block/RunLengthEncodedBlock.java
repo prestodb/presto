@@ -97,6 +97,16 @@ public class RunLengthEncodedBlock
     }
 
     @Override
+    public Block getPositions(int[] positions, int offset, int length)
+    {
+        checkArrayRange(positions, offset, length);
+        for (int i = offset; i < offset + length; i++) {
+            checkValidPosition(positions[i], positionCount);
+        }
+        return new RunLengthEncodedBlock(value, length);
+    }
+
+    @Override
     public Block copyPositions(int[] positions, int offset, int length)
     {
         checkArrayRange(positions, offset, length);
