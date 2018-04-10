@@ -37,6 +37,7 @@ import static com.facebook.presto.execution.buffer.BufferState.OPEN;
 import static com.facebook.presto.execution.buffer.BufferState.TERMINAL_BUFFER_STATES;
 import static com.facebook.presto.execution.buffer.BufferTestUtils.MAX_WAIT;
 import static com.facebook.presto.execution.buffer.BufferTestUtils.NO_WAIT;
+import static com.facebook.presto.execution.buffer.BufferTestUtils.PAGES_SERDE;
 import static com.facebook.presto.execution.buffer.BufferTestUtils.acknowledgeBufferResult;
 import static com.facebook.presto.execution.buffer.BufferTestUtils.addPage;
 import static com.facebook.presto.execution.buffer.BufferTestUtils.assertBufferResultEquals;
@@ -798,6 +799,22 @@ public class TestPartitionedOutputBuffer
         assertFalse(buffer.isFinished());
         buffer.abort(THIRD);
         assertTrue(buffer.isFinished());
+    }
+
+    @Test
+    public void testBufferPeakMemoryUsage()
+    {
+        PartitionedOutputBuffer buffer = createPartitionedBuffer(
+                createInitialEmptyOutputBuffers(PARTITIONED)
+                        .withBuffer(FIRST, 0)
+                        .withNoMoreBufferIds(),
+                sizeOfPages(5));
+        Page page = createPage(1);
+        long serializePageSize = PAGES_SERDE.serialize(page).getRetainedSizeInBytes();
+        for (int i = 0; i < 5; i++) {
+            addPage(buffer, page, 0);
+            assertEquals(buffer.getPeakMemoryUsage(), (i + 1) * serializePageSize);
+        }
     }
 
     private PartitionedOutputBuffer createPartitionedBuffer(OutputBuffers buffers, DataSize dataSize)

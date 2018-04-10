@@ -29,7 +29,7 @@ import static org.testng.Assert.assertEquals;
 public class TestOperatorStats
 {
     private static final SplitOperatorInfo NON_MERGEABLE_INFO = new SplitOperatorInfo("some_info");
-    private static final PartitionedOutputInfo MERGEABLE_INFO = new PartitionedOutputInfo(1, 2);
+    private static final PartitionedOutputInfo MERGEABLE_INFO = new PartitionedOutputInfo(1, 2, 1024);
 
     public static final OperatorStats EXPECTED = new OperatorStats(
             1,

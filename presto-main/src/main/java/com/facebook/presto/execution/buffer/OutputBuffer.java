@@ -102,4 +102,9 @@ public interface OutputBuffer
      * readers will be unblocked when the failed query is cleaned up.
      */
     void fail();
+
+    /**
+     * @return the peak memory usage of this output buffer.
+     */
+    long getPeakMemoryUsage();
 }

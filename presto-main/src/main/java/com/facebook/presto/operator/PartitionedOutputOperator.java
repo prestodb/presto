@@ -384,7 +384,7 @@ public class PartitionedOutputOperator
 
         public PartitionedOutputInfo getInfo()
         {
-            return new PartitionedOutputInfo(rowsAdded.get(), pagesAdded.get());
+            return new PartitionedOutputInfo(rowsAdded.get(), pagesAdded.get(), outputBuffer.getPeakMemoryUsage());
         }
 
         public ListenableFuture<?> partitionPage(Page page)
@@ -466,14 +466,17 @@ public class PartitionedOutputOperator
     {
         private final long rowsAdded;
         private final long pagesAdded;
+        private final long outputBufferPeakMemoryUsage;
 
         @JsonCreator
         public PartitionedOutputInfo(
                 @JsonProperty("rowsAdded") long rowsAdded,
-                @JsonProperty("pagesAdded") long pagesAdded)
+                @JsonProperty("pagesAdded") long pagesAdded,
+                @JsonProperty("outputBufferPeakMemoryUsage") long outputBufferPeakMemoryUsage)
         {
             this.rowsAdded = rowsAdded;
             this.pagesAdded = pagesAdded;
+            this.outputBufferPeakMemoryUsage = outputBufferPeakMemoryUsage;
         }
 
         @JsonProperty
@@ -488,10 +491,25 @@ public class PartitionedOutputOperator
             return pagesAdded;
         }
 
+        @JsonProperty
+        public long getOutputBufferPeakMemoryUsage()
+        {
+            return outputBufferPeakMemoryUsage;
+        }
+
         @Override
         public PartitionedOutputInfo mergeWith(PartitionedOutputInfo other)
         {
-            return new PartitionedOutputInfo(rowsAdded + other.rowsAdded, pagesAdded + other.pagesAdded);
+            return new PartitionedOutputInfo(
+                    rowsAdded + other.rowsAdded,
+                    pagesAdded + other.pagesAdded,
+                    Math.max(outputBufferPeakMemoryUsage, other.outputBufferPeakMemoryUsage));
+        }
+
+        @Override
+        public boolean isFinal()
+        {
+            return true;
         }
 
         @Override
@@ -500,6 +518,7 @@ public class PartitionedOutputOperator
             return toStringHelper(this)
                     .add("rowsAdded", rowsAdded)
                     .add("pagesAdded", pagesAdded)
+                    .add("outputBufferPeakMemoryUsage", outputBufferPeakMemoryUsage)
                     .toString();
         }
     }

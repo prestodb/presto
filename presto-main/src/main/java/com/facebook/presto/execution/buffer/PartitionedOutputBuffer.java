@@ -255,6 +255,12 @@ public class PartitionedOutputBuffer
         }
     }
 
+    @Override
+    public long getPeakMemoryUsage()
+    {
+        return memoryManager.getPeakMemoryUsage();
+    }
+
     private void checkFlushComplete()
     {
         if (state.get() != FLUSHING && state.get() != NO_MORE_BUFFERS) {
