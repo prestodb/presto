@@ -15,6 +15,7 @@ package com.facebook.presto.cli;
 
 import com.facebook.presto.client.ClientSession;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.CharMatcher;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -24,7 +25,6 @@ import io.airlift.units.Duration;
 
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.nio.charset.CharsetEncoder;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -37,7 +37,6 @@ import java.util.TimeZone;
 import static com.facebook.presto.client.KerberosUtil.defaultCredentialCachePath;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.nullToEmpty;
-import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.Collections.emptyMap;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -46,7 +45,7 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 public class ClientOptions
 {
     private static final Splitter NAME_VALUE_SPLITTER = Splitter.on('=').limit(2);
-    private static final CharsetEncoder ASCII_ENCODER = US_ASCII.newEncoder();
+    private static final CharMatcher PRINTABLE_ASCII = CharMatcher.inRange((char) 0x21, (char) 0x7E); // spaces are not allowed
 
     @Option(name = "--server", title = "server", description = "Presto server location (default: localhost:8080)")
     public String server = "localhost:8080";
@@ -226,9 +225,9 @@ public class ClientOptions
             this.estimate = nameValue.get(1);
             checkArgument(!resource.isEmpty(), "Resource name is empty");
             checkArgument(!estimate.isEmpty(), "Resource estimate is empty");
-            checkArgument(ASCII_ENCODER.canEncode(resource), "Resource is not US_ASCII: %s", resource);
+            checkArgument(PRINTABLE_ASCII.matchesAllOf(resource), "Resource contains spaces or is not US_ASCII: %s", resource);
             checkArgument(resource.indexOf('=') < 0, "Resource must not contain '=': %s", resource);
-            checkArgument(ASCII_ENCODER.canEncode(estimate), "Resource estimate is not US_ASCII: %s", resource);
+            checkArgument(PRINTABLE_ASCII.matchesAllOf(estimate), "Resource estimate contains spaces or is not US_ASCII: %s", resource);
         }
 
         @VisibleForTesting
@@ -316,10 +315,10 @@ public class ClientOptions
             checkArgument(!catalog.isPresent() || !catalog.get().isEmpty(), "Invalid session property: %s.%s:%s", catalog, name, value);
             checkArgument(!name.isEmpty(), "Session property name is empty");
             checkArgument(catalog.orElse("").indexOf('=') < 0, "Session property catalog must not contain '=': %s", name);
-            checkArgument(ASCII_ENCODER.canEncode(catalog.orElse("")), "Session property catalog is not US_ASCII: %s", name);
+            checkArgument(PRINTABLE_ASCII.matchesAllOf(catalog.orElse("")), "Session property catalog contains spaces or is not US_ASCII: %s", name);
             checkArgument(name.indexOf('=') < 0, "Session property name must not contain '=': %s", name);
-            checkArgument(ASCII_ENCODER.canEncode(name), "Session property name is not US_ASCII: %s", name);
-            checkArgument(ASCII_ENCODER.canEncode(value), "Session property value is not US_ASCII: %s", value);
+            checkArgument(PRINTABLE_ASCII.matchesAllOf(name), "Session property name contains spaces or is not US_ASCII: %s", name);
+            checkArgument(PRINTABLE_ASCII.matchesAllOf(value), "Session property value contains spaces or is not US_ASCII: %s", value);
         }
 
         public Optional<String> getCatalog()
