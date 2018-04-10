@@ -292,6 +292,12 @@ public class MockQueryExecution
         throw new UnsupportedOperationException();
     }
 
+    @Override
+    public void setCoordinator(URI coordinator)
+    {
+        // no-op
+    }
+
     private void fireStateChange()
     {
         for (StateChangeListener<QueryState> listener : listeners) {

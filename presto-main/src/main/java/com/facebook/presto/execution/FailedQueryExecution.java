@@ -177,4 +177,10 @@ public class FailedQueryExecution<T>
     {
         throw new UnsupportedOperationException("setResouceGroup is not supported for FailedQueryExecution");
     }
+
+    @Override
+    public void setCoordinator(URI coordinator)
+    {
+        // no-op
+    }
 }

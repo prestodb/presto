@@ -33,6 +33,7 @@ import io.airlift.units.Duration;
 
 import javax.annotation.Nullable;
 import javax.inject.Inject;
+import javax.ws.rs.core.UriBuilder;
 
 import java.net.URI;
 import java.util.List;
@@ -43,6 +44,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
 public class DataDefinitionExecution<T extends Statement>
@@ -50,6 +52,7 @@ public class DataDefinitionExecution<T extends Statement>
 {
     private final DataDefinitionTask<T> task;
     private final T statement;
+    private final URI self;
     private final TransactionManager transactionManager;
     private final Metadata metadata;
     private final AccessControl accessControl;
@@ -59,6 +62,7 @@ public class DataDefinitionExecution<T extends Statement>
     private DataDefinitionExecution(
             DataDefinitionTask<T> task,
             T statement,
+            URI self,
             TransactionManager transactionManager,
             Metadata metadata,
             AccessControl accessControl,
@@ -67,6 +71,7 @@ public class DataDefinitionExecution<T extends Statement>
     {
         this.task = requireNonNull(task, "task is null");
         this.statement = requireNonNull(statement, "statement is null");
+        this.self = UriBuilder.fromUri(requireNonNull(self, "self is null")).replacePath("").build();
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
@@ -232,6 +237,13 @@ public class DataDefinitionExecution<T extends Statement>
         stateMachine.setResourceGroup(resourceGroupId);
     }
 
+    @Override
+    public void setCoordinator(URI coordinator)
+    {
+        requireNonNull(coordinator, "coordinator is null");
+        verify(coordinator.equals(self));
+    }
+
     public List<Expression> getParameters()
     {
         return parameters;
@@ -286,7 +298,7 @@ public class DataDefinitionExecution<T extends Statement>
 
             QueryStateMachine stateMachine = QueryStateMachine.begin(queryId, query, session, self, task.isTransactionControl(), transactionManager, accessControl, executor, metadata);
             stateMachine.setUpdateType(task.getName());
-            return new DataDefinitionExecution<>(task, statement, transactionManager, metadata, accessControl, stateMachine, parameters);
+            return new DataDefinitionExecution<>(task, statement, self, transactionManager, metadata, accessControl, stateMachine, parameters);
         }
 
         @SuppressWarnings("unchecked")

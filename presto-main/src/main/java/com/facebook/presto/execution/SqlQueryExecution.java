@@ -64,6 +64,7 @@ import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
+import javax.ws.rs.core.UriBuilder;
 
 import java.net.URI;
 import java.util.List;
@@ -80,6 +81,7 @@ import static com.facebook.presto.OutputBuffers.createInitialEmptyOutputBuffers;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -94,6 +96,7 @@ public final class SqlQueryExecution
     private final QueryStateMachine stateMachine;
 
     private final Statement statement;
+    private final URI self;
     private final Metadata metadata;
     private final SqlParser sqlParser;
     private final SplitManager splitManager;
@@ -141,6 +144,7 @@ public final class SqlQueryExecution
     {
         try (SetThreadName ignored = new SetThreadName("Query-%s", queryId)) {
             this.statement = requireNonNull(statement, "statement is null");
+            this.self = UriBuilder.fromUri(requireNonNull(self, "self is null")).replacePath("").build();
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
             this.splitManager = requireNonNull(splitManager, "splitManager is null");
@@ -161,7 +165,6 @@ public final class SqlQueryExecution
             requireNonNull(queryId, "queryId is null");
             requireNonNull(query, "query is null");
             requireNonNull(session, "session is null");
-            requireNonNull(self, "self is null");
             this.stateMachine = QueryStateMachine.begin(queryId, query, session, self, false, transactionManager, accessControl, queryExecutor, metadata);
 
             // analyze query
@@ -510,6 +513,13 @@ public final class SqlQueryExecution
     public void setResourceGroup(ResourceGroupId resourceGroupId)
     {
         stateMachine.setResourceGroup(resourceGroupId);
+    }
+
+    @Override
+    public void setCoordinator(URI coordinator)
+    {
+        requireNonNull(coordinator, "coordinator is null");
+        verify(coordinator.equals(self));
     }
 
     public Plan getQueryPlan()

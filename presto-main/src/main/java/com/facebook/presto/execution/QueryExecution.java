@@ -24,6 +24,7 @@ import com.facebook.presto.sql.tree.Statement;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.Duration;
 
+import java.net.URI;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
@@ -72,6 +73,8 @@ public interface QueryExecution<E>
     void addStateChangeListener(StateChangeListener<QueryState> stateChangeListener);
 
     void addFinalQueryInfoListener(StateChangeListener<QueryInfo> stateChangeListener);
+
+    void setCoordinator(URI coordinator);
 
     interface QueryExecutionFactory<T extends QueryExecution<?>>
     {
