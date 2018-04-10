@@ -366,7 +366,8 @@ class HiveSplitSource
                         internalSplit.getBucketNumber(),
                         internalSplit.isForceLocalScheduling(),
                         (TupleDomain<HiveColumnHandle>) compactEffectivePredicate,
-                        transformValues(internalSplit.getColumnCoercions(), HiveTypeName::toHiveType)));
+                        transformValues(internalSplit.getColumnCoercions(), HiveTypeName::toHiveType),
+                        internalSplit.getBucketConversion()));
                 internalSplit.increaseStart(splitBytes);
 
                 if (internalSplit.isDone()) {

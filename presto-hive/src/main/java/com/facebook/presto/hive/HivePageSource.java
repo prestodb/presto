@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.HivePageSourceProvider.BucketAdaptation;
 import com.facebook.presto.hive.HivePageSourceProvider.ColumnMapping;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
@@ -33,16 +34,22 @@ import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.VarcharType;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
 import org.apache.hadoop.hive.serde2.typeinfo.ListTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.MapTypeInfo;
+import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Function;
 
+import static com.facebook.presto.hive.HiveBucketing.getHiveBucket;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
 import static com.facebook.presto.hive.HivePageSourceProvider.ColumnMappingKind.PREFILLED;
 import static com.facebook.presto.hive.HiveType.HIVE_BYTE;
 import static com.facebook.presto.hive.HiveType.HIVE_DOUBLE;
@@ -85,6 +92,7 @@ import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.String.format;
@@ -94,7 +102,8 @@ import static java.util.Objects.requireNonNull;
 public class HivePageSource
         implements ConnectorPageSource
 {
-    private List<ColumnMapping> columnMappings;
+    private final List<ColumnMapping> columnMappings;
+    private final Optional<BucketAdapter> bucketAdapter;
     private final Object[] prefilledValues;
     private final Type[] types;
     private final Function<Block, Block>[] coercers;
@@ -103,6 +112,7 @@ public class HivePageSource
 
     public HivePageSource(
             List<ColumnMapping> columnMappings,
+            Optional<BucketAdaptation> bucketAdaptation,
             DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager,
             ConnectorPageSource delegate)
@@ -113,6 +123,7 @@ public class HivePageSource
 
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.columnMappings = columnMappings;
+        this.bucketAdapter = bucketAdaptation.map(BucketAdapter::new);
 
         int size = columnMappings.size();
 
@@ -210,27 +221,49 @@ public class HivePageSource
     public Page getNextPage()
     {
         try {
-            Block[] blocks = new Block[columnMappings.size()];
             Page dataPage = delegate.getNextPage();
             if (dataPage == null) {
                 return null;
             }
+
+            if (bucketAdapter.isPresent()) {
+                IntArrayList rowsToKeep = bucketAdapter.get().computeEligibleRowIds(dataPage);
+                Block[] adaptedBlocks = new Block[dataPage.getChannelCount()];
+                for (int i = 0; i < adaptedBlocks.length; i++) {
+                    Block block = dataPage.getBlock(i);
+                    if (block instanceof LazyBlock && !((LazyBlock) block).isLoaded()) {
+                        adaptedBlocks[i] = new LazyBlock(rowsToKeep.size(), new RowFilterLazyBlockLoader(dataPage.getBlock(i), rowsToKeep));
+                    }
+                    else {
+                        adaptedBlocks[i] = block.getPositions(rowsToKeep.elements(), 0, rowsToKeep.size());
+                    }
+                }
+                dataPage = new Page(rowsToKeep.size(), adaptedBlocks);
+            }
+
             int batchSize = dataPage.getPositionCount();
-            for (int fieldId = 0; fieldId < blocks.length; fieldId++) {
+            List<Block> blocks = new ArrayList<>();
+            for (int fieldId = 0; fieldId < columnMappings.size(); fieldId++) {
                 ColumnMapping columnMapping = columnMappings.get(fieldId);
                 switch (columnMapping.getKind()) {
                     case PREFILLED:
-                        blocks[fieldId] = RunLengthEncodedBlock.create(types[fieldId], prefilledValues[fieldId], batchSize);
+                        blocks.add(RunLengthEncodedBlock.create(types[fieldId], prefilledValues[fieldId], batchSize));
                         break;
                     case REGULAR:
-                        blocks[fieldId] = dataPage.getBlock(columnMapping.getIndex());
+                        Block block = dataPage.getBlock(columnMapping.getIndex());
                         if (coercers[fieldId] != null) {
-                            blocks[fieldId] = new LazyBlock(batchSize, new CoercionLazyBlockLoader(blocks[fieldId], coercers[fieldId]));
+                            block = new LazyBlock(batchSize, new CoercionLazyBlockLoader(block, coercers[fieldId]));
                         }
+                        blocks.add(block);
                         break;
+                    case INTERIM:
+                        // interim columns don't show up in output
+                        break;
+                    default:
+                        throw new UnsupportedOperationException();
                 }
             }
-            return new Page(batchSize, blocks);
+            return new Page(batchSize, blocks.toArray(new Block[0]));
         }
         catch (PrestoException e) {
             closeWithSuppression(e);
@@ -571,7 +604,7 @@ public class HivePageSource
         }
     }
 
-    private final class CoercionLazyBlockLoader
+    private static final class CoercionLazyBlockLoader
             implements LazyBlockLoader<LazyBlock>
     {
         private final Function<Block, Block> coercer;
@@ -593,11 +626,87 @@ public class HivePageSource
             if (block instanceof LazyBlock) {
                 block = ((LazyBlock) block).getBlock();
             }
-            Block coercedBlock = coercer.apply(block);
-            lazyBlock.setBlock(coercedBlock);
+            lazyBlock.setBlock(coercer.apply(block));
 
             // clear reference to loader to free resources, since load was successful
             block = null;
+        }
+    }
+
+    private static final class RowFilterLazyBlockLoader
+            implements LazyBlockLoader<LazyBlock>
+    {
+        private Block block;
+        private final IntArrayList rowsToKeep;
+
+        public RowFilterLazyBlockLoader(Block block, IntArrayList rowsToKeep)
+        {
+            this.block = requireNonNull(block, "block is null");
+            this.rowsToKeep = requireNonNull(rowsToKeep, "rowsToKeep is null");
+        }
+
+        @Override
+        public void load(LazyBlock lazyBlock)
+        {
+            if (block == null) {
+                return;
+            }
+
+            if (block instanceof LazyBlock) {
+                block = ((LazyBlock) block).getBlock();
+            }
+            lazyBlock.setBlock(block.getPositions(rowsToKeep.elements(), 0, rowsToKeep.size()));
+
+            // clear reference to loader to free resources, since load was successful
+            block = null;
+        }
+    }
+
+    private static Page extractColumns(Page page, int[] columns)
+    {
+        Block[] blocks = new Block[columns.length];
+        for (int i = 0; i < columns.length; i++) {
+            int dataColumn = columns[i];
+            blocks[i] = page.getBlock(dataColumn);
+        }
+        return new Page(page.getPositionCount(), blocks);
+    }
+
+    public static class BucketAdapter
+    {
+        public final int[] bucketColumns;
+        public final int bucketToKeep;
+        public final int tableBucketCount;
+        public final int partitionBucketCount; // for sanity check only
+        private final List<TypeInfo> typeInfoList;
+
+        public BucketAdapter(BucketAdaptation bucketAdaptation)
+        {
+            this.bucketColumns = bucketAdaptation.getBucketColumnIndices();
+            this.bucketToKeep = bucketAdaptation.getBucketToKeep();
+            this.typeInfoList = bucketAdaptation.getBucketColumnHiveTypes().stream()
+                    .map(HiveType::getTypeInfo)
+                    .collect(toImmutableList());
+            this.tableBucketCount = bucketAdaptation.getTableBucketCount();
+            this.partitionBucketCount = bucketAdaptation.getPartitionBucketCount();
+        }
+
+        public IntArrayList computeEligibleRowIds(Page page)
+        {
+            IntArrayList ids = new IntArrayList(page.getPositionCount());
+            Page bucketColumnsPage = extractColumns(page, bucketColumns);
+            for (int position = 0; position < page.getPositionCount(); position++) {
+                int bucket = getHiveBucket(tableBucketCount, typeInfoList, bucketColumnsPage, position);
+                if ((bucket - bucketToKeep) % partitionBucketCount != 0) {
+                    throw new PrestoException(HIVE_INVALID_BUCKET_FILES, format(
+                            "A row that is supposed to be in bucket %s is encountered. Only rows in bucket %s (modulo %s) are expected",
+                            bucket, bucketToKeep % partitionBucketCount, partitionBucketCount));
+                }
+                if (bucket == bucketToKeep) {
+                    ids.add(position);
+                }
+            }
+            return ids;
         }
     }
 }

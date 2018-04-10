@@ -183,6 +183,11 @@ public class HiveColumnHandle
         return new HiveColumnHandle(PATH_COLUMN_NAME, PATH_HIVE_TYPE, PATH_TYPE_SIGNATURE, PATH_COLUMN_INDEX, SYNTHESIZED, Optional.empty());
     }
 
+    /**
+     * The column indicating the bucket id.
+     * When table bucketing differs from partition bucketing, this column indicates
+     * what bucket the row will fall in under the table bucketing scheme.
+     */
     public static HiveColumnHandle bucketColumnHandle()
     {
         return new HiveColumnHandle(BUCKET_COLUMN_NAME, BUCKET_HIVE_TYPE, BUCKET_TYPE_SIGNATURE, BUCKET_COLUMN_INDEX, SYNTHESIZED, Optional.empty());

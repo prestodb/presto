@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.HiveSplit.BucketConversion;
 import com.facebook.presto.spi.HostAddress;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -22,6 +23,7 @@ import javax.annotation.concurrent.NotThreadSafe;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
 
@@ -54,6 +56,7 @@ public class InternalHiveSplit
     private final boolean splittable;
     private final boolean forceLocalScheduling;
     private final Map<Integer, HiveTypeName> columnCoercions;
+    private final Optional<BucketConversion> bucketConversion;
 
     private long start;
     private int currentBlockIndex;
@@ -70,7 +73,8 @@ public class InternalHiveSplit
             OptionalInt bucketNumber,
             boolean splittable,
             boolean forceLocalScheduling,
-            Map<Integer, HiveTypeName> columnCoercions)
+            Map<Integer, HiveTypeName> columnCoercions,
+            Optional<BucketConversion> bucketConversion)
     {
         checkArgument(start >= 0, "start must be positive");
         checkArgument(end >= 0, "length must be positive");
@@ -82,6 +86,7 @@ public class InternalHiveSplit
         requireNonNull(blocks, "blocks is null");
         requireNonNull(bucketNumber, "bucketNumber is null");
         requireNonNull(columnCoercions, "columnCoercions is null");
+        requireNonNull(bucketConversion, "bucketConversion is null");
 
         this.partitionName = partitionName;
         this.path = path;
@@ -95,6 +100,7 @@ public class InternalHiveSplit
         this.splittable = splittable;
         this.forceLocalScheduling = forceLocalScheduling;
         this.columnCoercions = ImmutableMap.copyOf(columnCoercions);
+        this.bucketConversion = bucketConversion;
     }
 
     public String getPath()
@@ -150,6 +156,11 @@ public class InternalHiveSplit
     public Map<Integer, HiveTypeName> getColumnCoercions()
     {
         return columnCoercions;
+    }
+
+    public Optional<BucketConversion> getBucketConversion()
+    {
+        return bucketConversion;
     }
 
     public InternalHiveBlock currentBlock()

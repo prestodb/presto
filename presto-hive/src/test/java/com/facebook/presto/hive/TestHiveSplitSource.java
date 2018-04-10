@@ -27,6 +27,7 @@ import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
 import java.util.concurrent.CountDownLatch;
@@ -222,7 +223,8 @@ public class TestHiveSplitSource
                 OptionalInt.empty(),
                 true,
                 false,
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                Optional.empty());
         int testSplitSizeInBytes = testSplit.getEstimatedSizeInBytes();
 
         int maxSplitCount = toIntExact(maxOutstandingSplitsSize.toBytes()) / testSplitSizeInBytes;
@@ -282,7 +284,8 @@ public class TestHiveSplitSource
                     OptionalInt.empty(),
                     true,
                     false,
-                    ImmutableMap.of());
+                    ImmutableMap.of(),
+                    Optional.empty());
         }
 
         private static Properties properties(String key, String value)

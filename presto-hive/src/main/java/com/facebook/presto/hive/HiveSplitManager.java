@@ -336,15 +336,19 @@ public class HiveSplitManager
                                 hivePartition.getTableName(),
                                 hivePartition.getPartitionId()));
                     }
-                    if (!bucketProperty.equals(partitionBucketProperty)) {
+                    int tableBucketCount = bucketProperty.get().getBucketCount();
+                    int partitionBucketCount = partitionBucketProperty.get().getBucketCount();
+                    List<String> tableBucketColumns = bucketProperty.get().getBucketedBy();
+                    List<String> partitionBucketColumns = partitionBucketProperty.get().getBucketedBy();
+                    if (!tableBucketColumns.equals(partitionBucketColumns) || !isBucketCountCompatible(tableBucketCount, partitionBucketCount)) {
                         throw new PrestoException(HIVE_PARTITION_SCHEMA_MISMATCH, format(
-                                "Hive table (%s) bucketing (columns=%s, buckets=%s) does not match partition (%s) bucketing (columns=%s, buckets=%s)",
+                                "Hive table (%s) bucketing (columns=%s, buckets=%s) is not compatible with partition (%s) bucketing (columns=%s, buckets=%s)",
                                 hivePartition.getTableName(),
-                                bucketProperty.get().getBucketedBy(),
-                                bucketProperty.get().getBucketCount(),
+                                tableBucketColumns,
+                                tableBucketCount,
                                 hivePartition.getPartitionId(),
-                                partitionBucketProperty.get().getBucketedBy(),
-                                partitionBucketProperty.get().getBucketCount()));
+                                partitionBucketColumns,
+                                partitionBucketCount));
                     }
                 }
 
@@ -354,6 +358,22 @@ public class HiveSplitManager
             return results.build();
         });
         return concat(partitionBatches);
+    }
+
+    private static boolean isBucketCountCompatible(int tableBucketCount, int partitionBucketCount)
+    {
+        checkArgument(tableBucketCount > 0 && partitionBucketCount > 0);
+        int larger = Math.max(tableBucketCount, partitionBucketCount);
+        int smaller = Math.min(tableBucketCount, partitionBucketCount);
+        if (larger % smaller != 0) {
+            // must be evenly divisible
+            return false;
+        }
+        if (Integer.bitCount(larger / smaller) != 1) {
+            // ratio must be power of two
+            return false;
+        }
+        return true;
     }
 
     /**
