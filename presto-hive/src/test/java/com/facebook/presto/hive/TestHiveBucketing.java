@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.HiveBucketing.HiveBucketFilter;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
@@ -20,6 +21,7 @@ import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import io.airlift.slice.Slices;
 import org.apache.hadoop.hive.common.type.HiveVarchar;
@@ -46,7 +48,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.hive.HiveBucketing.HiveBucket;
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Maps.immutableEntry;
@@ -71,10 +72,9 @@ public class TestHiveBucketing
                 .add(entry(javaLongObjectInspector, 123L))
                 .build();
 
-        Optional<HiveBucket> bucket = HiveBucketing.getHiveBucket(bindings, 32);
+        Optional<HiveBucketFilter> bucket = HiveBucketing.getHiveBucket(bindings, 32);
         assertTrue(bucket.isPresent());
-        assertEquals(bucket.get().getBucketCount(), 32);
-        assertEquals(bucket.get().getBucketNumber(), 26);
+        assertEquals(bucket.get().getBucketsToKeep(), ImmutableSet.of(26));
     }
 
     @Test
@@ -84,10 +84,9 @@ public class TestHiveBucketing
                 .add(entry(javaStringObjectInspector, utf8Slice("sequencefile test")))
                 .build();
 
-        Optional<HiveBucket> bucket = HiveBucketing.getHiveBucket(bindings, 32);
+        Optional<HiveBucketFilter> bucket = HiveBucketing.getHiveBucket(bindings, 32);
         assertTrue(bucket.isPresent());
-        assertEquals(bucket.get().getBucketCount(), 32);
-        assertEquals(bucket.get().getBucketNumber(), 21);
+        assertEquals(bucket.get().getBucketsToKeep(), ImmutableSet.of(21));
     }
 
     private static Entry<ObjectInspector, Object> entry(ObjectInspector inspector, Object value)

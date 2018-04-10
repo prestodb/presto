@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.HdfsEnvironment.HdfsContext;
+import com.facebook.presto.hive.HiveBucketing.HiveBucketFilter;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.Table;
@@ -57,13 +58,11 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
-import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.Executor;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.IntPredicate;
 
-import static com.facebook.presto.hive.HiveBucketing.HiveBucket;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
@@ -77,8 +76,8 @@ import static com.facebook.presto.hive.util.HiveFileIterator.NestedDirectoryPoli
 import static com.facebook.presto.hive.util.HiveFileIterator.NestedDirectoryPolicy.IGNORED;
 import static com.facebook.presto.hive.util.HiveFileIterator.NestedDirectoryPolicy.RECURSE;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -460,25 +459,26 @@ public class BackgroundHiveSplitLoader
         private final int bucketCount;
         private final IntPredicate bucketFilter;
 
-        public static Optional<BucketSplitInfo> createBucketSplitInfo(Optional<HiveBucketHandle> bucketHandle, List<HiveBucket> buckets)
+        public static Optional<BucketSplitInfo> createBucketSplitInfo(Optional<HiveBucketHandle> bucketHandle, Optional<HiveBucketFilter> bucketFilter)
         {
             requireNonNull(bucketHandle, "bucketHandle is null");
-            requireNonNull(buckets, "buckets is null");
+            requireNonNull(bucketFilter, "buckets is null");
 
-            if (!buckets.isEmpty()) {
-                int bucketCount = buckets.get(0).getBucketCount();
-                Set<Integer> bucketNumbers = buckets.stream()
-                        .map(HiveBucket::getBucketNumber)
-                        .collect(toImmutableSet());
-                return Optional.of(new BucketSplitInfo(bucketCount, bucketNumbers::contains));
+            if (!bucketHandle.isPresent()) {
+                checkArgument(!bucketFilter.isPresent(), "bucketHandle must be present if bucketFilter is present");
+                return Optional.empty();
             }
 
-            return bucketHandle.map(handle -> new BucketSplitInfo(handle.getBucketCount(), bucketNumber -> true));
+            int bucketCount = bucketHandle.get().getBucketCount();
+            if (bucketFilter.isPresent()) {
+                return Optional.of(new BucketSplitInfo(bucketCount, bucketFilter.get().getBucketsToKeep()::contains));
+            }
+            return Optional.of(new BucketSplitInfo(bucketCount, bucketNumber -> true));
         }
 
         private BucketSplitInfo(int bucketCount, IntPredicate bucketFilter)
         {
-            this.bucketCount = requireNonNull(bucketCount, "bucketCount is null");
+            this.bucketCount = bucketCount;
             this.bucketFilter = requireNonNull(bucketFilter, "bucketFilter is null");
         }
 

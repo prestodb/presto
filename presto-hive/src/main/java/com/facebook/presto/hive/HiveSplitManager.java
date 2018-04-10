@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.HiveBucketing.HiveBucket;
+import com.facebook.presto.hive.HiveBucketing.HiveBucketFilter;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
@@ -179,7 +179,7 @@ public class HiveSplitManager
         }
 
         // get buckets from first partition (arbitrary)
-        List<HiveBucket> buckets = partition.getBuckets();
+        Optional<HiveBucketFilter> bucketFilter = layout.getBucketFilter();
 
         // validate bucket bucketed execution
         Optional<HiveBucketHandle> bucketHandle = layout.getBucketHandle();
@@ -196,7 +196,7 @@ public class HiveSplitManager
                 table,
                 hivePartitions,
                 layout.getCompactEffectivePredicate(),
-                createBucketSplitInfo(bucketHandle, buckets),
+                createBucketSplitInfo(bucketHandle, bucketFilter),
                 session,
                 hdfsEnvironment,
                 namenodeStats,

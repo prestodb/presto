@@ -1311,7 +1311,8 @@ public class HiveMetadata
                                 getPartitionsAsList(hivePartitionResult),
                                 hivePartitionResult.getCompactEffectivePredicate(),
                                 hivePartitionResult.getEnforcedConstraint(),
-                                hivePartitionResult.getBucketHandle())),
+                                hivePartitionResult.getBucketHandle(),
+                                hivePartitionResult.getBucketFilter())),
                 hivePartitionResult.getUnenforcedConstraint()));
     }
 

@@ -23,7 +23,10 @@ import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.predicate.ValueSet;
 import com.facebook.presto.spi.type.Type;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import io.airlift.log.Logger;
@@ -52,7 +55,6 @@ import static com.facebook.presto.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveUtil.getRegularColumnHandles;
 import static com.facebook.presto.hive.HiveUtil.getTableStructFields;
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Maps.immutableEntry;
 import static com.google.common.collect.Sets.immutableEnumSet;
@@ -212,43 +214,43 @@ final class HiveBucketing
         return Optional.of(new HiveBucketHandle(bucketColumns.build(), hiveBucketProperty.get().getBucketCount()));
     }
 
-    public static List<HiveBucket> getHiveBucketNumbers(Table table, TupleDomain<ColumnHandle> effectivePredicate)
+    public static Optional<HiveBucketFilter> getHiveBucketFilter(Table table, TupleDomain<ColumnHandle> effectivePredicate)
     {
         if (!table.getStorage().getBucketProperty().isPresent()) {
-            return ImmutableList.of();
+            return Optional.empty();
         }
 
         Optional<Map<ColumnHandle, NullableValue>> bindings = TupleDomain.extractFixedValues(effectivePredicate);
         if (!bindings.isPresent()) {
-            return ImmutableList.of();
+            return Optional.empty();
         }
-        Optional<HiveBucket> singleBucket = getHiveBucket(table, bindings.get());
+        Optional<HiveBucketFilter> singleBucket = getHiveBucket(table, bindings.get());
         if (singleBucket.isPresent()) {
-            return ImmutableList.of(singleBucket.get());
+            return singleBucket;
         }
 
         if (!effectivePredicate.getDomains().isPresent()) {
-            return ImmutableList.of();
+            return Optional.empty();
         }
         Optional<Domain> domain = effectivePredicate.getDomains().get().entrySet().stream()
                 .filter(entry -> ((HiveColumnHandle) entry.getKey()).getName().equals(BUCKET_COLUMN_NAME))
                 .findFirst()
                 .map(Entry::getValue);
         if (!domain.isPresent()) {
-            return ImmutableList.of();
+            return Optional.empty();
         }
         ValueSet values = domain.get().getValues();
-        ImmutableList.Builder<HiveBucket> builder = ImmutableList.builder();
+        ImmutableSet.Builder<Integer> builder = ImmutableSet.builder();
         int bucketCount = table.getStorage().getBucketProperty().get().getBucketCount();
         for (int i = 0; i < bucketCount; i++) {
             if (values.containsValue((long) i)) {
-                builder.add(new HiveBucket(i, bucketCount));
+                builder.add(i);
             }
         }
-        return builder.build();
+        return Optional.of(new HiveBucketFilter(builder.build()));
     }
 
-    private static Optional<HiveBucket> getHiveBucket(Table table, Map<ColumnHandle, NullableValue> bindings)
+    private static Optional<HiveBucketFilter> getHiveBucket(Table table, Map<ColumnHandle, NullableValue> bindings)
     {
         if (bindings.isEmpty()) {
             return Optional.empty();
@@ -296,7 +298,8 @@ final class HiveBucketing
         return getHiveBucket(columnBindings.build(), table.getStorage().getBucketProperty().get().getBucketCount());
     }
 
-    public static Optional<HiveBucket> getHiveBucket(List<Entry<ObjectInspector, Object>> columnBindings, int bucketCount)
+    @VisibleForTesting
+    static Optional<HiveBucketFilter> getHiveBucket(List<Entry<ObjectInspector, Object>> columnBindings, int bucketCount)
     {
         try {
             @SuppressWarnings("resource")
@@ -320,7 +323,7 @@ final class HiveBucketing
 
             int bucketNumber = new DefaultHivePartitioner<>().getBucket(hiveKey, null, bucketCount);
 
-            return Optional.of(new HiveBucket(bucketNumber, bucketCount));
+            return Optional.of(new HiveBucketFilter(ImmutableSet.of(bucketNumber)));
         }
         catch (HiveException e) {
             log.debug(e, "Error evaluating bucket number");
@@ -370,38 +373,19 @@ final class HiveBucketing
         throw new RuntimeException("Unsupported type: " + poi.getPrimitiveCategory());
     }
 
-    public static class HiveBucket
+    public static class HiveBucketFilter
     {
-        private final int bucketNumber;
-        private final int bucketCount;
+        private final Set<Integer> bucketsToKeep;
 
-        public HiveBucket(int bucketNumber, int bucketCount)
+        public HiveBucketFilter(@JsonProperty("bucketsToKeep") Set<Integer> bucketsToKeep)
         {
-            checkArgument(bucketCount > 0, "bucketCount must be greater than zero");
-            checkArgument(bucketNumber >= 0, "bucketCount must be positive");
-            checkArgument(bucketNumber < bucketCount, "bucketNumber must be less than bucketCount");
-
-            this.bucketNumber = bucketNumber;
-            this.bucketCount = bucketCount;
+            this.bucketsToKeep = bucketsToKeep;
         }
 
-        public int getBucketNumber()
+        @JsonProperty
+        public Set<Integer> getBucketsToKeep()
         {
-            return bucketNumber;
-        }
-
-        public int getBucketCount()
-        {
-            return bucketCount;
-        }
-
-        @Override
-        public String toString()
-        {
-            return toStringHelper(this)
-                    .add("bucketNumber", bucketNumber)
-                    .add("bucketCount", bucketCount)
-                    .toString();
+            return bucketsToKeep;
         }
     }
 }

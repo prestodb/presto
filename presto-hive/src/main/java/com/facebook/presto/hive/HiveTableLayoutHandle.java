@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.HiveBucketing.HiveBucketFilter;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.SchemaTableName;
@@ -36,6 +37,7 @@ public final class HiveTableLayoutHandle
     private final TupleDomain<? extends ColumnHandle> compactEffectivePredicate;
     private final TupleDomain<ColumnHandle> promisedPredicate;
     private final Optional<HiveBucketHandle> bucketHandle;
+    private final Optional<HiveBucketFilter> bucketFilter;
 
     @JsonCreator
     public HiveTableLayoutHandle(
@@ -43,7 +45,8 @@ public final class HiveTableLayoutHandle
             @JsonProperty("partitionColumns") List<ColumnHandle> partitionColumns,
             @JsonProperty("compactEffectivePredicate") TupleDomain<ColumnHandle> compactEffectivePredicate,
             @JsonProperty("promisedPredicate") TupleDomain<ColumnHandle> promisedPredicate,
-            @JsonProperty("bucketHandle") Optional<HiveBucketHandle> bucketHandle)
+            @JsonProperty("bucketHandle") Optional<HiveBucketHandle> bucketHandle,
+            @JsonProperty("bucketFilter") Optional<HiveBucketFilter> bucketFilter)
     {
         this.schemaTableName = requireNonNull(schemaTableName, "table is null");
         this.partitionColumns = ImmutableList.copyOf(requireNonNull(partitionColumns, "partitionColumns is null"));
@@ -51,6 +54,7 @@ public final class HiveTableLayoutHandle
         this.partitions = null;
         this.promisedPredicate = requireNonNull(promisedPredicate, "promisedPredicate is null");
         this.bucketHandle = requireNonNull(bucketHandle, "bucketHandle is null");
+        this.bucketFilter = requireNonNull(bucketFilter, "bucketFilter is null");
     }
 
     public HiveTableLayoutHandle(
@@ -59,7 +63,8 @@ public final class HiveTableLayoutHandle
             List<HivePartition> partitions,
             TupleDomain<? extends ColumnHandle> compactEffectivePredicate,
             TupleDomain<ColumnHandle> promisedPredicate,
-            Optional<HiveBucketHandle> bucketHandle)
+            Optional<HiveBucketHandle> bucketHandle,
+            Optional<HiveBucketFilter> bucketFilter)
     {
         this.schemaTableName = requireNonNull(schemaTableName, "table is null");
         this.partitionColumns = ImmutableList.copyOf(requireNonNull(partitionColumns, "partitionColumns is null"));
@@ -67,6 +72,7 @@ public final class HiveTableLayoutHandle
         this.compactEffectivePredicate = requireNonNull(compactEffectivePredicate, "compactEffectivePredicate is null");
         this.promisedPredicate = requireNonNull(promisedPredicate, "promisedPredicate is null");
         this.bucketHandle = requireNonNull(bucketHandle, "bucketHandle is null");
+        this.bucketFilter = requireNonNull(bucketFilter, "bucketFilter is null");
     }
 
     @JsonProperty
@@ -108,6 +114,12 @@ public final class HiveTableLayoutHandle
     public Optional<HiveBucketHandle> getBucketHandle()
     {
         return bucketHandle;
+    }
+
+    @JsonProperty
+    public Optional<HiveBucketFilter> getBucketFilter()
+    {
+        return bucketFilter;
     }
 
     @Override
