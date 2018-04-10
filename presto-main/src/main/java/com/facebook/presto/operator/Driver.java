@@ -120,6 +120,7 @@ public class Driver
     {
         this.driverContext = requireNonNull(driverContext, "driverContext is null");
         this.allOperators = ImmutableList.copyOf(requireNonNull(operators, "operators is null"));
+        checkArgument(allOperators.size() > 1, "At least two operators are required");
         this.activeOperators = new ArrayList<>(operators);
         checkArgument(!operators.isEmpty(), "There must be at least one operator");
 
@@ -344,29 +345,9 @@ public class Driver
         try {
             processNewSources();
 
-            // special handling for drivers with a single operator
-            if (activeOperators.size() == 1) {
-                if (driverContext.isDone()) {
-                    return NOT_BLOCKED;
-                }
-
-                // check if operator is blocked
-                Operator current = activeOperators.get(0);
-                Optional<ListenableFuture<?>> blocked = getBlockedFuture(current);
-                if (blocked.isPresent()) {
-                    current.getOperatorContext().recordBlocked(blocked.get());
-                    return blocked.get();
-                }
-
-                // there is only one operator so just finish it
-                current.getOperatorContext().startIntervalTimer();
-                current.finish();
-                current.getOperatorContext().recordFinish();
-                return NOT_BLOCKED;
-            }
-
+            // If there is only one operator, finish it
             // Some operators (LookupJoinOperator and HashBuildOperator) are broken and requires finish to be called continuously
-            // TODO remove when these operators are fixed
+            // TODO remove the second part of the if statement, when these operators are fixed
             // Note: finish should not be called on the natural source of the pipeline as this could cause the task to finish early
             if (!activeOperators.isEmpty() && activeOperators.size() != allOperators.size()) {
                 Operator rootOperator = activeOperators.get(0);
