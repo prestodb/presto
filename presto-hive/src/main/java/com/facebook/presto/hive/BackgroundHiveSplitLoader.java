@@ -303,6 +303,9 @@ public class BackgroundHiveSplitLoader
         // To support custom input formats, we want to call getSplits()
         // on the input format to obtain file splits.
         if (shouldUseFileSplitsFromInputFormat(inputFormat)) {
+            if (tableBucketInfo.isPresent()) {
+                throw new PrestoException(NOT_SUPPORTED, "Presto cannot read bucketed partition in an input format with UseFileSplitsFromInputFormat annotation: " + inputFormat.getClass().getSimpleName());
+            }
             JobConf jobConf = toJobConf(configuration);
             FileInputFormat.setInputPaths(jobConf, path);
             InputSplit[] splits = inputFormat.getSplits(jobConf, 0);
