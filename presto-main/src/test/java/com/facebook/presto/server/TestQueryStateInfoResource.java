@@ -16,7 +16,6 @@ package com.facebook.presto.server;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import io.airlift.http.client.HttpClient;
-import io.airlift.http.client.HttpUriBuilder;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.UnexpectedResponseException;
 import io.airlift.http.client.jetty.JettyHttpClient;
@@ -27,7 +26,9 @@ import org.testng.annotations.Test;
 import java.util.List;
 
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
+import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
+import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.http.client.Request.Builder.preparePost;
@@ -57,18 +58,30 @@ public class TestQueryStateInfoResource
     public void setup()
     {
         Request request1 = preparePost()
-                .setUri(HttpUriBuilder.uriBuilderFrom(server.getBaseUrl()).replacePath("/v1/statement").build())
+                .setUri(uriBuilderFrom(server.getBaseUrl()).replacePath("/v1/statement").build())
                 .setBodyGenerator(createStaticBodyGenerator("show catalogs", UTF_8))
                 .setHeader(PRESTO_USER, "user1")
                 .build();
         queryResults = client.execute(request1, createJsonResponseHandler(jsonCodec(QueryResults.class)));
 
         Request request2 = preparePost()
-                .setUri(HttpUriBuilder.uriBuilderFrom(server.getBaseUrl()).replacePath("/v1/statement").build())
+                .setUri(uriBuilderFrom(server.getBaseUrl()).replacePath("/v1/statement").build())
                 .setBodyGenerator(createStaticBodyGenerator("show catalogs", UTF_8))
                 .setHeader(PRESTO_USER, "user2")
                 .build();
         client.execute(request2, createJsonResponseHandler(jsonCodec(QueryResults.class)));
+
+        boolean queued = true;
+        while (queued) {
+            queued = false;
+            List<BasicQueryInfo> queryInfos = client.execute(
+                    prepareGet().setUri(uriBuilderFrom(server.getBaseUrl()).replacePath("/v1/query").build()).build(),
+                    createJsonResponseHandler(listJsonCodec(BasicQueryInfo.class)));
+            assertEquals(queryInfos.size(), 2);
+            for (BasicQueryInfo queryInfo : queryInfos) {
+                queued = queued || queryInfo.getState() == QUEUED;
+            }
+        }
     }
 
     @AfterClass(alwaysRun = true)
