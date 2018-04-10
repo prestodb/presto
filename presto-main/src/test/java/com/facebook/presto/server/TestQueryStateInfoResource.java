@@ -14,7 +14,9 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.client.QueryResults;
+import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.server.testing.TestingPrestoServer;
+import com.google.common.collect.ImmutableList;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpUriBuilder;
 import io.airlift.http.client.Request;
@@ -26,6 +28,7 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_SIZE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static io.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
@@ -44,7 +47,7 @@ public class TestQueryStateInfoResource
 {
     private TestingPrestoServer server;
     private HttpClient client;
-    private QueryResults queryResults;
+    private List<QueryResults> queryResults;
 
     TestQueryStateInfoResource()
             throws Exception
@@ -56,24 +59,21 @@ public class TestQueryStateInfoResource
     @BeforeClass
     public void setup()
     {
-        Request request1 = preparePost()
-                .setUri(HttpUriBuilder.uriBuilderFrom(server.getBaseUrl()).replacePath("/v1/statement").build())
-                .setBodyGenerator(createStaticBodyGenerator("show catalogs", UTF_8))
-                .setHeader(PRESTO_USER, "user1")
-                .build();
-        queryResults = client.execute(request1, createJsonResponseHandler(jsonCodec(QueryResults.class)));
-
-        Request request2 = preparePost()
-                .setUri(HttpUriBuilder.uriBuilderFrom(server.getBaseUrl()).replacePath("/v1/statement").build())
-                .setBodyGenerator(createStaticBodyGenerator("show catalogs", UTF_8))
-                .setHeader(PRESTO_USER, "user2")
-                .build();
-        client.execute(request2, createJsonResponseHandler(jsonCodec(QueryResults.class)));
+        ImmutableList.Builder<QueryResults> builder = ImmutableList.builder();
+        builder.add(startQuery("user1", server, client));
+        builder.add(startQuery("user2", server, client));
+        queryResults = builder.build();
     }
 
     @AfterClass(alwaysRun = true)
     public void teardown()
     {
+        // gracefully drain the output and shutdown the server
+        for (QueryResults results : queryResults) {
+            while (results.getNextUri() != null) {
+                results = client.execute(prepareGet().setUri(results.getNextUri()).build(), createJsonResponseHandler(jsonCodec(QueryResults.class)));
+            }
+        }
         closeQuietly(server);
         closeQuietly(client);
     }
@@ -112,7 +112,7 @@ public class TestQueryStateInfoResource
     public void testGetQueryStateInfo()
     {
         QueryStateInfo info = client.execute(
-                prepareGet().setUri(server.resolve("/v1/queryState/" + queryResults.getId())).build(),
+                prepareGet().setUri(server.resolve("/v1/queryState/" + queryResults.get(0).getId())).build(),
                 createJsonResponseHandler(jsonCodec(QueryStateInfo.class)));
 
         assertNotNull(info);
@@ -124,5 +124,25 @@ public class TestQueryStateInfoResource
         client.execute(
                 prepareGet().setUri(server.resolve("/v1/queryState/123")).build(),
                 createJsonResponseHandler(jsonCodec(QueryStateInfo.class)));
+    }
+
+    private static QueryResults startQuery(String user, TestingPrestoServer server, HttpClient client)
+    {
+        // Send a query that can produce some result that is more than 1 page.
+        // Stop pulling data once the first page is received so that the query is in running state.
+        QueryResults queryResults;
+        Request request = preparePost()
+                .setUri(HttpUriBuilder.uriBuilderFrom(server.getBaseUrl()).replacePath("/v1/statement").build())
+                .setBodyGenerator(createStaticBodyGenerator("select * from (select repeat(coordinator, 4000) as array from system.runtime.nodes) cross join unnest(array)", UTF_8))
+                .setHeader(PRESTO_USER, user)
+                .setHeader(PRESTO_MAX_SIZE, "1B")
+                .build();
+        queryResults = client.execute(request, createJsonResponseHandler(jsonCodec(QueryResults.class)));
+
+        while (queryResults.getStats().getState().equals(QueryState.QUEUED.name()) && queryResults.getNextUri() != null) {
+            request = prepareGet().setUri(queryResults.getNextUri()).build();
+            queryResults = client.execute(request, createJsonResponseHandler(jsonCodec(QueryResults.class)));
+        }
+        return queryResults;
     }
 }

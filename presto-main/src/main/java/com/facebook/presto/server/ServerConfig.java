@@ -21,6 +21,7 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 public class ServerConfig
 {
     private boolean coordinator = true;
+    private boolean dispatcher = true;
     private String prestoVersion;
     private String dataSources;
     private boolean includeExceptionInResponse = true;
@@ -35,6 +36,18 @@ public class ServerConfig
     public ServerConfig setCoordinator(boolean coordinator)
     {
         this.coordinator = coordinator;
+        return this;
+    }
+
+    public boolean isDispatcher()
+    {
+        return dispatcher;
+    }
+
+    @Config("dispatcher")
+    public ServerConfig setDispatcher(boolean dispatcher)
+    {
+        this.dispatcher = dispatcher;
         return this;
     }
 

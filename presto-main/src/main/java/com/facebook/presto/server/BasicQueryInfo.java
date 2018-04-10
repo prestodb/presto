@@ -20,6 +20,7 @@ import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.ErrorType;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
+import com.facebook.presto.transaction.TransactionId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -27,6 +28,7 @@ import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
 import java.net.URI;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -46,6 +48,8 @@ public class BasicQueryInfo
     private final URI self;
     private final String query;
     private final BasicQueryStats queryStats;
+    private final Optional<TransactionId> startedTransactionId;
+    private final boolean clearTransactionId;
     private final ErrorType errorType;
     private final ErrorCode errorCode;
 
@@ -59,6 +63,8 @@ public class BasicQueryInfo
             @JsonProperty("self") URI self,
             @JsonProperty("query") String query,
             @JsonProperty("queryStats") BasicQueryStats queryStats,
+            @JsonProperty("startedTransactionId") Optional<TransactionId> startedTransactionId,
+            @JsonProperty("clearTransactionId") boolean clearTransactionId,
             @JsonProperty("errorType") ErrorType errorType,
             @JsonProperty("errorCode") ErrorCode errorCode)
     {
@@ -72,6 +78,8 @@ public class BasicQueryInfo
         this.self = requireNonNull(self, "self is null");
         this.query = requireNonNull(query, "query is null");
         this.queryStats = requireNonNull(queryStats, "queryStats is null");
+        this.startedTransactionId = requireNonNull(startedTransactionId, "startedTransactionId is null");
+        this.clearTransactionId = clearTransactionId;
     }
 
     public BasicQueryInfo(QueryInfo queryInfo)
@@ -84,6 +92,8 @@ public class BasicQueryInfo
                 queryInfo.getSelf(),
                 queryInfo.getQuery(),
                 new BasicQueryStats(queryInfo.getQueryStats()),
+                queryInfo.getStartedTransactionId(),
+                queryInfo.isClearTransactionId(),
                 queryInfo.getErrorType(),
                 queryInfo.getErrorCode());
     }
@@ -134,6 +144,18 @@ public class BasicQueryInfo
     public BasicQueryStats getQueryStats()
     {
         return queryStats;
+    }
+
+    @JsonProperty
+    public Optional<TransactionId> getStartedTransactionId()
+    {
+        return startedTransactionId;
+    }
+
+    @JsonProperty
+    public boolean isClearTransactionId()
+    {
+        return clearTransactionId;
     }
 
     @Nullable

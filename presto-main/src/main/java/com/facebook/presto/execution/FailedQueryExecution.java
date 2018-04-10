@@ -34,8 +34,8 @@ import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Objects.requireNonNull;
 
-public class FailedQueryExecution
-        implements QueryExecution
+public class FailedQueryExecution<T>
+        implements QueryExecution<T>
 {
     private final QueryInfo queryInfo;
     private final Session session;
@@ -113,7 +113,7 @@ public class FailedQueryExecution
     }
 
     @Override
-    public void addOutputInfoListener(Consumer<QueryOutputInfo> listener)
+    public void addOutputListener(Consumer<T> listener)
     {
         // no-op
     }

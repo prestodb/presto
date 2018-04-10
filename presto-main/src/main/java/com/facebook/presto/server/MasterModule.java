@@ -22,18 +22,23 @@ import com.facebook.presto.execution.CreateTableTask;
 import com.facebook.presto.execution.CreateViewTask;
 import com.facebook.presto.execution.DataDefinitionTask;
 import com.facebook.presto.execution.DeallocateTask;
+import com.facebook.presto.execution.DispatchQueryExecution.DispatchQueryExecutionFactory;
 import com.facebook.presto.execution.DropColumnTask;
 import com.facebook.presto.execution.DropSchemaTask;
 import com.facebook.presto.execution.DropTableTask;
 import com.facebook.presto.execution.DropViewTask;
 import com.facebook.presto.execution.ForQueryExecution;
 import com.facebook.presto.execution.GrantTask;
+import com.facebook.presto.execution.LazyOutput;
+import com.facebook.presto.execution.LazyProxyQueryManager;
+import com.facebook.presto.execution.LazyQueryExecution.LazyQueryExecutionFactory;
 import com.facebook.presto.execution.PrepareTask;
 import com.facebook.presto.execution.QueryExecution;
 import com.facebook.presto.execution.QueryExecutionMBean;
 import com.facebook.presto.execution.QueryIdGenerator;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
+import com.facebook.presto.execution.QueryOutputInfo;
 import com.facebook.presto.execution.RemoteTaskFactory;
 import com.facebook.presto.execution.RenameColumnTask;
 import com.facebook.presto.execution.RenameSchemaTask;
@@ -62,6 +67,10 @@ import com.facebook.presto.memory.NoneLowMemoryKiller;
 import com.facebook.presto.memory.TotalReservationLowMemoryKiller;
 import com.facebook.presto.memory.TotalReservationOnBlockedNodesLowMemoryKiller;
 import com.facebook.presto.operator.ForScheduler;
+import com.facebook.presto.server.protocol.DispatchQuery.DispatchQueryFactory;
+import com.facebook.presto.server.protocol.LazyQuery.LazyQueryFactory;
+import com.facebook.presto.server.protocol.Query.QueryFactory;
+import com.facebook.presto.server.protocol.SqlQuery.SqlQueryFactory;
 import com.facebook.presto.server.protocol.StatementResource;
 import com.facebook.presto.server.remotetask.RemoteTaskStats;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
@@ -124,16 +133,24 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.weakref.jmx.ObjectNames.generatedNameOf;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
-public class CoordinatorModule
+public class MasterModule
         extends AbstractConfigurationAwareModule
 {
     @Override
     protected void setup(Binder binder)
     {
+        ServerConfig serverConfig = buildConfigObject(ServerConfig.class);
+
         httpServerBinder(binder).bindResource("/", "webapp").withWelcomeFile("index.html");
 
-        // presto coordinator announcement
-        discoveryBinder(binder).bindHttpAnnouncement("presto-coordinator");
+        if (serverConfig.isDispatcher()) {
+            // presto dispatcher announcement
+            discoveryBinder(binder).bindHttpAnnouncement("presto-dispatcher");
+        }
+        if (serverConfig.isCoordinator()) {
+            // presto coordinator announcement
+            discoveryBinder(binder).bindHttpAnnouncement("presto-coordinator");
+        }
 
         // statement resource
         jsonCodecBinder(binder).bindJsonCodec(QueryInfo.class);
@@ -150,7 +167,33 @@ public class CoordinatorModule
         jaxrsBinder(binder).bind(QueryStateInfoResource.class);
         jaxrsBinder(binder).bind(ResourceGroupStateInfoResource.class);
         binder.bind(QueryIdGenerator.class).in(Scopes.SINGLETON);
-        binder.bind(QueryManager.class).to(SqlQueryManager.class).in(Scopes.SINGLETON);
+
+        if (serverConfig.isDispatcher()) {
+            binder.bind(DispatchQueryFactory.class).in(Scopes.SINGLETON);
+        }
+        if (serverConfig.isCoordinator()) {
+            binder.bind(SqlQueryFactory.class).in(Scopes.SINGLETON);
+        }
+
+        if (serverConfig.isDispatcher() && serverConfig.isCoordinator()) {
+            binder.bind(new TypeLiteral<QueryManager<LazyOutput>>() {}).to(new TypeLiteral<SqlQueryManager<LazyOutput>>() {}).in(Scopes.SINGLETON);
+            // create proxy query managers for dispatch and sql query factory
+            binder.bind(new TypeLiteral<QueryManager<QueryResults>>() {}).to(new TypeLiteral<LazyProxyQueryManager<QueryResults>>() {}).in(Scopes.SINGLETON);
+            binder.bind(new TypeLiteral<QueryManager<QueryOutputInfo>>() {}).to(new TypeLiteral<LazyProxyQueryManager<QueryOutputInfo>>() {}).in(Scopes.SINGLETON);
+            binder.bind(QueryManager.class).to(new TypeLiteral<QueryManager<LazyOutput>>() {});
+            binder.bind(QueryFactory.class).to(LazyQueryFactory.class).in(Scopes.SINGLETON);
+        }
+        else if (serverConfig.isDispatcher() && !serverConfig.isCoordinator()) {
+            binder.bind(new TypeLiteral<QueryManager<QueryResults>>() {}).to(new TypeLiteral<SqlQueryManager<QueryResults>>() {}).in(Scopes.SINGLETON);
+            binder.bind(QueryManager.class).to(new TypeLiteral<QueryManager<QueryResults>>() {});
+            binder.bind(QueryFactory.class).to(DispatchQueryFactory.class).in(Scopes.SINGLETON);
+        }
+        else {
+            verify(!serverConfig.isDispatcher() && serverConfig.isCoordinator());
+            binder.bind(new TypeLiteral<QueryManager<QueryOutputInfo>>() {}).to(new TypeLiteral<SqlQueryManager<QueryOutputInfo>>() {}).in(Scopes.SINGLETON);
+            binder.bind(QueryManager.class).to(new TypeLiteral<QueryManager<QueryOutputInfo>>() {});
+            binder.bind(QueryFactory.class).to(SqlQueryFactory.class).in(Scopes.SINGLETON);
+        }
         binder.bind(SessionSupplier.class).to(QuerySessionSupplier.class).in(Scopes.SINGLETON);
         binder.bind(InternalResourceGroupManager.class).in(Scopes.SINGLETON);
         newExporter(binder).export(InternalResourceGroupManager.class).withGeneratedName();
@@ -203,39 +246,70 @@ public class CoordinatorModule
         binder.bind(QueryExecutionMBean.class).in(Scopes.SINGLETON);
         newExporter(binder).export(QueryExecutionMBean.class).as(generatedNameOf(QueryExecution.class));
 
-        MapBinder<Class<? extends Statement>, QueryExecutionFactory<?>> executionBinder = newMapBinder(binder,
-                new TypeLiteral<Class<? extends Statement>>() {}, new TypeLiteral<QueryExecutionFactory<?>>() {});
+        if (serverConfig.isDispatcher()) {
+            binder.bind(ScheduledExecutorService.class).annotatedWith(ForQueryExecution.class)
+                    .toInstance(newSingleThreadScheduledExecutor(threadsNamed("dispatch-scheduler")));
 
-        binder.bind(SplitSchedulerStats.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(SplitSchedulerStats.class).withGeneratedName();
-        binder.bind(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
-        getAllQueryTypes().entrySet().stream()
-                .filter(entry -> entry.getValue() != QueryType.DATA_DEFINITION)
-                .forEach(entry -> executionBinder.addBinding(entry.getKey()).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON));
+            httpClientBinder(binder).bindHttpClient("queryExecutionFactory", ForQueryExecution.class)
+                    .withTracing()
+                    .withConfigDefaults(config -> {
+                        config.setIdleTimeout(new Duration(10, SECONDS));
+                        config.setRequestTimeout(new Duration(20, SECONDS));
+                    });
+            binder.bind(DispatchQueryExecutionFactory.class).in(Scopes.SINGLETON);
+        }
+        if (serverConfig.isCoordinator()) {
+            binder.bind(SplitSchedulerStats.class).in(Scopes.SINGLETON);
+            newExporter(binder).export(SplitSchedulerStats.class).withGeneratedName();
+            binder.bind(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
 
-        binder.bind(DataDefinitionExecutionFactory.class).in(Scopes.SINGLETON);
-        bindDataDefinitionTask(binder, executionBinder, CreateSchema.class, CreateSchemaTask.class);
-        bindDataDefinitionTask(binder, executionBinder, DropSchema.class, DropSchemaTask.class);
-        bindDataDefinitionTask(binder, executionBinder, RenameSchema.class, RenameSchemaTask.class);
-        bindDataDefinitionTask(binder, executionBinder, AddColumn.class, AddColumnTask.class);
-        bindDataDefinitionTask(binder, executionBinder, CreateTable.class, CreateTableTask.class);
-        bindDataDefinitionTask(binder, executionBinder, RenameTable.class, RenameTableTask.class);
-        bindDataDefinitionTask(binder, executionBinder, RenameColumn.class, RenameColumnTask.class);
-        bindDataDefinitionTask(binder, executionBinder, DropColumn.class, DropColumnTask.class);
-        bindDataDefinitionTask(binder, executionBinder, DropTable.class, DropTableTask.class);
-        bindDataDefinitionTask(binder, executionBinder, CreateView.class, CreateViewTask.class);
-        bindDataDefinitionTask(binder, executionBinder, DropView.class, DropViewTask.class);
-        bindDataDefinitionTask(binder, executionBinder, Use.class, UseTask.class);
-        bindDataDefinitionTask(binder, executionBinder, SetSession.class, SetSessionTask.class);
-        bindDataDefinitionTask(binder, executionBinder, ResetSession.class, ResetSessionTask.class);
-        bindDataDefinitionTask(binder, executionBinder, StartTransaction.class, StartTransactionTask.class);
-        bindDataDefinitionTask(binder, executionBinder, Commit.class, CommitTask.class);
-        bindDataDefinitionTask(binder, executionBinder, Rollback.class, RollbackTask.class);
-        bindDataDefinitionTask(binder, executionBinder, Call.class, CallTask.class);
-        bindDataDefinitionTask(binder, executionBinder, Grant.class, GrantTask.class);
-        bindDataDefinitionTask(binder, executionBinder, Revoke.class, RevokeTask.class);
-        bindDataDefinitionTask(binder, executionBinder, Prepare.class, PrepareTask.class);
-        bindDataDefinitionTask(binder, executionBinder, Deallocate.class, DeallocateTask.class);
+            MapBinder<Class<? extends Statement>, QueryExecutionFactory<? extends QueryExecution<QueryOutputInfo>>> executionBinder = newMapBinder(binder,
+                    new TypeLiteral<Class<? extends Statement>>() {}, new TypeLiteral<QueryExecutionFactory<? extends QueryExecution<QueryOutputInfo>>>() {});
+
+            getAllQueryTypes().entrySet().stream()
+                    .filter(entry -> entry.getValue() != QueryType.DATA_DEFINITION)
+                    .forEach(entry -> executionBinder.addBinding(entry.getKey()).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON));
+
+            binder.bind(DataDefinitionExecutionFactory.class).in(Scopes.SINGLETON);
+            bindDataDefinitionTask(binder, executionBinder, CreateSchema.class, CreateSchemaTask.class);
+            bindDataDefinitionTask(binder, executionBinder, DropSchema.class, DropSchemaTask.class);
+            bindDataDefinitionTask(binder, executionBinder, RenameSchema.class, RenameSchemaTask.class);
+            bindDataDefinitionTask(binder, executionBinder, AddColumn.class, AddColumnTask.class);
+            bindDataDefinitionTask(binder, executionBinder, CreateTable.class, CreateTableTask.class);
+            bindDataDefinitionTask(binder, executionBinder, RenameTable.class, RenameTableTask.class);
+            bindDataDefinitionTask(binder, executionBinder, RenameColumn.class, RenameColumnTask.class);
+            bindDataDefinitionTask(binder, executionBinder, DropColumn.class, DropColumnTask.class);
+            bindDataDefinitionTask(binder, executionBinder, DropTable.class, DropTableTask.class);
+            bindDataDefinitionTask(binder, executionBinder, CreateView.class, CreateViewTask.class);
+            bindDataDefinitionTask(binder, executionBinder, DropView.class, DropViewTask.class);
+            bindDataDefinitionTask(binder, executionBinder, Use.class, UseTask.class);
+            bindDataDefinitionTask(binder, executionBinder, SetSession.class, SetSessionTask.class);
+            bindDataDefinitionTask(binder, executionBinder, ResetSession.class, ResetSessionTask.class);
+            bindDataDefinitionTask(binder, executionBinder, StartTransaction.class, StartTransactionTask.class);
+            bindDataDefinitionTask(binder, executionBinder, Commit.class, CommitTask.class);
+            bindDataDefinitionTask(binder, executionBinder, Rollback.class, RollbackTask.class);
+            bindDataDefinitionTask(binder, executionBinder, Call.class, CallTask.class);
+            bindDataDefinitionTask(binder, executionBinder, Grant.class, GrantTask.class);
+            bindDataDefinitionTask(binder, executionBinder, Revoke.class, RevokeTask.class);
+            bindDataDefinitionTask(binder, executionBinder, Prepare.class, PrepareTask.class);
+            bindDataDefinitionTask(binder, executionBinder, Deallocate.class, DeallocateTask.class);
+        }
+
+        if (serverConfig.isDispatcher() && serverConfig.isCoordinator()) {
+            MapBinder<Class<? extends Statement>, QueryExecutionFactory<? extends QueryExecution<LazyOutput>>> executionBinder = newMapBinder(binder,
+                    new TypeLiteral<Class<? extends Statement>>() {}, new TypeLiteral<QueryExecutionFactory<? extends QueryExecution<LazyOutput>>>() {});
+
+            getAllQueryTypes().keySet().forEach(statement -> executionBinder.addBinding(statement).to(LazyQueryExecutionFactory.class).in(Scopes.SINGLETON));
+        }
+        else if (serverConfig.isDispatcher() && !serverConfig.isCoordinator()) {
+            MapBinder<Class<? extends Statement>, QueryExecutionFactory<? extends QueryExecution<QueryResults>>> executionBinder = newMapBinder(binder,
+                    new TypeLiteral<Class<? extends Statement>>() {}, new TypeLiteral<QueryExecutionFactory<? extends QueryExecution<QueryResults>>>() {});
+
+            getAllQueryTypes().keySet().forEach(statement -> executionBinder.addBinding(statement).to(DispatchQueryExecutionFactory.class).in(Scopes.SINGLETON));
+        }
+        else {
+            verify(!serverConfig.isDispatcher() && serverConfig.isCoordinator());
+        }
 
         MapBinder<String, ExecutionPolicy> executionPolicyBinder = newMapBinder(binder, String.class, ExecutionPolicy.class);
         executionPolicyBinder.addBinding("all-at-once").to(AllAtOnceExecutionPolicy.class);
@@ -247,7 +321,7 @@ public class CoordinatorModule
 
     private static <T extends Statement> void bindDataDefinitionTask(
             Binder binder,
-            MapBinder<Class<? extends Statement>, QueryExecutionFactory<?>> executionBinder,
+            MapBinder<Class<? extends Statement>, QueryExecutionFactory<? extends QueryExecution<QueryOutputInfo>>> executionBinder,
             Class<T> statement,
             Class<? extends DataDefinitionTask<T>> task)
     {

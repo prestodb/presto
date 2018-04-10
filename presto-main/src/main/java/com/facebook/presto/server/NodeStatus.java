@@ -27,6 +27,7 @@ public class NodeStatus
     private final NodeVersion nodeVersion;
     private final String environment;
     private final boolean coordinator;
+    private final boolean dispatcher;
     private final Duration uptime;
     private final String externalAddress;
     private final String internalAddress;
@@ -44,6 +45,7 @@ public class NodeStatus
             @JsonProperty("nodeVersion") NodeVersion nodeVersion,
             @JsonProperty("environment") String environment,
             @JsonProperty("coordinator") boolean coordinator,
+            @JsonProperty("dispatcher") boolean dispatcher,
             @JsonProperty("uptime") Duration uptime,
             @JsonProperty("externalAddress") String externalAddress,
             @JsonProperty("internalAddress") String internalAddress,
@@ -59,6 +61,7 @@ public class NodeStatus
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         this.environment = requireNonNull(environment, "environment is null");
         this.coordinator = coordinator;
+        this.dispatcher = dispatcher;
         this.uptime = requireNonNull(uptime, "uptime is null");
         this.externalAddress = requireNonNull(externalAddress, "externalAddress is null");
         this.internalAddress = requireNonNull(internalAddress, "internalAddress is null");
@@ -93,6 +96,12 @@ public class NodeStatus
     public boolean isCoordinator()
     {
         return coordinator;
+    }
+
+    @JsonProperty
+    public boolean isDispatcher()
+    {
+        return dispatcher;
     }
 
     @JsonProperty

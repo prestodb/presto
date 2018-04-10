@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.tests;
 
+import com.facebook.presto.execution.QueryIdGenerator;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.TestingSessionContext;
@@ -39,12 +40,14 @@ import static org.testng.Assert.fail;
 public class TestQueryManager
 {
     private DistributedQueryRunner queryRunner;
+    private QueryIdGenerator queryIdGenerator;
 
     @BeforeClass
     public void setUp()
             throws Exception
     {
         queryRunner = TpchQueryRunnerBuilder.builder().build();
+        queryIdGenerator = new QueryIdGenerator();
     }
 
     @AfterClass(alwaysRun = true)
@@ -58,8 +61,8 @@ public class TestQueryManager
             throws Exception
     {
         QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
-        QueryId queryId = queryManager.createQuery(new TestingSessionContext(TEST_SESSION),
-                "SELECT * FROM lineitem").getQueryId();
+        QueryId queryId = queryIdGenerator.createNextQueryId();
+        queryManager.createQuery(queryId, new TestingSessionContext(TEST_SESSION), "SELECT * FROM lineitem");
 
         // wait until query starts running
         while (true) {

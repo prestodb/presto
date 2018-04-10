@@ -105,7 +105,7 @@ public class TestRaptorSplitManager
         NodeSupplier nodeSupplier = nodeManager::getWorkerNodes;
 
         String nodeName = UUID.randomUUID().toString();
-        nodeManager.addNode(new PrestoNode(nodeName, new URI("http://127.0.0.1/"), NodeVersion.UNKNOWN, false));
+        nodeManager.addNode(new PrestoNode(nodeName, new URI("http://127.0.0.1/"), NodeVersion.UNKNOWN, false, false));
 
         RaptorConnectorId connectorId = new RaptorConnectorId("raptor");
         metadata = new RaptorMetadata(connectorId.toString(), dbi, shardManager);
@@ -174,7 +174,7 @@ public class TestRaptorSplitManager
         TestingNodeManager nodeManager = new TestingNodeManager();
         RaptorConnectorId connectorId = new RaptorConnectorId("raptor");
         NodeSupplier nodeSupplier = nodeManager::getWorkerNodes;
-        PrestoNode node = new PrestoNode(UUID.randomUUID().toString(), new URI("http://127.0.0.1/"), NodeVersion.UNKNOWN, false);
+        PrestoNode node = new PrestoNode(UUID.randomUUID().toString(), new URI("http://127.0.0.1/"), NodeVersion.UNKNOWN, false, false);
         nodeManager.addNode(node);
         RaptorSplitManager raptorSplitManagerWithBackup = new RaptorSplitManager(connectorId, nodeSupplier, shardManager, true);
 

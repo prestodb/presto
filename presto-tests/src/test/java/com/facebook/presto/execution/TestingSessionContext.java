@@ -16,6 +16,7 @@ package com.facebook.presto.execution;
 import com.facebook.presto.Session;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.server.SessionContext;
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.session.ResourceEstimates;
 import com.facebook.presto.transaction.TransactionId;
@@ -36,6 +37,12 @@ public class TestingSessionContext
     public TestingSessionContext(Session session)
     {
         this.session = requireNonNull(session, "session is null");
+    }
+
+    @Override
+    public QueryId getQueryId()
+    {
+        return session.getQueryId();
     }
 
     @Override

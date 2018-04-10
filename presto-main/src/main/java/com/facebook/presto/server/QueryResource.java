@@ -44,7 +44,7 @@ import static java.util.Objects.requireNonNull;
 @Path("/v1/query")
 public class QueryResource
 {
-    private final QueryManager queryManager;
+    private final QueryManager<?> queryManager;
 
     @Inject
     public QueryResource(QueryManager queryManager)
@@ -73,6 +73,21 @@ public class QueryResource
         try {
             QueryInfo queryInfo = queryManager.getQueryInfo(queryId);
             return Response.ok(queryInfo).build();
+        }
+        catch (NoSuchElementException e) {
+            return Response.status(Status.GONE).build();
+        }
+    }
+
+    @GET
+    @Path("{queryId}/basic")
+    public Response getBasicQueryInfo(@PathParam("queryId") QueryId queryId)
+    {
+        requireNonNull(queryId, "queryId is null");
+
+        try {
+            QueryInfo queryInfo = queryManager.getQueryInfo(queryId);
+            return Response.ok(new BasicQueryInfo(queryInfo)).build();
         }
         catch (NoSuchElementException e) {
             return Response.status(Status.GONE).build();

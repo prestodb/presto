@@ -51,6 +51,7 @@ public class NodeSystemTable
             .column("http_uri", createUnboundedVarcharType())
             .column("node_version", createUnboundedVarcharType())
             .column("coordinator", BOOLEAN)
+            .column("dispatcher", BOOLEAN)
             .column("state", createUnboundedVarcharType())
             .build();
 
@@ -88,7 +89,7 @@ public class NodeSystemTable
     private void addRows(Builder table, Set<Node> nodes, NodeState state)
     {
         for (Node node : nodes) {
-            table.addRow(node.getNodeIdentifier(), node.getHttpUri().toString(), getNodeVersion(node), isCoordinator(node), state.toString().toLowerCase());
+            table.addRow(node.getNodeIdentifier(), node.getHttpUri().toString(), getNodeVersion(node), isCoordinator(node), isDispatcher(node), state.toString().toLowerCase());
         }
     }
 
@@ -103,5 +104,10 @@ public class NodeSystemTable
     private boolean isCoordinator(Node node)
     {
         return nodeManager.getCoordinators().contains(node);
+    }
+
+    private boolean isDispatcher(Node node)
+    {
+        return nodeManager.getDispatchers().contains(node);
     }
 }

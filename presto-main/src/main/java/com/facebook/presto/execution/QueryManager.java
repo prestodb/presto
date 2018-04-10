@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.execution.QueryExecution.QueryOutputInfo;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.server.SessionContext;
 import com.facebook.presto.spi.QueryId;
@@ -25,11 +24,11 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
 
-public interface QueryManager
+public interface QueryManager<T>
 {
     List<QueryInfo> getAllQueryInfo();
 
-    void addOutputInfoListener(QueryId queryId, Consumer<QueryOutputInfo> listener);
+    void addOutputListener(QueryId queryId, Consumer<T> listener);
 
     void addStateChangeListener(QueryId queryId, StateChangeListener<QueryState> listener);
 
@@ -45,7 +44,7 @@ public interface QueryManager
 
     void recordHeartbeat(QueryId queryId);
 
-    QueryInfo createQuery(SessionContext sessionContext, String query);
+    QueryInfo createQuery(QueryId queryId, SessionContext sessionContext, String query);
 
     void failQuery(QueryId queryId, Throwable cause);
 

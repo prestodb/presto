@@ -47,7 +47,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 public class MockQueryExecution
-        implements QueryExecution
+        implements QueryExecution<QueryOutputInfo>
 {
     private final List<StateChangeListener<QueryState>> listeners = new ArrayList<>();
     private final long memoryUsage;
@@ -189,7 +189,7 @@ public class MockQueryExecution
     }
 
     @Override
-    public void addOutputInfoListener(Consumer<QueryOutputInfo> listener)
+    public void addOutputListener(Consumer<QueryOutputInfo> listener)
     {
         // no-op
     }

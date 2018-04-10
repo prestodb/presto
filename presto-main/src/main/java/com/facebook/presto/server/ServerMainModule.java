@@ -211,8 +211,8 @@ public class ServerMainModule
     {
         ServerConfig serverConfig = buildConfigObject(ServerConfig.class);
 
-        if (serverConfig.isCoordinator()) {
-            install(new CoordinatorModule());
+        if (serverConfig.isCoordinator() || serverConfig.isDispatcher()) {
+            install(new MasterModule());
             binder.bind(new TypeLiteral<Optional<QueryPerformanceFetcher>>() {}).toProvider(QueryPerformanceFetcherProvider.class).in(Scopes.SINGLETON);
         }
         else {
@@ -231,7 +231,7 @@ public class ServerMainModule
         }
 
         // discovery server
-        // TODO: move to CoordinatorModule
+        // TODO: move to MasterModule
         install(installModuleIf(EmbeddedDiscoveryConfig.class, EmbeddedDiscoveryConfig::isEnabled, new EmbeddedDiscoveryModule()));
 
         InternalCommunicationConfig internalCommunicationConfig = buildConfigObject(InternalCommunicationConfig.class);
@@ -279,7 +279,7 @@ public class ServerMainModule
                 });
 
         // node scheduler
-        // TODO: remove from NodePartitioningManager and move to CoordinatorModule
+        // TODO: remove from NodePartitioningManager and move to MasterModule
         configBinder(binder).bindConfig(NodeSchedulerConfig.class);
         binder.bind(NodeScheduler.class).in(Scopes.SINGLETON);
         binder.bind(NodeSchedulerExporter.class).in(Scopes.SINGLETON);
@@ -287,7 +287,7 @@ public class ServerMainModule
         newExporter(binder).export(NodeScheduler.class).withGeneratedName();
 
         // network topology
-        // TODO: move to CoordinatorModule when NodeScheduler is moved
+        // TODO: move to MasterModule when NodeScheduler is moved
         install(installModuleIf(
                 NodeSchedulerConfig.class,
                 config -> LEGACY.equalsIgnoreCase(config.getNetworkTopology()),
@@ -450,6 +450,7 @@ public class ServerMainModule
         discoveryBinder(binder).bindHttpAnnouncement("presto")
                 .addProperty("node_version", nodeVersion.toString())
                 .addProperty("coordinator", String.valueOf(serverConfig.isCoordinator()))
+                .addProperty("dispatcher", String.valueOf(serverConfig.isDispatcher()))
                 .addProperty("connectorIds", nullToEmpty(serverConfig.getDataSources()));
 
         // server info resource
