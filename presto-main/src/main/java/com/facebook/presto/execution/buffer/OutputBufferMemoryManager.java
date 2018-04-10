@@ -34,6 +34,7 @@ class OutputBufferMemoryManager
 {
     private final long maxBufferedBytes;
     private final AtomicLong bufferedBytes = new AtomicLong();
+    private final AtomicLong peakMemoryUsage = new AtomicLong();
     @GuardedBy("this")
     private SettableFuture<?> notFull;
 
@@ -56,7 +57,9 @@ class OutputBufferMemoryManager
 
     public synchronized void updateMemoryUsage(long bytesAdded)
     {
-        systemMemoryContextSupplier.get().setBytes(bufferedBytes.addAndGet(bytesAdded));
+        long currentBufferedBytes = bufferedBytes.addAndGet(bytesAdded);
+        peakMemoryUsage.accumulateAndGet(currentBufferedBytes, Math::max);
+        systemMemoryContextSupplier.get().setBytes(currentBufferedBytes);
         if (!isBufferFull() && !notFull.isDone()) {
             // Complete future in a new thread to avoid making a callback on the caller thread.
             // This make is easier for callers to use this class since they can update the memory
@@ -101,5 +104,10 @@ class OutputBufferMemoryManager
     private synchronized boolean isBufferFull()
     {
         return bufferedBytes.get() > maxBufferedBytes && blockOnFull.get();
+    }
+
+    public long getPeakMemoryUsage()
+    {
+        return peakMemoryUsage.get();
     }
 }

@@ -315,6 +315,12 @@ public class ArbitraryOutputBuffer
         }
     }
 
+    @Override
+    public long getPeakMemoryUsage()
+    {
+        return memoryManager.getPeakMemoryUsage();
+    }
+
     private synchronized ClientBuffer getBuffer(OutputBufferId id)
     {
         ClientBuffer buffer = buffers.get(id);

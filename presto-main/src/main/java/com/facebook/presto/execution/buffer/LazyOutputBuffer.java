@@ -312,6 +312,20 @@ public class LazyOutputBuffer
         outputBuffer.fail();
     }
 
+    @Override
+    public long getPeakMemoryUsage()
+    {
+        OutputBuffer outputBuffer;
+        synchronized (this) {
+            outputBuffer = delegate;
+        }
+
+        if (outputBuffer != null) {
+            return outputBuffer.getPeakMemoryUsage();
+        }
+        return 0;
+    }
+
     private static class PendingRead
     {
         private final OutputBufferId bufferId;
