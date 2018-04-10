@@ -327,7 +327,7 @@ public class HiveWriterFactory
                 throw new PrestoException(HIVE_PARTITION_READ_ONLY, "Cannot insert into existing partition of bucketed Hive table: " + partitionName.get());
             }
             if (immutablePartitions) {
-                throw new PrestoException(HIVE_PARTITION_READ_ONLY, "Hive partitions are immutable: " + partitionName.get());
+                throw new PrestoException(HIVE_PARTITION_READ_ONLY, "Cannot insert into an existing partition of Hive table: " + partitionName.get());
             }
             isNew = false;
 
