@@ -39,7 +39,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
@@ -50,7 +49,7 @@ import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfUnchecked;
-import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static java.lang.Boolean.TRUE;
 import static java.util.Objects.requireNonNull;
@@ -318,7 +317,7 @@ public class Driver
         // or any of the operators gets a memory revocation request
         SettableFuture<?> newDriverBlockedFuture = SettableFuture.create();
         driverBlockedFuture.set(newDriverBlockedFuture);
-        sourceBlockedFuture.addListener(() -> newDriverBlockedFuture.set(null), newDirectExecutorService());
+        sourceBlockedFuture.addListener(() -> newDriverBlockedFuture.set(null), directExecutor());
 
         // it's possible that memory revoking is requested for some operator
         // before we update driverBlockedFuture above and we don't want to miss that
@@ -652,10 +651,9 @@ public class Driver
     private static ListenableFuture<?> firstFinishedFuture(List<ListenableFuture<?>> futures)
     {
         SettableFuture<?> result = SettableFuture.create();
-        ExecutorService executor = newDirectExecutorService();
 
         for (ListenableFuture<?> future : futures) {
-            future.addListener(() -> result.set(null), executor);
+            future.addListener(() -> result.set(null), directExecutor());
         }
 
         return result;
