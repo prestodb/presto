@@ -21,7 +21,6 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnIdentity;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
-import com.facebook.presto.spi.ConnectorNewTableLayout;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorResolvedIndex;
 import com.facebook.presto.spi.ConnectorSession;
@@ -594,12 +593,8 @@ public class MetadataManager
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, connectorId);
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
 
-        Optional<ConnectorNewTableLayout> insertLayout = metadata.getInsertLayout(session.toConnectorSession(connectorId), table.getConnectorHandle());
-        if (!insertLayout.isPresent()) {
-            return Optional.empty();
-        }
-
-        return Optional.of(new NewTableLayout(connectorId, catalogMetadata.getTransactionHandleFor(connectorId), insertLayout.get()));
+        return metadata.getInsertLayout(session.toConnectorSession(connectorId), table.getConnectorHandle())
+                .map(layout -> new NewTableLayout(connectorId, catalogMetadata.getTransactionHandleFor(connectorId), layout));
     }
 
     @Override
