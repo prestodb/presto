@@ -576,7 +576,8 @@ public class TestGeoFunctions
         assertFunction("ST_Within(ST_GeometryFromText('POINT (3 2)'), ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 4, 4 1))'))", BOOLEAN, true);
         assertFunction("ST_Within(ST_GeometryFromText('POLYGON ((1 1, 1 3, 3 3, 3 1))'), ST_GeometryFromText('POLYGON ((0 0, 0 4, 4 4, 4 0))'))", BOOLEAN, true);
         assertFunction("ST_Within(ST_GeometryFromText('LINESTRING (1 1, 3 3)'), ST_GeometryFromText('POLYGON ((0 0, 0 4, 4 4, 4 0))'))", BOOLEAN, true);
-        assertFunction("ST_Touches(ST_GeometryFromText('MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1)), ((0 0, 0 2, 2 2, 2 0)))'), ST_GeometryFromText('POLYGON ((0 1, 3 1, 3 3, 0 3))'))", BOOLEAN, false);
+        assertFunction("ST_Within(ST_GeometryFromText('MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1)), ((0 0, 0 2, 2 2, 2 0)))'), ST_GeometryFromText('POLYGON ((0 1, 3 1, 3 3, 0 3))'))", BOOLEAN, false);
+        assertFunction("ST_Within(ST_GeometryFromText('POLYGON ((1 1, 1 5, 5 5, 5 1))'), ST_GeometryFromText('POLYGON ((0 0, 0 4, 4 4, 4 0))'))", BOOLEAN, false);
     }
 
     @Test
