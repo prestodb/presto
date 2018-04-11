@@ -58,7 +58,7 @@ public final class WorkProcessorUtils
                             processor.getBlockedFuture().get();
                         }
                         catch (InterruptedException e) {
-                            Thread.interrupted();
+                            Thread.currentThread().interrupt();
                             throw new RuntimeException(e);
                         }
                         catch (ExecutionException e) {
