@@ -428,7 +428,7 @@ public class MetadataManager
                 ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
                 ConnectorSession connectorSession = session.toConnectorSession(connectorId);
                 metadata.listTables(connectorSession, schemaNameOrNull).stream()
-                        .map(convertFromSchemaTableName(prefix.getCatalogName())::apply)
+                        .map(convertFromSchemaTableName(prefix.getCatalogName()))
                         .forEach(tables::add);
             }
         }
@@ -762,7 +762,7 @@ public class MetadataManager
                 ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
                 ConnectorSession connectorSession = session.toConnectorSession(connectorId);
                 metadata.listViews(connectorSession, schemaNameOrNull).stream()
-                        .map(convertFromSchemaTableName(prefix.getCatalogName())::apply)
+                        .map(convertFromSchemaTableName(prefix.getCatalogName()))
                         .forEach(views::add);
             }
         }
