@@ -202,7 +202,7 @@ import static com.google.common.collect.Lists.newArrayList;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.collect.Sets.difference;
-import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -614,7 +614,7 @@ public abstract class AbstractTestHiveClient
                 new NamenodeStats(),
                 hdfsEnvironment,
                 new HadoopDirectoryLister(),
-                newDirectExecutorService(),
+                directExecutor(),
                 new HiveCoercionPolicy(TYPE_MANAGER),
                 new CounterStat(),
                 100,
