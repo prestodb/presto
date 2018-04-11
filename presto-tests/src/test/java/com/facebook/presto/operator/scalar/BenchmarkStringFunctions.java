@@ -59,7 +59,7 @@ import static org.openjdk.jmh.annotations.Scope.Thread;
 @Fork(1)
 @Warmup(iterations = 4, time = 500, timeUnit = MILLISECONDS)
 @Measurement(iterations = 5, time = 500, timeUnit = MILLISECONDS)
-public class StringFunctionsBenchmark
+public class BenchmarkStringFunctions
 {
     @Benchmark
     public long benchmarkLength(BenchmarkData data)
@@ -259,7 +259,7 @@ public class StringFunctionsBenchmark
     {
         Options options = new OptionsBuilder()
                 .verbosity(VerboseMode.NORMAL)
-                .include(".*" + StringFunctionsBenchmark.class.getSimpleName() + ".*")
+                .include(".*" + BenchmarkStringFunctions.class.getSimpleName() + ".*")
                 .build();
 
         new Runner(options).run();

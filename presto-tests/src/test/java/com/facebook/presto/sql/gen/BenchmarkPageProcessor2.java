@@ -75,7 +75,7 @@ import static java.util.stream.Collectors.toList;
 @Warmup(iterations = 10)
 @Measurement(iterations = 10)
 @BenchmarkMode(Mode.AverageTime)
-public class PageProcessorBenchmark
+public class BenchmarkPageProcessor2
 {
     private static final Map<String, Type> TYPE_MAP = ImmutableMap.of("bigint", BIGINT, "varchar", VARCHAR);
     private static final SqlParser SQL_PARSER = new SqlParser();
@@ -199,7 +199,7 @@ public class PageProcessorBenchmark
     {
         Options options = new OptionsBuilder()
                 .verbosity(VerboseMode.NORMAL)
-                .include(".*" + PageProcessorBenchmark.class.getSimpleName() + ".*")
+                .include(".*" + BenchmarkPageProcessor2.class.getSimpleName() + ".*")
                 .build();
 
         new Runner(options).run();
