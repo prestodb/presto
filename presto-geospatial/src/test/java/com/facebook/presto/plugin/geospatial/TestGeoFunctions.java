@@ -494,6 +494,8 @@ public class TestGeoFunctions
         assertFunction("ST_Disjoint(ST_GeometryFromText('POINT (50 100)'), ST_GeometryFromText('POINT (150 150)'))", BOOLEAN, true);
         assertFunction("ST_Disjoint(ST_GeometryFromText('MULTIPOINT (50 100, 50 200)'), ST_GeometryFromText('POINT (50 100)'))", BOOLEAN, false);
         assertFunction("ST_Disjoint(ST_GeometryFromText('LINESTRING (0 0, 0 1)'), ST_GeometryFromText('LINESTRING (1 1, 1 0)'))", BOOLEAN, true);
+        assertFunction("ST_Disjoint(ST_GeometryFromText('LINESTRING (2 1, 1 2)'), ST_GeometryFromText('LINESTRING (3 1, 1 3)'))", BOOLEAN, true);
+        assertFunction("ST_Disjoint(ST_GeometryFromText('LINESTRING (1 1, 3 3)'), ST_GeometryFromText('LINESTRING (3 1, 1 3)'))", BOOLEAN, false);
         assertFunction("ST_Disjoint(ST_GeometryFromText('LINESTRING (50 100, 50 200)'), ST_GeometryFromText('LINESTRING (20 150, 100 150)'))", BOOLEAN, false);
         assertFunction("ST_Disjoint(ST_GeometryFromText('MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))'), ST_GeometryFromText('MULTILINESTRING ((3 4, 6 4), (5 0, 5 4))'))", BOOLEAN, false);
         assertFunction("ST_Disjoint(ST_GeometryFromText('POLYGON ((1 1, 1 3, 3 3, 3 1))'), ST_GeometryFromText('POLYGON ((4 4, 4 5, 5 5, 5 4))'))", BOOLEAN, true);
