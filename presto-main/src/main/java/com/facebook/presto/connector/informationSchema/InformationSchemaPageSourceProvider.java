@@ -38,7 +38,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
@@ -201,7 +200,7 @@ public class InformationSchemaPageSourceProvider
     {
         InternalTable.Builder table = InternalTable.builder(informationSchemaTableColumns(TABLE_VIEWS));
         for (QualifiedTablePrefix prefix : prefixes) {
-            for (Entry<QualifiedObjectName, ViewDefinition> entry : getViews(session, prefix).entrySet()) {
+            for (Entry<QualifiedObjectName, ViewDefinition> entry : metadata.getViews(session, prefix).entrySet()) {
                 table.add(
                         entry.getKey().getCatalogName(),
                         entry.getKey().getSchemaName(),
@@ -210,11 +209,6 @@ public class InformationSchemaPageSourceProvider
             }
         }
         return table.build();
-    }
-
-    private Map<QualifiedObjectName, ViewDefinition> getViews(Session session, QualifiedTablePrefix prefix)
-    {
-        return metadata.getViews(session, prefix);
     }
 
     private InternalTable buildSchemata(Session session, String catalogName)
