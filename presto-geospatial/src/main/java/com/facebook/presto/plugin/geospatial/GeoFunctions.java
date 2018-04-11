@@ -14,6 +14,7 @@
 package com.facebook.presto.plugin.geospatial;
 
 import com.esri.core.geometry.Envelope;
+import com.esri.core.geometry.Envelope2D;
 import com.esri.core.geometry.GeometryCursor;
 import com.esri.core.geometry.MultiPath;
 import com.esri.core.geometry.MultiPoint;
@@ -32,6 +33,8 @@ import com.esri.core.geometry.ogc.OGCMultiPolygon;
 import com.esri.core.geometry.ogc.OGCPoint;
 import com.esri.core.geometry.ogc.OGCPolygon;
 import com.facebook.presto.geospatial.GeometryType;
+import com.facebook.presto.geospatial.KDBTree;
+import com.facebook.presto.geospatial.KDBTreeSpec;
 import com.facebook.presto.geospatial.serde.GeometrySerde;
 import com.facebook.presto.geospatial.serde.GeometrySerializationType;
 import com.facebook.presto.geospatial.serde.JtsGeometrySerde;
@@ -42,16 +45,23 @@ import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
+import com.facebook.presto.spi.type.IntegerType;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Joiner;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.json.ObjectMapperProvider;
 import io.airlift.slice.Slice;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.linearref.LengthIndexedLine;
 
+import java.io.IOException;
 import java.util.EnumSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 
 import static com.esri.core.geometry.NonSimpleResult.Reason.Clustering;
 import static com.esri.core.geometry.NonSimpleResult.Reason.Cracking;
@@ -74,6 +84,7 @@ import static com.facebook.presto.geospatial.serde.GeometrySerde.deserializeType
 import static com.facebook.presto.geospatial.serde.GeometrySerde.serialize;
 import static com.facebook.presto.plugin.geospatial.GeometryType.GEOMETRY;
 import static com.facebook.presto.plugin.geospatial.GeometryType.GEOMETRY_TYPE_NAME;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.StandardTypes.BIGINT;
 import static com.facebook.presto.spi.type.StandardTypes.BOOLEAN;
@@ -106,6 +117,7 @@ public final class GeoFunctions
             .put(OGCPolygonSelfTangency, "Self-tangency")
             .put(OGCDisconnectedInterior, "Disconnected interior")
             .build();
+    private static final Cache<Long, KDBTree> KDB_TREE_CACHE = CacheBuilder.newBuilder().maximumSize(20).build();
 
     private GeoFunctions() {}
 
@@ -885,6 +897,83 @@ public final class GeoFunctions
     public static Slice stGeometryType(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
     {
         return GeometrySerde.getGeometryType(input).standardName();
+    }
+
+    private static KDBTree getKdbTree(Slice jsonSlice)
+    {
+        ObjectMapper objectMapper = new ObjectMapperProvider().get();
+        try {
+            return KDBTree.fromSpec(objectMapper.readValue(jsonSlice.toStringUtf8(), KDBTreeSpec.class));
+        }
+        catch (IOException e) {
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Cannot parse KDB tree JSON: " + e.getMessage());
+        }
+    }
+
+    public static KDBTree getKdbTree(long hash, Slice kdbTreeJsonSlice)
+    {
+        try {
+            return KDB_TREE_CACHE.get(hash, () -> getKdbTree(kdbTreeJsonSlice));
+        }
+        catch (ExecutionException e) {
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Cannot create KDB tree from JSON: " + e.getMessage());
+        }
+    }
+
+    @SqlNullable
+    @Description("Returns an array of partition IDs for a given geometry")
+    @ScalarFunction(hidden = true)
+    @SqlType("array(int)")
+    public static Block spatialPartitions(@SqlType(BIGINT) long kdbTreeHash, @SqlType(VARCHAR) Slice kdbTreeJson, @SqlType(GEOMETRY_TYPE_NAME) Slice geometry, @SqlType(DOUBLE) double radius)
+    {
+        Envelope envelope = deserializeEnvelope(geometry);
+        if (envelope == null) {
+            return null;
+        }
+
+        Envelope2D expandedEnvelope2D = new Envelope2D(envelope.getXMin() - radius, envelope.getYMin() - radius, envelope.getXMax() + radius, envelope.getYMax() + radius);
+        return spatialPartitions(kdbTreeHash, kdbTreeJson, expandedEnvelope2D);
+    }
+
+    @SqlNullable
+    @Description("Returns an array of partition IDs for a given geometry")
+    @ScalarFunction(hidden = true)
+    @SqlType("array(int)")
+    public static Block spatialPartitions(@SqlType(BIGINT) long kdbTreeHash, @SqlType(VARCHAR) Slice kdbTreeJson, @SqlType(GEOMETRY_TYPE_NAME) Slice geometry)
+    {
+        Envelope envelope = deserializeEnvelope(geometry);
+        if (envelope == null) {
+            return null;
+        }
+
+        Envelope2D envelope2D = new Envelope2D();
+        envelope.queryEnvelope2D(envelope2D);
+
+        return spatialPartitions(kdbTreeHash, kdbTreeJson, envelope2D);
+    }
+
+    private static Block spatialPartitions(long kdbTreeHash, Slice kdbTreeJson, Envelope2D envelope)
+    {
+        boolean point = (envelope.xmin == envelope.xmax && envelope.ymin == envelope.ymax);
+
+        Map<Integer, Envelope2D> extents = getKdbTree(kdbTreeHash, kdbTreeJson).findLeafs(envelope);
+        if (point) {
+            for (Map.Entry<Integer, Envelope2D> entry : extents.entrySet()) {
+                if (envelope.xmin < entry.getValue().xmax && envelope.ymin < entry.getValue().ymax) {
+                    BlockBuilder blockBuilder = IntegerType.INTEGER.createFixedSizeBlockBuilder(1);
+                    blockBuilder.writeInt(entry.getKey());
+                    return blockBuilder.build();
+                }
+            }
+            return IntegerType.INTEGER.createFixedSizeBlockBuilder(0).build();
+        }
+
+        BlockBuilder blockBuilder = IntegerType.INTEGER.createFixedSizeBlockBuilder(extents.size());
+        for (Integer id : extents.keySet()) {
+            blockBuilder.writeInt(id);
+        }
+
+        return blockBuilder.build();
     }
 
     @ScalarFunction

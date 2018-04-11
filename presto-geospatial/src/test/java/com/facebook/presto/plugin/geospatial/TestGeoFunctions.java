@@ -21,8 +21,13 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+import com.google.common.hash.Hashing;
+import com.google.common.io.Resources;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
+
+import java.net.URL;
+import java.util.List;
 
 import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
 import static com.facebook.presto.plugin.geospatial.GeometryType.GEOMETRY;
@@ -33,6 +38,9 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Collections.emptyList;
+import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 import static java.lang.String.format;
 
@@ -47,6 +55,41 @@ public class TestGeoFunctions
             functionAssertions.getTypeRegistry().addType(type);
         }
         functionAssertions.getMetadata().addFunctions(extractFunctions(plugin.getFunctions()));
+    }
+
+    @Test
+    public void testSpatialPartition()
+            throws Exception
+    {
+        URL resource = requireNonNull(TestGeoFunctions.class.getClassLoader().getResource("kdb_tree.json"), "resource not found: kdb_tree.json");
+        String kdbTreeJson = Resources.toString(resource, UTF_8);
+        long kdbTreeHash = Hashing.sha256().newHasher().putBytes(kdbTreeJson.getBytes()).hash().asLong();
+
+        assertSpatialPartitions(kdbTreeHash, kdbTreeJson, "POINT (-72.67913 40.775191)", ImmutableList.of(78));
+        assertSpatialPartitions(kdbTreeHash, kdbTreeJson, "POINT (-71 42)", ImmutableList.of(78));
+        assertSpatialPartitions(kdbTreeHash, kdbTreeJson, "MULTIPOINT (-65 37, -71 42)", ImmutableList.of(73, 78));
+
+        assertSpatialPartitions(kdbTreeHash, kdbTreeJson, "POINT (200 100)", emptyList());
+        assertSpatialPartitions(kdbTreeHash, kdbTreeJson, "POINT EMPTY", null);
+
+        // with radius
+        assertSpatialPartitions(kdbTreeHash, kdbTreeJson, "POINT (-72.67913 40.775191)", 0.1, ImmutableList.of(73, 76, 78));
+        assertSpatialPartitions(kdbTreeHash, kdbTreeJson, "POINT (-71 42)", 0.1, ImmutableList.of(78));
+        assertSpatialPartitions(kdbTreeHash, kdbTreeJson, "MULTIPOINT (-65 37, -71 42)", 0.1, ImmutableList.of(73, 78));
+        assertSpatialPartitions(kdbTreeHash, kdbTreeJson, "MULTIPOINT (-65 37, -71 42)", 1.1, ImmutableList.of(80, 73, 78));
+
+        assertSpatialPartitions(kdbTreeHash, kdbTreeJson, "POINT (200 100)", 1.1, emptyList());
+        assertSpatialPartitions(kdbTreeHash, kdbTreeJson, "POINT EMPTY", 1.1, null);
+    }
+
+    private void assertSpatialPartitions(long kdbTreeHash, String kdbTreeJson, String wkt, List<Integer> expectedPartitions)
+    {
+        assertFunction("spatial_partitions(" + kdbTreeHash + ", '" + kdbTreeJson + "', ST_GeometryFromText('" + wkt + "'))", new ArrayType(INTEGER), expectedPartitions);
+    }
+
+    private void assertSpatialPartitions(long kdbTreeHash, String kdbTreeJson, String wkt, double radius, List<Integer> expectedPartitions)
+    {
+        assertFunction("spatial_partitions(" + kdbTreeHash + ", '" + kdbTreeJson + "', ST_GeometryFromText('" + wkt + "'), " + radius + ")", new ArrayType(INTEGER), expectedPartitions);
     }
 
     @Test

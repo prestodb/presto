@@ -94,6 +94,7 @@ public class SpatialIndexBuilderOperator
         public SpatialIndexBuilderOperator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
+
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, SpatialIndexBuilderOperator.class.getSimpleName());
             return new SpatialIndexBuilderOperator(
                     operatorContext,
