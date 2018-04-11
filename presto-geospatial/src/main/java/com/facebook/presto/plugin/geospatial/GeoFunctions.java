@@ -710,6 +710,9 @@ public final class GeoFunctions
     @SqlType(StandardTypes.BOOLEAN)
     public static Boolean stWithin(@SqlType(GEOMETRY_TYPE_NAME) Slice left, @SqlType(GEOMETRY_TYPE_NAME) Slice right)
     {
+        if (!envelopes(right, left, Envelope::contains)) {
+            return false;
+        }
         OGCGeometry leftGeometry = deserialize(left);
         OGCGeometry rightGeometry = deserialize(right);
         verifySameSpatialReference(leftGeometry, rightGeometry);
