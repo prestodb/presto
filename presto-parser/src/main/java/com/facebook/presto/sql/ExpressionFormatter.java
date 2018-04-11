@@ -78,6 +78,7 @@ import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.sql.tree.Window;
 import com.facebook.presto.sql.tree.WindowFrame;
+import com.google.common.base.CharMatcher;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -686,7 +687,7 @@ public final class ExpressionFormatter
     static String formatStringLiteral(String s)
     {
         s = s.replace("'", "''");
-        if (isAsciiPrintable(s)) {
+        if (CharMatcher.inRange((char) 0x20, (char) 0x7E).matchesAllOf(s)) {
             return "'" + s + "'";
         }
 
@@ -763,16 +764,6 @@ public final class ExpressionFormatter
             resultStrings.add(result);
         }
         return Joiner.on(", ").join(resultStrings.build());
-    }
-
-    private static boolean isAsciiPrintable(String s)
-    {
-        for (int i = 0; i < s.length(); i++) {
-            if (!isAsciiPrintable(s.charAt(i))) {
-                return false;
-            }
-        }
-        return true;
     }
 
     private static boolean isAsciiPrintable(int codePoint)
