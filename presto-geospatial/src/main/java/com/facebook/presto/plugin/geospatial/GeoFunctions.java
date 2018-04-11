@@ -617,6 +617,9 @@ public final class GeoFunctions
     @SqlType(StandardTypes.BOOLEAN)
     public static Boolean stCrosses(@SqlType(GEOMETRY_TYPE_NAME) Slice left, @SqlType(GEOMETRY_TYPE_NAME) Slice right)
     {
+        if (!envelopes(left, right, Envelope::intersect)) {
+            return false;
+        }
         OGCGeometry leftGeometry = deserialize(left);
         OGCGeometry rightGeometry = deserialize(right);
         verifySameSpatialReference(leftGeometry, rightGeometry);

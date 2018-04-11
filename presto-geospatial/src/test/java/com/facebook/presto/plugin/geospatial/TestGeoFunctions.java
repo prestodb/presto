@@ -486,6 +486,9 @@ public class TestGeoFunctions
         assertFunction("ST_Crosses(ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 4, 4 1))'), ST_GeometryFromText('POLYGON ((2 2, 2 5, 5 5, 5 2))'))", BOOLEAN, false);
         assertFunction("ST_Crosses(ST_GeometryFromText('MULTIPOLYGON (((0 0 , 0 2, 2 2, 2 0)), ((2 2, 2 4, 4 4, 4 2)))'), ST_GeometryFromText('POLYGON ((2 2, 2 3, 3 3, 3 2))'))", BOOLEAN, false);
         assertFunction("ST_Crosses(ST_GeometryFromText('LINESTRING (-2 -2, 6 6)'), ST_GeometryFromText('POLYGON ((0 0, 0 4, 4 4, 4 0))'))", BOOLEAN, true);
+        assertFunction("ST_Crosses(ST_GeometryFromText('POINT (20 20)'), ST_GeometryFromText('POINT (20 20)'))", BOOLEAN, false);
+        assertFunction("ST_Crosses(ST_GeometryFromText('POLYGON ((0 0, 0 4, 4 4, 4 0))'), ST_GeometryFromText('POLYGON ((0 0, 0 4, 4 4, 4 0))'))", BOOLEAN, false);
+        assertFunction("ST_Crosses(ST_GeometryFromText('POLYGON ((0 0, 0 4, 4 4, 4 0))'), ST_GeometryFromText('LINESTRING (0 0, 0 4, 4 4, 4 0)'))", BOOLEAN, false);
     }
 
     @Test
