@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.security;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.connector.informationSchema.InformationSchemaConnector;
 import com.facebook.presto.connector.system.SystemConnector;
@@ -23,6 +24,7 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.CatalogSchemaTableName;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.Connector;
@@ -36,6 +38,7 @@ import com.facebook.presto.spi.security.SystemAccessControl;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
 import com.facebook.presto.testing.TestingConnectorContext;
 import com.facebook.presto.tpch.TpchConnectorFactory;
+import com.facebook.presto.transaction.TransactionId;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -49,6 +52,7 @@ import java.util.Set;
 import static com.facebook.presto.connector.ConnectorId.createInformationSchemaConnectorId;
 import static com.facebook.presto.connector.ConnectorId.createSystemTablesConnectorId;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectTable;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.facebook.presto.transaction.TransactionManager.createTestTransactionManager;
 import static java.util.Objects.requireNonNull;
@@ -90,24 +94,24 @@ public class TestAccessControlManager
         transaction(transactionManager, accessControlManager)
                 .execute(transactionId -> {
                     accessControlManager.checkCanSetCatalogSessionProperty(transactionId, identity, "catalog", "property");
-                    accessControlManager.checkCanSelectFromTable(transactionId, identity, tableName);
-                    accessControlManager.checkCanSelectFromView(transactionId, identity, tableName);
-                    accessControlManager.checkCanCreateViewWithSelectFromTable(transactionId, identity, tableName);
-                    accessControlManager.checkCanCreateViewWithSelectFromView(transactionId, identity, tableName);
-                    accessControlManager.checkCanShowSchemas(transactionId, identity, "catalog");
-                    accessControlManager.checkCanShowTablesMetadata(transactionId, identity, new CatalogSchemaName("catalog", "schema"));
+                    accessControlManager.checkCanSelectFromTable(newSession(transactionId, "catalog", "schema", identity), tableName);
+                    accessControlManager.checkCanSelectFromView(newSession(transactionId, "catalog", "schema", identity), tableName);
+                    accessControlManager.checkCanCreateViewWithSelectFromTable(newSession(transactionId, "catalog", "schema", identity), tableName);
+                    accessControlManager.checkCanCreateViewWithSelectFromView(newSession(transactionId, "catalog", "schema", identity), tableName);
+                    accessControlManager.checkCanShowSchemas(newSession(transactionId, "catalog", "schema", identity), "catalog");
+                    accessControlManager.checkCanShowTablesMetadata(newSession(transactionId, "catalog", "schema", identity), new CatalogSchemaName("catalog", "schema"));
                     Set<String> catalogs = ImmutableSet.of("catalog");
-                    assertEquals(accessControlManager.filterCatalogs(identity, catalogs), catalogs);
+                    assertEquals(accessControlManager.filterCatalogs(newSession(transactionId, "catalog", "schema", identity), catalogs), catalogs);
                     Set<String> schemas = ImmutableSet.of("schema");
-                    assertEquals(accessControlManager.filterSchemas(transactionId, identity, "catalog", schemas), schemas);
+                    assertEquals(accessControlManager.filterSchemas(newSession(transactionId, "catalog", "schema", identity), "catalog", schemas), schemas);
                     Set<SchemaTableName> tableNames = ImmutableSet.of(new SchemaTableName("schema", "table"));
-                    assertEquals(accessControlManager.filterTables(transactionId, identity, "catalog", tableNames), tableNames);
+                    assertEquals(accessControlManager.filterTables(newSession(transactionId, "catalog", "schema", identity), "catalog", tableNames), tableNames);
                 });
 
         try {
             transaction(transactionManager, accessControlManager)
                     .execute(transactionId -> {
-                        accessControlManager.checkCanInsertIntoTable(transactionId, identity, tableName);
+                        accessControlManager.checkCanInsertIntoTable(newSession(transactionId, "catalog", "schema", identity), tableName);
                     });
             fail();
         }
@@ -141,7 +145,12 @@ public class TestAccessControlManager
 
         transaction(transactionManager, accessControlManager)
                 .execute(transactionId -> {
-                    accessControlManager.checkCanSelectFromTable(transactionId, new Identity(USER_NAME, Optional.of(PRINCIPAL)), new QualifiedObjectName("catalog", "schema", "table"));
+                    accessControlManager.checkCanSelectFromTable(
+                            newSession(transactionId,
+                                    "catalog",
+                                    "schema",
+                                    new Identity(USER_NAME, Optional.of(PRINCIPAL))),
+                            new QualifiedObjectName("catalog", "schema", "table"));
                 });
     }
 
@@ -161,7 +170,12 @@ public class TestAccessControlManager
 
         transaction(transactionManager, accessControlManager)
                 .execute(transactionId -> {
-                    accessControlManager.checkCanSelectFromTable(transactionId, new Identity(USER_NAME, Optional.of(PRINCIPAL)), new QualifiedObjectName("catalog", "schema", "table"));
+                    accessControlManager.checkCanSelectFromTable(
+                            newSession(transactionId,
+                                    "catalog",
+                                    "schema",
+                                    new Identity(USER_NAME, Optional.of(PRINCIPAL))),
+                            new QualifiedObjectName("catalog", "schema", "table"));
                 });
     }
 
@@ -181,7 +195,12 @@ public class TestAccessControlManager
 
         transaction(transactionManager, accessControlManager)
                 .execute(transactionId -> {
-                    accessControlManager.checkCanSelectFromTable(transactionId, new Identity(USER_NAME, Optional.of(PRINCIPAL)), new QualifiedObjectName("secured_catalog", "schema", "table"));
+                    accessControlManager.checkCanSelectFromTable(
+                            newSession(transactionId,
+                                    "catalog",
+                                    "schema",
+                                    new Identity(USER_NAME, Optional.of(PRINCIPAL))),
+                            new QualifiedObjectName("secured_catalog", "schema", "table"));
                 });
     }
 
@@ -269,7 +288,7 @@ public class TestAccessControlManager
                 }
 
                 @Override
-                public void checkCanSelectFromTable(Identity identity, CatalogSchemaTableName table)
+                public void checkCanSelectFromTable(ConnectorSession session, CatalogSchemaTableName table)
                 {
                     if (table.getCatalogName().equals("secured_catalog")) {
                         denySelectTable(table.toString());
@@ -277,7 +296,7 @@ public class TestAccessControlManager
                 }
 
                 @Override
-                public Set<String> filterCatalogs(Identity identity, Set<String> catalogs)
+                public Set<String> filterCatalogs(ConnectorSession session, Set<String> catalogs)
                 {
                     return catalogs;
                 }
@@ -289,103 +308,103 @@ public class TestAccessControlManager
             implements ConnectorAccessControl
     {
         @Override
-        public void checkCanSelectFromTable(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
+        public void checkCanSelectFromTable(ConnectorTransactionHandle transactionHandle, ConnectorSession session, SchemaTableName tableName)
         {
             denySelectTable(tableName.toString());
         }
 
         @Override
-        public void checkCanCreateSchema(ConnectorTransactionHandle transactionHandle, Identity identity, String schemaName)
+        public void checkCanCreateSchema(ConnectorTransactionHandle transactionHandle, ConnectorSession session, String schemaName)
         {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public void checkCanDropSchema(ConnectorTransactionHandle transactionHandle, Identity identity, String schemaName)
+        public void checkCanDropSchema(ConnectorTransactionHandle transactionHandle, ConnectorSession session, String schemaName)
         {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public void checkCanRenameSchema(ConnectorTransactionHandle transactionHandle, Identity identity, String schemaName, String newSchemaName)
+        public void checkCanRenameSchema(ConnectorTransactionHandle transactionHandle, ConnectorSession session, String schemaName, String newSchemaName)
         {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public void checkCanCreateTable(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
+        public void checkCanCreateTable(ConnectorTransactionHandle transactionHandle, ConnectorSession session, SchemaTableName tableName)
         {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public void checkCanDropTable(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
+        public void checkCanDropTable(ConnectorTransactionHandle transactionHandle, ConnectorSession session, SchemaTableName tableName)
         {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public void checkCanRenameTable(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName, SchemaTableName newTableName)
+        public void checkCanRenameTable(ConnectorTransactionHandle transactionHandle, ConnectorSession session, SchemaTableName tableName, SchemaTableName newTableName)
         {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public void checkCanAddColumn(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
+        public void checkCanAddColumn(ConnectorTransactionHandle transactionHandle, ConnectorSession session, SchemaTableName tableName)
         {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public void checkCanDropColumn(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
+        public void checkCanDropColumn(ConnectorTransactionHandle transactionHandle, ConnectorSession session, SchemaTableName tableName)
         {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public void checkCanRenameColumn(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
+        public void checkCanRenameColumn(ConnectorTransactionHandle transactionHandle, ConnectorSession session, SchemaTableName tableName)
         {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public void checkCanInsertIntoTable(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
+        public void checkCanInsertIntoTable(ConnectorTransactionHandle transactionHandle, ConnectorSession session, SchemaTableName tableName)
         {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public void checkCanDeleteFromTable(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
+        public void checkCanDeleteFromTable(ConnectorTransactionHandle transactionHandle, ConnectorSession session, SchemaTableName tableName)
         {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public void checkCanCreateView(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName viewName)
+        public void checkCanCreateView(ConnectorTransactionHandle transactionHandle, ConnectorSession session, SchemaTableName viewName)
         {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public void checkCanDropView(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName viewName)
+        public void checkCanDropView(ConnectorTransactionHandle transactionHandle, ConnectorSession session, SchemaTableName viewName)
         {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public void checkCanSelectFromView(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName viewName)
+        public void checkCanSelectFromView(ConnectorTransactionHandle transactionHandle, ConnectorSession session, SchemaTableName viewName)
         {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public void checkCanCreateViewWithSelectFromTable(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
+        public void checkCanCreateViewWithSelectFromTable(ConnectorTransactionHandle transactionHandle, ConnectorSession session, SchemaTableName tableName)
         {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public void checkCanCreateViewWithSelectFromView(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName viewName)
+        public void checkCanCreateViewWithSelectFromView(ConnectorTransactionHandle transactionHandle, ConnectorSession session, SchemaTableName viewName)
         {
             throw new UnsupportedOperationException();
         }
@@ -397,15 +416,25 @@ public class TestAccessControlManager
         }
 
         @Override
-        public void checkCanGrantTablePrivilege(ConnectorTransactionHandle transactionHandle, Identity identity, Privilege privilege, SchemaTableName tableName, String grantee, boolean withGrantOption)
+        public void checkCanGrantTablePrivilege(ConnectorTransactionHandle transactionHandle, ConnectorSession session, Privilege privilege, SchemaTableName tableName, String grantee, boolean withGrantOption)
         {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public void checkCanRevokeTablePrivilege(ConnectorTransactionHandle transactionHandle, Identity identity, Privilege privilege, SchemaTableName tableName, String revokee, boolean grantOptionFor)
+        public void checkCanRevokeTablePrivilege(ConnectorTransactionHandle transactionHandle, ConnectorSession session, Privilege privilege, SchemaTableName tableName, String revokee, boolean grantOptionFor)
         {
             throw new UnsupportedOperationException();
         }
+    }
+
+    private static Session newSession(TransactionId transactionId, String catalogName, String schemaName, Identity identity)
+    {
+        return testSessionBuilder()
+                .setTransactionId(transactionId)
+                .setCatalog(catalogName)
+                .setSchema(schemaName)
+                .setIdentity(identity)
+                .build();
     }
 }

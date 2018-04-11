@@ -14,6 +14,7 @@
 
 package com.facebook.presto.hive.security;
 
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
@@ -39,138 +40,138 @@ public class PartitionsAwareAccessControl
     }
 
     @Override
-    public void checkCanCreateSchema(ConnectorTransactionHandle transactionHandle, Identity identity, String schemaName)
+    public void checkCanCreateSchema(ConnectorTransactionHandle transactionHandle, ConnectorSession session, String schemaName)
     {
-        delegate.checkCanCreateSchema(transactionHandle, identity, schemaName);
+        delegate.checkCanCreateSchema(transactionHandle, session, schemaName);
     }
 
     @Override
-    public void checkCanDropSchema(ConnectorTransactionHandle transactionHandle, Identity identity, String schemaName)
+    public void checkCanDropSchema(ConnectorTransactionHandle transactionHandle, ConnectorSession session, String schemaName)
     {
-        delegate.checkCanDropSchema(transactionHandle, identity, schemaName);
+        delegate.checkCanDropSchema(transactionHandle, session, schemaName);
     }
 
     @Override
-    public void checkCanRenameSchema(ConnectorTransactionHandle transactionHandle, Identity identity, String schemaName, String newSchemaName)
+    public void checkCanRenameSchema(ConnectorTransactionHandle transactionHandle, ConnectorSession session, String schemaName, String newSchemaName)
     {
-        delegate.checkCanRenameSchema(transactionHandle, identity, schemaName, newSchemaName);
+        delegate.checkCanRenameSchema(transactionHandle, session, schemaName, newSchemaName);
     }
 
     @Override
-    public void checkCanShowSchemas(ConnectorTransactionHandle transactionHandle, Identity identity)
+    public void checkCanShowSchemas(ConnectorTransactionHandle transactionHandle, ConnectorSession session)
     {
-        delegate.checkCanShowSchemas(transactionHandle, identity);
+        delegate.checkCanShowSchemas(transactionHandle, session);
     }
 
     @Override
-    public Set<String> filterSchemas(ConnectorTransactionHandle transactionHandle, Identity identity, Set<String> schemaNames)
+    public Set<String> filterSchemas(ConnectorTransactionHandle transactionHandle, ConnectorSession session, Set<String> schemaNames)
     {
-        return delegate.filterSchemas(transactionHandle, identity, schemaNames);
+        return delegate.filterSchemas(transactionHandle, session, schemaNames);
     }
 
     @Override
-    public void checkCanCreateTable(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
+    public void checkCanCreateTable(ConnectorTransactionHandle transactionHandle, ConnectorSession session, SchemaTableName tableName)
     {
-        delegate.checkCanCreateTable(transactionHandle, identity, tableName);
+        delegate.checkCanCreateTable(transactionHandle, session, tableName);
     }
 
     @Override
-    public void checkCanDropTable(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
+    public void checkCanDropTable(ConnectorTransactionHandle transactionHandle, ConnectorSession session, SchemaTableName tableName)
     {
-        delegate.checkCanDropTable(transactionHandle, identity, tableName);
+        delegate.checkCanDropTable(transactionHandle, session, tableName);
     }
 
     @Override
-    public void checkCanRenameTable(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName, SchemaTableName newTableName)
+    public void checkCanRenameTable(ConnectorTransactionHandle transactionHandle, ConnectorSession session, SchemaTableName tableName, SchemaTableName newTableName)
     {
-        delegate.checkCanRenameTable(transactionHandle, identity, tableName, newTableName);
+        delegate.checkCanRenameTable(transactionHandle, session, tableName, newTableName);
     }
 
     @Override
-    public void checkCanShowTablesMetadata(ConnectorTransactionHandle transactionHandle, Identity identity, String schemaName)
+    public void checkCanShowTablesMetadata(ConnectorTransactionHandle transactionHandle, ConnectorSession session, String schemaName)
     {
-        delegate.checkCanShowTablesMetadata(transactionHandle, identity, schemaName);
+        delegate.checkCanShowTablesMetadata(transactionHandle, session, schemaName);
     }
 
     @Override
-    public Set<SchemaTableName> filterTables(ConnectorTransactionHandle transactionHandle, Identity identity, Set<SchemaTableName> tableNames)
+    public Set<SchemaTableName> filterTables(ConnectorTransactionHandle transactionHandle, ConnectorSession session, Set<SchemaTableName> tableNames)
     {
-        return delegate.filterTables(transactionHandle, identity, tableNames);
+        return delegate.filterTables(transactionHandle, session, tableNames);
     }
 
     @Override
-    public void checkCanAddColumn(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
+    public void checkCanAddColumn(ConnectorTransactionHandle transactionHandle, ConnectorSession session, SchemaTableName tableName)
     {
-        delegate.checkCanAddColumn(transactionHandle, identity, tableName);
+        delegate.checkCanAddColumn(transactionHandle, session, tableName);
     }
 
     @Override
-    public void checkCanDropColumn(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
+    public void checkCanDropColumn(ConnectorTransactionHandle transactionHandle, ConnectorSession session, SchemaTableName tableName)
     {
-        delegate.checkCanDropColumn(transactionHandle, identity, tableName);
+        delegate.checkCanDropColumn(transactionHandle, session, tableName);
     }
 
     @Override
-    public void checkCanRenameColumn(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
+    public void checkCanRenameColumn(ConnectorTransactionHandle transactionHandle, ConnectorSession session, SchemaTableName tableName)
     {
-        delegate.checkCanRenameColumn(transactionHandle, identity, tableName);
+        delegate.checkCanRenameColumn(transactionHandle, session, tableName);
     }
 
     @Override
-    public void checkCanSelectFromTable(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
+    public void checkCanSelectFromTable(ConnectorTransactionHandle transactionHandle, ConnectorSession session, SchemaTableName tableName)
     {
         if (isPartitionsSystemTable(tableName)) {
             try {
-                checkCanSelectFromTable(transactionHandle, identity, getSourceTableNameForPartitionsTable(tableName));
+                checkCanSelectFromTable(transactionHandle, session, getSourceTableNameForPartitionsTable(tableName));
                 return;
             }
             catch (AccessDeniedException e) {
                 denySelectTable(tableName.toString());
             }
         }
-        delegate.checkCanSelectFromTable(transactionHandle, identity, tableName);
+        delegate.checkCanSelectFromTable(transactionHandle, session, tableName);
     }
 
     @Override
-    public void checkCanInsertIntoTable(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
+    public void checkCanInsertIntoTable(ConnectorTransactionHandle transactionHandle, ConnectorSession session, SchemaTableName tableName)
     {
-        delegate.checkCanInsertIntoTable(transactionHandle, identity, tableName);
+        delegate.checkCanInsertIntoTable(transactionHandle, session, tableName);
     }
 
     @Override
-    public void checkCanDeleteFromTable(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
+    public void checkCanDeleteFromTable(ConnectorTransactionHandle transactionHandle, ConnectorSession session, SchemaTableName tableName)
     {
-        delegate.checkCanDeleteFromTable(transactionHandle, identity, tableName);
+        delegate.checkCanDeleteFromTable(transactionHandle, session, tableName);
     }
 
     @Override
-    public void checkCanCreateView(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName viewName)
+    public void checkCanCreateView(ConnectorTransactionHandle transactionHandle, ConnectorSession session, SchemaTableName viewName)
     {
-        delegate.checkCanCreateView(transactionHandle, identity, viewName);
+        delegate.checkCanCreateView(transactionHandle, session, viewName);
     }
 
     @Override
-    public void checkCanDropView(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName viewName)
+    public void checkCanDropView(ConnectorTransactionHandle transactionHandle, ConnectorSession session, SchemaTableName viewName)
     {
-        delegate.checkCanDropView(transactionHandle, identity, viewName);
+        delegate.checkCanDropView(transactionHandle, session, viewName);
     }
 
     @Override
-    public void checkCanSelectFromView(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName viewName)
+    public void checkCanSelectFromView(ConnectorTransactionHandle transactionHandle, ConnectorSession session, SchemaTableName viewName)
     {
-        delegate.checkCanSelectFromView(transactionHandle, identity, viewName);
+        delegate.checkCanSelectFromView(transactionHandle, session, viewName);
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromTable(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
+    public void checkCanCreateViewWithSelectFromTable(ConnectorTransactionHandle transactionHandle, ConnectorSession session, SchemaTableName tableName)
     {
-        delegate.checkCanCreateViewWithSelectFromTable(transactionHandle, identity, tableName);
+        delegate.checkCanCreateViewWithSelectFromTable(transactionHandle, session, tableName);
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromView(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName viewName)
+    public void checkCanCreateViewWithSelectFromView(ConnectorTransactionHandle transactionHandle, ConnectorSession session, SchemaTableName viewName)
     {
-        delegate.checkCanCreateViewWithSelectFromView(transactionHandle, identity, viewName);
+        delegate.checkCanCreateViewWithSelectFromView(transactionHandle, session, viewName);
     }
 
     @Override
@@ -180,14 +181,14 @@ public class PartitionsAwareAccessControl
     }
 
     @Override
-    public void checkCanGrantTablePrivilege(ConnectorTransactionHandle transactionHandle, Identity identity, Privilege privilege, SchemaTableName tableName, String grantee, boolean withGrantOption)
+    public void checkCanGrantTablePrivilege(ConnectorTransactionHandle transactionHandle, ConnectorSession session, Privilege privilege, SchemaTableName tableName, String grantee, boolean withGrantOption)
     {
-        delegate.checkCanGrantTablePrivilege(transactionHandle, identity, privilege, tableName, grantee, withGrantOption);
+        delegate.checkCanGrantTablePrivilege(transactionHandle, session, privilege, tableName, grantee, withGrantOption);
     }
 
     @Override
-    public void checkCanRevokeTablePrivilege(ConnectorTransactionHandle transactionHandle, Identity identity, Privilege privilege, SchemaTableName tableName, String revokee, boolean grantOptionFor)
+    public void checkCanRevokeTablePrivilege(ConnectorTransactionHandle transactionHandle, ConnectorSession session, Privilege privilege, SchemaTableName tableName, String revokee, boolean grantOptionFor)
     {
-        delegate.checkCanRevokeTablePrivilege(transactionHandle, identity, privilege, tableName, revokee, grantOptionFor);
+        delegate.checkCanRevokeTablePrivilege(transactionHandle, session, privilege, tableName, revokee, grantOptionFor);
     }
 }

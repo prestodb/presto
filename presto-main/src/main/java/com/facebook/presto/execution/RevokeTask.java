@@ -68,7 +68,7 @@ public class RevokeTask
 
         // verify current identity has permissions to revoke permissions
         for (Privilege privilege : privileges) {
-            accessControl.checkCanRevokeTablePrivilege(session.getRequiredTransactionId(), session.getIdentity(), privilege, tableName, statement.getGrantee().getValue(), statement.isGrantOptionFor());
+            accessControl.checkCanRevokeTablePrivilege(session, privilege, tableName, statement.getGrantee().getValue(), statement.isGrantOptionFor());
         }
 
         metadata.revokeTablePrivileges(session, tableName, privileges, statement.getGrantee().getValue(), statement.isGrantOptionFor());

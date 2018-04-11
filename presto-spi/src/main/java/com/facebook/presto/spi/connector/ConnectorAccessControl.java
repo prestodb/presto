@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.connector;
 
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.Privilege;
@@ -49,7 +50,7 @@ public interface ConnectorAccessControl
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanCreateSchema(ConnectorTransactionHandle transactionHandle, Identity identity, String schemaName)
+    default void checkCanCreateSchema(ConnectorTransactionHandle transactionHandle, ConnectorSession session, String schemaName)
     {
         denyCreateSchema(schemaName);
     }
@@ -59,7 +60,7 @@ public interface ConnectorAccessControl
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanDropSchema(ConnectorTransactionHandle transactionHandle, Identity identity, String schemaName)
+    default void checkCanDropSchema(ConnectorTransactionHandle transactionHandle, ConnectorSession session, String schemaName)
     {
         denyDropSchema(schemaName);
     }
@@ -69,7 +70,7 @@ public interface ConnectorAccessControl
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanRenameSchema(ConnectorTransactionHandle transactionHandle, Identity identity, String schemaName, String newSchemaName)
+    default void checkCanRenameSchema(ConnectorTransactionHandle transactionHandle, ConnectorSession session, String schemaName, String newSchemaName)
     {
         denyRenameSchema(schemaName, newSchemaName);
     }
@@ -83,7 +84,7 @@ public interface ConnectorAccessControl
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanShowSchemas(ConnectorTransactionHandle transactionHandle, Identity identity)
+    default void checkCanShowSchemas(ConnectorTransactionHandle transactionHandle, ConnectorSession session)
     {
         denyShowSchemas();
     }
@@ -91,7 +92,7 @@ public interface ConnectorAccessControl
     /**
      * Filter the list of schemas to those visible to the identity.
      */
-    default Set<String> filterSchemas(ConnectorTransactionHandle transactionHandle, Identity identity, Set<String> schemaNames)
+    default Set<String> filterSchemas(ConnectorTransactionHandle transactionHandle, ConnectorSession session, Set<String> schemaNames)
     {
         return Collections.emptySet();
     }
@@ -101,7 +102,7 @@ public interface ConnectorAccessControl
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanCreateTable(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
+    default void checkCanCreateTable(ConnectorTransactionHandle transactionHandle, ConnectorSession session, SchemaTableName tableName)
     {
         denyCreateTable(tableName.toString());
     }
@@ -111,7 +112,7 @@ public interface ConnectorAccessControl
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanDropTable(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
+    default void checkCanDropTable(ConnectorTransactionHandle transactionHandle, ConnectorSession session, SchemaTableName tableName)
     {
         denyDropTable(tableName.toString());
     }
@@ -121,7 +122,7 @@ public interface ConnectorAccessControl
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanRenameTable(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName, SchemaTableName newTableName)
+    default void checkCanRenameTable(ConnectorTransactionHandle transactionHandle, ConnectorSession session, SchemaTableName tableName, SchemaTableName newTableName)
     {
         denyRenameTable(tableName.toString(), newTableName.toString());
     }
@@ -135,7 +136,7 @@ public interface ConnectorAccessControl
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanShowTablesMetadata(ConnectorTransactionHandle transactionHandle, Identity identity, String schemaName)
+    default void checkCanShowTablesMetadata(ConnectorTransactionHandle transactionHandle, ConnectorSession session, String schemaName)
     {
         denyShowTablesMetadata(schemaName);
     }
@@ -143,7 +144,7 @@ public interface ConnectorAccessControl
     /**
      * Filter the list of tables and views to those visible to the identity.
      */
-    default Set<SchemaTableName> filterTables(ConnectorTransactionHandle transactionHandle, Identity identity, Set<SchemaTableName> tableNames)
+    default Set<SchemaTableName> filterTables(ConnectorTransactionHandle transactionHandle, ConnectorSession session, Set<SchemaTableName> tableNames)
     {
         return Collections.emptySet();
     }
@@ -153,7 +154,7 @@ public interface ConnectorAccessControl
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanAddColumn(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
+    default void checkCanAddColumn(ConnectorTransactionHandle transactionHandle, ConnectorSession session, SchemaTableName tableName)
     {
         denyAddColumn(tableName.toString());
     }
@@ -163,7 +164,7 @@ public interface ConnectorAccessControl
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanDropColumn(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
+    default void checkCanDropColumn(ConnectorTransactionHandle transactionHandle, ConnectorSession session, SchemaTableName tableName)
     {
         denyDropColumn(tableName.toString());
     }
@@ -173,7 +174,7 @@ public interface ConnectorAccessControl
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanRenameColumn(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
+    default void checkCanRenameColumn(ConnectorTransactionHandle transactionHandle, ConnectorSession session, SchemaTableName tableName)
     {
         denyRenameColumn(tableName.toString());
     }
@@ -183,7 +184,7 @@ public interface ConnectorAccessControl
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanSelectFromTable(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
+    default void checkCanSelectFromTable(ConnectorTransactionHandle transactionHandle, ConnectorSession session, SchemaTableName tableName)
     {
         denySelectTable(tableName.toString());
     }
@@ -193,7 +194,7 @@ public interface ConnectorAccessControl
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanInsertIntoTable(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
+    default void checkCanInsertIntoTable(ConnectorTransactionHandle transactionHandle, ConnectorSession session, SchemaTableName tableName)
     {
         denyInsertTable(tableName.toString());
     }
@@ -203,7 +204,7 @@ public interface ConnectorAccessControl
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanDeleteFromTable(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
+    default void checkCanDeleteFromTable(ConnectorTransactionHandle transactionHandle, ConnectorSession session, SchemaTableName tableName)
     {
         denyDeleteTable(tableName.toString());
     }
@@ -213,7 +214,7 @@ public interface ConnectorAccessControl
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanCreateView(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName viewName)
+    default void checkCanCreateView(ConnectorTransactionHandle transactionHandle, ConnectorSession session, SchemaTableName viewName)
     {
         denyCreateView(viewName.toString());
     }
@@ -223,7 +224,7 @@ public interface ConnectorAccessControl
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanDropView(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName viewName)
+    default void checkCanDropView(ConnectorTransactionHandle transactionHandle, ConnectorSession session, SchemaTableName viewName)
     {
         denyDropView(viewName.toString());
     }
@@ -233,7 +234,7 @@ public interface ConnectorAccessControl
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanSelectFromView(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName viewName)
+    default void checkCanSelectFromView(ConnectorTransactionHandle transactionHandle, ConnectorSession session, SchemaTableName viewName)
     {
         denySelectView(viewName.toString());
     }
@@ -243,7 +244,7 @@ public interface ConnectorAccessControl
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanCreateViewWithSelectFromTable(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
+    default void checkCanCreateViewWithSelectFromTable(ConnectorTransactionHandle transactionHandle, ConnectorSession session, SchemaTableName tableName)
     {
         denyCreateViewWithSelect(tableName.toString());
     }
@@ -253,7 +254,7 @@ public interface ConnectorAccessControl
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanCreateViewWithSelectFromView(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName viewName)
+    default void checkCanCreateViewWithSelectFromView(ConnectorTransactionHandle transactionHandle, ConnectorSession session, SchemaTableName viewName)
     {
         denyCreateViewWithSelect(viewName.toString());
     }
@@ -273,7 +274,7 @@ public interface ConnectorAccessControl
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanGrantTablePrivilege(ConnectorTransactionHandle transactionHandle, Identity identity, Privilege privilege, SchemaTableName tableName, String grantee, boolean withGrantOption)
+    default void checkCanGrantTablePrivilege(ConnectorTransactionHandle transactionHandle, ConnectorSession session, Privilege privilege, SchemaTableName tableName, String grantee, boolean withGrantOption)
     {
         denyGrantTablePrivilege(privilege.toString(), tableName.toString());
     }
@@ -283,7 +284,7 @@ public interface ConnectorAccessControl
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanRevokeTablePrivilege(ConnectorTransactionHandle transactionHandle, Identity identity, Privilege privilege, SchemaTableName tableName, String revokee, boolean grantOptionFor)
+    default void checkCanRevokeTablePrivilege(ConnectorTransactionHandle transactionHandle, ConnectorSession session, Privilege privilege, SchemaTableName tableName, String revokee, boolean grantOptionFor)
     {
         denyRevokeTablePrivilege(privilege.toString(), tableName.toString());
     }

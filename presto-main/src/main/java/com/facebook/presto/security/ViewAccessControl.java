@@ -13,9 +13,8 @@
  */
 package com.facebook.presto.security;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.metadata.QualifiedObjectName;
-import com.facebook.presto.spi.security.Identity;
-import com.facebook.presto.transaction.TransactionId;
 
 import static java.util.Objects.requireNonNull;
 
@@ -30,26 +29,26 @@ public class ViewAccessControl
     }
 
     @Override
-    public void checkCanSelectFromTable(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
+    public void checkCanSelectFromTable(Session session, QualifiedObjectName tableName)
     {
-        delegate.checkCanCreateViewWithSelectFromTable(transactionId, identity, tableName);
+        delegate.checkCanCreateViewWithSelectFromTable(session, tableName);
     }
 
     @Override
-    public void checkCanSelectFromView(TransactionId transactionId, Identity identity, QualifiedObjectName viewName)
+    public void checkCanSelectFromView(Session session, QualifiedObjectName viewName)
     {
-        delegate.checkCanCreateViewWithSelectFromView(transactionId, identity, viewName);
+        delegate.checkCanCreateViewWithSelectFromView(session, viewName);
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromTable(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
+    public void checkCanCreateViewWithSelectFromTable(Session session, QualifiedObjectName tableName)
     {
-        delegate.checkCanCreateViewWithSelectFromTable(transactionId, identity, tableName);
+        delegate.checkCanCreateViewWithSelectFromTable(session, tableName);
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromView(TransactionId transactionId, Identity identity, QualifiedObjectName viewName)
+    public void checkCanCreateViewWithSelectFromView(Session session, QualifiedObjectName viewName)
     {
-        delegate.checkCanCreateViewWithSelectFromView(transactionId, identity, viewName);
+        delegate.checkCanCreateViewWithSelectFromView(session, viewName);
     }
 }

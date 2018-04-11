@@ -299,7 +299,7 @@ class StatementAnalyzer
             if (!targetTableHandle.isPresent()) {
                 throw new SemanticException(MISSING_TABLE, insert, "Table '%s' does not exist", targetTable);
             }
-            accessControl.checkCanInsertIntoTable(session.getRequiredTransactionId(), session.getIdentity(), targetTable);
+            accessControl.checkCanInsertIntoTable(session, targetTable);
 
             TableMetadata tableMetadata = metadata.getTableMetadata(session, targetTableHandle.get());
             List<String> tableColumns = tableMetadata.getColumns().stream()
@@ -391,7 +391,7 @@ class StatementAnalyzer
 
             analysis.setUpdateType("DELETE");
 
-            accessControl.checkCanDeleteFromTable(session.getRequiredTransactionId(), session.getIdentity(), tableName);
+            accessControl.checkCanDeleteFromTable(session, tableName);
 
             return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
         }
@@ -420,7 +420,7 @@ class StatementAnalyzer
             node.getColumnAliases().ifPresent(analysis::setCreateTableColumnAliases);
             analysis.setCreateTableComment(node.getComment());
 
-            accessControl.checkCanCreateTable(session.getRequiredTransactionId(), session.getIdentity(), targetTable);
+            accessControl.checkCanCreateTable(session, targetTable);
 
             analysis.setCreateTableAsSelectWithData(node.isWithData());
 
@@ -456,7 +456,7 @@ class StatementAnalyzer
 
             Scope queryScope = analyzer.analyze(node.getQuery(), scope);
 
-            accessControl.checkCanCreateView(session.getRequiredTransactionId(), session.getIdentity(), viewName);
+            accessControl.checkCanCreateView(session, viewName);
 
             validateColumns(node, queryScope.getRelationType());
 
@@ -793,7 +793,7 @@ class StatementAnalyzer
 
                 analysis.registerNamedQuery(table, query);
 
-                accessControl.checkCanSelectFromView(session.getRequiredTransactionId(), session.getIdentity(), name);
+                accessControl.checkCanSelectFromView(session, name);
 
                 analysis.registerTableForView(table);
                 RelationType descriptor = analyzeView(query, name, view.getCatalog(), view.getSchema(), view.getOwner(), table);
@@ -831,7 +831,7 @@ class StatementAnalyzer
                 }
                 throw new SemanticException(MISSING_TABLE, table, "Table %s does not exist", name);
             }
-            accessControl.checkCanSelectFromTable(session.getRequiredTransactionId(), session.getIdentity(), name);
+            accessControl.checkCanSelectFromTable(session, name);
             TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle.get());
             Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle.get());
 

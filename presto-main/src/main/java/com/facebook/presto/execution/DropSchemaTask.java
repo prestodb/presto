@@ -64,7 +64,7 @@ public class DropSchemaTask
             return immediateFuture(null);
         }
 
-        accessControl.checkCanDropSchema(session.getRequiredTransactionId(), session.getIdentity(), schema);
+        accessControl.checkCanDropSchema(session, schema);
 
         metadata.dropSchema(session, schema);
 
