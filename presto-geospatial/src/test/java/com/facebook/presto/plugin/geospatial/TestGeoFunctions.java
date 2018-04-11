@@ -533,10 +533,13 @@ public class TestGeoFunctions
     public void testSTOverlaps()
     {
         assertFunction("ST_Overlaps(ST_GeometryFromText('POINT (50 100)'), ST_GeometryFromText('POINT (150 150)'))", BOOLEAN, false);
+        assertFunction("ST_Overlaps(ST_GeometryFromText('POINT (50 100)'), ST_GeometryFromText('POINT (50 100)'))", BOOLEAN, false);
         assertFunction("ST_Overlaps(ST_GeometryFromText('MULTIPOINT (50 100, 50 200)'), ST_GeometryFromText('POINT (50 100)'))", BOOLEAN, false);
         assertFunction("ST_Overlaps(ST_GeometryFromText('LINESTRING (0 0, 0 1)'), ST_GeometryFromText('LINESTRING (1 1, 1 0)'))", BOOLEAN, false);
         assertFunction("ST_Overlaps(ST_GeometryFromText('MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))'), ST_GeometryFromText('MULTILINESTRING ((3 4, 6 4), (5 0, 5 4))'))", BOOLEAN, true);
         assertFunction("ST_Overlaps(ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 4, 4 1))'), ST_GeometryFromText('POLYGON ((3 3, 3 5, 5 5, 5 3))'))", BOOLEAN, true);
+        assertFunction("ST_Overlaps(ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 4, 4 1))'), ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 4, 4 1))'))", BOOLEAN, false);
+        assertFunction("ST_Overlaps(ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 4, 4 1))'), ST_GeometryFromText('LINESTRING (1 1, 4 4)'))", BOOLEAN, false);
         assertFunction("ST_Overlaps(ST_GeometryFromText('POLYGON ((1 1, 1 3, 3 3, 3 1))'), ST_GeometryFromText('POLYGON ((4 4, 4 5, 5 5, 5 4))'))", BOOLEAN, false);
         assertFunction("ST_Overlaps(ST_GeometryFromText('MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1)), ((0 0, 0 2, 2 2, 2 0)))'), ST_GeometryFromText('POLYGON ((0 1, 3 1, 3 3, 0 3))'))", BOOLEAN, true);
     }
