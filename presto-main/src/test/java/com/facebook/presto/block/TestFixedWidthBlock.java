@@ -40,7 +40,7 @@ public class TestFixedWidthBlock
         for (int fixedSize = 0; fixedSize < 20; fixedSize++) {
             Slice[] expectedValues = (Slice[]) alternatingNullValues(createExpectedValues(17, fixedSize));
             BlockBuilder blockBuilder = createBlockBuilderWithValues(expectedValues, fixedSize);
-            assertBlockFilteredPositions(expectedValues, blockBuilder.build(), 0, 2, 4, 6, 7, 9, 10, 16);
+            assertBlockFilteredPositions(expectedValues, blockBuilder.build(), () -> blockBuilder.newBlockBuilderLike(null), 0, 2, 4, 6, 7, 9, 10, 16);
         }
     }
 
@@ -68,8 +68,8 @@ public class TestFixedWidthBlock
     private void assertFixedWithValues(Slice[] expectedValues, int fixedSize)
     {
         BlockBuilder blockBuilder = createBlockBuilderWithValues(expectedValues, fixedSize);
-        assertBlock(blockBuilder, expectedValues);
-        assertBlock(blockBuilder.build(), expectedValues);
+        assertBlock(blockBuilder, () -> blockBuilder.newBlockBuilderLike(null), expectedValues);
+        assertBlock(blockBuilder.build(), () -> blockBuilder.newBlockBuilderLike(null), expectedValues);
     }
 
     private static BlockBuilder createBlockBuilderWithValues(Slice[] expectedValues, int fixedSize)

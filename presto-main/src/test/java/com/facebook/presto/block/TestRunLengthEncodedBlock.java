@@ -39,7 +39,7 @@ public class TestRunLengthEncodedBlock
         for (int position = 0; position < positionCount; position++) {
             expectedValues[position] = expectedValue;
         }
-        assertBlock(block, expectedValues);
+        assertBlock(block, TestRunLengthEncodedBlock::createBlockBuilder, expectedValues);
     }
 
     private static Block createSingleValueBlock(Slice expectedValue)
@@ -47,5 +47,10 @@ public class TestRunLengthEncodedBlock
         BlockBuilder blockBuilder = new VariableWidthBlockBuilder(null, 1, expectedValue.length());
         blockBuilder.writeBytes(expectedValue, 0, expectedValue.length()).closeEntry();
         return blockBuilder.build();
+    }
+
+    private static BlockBuilder createBlockBuilder()
+    {
+        return new VariableWidthBlockBuilder(null, 1, 1);
     }
 }
