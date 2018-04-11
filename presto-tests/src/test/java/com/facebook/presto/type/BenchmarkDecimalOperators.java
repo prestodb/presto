@@ -78,7 +78,7 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static org.openjdk.jmh.annotations.Scope.Thread;
 
-@State(Scope.Thread)
+@State(Thread)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 @Fork(value = 3)
 @Warmup(iterations = 20, timeUnit = TimeUnit.MILLISECONDS)
