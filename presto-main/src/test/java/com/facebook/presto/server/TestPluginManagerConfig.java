@@ -30,7 +30,6 @@ public class TestPluginManagerConfig
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(PluginManagerConfig.class)
                 .setInstalledPluginsDir(new File("plugin"))
                 .setPlugins((String) null)
-                .setPluginConfigurationDir(new File("etc/"))
                 .setMavenLocalRepository(ArtifactResolver.USER_LOCAL_REPO)
                 .setMavenRemoteRepository(ArtifactResolver.MAVEN_CENTRAL_URI));
     }
@@ -41,7 +40,6 @@ public class TestPluginManagerConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("plugin.dir", "plugins-dir")
                 .put("plugin.bundles", "a,b,c")
-                .put("plugin.config-dir", "plugin-configs")
                 .put("maven.repo.local", "local-repo")
                 .put("maven.repo.remote", "remote-a,remote-b")
                 .build();
@@ -49,7 +47,6 @@ public class TestPluginManagerConfig
         PluginManagerConfig expected = new PluginManagerConfig()
                 .setInstalledPluginsDir(new File("plugins-dir"))
                 .setPlugins(ImmutableList.of("a", "b", "c"))
-                .setPluginConfigurationDir(new File("plugin-configs"))
                 .setMavenLocalRepository("local-repo")
                 .setMavenRemoteRepository(ImmutableList.of("remote-a", "remote-b"));
 

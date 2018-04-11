@@ -67,19 +67,6 @@ public class PluginManagerConfig
     }
 
     @NotNull
-    public File getPluginConfigurationDir()
-    {
-        return pluginConfigurationDir;
-    }
-
-    @Config("plugin.config-dir")
-    public PluginManagerConfig setPluginConfigurationDir(File pluginConfigurationDir)
-    {
-        this.pluginConfigurationDir = pluginConfigurationDir;
-        return this;
-    }
-
-    @NotNull
     public String getMavenLocalRepository()
     {
         return mavenLocalRepository;
