@@ -119,6 +119,7 @@
         <module>presto-matching</module>
         <module>presto-memory-context</module>
         <module>presto-proxy</module>
+        <module>presto-kudu</module>
     </modules>
 
     <dependencyManagement>
