@@ -98,6 +98,13 @@ public class QualifiedTablePrefix
         }
     }
 
+    public boolean matches(QualifiedObjectName objectName)
+    {
+        return Objects.equals(catalogName, objectName.getCatalogName())
+                && schemaName.map(schema -> Objects.equals(schema, objectName.getSchemaName())).orElse(true)
+                && tableName.map(table -> Objects.equals(table, objectName.getObjectName())).orElse(true);
+    }
+
     @Override
     public boolean equals(Object obj)
     {
