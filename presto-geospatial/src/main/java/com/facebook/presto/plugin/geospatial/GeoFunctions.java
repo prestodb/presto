@@ -629,6 +629,9 @@ public final class GeoFunctions
     @SqlType(StandardTypes.BOOLEAN)
     public static Boolean stDisjoint(@SqlType(GEOMETRY_TYPE_NAME) Slice left, @SqlType(GEOMETRY_TYPE_NAME) Slice right)
     {
+        if (!envelopes(left, right, Envelope::intersect)) {
+            return true;
+        }
         OGCGeometry leftGeometry = deserialize(left);
         OGCGeometry rightGeometry = deserialize(right);
         verifySameSpatialReference(leftGeometry, rightGeometry);
