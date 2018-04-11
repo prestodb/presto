@@ -602,12 +602,9 @@ public final class GeoFunctions
     @SqlType(StandardTypes.BOOLEAN)
     public static Boolean stContains(@SqlType(GEOMETRY_TYPE_NAME) Slice left, @SqlType(GEOMETRY_TYPE_NAME) Slice right)
     {
-        Envelope leftEnvelope = deserializeEnvelope(left);
-        Envelope rightEnvelope = deserializeEnvelope(right);
-        if (leftEnvelope == null || rightEnvelope == null || !leftEnvelope.contains(rightEnvelope)) {
+        if (!envelopes(left, right, Envelope::contains)) {
             return false;
         }
-
         OGCGeometry leftGeometry = deserialize(left);
         OGCGeometry rightGeometry = deserialize(right);
         verifySameSpatialReference(leftGeometry, rightGeometry);
@@ -656,9 +653,7 @@ public final class GeoFunctions
     @SqlType(StandardTypes.BOOLEAN)
     public static Boolean stIntersects(@SqlType(GEOMETRY_TYPE_NAME) Slice left, @SqlType(GEOMETRY_TYPE_NAME) Slice right)
     {
-        Envelope leftEnvelope = deserializeEnvelope(left);
-        Envelope rightEnvelope = deserializeEnvelope(right);
-        if (leftEnvelope == null || rightEnvelope == null || !leftEnvelope.intersect(rightEnvelope)) {
+        if (!envelopes(left, right, Envelope::intersect)) {
             return false;
         }
         OGCGeometry leftGeometry = deserialize(left);
@@ -897,5 +892,20 @@ public final class GeoFunctions
             ySum += centroid.getY() * weight;
         }
         return new Point(xSum / weightSum, ySum / weightSum);
+    }
+
+    private static boolean envelopes(Slice left, Slice right, EnvelopesPredicate predicate)
+    {
+        Envelope leftEnvelope = deserializeEnvelope(left);
+        Envelope rightEnvelope = deserializeEnvelope(right);
+        if (leftEnvelope == null || rightEnvelope == null) {
+            return false;
+        }
+        return predicate.apply(leftEnvelope, rightEnvelope);
+    }
+
+    private interface EnvelopesPredicate
+    {
+        boolean apply(Envelope left, Envelope right);
     }
 }
