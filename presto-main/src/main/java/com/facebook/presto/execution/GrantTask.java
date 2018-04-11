@@ -68,7 +68,7 @@ public class GrantTask
 
         // verify current identity has permissions to grant permissions
         for (Privilege privilege : privileges) {
-            accessControl.checkCanGrantTablePrivilege(session.getRequiredTransactionId(), session.getIdentity(), privilege, tableName, statement.getGrantee().getValue(), statement.isWithGrantOption());
+            accessControl.checkCanGrantTablePrivilege(session, privilege, tableName, statement.getGrantee().getValue(), statement.isWithGrantOption());
         }
 
         metadata.grantTablePrivileges(session, tableName, privileges, statement.getGrantee().getValue(), statement.isWithGrantOption());

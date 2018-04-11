@@ -174,7 +174,7 @@ final class ShowQueriesRewrite
         {
             CatalogSchemaName schema = createCatalogSchemaName(session, showTables, showTables.getSchema());
 
-            accessControl.checkCanShowTablesMetadata(session.getRequiredTransactionId(), session.getIdentity(), schema);
+            accessControl.checkCanShowTablesMetadata(session, schema);
 
             if (!metadata.catalogExists(session, schema.getCatalogName())) {
                 throw new SemanticException(MISSING_CATALOG, showTables, "Catalog '%s' does not exist", schema.getCatalogName());
@@ -220,8 +220,7 @@ final class ShowQueriesRewrite
                 catalogName = qualifiedTableName.getCatalogName();
 
                 accessControl.checkCanShowTablesMetadata(
-                        session.getRequiredTransactionId(),
-                        session.getIdentity(),
+                        session,
                         new CatalogSchemaName(catalogName, qualifiedTableName.getSchemaName()));
 
                 predicate = Optional.of(equal(identifier("table_name"), new StringLiteral(qualifiedTableName.getObjectName())));
@@ -233,7 +232,7 @@ final class ShowQueriesRewrite
 
             Set<String> allowedSchemas = listSchemas(session, metadata, accessControl, catalogName);
             for (String schema : allowedSchemas) {
-                accessControl.checkCanShowTablesMetadata(session.getRequiredTransactionId(), session.getIdentity(), new CatalogSchemaName(catalogName, schema));
+                accessControl.checkCanShowTablesMetadata(session, new CatalogSchemaName(catalogName, schema));
             }
 
             return simpleQuery(
@@ -257,7 +256,7 @@ final class ShowQueriesRewrite
             }
 
             String catalog = node.getCatalog().map(Identifier::getValue).orElseGet(() -> session.getCatalog().get());
-            accessControl.checkCanShowSchemas(session.getRequiredTransactionId(), session.getIdentity(), catalog);
+            accessControl.checkCanShowSchemas(session, catalog);
 
             Optional<Expression> predicate = Optional.empty();
             Optional<String> likePattern = node.getLikePattern();

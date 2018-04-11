@@ -15,6 +15,7 @@ package com.facebook.presto.security;
 
 import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.CatalogSchemaTableName;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.SystemAccessControl;
@@ -68,12 +69,12 @@ public class ReadOnlySystemAccessControl
     }
 
     @Override
-    public void checkCanSelectFromTable(Identity identity, CatalogSchemaTableName table)
+    public void checkCanSelectFromTable(ConnectorSession session, CatalogSchemaTableName table)
     {
     }
 
     @Override
-    public void checkCanSelectFromView(Identity identity, CatalogSchemaTableName view)
+    public void checkCanSelectFromView(ConnectorSession session, CatalogSchemaTableName view)
     {
     }
 
@@ -83,40 +84,40 @@ public class ReadOnlySystemAccessControl
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromTable(Identity identity, CatalogSchemaTableName table)
+    public void checkCanCreateViewWithSelectFromTable(ConnectorSession session, CatalogSchemaTableName table)
     {
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromView(Identity identity, CatalogSchemaTableName view)
+    public void checkCanCreateViewWithSelectFromView(ConnectorSession session, CatalogSchemaTableName view)
     {
     }
 
     @Override
-    public Set<String> filterCatalogs(Identity identity, Set<String> catalogs)
+    public Set<String> filterCatalogs(ConnectorSession session, Set<String> catalogs)
     {
         return catalogs;
     }
 
     @Override
-    public Set<String> filterSchemas(Identity identity, String catalogName, Set<String> schemaNames)
+    public Set<String> filterSchemas(ConnectorSession session, String catalogName, Set<String> schemaNames)
     {
         return schemaNames;
     }
 
     @Override
-    public Set<SchemaTableName> filterTables(Identity identity, String catalogName, Set<SchemaTableName> tableNames)
+    public Set<SchemaTableName> filterTables(ConnectorSession session, String catalogName, Set<SchemaTableName> tableNames)
     {
         return tableNames;
     }
 
     @Override
-    public void checkCanShowSchemas(Identity identity, String catalogName)
+    public void checkCanShowSchemas(ConnectorSession session, String catalogName)
     {
     }
 
     @Override
-    public void checkCanShowTablesMetadata(Identity identity, CatalogSchemaName schema)
+    public void checkCanShowTablesMetadata(ConnectorSession session, CatalogSchemaName schema)
     {
     }
 }

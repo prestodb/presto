@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.plugin.base.security;
 
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
@@ -36,10 +37,10 @@ public class TestFileBasedAccessControl
             throws IOException
     {
         ConnectorAccessControl accessControl = createAccessControl("schema.json");
-        accessControl.checkCanCreateTable(TRANSACTION_HANDLE, user("admin"), new SchemaTableName("test", "test"));
-        accessControl.checkCanCreateTable(TRANSACTION_HANDLE, user("bob"), new SchemaTableName("bob", "test"));
-        assertDenied(() -> accessControl.checkCanCreateTable(TRANSACTION_HANDLE, user("bob"), new SchemaTableName("test", "test")));
-        assertDenied(() -> accessControl.checkCanCreateTable(TRANSACTION_HANDLE, user("admin"), new SchemaTableName("secret", "test")));
+        accessControl.checkCanCreateTable(TRANSACTION_HANDLE, connectorSession("admin"), new SchemaTableName("test", "test"));
+        accessControl.checkCanCreateTable(TRANSACTION_HANDLE, connectorSession("bob"), new SchemaTableName("bob", "test"));
+        assertDenied(() -> accessControl.checkCanCreateTable(TRANSACTION_HANDLE, connectorSession("bob"), new SchemaTableName("test", "test")));
+        assertDenied(() -> accessControl.checkCanCreateTable(TRANSACTION_HANDLE, connectorSession("admin"), new SchemaTableName("secret", "test")));
     }
 
     @Test
@@ -47,22 +48,22 @@ public class TestFileBasedAccessControl
             throws IOException
     {
         ConnectorAccessControl accessControl = createAccessControl("table.json");
-        accessControl.checkCanSelectFromTable(TRANSACTION_HANDLE, user("alice"), new SchemaTableName("test", "test"));
-        accessControl.checkCanSelectFromTable(TRANSACTION_HANDLE, user("alice"), new SchemaTableName("bobschema", "bobtable"));
-        accessControl.checkCanSelectFromTable(TRANSACTION_HANDLE, user("bob"), new SchemaTableName("bobschema", "bobtable"));
-        accessControl.checkCanInsertIntoTable(TRANSACTION_HANDLE, user("bob"), new SchemaTableName("bobschema", "bobtable"));
-        accessControl.checkCanDeleteFromTable(TRANSACTION_HANDLE, user("bob"), new SchemaTableName("bobschema", "bobtable"));
-        accessControl.checkCanSelectFromTable(TRANSACTION_HANDLE, user("joe"), new SchemaTableName("bobschema", "bobtable"));
-        accessControl.checkCanCreateViewWithSelectFromTable(TRANSACTION_HANDLE, user("bob"), new SchemaTableName("bobschema", "bobtable"));
-        accessControl.checkCanCreateViewWithSelectFromView(TRANSACTION_HANDLE, user("bob"), new SchemaTableName("bobschema", "bobtable"));
-        accessControl.checkCanDropTable(TRANSACTION_HANDLE, user("admin"), new SchemaTableName("bobschema", "bobtable"));
-        assertDenied(() -> accessControl.checkCanInsertIntoTable(TRANSACTION_HANDLE, user("alice"), new SchemaTableName("bobschema", "bobtable")));
-        assertDenied(() -> accessControl.checkCanDropTable(TRANSACTION_HANDLE, user("bob"), new SchemaTableName("bobschema", "bobtable")));
-        assertDenied(() -> accessControl.checkCanInsertIntoTable(TRANSACTION_HANDLE, user("bob"), new SchemaTableName("test", "test")));
-        assertDenied(() -> accessControl.checkCanSelectFromTable(TRANSACTION_HANDLE, user("admin"), new SchemaTableName("secret", "secret")));
-        assertDenied(() -> accessControl.checkCanSelectFromTable(TRANSACTION_HANDLE, user("joe"), new SchemaTableName("secret", "secret")));
-        assertDenied(() -> accessControl.checkCanCreateViewWithSelectFromTable(TRANSACTION_HANDLE, user("joe"), new SchemaTableName("bobschema", "bobtable")));
-        assertDenied(() -> accessControl.checkCanCreateViewWithSelectFromView(TRANSACTION_HANDLE, user("joe"), new SchemaTableName("bobschema", "bobtable")));
+        accessControl.checkCanSelectFromTable(TRANSACTION_HANDLE, connectorSession("alice"), new SchemaTableName("test", "test"));
+        accessControl.checkCanSelectFromTable(TRANSACTION_HANDLE, connectorSession("alice"), new SchemaTableName("bobschema", "bobtable"));
+        accessControl.checkCanSelectFromTable(TRANSACTION_HANDLE, connectorSession("bob"), new SchemaTableName("bobschema", "bobtable"));
+        accessControl.checkCanInsertIntoTable(TRANSACTION_HANDLE, connectorSession("bob"), new SchemaTableName("bobschema", "bobtable"));
+        accessControl.checkCanDeleteFromTable(TRANSACTION_HANDLE, connectorSession("bob"), new SchemaTableName("bobschema", "bobtable"));
+        accessControl.checkCanSelectFromTable(TRANSACTION_HANDLE, connectorSession("joe"), new SchemaTableName("bobschema", "bobtable"));
+        accessControl.checkCanCreateViewWithSelectFromTable(TRANSACTION_HANDLE, connectorSession("bob"), new SchemaTableName("bobschema", "bobtable"));
+        accessControl.checkCanCreateViewWithSelectFromView(TRANSACTION_HANDLE, connectorSession("bob"), new SchemaTableName("bobschema", "bobtable"));
+        accessControl.checkCanDropTable(TRANSACTION_HANDLE, connectorSession("admin"), new SchemaTableName("bobschema", "bobtable"));
+        assertDenied(() -> accessControl.checkCanInsertIntoTable(TRANSACTION_HANDLE, connectorSession("alice"), new SchemaTableName("bobschema", "bobtable")));
+        assertDenied(() -> accessControl.checkCanDropTable(TRANSACTION_HANDLE, connectorSession("bob"), new SchemaTableName("bobschema", "bobtable")));
+        assertDenied(() -> accessControl.checkCanInsertIntoTable(TRANSACTION_HANDLE, connectorSession("bob"), new SchemaTableName("test", "test")));
+        assertDenied(() -> accessControl.checkCanSelectFromTable(TRANSACTION_HANDLE, connectorSession("admin"), new SchemaTableName("secret", "secret")));
+        assertDenied(() -> accessControl.checkCanSelectFromTable(TRANSACTION_HANDLE, connectorSession("joe"), new SchemaTableName("secret", "secret")));
+        assertDenied(() -> accessControl.checkCanCreateViewWithSelectFromTable(TRANSACTION_HANDLE, connectorSession("joe"), new SchemaTableName("bobschema", "bobtable")));
+        assertDenied(() -> accessControl.checkCanCreateViewWithSelectFromView(TRANSACTION_HANDLE, connectorSession("joe"), new SchemaTableName("bobschema", "bobtable")));
     }
 
     @Test
@@ -82,6 +83,11 @@ public class TestFileBasedAccessControl
     private static Identity user(String name)
     {
         return new Identity(name, Optional.empty());
+    }
+
+    private static ConnectorSession connectorSession(String name)
+    {
+        return new TestConnectorSession(name);
     }
 
     private ConnectorAccessControl createAccessControl(String fileName)

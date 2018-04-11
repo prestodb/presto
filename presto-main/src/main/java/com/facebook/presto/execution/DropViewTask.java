@@ -54,7 +54,7 @@ public class DropViewTask
             return immediateFuture(null);
         }
 
-        accessControl.checkCanDropView(session.getRequiredTransactionId(), session.getIdentity(), name);
+        accessControl.checkCanDropView(session, name);
 
         metadata.dropView(session, name);
 

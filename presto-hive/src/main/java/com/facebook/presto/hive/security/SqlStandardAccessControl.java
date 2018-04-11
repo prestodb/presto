@@ -18,6 +18,7 @@ import com.facebook.presto.hive.HiveTransactionHandle;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
 import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
@@ -83,165 +84,165 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public void checkCanCreateSchema(ConnectorTransactionHandle transaction, Identity identity, String schemaName)
+    public void checkCanCreateSchema(ConnectorTransactionHandle transaction, ConnectorSession session, String schemaName)
     {
-        if (!isAdmin(transaction, identity)) {
+        if (!isAdmin(transaction, session.getIdentity())) {
             denyCreateSchema(schemaName);
         }
     }
 
     @Override
-    public void checkCanDropSchema(ConnectorTransactionHandle transaction, Identity identity, String schemaName)
+    public void checkCanDropSchema(ConnectorTransactionHandle transaction, ConnectorSession session, String schemaName)
     {
-        if (!isDatabaseOwner(transaction, identity, schemaName)) {
+        if (!isDatabaseOwner(transaction, session.getIdentity(), schemaName)) {
             denyDropSchema(schemaName);
         }
     }
 
     @Override
-    public void checkCanRenameSchema(ConnectorTransactionHandle transaction, Identity identity, String schemaName, String newSchemaName)
+    public void checkCanRenameSchema(ConnectorTransactionHandle transaction, ConnectorSession session, String schemaName, String newSchemaName)
     {
-        if (!isAdmin(transaction, identity) || !isDatabaseOwner(transaction, identity, schemaName)) {
+        if (!isAdmin(transaction, session.getIdentity()) || !isDatabaseOwner(transaction, session.getIdentity(), schemaName)) {
             denyRenameSchema(schemaName, newSchemaName);
         }
     }
 
     @Override
-    public void checkCanShowSchemas(ConnectorTransactionHandle transactionHandle, Identity identity)
+    public void checkCanShowSchemas(ConnectorTransactionHandle transactionHandle, ConnectorSession session)
     {
     }
 
     @Override
-    public Set<String> filterSchemas(ConnectorTransactionHandle transactionHandle, Identity identity, Set<String> schemaNames)
+    public Set<String> filterSchemas(ConnectorTransactionHandle transactionHandle, ConnectorSession session, Set<String> schemaNames)
     {
         return schemaNames;
     }
 
     @Override
-    public void checkCanCreateTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
+    public void checkCanCreateTable(ConnectorTransactionHandle transaction, ConnectorSession session, SchemaTableName tableName)
     {
-        if (!isDatabaseOwner(transaction, identity, tableName.getSchemaName())) {
+        if (!isDatabaseOwner(transaction, session.getIdentity(), tableName.getSchemaName())) {
             denyCreateTable(tableName.toString());
         }
     }
 
     @Override
-    public void checkCanDropTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
+    public void checkCanDropTable(ConnectorTransactionHandle transaction, ConnectorSession session, SchemaTableName tableName)
     {
-        if (!checkTablePermission(transaction, identity, tableName, OWNERSHIP)) {
+        if (!checkTablePermission(transaction, session.getIdentity(), tableName, OWNERSHIP)) {
             denyDropTable(tableName.toString());
         }
     }
 
     @Override
-    public void checkCanRenameTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName, SchemaTableName newTableName)
+    public void checkCanRenameTable(ConnectorTransactionHandle transaction, ConnectorSession session, SchemaTableName tableName, SchemaTableName newTableName)
     {
-        if (!checkTablePermission(transaction, identity, tableName, OWNERSHIP)) {
+        if (!checkTablePermission(transaction, session.getIdentity(), tableName, OWNERSHIP)) {
             denyRenameTable(tableName.toString(), newTableName.toString());
         }
     }
 
     @Override
-    public void checkCanShowTablesMetadata(ConnectorTransactionHandle transactionHandle, Identity identity, String schemaName)
+    public void checkCanShowTablesMetadata(ConnectorTransactionHandle transactionHandle, ConnectorSession session, String schemaName)
     {
     }
 
     @Override
-    public Set<SchemaTableName> filterTables(ConnectorTransactionHandle transactionHandle, Identity identity, Set<SchemaTableName> tableNames)
+    public Set<SchemaTableName> filterTables(ConnectorTransactionHandle transactionHandle, ConnectorSession session, Set<SchemaTableName> tableNames)
     {
         return tableNames;
     }
 
     @Override
-    public void checkCanAddColumn(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
+    public void checkCanAddColumn(ConnectorTransactionHandle transaction, ConnectorSession session, SchemaTableName tableName)
     {
-        if (!checkTablePermission(transaction, identity, tableName, OWNERSHIP)) {
+        if (!checkTablePermission(transaction, session.getIdentity(), tableName, OWNERSHIP)) {
             denyAddColumn(tableName.toString());
         }
     }
 
     @Override
-    public void checkCanDropColumn(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
+    public void checkCanDropColumn(ConnectorTransactionHandle transaction, ConnectorSession session, SchemaTableName tableName)
     {
-        if (!checkTablePermission(transaction, identity, tableName, OWNERSHIP)) {
+        if (!checkTablePermission(transaction, session.getIdentity(), tableName, OWNERSHIP)) {
             denyDropColumn(tableName.toString());
         }
     }
 
     @Override
-    public void checkCanRenameColumn(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
+    public void checkCanRenameColumn(ConnectorTransactionHandle transaction, ConnectorSession session, SchemaTableName tableName)
     {
-        if (!checkTablePermission(transaction, identity, tableName, OWNERSHIP)) {
+        if (!checkTablePermission(transaction, session.getIdentity(), tableName, OWNERSHIP)) {
             denyRenameColumn(tableName.toString());
         }
     }
 
     @Override
-    public void checkCanSelectFromTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
+    public void checkCanSelectFromTable(ConnectorTransactionHandle transaction, ConnectorSession session, SchemaTableName tableName)
     {
-        if (!checkTablePermission(transaction, identity, tableName, SELECT)) {
+        if (!checkTablePermission(transaction, session.getIdentity(), tableName, SELECT)) {
             denySelectTable(tableName.toString());
         }
     }
 
     @Override
-    public void checkCanInsertIntoTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
+    public void checkCanInsertIntoTable(ConnectorTransactionHandle transaction, ConnectorSession session, SchemaTableName tableName)
     {
-        if (!checkTablePermission(transaction, identity, tableName, INSERT)) {
+        if (!checkTablePermission(transaction, session.getIdentity(), tableName, INSERT)) {
             denyInsertTable(tableName.toString());
         }
     }
 
     @Override
-    public void checkCanDeleteFromTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
+    public void checkCanDeleteFromTable(ConnectorTransactionHandle transaction, ConnectorSession session, SchemaTableName tableName)
     {
-        if (!checkTablePermission(transaction, identity, tableName, DELETE)) {
+        if (!checkTablePermission(transaction, session.getIdentity(), tableName, DELETE)) {
             denyDeleteTable(tableName.toString());
         }
     }
 
     @Override
-    public void checkCanCreateView(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName viewName)
+    public void checkCanCreateView(ConnectorTransactionHandle transaction, ConnectorSession session, SchemaTableName viewName)
     {
-        if (!isDatabaseOwner(transaction, identity, viewName.getSchemaName())) {
+        if (!isDatabaseOwner(transaction, session.getIdentity(), viewName.getSchemaName())) {
             denyCreateView(viewName.toString());
         }
     }
 
     @Override
-    public void checkCanDropView(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName viewName)
+    public void checkCanDropView(ConnectorTransactionHandle transaction, ConnectorSession session, SchemaTableName viewName)
     {
-        if (!checkTablePermission(transaction, identity, viewName, OWNERSHIP)) {
+        if (!checkTablePermission(transaction, session.getIdentity(), viewName, OWNERSHIP)) {
             denyDropView(viewName.toString());
         }
     }
 
     @Override
-    public void checkCanSelectFromView(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName viewName)
+    public void checkCanSelectFromView(ConnectorTransactionHandle transaction, ConnectorSession session, SchemaTableName viewName)
     {
-        if (!checkTablePermission(transaction, identity, viewName, SELECT)) {
+        if (!checkTablePermission(transaction, session.getIdentity(), viewName, SELECT)) {
             denySelectView(viewName.toString());
         }
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
+    public void checkCanCreateViewWithSelectFromTable(ConnectorTransactionHandle transaction, ConnectorSession session, SchemaTableName tableName)
     {
-        if (!checkTablePermission(transaction, identity, tableName, SELECT)) {
+        if (!checkTablePermission(transaction, session.getIdentity(), tableName, SELECT)) {
             denySelectTable(tableName.toString());
         }
-        else if (!getGrantOptionForPrivilege(transaction, identity, Privilege.SELECT, tableName)) {
+        else if (!getGrantOptionForPrivilege(transaction, session.getIdentity(), Privilege.SELECT, tableName)) {
             denyCreateViewWithSelect(tableName.toString());
         }
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromView(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName viewName)
+    public void checkCanCreateViewWithSelectFromView(ConnectorTransactionHandle transaction, ConnectorSession session, SchemaTableName viewName)
     {
-        if (!checkTablePermission(transaction, identity, viewName, SELECT)) {
+        if (!checkTablePermission(transaction, session.getIdentity(), viewName, SELECT)) {
             denySelectView(viewName.toString());
         }
-        if (!getGrantOptionForPrivilege(transaction, identity, Privilege.SELECT, viewName)) {
+        if (!getGrantOptionForPrivilege(transaction, session.getIdentity(), Privilege.SELECT, viewName)) {
             denyCreateViewWithSelect(viewName.toString());
         }
     }
@@ -256,27 +257,27 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public void checkCanGrantTablePrivilege(ConnectorTransactionHandle transaction, Identity identity, Privilege privilege, SchemaTableName tableName, String grantee, boolean withGrantOption)
+    public void checkCanGrantTablePrivilege(ConnectorTransactionHandle transaction, ConnectorSession session, Privilege privilege, SchemaTableName tableName, String grantee, boolean withGrantOption)
     {
-        if (checkTablePermission(transaction, identity, tableName, OWNERSHIP)) {
+        if (checkTablePermission(transaction, session.getIdentity(), tableName, OWNERSHIP)) {
             return;
         }
 
         HivePrivilege hivePrivilege = toHivePrivilege(privilege);
-        if (hivePrivilege == null || !getGrantOptionForPrivilege(transaction, identity, privilege, tableName)) {
+        if (hivePrivilege == null || !getGrantOptionForPrivilege(transaction, session.getIdentity(), privilege, tableName)) {
             denyGrantTablePrivilege(privilege.name(), tableName.toString());
         }
     }
 
     @Override
-    public void checkCanRevokeTablePrivilege(ConnectorTransactionHandle transaction, Identity identity, Privilege privilege, SchemaTableName tableName, String revokee, boolean grantOptionFor)
+    public void checkCanRevokeTablePrivilege(ConnectorTransactionHandle transaction, ConnectorSession session, Privilege privilege, SchemaTableName tableName, String revokee, boolean grantOptionFor)
     {
-        if (checkTablePermission(transaction, identity, tableName, OWNERSHIP)) {
+        if (checkTablePermission(transaction, session.getIdentity(), tableName, OWNERSHIP)) {
             return;
         }
 
         HivePrivilege hivePrivilege = toHivePrivilege(privilege);
-        if (hivePrivilege == null || !getGrantOptionForPrivilege(transaction, identity, privilege, tableName)) {
+        if (hivePrivilege == null || !getGrantOptionForPrivilege(transaction, session.getIdentity(), privilege, tableName)) {
             denyRevokeTablePrivilege(privilege.name(), tableName.toString());
         }
     }
