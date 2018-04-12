@@ -14,8 +14,10 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.RowPagesBuilder;
+import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.MaterializedResult;
@@ -62,7 +64,7 @@ public class TestDistinctLimitOperator
         driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION)
                 .addPipelineContext(0, true, true)
                 .addDriverContext();
-        joinCompiler = new JoinCompiler();
+        joinCompiler = new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig());
     }
 
     @AfterMethod

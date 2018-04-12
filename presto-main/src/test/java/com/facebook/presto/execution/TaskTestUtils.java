@@ -45,6 +45,7 @@ import com.facebook.presto.spi.type.TestingTypeManager;
 import com.facebook.presto.spiller.GenericSpillerFactory;
 import com.facebook.presto.split.PageSinkManager;
 import com.facebook.presto.split.PageSourceManager;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler;
@@ -162,7 +163,7 @@ public final class TaskTestUtils
                 },
                 new BlockEncodingManager(new TestingTypeManager()),
                 new PagesIndex.TestingFactory(false),
-                new JoinCompiler(),
+                new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig()),
                 new LookupJoinOperators());
     }
 

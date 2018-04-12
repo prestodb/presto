@@ -35,6 +35,7 @@ import com.facebook.presto.hive.orc.OrcPageSource;
 import com.facebook.presto.hive.parquet.ParquetHiveRecordCursor;
 import com.facebook.presto.hive.parquet.ParquetPageSource;
 import com.facebook.presto.hive.rcfile.RcFilePageSource;
+import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
@@ -81,6 +82,7 @@ import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.SqlVarbinary;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
@@ -394,7 +396,7 @@ public abstract class AbstractTestHiveClient
 
     protected Set<HiveStorageFormat> createTableFormats = difference(ImmutableSet.copyOf(HiveStorageFormat.values()), ImmutableSet.of(AVRO));
 
-    private static final JoinCompiler JOIN_COMPILER = new JoinCompiler();
+    private static final JoinCompiler JOIN_COMPILER = new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig());
 
     protected String clientId;
     protected String database;

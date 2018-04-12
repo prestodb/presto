@@ -14,6 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.SpatialIndexBuilderOperator.SpatialPredicate;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
@@ -117,7 +118,8 @@ public class PagesIndex
             implements Factory
     {
         private static final OrderingCompiler ORDERING_COMPILER = new OrderingCompiler();
-        private static final JoinCompiler JOIN_COMPILER = new JoinCompiler();
+        private static final JoinCompiler JOIN_COMPILER = new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig());
+        private final boolean groupByUsesEqualTo = new FeaturesConfig().isGroupByUsesEqualTo();
         private final boolean eagerCompact;
 
         public TestingFactory(boolean eagerCompact)
