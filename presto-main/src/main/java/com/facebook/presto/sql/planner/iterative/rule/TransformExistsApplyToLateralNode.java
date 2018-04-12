@@ -65,7 +65,7 @@ public class TransformExistsApplyToLateralNode
     public TransformExistsApplyToLateralNode(FunctionRegistry functionRegistry)
     {
         requireNonNull(functionRegistry, "functionRegistry is null");
-        countSignature = functionRegistry.resolveFunction(COUNT, ImmutableList.of());
+        countSignature = functionRegistry.resolveFirstOrderFunction(COUNT, ImmutableList.of());
     }
 
     @Override

@@ -43,7 +43,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -181,9 +180,9 @@ public class ScalarAggregationToJoinRewriter
                         new FunctionCall(
                                 COUNT,
                                 ImmutableList.of(nonNullableAggregationSourceSymbol.toSymbolReference())),
-                        functionRegistry.resolveFunction(
+                        functionRegistry.resolveFirstOrderFunction(
                                 COUNT,
-                                fromTypeSignatures(scalarAggregationSourceTypeSignatures)),
+                                scalarAggregationSourceTypeSignatures),
                         entry.getValue().getMask()));
             }
             else {
