@@ -14,6 +14,8 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.SpatialIndexBuilderOperator.SpatialPredicate;
 import com.facebook.presto.spi.Page;
@@ -76,6 +78,8 @@ public class PagesIndex
 
     private final OrderingCompiler orderingCompiler;
     private final JoinCompiler joinCompiler;
+    private final FunctionRegistry functionRegistry;
+    private final boolean groupByUsesEqualTo;
 
     private final List<Type> types;
     private final LongArrayList valueAddresses;
@@ -90,12 +94,16 @@ public class PagesIndex
     private PagesIndex(
             OrderingCompiler orderingCompiler,
             JoinCompiler joinCompiler,
+            FunctionRegistry functionRegistry,
+            boolean groupByUsesEqualTo,
             List<Type> types,
             int expectedPositions,
             boolean eagerCompact)
     {
         this.orderingCompiler = requireNonNull(orderingCompiler, "orderingCompiler is null");
         this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
+        this.functionRegistry = requireNonNull(functionRegistry, "functionRegistry is null");
+        this.groupByUsesEqualTo = groupByUsesEqualTo;
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.valueAddresses = new LongArrayList(expectedPositions);
         this.eagerCompact = eagerCompact;
@@ -130,7 +138,7 @@ public class PagesIndex
         @Override
         public PagesIndex newPagesIndex(List<Type> types, int expectedPositions)
         {
-            return new PagesIndex(ORDERING_COMPILER, JOIN_COMPILER, types, expectedPositions, eagerCompact);
+            return new PagesIndex(ORDERING_COMPILER, JOIN_COMPILER, MetadataManager.createTestMetadataManager().getFunctionRegistry(), groupByUsesEqualTo, types, expectedPositions, eagerCompact);
         }
     }
 
@@ -140,19 +148,23 @@ public class PagesIndex
         private final OrderingCompiler orderingCompiler;
         private final JoinCompiler joinCompiler;
         private final boolean eagerCompact;
+        private final FunctionRegistry functionRegistry;
+        private final boolean groupByUsesEqualTo;
 
         @Inject
-        public DefaultFactory(OrderingCompiler orderingCompiler, JoinCompiler joinCompiler, FeaturesConfig featuresConfig)
+        public DefaultFactory(OrderingCompiler orderingCompiler, JoinCompiler joinCompiler, FeaturesConfig featuresConfig, Metadata metadata)
         {
             this.orderingCompiler = requireNonNull(orderingCompiler, "orderingCompiler is null");
             this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
             this.eagerCompact = requireNonNull(featuresConfig, "featuresConfig is null").isPagesIndexEagerCompactionEnabled();
+            this.functionRegistry = requireNonNull(metadata, "metadata is null").getFunctionRegistry();
+            this.groupByUsesEqualTo = featuresConfig.isGroupByUsesEqualTo();
         }
 
         @Override
         public PagesIndex newPagesIndex(List<Type> types, int expectedPositions)
         {
-            return new PagesIndex(orderingCompiler, joinCompiler, types, expectedPositions, eagerCompact);
+            return new PagesIndex(orderingCompiler, joinCompiler, functionRegistry, groupByUsesEqualTo, types, expectedPositions, eagerCompact);
         }
     }
 
@@ -427,7 +439,9 @@ public class PagesIndex
                 ImmutableList.copyOf(channels),
                 joinChannels,
                 hashChannel,
-                Optional.empty());
+                Optional.empty(),
+                functionRegistry,
+                groupByUsesEqualTo);
     }
 
     public LookupSourceSupplier createLookupSourceSupplier(
@@ -492,7 +506,9 @@ public class PagesIndex
                 channels,
                 joinChannels,
                 hashChannel,
-                sortChannel);
+                sortChannel,
+                functionRegistry,
+                groupByUsesEqualTo);
 
         return new JoinHashSupplier(
                 session,
