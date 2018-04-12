@@ -30,6 +30,7 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Streams;
 
@@ -180,17 +181,25 @@ public class JmxMetadata
     @Override
     public List<SchemaTableName> listTables(ConnectorSession session, String schemaNameOrNull)
     {
-        if (JMX_SCHEMA_NAME.equals(schemaNameOrNull)) {
-            return listJmxTables();
-        }
-        else if (HISTORY_SCHEMA_NAME.equals(schemaNameOrNull)) {
-            return jmxHistoricalData.getTables().stream()
-                    .map(tableName -> new SchemaTableName(JmxMetadata.HISTORY_SCHEMA_NAME, tableName))
-                    .collect(toList());
+        Set<String> schemaNames;
+        if (schemaNameOrNull != null) {
+            schemaNames = ImmutableSet.of(schemaNameOrNull);
         }
         else {
-            return ImmutableList.of();
+            schemaNames = ImmutableSet.copyOf(listSchemaNames(session));
         }
+        ImmutableList.Builder<SchemaTableName> schemaTableNames = ImmutableList.builder();
+        for (String schema : schemaNames) {
+            if (JMX_SCHEMA_NAME.equals(schema)) {
+                return listJmxTables();
+            }
+            else if (HISTORY_SCHEMA_NAME.equals(schema)) {
+                return jmxHistoricalData.getTables().stream()
+                        .map(tableName -> new SchemaTableName(JmxMetadata.HISTORY_SCHEMA_NAME, tableName))
+                        .collect(toList());
+            }
+        }
+        return schemaTableNames.build();
     }
 
     private List<SchemaTableName> listJmxTables()
