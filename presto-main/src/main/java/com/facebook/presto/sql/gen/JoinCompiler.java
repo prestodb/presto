@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.JoinHash;
 import com.facebook.presto.operator.JoinHashSupplier;
 import com.facebook.presto.operator.LookupSourceSupplier;
@@ -25,6 +26,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
 import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
@@ -51,6 +53,7 @@ import org.openjdk.jol.info.ClassLayout;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
+import javax.inject.Inject;
 import java.lang.reflect.Constructor;
 import java.util.ArrayList;
 import java.util.List;
@@ -98,6 +101,11 @@ public class JoinCompiler
     public LookupSourceSupplierFactory compileLookupSourceFactory(List<? extends Type> types, List<Integer> joinChannels, Optional<Integer> sortChannel)
     {
         return compileLookupSourceFactory(types, joinChannels, sortChannel, Optional.empty());
+    }
+
+    @Inject
+    public JoinCompiler(Metadata metadata, FeaturesConfig config)
+    {
     }
 
     @Managed
