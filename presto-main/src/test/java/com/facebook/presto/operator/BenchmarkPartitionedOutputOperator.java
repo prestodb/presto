@@ -64,6 +64,7 @@ import static com.facebook.presto.execution.buffer.BufferState.TERMINAL_BUFFER_S
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.units.DataSize.Unit.BYTE;
@@ -178,8 +179,7 @@ public class BenchmarkPartitionedOutputOperator
                 List<Object> testRow = new ArrayList<>(fieldTypes.size());
                 for (int j = 0; j < fieldTypes.size(); j++) {
                     if (fieldTypes.get(j) == VARCHAR) {
-                        byte[] data = new byte[ThreadLocalRandom.current().nextInt(128)];
-                        ThreadLocalRandom.current().nextBytes(data);
+                        byte[] data = getRandomByteArray(0);
                         testRow.add(new String(data));
                     }
                     else {
@@ -211,6 +211,14 @@ public class BenchmarkPartitionedOutputOperator
                     () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext()),
                     SCHEDULER);
         }
+    }
+
+    public static byte[] getRandomByteArray(int minLength)
+    {
+        checkState(minLength >= 0 && minLength < 128, "minLength must be in the range of [0, 128)");
+        byte[] data = new byte[minLength + ThreadLocalRandom.current().nextInt(128 - minLength)];
+        ThreadLocalRandom.current().nextBytes(data);
+        return data;
     }
 
     public static void main(String[] args)

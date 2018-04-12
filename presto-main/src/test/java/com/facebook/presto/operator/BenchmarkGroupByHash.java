@@ -14,14 +14,19 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.array.LongBigArray;
+import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.type.BigintOperators;
+import com.facebook.presto.type.VarcharOperators;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -35,6 +40,7 @@ import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
+import org.openjdk.jmh.profile.GCProfiler;
 import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
@@ -48,8 +54,11 @@ import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.operator.BenchmarkPartitionedOutputOperator.getRandomByteArray;
 import static com.facebook.presto.operator.UpdateMemory.NOOP;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.google.common.base.Preconditions.checkState;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
 
 @SuppressWarnings("MethodMayBeStatic")
@@ -65,13 +74,12 @@ public class BenchmarkGroupByHash
     private static final String GROUP_COUNT_STRING = "3000000";
     private static final int GROUP_COUNT = Integer.parseInt(GROUP_COUNT_STRING);
     private static final int EXPECTED_SIZE = 10_000;
-    private static final JoinCompiler JOIN_COMPILER = new JoinCompiler();
 
     @Benchmark
     @OperationsPerInvocation(POSITIONS)
     public Object groupByHashPreCompute(BenchmarkData data)
     {
-        GroupByHash groupByHash = new MultiChannelGroupByHash(data.getTypes(), data.getChannels(), data.getHashChannel(), EXPECTED_SIZE, false, JOIN_COMPILER, NOOP);
+        GroupByHash groupByHash = new MultiChannelGroupByHash(data.getTypes(), data.getChannels(), data.getHashChannel(), EXPECTED_SIZE, false, getJoinCompiler(data.isGroupByUsesEqual()), NOOP);
         data.getPages().forEach(p -> groupByHash.getGroupIds(p).process());
 
         ImmutableList.Builder<Page> pages = ImmutableList.builder();
@@ -92,7 +100,7 @@ public class BenchmarkGroupByHash
     @OperationsPerInvocation(POSITIONS)
     public Object addPagePreCompute(BenchmarkData data)
     {
-        GroupByHash groupByHash = new MultiChannelGroupByHash(data.getTypes(), data.getChannels(), data.getHashChannel(), EXPECTED_SIZE, false, JOIN_COMPILER, NOOP);
+        GroupByHash groupByHash = new MultiChannelGroupByHash(data.getTypes(), data.getChannels(), data.getHashChannel(), EXPECTED_SIZE, false, getJoinCompiler(data.isGroupByUsesEqual()), NOOP);
         data.getPages().forEach(p -> groupByHash.addPage(p).process());
 
         ImmutableList.Builder<Page> pages = ImmutableList.builder();
@@ -216,6 +224,36 @@ public class BenchmarkGroupByHash
         return pages.build();
     }
 
+    private static List<Page> createVarcharPages(int positionCount, List<Type> types, boolean hashEnabled)
+    {
+        int channelCount = types.size();
+        ImmutableList.Builder<Page> pages = ImmutableList.builder();
+        for (Type type : types) {
+            checkState(type.getClass().isInstance(VARCHAR), "type is not varchar");
+        }
+        if (hashEnabled) {
+            types = ImmutableList.copyOf(Iterables.concat(types, ImmutableList.of(BIGINT)));
+        }
+
+        PageBuilder pageBuilder = new PageBuilder(types);
+        for (int position = 0; position < positionCount; position++) {
+            Slice value = Slices.wrappedBuffer(getRandomByteArray(1));
+            pageBuilder.declarePosition();
+            for (int channel = 0; channel < channelCount; channel++) {
+                VARCHAR.writeSlice(pageBuilder.getBlockBuilder(channel), value);
+            }
+            if (hashEnabled) {
+                BIGINT.writeLong(pageBuilder.getBlockBuilder(channelCount), VarcharOperators.hashCode(value));
+            }
+            if (pageBuilder.isFull()) {
+                pages.add(pageBuilder.build());
+                pageBuilder.reset();
+            }
+        }
+        pages.add(pageBuilder.build());
+        return pages.build();
+    }
+
     @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Thread)
     public static class BaselinePagesData
@@ -301,6 +339,12 @@ public class BenchmarkGroupByHash
         @Param({"true", "false"})
         private boolean hashEnabled;
 
+        @Param({"equalTo", "notDistinct"})
+        private String groupByType = "notDistinct";
+
+        @Param({"VARCHAR", "BIGINT"})
+        private String dataType = "VARCHAR";
+
         private List<Page> pages;
         private Optional<Integer> hashChannel;
         private List<Type> types;
@@ -309,9 +353,19 @@ public class BenchmarkGroupByHash
         @Setup
         public void setup()
         {
-            pages = createPages(POSITIONS, groupCount, Collections.nCopies(channelCount, BIGINT), hashEnabled);
+            switch (dataType) {
+                case "VARCHAR":
+                    types = Collections.nCopies(channelCount, VARCHAR);
+                    pages = createVarcharPages(POSITIONS, types, hashEnabled);
+                    break;
+                case "BIGINT":
+                    types = Collections.nCopies(channelCount, BIGINT);
+                    pages = createPages(POSITIONS, groupCount, types, hashEnabled);
+                    break;
+                default:
+                    throw new UnsupportedOperationException("Unsupported dataType");
+            }
             hashChannel = hashEnabled ? Optional.of(channelCount) : Optional.empty();
-            types = Collections.nCopies(channelCount, BIGINT);
             channels = new int[channelCount];
             for (int i = 0; i < channelCount; i++) {
                 channels[i] = i;
@@ -337,6 +391,24 @@ public class BenchmarkGroupByHash
         {
             return channels;
         }
+
+        public boolean isGroupByUsesEqual()
+        {
+            if (groupByType.equals("equalTo")) {
+                return true;
+            }
+            else if (groupByType.equals("notDistinct")) {
+                return false;
+            }
+            else {
+                throw new UnsupportedOperationException("Unsupported groupByType");
+            }
+        }
+    }
+
+    private static JoinCompiler getJoinCompiler(boolean groupByUsesEqual)
+    {
+        return new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig().setGroupByUsesEqualTo(groupByUsesEqual));
     }
 
     public static void main(String[] args)
@@ -355,6 +427,8 @@ public class BenchmarkGroupByHash
         Options options = new OptionsBuilder()
                 .verbosity(VerboseMode.NORMAL)
                 .include(".*" + BenchmarkGroupByHash.class.getSimpleName() + ".*")
+                .addProfiler(GCProfiler.class)
+                .jvmArgs("-Xmx10g", "-XX:+UseG1GC")
                 .build();
         new Runner(options).run();
     }
