@@ -16,7 +16,6 @@ package com.facebook.presto.sql.gen;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.JoinHash;
 import com.facebook.presto.operator.JoinHashSupplier;
@@ -118,11 +117,6 @@ public class JoinCompiler
     public LookupSourceSupplierFactory compileLookupSourceFactory(List<? extends Type> types, List<Integer> joinChannels, Optional<Integer> sortChannel)
     {
         return compileLookupSourceFactory(types, joinChannels, sortChannel, Optional.empty());
-    }
-
-    public JoinCompiler()
-    {
-        this(MetadataManager.createTestMetadataManager(), new FeaturesConfig());
     }
 
     @Inject

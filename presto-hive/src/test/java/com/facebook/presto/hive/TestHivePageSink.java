@@ -17,6 +17,7 @@ import com.facebook.presto.GroupByHashPageIndexerFactory;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.HivePageSinkMetadata;
 import com.facebook.presto.hive.metastore.thrift.TestingHiveMetastore;
+import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
@@ -26,6 +27,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.TestingConnectorSession;
@@ -251,7 +253,7 @@ public class TestHivePageSink
                 getDefaultHiveFileWriterFactories(config),
                 hdfsEnvironment,
                 metastore,
-                new GroupByHashPageIndexerFactory(new JoinCompiler()),
+                new GroupByHashPageIndexerFactory(new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig())),
                 TYPE_MANAGER,
                 config,
                 new HiveLocationService(hdfsEnvironment),
