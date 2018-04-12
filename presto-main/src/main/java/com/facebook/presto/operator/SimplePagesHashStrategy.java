@@ -179,6 +179,12 @@ public class SimplePagesHashStrategy
     }
 
     @Override
+    public boolean positionNotDistinctFromRow(int leftBlockIndex, int leftPosition, int rightPosition, Page page, int[] rightChannels)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public boolean positionEqualsPosition(int leftBlockIndex, int leftPosition, int rightBlockIndex, int rightPosition)
     {
         for (int hashChannel : hashChannels) {
