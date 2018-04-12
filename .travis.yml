@@ -116,12 +116,16 @@ script:
   - |
     if [[ -v HIVE_TESTS ]]; then
       presto-hive-hadoop2/bin/run_hive_tests.sh
-      if [[ -v S3_TESTS_AWS_ACCESS_KEY_ID ]]; then
-        env AWS_ACCESS_KEY_ID=$S3_TESTS_AWS_ACCESS_KEY_ID \
-        AWS_SECRET_ACCESS_KEY=$S3_TESTS_AWS_SECRET_ACCESS_KEY \
+      if [[ -v HIVE_TESTS_AWS_ACCESS_KEY_ID ]]; then
+        env AWS_ACCESS_KEY_ID=$HIVE_TESTS_AWS_ACCESS_KEY_ID \
+        AWS_SECRET_ACCESS_KEY=$HIVE_TESTS_AWS_SECRET_ACCESS_KEY \
         S3_BUCKET_ENDPOINT=$S3_TESTS_BUCKET_ENDPOINT \
         S3_BUCKET=$S3_TESTS_BUCKET \
         presto-hive-hadoop2/bin/run_hive_s3_tests.sh
+
+        env AWS_ACCESS_KEY_ID=$HIVE_TESTS_AWS_ACCESS_KEY_ID \
+        AWS_SECRET_ACCESS_KEY=$HIVE_TESTS_AWS_SECRET_ACCESS_KEY \
+        ./mvnw -pl presto-hive test -P test-hive-glue
       fi
     fi
 
