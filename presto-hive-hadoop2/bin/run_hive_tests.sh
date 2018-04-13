@@ -10,6 +10,7 @@ function absolutepath() {
 SCRIPT_DIR=$(dirname $(absolutepath "$0"))
 . ${SCRIPT_DIR}/common.sh
 
+cleanup_docker_containers
 start_docker_containers
 
 # generate test data
