@@ -1588,6 +1588,33 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testRowWithReservedKeywords() throws Exception
+    {
+        // Test: Simple cast with quoted reserved keyword as field name.
+        assertQuery("SELECT col1.\"select\" FROM (SELECT CAST(ROW(11) as ROW(\"select\" INTEGER)) as col1)",
+                "SELECT 11 ");
+
+        // Test: Create table and insert row type with reserved keywords as field names.
+        assertUpdate("CREATE TABLE rowtype_tab1 as SELECT CAST(ROW(1, 2) as ROW(\"select\" BIGINT, \"group\" BIGINT)) as col1", 1);
+        assertUpdate("INSERT INTO rowtype_tab1 SELECT CAST(ROW(3, 4) as ROW(\"select\" BIGINT, \"group\" BIGINT))", 1);
+
+        assertQuery("SELECT col1.\"select\" as field1, col1.\"group\" as field2 FROM rowtype_tab1 ORDER BY field1",
+                "SELECT * FROM VALUES (1,2), (3,4)");
+
+        // Test: Union with a table containing row type.
+        assertQuery("SELECT col1.\"select\" as field1, col1.\"group\" as field2 FROM " +
+                "(SELECT col1 FROM rowtype_tab1 UNION ALL SELECT CAST(ROW(5, 6) as ROW(\"select\" BIGINT, \"group\" BIGINT)) as col1) " +
+                "ORDER BY field1",
+                "SELECT * FROM VALUES (1,2), (3,4), (5,6)");
+
+        // Test: Create and read from a view with a cast to row type. Row field access in aggregate.
+        assertUpdate(" CREATE VIEW rowtype_view1 as SELECT CAST(ROW(col1.\"select\", col1.\"group\") as " +
+                "ROW(\"where\" BIGINT, \"like\" BIGINT)) as col1 FROM rowtype_tab1");
+        assertQuery("SELECT sum(col1.\"where\") as sum1, sum(col1.\"like\") as sum2 FROM rowtype_view1",
+                "SELECT 4, 6");
+    }
+
+    @Test
     public void testComplex()
     {
         assertUpdate("CREATE TABLE tmp_complex1 AS SELECT " +

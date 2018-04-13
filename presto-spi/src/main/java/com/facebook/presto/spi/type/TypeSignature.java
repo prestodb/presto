@@ -177,7 +177,10 @@ public class TypeSignature
             else if (c == ' ') {
                 if (bracketCount == 1 && inFieldName) {
                     checkArgument(parameterStart >= 0 && parameterStart < i, "Bad type signature: '%s'", signature);
-                    fieldName = signature.substring(parameterStart, i);
+                    // The field name identifier may have quotes at this stage but they are ignored
+                    // while creating the type signature. This ensures that signatures for quoted and
+                    // unquoted versions of the same field name will match.
+                    fieldName = signature.substring(parameterStart, i).replaceAll("^\"|\"$", "");
                     parameterStart = i + 1;
                     inFieldName = false;
                 }
