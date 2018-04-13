@@ -41,10 +41,8 @@ function exec_in_hadoop_master_container() {
 function stop_unnecessary_hadoop_services() {
   HADOOP_MASTER_CONTAINER=$(hadoop_master_container)
   docker exec ${HADOOP_MASTER_CONTAINER} supervisorctl status
-  docker exec ${HADOOP_MASTER_CONTAINER} supervisorctl stop mapreduce-historyserver
   docker exec ${HADOOP_MASTER_CONTAINER} supervisorctl stop yarn-resourcemanager
   docker exec ${HADOOP_MASTER_CONTAINER} supervisorctl stop yarn-nodemanager
-  docker exec ${HADOOP_MASTER_CONTAINER} supervisorctl stop zookeeper
 }
 
 function cleanup_docker_containers() {
