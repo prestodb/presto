@@ -25,6 +25,10 @@ public enum QueryState
      */
     QUEUED(false),
     /**
+     * Query is waiting for the required resources (beta).
+     */
+    WAITING_FOR_RESOURCES(false),
+    /**
      * Query is being planned.
      */
     PLANNING(false),

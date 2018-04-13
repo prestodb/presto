@@ -47,6 +47,7 @@ public class QueryStats
 
     private final Duration elapsedTime;
     private final Duration queuedTime;
+    private final Duration waitingTime;
     private final Duration analysisTime;
     private final Duration distributedPlanningTime;
     private final Duration totalPlanningTime;
@@ -101,6 +102,7 @@ public class QueryStats
         this.endTime = null;
         this.elapsedTime = null;
         this.queuedTime = null;
+        this.waitingTime = null;
         this.analysisTime = null;
         this.distributedPlanningTime = null;
         this.totalPlanningTime = null;
@@ -146,6 +148,7 @@ public class QueryStats
 
             @JsonProperty("elapsedTime") Duration elapsedTime,
             @JsonProperty("queuedTime") Duration queuedTime,
+            @JsonProperty("waitingTime") Duration waitingTime,
             @JsonProperty("analysisTime") Duration analysisTime,
             @JsonProperty("distributedPlanningTime") Duration distributedPlanningTime,
             @JsonProperty("totalPlanningTime") Duration totalPlanningTime,
@@ -198,6 +201,7 @@ public class QueryStats
 
         this.elapsedTime = elapsedTime;
         this.queuedTime = queuedTime;
+        this.waitingTime = waitingTime;
         this.analysisTime = analysisTime;
         this.distributedPlanningTime = distributedPlanningTime;
         this.totalPlanningTime = totalPlanningTime;
@@ -282,6 +286,12 @@ public class QueryStats
     public Duration getElapsedTime()
     {
         return elapsedTime;
+    }
+
+    @JsonProperty
+    public Duration getWaitingTime()
+    {
+        return waitingTime;
     }
 
     @JsonProperty
