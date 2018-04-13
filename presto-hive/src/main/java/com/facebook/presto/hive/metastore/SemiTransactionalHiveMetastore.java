@@ -70,6 +70,7 @@ import static com.facebook.presto.spi.StandardErrorCode.TRANSACTION_CONFLICT;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -1213,6 +1214,9 @@ public class SemiTransactionalHiveMetastore
                         suppressedExceptions.add(t);
                     }
                 }
+            }
+            if (suppressedExceptions.size() == 1) {
+                throwIfInstanceOf(suppressedExceptions.get(0), PrestoException.class);
             }
             if (!suppressedExceptions.isEmpty()) {
                 PrestoException prestoException = new PrestoException(
