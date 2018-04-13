@@ -243,6 +243,11 @@ public final class RealOperators
         if (leftNull) {
             return false;
         }
+        float leftFloat = intBitsToFloat((int) left);
+        float rightFloat = intBitsToFloat((int) right);
+        if (Float.isNaN(leftFloat) && Float.isNaN(rightFloat)) {
+            return false;
+        }
         return notEqual(left, right);
     }
 

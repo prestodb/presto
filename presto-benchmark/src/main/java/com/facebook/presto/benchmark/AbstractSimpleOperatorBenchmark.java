@@ -13,11 +13,13 @@
  */
 package com.facebook.presto.benchmark;
 
+import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.DriverFactory;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.TaskContext;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.LocalQueryRunner;
@@ -34,7 +36,7 @@ import static com.facebook.presto.operator.PipelineExecutionStrategy.UNGROUPED_E
 public abstract class AbstractSimpleOperatorBenchmark
         extends AbstractOperatorBenchmark
 {
-    protected static final JoinCompiler JOIN_COMPILER = new JoinCompiler();
+    protected static final JoinCompiler JOIN_COMPILER = new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig());
 
     protected AbstractSimpleOperatorBenchmark(
             LocalQueryRunner localQueryRunner,

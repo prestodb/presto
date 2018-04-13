@@ -72,6 +72,7 @@ public class FeaturesConfig
     private boolean exchangeCompressionEnabled;
     private boolean legacyArrayAgg;
     private boolean legacyOrderBy;
+    private boolean groupByUsesEqualTo;
     private boolean legacyTimestamp = true;
     private boolean legacyMapSubscript;
     private boolean legacyRoundNBigint;
@@ -204,6 +205,18 @@ public class FeaturesConfig
     public boolean isLegacyOrderBy()
     {
         return legacyOrderBy;
+    }
+
+    @Config("deprecated.group-by-uses-equal")
+    public FeaturesConfig setGroupByUsesEqualTo(boolean value)
+    {
+        this.groupByUsesEqualTo = value;
+        return this;
+    }
+
+    public boolean isGroupByUsesEqualTo()
+    {
+        return groupByUsesEqualTo;
     }
 
     @Config("deprecated.legacy-timestamp")

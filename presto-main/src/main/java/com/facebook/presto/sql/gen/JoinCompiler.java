@@ -14,17 +14,23 @@
 package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.JoinHash;
 import com.facebook.presto.operator.JoinHashSupplier;
 import com.facebook.presto.operator.LookupSourceSupplier;
 import com.facebook.presto.operator.PagesHash;
 import com.facebook.presto.operator.PagesHashStrategy;
+import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
 import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
@@ -41,6 +47,7 @@ import io.airlift.bytecode.FieldDefinition;
 import io.airlift.bytecode.MethodDefinition;
 import io.airlift.bytecode.OpCode;
 import io.airlift.bytecode.Parameter;
+import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.ForLoop;
 import io.airlift.bytecode.control.IfStatement;
@@ -51,6 +58,8 @@ import org.openjdk.jol.info.ClassLayout;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
+import javax.inject.Inject;
+
 import java.lang.reflect.Constructor;
 import java.util.ArrayList;
 import java.util.List;
@@ -60,6 +69,7 @@ import java.util.OptionalInt;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.IntStream;
 
+import static com.facebook.presto.sql.gen.InputReferenceCompiler.generateInputReference;
 import static com.facebook.presto.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static com.facebook.presto.util.CompilerUtils.defineClass;
 import static com.facebook.presto.util.CompilerUtils.makeClassName;
@@ -83,6 +93,9 @@ import static java.util.Objects.requireNonNull;
 
 public class JoinCompiler
 {
+    private final FunctionRegistry registry;
+    private final boolean groupByUsesEqualTo;
+
     private final LoadingCache<CacheKey, LookupSourceSupplierFactory> lookupSourceFactories = CacheBuilder.newBuilder()
             .recordStats()
             .maximumSize(1000)
@@ -95,9 +108,22 @@ public class JoinCompiler
             .build(CacheLoader.from(key ->
                     internalCompileHashStrategy(key.getTypes(), key.getOutputChannels(), key.getJoinChannels(), key.getSortChannel())));
 
+    private ScalarFunctionImplementation getOperator(Type key)
+    {
+        Signature signature = registry.resolveOperator(OperatorType.IS_DISTINCT_FROM, ImmutableList.of(key, key));
+        return registry.getScalarFunctionImplementation(signature);
+    }
+
     public LookupSourceSupplierFactory compileLookupSourceFactory(List<? extends Type> types, List<Integer> joinChannels, Optional<Integer> sortChannel)
     {
         return compileLookupSourceFactory(types, joinChannels, sortChannel, Optional.empty());
+    }
+
+    @Inject
+    public JoinCompiler(Metadata metadata, FeaturesConfig config)
+    {
+        this.registry = requireNonNull(metadata, "metadata is null").getFunctionRegistry();
+        this.groupByUsesEqualTo = requireNonNull(config, "config is null").isGroupByUsesEqualTo();
     }
 
     @Managed
@@ -222,6 +248,7 @@ public class JoinCompiler
         generateRowEqualsRowMethod(classDefinition, callSiteBinder, joinChannelTypes);
         generatePositionEqualsRowMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields, true);
         generatePositionEqualsRowMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields, false);
+        generatePositionNotDistinctFromRowWithPageMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields);
         generatePositionEqualsRowWithPageMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields);
         generatePositionEqualsPositionMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields, true);
         generatePositionEqualsPositionMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields, false);
@@ -616,22 +643,75 @@ public class JoinCompiler
 
         Variable thisVariable = positionEqualsRowMethod.getThis();
         BytecodeBlock body = positionEqualsRowMethod.getBody();
-
         for (int index = 0; index < joinChannelTypes.size(); index++) {
             BytecodeExpression type = constantType(callSiteBinder, joinChannelTypes.get(index));
-
             BytecodeExpression leftBlock = thisVariable
                     .getField(joinChannelFields.get(index))
                     .invoke("get", Object.class, leftBlockIndex)
                     .cast(Block.class);
 
             BytecodeExpression rightBlock = page.invoke("getBlock", Block.class, rightChannels.getElement(index));
-
             body.append(new IfStatement()
                     .condition(typeEquals(type, leftBlock, leftBlockPosition, rightBlock, rightPosition))
                     .ifFalse(constantFalse().ret()));
         }
+        body.append(constantTrue().ret());
+    }
 
+    private void generatePositionNotDistinctFromRowWithPageMethod(
+            ClassDefinition classDefinition,
+            CallSiteBinder callSiteBinder,
+            List<Type> joinChannelTypes,
+            List<FieldDefinition> joinChannelFields)
+    {
+        Parameter leftBlockIndex = arg("leftBlockIndex", int.class);
+        Parameter leftBlockPosition = arg("leftBlockPosition", int.class);
+        Parameter rightPosition = arg("rightPosition", int.class);
+        Parameter page = arg("page", Page.class);
+        Parameter rightChannels = arg("rightChannels", int[].class);
+
+        MethodDefinition positionNotDistinctFromRowMethod = classDefinition.declareMethod(
+                a(PUBLIC),
+                "positionNotDistinctFromRow",
+                type(boolean.class),
+                leftBlockIndex,
+                leftBlockPosition,
+                rightPosition,
+                page,
+                rightChannels);
+
+        Variable thisVariable = positionNotDistinctFromRowMethod.getThis();
+        Scope scope = positionNotDistinctFromRowMethod.getScope();
+        BytecodeBlock body = positionNotDistinctFromRowMethod.getBody();
+        if (groupByUsesEqualTo) {
+            body.append(thisVariable.invoke(
+                    "positionEqualsRow",
+                    boolean.class,
+                    leftBlockIndex,
+                    leftBlockPosition,
+                    rightPosition,
+                    page,
+                    rightChannels).ret());
+            return;
+        }
+        scope.declareVariable("wasNull", body, constantFalse());
+        for (int index = 0; index < joinChannelTypes.size(); index++) {
+            BytecodeExpression leftBlock = thisVariable
+                    .getField(joinChannelFields.get(index))
+                    .invoke("get", Object.class, leftBlockIndex)
+                    .cast(Block.class);
+            BytecodeExpression rightBlock = page.invoke("getBlock", Block.class, rightChannels.getElement(index));
+            Type type = joinChannelTypes.get(index);
+            ScalarFunctionImplementation operator = getOperator(type);
+            Binding binding = callSiteBinder.bind(operator.getMethodHandle());
+            List<BytecodeNode> argumentsBytecode = new ArrayList<>();
+            argumentsBytecode.add(generateInputReference(callSiteBinder, scope, type, leftBlock, leftBlockPosition));
+            argumentsBytecode.add(generateInputReference(callSiteBinder, scope, type, rightBlock, rightPosition));
+
+            body.append(new IfStatement()
+                    .condition(BytecodeUtils.generateInvocation(scope, "isDistinctFrom", operator, Optional.empty(), argumentsBytecode, binding))
+                    .ifTrue(constantFalse().ret()));
+        }
         body.append(constantTrue().ret());
     }
 
