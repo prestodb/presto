@@ -33,6 +33,7 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDe
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.airlift.units.DataSize.succinctBytes;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -93,7 +94,8 @@ public class TestFeaturesConfig
                 .setPreferPartialAggregation(true)
                 .setHistogramGroupImplementation(HistogramGroupImplementation.NEW)
                 .setArrayAggGroupImplementation(ArrayAggGroupImplementation.NEW)
-                .setMaxGroupingSets(2048));
+                .setMaxGroupingSets(2048)
+                .setPreAllocateMemoryThreshold(succinctBytes(0)));
     }
 
     @Test
@@ -152,6 +154,7 @@ public class TestFeaturesConfig
                 .put("optimizer.use-mark-distinct", "false")
                 .put("optimizer.prefer-partial-aggregation", "false")
                 .put("analyzer.max-grouping-sets", "2047")
+                .put("experimental.preallocate-memory-threshold", "5TB")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -206,7 +209,8 @@ public class TestFeaturesConfig
                 .setPreferPartialAggregation(false)
                 .setHistogramGroupImplementation(HistogramGroupImplementation.LEGACY)
                 .setArrayAggGroupImplementation(ArrayAggGroupImplementation.LEGACY)
-                .setMaxGroupingSets(2047);
+                .setMaxGroupingSets(2047)
+                .setPreAllocateMemoryThreshold(DataSize.valueOf("5TB"));
         assertFullMapping(properties, expected);
     }
 

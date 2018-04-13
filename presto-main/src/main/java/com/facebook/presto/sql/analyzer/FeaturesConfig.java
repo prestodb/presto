@@ -38,6 +38,7 @@ import java.util.List;
 import static com.facebook.presto.sql.analyzer.RegexLibrary.JONI;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
+import static io.airlift.units.DataSize.succinctBytes;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 @DefunctConfig({
@@ -105,6 +106,7 @@ public class FeaturesConfig
     private boolean parseDecimalLiteralsAsDouble;
     private boolean useMarkDistinct = true;
     private boolean preferPartialAggregation = true;
+    private DataSize preAllocateMemoryThreshold = succinctBytes(0);
 
     private Duration iterativeOptimizerTimeout = new Duration(3, MINUTES); // by default let optimizer wait a long time in case it retrieves some data from ConnectorMetadata
 
@@ -746,6 +748,19 @@ public class FeaturesConfig
     public FeaturesConfig setArrayAggGroupImplementation(ArrayAggGroupImplementation groupByMode)
     {
         this.arrayAggGroupImplementation = groupByMode;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getPreAllocateMemoryThreshold()
+    {
+        return preAllocateMemoryThreshold;
+    }
+
+    @Config("experimental.preallocate-memory-threshold")
+    public FeaturesConfig setPreAllocateMemoryThreshold(DataSize preAllocateMemoryThreshold)
+    {
+        this.preAllocateMemoryThreshold = preAllocateMemoryThreshold;
         return this;
     }
 

@@ -24,6 +24,7 @@ import com.facebook.presto.execution.scheduler.NodeScheduler;
 import com.facebook.presto.execution.scheduler.SplitSchedulerStats;
 import com.facebook.presto.execution.scheduler.SqlQueryScheduler;
 import com.facebook.presto.failureDetector.FailureDetector;
+import com.facebook.presto.memory.ClusterMemoryManager;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableHandle;
@@ -60,6 +61,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.SetThreadName;
 import io.airlift.log.Logger;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -84,7 +86,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 @ThreadSafe
-public final class SqlQueryExecution
+public class SqlQueryExecution
         implements QueryExecution
 {
     private static final Logger log = Logger.get(SqlQueryExecution.class);
@@ -251,6 +253,20 @@ public final class SqlQueryExecution
     public Session getSession()
     {
         return stateMachine.getSession();
+    }
+
+    public void startWaitingForResources()
+    {
+        try (SetThreadName ignored = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
+            try {
+                // transition to waiting for resources
+                stateMachine.transitionToWaitingForResources();
+            }
+            catch (Throwable e) {
+                fail(e);
+                throwIfInstanceOf(e, Error.class);
+            }
+        }
     }
 
     @Override
@@ -580,7 +596,7 @@ public final class SqlQueryExecution
     }
 
     public static class SqlQueryExecutionFactory
-            implements QueryExecutionFactory<SqlQueryExecution>
+            implements QueryExecutionFactory<QueryExecution>
     {
         private final SplitSchedulerStats schedulerStats;
         private final int scheduleSplitBatchSize;
@@ -600,6 +616,8 @@ public final class SqlQueryExecution
         private final FailureDetector failureDetector;
         private final NodeTaskMap nodeTaskMap;
         private final Map<String, ExecutionPolicy> executionPolicies;
+        private final ClusterMemoryManager clusterMemoryManager;
+        private final DataSize preAllocateMemoryThreshold;
 
         @Inject
         SqlQueryExecutionFactory(QueryManagerConfig config,
@@ -620,7 +638,8 @@ public final class SqlQueryExecution
                 NodeTaskMap nodeTaskMap,
                 QueryExplainer queryExplainer,
                 Map<String, ExecutionPolicy> executionPolicies,
-                SplitSchedulerStats schedulerStats)
+                SplitSchedulerStats schedulerStats,
+                ClusterMemoryManager clusterMemoryManager)
         {
             requireNonNull(config, "config is null");
             this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
@@ -635,25 +654,25 @@ public final class SqlQueryExecution
             requireNonNull(planOptimizers, "planOptimizers is null");
             this.remoteTaskFactory = requireNonNull(remoteTaskFactory, "remoteTaskFactory is null");
             this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
-            requireNonNull(featuresConfig, "featuresConfig is null");
             this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
             this.schedulerExecutor = requireNonNull(schedulerExecutor, "schedulerExecutor is null");
             this.failureDetector = requireNonNull(failureDetector, "failureDetector is null");
             this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
             this.queryExplainer = requireNonNull(queryExplainer, "queryExplainer is null");
-
             this.executionPolicies = requireNonNull(executionPolicies, "schedulerPolicies is null");
+            this.clusterMemoryManager = requireNonNull(clusterMemoryManager, "clusterMemoryManager is null");
+            this.preAllocateMemoryThreshold = requireNonNull(featuresConfig, "featuresConfig is null").getPreAllocateMemoryThreshold();
             this.planOptimizers = planOptimizers.get();
         }
 
         @Override
-        public SqlQueryExecution createQueryExecution(QueryId queryId, String query, Session session, Statement statement, List<Expression> parameters)
+        public QueryExecution createQueryExecution(QueryId queryId, String query, Session session, Statement statement, List<Expression> parameters)
         {
             String executionPolicyName = SystemSessionProperties.getExecutionPolicy(session);
             ExecutionPolicy executionPolicy = executionPolicies.get(executionPolicyName);
             checkArgument(executionPolicy != null, "No execution policy %s", executionPolicy);
 
-            return new SqlQueryExecution(
+            SqlQueryExecution execution = new SqlQueryExecution(
                     queryId,
                     query,
                     session,
@@ -678,6 +697,13 @@ public final class SqlQueryExecution
                     executionPolicy,
                     parameters,
                     schedulerStats);
+
+            if (preAllocateMemoryThreshold.toBytes() > 0 && session.getResourceEstimates().getPeakMemory().isPresent() &&
+                    session.getResourceEstimates().getPeakMemory().get().compareTo(preAllocateMemoryThreshold) >= 0) {
+                return new MemoryAwareQueryExecution(clusterMemoryManager, execution);
+            }
+
+            return execution;
         }
     }
 }
