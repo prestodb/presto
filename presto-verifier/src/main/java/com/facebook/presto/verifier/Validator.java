@@ -49,6 +49,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
@@ -462,6 +463,16 @@ public class Validator
                 catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     throw new RuntimeException(e);
+                }
+                catch (ExecutionException e) {
+                    Throwable cause = e.getCause();
+                    if (cause instanceof SQLException) {
+                        throw (SQLException) cause;
+                    }
+                    if (cause instanceof VerifierException) {
+                        throw (VerifierException) cause;
+                    }
+                    throw Throwables.propagate(e);
                 }
                 catch (Exception e) {
                     throw Throwables.propagate(e);
