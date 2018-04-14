@@ -62,6 +62,7 @@ import static com.facebook.presto.SystemSessionProperties.getQueryMaxMemory;
 import static com.facebook.presto.SystemSessionProperties.resourceOvercommit;
 import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
 import static com.facebook.presto.memory.LocalMemoryManager.RESERVED_POOL;
+import static com.facebook.presto.memory.LocalMemoryManager.SYSTEM_POOL;
 import static com.facebook.presto.spi.NodeState.ACTIVE;
 import static com.facebook.presto.spi.NodeState.SHUTTING_DOWN;
 import static com.facebook.presto.spi.StandardErrorCode.CLUSTER_OUT_OF_MEMORY;
@@ -77,7 +78,10 @@ import static java.util.Objects.requireNonNull;
 public class ClusterMemoryManager
         implements ClusterMemoryPoolManager
 {
+    private static final Set<MemoryPoolId> POOLS = ImmutableSet.of(GENERAL_POOL, RESERVED_POOL, SYSTEM_POOL);
+
     private static final Logger log = Logger.get(ClusterMemoryManager.class);
+
     private final ExecutorService listenerExecutor = Executors.newSingleThreadExecutor();
     private final InternalNodeManager nodeManager;
     private final LocationFactory locationFactory;
@@ -100,7 +104,7 @@ public class ClusterMemoryManager
     private final Map<MemoryPoolId, List<Consumer<MemoryPoolInfo>>> changeListeners = new HashMap<>();
 
     @GuardedBy("this")
-    private final Map<MemoryPoolId, ClusterMemoryPool> pools = new HashMap<>();
+    private final Map<MemoryPoolId, ClusterMemoryPool> pools;
 
     @GuardedBy("this")
     private long lastTimeNotOutOfMemory = System.nanoTime();
@@ -133,6 +137,20 @@ public class ClusterMemoryManager
         this.coordinatorId = queryIdGenerator.getCoordinatorId();
         this.enabled = serverConfig.isCoordinator();
         this.killOnOutOfMemoryDelay = config.getKillOnOutOfMemoryDelay();
+
+        ImmutableMap.Builder<MemoryPoolId, ClusterMemoryPool> builder = ImmutableMap.builder();
+        for (MemoryPoolId poolId : POOLS) {
+            ClusterMemoryPool pool = new ClusterMemoryPool(poolId);
+            builder.put(poolId, pool);
+            String objectName = ObjectNames.builder(ClusterMemoryPool.class, poolId.toString()).build();
+            try {
+                exporter.export(objectName, pool);
+            }
+            catch (JmxException e) {
+                log.error(e, "Error exporting memory pool %s", poolId);
+            }
+        }
+        this.pools = builder.build();
     }
 
     @Override
@@ -364,37 +382,11 @@ public class ClusterMemoryManager
                 .sum();
         clusterMemoryBytes.set(totalClusterMemory);
 
-        Set<MemoryPoolId> activePoolIds = nodeMemoryInfos.stream()
-                .flatMap(info -> info.getPools().keySet().stream())
-                .collect(toImmutableSet());
-
-        // Make a copy to materialize the set difference
-        Set<MemoryPoolId> removedPools = ImmutableSet.copyOf(difference(pools.keySet(), activePoolIds));
-        for (MemoryPoolId removed : removedPools) {
-            unexport(pools.get(removed));
-            pools.remove(removed);
-            if (changeListeners.containsKey(removed)) {
-                for (Consumer<MemoryPoolInfo> listener : changeListeners.get(removed)) {
-                    listenerExecutor.execute(() -> listener.accept(new MemoryPoolInfo(0, 0, 0, ImmutableMap.of(), ImmutableMap.of())));
-                }
-            }
-        }
-        for (MemoryPoolId id : activePoolIds) {
-            ClusterMemoryPool pool = pools.computeIfAbsent(id, poolId -> {
-                ClusterMemoryPool newPool = new ClusterMemoryPool(poolId);
-                String objectName = ObjectNames.builder(ClusterMemoryPool.class, newPool.getId().toString()).build();
-                try {
-                    exporter.export(objectName, newPool);
-                }
-                catch (JmxException e) {
-                    log.error(e, "Error exporting memory pool %s", poolId);
-                }
-                return newPool;
-            });
+        for (ClusterMemoryPool pool : pools.values()) {
             pool.update(nodeMemoryInfos, queryCounts.getOrDefault(pool.getId(), 0));
-            if (changeListeners.containsKey(id)) {
+            if (changeListeners.containsKey(pool.getId())) {
                 MemoryPoolInfo info = pool.getInfo();
-                for (Consumer<MemoryPoolInfo> listener : changeListeners.get(id)) {
+                for (Consumer<MemoryPoolInfo> listener : changeListeners.get(pool.getId())) {
                     listenerExecutor.execute(() -> listener.accept(info));
                 }
             }
@@ -408,7 +400,6 @@ public class ClusterMemoryManager
             for (ClusterMemoryPool pool : pools.values()) {
                 unexport(pool);
             }
-            pools.clear();
         }
         finally {
             listenerExecutor.shutdownNow();
