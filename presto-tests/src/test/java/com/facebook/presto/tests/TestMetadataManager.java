@@ -13,16 +13,23 @@
  */
 package com.facebook.presto.tests;
 
+import com.facebook.presto.connector.MockConnectorFactory;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.TestingSessionContext;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder;
+import com.facebook.presto.transaction.TransactionBuilder;
+import com.google.common.collect.ImmutableList;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
+
+import java.util.List;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.execution.QueryState.FAILED;
@@ -47,6 +54,21 @@ public class TestMetadataManager
             throws Exception
     {
         queryRunner = TpchQueryRunnerBuilder.builder().build();
+        queryRunner.installPlugin(new Plugin() {
+            @Override
+            public Iterable<ConnectorFactory> getConnectorFactories()
+            {
+                return ImmutableList.of(new MockConnectorFactory(
+                        session -> ImmutableList.of("UPPER_CASE_SCHEMA"),
+                        (session, schemaNameOrNull) -> {
+                            throw new UnsupportedOperationException();
+                        },
+                        (session, tableHandle) -> {
+                            throw new UnsupportedOperationException();
+                        }));
+            }
+        });
+        queryRunner.createCatalog("upper_case_schema_catalog", "mock");
         metadataManager = (MetadataManager) queryRunner.getMetadata();
     }
 
@@ -104,5 +126,18 @@ public class TestMetadataManager
         // cancel query
         queryManager.cancelQuery(queryId);
         assertEquals(metadataManager.getCatalogsByQueryId().size(), 0);
+    }
+
+    @Test
+    public void testUpperCaseSchemaIsChangedToLowerCase()
+    {
+        TransactionBuilder.transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
+                .execute(
+                        TEST_SESSION,
+                        transactionSession -> {
+                            List<String> expectedSchemas = ImmutableList.of("information_schema", "upper_case_schema");
+                            assertEquals(queryRunner.getMetadata().listSchemaNames(transactionSession, "upper_case_schema_catalog"), expectedSchemas);
+                            return null;
+                        });
     }
 }

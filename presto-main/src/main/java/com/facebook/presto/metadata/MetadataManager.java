@@ -73,6 +73,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
@@ -282,7 +283,9 @@ public class MetadataManager
             ConnectorSession connectorSession = session.toConnectorSession(catalogMetadata.getConnectorId());
             for (ConnectorId connectorId : catalogMetadata.listConnectorIds()) {
                 ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
-                schemaNames.addAll(metadata.listSchemaNames(connectorSession));
+                metadata.listSchemaNames(connectorSession).stream()
+                        .map(schema -> schema.toLowerCase(Locale.ENGLISH))
+                        .forEach(schemaNames::add);
             }
         }
         return ImmutableList.copyOf(schemaNames.build());
