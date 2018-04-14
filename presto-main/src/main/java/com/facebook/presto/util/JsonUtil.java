@@ -50,6 +50,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
@@ -1258,7 +1259,7 @@ public final class JsonUtil
                 if (parser.currentToken() != FIELD_NAME) {
                     throw new JsonCastException(format("Expected a json field name, but got %s", parser.getText()));
                 }
-                String fieldName = parser.getText().toLowerCase();
+                String fieldName = parser.getText().toLowerCase(Locale.ENGLISH);
                 Integer fieldIndex = fieldNameToIndex.get().get(fieldName);
                 parser.nextToken();
                 if (fieldIndex != null) {

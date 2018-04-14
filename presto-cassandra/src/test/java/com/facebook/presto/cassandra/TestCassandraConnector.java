@@ -108,7 +108,7 @@ public class TestCassandraConnector
         assertInstanceOf(recordSetProvider, CassandraRecordSetProvider.class);
 
         database = keyspace;
-        table = new SchemaTableName(database, TABLE_ALL_TYPES.toLowerCase());
+        table = new SchemaTableName(database, TABLE_ALL_TYPES.toLowerCase(ENGLISH));
         tableUnpartitioned = new SchemaTableName(database, "presto_test_unpartitioned");
         invalidTable = new SchemaTableName(database, "totally_invalid_table_name");
     }
