@@ -14,34 +14,16 @@
 package com.facebook.presto.connector.informationschema;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorHandleResolver;
+import com.facebook.presto.connector.MockConnectorFactory;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
-import com.facebook.presto.spi.ConnectorTableLayout;
-import com.facebook.presto.spi.ConnectorTableLayoutHandle;
-import com.facebook.presto.spi.ConnectorTableLayoutResult;
-import com.facebook.presto.spi.ConnectorTableMetadata;
-import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.SchemaTablePrefix;
-import com.facebook.presto.spi.connector.Connector;
-import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
-import com.facebook.presto.spi.connector.ConnectorMetadata;
-import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
-import com.facebook.presto.spi.connector.ConnectorSplitManager;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchColumnHandle;
-import com.facebook.presto.tpch.TpchHandleResolver;
-import com.facebook.presto.tpch.TpchRecordSetProvider;
-import com.facebook.presto.tpch.TpchSplitManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -63,9 +45,9 @@ import org.openjdk.jmh.runner.options.VerboseMode;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BiFunction;
+import java.util.function.Function;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
@@ -118,10 +100,36 @@ public class BenchmarkInformationSchema
                 @Override
                 public Iterable<ConnectorFactory> getConnectorFactories()
                 {
-                    return ImmutableList.of(new TestingInformationSchemaConnectorFactory(schemasCount, tablesCount, columnsCount));
+                    Function<ConnectorSession, List<String>> listSchemaNames = session -> IntStream.range(0, Integer.parseInt(schemasCount))
+                            .boxed()
+                            .map(i -> "stream_" + i)
+                            .collect(toImmutableList());
+
+                    BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables = (session, schemaNameOrNull) -> {
+                        List<String> tables = IntStream.range(0, Integer.parseInt(tablesCount))
+                                .boxed()
+                                .map(i -> "table_" + i)
+                                .collect(toImmutableList());
+                        List<String> schemas;
+                        if (schemaNameOrNull == null) {
+                            schemas = listSchemaNames.apply(session);
+                        }
+                        else {
+                            schemas = ImmutableList.of(schemaNameOrNull);
+                        }
+                        return schemas.stream()
+                                .flatMap(schema -> tables.stream().map(table -> new SchemaTableName(schema, table)))
+                                .collect(toImmutableList());
+                    };
+
+                    BiFunction<ConnectorSession, ConnectorTableHandle, Map<String, TpchColumnHandle>> getColumnHandles = (session, tableHandle) -> IntStream.range(0, Integer.parseInt(columnsCount))
+                            .boxed()
+                            .map(i -> "column_" + i)
+                            .collect(toImmutableMap(column -> column, column -> new TpchColumnHandle(column, createUnboundedVarcharType()) {}));
+                    return ImmutableList.of(new MockConnectorFactory(listSchemaNames, listTables, getColumnHandles));
                 }
             });
-            queryRunner.createCatalog("test_catalog", "testing_information_schema", ImmutableMap.of());
+            queryRunner.createCatalog("test_catalog", "mock", ImmutableMap.of());
 
             query = queries.get(queryId);
         }
@@ -138,143 +146,6 @@ public class BenchmarkInformationSchema
     public MaterializedResult queryInformationSchema(BenchmarkData benchmarkData)
     {
         return benchmarkData.queryRunner.execute(benchmarkData.query);
-    }
-
-    private static class TestingInformationSchemaConnectorFactory
-            implements ConnectorFactory
-    {
-        private final int schemasCount;
-        private final int tablesCount;
-        private final int columnsCount;
-
-        public TestingInformationSchemaConnectorFactory(String schemasCount, String tablesCount, String columnsCount)
-        {
-            this.schemasCount = Integer.parseInt(schemasCount);
-            this.tablesCount = Integer.parseInt(tablesCount);
-            this.columnsCount = Integer.parseInt(columnsCount);
-        }
-
-        @Override
-        public String getName()
-        {
-            return "testing_information_schema";
-        }
-
-        @Override
-        public ConnectorHandleResolver getHandleResolver()
-        {
-            return new TpchHandleResolver();
-        }
-
-        @Override
-        public Connector create(String connectorId, Map<String, String> config, ConnectorContext context)
-        {
-            return new Connector()
-            {
-                @Override
-                public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
-                {
-                    return new ConnectorTransactionHandle() {};
-                }
-
-                @Override
-                public ConnectorMetadata getMetadata(ConnectorTransactionHandle transaction)
-                {
-                    return new ConnectorMetadata()
-                    {
-                        @Override
-                        public List<String> listSchemaNames(ConnectorSession session)
-                        {
-                            return IntStream.range(0, schemasCount)
-                                    .boxed()
-                                    .map(i -> "stream_" + i)
-                                    .collect(toImmutableList());
-                        }
-
-                        @Override
-                        public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
-                        {
-                            return new ConnectorTableHandle() {};
-                        }
-
-                        @Override
-                        public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
-                        {
-                            return null;
-                        }
-
-                        @Override
-                        public List<SchemaTableName> listTables(ConnectorSession session, String schemaNameOrNull)
-                        {
-                            List<String> tables = IntStream.range(0, tablesCount)
-                                    .boxed()
-                                    .map(i -> "table_" + i)
-                                    .collect(toImmutableList());
-                            List<String> schemas;
-                            if (schemaNameOrNull == null) {
-                                schemas = listSchemaNames(session);
-                            }
-                            else {
-                                schemas = ImmutableList.of(schemaNameOrNull);
-                            }
-                            return schemas.stream()
-                                    .flatMap(schema -> tables.stream().map(table -> new SchemaTableName(schema, table)))
-                                    .collect(toImmutableList());
-                        }
-
-                        @Override
-                        public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
-                        {
-                            return IntStream.range(0, columnsCount)
-                                    .boxed()
-                                    .map(i -> "column_" + i)
-                                    .collect(toImmutableMap(column -> column, column -> new TpchColumnHandle(column, createUnboundedVarcharType()) {}));
-                        }
-
-                        @Override
-                        public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
-                        {
-                            TpchColumnHandle tpchColumnHandle = (TpchColumnHandle) columnHandle;
-                            return new ColumnMetadata(tpchColumnHandle.getColumnName(), tpchColumnHandle.getType());
-                        }
-
-                        @Override
-                        public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
-                        {
-                            return listTables(session, prefix.getSchemaName()).stream()
-                                    .collect(toImmutableMap(table -> table, table -> IntStream.range(0, 100)
-                                            .boxed()
-                                            .map(i -> new ColumnMetadata("column_" + i, createUnboundedVarcharType()))
-                                            .collect(toImmutableList())));
-                        }
-
-                        @Override
-                        public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle table, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
-                        {
-                            return ImmutableList.of();
-                        }
-
-                        @Override
-                        public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle)
-                        {
-                            throw new UnsupportedOperationException();
-                        }
-                    };
-                }
-
-                @Override
-                public ConnectorSplitManager getSplitManager()
-                {
-                    return new TpchSplitManager(context.getNodeManager(), 1);
-                }
-
-                @Override
-                public ConnectorRecordSetProvider getRecordSetProvider()
-                {
-                    return new TpchRecordSetProvider();
-                }
-            };
-        }
     }
 
     public static void main(String[] args)
