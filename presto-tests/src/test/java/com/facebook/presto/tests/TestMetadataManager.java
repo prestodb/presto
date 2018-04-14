@@ -28,6 +28,7 @@ import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.RUNNING;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.fail;
 
 /**
  * This is integration / unit test suite.
@@ -70,6 +71,7 @@ public class TestMetadataManager
         @Language("SQL") String sql = "SELECT nationkey/0 FROM nation"; // will raise division by zero exception
         try {
             queryRunner.execute(sql);
+            fail("expected exception");
         }
         catch (Throwable t) {
             // query should fail
