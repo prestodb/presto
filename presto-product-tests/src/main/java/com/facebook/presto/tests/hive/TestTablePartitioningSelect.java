@@ -25,6 +25,7 @@ import io.prestodb.tempto.query.QueryExecutionException;
 import io.prestodb.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
+import java.util.Locale;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -54,8 +55,8 @@ public class TestTablePartitioningSelect
 
     private static HiveTableDefinition singleIntColumnPartitionedTableDefinition(String fileFormat, Optional<String> serde)
     {
-        String tableName = fileFormat.toLowerCase() + "_single_int_column_partitioned";
-        HiveDataSource dataSource = createResourceDataSource(tableName, String.valueOf(ThreadLocalRandom.current().nextLong(Long.MAX_VALUE)), "com/facebook/presto/tests/hive/data/single_int_column/data." + fileFormat.toLowerCase());
+        String tableName = fileFormat.toLowerCase(Locale.ENGLISH) + "_single_int_column_partitioned";
+        HiveDataSource dataSource = createResourceDataSource(tableName, String.valueOf(ThreadLocalRandom.current().nextLong(Long.MAX_VALUE)), "com/facebook/presto/tests/hive/data/single_int_column/data." + fileFormat.toLowerCase(Locale.ENGLISH));
         HiveDataSource invalidData = createStringDataSource(tableName, String.valueOf(ThreadLocalRandom.current().nextLong(Long.MAX_VALUE)), "INVALID DATA");
         return HiveTableDefinition.builder(tableName)
                 .setCreateTableDDLTemplate(buildSingleIntColumnPartitionedTableDDL(fileFormat, serde))

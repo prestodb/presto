@@ -38,6 +38,7 @@ import parquet.schema.MessageType;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
@@ -182,7 +183,7 @@ public final class ParquetTypeUtils
     public static int getFieldIndex(MessageType fileSchema, String name)
     {
         try {
-            return fileSchema.getFieldIndex(name.toLowerCase());
+            return fileSchema.getFieldIndex(name.toLowerCase(Locale.ENGLISH));
         }
         catch (InvalidRecordException e) {
             for (parquet.schema.Type type : fileSchema.getFields()) {

@@ -32,6 +32,7 @@ import com.google.common.collect.ImmutableMap;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
@@ -120,7 +121,7 @@ public final class GlueToPrestoConverter
 
     private static Column convertColumn(com.amazonaws.services.glue.model.Column glueColumn)
     {
-        return new Column(glueColumn.getName(), HiveType.valueOf(glueColumn.getType().toLowerCase()), Optional.ofNullable(glueColumn.getComment()));
+        return new Column(glueColumn.getName(), HiveType.valueOf(glueColumn.getType().toLowerCase(Locale.ENGLISH)), Optional.ofNullable(glueColumn.getComment()));
     }
 
     public static Partition convertPartition(com.amazonaws.services.glue.model.Partition gluePartition)

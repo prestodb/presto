@@ -32,6 +32,7 @@ import parquet.schema.Type.Repetition;
 import parquet.schema.Types;
 
 import java.util.List;
+import java.util.Locale;
 
 /**
  * This class is copied from org.apache.hadoop.hive.ql.io.parquet.convert.HiveSchemaConverter
@@ -101,7 +102,7 @@ public class SingleLevelArraySchemaConverter
             else if (typeInfo.equals(TypeInfoFactory.voidTypeInfo)) {
                 throw new UnsupportedOperationException("Void type not implemented");
             }
-            else if (typeInfo.getTypeName().toLowerCase().startsWith(
+            else if (typeInfo.getTypeName().toLowerCase(Locale.ENGLISH).startsWith(
                     serdeConstants.CHAR_TYPE_NAME)) {
                 if (repetition == Repetition.OPTIONAL) {
                     return Types.optional(PrimitiveTypeName.BINARY).as(OriginalType.UTF8).named(name);
@@ -110,7 +111,7 @@ public class SingleLevelArraySchemaConverter
                     return Types.repeated(PrimitiveTypeName.BINARY).as(OriginalType.UTF8).named(name);
                 }
             }
-            else if (typeInfo.getTypeName().toLowerCase().startsWith(
+            else if (typeInfo.getTypeName().toLowerCase(Locale.ENGLISH).startsWith(
                     serdeConstants.VARCHAR_TYPE_NAME)) {
                 if (repetition == Repetition.OPTIONAL) {
                     return Types.optional(PrimitiveTypeName.BINARY).as(OriginalType.UTF8).named(name);

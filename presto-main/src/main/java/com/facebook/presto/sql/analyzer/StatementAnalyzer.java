@@ -315,7 +315,7 @@ class StatementAnalyzer
             if (insert.getColumns().isPresent()) {
                 insertColumns = insert.getColumns().get().stream()
                         .map(Identifier::getValue)
-                        .map(String::toLowerCase)
+                        .map(column -> column.toLowerCase(ENGLISH))
                         .collect(toImmutableList());
 
                 Set<String> columnNames = new HashSet<>();
