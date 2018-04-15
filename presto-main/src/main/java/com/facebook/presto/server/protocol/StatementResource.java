@@ -35,6 +35,7 @@ import javax.inject.Inject;
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
+import javax.ws.rs.HeaderParam;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
@@ -122,6 +123,7 @@ public class StatementResource
             String statement,
             @Context HttpServletRequest servletRequest,
             @Context UriInfo uriInfo,
+            @HeaderParam("x-forwarded-proto") String proto,
             @Suspended AsyncResponse asyncResponse)
     {
         if (isNullOrEmpty(statement)) {
@@ -130,6 +132,9 @@ public class StatementResource
                     .type(MediaType.TEXT_PLAIN)
                     .entity("SQL statement is empty")
                     .build());
+        }
+        if (isNullOrEmpty(proto)) {
+            proto = uriInfo.getRequestUri().getScheme();
         }
 
         SessionContext sessionContext = new HttpRequestSessionContext(servletRequest);
@@ -146,7 +151,7 @@ public class StatementResource
                 blockEncodingSerde);
         queries.put(query.getQueryId(), query);
 
-        asyncQueryResults(query, OptionalLong.empty(), new Duration(1, MILLISECONDS), uriInfo, asyncResponse);
+        asyncQueryResults(query, OptionalLong.empty(), new Duration(1, MILLISECONDS), uriInfo, proto, asyncResponse);
     }
 
     @GET
@@ -156,6 +161,7 @@ public class StatementResource
             @PathParam("queryId") QueryId queryId,
             @PathParam("token") long token,
             @QueryParam("maxWait") Duration maxWait,
+            @HeaderParam("x-forwarded-proto") String proto,
             @Context UriInfo uriInfo,
             @Suspended AsyncResponse asyncResponse)
     {
@@ -164,14 +170,17 @@ public class StatementResource
             asyncResponse.resume(Response.status(Status.NOT_FOUND).build());
             return;
         }
+        if (isNullOrEmpty(proto)) {
+            proto = uriInfo.getRequestUri().getScheme();
+        }
 
-        asyncQueryResults(query, OptionalLong.of(token), maxWait, uriInfo, asyncResponse);
+        asyncQueryResults(query, OptionalLong.of(token), maxWait, uriInfo, proto, asyncResponse);
     }
 
-    private void asyncQueryResults(Query query, OptionalLong token, Duration maxWait, UriInfo uriInfo, AsyncResponse asyncResponse)
+    private void asyncQueryResults(Query query, OptionalLong token, Duration maxWait, UriInfo uriInfo, String scheme, AsyncResponse asyncResponse)
     {
         Duration wait = WAIT_ORDERING.min(MAX_WAIT_TIME, maxWait);
-        ListenableFuture<QueryResults> queryResultsFuture = query.waitForResults(token, uriInfo, wait);
+        ListenableFuture<QueryResults> queryResultsFuture = query.waitForResults(token, uriInfo, scheme, wait);
 
         ListenableFuture<Response> response = Futures.transform(queryResultsFuture, queryResults -> toResponse(query, queryResults));
 
