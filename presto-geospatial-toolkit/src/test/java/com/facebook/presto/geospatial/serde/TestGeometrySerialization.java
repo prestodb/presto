@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.geospatial;
+package com.facebook.presto.geospatial.serde;
 
 import com.esri.core.geometry.Envelope;
 import com.esri.core.geometry.ogc.OGCGeometry;
@@ -22,18 +22,18 @@ import org.locationtech.jts.io.WKTReader;
 import org.testng.annotations.Test;
 
 import static com.esri.core.geometry.ogc.OGCGeometry.createFromEsriGeometry;
-import static com.facebook.presto.geospatial.GeometrySerde.deserialize;
-import static com.facebook.presto.geospatial.GeometrySerde.deserializeEnvelope;
-import static com.facebook.presto.geospatial.GeometrySerde.deserializeType;
-import static com.facebook.presto.geospatial.GeometrySerde.serialize;
-import static com.facebook.presto.geospatial.GeometryType.ENVELOPE;
-import static com.facebook.presto.geospatial.GeometryType.GEOMETRY_COLLECTION;
-import static com.facebook.presto.geospatial.GeometryType.LINE_STRING;
-import static com.facebook.presto.geospatial.GeometryType.MULTI_LINE_STRING;
-import static com.facebook.presto.geospatial.GeometryType.MULTI_POINT;
-import static com.facebook.presto.geospatial.GeometryType.MULTI_POLYGON;
-import static com.facebook.presto.geospatial.GeometryType.POINT;
-import static com.facebook.presto.geospatial.GeometryType.POLYGON;
+import static com.facebook.presto.geospatial.serde.GeometrySerde.deserialize;
+import static com.facebook.presto.geospatial.serde.GeometrySerde.deserializeEnvelope;
+import static com.facebook.presto.geospatial.serde.GeometrySerde.deserializeType;
+import static com.facebook.presto.geospatial.serde.GeometrySerde.serialize;
+import static com.facebook.presto.geospatial.serde.GeometrySerializationType.ENVELOPE;
+import static com.facebook.presto.geospatial.serde.GeometrySerializationType.GEOMETRY_COLLECTION;
+import static com.facebook.presto.geospatial.serde.GeometrySerializationType.LINE_STRING;
+import static com.facebook.presto.geospatial.serde.GeometrySerializationType.MULTI_LINE_STRING;
+import static com.facebook.presto.geospatial.serde.GeometrySerializationType.MULTI_POINT;
+import static com.facebook.presto.geospatial.serde.GeometrySerializationType.MULTI_POLYGON;
+import static com.facebook.presto.geospatial.serde.GeometrySerializationType.POINT;
+import static com.facebook.presto.geospatial.serde.GeometrySerializationType.POLYGON;
 import static org.testng.Assert.assertEquals;
 
 public class TestGeometrySerialization
@@ -235,7 +235,7 @@ public class TestGeometrySerialization
         assertEquals(deserializeEnvelope(geometryFromText(geometry)), expectedEnvelope);
     }
 
-    private static void assertDeserializeType(String wkt, GeometryType expectedType)
+    private static void assertDeserializeType(String wkt, GeometrySerializationType expectedType)
     {
         assertEquals(deserializeType(geometryFromText(wkt)), expectedType);
     }

@@ -33,8 +33,8 @@ import java.util.Set;
 
 import static com.esri.core.geometry.GeometryEngine.contains;
 import static com.esri.core.geometry.GeometryEngine.disjoint;
-import static com.facebook.presto.geospatial.GeometrySerde.deserialize;
-import static com.facebook.presto.geospatial.GeometrySerde.serialize;
+import static com.facebook.presto.geospatial.serde.GeometrySerde.deserialize;
+import static com.facebook.presto.geospatial.serde.GeometrySerde.serialize;
 import static com.facebook.presto.plugin.geospatial.BingTile.MAX_ZOOM_LEVEL;
 import static com.facebook.presto.plugin.geospatial.GeometryType.GEOMETRY_TYPE_NAME;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;

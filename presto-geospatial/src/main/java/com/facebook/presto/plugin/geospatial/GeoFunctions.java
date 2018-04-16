@@ -27,7 +27,8 @@ import com.esri.core.geometry.ogc.OGCMultiPolygon;
 import com.esri.core.geometry.ogc.OGCPoint;
 import com.esri.core.geometry.ogc.OGCPolygon;
 import com.facebook.presto.geospatial.GeometryType;
-import com.facebook.presto.geospatial.JtsGeometrySerde;
+import com.facebook.presto.geospatial.serde.GeometrySerializationType;
+import com.facebook.presto.geospatial.serde.JtsGeometrySerde;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
@@ -46,18 +47,16 @@ import java.util.Objects;
 import java.util.Set;
 
 import static com.esri.core.geometry.ogc.OGCGeometry.createFromEsriGeometry;
-import static com.facebook.presto.geospatial.GeometrySerde.deserialize;
-import static com.facebook.presto.geospatial.GeometrySerde.deserializeEnvelope;
-import static com.facebook.presto.geospatial.GeometrySerde.deserializeType;
-import static com.facebook.presto.geospatial.GeometrySerde.serialize;
-import static com.facebook.presto.geospatial.GeometryType.ENVELOPE;
 import static com.facebook.presto.geospatial.GeometryType.LINE_STRING;
 import static com.facebook.presto.geospatial.GeometryType.MULTI_LINE_STRING;
 import static com.facebook.presto.geospatial.GeometryType.MULTI_POINT;
 import static com.facebook.presto.geospatial.GeometryType.MULTI_POLYGON;
 import static com.facebook.presto.geospatial.GeometryType.POINT;
 import static com.facebook.presto.geospatial.GeometryType.POLYGON;
-import static com.facebook.presto.geospatial.GeometryType.getForJtsGeometryType;
+import static com.facebook.presto.geospatial.serde.GeometrySerde.deserialize;
+import static com.facebook.presto.geospatial.serde.GeometrySerde.deserializeEnvelope;
+import static com.facebook.presto.geospatial.serde.GeometrySerde.deserializeType;
+import static com.facebook.presto.geospatial.serde.GeometrySerde.serialize;
 import static com.facebook.presto.plugin.geospatial.GeometryType.GEOMETRY_TYPE_NAME;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.StandardTypes.DOUBLE;
@@ -168,7 +167,7 @@ public final class GeoFunctions
         OGCGeometry geometry = deserialize(input);
         validateType("ST_Centroid", geometry, EnumSet.of(POINT, MULTI_POINT, LINE_STRING, MULTI_LINE_STRING, POLYGON, MULTI_POLYGON));
         GeometryType geometryType = GeometryType.getForEsriGeometryType(geometry.geometryType());
-        if (geometryType == POINT) {
+        if (geometryType == GeometryType.POINT) {
             return input;
         }
 
@@ -302,13 +301,13 @@ public final class GeoFunctions
             return null;
         }
 
-        GeometryType lineType = getForJtsGeometryType(line.getGeometryType());
-        if (lineType != LINE_STRING && lineType != MULTI_LINE_STRING) {
+        GeometryType lineType = GeometryType.getForJtsGeometryType(line.getGeometryType());
+        if (lineType != GeometryType.LINE_STRING && lineType != GeometryType.MULTI_LINE_STRING) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("First argument to line_locate_point must be a LineString or a MultiLineString. Got: %s", line.getGeometryType()));
         }
 
-        GeometryType pointType = getForJtsGeometryType(point.getGeometryType());
-        if (pointType != POINT) {
+        GeometryType pointType = GeometryType.getForJtsGeometryType(point.getGeometryType());
+        if (pointType != GeometryType.POINT) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Second argument to line_locate_point must be a Point. Got: %s", point.getGeometryType()));
         }
 
@@ -390,7 +389,7 @@ public final class GeoFunctions
         if (geometry.getEsriGeometry().isEmpty()) {
             return 0;
         }
-        else if (GeometryType.getForEsriGeometryType(geometry.geometryType()) == POINT) {
+        else if (GeometryType.getForEsriGeometryType(geometry.geometryType()) == GeometryType.POINT) {
             return 1;
         }
         return ((MultiVertexGeometry) geometry.getEsriGeometry()).getPointCount();
@@ -495,7 +494,7 @@ public final class GeoFunctions
     public static Slice stBoundary(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
     {
         OGCGeometry geometry = deserialize(input);
-        if (geometry.isEmpty() && GeometryType.getForEsriGeometryType(geometry.geometryType()) == LINE_STRING) {
+        if (geometry.isEmpty() && GeometryType.getForEsriGeometryType(geometry.geometryType()) == GeometryType.LINE_STRING) {
             // OCGGeometry#boundary crashes with NPE for LINESTRING EMPTY
             return EMPTY_MULTIPOINT;
         }
@@ -555,7 +554,7 @@ public final class GeoFunctions
     @SqlType(GEOMETRY_TYPE_NAME)
     public static Slice stIntersection(@SqlType(GEOMETRY_TYPE_NAME) Slice left, @SqlType(GEOMETRY_TYPE_NAME) Slice right)
     {
-        if (deserializeType(left) == ENVELOPE && deserializeType(right) == ENVELOPE) {
+        if (deserializeType(left) == GeometrySerializationType.ENVELOPE && deserializeType(right) == GeometrySerializationType.ENVELOPE) {
             Envelope leftEnvelope = deserializeEnvelope(left);
             Envelope rightEnvelope = deserializeEnvelope(right);
 
