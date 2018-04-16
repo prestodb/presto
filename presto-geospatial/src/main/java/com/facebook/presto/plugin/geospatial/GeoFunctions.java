@@ -27,6 +27,7 @@ import com.esri.core.geometry.ogc.OGCMultiPolygon;
 import com.esri.core.geometry.ogc.OGCPoint;
 import com.esri.core.geometry.ogc.OGCPolygon;
 import com.facebook.presto.geospatial.GeometryType;
+import com.facebook.presto.geospatial.serde.GeometrySerde;
 import com.facebook.presto.geospatial.serde.GeometrySerializationType;
 import com.facebook.presto.geospatial.serde.JtsGeometrySerde;
 import com.facebook.presto.spi.PrestoException;
@@ -712,6 +713,14 @@ public final class GeoFunctions
         OGCGeometry rightGeometry = deserialize(right);
         verifySameSpatialReference(leftGeometry, rightGeometry);
         return leftGeometry.within(rightGeometry);
+    }
+
+    @Description("Returns the type of the geometry")
+    @ScalarFunction("ST_GeometryType")
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice stGeometryType(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
+    {
+        return GeometrySerde.getGeometryType(input).standardName();
     }
 
     @ScalarFunction

@@ -147,6 +147,10 @@ Accessors
     Returns the 2-dimensional cartesian minimum distance (based on spatial ref)
     between two geometries in projected units.
 
+.. function:: ST_GeometryType(Geometry) -> varchar
+
+    Returns the type of the geometry.
+
 .. function:: ST_IsClosed(Geometry) -> boolean
 
     Returns ``true`` if the linestring's start and end points are coincident.

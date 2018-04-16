@@ -13,28 +13,38 @@
  */
 package com.facebook.presto.geospatial;
 
+import io.airlift.slice.Slice;
+
+import static io.airlift.slice.Slices.utf8Slice;
 import static java.util.Objects.requireNonNull;
 
 public enum GeometryType
 {
-    POINT(false),
-    MULTI_POINT(true),
-    LINE_STRING(false),
-    MULTI_LINE_STRING(true),
-    POLYGON(false),
-    MULTI_POLYGON(true),
-    GEOMETRY_COLLECTION(true);
+    POINT(false, utf8Slice("ST_Point")),
+    MULTI_POINT(true, utf8Slice("ST_MultiPoint")),
+    LINE_STRING(false, utf8Slice("ST_LineString")),
+    MULTI_LINE_STRING(true, utf8Slice("ST_MultiLineString")),
+    POLYGON(false, utf8Slice("ST_Polygon")),
+    MULTI_POLYGON(true, utf8Slice("ST_MultiPolygon")),
+    GEOMETRY_COLLECTION(true, utf8Slice("ST_GeomCollection"));
 
     private final boolean multitype;
+    private final Slice standardName;
 
-    GeometryType(boolean multitype)
+    GeometryType(boolean multitype, Slice standardName)
     {
         this.multitype = multitype;
+        this.standardName = standardName;
     }
 
     public boolean isMultitype()
     {
         return multitype;
+    }
+
+    public Slice standardName()
+    {
+        return standardName;
     }
 
     public static GeometryType getForEsriGeometryType(String type)
