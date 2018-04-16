@@ -613,4 +613,17 @@ public class TestGeoFunctions
         assertInvalidFunction("great_circle_distance(36.12, -86.67, 33.94, nan())", "Longitude must be between -180 and 180");
         assertInvalidFunction("great_circle_distance(36.12, -86.67, 33.94, infinity())", "Longitude must be between -180 and 180");
     }
+
+    @Test
+    public void testSTGeometryType()
+    {
+        assertFunction("ST_GeometryType(ST_Point(1, 4))", VARCHAR, "ST_Point");
+        assertFunction("ST_GeometryType(ST_GeometryFromText('LINESTRING (1 1, 2 2)'))", VARCHAR, "ST_LineString");
+        assertFunction("ST_GeometryType(ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 4, 4 1))'))", VARCHAR, "ST_Polygon");
+        assertFunction("ST_GeometryType(ST_GeometryFromText('MULTIPOINT (1 1, 2 2)'))", VARCHAR, "ST_MultiPoint");
+        assertFunction("ST_GeometryType(ST_GeometryFromText('MULTILINESTRING ((1 1, 2 2), (3 3, 4 4))'))", VARCHAR, "ST_MultiLineString");
+        assertFunction("ST_GeometryType(ST_GeometryFromText('MULTIPOLYGON (((1 1, 1 4, 4 4, 4 1)), ((1 1, 1 4, 4 4, 4 1)))'))", VARCHAR, "ST_MultiPolygon");
+        assertFunction("ST_GeometryType(ST_GeometryFromText('GEOMETRYCOLLECTION(POINT(4 6),LINESTRING(4 6,7 10))'))", VARCHAR, "ST_GeomCollection");
+        assertFunction("ST_GeometryType(ST_Envelope(ST_GeometryFromText('LINESTRING (1 1, 2 2)')))", VARCHAR, "ST_Polygon");
+    }
 }
