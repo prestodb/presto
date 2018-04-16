@@ -69,6 +69,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_STARTED_TRANSACTION_ID;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.http.server.AsyncResponseHandler.bindAsyncResponse;
 import static java.util.Objects.requireNonNull;
@@ -123,7 +124,7 @@ public class StatementResource
             String statement,
             @Context HttpServletRequest servletRequest,
             @Context UriInfo uriInfo,
-            @HeaderParam("x-forwarded-proto") String proto,
+            @HeaderParam(X_FORWARDED_PROTO) String proto,
             @Suspended AsyncResponse asyncResponse)
     {
         if (isNullOrEmpty(statement)) {
@@ -161,7 +162,7 @@ public class StatementResource
             @PathParam("queryId") QueryId queryId,
             @PathParam("token") long token,
             @QueryParam("maxWait") Duration maxWait,
-            @HeaderParam("x-forwarded-proto") String proto,
+            @HeaderParam(X_FORWARDED_PROTO) String proto,
             @Context UriInfo uriInfo,
             @Suspended AsyncResponse asyncResponse)
     {
