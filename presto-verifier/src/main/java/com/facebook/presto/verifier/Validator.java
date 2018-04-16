@@ -793,7 +793,7 @@ public class Validator
         }
     }
 
-    private interface ResultSetConverter
+    public interface ResultSetConverter
     {
         List<List<Object>> convert(ResultSet resultSet)
                 throws SQLException, VerifierException;
