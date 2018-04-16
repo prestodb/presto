@@ -463,7 +463,13 @@ class Query
 
     private synchronized URI createNextResultsUri(String scheme, UriInfo uriInfo)
     {
-        return uriInfo.getBaseUriBuilder().replacePath("/v1/statement").path(queryId.toString()).path(String.valueOf(resultId.incrementAndGet())).replaceQuery("").scheme(scheme).build();
+        return uriInfo.getBaseUriBuilder()
+                .scheme(scheme)
+                .replacePath("/v1/statement")
+                .path(queryId.toString())
+                .path(String.valueOf(resultId.incrementAndGet()))
+                .replaceQuery("")
+                .build();
     }
 
     private static StatementStats toStatementStats(QueryInfo queryInfo)
