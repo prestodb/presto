@@ -307,7 +307,7 @@ public abstract class AbstractTestHiveClientS3
         assertTrue(fs.exists(path));
 
         // rename foo.txt to foo.txt
-        assertTrue(fs.rename(path, path));
+        assertTrue(!fs.rename(path, path));
         assertTrue(fs.exists(path));
 
         // delete foo.txt
