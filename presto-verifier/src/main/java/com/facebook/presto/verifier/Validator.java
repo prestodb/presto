@@ -32,7 +32,6 @@ import com.google.common.collect.Ordering;
 import com.google.common.collect.SortedMultiset;
 import com.google.common.util.concurrent.SimpleTimeLimiter;
 import com.google.common.util.concurrent.TimeLimiter;
-import com.google.common.util.concurrent.UncheckedTimeoutException;
 import io.airlift.units.Duration;
 
 import java.math.BigDecimal;
@@ -52,6 +51,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -457,7 +457,7 @@ public class Validator
                 catch (SQLException | VerifierException e) {
                     throw e;
                 }
-                catch (UncheckedTimeoutException e) {
+                catch (TimeoutException e) {
                     return new QueryResult(State.TIMEOUT, null, null, null, queryId, ImmutableList.of());
                 }
                 catch (InterruptedException e) {
