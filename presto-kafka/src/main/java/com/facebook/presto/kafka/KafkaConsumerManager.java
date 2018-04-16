@@ -59,7 +59,7 @@ public class KafkaConsumerManager
         requireNonNull(kafkaConnectorConfig, "kafkaConfig is null");
         this.connectTimeoutMillis = toIntExact(kafkaConnectorConfig.getKafkaConnectTimeout().toMillis());
         this.bufferSizeBytes = toIntExact(kafkaConnectorConfig.getKafkaBufferSize().toBytes());
-        this.securityProtocol = kafkaConnectorConfig.getSecurityProtocol();
+        this.securityProtocol = kafkaConnectorConfig.getSecurityProtocol().name();
         this.autoCommit = kafkaConnectorConfig.isAutoCommit();
         this.bootStrapServers = bootstrapServers(kafkaConnectorConfig.getNodes());
     }

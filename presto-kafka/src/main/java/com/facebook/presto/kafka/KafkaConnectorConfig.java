@@ -69,10 +69,15 @@ public class KafkaConnectorConfig
      */
     private boolean hideInternalColumns = true;
 
+    enum SecurityProtocol
+    {
+        PLAINTEXT, SASL_PLAINTEXT, SASL_SSL
+    }
+
     /**
      * Security protocol to connect to the broker, default is plain text
      */
-    private String securityProtocol = "PLAINTEXT";
+    private SecurityProtocol securityProtocol = SecurityProtocol.PLAINTEXT;
 
     private boolean autoCommit = true;
 
@@ -177,13 +182,13 @@ public class KafkaConnectorConfig
     }
 
     @Config("kafka.security-protocol")
-    public KafkaConnectorConfig setSecurityProtocol(String securityProtocol)
+    public KafkaConnectorConfig setSecurityProtocol(SecurityProtocol securityProtocol)
     {
         this.securityProtocol = securityProtocol;
         return this;
     }
 
-    public String getSecurityProtocol()
+    public SecurityProtocol getSecurityProtocol()
     {
         return securityProtocol;
     }

@@ -34,7 +34,7 @@ public class TestKafkaConnectorConfig
                 .setTableDescriptionDir(new File("etc/kafka/"))
                 .setHideInternalColumns(true)
                 .setAutoCommit(true)
-                .setSecurityProtocol("PLAINTEXT"));
+                .setSecurityProtocol(KafkaConnectorConfig.SecurityProtocol.PLAINTEXT));
     }
 
     @Test
@@ -61,7 +61,7 @@ public class TestKafkaConnectorConfig
                 .setKafkaBufferSize("1MB")
                 .setHideInternalColumns(false)
                 .setAutoCommit(false)
-                .setSecurityProtocol("SASL_PLAINTEXT");
+                .setSecurityProtocol(KafkaConnectorConfig.SecurityProtocol.SASL_PLAINTEXT);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
