@@ -378,6 +378,13 @@ class Query
             nextResultsUri = createNextResultsUri(scheme, uriInfo);
         }
 
+        URI queryHtmlUri = uriInfo
+                .getRequestUriBuilder()
+                .scheme(scheme)
+                .replaceQuery(queryId.toString())
+                .replacePath("query.html")
+                .build();
+
         // update catalog and schema
         setCatalog = queryInfo.getSetCatalog();
         setSchema = queryInfo.getSetSchema();
@@ -397,7 +404,7 @@ class Query
         // first time through, self is null
         QueryResults queryResults = new QueryResults(
                 queryId.toString(),
-                uriInfo.getRequestUriBuilder().replaceQuery(queryId.toString()).replacePath("query.html").build(),
+                queryHtmlUri,
                 findCancelableLeafStage(queryInfo),
                 nextResultsUri,
                 columns,
