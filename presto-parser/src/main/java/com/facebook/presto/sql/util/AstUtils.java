@@ -16,6 +16,7 @@ package com.facebook.presto.sql.util;
 import com.facebook.presto.sql.tree.Node;
 import com.google.common.collect.TreeTraverser;
 
+import java.util.Collection;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.Iterables.unmodifiableIterable;
@@ -40,4 +41,10 @@ public class AstUtils
     }
 
     private AstUtils() {}
+
+    public static boolean nodesContain(Collection<? extends Node> nodes, Node subNode)
+    {
+        return nodes.stream()
+                .anyMatch(node -> nodeContains(node, subNode));
+    }
 }

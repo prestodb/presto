@@ -18,7 +18,7 @@ import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.optimizations.ScalarAggregationToJoinRewriter;
+import com.facebook.presto.sql.planner.optimizations.ScalarSubqueryToJoinRewriter;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
@@ -96,15 +96,14 @@ public class TransformCorrelatedScalarAggregationToJoin
             return Result.empty();
         }
 
-        ScalarAggregationToJoinRewriter rewriter = new ScalarAggregationToJoinRewriter(functionRegistry, context.getSymbolAllocator(), context.getIdAllocator(), context.getLookup());
+        ScalarSubqueryToJoinRewriter rewriter = new ScalarSubqueryToJoinRewriter(functionRegistry, context.getSymbolAllocator(), context.getIdAllocator(), context.getLookup());
 
-        PlanNode rewrittenNode = rewriter.rewriteScalarAggregation(lateralJoinNode, aggregation.get());
+        Optional<PlanNode> rewrittenNode = rewriter.rewriteScalarAggregation(lateralJoinNode, aggregation.get());
 
-        if (rewrittenNode instanceof LateralJoinNode) {
-            return Result.empty();
+        if (rewrittenNode.isPresent()) {
+            return Result.ofPlanNode(rewrittenNode.get());
         }
-
-        return Result.ofPlanNode(rewrittenNode);
+        return Result.empty();
     }
 
     private static Optional<AggregationNode> findAggregation(PlanNode rootNode, Lookup lookup)
