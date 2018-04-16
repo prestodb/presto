@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.geospatial;
+package com.facebook.presto.geospatial.serde;
 
 import com.esri.core.geometry.Envelope;
 import com.esri.core.geometry.Geometry;
@@ -30,6 +30,7 @@ import com.esri.core.geometry.ogc.OGCMultiPoint;
 import com.esri.core.geometry.ogc.OGCMultiPolygon;
 import com.esri.core.geometry.ogc.OGCPoint;
 import com.esri.core.geometry.ogc.OGCPolygon;
+import com.facebook.presto.geospatial.GeometryType;
 import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
@@ -67,12 +68,17 @@ public class GeometrySerde
         requireNonNull(envelope, "envelope is null");
         verify(!envelope.isEmpty());
         DynamicSliceOutput output = new DynamicSliceOutput(100);
-        output.appendByte(GeometryType.ENVELOPE.code());
+        output.appendByte(GeometrySerializationType.ENVELOPE.code());
         output.appendDouble(envelope.getXMin());
         output.appendDouble(envelope.getYMin());
         output.appendDouble(envelope.getXMax());
         output.appendDouble(envelope.getYMax());
         return output.slice();
+    }
+
+    public static GeometryType getGeometryType(Slice shape)
+    {
+        return deserializeType(shape).geometryType();
     }
 
     private static void writeGeometry(DynamicSliceOutput output, OGCGeometry geometry)
@@ -83,11 +89,19 @@ public class GeometrySerde
                 writePoint(output, geometry);
                 break;
             case MULTI_POINT:
+                writeSimpleGeometry(output, GeometrySerializationType.MULTI_POINT, geometry);
+                break;
             case LINE_STRING:
+                writeSimpleGeometry(output, GeometrySerializationType.LINE_STRING, geometry);
+                break;
             case MULTI_LINE_STRING:
+                writeSimpleGeometry(output, GeometrySerializationType.MULTI_LINE_STRING, geometry);
+                break;
             case POLYGON:
+                writeSimpleGeometry(output, GeometrySerializationType.POLYGON, geometry);
+                break;
             case MULTI_POLYGON:
-                writeSimpleGeometry(output, type, geometry);
+                writeSimpleGeometry(output, GeometrySerializationType.MULTI_POLYGON, geometry);
                 break;
             case GEOMETRY_COLLECTION: {
                 verify(geometry instanceof OGCConcreteGeometryCollection);
@@ -101,7 +115,7 @@ public class GeometrySerde
 
     private static void writeGeometryCollection(DynamicSliceOutput output, OGCGeometryCollection collection)
     {
-        output.appendByte(GeometryType.GEOMETRY_COLLECTION.code());
+        output.appendByte(GeometrySerializationType.GEOMETRY_COLLECTION.code());
         for (int geometryIndex = 0; geometryIndex < collection.numGeometries(); geometryIndex++) {
             OGCGeometry geometry = collection.geometryN(geometryIndex);
             int startPosition = output.size();
@@ -117,7 +131,7 @@ public class GeometrySerde
         }
     }
 
-    private static void writeSimpleGeometry(DynamicSliceOutput output, GeometryType type, OGCGeometry geometry)
+    private static void writeSimpleGeometry(DynamicSliceOutput output, GeometrySerializationType type, OGCGeometry geometry)
     {
         output.appendByte(type.code());
         Geometry esriGeometry = requireNonNull(geometry.getEsriGeometry(), "esriGeometry is null");
@@ -134,7 +148,7 @@ public class GeometrySerde
                         !point.hasAttribute(VertexDescription.Semantics.M) &&
                         !point.hasAttribute(VertexDescription.Semantics.ID),
                 "Only 2D points with no ID nor M attribute are supported");
-        output.appendByte(GeometryType.POINT.code());
+        output.appendByte(GeometrySerializationType.POINT.code());
         if (!point.isEmpty()) {
             output.appendDouble(point.getX());
             output.appendDouble(point.getY());
@@ -145,12 +159,12 @@ public class GeometrySerde
         }
     }
 
-    public static GeometryType deserializeType(Slice shape)
+    public static GeometrySerializationType deserializeType(Slice shape)
     {
         requireNonNull(shape, "shape is null");
         BasicSliceInput input = shape.getInput();
         verify(input.available() > 0);
-        return GeometryType.getForCode(input.readByte());
+        return GeometrySerializationType.getForCode(input.readByte());
     }
 
     public static OGCGeometry deserialize(Slice shape)
@@ -159,11 +173,11 @@ public class GeometrySerde
         BasicSliceInput input = shape.getInput();
         verify(input.available() > 0);
         int length = input.available() - 1;
-        GeometryType type = GeometryType.getForCode(input.readByte());
+        GeometrySerializationType type = GeometrySerializationType.getForCode(input.readByte());
         return readGeometry(input, shape, type, length);
     }
 
-    private static OGCGeometry readGeometry(BasicSliceInput input, Slice inputSlice, GeometryType type, int length)
+    private static OGCGeometry readGeometry(BasicSliceInput input, Slice inputSlice, GeometrySerializationType type, int length)
     {
         switch (type) {
             case POINT:
@@ -189,19 +203,19 @@ public class GeometrySerde
         List<OGCGeometry> geometries = new ArrayList<>();
         while (input.available() > 0) {
             int length = input.readInt() - 1;
-            GeometryType type = GeometryType.getForCode(input.readByte());
+            GeometrySerializationType type = GeometrySerializationType.getForCode(input.readByte());
             geometries.add(readGeometry(input, inputSlice, type, length));
         }
         return new OGCConcreteGeometryCollection(geometries, null);
     }
 
-    private static OGCGeometry readSimpleGeometry(BasicSliceInput input, Slice inputSlice, GeometryType type, int length)
+    private static OGCGeometry readSimpleGeometry(BasicSliceInput input, Slice inputSlice, GeometrySerializationType type, int length)
     {
         int currentPosition = toIntExact(input.position());
         ByteBuffer geometryBuffer = inputSlice.toByteBuffer(currentPosition, length).slice();
         input.setPosition(currentPosition + length);
         Geometry esriGeometry = OperatorImportFromESRIShape.local().execute(0, Unknown, geometryBuffer);
-        return createFromEsriGeometry(esriGeometry, type.isMultitype());
+        return createFromEsriGeometry(esriGeometry, type.geometryType().isMultitype());
     }
 
     private static OGCGeometry createFromEsriGeometry(Geometry geometry, boolean multiType)
@@ -270,11 +284,11 @@ public class GeometrySerde
         }
 
         int length = input.available() - 1;
-        GeometryType type = GeometryType.getForCode(input.readByte());
+        GeometrySerializationType type = GeometrySerializationType.getForCode(input.readByte());
         return getEnvelope(input, type, length);
     }
 
-    private static Envelope getEnvelope(BasicSliceInput input, GeometryType type, int length)
+    private static Envelope getEnvelope(BasicSliceInput input, GeometrySerializationType type, int length)
     {
         switch (type) {
             case POINT:
@@ -299,7 +313,7 @@ public class GeometrySerde
         Envelope overallEnvelope = null;
         while (input.available() > 0) {
             int length = input.readInt() - 1;
-            GeometryType type = GeometryType.getForCode(input.readByte());
+            GeometrySerializationType type = GeometrySerializationType.getForCode(input.readByte());
             Envelope envelope = getEnvelope(input, type, length);
             overallEnvelope = merge(overallEnvelope, envelope);
         }

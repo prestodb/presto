@@ -17,27 +17,19 @@ import static java.util.Objects.requireNonNull;
 
 public enum GeometryType
 {
-    POINT(0, false),
-    MULTI_POINT(1, true),
-    LINE_STRING(2, false),
-    MULTI_LINE_STRING(3, true),
-    POLYGON(4, false),
-    MULTI_POLYGON(5, true),
-    GEOMETRY_COLLECTION(6, true),
-    ENVELOPE(7, false);
+    POINT(false),
+    MULTI_POINT(true),
+    LINE_STRING(false),
+    MULTI_LINE_STRING(true),
+    POLYGON(false),
+    MULTI_POLYGON(true),
+    GEOMETRY_COLLECTION(true);
 
-    private final int code;
     private final boolean multitype;
 
-    GeometryType(int code, boolean multitype)
+    GeometryType(boolean multitype)
     {
-        this.code = code;
         this.multitype = multitype;
-    }
-
-    public int code()
-    {
-        return code;
     }
 
     public boolean isMultitype()
@@ -75,30 +67,6 @@ public enum GeometryType
                 return GEOMETRY_COLLECTION;
             default:
                 throw new IllegalArgumentException("Invalid Geometry Type: " + type);
-        }
-    }
-
-    public static GeometryType getForCode(int code)
-    {
-        switch (code) {
-            case 0:
-                return POINT;
-            case 1:
-                return MULTI_POINT;
-            case 2:
-                return LINE_STRING;
-            case 3:
-                return MULTI_LINE_STRING;
-            case 4:
-                return POLYGON;
-            case 5:
-                return MULTI_POLYGON;
-            case 6:
-                return GEOMETRY_COLLECTION;
-            case 7:
-                return ENVELOPE;
-            default:
-                throw new IllegalArgumentException("Invalid type code: " + code);
         }
     }
 }

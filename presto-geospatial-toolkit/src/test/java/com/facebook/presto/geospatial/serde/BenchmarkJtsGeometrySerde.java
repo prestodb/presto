@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.geospatial;
+package com.facebook.presto.geospatial.serde;
 
 import com.google.common.base.Joiner;
 import io.airlift.slice.Slice;
@@ -33,16 +33,16 @@ import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
 
-import static com.facebook.presto.geospatial.BenchmarkGeometrySerializationData.GEOMETRYCOLLECTION;
-import static com.facebook.presto.geospatial.BenchmarkGeometrySerializationData.LINESTRING;
-import static com.facebook.presto.geospatial.BenchmarkGeometrySerializationData.MULTILINESTRING;
-import static com.facebook.presto.geospatial.BenchmarkGeometrySerializationData.MULTIPOINT;
-import static com.facebook.presto.geospatial.BenchmarkGeometrySerializationData.MULTIPOLYGON;
-import static com.facebook.presto.geospatial.BenchmarkGeometrySerializationData.POINT;
-import static com.facebook.presto.geospatial.BenchmarkGeometrySerializationData.POLYGON;
-import static com.facebook.presto.geospatial.BenchmarkGeometrySerializationData.readResource;
-import static com.facebook.presto.geospatial.JtsGeometrySerde.deserialize;
-import static com.facebook.presto.geospatial.JtsGeometrySerde.serialize;
+import static com.facebook.presto.geospatial.serde.BenchmarkGeometrySerializationData.GEOMETRYCOLLECTION;
+import static com.facebook.presto.geospatial.serde.BenchmarkGeometrySerializationData.LINESTRING;
+import static com.facebook.presto.geospatial.serde.BenchmarkGeometrySerializationData.MULTILINESTRING;
+import static com.facebook.presto.geospatial.serde.BenchmarkGeometrySerializationData.MULTIPOINT;
+import static com.facebook.presto.geospatial.serde.BenchmarkGeometrySerializationData.MULTIPOLYGON;
+import static com.facebook.presto.geospatial.serde.BenchmarkGeometrySerializationData.POINT;
+import static com.facebook.presto.geospatial.serde.BenchmarkGeometrySerializationData.POLYGON;
+import static com.facebook.presto.geospatial.serde.BenchmarkGeometrySerializationData.readResource;
+import static com.facebook.presto.geospatial.serde.JtsGeometrySerde.deserialize;
+import static com.facebook.presto.geospatial.serde.JtsGeometrySerde.serialize;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.openjdk.jmh.annotations.Mode.Throughput;
 

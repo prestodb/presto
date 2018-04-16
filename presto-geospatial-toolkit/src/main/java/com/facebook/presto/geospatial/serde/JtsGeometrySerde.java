@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.geospatial;
+package com.facebook.presto.geospatial.serde;
 
 import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.DynamicSliceOutput;
@@ -51,11 +51,11 @@ public class JtsGeometrySerde
         requireNonNull(shape, "shape is null");
         BasicSliceInput input = shape.getInput();
         verify(input.available() > 0);
-        GeometryType type = GeometryType.getForCode(input.readByte());
+        GeometrySerializationType type = GeometrySerializationType.getForCode(input.readByte());
         return readGeometry(input, type);
     }
 
-    private static Geometry readGeometry(BasicSliceInput input, GeometryType type)
+    private static Geometry readGeometry(BasicSliceInput input, GeometrySerializationType type)
     {
         switch (type) {
             case POINT:
@@ -202,7 +202,7 @@ public class JtsGeometrySerde
         while (input.available() > 0) {
             // skip length
             input.readInt();
-            GeometryType type = GeometryType.getForCode(input.readByte());
+            GeometrySerializationType type = GeometrySerializationType.getForCode(input.readByte());
             geometries.add(readGeometry(input, type));
         }
         return GEOMETRY_FACTORY.createGeometryCollection(geometries.toArray(new Geometry[0]));
@@ -296,7 +296,7 @@ public class JtsGeometrySerde
 
     private static void writePoint(Point point, SliceOutput output)
     {
-        output.writeByte(GeometryType.POINT.code());
+        output.writeByte(GeometrySerializationType.POINT.code());
         if (!point.isEmpty()) {
             writeCoordinate(point.getCoordinate(), output);
         }
@@ -308,7 +308,7 @@ public class JtsGeometrySerde
 
     private static void writeMultiPoint(MultiPoint geometry, SliceOutput output)
     {
-        output.writeByte(GeometryType.MULTI_POINT.code());
+        output.writeByte(GeometrySerializationType.MULTI_POINT.code());
         output.writeInt(EsriShapeType.MULTI_POINT.code);
         writeEnvelope(geometry, output);
         output.writeInt(geometry.getNumPoints());
@@ -323,11 +323,11 @@ public class JtsGeometrySerde
         int numPoints = geometry.getNumPoints();
         if (multitype) {
             numParts = geometry.getNumGeometries();
-            output.writeByte(GeometryType.MULTI_LINE_STRING.code());
+            output.writeByte(GeometrySerializationType.MULTI_LINE_STRING.code());
         }
         else {
             numParts = numPoints > 0 ? 1 : 0;
-            output.writeByte(GeometryType.LINE_STRING.code());
+            output.writeByte(GeometrySerializationType.LINE_STRING.code());
         }
 
         output.writeInt(EsriShapeType.POLYLINE.code);
@@ -359,10 +359,10 @@ public class JtsGeometrySerde
         }
 
         if (multitype) {
-            output.writeByte(GeometryType.MULTI_POLYGON.code());
+            output.writeByte(GeometrySerializationType.MULTI_POLYGON.code());
         }
         else {
-            output.writeByte(GeometryType.POLYGON.code());
+            output.writeByte(GeometrySerializationType.POLYGON.code());
         }
 
         output.writeInt(EsriShapeType.POLYGON.code);
@@ -409,7 +409,7 @@ public class JtsGeometrySerde
 
     private static void writeGeometryCollection(Geometry collection, DynamicSliceOutput output)
     {
-        output.appendByte(GeometryType.GEOMETRY_COLLECTION.code());
+        output.appendByte(GeometrySerializationType.GEOMETRY_COLLECTION.code());
         for (int geometryIndex = 0; geometryIndex < collection.getNumGeometries(); geometryIndex++) {
             Geometry geometry = collection.getGeometryN(geometryIndex);
             int startPosition = output.size();
