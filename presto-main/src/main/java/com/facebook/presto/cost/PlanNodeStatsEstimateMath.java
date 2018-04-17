@@ -94,6 +94,11 @@ public class PlanNodeStatsEstimateMath
         return addStats(left, right, StatisticRange::addAndSumDistinctValues);
     }
 
+    public static PlanNodeStatsEstimate addStatsAndMaxDistinctValues(PlanNodeStatsEstimate left, PlanNodeStatsEstimate right)
+    {
+        return addStats(left, right, StatisticRange::addAndMaxDistinctValues);
+    }
+
     public static PlanNodeStatsEstimate addStatsAndCollapseDistinctValues(PlanNodeStatsEstimate left, PlanNodeStatsEstimate right)
     {
         return addStats(left, right, StatisticRange::addAndCollapseDistinctValues);
