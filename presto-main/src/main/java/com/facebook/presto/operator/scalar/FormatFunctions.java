@@ -21,9 +21,6 @@ import com.facebook.presto.spi.type.StandardTypes;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
-import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
-import static com.facebook.presto.util.Failures.checkCondition;
-
 public final class FormatFunctions
 {
     private FormatFunctions() {}
