@@ -27,6 +27,7 @@ import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.CountingOutputStream;
 import io.airlift.slice.OutputStreamSliceOutput;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -46,6 +47,8 @@ import static java.util.Objects.requireNonNull;
 public class RcFileFileWriter
         implements HiveFileWriter
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(RcFileFileWriter.class).instanceSize();
+
     private final CountingOutputStream outputStream;
     private final RcFileWriter rcFileWriter;
     private final Callable<Void> rollbackAction;
@@ -96,7 +99,7 @@ public class RcFileFileWriter
     @Override
     public long getSystemMemoryUsage()
     {
-        return rcFileWriter.getRetainedSizeInBytes();
+        return INSTANCE_SIZE + rcFileWriter.getRetainedSizeInBytes();
     }
 
     @Override
