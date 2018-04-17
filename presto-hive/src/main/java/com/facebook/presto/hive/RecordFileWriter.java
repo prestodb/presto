@@ -33,6 +33,7 @@ import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.SettableStructObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.mapred.JobConf;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 import java.util.List;
@@ -55,6 +56,8 @@ import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFacto
 public class RecordFileWriter
         implements HiveFileWriter
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(RecordFileWriter.class).instanceSize();
+
     private final Path path;
     private final JobConf conf;
     private final int fieldCount;
@@ -126,7 +129,7 @@ public class RecordFileWriter
     @Override
     public long getSystemMemoryUsage()
     {
-        return estimatedWriterSystemMemoryUsage;
+        return INSTANCE_SIZE + estimatedWriterSystemMemoryUsage;
     }
 
     @Override
