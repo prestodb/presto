@@ -14,38 +14,32 @@
 package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Lookup;
-import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 
 import java.util.Map;
 import java.util.Optional;
 
-public class EnforceSingleRowStatsRule
-        extends SimpleStatsRule
+import static java.util.Objects.requireNonNull;
+
+public abstract class SimpleStatsRule
+        implements ComposableStatsCalculator.Rule
 {
-    private static final Pattern<EnforceSingleRowNode> PATTERN = Pattern.typeOf(EnforceSingleRowNode.class);
+    private final StatsNormalizer normalizer;
 
-    public EnforceSingleRowStatsRule(StatsNormalizer normalizer)
+    protected SimpleStatsRule(StatsNormalizer normalizer)
     {
-        super(normalizer);
+        this.normalizer = requireNonNull(normalizer, "normalizer is null");
     }
 
     @Override
-    public Pattern<EnforceSingleRowNode> getPattern()
+    public final Optional<PlanNodeStatsEstimate> calculate(PlanNode node, StatsProvider sourceStats, Lookup lookup, Session session, Map<Symbol, Type> types)
     {
-        return PATTERN;
+        return doCalculate(node, sourceStats, lookup, session, types)
+                .map(estimate -> normalizer.normalize(estimate, node.getOutputSymbols(), types));
     }
 
-    @Override
-    protected Optional<PlanNodeStatsEstimate> doCalculate(PlanNode node, StatsProvider sourceStats, Lookup lookup, Session session, Map<Symbol, Type> types)
-    {
-        EnforceSingleRowNode enforceSingleRow = (EnforceSingleRowNode) node;
-        return Optional.of(PlanNodeStatsEstimate.buildFrom(sourceStats.getStats(enforceSingleRow.getSource()))
-                .setOutputRowCount(1)
-                .build());
-    }
+    protected abstract Optional<PlanNodeStatsEstimate> doCalculate(PlanNode node, StatsProvider sourceStats, Lookup lookup, Session session, Map<Symbol, Type> types);
 }

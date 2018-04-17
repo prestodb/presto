@@ -18,6 +18,7 @@ import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.POSITIVE_INFINITY;
 import static java.lang.Double.isNaN;
 import static java.util.Objects.requireNonNull;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 public class SymbolStatsAssertion
@@ -79,6 +80,9 @@ public class SymbolStatsAssertion
     {
         assertTrue(isNaN(statistics.getLowValue()) && isNaN(statistics.getHighValue()),
                 "expected empty range (NaN, NaN) but got (" + statistics.getLowValue() + ", " + statistics.getHighValue() + ") instead");
+        assertEquals(statistics.getDistinctValuesCount(), 0., "expected no distinctValuesCount");
+        assertEquals(statistics.getAverageRowSize(), 0., "expected 0 average row size");
+        assertEquals(statistics.getNullsFraction(), 1., "expected all nulls");
         return this;
     }
 
