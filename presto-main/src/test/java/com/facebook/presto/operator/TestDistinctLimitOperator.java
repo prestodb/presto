@@ -150,7 +150,7 @@ public class TestDistinctLimitOperator
     @Test(dataProvider = "dataType")
     public void testMemoryReservationYield(Type type)
     {
-        List<Page> input = createPagesWithDistinctHashKeys(type, 5_000, 500);
+        List<Page> input = createPagesWithDistinctHashKeys(type, 6_000, 600);
 
         OperatorFactory operatorFactory = new DistinctLimitOperator.DistinctLimitOperatorFactory(
                 0,
@@ -161,9 +161,9 @@ public class TestDistinctLimitOperator
                 Optional.of(1),
                 joinCompiler);
 
-        GroupByHashYieldAssertion.GroupByHashYieldResult result = finishOperatorWithYieldingGroupByHash(input, type, operatorFactory, operator -> ((DistinctLimitOperator) operator).getCapacity(), 170_000);
+        GroupByHashYieldAssertion.GroupByHashYieldResult result = finishOperatorWithYieldingGroupByHash(input, type, operatorFactory, operator -> ((DistinctLimitOperator) operator).getCapacity(), 1_500_000);
         assertGreaterThan(result.getYieldCount(), 5);
         assertGreaterThan(result.getMaxReservedBytes(), 20L << 20);
-        assertEquals(result.getOutput().stream().mapToInt(Page::getPositionCount).sum(), 5_000 * 500);
+        assertEquals(result.getOutput().stream().mapToInt(Page::getPositionCount).sum(), 6_000 * 600);
     }
 }

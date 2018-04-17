@@ -71,7 +71,7 @@ public class GroupArrayAggregationState
         this.tailBlockIndex = new ShortBigArray(NULL);
         this.tailPosition = new IntBigArray(NULL);
 
-        this.pageBuilderStatus = new PageBuilderStatus(MAX_BLOCK_SIZE, MAX_BLOCK_SIZE);
+        this.pageBuilderStatus = new PageBuilderStatus(MAX_BLOCK_SIZE);
         this.currentBlockBuilder = type.createBlockBuilder(pageBuilderStatus.createBlockBuilderStatus(), 16);
         this.values = new ArrayList<>();
         this.sumPositions = new LongArrayList();
@@ -142,7 +142,7 @@ public class GroupArrayAggregationState
         if (pageBuilderStatus.isFull()) {
             valueBlocksRetainedSizeInBytes += currentBlockBuilder.getRetainedSizeInBytes();
             sumPositions.add(totalPositions);
-            pageBuilderStatus = new PageBuilderStatus(MAX_BLOCK_SIZE, MAX_BLOCK_SIZE);
+            pageBuilderStatus = new PageBuilderStatus(MAX_BLOCK_SIZE);
             currentBlockBuilder = currentBlockBuilder.newBlockBuilderLike(pageBuilderStatus.createBlockBuilderStatus());
             values.add(currentBlockBuilder);
 

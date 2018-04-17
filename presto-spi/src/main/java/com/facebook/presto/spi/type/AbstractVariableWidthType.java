@@ -15,6 +15,7 @@ package com.facebook.presto.spi.type;
 
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.PageBuilderStatus;
 import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
 
 import static java.lang.Math.min;
@@ -35,10 +36,10 @@ public abstract class AbstractVariableWidthType
     {
         int maxBlockSizeInBytes;
         if (blockBuilderStatus == null) {
-            maxBlockSizeInBytes = BlockBuilderStatus.DEFAULT_MAX_BLOCK_SIZE_IN_BYTES;
+            maxBlockSizeInBytes = PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
         }
         else {
-            maxBlockSizeInBytes = blockBuilderStatus.getMaxBlockSizeInBytes();
+            maxBlockSizeInBytes = blockBuilderStatus.getMaxPageSizeInBytes();
         }
 
         // it is guaranteed Math.min will not overflow; safe to cast

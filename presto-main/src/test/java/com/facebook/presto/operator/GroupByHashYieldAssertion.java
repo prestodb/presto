@@ -73,7 +73,7 @@ public final class GroupByHashYieldAssertion
      */
     public static GroupByHashYieldResult finishOperatorWithYieldingGroupByHash(List<Page> input, Type hashKeyType, OperatorFactory operatorFactory, Function<Operator, Integer> getHashCapacity, long additionalMemoryInBytes)
     {
-        assertLessThan(additionalMemoryInBytes, 1L << 20, "additionalMemoryInBytes should be a relatively small number");
+        assertLessThan(additionalMemoryInBytes, 2L << 20, "additionalMemoryInBytes should be a relatively small number");
         List<Page> result = new LinkedList<>();
 
         // mock an adjustable memory pool
@@ -120,14 +120,17 @@ public final class GroupByHashYieldAssertion
 
             long newMemoryUsage = operator.getOperatorContext().getDriverContext().getMemoryUsage();
 
-            // We are below the 1MB GUARANTEED_MEMORY limit (also need some buffer for aggregator).
-            // For such cases, the operator is blocked by memory
-            if (newMemoryUsage < (1 << 20) + additionalMemoryInBytes) {
-                // assert non-blocking
-                assertTrue(operator.needsInput());
-                assertTrue(operator.getOperatorContext().isWaitingForMemory().isDone());
+            // Skip if the memory usage is not large enough since we cannot distinguish
+            // between rehash and memory used by aggregator
+            if (newMemoryUsage < additionalMemoryInBytes * 3) {
                 // free the pool for the next iteration
                 memoryPool.free(queryId, reservedMemoryInBytes);
+
+                output = operator.getOutput();
+                if (output != null) {
+                    result.add(output);
+                }
+
                 continue;
             }
 
