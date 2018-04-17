@@ -90,7 +90,7 @@ public class TestFilterStatsCalculator
                 .setNullsFraction(0.1)
                 .build();
         SymbolStatsEstimate emptyRangeStats = SymbolStatsEstimate.builder()
-                .setAverageRowSize(4.0)
+                .setAverageRowSize(0.0)
                 .setDistinctValuesCount(0.0)
                 .setLowValue(NaN)
                 .setHighValue(NaN)
@@ -128,7 +128,7 @@ public class TestFilterStatsCalculator
 
         session = testSessionBuilder().build();
         MetadataManager metadata = MetadataManager.createTestMetadataManager();
-        statsCalculator = new FilterStatsCalculator(metadata, new ScalarStatsCalculator(metadata));
+        statsCalculator = new FilterStatsCalculator(metadata, new ScalarStatsCalculator(metadata), new StatsNormalizer());
     }
 
     @Test
@@ -242,8 +242,8 @@ public class TestFilterStatsCalculator
         // Impossible, with symbol-to-expression comparisons
         assertExpression("x = (0e0 + 1e0) AND x = (0e0 + 3e0)")
                 .outputRowsCount(0)
-                .symbolStats(new Symbol("x"), SymbolStatsAssertion::emptyRange);
-        // TODO .symbolStats(new Symbol("y"), SymbolStatsAssertion::emptyRange);
+                .symbolStats(new Symbol("x"), SymbolStatsAssertion::emptyRange)
+                .symbolStats(new Symbol("y"), SymbolStatsAssertion::emptyRange);
 
         // first argument unknown
         assertExpression("json_array_contains(JSON '[]', x) AND x < 0e0")

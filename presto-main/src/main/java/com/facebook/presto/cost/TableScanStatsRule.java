@@ -38,15 +38,16 @@ import static java.lang.Double.POSITIVE_INFINITY;
 import static java.util.Objects.requireNonNull;
 
 public class TableScanStatsRule
-        implements ComposableStatsCalculator.Rule
+        extends SimpleStatsRule
 {
     private static final Pattern<TableScanNode> PATTERN = Pattern.typeOf(TableScanNode.class);
 
     private final Metadata metadata;
 
-    public TableScanStatsRule(Metadata metadata)
+    public TableScanStatsRule(Metadata metadata, StatsNormalizer normalizer)
     {
-        this.metadata = requireNonNull(metadata, "metadata can not be null");
+        super(normalizer); // Use stats normalization since connector can return inconsistent stats values
+        this.metadata = requireNonNull(metadata, "metadata is null");
     }
 
     @Override
@@ -56,7 +57,7 @@ public class TableScanStatsRule
     }
 
     @Override
-    public Optional<PlanNodeStatsEstimate> calculate(PlanNode node, StatsProvider sourceStats, Lookup lookup, Session session, Map<Symbol, Type> types)
+    protected Optional<PlanNodeStatsEstimate> doCalculate(PlanNode node, StatsProvider sourceStats, Lookup lookup, Session session, Map<Symbol, Type> types)
     {
         TableScanNode tableScanNode = (TableScanNode) node;
 

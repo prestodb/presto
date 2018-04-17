@@ -25,9 +25,14 @@ import java.util.Map;
 import java.util.Optional;
 
 public class LimitStatsRule
-        implements ComposableStatsCalculator.Rule
+        extends SimpleStatsRule
 {
     private static final Pattern<LimitNode> PATTERN = Pattern.typeOf(LimitNode.class);
+
+    public LimitStatsRule(StatsNormalizer normalizer)
+    {
+        super(normalizer);
+    }
 
     @Override
     public Pattern<LimitNode> getPattern()
@@ -36,7 +41,7 @@ public class LimitStatsRule
     }
 
     @Override
-    public Optional<PlanNodeStatsEstimate> calculate(PlanNode node, StatsProvider statsProvider, Lookup lookup, Session session, Map<Symbol, Type> types)
+    protected Optional<PlanNodeStatsEstimate> doCalculate(PlanNode node, StatsProvider statsProvider, Lookup lookup, Session session, Map<Symbol, Type> types)
     {
         LimitNode limitNode = (LimitNode) node;
 

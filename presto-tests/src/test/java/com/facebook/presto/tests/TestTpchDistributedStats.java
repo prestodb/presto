@@ -93,8 +93,10 @@ public class TestTpchDistributedStats
     @Test
     public void testEnforceSingleRow()
     {
-        statisticsAssertion.check("SELECT (SELECT n_regionkey FROM nation WHERE n_name = 'Germany')",
-                checks -> checks.estimate(OUTPUT_ROW_COUNT, noError()));
+        statisticsAssertion.check("SELECT (SELECT n_regionkey FROM nation WHERE n_name = 'Germany') AS sub",
+                checks -> checks
+                        // TODO change 'Germany' to (correct) 'GERMANY' and check: .estimate(distinctValuesCount("sub"), defaultTolerance())
+                        .estimate(OUTPUT_ROW_COUNT, noError()));
     }
 
     @Test

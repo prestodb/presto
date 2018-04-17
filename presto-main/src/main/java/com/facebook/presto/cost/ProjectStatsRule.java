@@ -25,16 +25,19 @@ import com.facebook.presto.sql.tree.Expression;
 import java.util.Map;
 import java.util.Optional;
 
+import static java.util.Objects.requireNonNull;
+
 public class ProjectStatsRule
-        implements ComposableStatsCalculator.Rule
+        extends SimpleStatsRule
 {
     private static final Pattern<ProjectNode> PATTERN = Pattern.typeOf(ProjectNode.class);
 
     private final ScalarStatsCalculator scalarStatsCalculator;
 
-    public ProjectStatsRule(ScalarStatsCalculator scalarStatsCalculator)
+    public ProjectStatsRule(ScalarStatsCalculator scalarStatsCalculator, StatsNormalizer normalizer)
     {
-        this.scalarStatsCalculator = scalarStatsCalculator;
+        super(normalizer);
+        this.scalarStatsCalculator = requireNonNull(scalarStatsCalculator, "scalarStatsCalculator is null");
     }
 
     @Override
@@ -44,7 +47,7 @@ public class ProjectStatsRule
     }
 
     @Override
-    public Optional<PlanNodeStatsEstimate> calculate(PlanNode node, StatsProvider statsProvider, Lookup lookup, Session session, Map<Symbol, Type> types)
+    protected Optional<PlanNodeStatsEstimate> doCalculate(PlanNode node, StatsProvider statsProvider, Lookup lookup, Session session, Map<Symbol, Type> types)
     {
         ProjectNode projectNode = (ProjectNode) node;
 

@@ -15,7 +15,6 @@ package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
@@ -31,7 +30,11 @@ import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Consumer;
 
 import static com.facebook.presto.spi.type.StandardTypes.BIGINT;
@@ -43,6 +46,10 @@ import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.NaN;
 import static java.lang.Double.POSITIVE_INFINITY;
+import static java.lang.Double.isNaN;
+import static java.lang.Math.min;
+import static java.lang.String.format;
+import static java.util.stream.Collectors.joining;
 
 public class TestComparisonStatsCalculator
 {
@@ -67,7 +74,7 @@ public class TestComparisonStatsCalculator
     {
         session = testSessionBuilder().build();
         MetadataManager metadata = MetadataManager.createTestMetadataManager();
-        filterStatsCalculator = new FilterStatsCalculator(metadata, new ScalarStatsCalculator(metadata));
+        filterStatsCalculator = new FilterStatsCalculator(metadata, new ScalarStatsCalculator(metadata), new StatsNormalizer());
 
         uStats = SymbolStatsEstimate.builder()
                 .setAverageRowSize(8.0)
@@ -154,8 +161,8 @@ public class TestComparisonStatsCalculator
                 .build();
 
         types = ImmutableMap.<Symbol, Type>builder()
-                .put(new Symbol("u"), BigintType.BIGINT)
-                .put(new Symbol("w"), BigintType.BIGINT)
+                .put(new Symbol("u"), DoubleType.DOUBLE)
+                .put(new Symbol("w"), DoubleType.DOUBLE)
                 .put(new Symbol("x"), DoubleType.DOUBLE)
                 .put(new Symbol("y"), DoubleType.DOUBLE)
                 .put(new Symbol("z"), DoubleType.DOUBLE)
@@ -185,8 +192,17 @@ public class TestComparisonStatsCalculator
 
     private SymbolStatsEstimate capNDV(SymbolStatsEstimate symbolStats, double rowCount)
     {
-        // todo: add capping in test when logic actually does that
-        return symbolStats;
+        double ndv = symbolStats.getDistinctValuesCount();
+        double nulls = symbolStats.getNullsFraction();
+        if (isNaN(ndv) || isNaN(rowCount) || isNaN(nulls)) {
+            return symbolStats;
+        }
+        if (ndv <= rowCount * (1 - nulls)) {
+            return symbolStats;
+        }
+        return symbolStats
+                .mapDistinctValuesCount(n -> (min(ndv, rowCount) + rowCount * (1 - nulls)) / 2)
+                .mapNullsFraction(n -> nulls / 2);
     }
 
     private SymbolStatsEstimate zeroNullsFraction(SymbolStatsEstimate symbolStats)
@@ -197,6 +213,18 @@ public class TestComparisonStatsCalculator
     private PlanNodeStatsAssertion assertCalculate(Expression comparisonExpression)
     {
         return PlanNodeStatsAssertion.assertThat(filterStatsCalculator.filterStats(standardInputStatistics, comparisonExpression, session, types));
+    }
+
+    @Test
+    public void verifyTestInputConsistent()
+    {
+        // if tests' input is not normalized, other tests don't make sense
+        checkConsistent(
+                new StatsNormalizer(),
+                "standardInputStatistics",
+                standardInputStatistics,
+                standardInputStatistics.getSymbolsWithKnownStatistics(),
+                types);
     }
 
     @Test
@@ -228,7 +256,7 @@ public class TestComparisonStatsCalculator
         assertCalculate(new ComparisonExpression(EQUAL, new SymbolReference("y"), new DoubleLiteral("10.0")))
                 .outputRowsCount(0.0) // all rows minus nulls divided by distinct values count
                 .symbolStats("y", symbolAssert -> {
-                    symbolAssert.averageRowSize(4.0)
+                    symbolAssert.averageRowSize(0.0)
                             .distinctValuesCount(0.0)
                             .emptyRange()
                             .nullsFraction(1.0);
@@ -410,7 +438,7 @@ public class TestComparisonStatsCalculator
         assertCalculate(new ComparisonExpression(LESS_THAN, new SymbolReference("y"), new DoubleLiteral("-10.0")))
                 .outputRowsCount(0.0) // all rows minus nulls times range coverage (0%)
                 .symbolStats("y", symbolAssert -> {
-                    symbolAssert.averageRowSize(4.0)
+                    symbolAssert.averageRowSize(0.0)
                             .distinctValuesCount(0.0)
                             .emptyRange()
                             .nullsFraction(1.0);
@@ -495,7 +523,7 @@ public class TestComparisonStatsCalculator
         assertCalculate(new ComparisonExpression(GREATER_THAN, new SymbolReference("y"), new DoubleLiteral("10.0")))
                 .outputRowsCount(0.0) // all rows minus nulls times range coverage (0%)
                 .symbolStats("y", symbolAssert -> {
-                    symbolAssert.averageRowSize(4.0)
+                    symbolAssert.averageRowSize(0.0)
                             .distinctValuesCount(0.0)
                             .emptyRange()
                             .nullsFraction(1.0);
@@ -548,20 +576,8 @@ public class TestComparisonStatsCalculator
         double rowCount = 2.7;
         assertCalculate(new ComparisonExpression(EQUAL, new SymbolReference("u"), new SymbolReference("w")))
                 .outputRowsCount(rowCount)
-                .symbolStats("u", symbolAssert -> {
-                    symbolAssert.averageRowSize(8)
-                            .lowValue(0)
-                            .highValue(20)
-                            .distinctValuesCount(30)
-                            .nullsFraction(0);
-                })
-                .symbolStats("w", symbolAssert -> {
-                    symbolAssert.averageRowSize(8)
-                            .lowValue(0)
-                            .highValue(20)
-                            .distinctValuesCount(30)
-                            .nullsFraction(0);
-                })
+                .symbolStats("u", equalTo(capNDV(zeroNullsFraction(uStats), rowCount)))
+                .symbolStats("w", equalTo(capNDV(zeroNullsFraction(wStats), rowCount)))
                 .symbolStats("z", equalTo(capNDV(zStats, rowCount)));
 
         // One symbol's range is within the other's
@@ -572,14 +588,14 @@ public class TestComparisonStatsCalculator
                     symbolAssert.averageRowSize(4)
                             .lowValue(0)
                             .highValue(5)
-                            .distinctValuesCount(10)
+                            .distinctValuesCount(4.6875 /* min(rowCount, ndv in intersection */)
                             .nullsFraction(0);
                 })
                 .symbolStats("y", symbolAssert -> {
                     symbolAssert.averageRowSize(4)
                             .lowValue(0)
                             .highValue(5)
-                            .distinctValuesCount(10)
+                            .distinctValuesCount(4.6875 /* min(rowCount, ndv in intersection */)
                             .nullsFraction(0);
                 })
                 .symbolStats("z", equalTo(capNDV(zStats, rowCount)));
@@ -592,14 +608,14 @@ public class TestComparisonStatsCalculator
                     symbolAssert.averageRowSize(6)
                             .lowValue(0)
                             .highValue(10)
-                            .distinctValuesCount(15)
+                            .distinctValuesCount(8.4375 /* min(rowCount, ndv in intersection */)
                             .nullsFraction(0);
                 })
                 .symbolStats("w", symbolAssert -> {
                     symbolAssert.averageRowSize(6)
                             .lowValue(0)
                             .highValue(10)
-                            .distinctValuesCount(15)
+                            .distinctValuesCount(8.4375 /* min(rowCount, ndv in intersection */)
                             .nullsFraction(0);
                 })
                 .symbolStats("z", equalTo(capNDV(zStats, rowCount)));
@@ -612,14 +628,14 @@ public class TestComparisonStatsCalculator
                     symbolAssert.averageRowSize(6)
                             .lowValue(0)
                             .highValue(10)
-                            .distinctValuesCount(20)
+                            .distinctValuesCount(1.125 /* min(rowCount, ndv in intersection */)
                             .nullsFraction(0);
                 })
                 .symbolStats("u", symbolAssert -> {
                     symbolAssert.averageRowSize(6)
                             .lowValue(0)
                             .highValue(10)
-                            .distinctValuesCount(20)
+                            .distinctValuesCount(1.125 /* min(rowCount, ndv in intersection */)
                             .nullsFraction(0);
                 })
                 .symbolStats("z", equalTo(capNDV(zStats, rowCount)));
@@ -676,5 +692,40 @@ public class TestComparisonStatsCalculator
                 .outputRowsCount(rowCount)
                 .symbolStats("u", equalTo(capNDV(updateNDV(zeroNullsFraction(uStats), -1), rowCount)))
                 .symbolStats("z", equalTo(capNDV(zStats, rowCount)));
+    }
+
+    private static void checkConsistent(StatsNormalizer normalizer, String source, PlanNodeStatsEstimate stats, Collection<Symbol> outputSymbols, Map<Symbol, Type> types)
+    {
+        PlanNodeStatsEstimate normalized = normalizer.normalize(stats, outputSymbols, types);
+        if (Objects.equals(stats, normalized)) {
+            return;
+        }
+
+        List<String> problems = new ArrayList<>();
+
+        if (Double.compare(stats.getOutputRowCount(), normalized.getOutputRowCount()) != 0) {
+            problems.add(format(
+                    "Output row count is %s, should be normalized to %s",
+                    stats.getOutputRowCount(),
+                    normalized.getOutputRowCount()));
+        }
+
+        for (Symbol symbol : stats.getSymbolsWithKnownStatistics()) {
+            if (!Objects.equals(stats.getSymbolStatistics(symbol), normalized.getSymbolStatistics(symbol))) {
+                problems.add(format(
+                        "Symbol stats for '%s' are \n\t\t\t\t\t%s, should be normalized to \n\t\t\t\t\t%s",
+                        symbol,
+                        stats.getSymbolStatistics(symbol),
+                        normalized.getSymbolStatistics(symbol)));
+            }
+        }
+
+        if (problems.isEmpty()) {
+            problems.add(stats.toString());
+        }
+        throw new IllegalStateException(format(
+                "Rule %s returned inconsistent stats: %s",
+                source,
+                problems.stream().collect(joining("\n\t\t\t", "\n\t\t\t", ""))));
     }
 }
