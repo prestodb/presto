@@ -69,7 +69,7 @@ public class KafkaConnectorConfig
      */
     private boolean hideInternalColumns = true;
 
-    enum SecurityProtocol
+    public enum SecurityProtocol
     {
         PLAINTEXT, SASL_PLAINTEXT, SASL_SSL
     }
@@ -188,6 +188,7 @@ public class KafkaConnectorConfig
         return this;
     }
 
+    @NotNull
     public SecurityProtocol getSecurityProtocol()
     {
         return securityProtocol;
