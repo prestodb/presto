@@ -52,6 +52,9 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertTrue;
 
 public class TestTableWriterOperator
 {
@@ -80,38 +83,38 @@ public class TestTableWriterOperator
         Operator operator = createTableWriterOperator(blockingPageSink);
 
         // initial state validation
-        assertEquals(operator.isBlocked().isDone(), true);
-        assertEquals(operator.isFinished(), false);
-        assertEquals(operator.needsInput(), true);
+        assertTrue(operator.isBlocked().isDone());
+        assertFalse(operator.isFinished());
+        assertTrue(operator.needsInput());
 
         // blockingPageSink that will return blocked future
         operator.addInput(rowPagesBuilder(BIGINT).row(42).build().get(0));
 
-        assertEquals(operator.isBlocked().isDone(), false);
-        assertEquals(operator.isFinished(), false);
-        assertEquals(operator.needsInput(), false);
-        assertEquals(operator.getOutput(), null);
+        assertFalse(operator.isBlocked().isDone());
+        assertFalse(operator.isFinished());
+        assertFalse(operator.needsInput());
+        assertNull(operator.getOutput());
 
         // complete previously blocked future
         blockingPageSink.complete();
 
-        assertEquals(operator.isBlocked().isDone(), true);
-        assertEquals(operator.isFinished(), false);
-        assertEquals(operator.needsInput(), true);
+        assertTrue(operator.isBlocked().isDone());
+        assertFalse(operator.isFinished());
+        assertTrue(operator.needsInput());
 
         // add second page
         operator.addInput(rowPagesBuilder(BIGINT).row(44).build().get(0));
 
-        assertEquals(operator.isBlocked().isDone(), false);
-        assertEquals(operator.isFinished(), false);
-        assertEquals(operator.needsInput(), false);
+        assertFalse(operator.isBlocked().isDone());
+        assertFalse(operator.isFinished());
+        assertFalse(operator.needsInput());
 
         // finish operator, state hasn't changed
         operator.finish();
 
-        assertEquals(operator.isBlocked().isDone(), false);
-        assertEquals(operator.isFinished(), false);
-        assertEquals(operator.needsInput(), false);
+        assertFalse(operator.isBlocked().isDone());
+        assertFalse(operator.isFinished());
+        assertFalse(operator.needsInput());
 
         // complete previously blocked future
         blockingPageSink.complete();
@@ -121,9 +124,9 @@ public class TestTableWriterOperator
                 operator.getOutput(),
                 rowPagesBuilder(TableWriterOperator.TYPES).row(2, null).build().get(0));
 
-        assertEquals(operator.isBlocked().isDone(), true);
-        assertEquals(operator.isFinished(), true);
-        assertEquals(operator.needsInput(), false);
+        assertTrue(operator.isBlocked().isDone());
+        assertTrue(operator.isFinished());
+        assertFalse(operator.needsInput());
     }
 
     @Test(expectedExceptions = IllegalStateException.class)
@@ -133,8 +136,8 @@ public class TestTableWriterOperator
 
         operator.addInput(rowPagesBuilder(BIGINT).row(42).build().get(0));
 
-        assertEquals(operator.isBlocked().isDone(), false);
-        assertEquals(operator.needsInput(), false);
+        assertFalse(operator.isBlocked().isDone());
+        assertFalse(operator.needsInput());
 
         operator.addInput(rowPagesBuilder(BIGINT).row(42).build().get(0));
     }
@@ -211,7 +214,7 @@ public class TestTableWriterOperator
         }
     }
 
-    private class BlockingPageSink
+    private static class BlockingPageSink
             implements ConnectorPageSink
     {
         private CompletableFuture<?> future = new CompletableFuture<>();
@@ -236,7 +239,7 @@ public class TestTableWriterOperator
         {
         }
 
-        public void complete()
+        void complete()
         {
             future.complete(null);
             finishFuture.complete(ImmutableList.of());
