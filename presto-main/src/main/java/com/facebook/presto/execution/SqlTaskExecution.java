@@ -142,7 +142,6 @@ public class SqlTaskExecution
 
     private final Status status;
 
-    @VisibleForTesting
     static SqlTaskExecution createSqlTaskExecution(
             TaskStateMachine taskStateMachine,
             TaskContext taskContext,
