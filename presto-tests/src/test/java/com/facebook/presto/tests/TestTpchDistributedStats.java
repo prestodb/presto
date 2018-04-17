@@ -52,7 +52,7 @@ public class TestTpchDistributedStats
         statisticsAssertion = null;
     }
 
-    @Test(enabled = false) // TODO re-enable
+    @Test
     public void testTableScanStats()
     {
         TpchTable.getTables()
@@ -60,7 +60,7 @@ public class TestTpchDistributedStats
                         checks -> checks.estimate(OUTPUT_ROW_COUNT, noError())));
     }
 
-    @Test(enabled = false) // TODO re-enable
+    @Test
     public void testFilter()
     {
         statisticsAssertion.check("SELECT * FROM lineitem WHERE l_shipdate <= DATE '1998-12-01' - INTERVAL '90' DAY",
