@@ -55,10 +55,11 @@ public abstract class AbstractTestBlock
     {
         assertBlockPositions(block, newBlockBuilder, expectedValues);
         assertBlockPositions(copyBlockViaBlockSerde(block), newBlockBuilder, expectedValues);
+        assertBlockPositions(copyBlockViaWritePositionTo(block, newBlockBuilder), newBlockBuilder, expectedValues);
         if (expectedValues.getClass().getComponentType().isArray() ||
                 expectedValues.getClass().getComponentType() == List.class ||
                 expectedValues.getClass().getComponentType() == Map.class) {
-            assertBlockPositions(copyBlockViaWritePositionTo(block, newBlockBuilder), newBlockBuilder, expectedValues);
+            assertBlockPositions(copyBlockViaWriteStructure(block, newBlockBuilder), newBlockBuilder, expectedValues);
         }
 
         assertBlockSize(block);
@@ -169,7 +170,7 @@ public abstract class AbstractTestBlock
     {
         assertEquals(block.getPositionCount(), expectedValues.length);
         for (int position = 0; position < block.getPositionCount(); position++) {
-            assertBlockPosition(block, newBlockBuilder, position, expectedValues[position]);
+            assertBlockPosition(block, newBlockBuilder, position, expectedValues[position], expectedValues.getClass().getComponentType());
         }
     }
 
@@ -204,7 +205,8 @@ public abstract class AbstractTestBlock
         assertEquals(block.getRegionSizeInBytes(firstHalf.getPositionCount(), secondHalf.getPositionCount()), expectedSecondHalfSize);
     }
 
-    protected <T> void assertBlockPosition(Block block, Supplier<BlockBuilder> newBlockBuilder, int position, T expectedValue)
+    // expectedValueType is required since otherwise the expected value type is unknown when expectedValue is null.
+    protected <T> void assertBlockPosition(Block block, Supplier<BlockBuilder> newBlockBuilder, int position, T expectedValue, Class<?> expectedValueType)
     {
         assertPositionValue(block, position, expectedValue);
         assertPositionValue(block.getSingleValueBlock(position), 0, expectedValue);
@@ -220,6 +222,12 @@ public abstract class AbstractTestBlock
         assertPositionValue(copyBlockViaWritePositionTo(block.getRegion(position, 1), newBlockBuilder), 0, expectedValue);
         assertPositionValue(copyBlockViaWritePositionTo(block.getRegion(0, position + 1), newBlockBuilder), position, expectedValue);
         assertPositionValue(copyBlockViaWritePositionTo(block.getRegion(position, block.getPositionCount() - position), newBlockBuilder), 0, expectedValue);
+
+        if (expectedValueType.isArray() || expectedValueType == List.class || expectedValueType == Map.class) {
+            assertPositionValue(copyBlockViaWriteStructure(block.getRegion(position, 1), newBlockBuilder), 0, expectedValue);
+            assertPositionValue(copyBlockViaWriteStructure(block.getRegion(0, position + 1), newBlockBuilder), position, expectedValue);
+            assertPositionValue(copyBlockViaWriteStructure(block.getRegion(position, block.getPositionCount() - position), newBlockBuilder), 0, expectedValue);
+        }
 
         assertPositionValue(block.copyRegion(position, 1), 0, expectedValue);
         assertPositionValue(block.copyRegion(0, position + 1), position, expectedValue);
