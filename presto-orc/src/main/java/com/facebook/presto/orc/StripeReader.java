@@ -58,6 +58,7 @@ import static com.facebook.presto.orc.checkpoint.Checkpoints.getStreamCheckpoint
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY_V2;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.BLOOM_FILTER;
+import static com.facebook.presto.orc.metadata.Stream.StreamKind.BLOOM_FILTER_UTF8;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DICTIONARY_COUNT;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DICTIONARY_DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
@@ -369,7 +370,7 @@ public class StripeReader
 
     static boolean isIndexStream(Stream stream)
     {
-        return stream.getStreamKind() == ROW_INDEX || stream.getStreamKind() == DICTIONARY_COUNT || stream.getStreamKind() == BLOOM_FILTER;
+        return stream.getStreamKind() == ROW_INDEX || stream.getStreamKind() == DICTIONARY_COUNT || stream.getStreamKind() == BLOOM_FILTER || stream.getStreamKind() == BLOOM_FILTER_UTF8;
     }
 
     private Map<Integer, List<HiveBloomFilter>> readBloomFilterIndexes(Map<StreamId, Stream> streams, Map<StreamId, OrcInputStream> streamsData)
@@ -382,6 +383,7 @@ public class StripeReader
                 OrcInputStream inputStream = streamsData.get(entry.getKey());
                 bloomFilters.put(stream.getColumn(), metadataReader.readBloomFilterIndexes(inputStream));
             }
+            // TODO: add support for BLOOM_FILTER_UTF8
         }
         return bloomFilters.build();
     }

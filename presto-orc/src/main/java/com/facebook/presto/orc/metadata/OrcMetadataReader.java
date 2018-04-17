@@ -567,6 +567,8 @@ public class OrcMetadataReader
                 return StreamKind.ROW_INDEX;
             case BLOOM_FILTER:
                 return StreamKind.BLOOM_FILTER;
+            case BLOOM_FILTER_UTF8:
+                return StreamKind.BLOOM_FILTER_UTF8;
             default:
                 throw new IllegalStateException(streamKind + " stream type not implemented yet");
         }

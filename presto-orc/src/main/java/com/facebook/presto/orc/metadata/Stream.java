@@ -28,6 +28,7 @@ public class Stream
         SECONDARY,
         ROW_INDEX,
         BLOOM_FILTER,
+        BLOOM_FILTER_UTF8,
         IN_DICTIONARY,
         ROW_GROUP_DICTIONARY,
         ROW_GROUP_DICTIONARY_LENGTH,
