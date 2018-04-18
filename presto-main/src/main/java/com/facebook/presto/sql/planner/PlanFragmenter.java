@@ -414,11 +414,37 @@ public class PlanFragmenter
         @Override
         public GroupedExecutionProperties visitJoin(JoinNode node, Void context)
         {
-            GroupedExecutionProperties properties = processChildren(node);
-            if (properties.isCurrentNodeCapable()) {
-                return new GroupedExecutionProperties(true, true);
+            GroupedExecutionProperties left = node.getLeft().accept(this, null);
+            GroupedExecutionProperties right = node.getRight().accept(this, null);
+
+            if (!node.getDistributionType().isPresent()) {
+                // This is possible when the optimizers is invoked with `forceSingleNode` set to true.
+                return new GroupedExecutionProperties(false, false);
             }
-            return properties;
+
+            switch (node.getDistributionType().get()) {
+                case REPLICATED:
+                    // Broadcast join maintains partitioning for the left side.
+                    // Right side of a broadcast is not capable of grouped execution because it always comes from a remote exchange.
+                    checkState(!right.currentNodeCapable);
+                    return left;
+                case PARTITIONED:
+                    if (left.currentNodeCapable && right.currentNodeCapable) {
+                        return new GroupedExecutionProperties(true, true);
+                    }
+                    // right.subTreeUseful && !left.currentNodeCapable:
+                    //   It's not particularly helpful to do grouped execution on the right side
+                    //   because the benefit is likely cancelled out due to required buffering for hash build.
+                    //   In theory, it could still be helpful (e.g. when the underlying aggregation's intermediate group state maybe larger than aggregation output).
+                    //   However, this is not currently implemented. LookupSourceFactoryManager need to support such a lifecycle.
+                    // !right.currentNodeCapable:
+                    //   The build/right side needs to buffer fully for this JOIN, but the probe/left side will still stream through.
+                    //   As a result, there is no reason to change currentNodeCapable or subTreeUseful to false.
+                    //
+                    return left;
+                default:
+                    throw new UnsupportedOperationException("Unknown distribution type: " + node.getDistributionType());
+            }
         }
 
         @Override
