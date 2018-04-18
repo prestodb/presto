@@ -694,6 +694,14 @@ public final class GeoFunctions
     @Description("Returns the 2-dimensional cartesian minimum distance (based on spatial ref) between two geometries in projected units")
     @ScalarFunction("ST_Distance")
     @SqlType(DOUBLE)
+    public static double stDistance(@SqlType(GEOMETRY_TYPE_NAME) Slice left, @SqlType(GEOMETRY_TYPE_NAME) Slice right, @SqlType(VARCHAR) Slice kdbTree)
+    {
+        throw new PrestoException(GENERIC_INTERNAL_ERROR, "ST_Distance with kdbTree argument should have been rewritten to a distributed spatial join");
+    }
+
+    @Description("Returns the 2-dimensional cartesian minimum distance (based on spatial ref) between two geometries in projected units")
+    @ScalarFunction("ST_Distance")
+    @SqlType(DOUBLE)
     public static double stDistance(@SqlType(GEOMETRY_TYPE_NAME) Slice left, @SqlType(GEOMETRY_TYPE_NAME) Slice right)
     {
         OGCGeometry leftGeometry = deserialize(left);
@@ -766,6 +774,15 @@ public final class GeoFunctions
     @Description("Returns TRUE if and only if no points of right lie in the exterior of left, and at least one point of the interior of left lies in the interior of right")
     @ScalarFunction("ST_Contains")
     @SqlType(BOOLEAN)
+    public static Boolean stContains(@SqlType(GEOMETRY_TYPE_NAME) Slice left, @SqlType(GEOMETRY_TYPE_NAME) Slice right, @SqlType(VARCHAR) Slice kdbTree)
+    {
+        throw new PrestoException(GENERIC_INTERNAL_ERROR, "ST_Contains with kdbTree argument should have been rewritten to a distributed spatial join");
+    }
+
+    @SqlNullable
+    @Description("Returns TRUE if and only if no points of right lie in the exterior of left, and at least one point of the interior of left lies in the interior of right")
+    @ScalarFunction("ST_Contains")
+    @SqlType(BOOLEAN)
     public static Boolean stContains(@SqlType(GEOMETRY_TYPE_NAME) Slice left, @SqlType(GEOMETRY_TYPE_NAME) Slice right)
     {
         if (!envelopes(left, right, Envelope::contains)) {
@@ -817,6 +834,15 @@ public final class GeoFunctions
         OGCGeometry rightGeometry = deserialize(right);
         verifySameSpatialReference(leftGeometry, rightGeometry);
         return leftGeometry.equals(rightGeometry);
+    }
+
+    @SqlNullable
+    @Description("Returns TRUE if the Geometries spatially intersect in 2D - (share any portion of space) and FALSE if they don't (they are Disjoint)")
+    @ScalarFunction("ST_Intersects")
+    @SqlType(BOOLEAN)
+    public static Boolean stIntersects(@SqlType(GEOMETRY_TYPE_NAME) Slice left, @SqlType(GEOMETRY_TYPE_NAME) Slice right, @SqlType(VARCHAR) Slice kdbTree)
+    {
+        throw new PrestoException(GENERIC_INTERNAL_ERROR, "ST_Intersects with kdbTree argument should have been rewritten to a distributed spatial join");
     }
 
     @SqlNullable
