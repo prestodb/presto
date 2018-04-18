@@ -35,6 +35,8 @@ General Changes
 * Improve the performance of :func:`ST_Touches`, :func:`ST_Within`, :func:`ST_Overlaps`, :func:`ST_Disjoint`,
   and :func:`ST_Crosses` functions.
 * Improve the serialization performance of geometry values.
+* Improve the performance of functions that return maps.
+* Improve the performance of joins and aggregations that include map columns.
 
 Server RPM Changes
 ------------------
@@ -80,3 +82,5 @@ SPI Changes
 * Allow connectors to provide system tables dynamically.
 * Add ``resourceGroupId`` and ``queryType`` fields to ``SessionConfigurationContext``.
 * Simplify the constructor of ``RowBlock``.
+* ``Block.writePositionTo()`` now closes the current entry.
+* Replace the ``writeObject()`` method in ``BlockBuilder`` with ``appendStructure()``.
