@@ -46,7 +46,7 @@ public class DecimalStatistics
         this.minimum = minimum;
         this.maximum = maximum;
 
-        int retainedSizeInBytes = 0;
+        long retainedSizeInBytes = 0;
         if (minimum != null) {
             retainedSizeInBytes += BIG_DECIMAL_INSTANCE_SIZE + decimalSizeInBytes;
         }
