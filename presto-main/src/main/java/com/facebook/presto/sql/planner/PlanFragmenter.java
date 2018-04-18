@@ -470,17 +470,27 @@ public class PlanFragmenter
 
     private static class GroupedExecutionProperties
     {
-        // Whether grouped execution is possible with the current node.
-        // For example, a table scan is capable iff it supports addressable split discovery.
+        // currentNodeCapable:
+        //   Whether grouped execution is possible with the current node.
+        //   For example, a table scan is capable iff it supports addressable split discovery.
+        // subTreeUseful:
+        //   Whether grouped execution is beneficial in the current node, or any node below it.
+        //   For example, a JOIN can benefit from grouped execution because build can be flushed early, reducing peak memory requirement.
+        //
+        // In the current implementation, subTreeUseful implies currentNodeCapable.
+        // In theory, this doesn't have to be the case. Take an example where a GROUP BY feeds into the build side of a JOIN.
+        // Even if JOIN cannot take advantage of grouped execution, it could still be beneficial to execute the GROUP BY with grouped execution
+        // (e.g. when the underlying aggregation's intermediate group state may be larger than aggregation output).
+
         private final boolean currentNodeCapable;
-        // Whether grouped execution is beneficial in the current node, or any node below it.
-        // For example, a JOIN can benefit from grouped execution because build can be flushed early, reducing peak memory requirement.
         private final boolean subTreeUseful;
 
         public GroupedExecutionProperties(boolean currentNodeCapable, boolean subTreeUseful)
         {
             this.currentNodeCapable = currentNodeCapable;
             this.subTreeUseful = subTreeUseful;
+            // Verify that `subTreeUseful` implies `currentNodeCapable`
+            checkArgument(!subTreeUseful || currentNodeCapable);
         }
 
         public boolean isCurrentNodeCapable()
