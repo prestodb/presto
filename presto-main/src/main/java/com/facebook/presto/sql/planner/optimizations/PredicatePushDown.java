@@ -80,6 +80,7 @@ import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
+import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.in;
@@ -117,7 +118,7 @@ public class PredicatePushDown
         return SimplePlanRewriter.rewriteWith(
                 new Rewriter(symbolAllocator, idAllocator, metadata, literalEncoder, effectivePredicateExtractor, sqlParser, session, types),
                 plan,
-                BooleanLiteral.TRUE_LITERAL);
+                TRUE_LITERAL);
     }
 
     private static class Rewriter
@@ -157,8 +158,8 @@ public class PredicatePushDown
         @Override
         public PlanNode visitPlan(PlanNode node, RewriteContext<Expression> context)
         {
-            PlanNode rewrittenNode = context.defaultRewrite(node, BooleanLiteral.TRUE_LITERAL);
-            if (!context.get().equals(BooleanLiteral.TRUE_LITERAL)) {
+            PlanNode rewrittenNode = context.defaultRewrite(node, TRUE_LITERAL);
+            if (!context.get().equals(TRUE_LITERAL)) {
                 // Drop in a FilterNode b/c we cannot push our predicate down any further
                 rewrittenNode = new FilterNode(idAllocator.getNextId(), rewrittenNode, context.get());
             }
@@ -341,8 +342,8 @@ public class PredicatePushDown
                     newJoinPredicate = rightOuterJoinPushDownResult.getJoinPredicate();
                     break;
                 case FULL:
-                    leftPredicate = BooleanLiteral.TRUE_LITERAL;
-                    rightPredicate = BooleanLiteral.TRUE_LITERAL;
+                    leftPredicate = TRUE_LITERAL;
+                    rightPredicate = TRUE_LITERAL;
                     postJoinPredicate = inheritedPredicate;
                     newJoinPredicate = joinPredicate;
                     break;
@@ -404,7 +405,7 @@ public class PredicatePushDown
                 }
 
                 Optional<Expression> newJoinFilter = Optional.of(combineConjuncts(joinFilterBuilder.build()));
-                if (newJoinFilter.get() == BooleanLiteral.TRUE_LITERAL) {
+                if (newJoinFilter.get() == TRUE_LITERAL) {
                     newJoinFilter = Optional.empty();
                 }
 
@@ -436,7 +437,7 @@ public class PredicatePushDown
                         node.getDistributionType());
             }
 
-            if (!postJoinPredicate.equals(BooleanLiteral.TRUE_LITERAL)) {
+            if (!postJoinPredicate.equals(TRUE_LITERAL)) {
                 output = new FilterNode(idAllocator.getNextId(), output, postJoinPredicate);
             }
 
@@ -654,7 +655,7 @@ public class PredicatePushDown
             rightPushDownConjuncts.addAll(allInferenceWithoutRightInferred.generateEqualitiesPartitionedBy(not(in(leftSymbols))).getScopeEqualities());
             joinConjuncts.addAll(allInference.generateEqualitiesPartitionedBy(in(leftSymbols)::apply).getScopeStraddlingEqualities()); // scope straddling equalities get dropped in as part of the join predicate
 
-            return new InnerJoinPushDownResult(combineConjuncts(leftPushDownConjuncts.build()), combineConjuncts(rightPushDownConjuncts.build()), combineConjuncts(joinConjuncts.build()), BooleanLiteral.TRUE_LITERAL);
+            return new InnerJoinPushDownResult(combineConjuncts(leftPushDownConjuncts.build()), combineConjuncts(rightPushDownConjuncts.build()), combineConjuncts(joinConjuncts.build()), TRUE_LITERAL);
         }
 
         private static class InnerJoinPushDownResult
@@ -825,7 +826,7 @@ public class PredicatePushDown
 
             // TODO: see if there are predicates that can be inferred from the semi join output
 
-            PlanNode rewrittenFilteringSource = context.defaultRewrite(node.getFilteringSource(), BooleanLiteral.TRUE_LITERAL);
+            PlanNode rewrittenFilteringSource = context.defaultRewrite(node.getFilteringSource(), TRUE_LITERAL);
 
             // Push inheritedPredicates down to the source if they don't involve the semi join output
             EqualityInference inheritedInference = createEqualityInference(inheritedPredicate);
@@ -1064,7 +1065,7 @@ public class PredicatePushDown
         {
             Expression predicate = simplifyExpression(context.get());
 
-            if (!BooleanLiteral.TRUE_LITERAL.equals(predicate)) {
+            if (!TRUE_LITERAL.equals(predicate)) {
                 return new FilterNode(idAllocator.getNextId(), node, predicate);
             }
 
