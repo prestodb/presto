@@ -142,12 +142,16 @@ fi
 # catch terminate signals
 trap terminate INT TERM EXIT
 
-if [[ "$ENVIRONMENT" == "singlenode" || "$ENVIRONMENT" == "multinode" ]]; then
-  EXTERNAL_SERVICES="hadoop-master mysql postgres cassandra"
-elif [[ "$ENVIRONMENT" == "singlenode-sqlserver" ]]; then
+if [[ "$ENVIRONMENT" == "singlenode-sqlserver" ]]; then
   EXTERNAL_SERVICES="hadoop-master sqlserver"
 elif [[ "$ENVIRONMENT" == "singlenode-ldap" ]]; then
   EXTERNAL_SERVICES="hadoop-master ldapserver"
+elif [[ "$ENVIRONMENT" == "singlenode-mysql" ]]; then
+  EXTERNAL_SERVICES="hadoop-master mysql"
+elif [[ "$ENVIRONMENT" == "singlenode-postgresql" ]]; then
+  EXTERNAL_SERVICES="hadoop-master postgres"
+elif [[ "$ENVIRONMENT" == "singlenode-cassandra" ]]; then
+  EXTERNAL_SERVICES="hadoop-master cassandra"
 else
   EXTERNAL_SERVICES="hadoop-master"
 fi
