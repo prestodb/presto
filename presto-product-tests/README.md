@@ -119,7 +119,7 @@ and deficiencies of `extends:` syntax (see the note
 To ease the pain of passing multiple `-f` arguments to `docker-compose`,
 each environment has a `compose.sh` wrapper script. Thanks to it, instead of e.g.
 
-`docker-compose -f ./docker-compose.yml -f ../common/standard.yml -f ../common/jdbc_db.yml [compose commands]`
+`docker-compose -f ./docker-compose.yml -f ../common/standard.yml [compose commands]`
 
 one can simply write
 
