@@ -19,8 +19,11 @@ General Changes
   to execute aggregations with less peak memory usage.
 * Change the signature of ``round(x, d)`` and ``truncate(x, d)`` functions so that
   ``d`` is of type ``INTEGER``. Previously, ``d`` could be of type ``BIGINT``.
-  This behavior can be reverted with the ``deprecated.legacy-round-n-bigint`` config option
+  This behavior can be restored with the ``deprecated.legacy-round-n-bigint`` config option
   or the ``legacy_round_n_bigint`` session property.
+* Accessing anonymous row fields via ``.field0``, ``.field1``, etc., is no longer allowed.
+  This behavior can be restored with the ``deprecated.legacy-row-field-ordinal-access``
+  config option or the ``legacy_row_field_ordinal_access`` session property.
 * Optimize the :func:`ST_Intersection` function for rectangles aligned with coordinate axes
   (e.g., polygons produced by the :func:`ST_Envelope` and :func:`bing_tile_polygon` functions).
 * Finish joins early when possible if one side has no rows. This happens for
