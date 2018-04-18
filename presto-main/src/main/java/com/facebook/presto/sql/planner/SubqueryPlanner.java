@@ -231,10 +231,10 @@ class SubqueryPlanner
             subPlan.getTranslations().put(coercion, coercionSymbol);
         }
 
-        return appendLateralJoin(subPlan, subqueryPlan, scalarSubquery.getQuery(), correlationAllowed);
+        return appendLateralJoin(subPlan, subqueryPlan, scalarSubquery.getQuery(), correlationAllowed, LateralJoinNode.Type.LEFT);
     }
 
-    public PlanBuilder appendLateralJoin(PlanBuilder subPlan, PlanBuilder subqueryPlan, Query query, boolean correlationAllowed)
+    public PlanBuilder appendLateralJoin(PlanBuilder subPlan, PlanBuilder subqueryPlan, Query query, boolean correlationAllowed, LateralJoinNode.Type type)
     {
         PlanNode subqueryNode = subqueryPlan.getRoot();
         Map<Expression, Expression> correlation = extractCorrelation(subPlan, subqueryNode);
@@ -250,7 +250,7 @@ class SubqueryPlanner
                         subPlan.getRoot(),
                         subqueryNode,
                         ImmutableList.copyOf(SymbolsExtractor.extractUnique(correlation.values())),
-                        LateralJoinNode.Type.INNER,
+                        type,
                         query),
                 analysis.getParameters());
     }
