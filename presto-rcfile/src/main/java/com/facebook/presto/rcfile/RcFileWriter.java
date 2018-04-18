@@ -329,7 +329,7 @@ public class RcFileWriter
 
     private static class ColumnEncoder
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(ColumnEncoder.class).instanceSize();
+        private static final int INSTANCE_SIZE = ClassLayout.parseClass(ColumnEncoder.class).instanceSize() + ClassLayout.parseClass(ColumnEncodeOutput.class).instanceSize();
 
         private final ColumnEncoding columnEncoding;
 
