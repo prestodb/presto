@@ -30,6 +30,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.spatialJoin;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.spatialLeftJoin;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.unnest;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.util.Collections.emptyList;
@@ -55,6 +56,7 @@ public class TestSpatialJoinPlanning
     @Test
     public void testSpatialJoinContains()
     {
+        // broadcast
         assertPlan("SELECT b.name, a.name " +
                         "FROM " + POINTS_SQL + ", " + POLYGONS_SQL + " " +
                         "WHERE ST_Contains(ST_GeometryFromText(wkt), ST_Point(lng, lat))",
@@ -74,11 +76,25 @@ public class TestSpatialJoinPlanning
                                         anyTree(values(ImmutableMap.of("lng", 0, "lat", 1, "name", 2)))),
                                 anyTree(project(ImmutableMap.of("st_geometryfromtext", expression("ST_GeometryFromText(cast(wkt as varchar))"), "length_2", expression("length(name_2)")),
                                         anyTree(values(ImmutableMap.of("wkt", 0, "name_2", 1))))))));
+
+        // distributed
+        assertPlan("SELECT b.name, a.name " +
+                        "FROM " + POINTS_SQL + ", " + POLYGONS_SQL + " " +
+                        "WHERE ST_Contains(ST_GeometryFromText(wkt), ST_Point(lng, lat), 'kdb-tree-json')",
+                anyTree(
+                        spatialJoin("st_contains(st_geometryfromtext, st_point)", Optional.of("kdb-tree-json"),
+                                anyTree(unnest(
+                                        project(ImmutableMap.of("partitions", expression("spatial_partitions(3186787296791224357, 'kdb-tree-json', st_point)")),
+                                                project(ImmutableMap.of("st_point", expression("ST_Point(lng, lat)")), anyTree(values(ImmutableMap.of("lng", 0, "lat", 1))))))),
+                                anyTree(unnest(
+                                        project(ImmutableMap.of("partitions", expression("spatial_partitions(3186787296791224357, 'kdb-tree-json', st_geometryfromtext)")),
+                                                project(ImmutableMap.of("st_geometryfromtext", expression("ST_GeometryFromText(cast(wkt as varchar))")), anyTree(values(ImmutableMap.of("wkt", 0))))))))));
     }
 
     @Test
     public void testSpatialJoinIntersects()
     {
+        // broadcast
         assertPlan("SELECT b.name, a.name " +
                         "FROM (VALUES ('POLYGON ((30 10, 40 40, 20 40, 10 20, 30 10))', 'a')) AS a (wkt, name), (VALUES ('POLYGON ((30 10, 40 40, 20 40, 10 20, 30 10))', 'a')) AS b (wkt, name) " +
                         "WHERE ST_Intersects(ST_GeometryFromText(a.wkt), ST_GeometryFromText(b.wkt))",
@@ -86,11 +102,25 @@ public class TestSpatialJoinPlanning
                         spatialJoin("st_intersects(geometry_a, geometry_b)",
                                 project(ImmutableMap.of("geometry_a", expression("ST_GeometryFromText(cast(wkt_a as varchar))")), anyTree(values(ImmutableMap.of("wkt_a", 0)))),
                                 anyTree(project(ImmutableMap.of("geometry_b", expression("ST_GeometryFromText(cast(wkt_b as varchar))")), anyTree(values(ImmutableMap.of("wkt_b", 0))))))));
+
+        // distributed
+        assertPlan("SELECT b.name, a.name " +
+                        "FROM (VALUES ('POLYGON ((30 10, 40 40, 20 40, 10 20, 30 10))', 'a')) AS a (wkt, name), (VALUES ('POLYGON ((30 10, 40 40, 20 40, 10 20, 30 10))', 'a')) AS b (wkt, name) " +
+                        "WHERE ST_Intersects(ST_GeometryFromText(a.wkt), ST_GeometryFromText(b.wkt), 'kdb-tree-json')",
+                anyTree(
+                        spatialJoin("st_intersects(geometry_a, geometry_b)", Optional.of("kdb-tree-json"),
+                                anyTree(unnest(
+                                        project(ImmutableMap.of("partitions", expression("spatial_partitions(3186787296791224357, 'kdb-tree-json', geometry_a)")),
+                                                project(ImmutableMap.of("geometry_a", expression("ST_GeometryFromText(cast(wkt_a as varchar))")), anyTree(values(ImmutableMap.of("wkt_a", 0))))))),
+                                anyTree(
+                                        project(ImmutableMap.of("partitions", expression("spatial_partitions(3186787296791224357, 'kdb-tree-json', geometry_b)")),
+                                                project(ImmutableMap.of("geometry_b", expression("ST_GeometryFromText(cast(wkt_b as varchar))")), anyTree(values(ImmutableMap.of("wkt_b", 0)))))))));
     }
 
     @Test
     public void testDistanceQuery()
     {
+        // broadcast
         assertPlan("SELECT b.name, a.name " +
                         "FROM (VALUES (2.1, 2.1, 'x')) AS a (lng, lat, name), (VALUES (2.1, 2.1, 'x')) AS b (lng, lat, name) " +
                         "WHERE ST_Distance(ST_Point(a.lng, a.lat), ST_Point(b.lng, b.lat)) <= 3.1",
@@ -106,6 +136,23 @@ public class TestSpatialJoinPlanning
                         spatialJoin("st_distance(st_point_a, st_point_b) <= radius",
                                 project(ImmutableMap.of("st_point_a", expression("ST_Point(cast(a_lng as double), cast(a_lat as double))")), anyTree(values(ImmutableMap.of("a_lng", 0, "a_lat", 1)))),
                                 anyTree(project(ImmutableMap.of("st_point_b", expression("ST_Point(cast(b_lng as double), cast(b_lat as double))"), "radius", expression("3e2 / (111.321e3 * cos(radians(cast(b_lat as double))))")), anyTree(values(ImmutableMap.of("b_lng", 0, "b_lat", 1))))))));
+
+        // distributed
+        assertPlan("SELECT b.name, a.name " +
+                        "FROM (VALUES (2.1, 2.1, 'x')) AS a (lng, lat, name), (VALUES (2.1, 2.1, 'x')) AS b (lng, lat, name) " +
+                        "WHERE ST_Distance(ST_Point(a.lng, a.lat), ST_Point(b.lng, b.lat), 'kdb-tree-json') <= 3.1",
+                anyTree(
+                        spatialJoin("st_distance(st_point_a, st_point_b) <= radius", Optional.of("kdb-tree-json"),
+                                anyTree(
+                                        unnest(
+                                            project(ImmutableMap.of("partitions", expression("spatial_partitions(3186787296791224357, 'kdb-tree-json', st_point_a)")),
+                                                project(ImmutableMap.of("st_point_a", expression("ST_Point(cast(a_lng as double), cast(a_lat as double))")),
+                                                        anyTree(values(ImmutableMap.of("a_lng", 0, "a_lat", 1))))))),
+                                anyTree(
+                                        unnest(
+                                                project(ImmutableMap.of("partitions", expression("spatial_partitions(3186787296791224357, 'kdb-tree-json', st_point_b, 3.1e0)"), "radius", expression("3.1e0")),
+                                                    project(ImmutableMap.of("st_point_b", expression("ST_Point(cast(b_lng as double), cast(b_lat as double))")),
+                                                        anyTree(values(ImmutableMap.of("b_lng", 0, "b_lat", 1))))))))));
     }
 
     @Test

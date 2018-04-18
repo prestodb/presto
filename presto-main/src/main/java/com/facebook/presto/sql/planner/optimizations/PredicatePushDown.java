@@ -414,7 +414,7 @@ public class PredicatePushDown
                     newJoinFilter = Optional.empty();
                 }
 
-                if (node.getType() == INNER && newJoinFilter.isPresent() && equiJoinClauses.isEmpty()) {
+                if (node.getType() == INNER && newJoinFilter.isPresent() && equiJoinClauses.isEmpty() && !node.isSpatialJoin()) {
                     // if we do not have any equi conjunct we do not pushdown non-equality condition into
                     // inner join, so we plan execution as nested-loops-join followed by filter instead
                     // hash join.

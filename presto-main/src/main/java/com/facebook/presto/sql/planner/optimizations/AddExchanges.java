@@ -704,12 +704,22 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitJoin(JoinNode node, PreferredProperties preferredProperties)
         {
-            List<Symbol> leftSymbols = node.getCriteria().stream()
-                    .map(JoinNode.EquiJoinClause::getLeft)
-                    .collect(toImmutableList());
-            List<Symbol> rightSymbols = node.getCriteria().stream()
-                    .map(JoinNode.EquiJoinClause::getRight)
-                    .collect(toImmutableList());
+            List<Symbol> leftSymbols;
+            List<Symbol> rightSymbols;
+            if (node.getKdbTree().isPresent()) {
+                leftSymbols = node.getLeft().getOutputSymbols().stream().filter(symbol -> symbol.getName().startsWith("pid")).collect(toImmutableList());
+                rightSymbols = node.getRight().getOutputSymbols().stream().filter(symbol -> symbol.getName().startsWith("pid")).collect(toImmutableList());
+                verify(leftSymbols.size() == 1);
+                verify(rightSymbols.size() == 1);
+            }
+            else {
+                leftSymbols = node.getCriteria().stream()
+                        .map(JoinNode.EquiJoinClause::getLeft)
+                        .collect(toImmutableList());
+                rightSymbols = node.getCriteria().stream()
+                        .map(JoinNode.EquiJoinClause::getRight)
+                        .collect(toImmutableList());
+            }
 
             JoinNode.DistributionType distributionType = node.getDistributionType().orElseThrow(() -> new IllegalArgumentException("distributionType not yet set"));
 
