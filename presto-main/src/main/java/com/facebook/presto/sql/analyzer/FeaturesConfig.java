@@ -76,6 +76,7 @@ public class FeaturesConfig
     private boolean legacyMapSubscript;
     private boolean legacyRoundNBigint;
     private boolean legacyJoinUsing;
+    private boolean legacyRowFieldOrdinalAccess;
     private boolean optimizeMixedDistinctAggregations;
     private boolean forceSingleNodeOutput = true;
     private boolean pagesIndexEagerCompactionEnabled;
@@ -180,6 +181,18 @@ public class FeaturesConfig
     public boolean isLegacyJoinUsing()
     {
         return legacyJoinUsing;
+    }
+
+    @Config("deprecated.legacy-row-field-ordinal-access")
+    public FeaturesConfig setLegacyRowFieldOrdinalAccess(boolean value)
+    {
+        this.legacyRowFieldOrdinalAccess = value;
+        return this;
+    }
+
+    public boolean isLegacyRowFieldOrdinalAccess()
+    {
+        return legacyRowFieldOrdinalAccess;
     }
 
     @Config("deprecated.legacy-array-agg")

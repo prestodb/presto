@@ -76,6 +76,7 @@ public final class SystemSessionProperties
     public static final String LEGACY_ORDER_BY = "legacy_order_by";
     public static final String LEGACY_ROUND_N_BIGINT = "legacy_round_n_bigint";
     public static final String LEGACY_JOIN_USING = "legacy_join_using";
+    public static final String LEGACY_ROW_FIELD_ORDINAL_ACCESS = "legacy_row_field_ordinal_access";
     public static final String ITERATIVE_OPTIMIZER = "iterative_optimizer_enabled";
     public static final String ITERATIVE_OPTIMIZER_TIMEOUT = "iterative_optimizer_timeout";
     public static final String ENABLE_NEW_STATS_CALCULATOR = "enable_new_stats_calculator";
@@ -327,6 +328,11 @@ public final class SystemSessionProperties
                         LEGACY_JOIN_USING,
                         "Use legacy behavior for JOIN ... USING clause",
                         featuresConfig.isLegacyJoinUsing(),
+                        false),
+                booleanSessionProperty(
+                        LEGACY_ROW_FIELD_ORDINAL_ACCESS,
+                        "Allow accessing anonymous row field with .field0, .field1, ...",
+                        featuresConfig.isLegacyRowFieldOrdinalAccess(),
                         false),
                 booleanSessionProperty(
                         ITERATIVE_OPTIMIZER,
@@ -593,6 +599,11 @@ public final class SystemSessionProperties
     public static boolean isLegacyJoinUsingEnabled(Session session)
     {
         return session.getSystemProperty(LEGACY_JOIN_USING, Boolean.class);
+    }
+
+    public static boolean isLegacyRowFieldOrdinalAccessEnabled(Session session)
+    {
+        return session.getSystemProperty(LEGACY_ROW_FIELD_ORDINAL_ACCESS, Boolean.class);
     }
 
     public static boolean isNewOptimizerEnabled(Session session)

@@ -102,10 +102,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.SystemSessionProperties.isLegacyRowFieldOrdinalAccessEnabled;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
@@ -120,6 +122,7 @@ import static com.facebook.presto.sql.planner.LiteralInterpreter.toExpressions;
 import static com.facebook.presto.sql.planner.iterative.rule.CanonicalizeExpressionRewriter.canonicalizeExpression;
 import static com.facebook.presto.type.LikeFunctions.isLikePattern;
 import static com.facebook.presto.type.LikeFunctions.unescapeLiteralLikePattern;
+import static com.facebook.presto.util.LegacyRowFieldOrdinalAccessUtil.parseAnonymousRowFieldOrdinalAccess;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.instanceOf;
@@ -136,6 +139,7 @@ public class ExpressionInterpreter
     private final boolean optimize;
     private final Map<NodeRef<Expression>, Type> expressionTypes;
     private final FunctionInvoker functionInvoker;
+    private final boolean legacyRowFieldOrdinalAccess;
 
     private final Visitor visitor;
 
@@ -232,6 +236,7 @@ public class ExpressionInterpreter
         verify((expressionTypes.containsKey(NodeRef.of(expression))));
         this.optimize = optimize;
         this.functionInvoker = new FunctionInvoker(metadata.getFunctionRegistry());
+        this.legacyRowFieldOrdinalAccess = isLegacyRowFieldOrdinalAccessEnabled(session);
 
         this.visitor = new Visitor();
     }
@@ -359,15 +364,24 @@ public class ExpressionInterpreter
             RowType rowType = (RowType) type;
             Block row = (Block) base;
             Type returnType = type(node);
+            String fieldName = node.getField().getValue();
             List<Field> fields = rowType.getFields();
             int index = -1;
             for (int i = 0; i < fields.size(); i++) {
                 Field field = fields.get(i);
-                if (field.getName().isPresent() && field.getName().get().equalsIgnoreCase(node.getField().getValue())) {
+                if (field.getName().isPresent() && field.getName().get().equalsIgnoreCase(fieldName)) {
                     checkArgument(index < 0, "Ambiguous field %s in type %s", field, rowType.getDisplayName());
                     index = i;
                 }
             }
+
+            if (legacyRowFieldOrdinalAccess && index < 0) {
+                OptionalInt rowIndex = parseAnonymousRowFieldOrdinalAccess(fieldName, fields);
+                if (rowIndex.isPresent()) {
+                    index = rowIndex.getAsInt();
+                }
+            }
+
             checkState(index >= 0, "could not find field name: %s", node.getField());
             if (row.isNull(index)) {
                 return null;

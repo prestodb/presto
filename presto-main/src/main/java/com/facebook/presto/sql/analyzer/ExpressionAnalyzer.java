@@ -104,9 +104,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Function;
 
+import static com.facebook.presto.SystemSessionProperties.isLegacyRowFieldOrdinalAccessEnabled;
 import static com.facebook.presto.spi.function.OperatorType.SUBSCRIPT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -144,6 +146,7 @@ import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.util.DateTimeUtils.parseTimestampLiteral;
 import static com.facebook.presto.util.DateTimeUtils.timeHasTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.timestampHasTimeZone;
+import static com.facebook.presto.util.LegacyRowFieldOrdinalAccessUtil.parseAnonymousRowFieldOrdinalAccess;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -163,6 +166,7 @@ public class ExpressionAnalyzer
     private final Function<Node, StatementAnalyzer> statementAnalyzerFactory;
     private final Map<Symbol, Type> symbolTypes;
     private final boolean isDescribe;
+    private final boolean legacyRowFieldOrdinalAccess;
 
     private final Map<NodeRef<FunctionCall>, Signature> resolvedFunctions = new LinkedHashMap<>();
     private final Set<NodeRef<SubqueryExpression>> scalarSubqueries = new LinkedHashSet<>();
@@ -196,6 +200,7 @@ public class ExpressionAnalyzer
         this.symbolTypes = ImmutableMap.copyOf(requireNonNull(symbolTypes, "symbolTypes is null"));
         this.parameters = requireNonNull(parameters, "parameters is null");
         this.isDescribe = isDescribe;
+        this.legacyRowFieldOrdinalAccess = isLegacyRowFieldOrdinalAccessEnabled(session);
     }
 
     public Map<NodeRef<FunctionCall>, Signature> getResolvedFunctions()
@@ -414,14 +419,23 @@ public class ExpressionAnalyzer
             }
 
             RowType rowType = (RowType) baseType;
+            String fieldName = node.getField().getValue();
 
             Type rowFieldType = null;
             for (RowType.Field rowField : rowType.getFields()) {
-                if (node.getField().getValue().equalsIgnoreCase(rowField.getName().orElse(null))) {
+                if (fieldName.equalsIgnoreCase(rowField.getName().orElse(null))) {
                     rowFieldType = rowField.getType();
                     break;
                 }
             }
+
+            if (legacyRowFieldOrdinalAccess && rowFieldType == null) {
+                OptionalInt rowIndex = parseAnonymousRowFieldOrdinalAccess(fieldName, rowType.getFields());
+                if (rowIndex.isPresent()) {
+                    rowFieldType = rowType.getFields().get(rowIndex.getAsInt()).getType();
+                }
+            }
+
             if (rowFieldType == null) {
                 throw missingAttributeException(node);
             }
