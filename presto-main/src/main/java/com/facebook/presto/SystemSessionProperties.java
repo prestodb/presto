@@ -45,6 +45,7 @@ public final class SystemSessionProperties
     public static final String DISTRIBUTED_JOIN = "distributed_join";
     public static final String DISTRIBUTED_INDEX_JOIN = "distributed_index_join";
     public static final String HASH_PARTITION_COUNT = "hash_partition_count";
+    public static final String GROUPED_EXECUTION_FOR_AGGREGATION = "grouped_execution_for_aggregation";
     public static final String PREFER_STREAMING_OPERATORS = "prefer_streaming_operators";
     public static final String TASK_WRITER_COUNT = "task_writer_count";
     public static final String TASK_CONCURRENCY = "task_concurrency";
@@ -130,6 +131,11 @@ public final class SystemSessionProperties
                         HASH_PARTITION_COUNT,
                         "Number of partitions for distributed joins and aggregations",
                         queryManagerConfig.getInitialHashPartitions(),
+                        false),
+                booleanSessionProperty(
+                        GROUPED_EXECUTION_FOR_AGGREGATION,
+                        "Use grouped execution for aggregation when possible",
+                        featuresConfig.isGroupedExecutionForAggregationEnabled(),
                         false),
                 booleanSessionProperty(
                         PREFER_STREAMING_OPERATORS,
@@ -437,6 +443,11 @@ public final class SystemSessionProperties
     public static int getHashPartitionCount(Session session)
     {
         return session.getSystemProperty(HASH_PARTITION_COUNT, Integer.class);
+    }
+
+    public static boolean isGroupedExecutionForJoinEnabled(Session session)
+    {
+        return session.getSystemProperty(GROUPED_EXECUTION_FOR_AGGREGATION, Boolean.class);
     }
 
     public static boolean preferStreamingOperators(Session session)

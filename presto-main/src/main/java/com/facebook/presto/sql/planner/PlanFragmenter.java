@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.metadata.TableLayout.TablePartitioning;
@@ -68,9 +69,7 @@ import static java.util.Objects.requireNonNull;
  */
 public class PlanFragmenter
 {
-    private PlanFragmenter()
-    {
-    }
+    private PlanFragmenter() {}
 
     public static SubPlan createSubPlans(Session session, Metadata metadata, NodePartitioningManager nodePartitioningManager, Plan plan, boolean forceSingleNode)
     {
@@ -393,12 +392,14 @@ public class PlanFragmenter
         private final Session session;
         private final Metadata metadata;
         private final NodePartitioningManager nodePartitioningManager;
+        private final boolean groupedExecutionForAggregation;
 
         public GroupedExecutionTagger(Session session, Metadata metadata, NodePartitioningManager nodePartitioningManager)
         {
             this.session = requireNonNull(session, "session is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
+            this.groupedExecutionForAggregation = SystemSessionProperties.isGroupedExecutionForJoinEnabled(session);
         }
 
         @Override
@@ -424,7 +425,7 @@ public class PlanFragmenter
         public GroupedExecutionProperties visitAggregation(AggregationNode node, Void context)
         {
             GroupedExecutionProperties properties = processChildren(node);
-            if (properties.isCurrentNodeCapable()) {
+            if (groupedExecutionForAggregation && properties.isCurrentNodeCapable()) {
                 switch (node.getStep()) {
                     case SINGLE:
                     case FINAL:
@@ -434,7 +435,7 @@ public class PlanFragmenter
                         return new GroupedExecutionProperties(true, properties.isSubTreeUseful());
                 }
             }
-            return properties;
+            return new GroupedExecutionProperties(false, false);
         }
 
         @Override
