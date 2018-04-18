@@ -43,6 +43,11 @@ Security Changes
 
 * Add support for authentication with JWT access token.
 
+JDBC Driver Changes
+-------------------
+
+* Make driver compatible with Java 9+. It previously failed with ``IncompatibleClassChangeError``.
+
 Hive Changes
 ------------
 
