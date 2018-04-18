@@ -285,7 +285,7 @@ public class OrcWriter
             writeStripe(DICTIONARY_FULL);
         }
 
-        columnWritersRetainedBytes = toIntExact(columnWriters.stream().mapToLong(ColumnWriter::getRetainedBytes).sum());
+        columnWritersRetainedBytes = columnWriters.stream().mapToLong(ColumnWriter::getRetainedBytes).sum();
     }
 
     private void finishRowGroup()
