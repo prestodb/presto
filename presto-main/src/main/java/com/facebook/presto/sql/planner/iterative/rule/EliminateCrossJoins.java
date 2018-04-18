@@ -181,6 +181,7 @@ public class EliminateCrossJoins
                     Optional.empty(),
                     Optional.empty(),
                     Optional.empty(),
+                    Optional.empty(),
                     Optional.empty());
         }
 

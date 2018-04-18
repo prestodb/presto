@@ -199,7 +199,8 @@ public class TestPhasedExecutionSchedule
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.of(REPLICATED));
+                Optional.of(REPLICATED),
+                Optional.empty());
 
         return createFragment(join);
     }
@@ -221,7 +222,8 @@ public class TestPhasedExecutionSchedule
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.of(PARTITIONED));
+                Optional.of(PARTITIONED),
+                Optional.empty());
 
         return createFragment(planNode);
     }

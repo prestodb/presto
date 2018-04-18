@@ -55,6 +55,7 @@ public class TransformUncorrelatedLateralToJoin
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
+                Optional.empty(),
                 Optional.empty()));
     }
 }

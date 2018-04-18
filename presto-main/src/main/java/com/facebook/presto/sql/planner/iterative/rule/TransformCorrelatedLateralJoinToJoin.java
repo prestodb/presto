@@ -64,6 +64,7 @@ public class TransformCorrelatedLateralJoinToJoin
                         decorrelatedNode.getCorrelatedPredicates(),
                         Optional.empty(),
                         Optional.empty(),
+                        Optional.empty(),
                         Optional.empty()))).orElseGet(Result::empty);
     }
 }

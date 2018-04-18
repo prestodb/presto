@@ -621,7 +621,7 @@ public class PlanBuilder
             Optional<Symbol> rightHashSymbol,
             Optional<JoinNode.DistributionType> distributionType)
     {
-        return new JoinNode(idAllocator.getNextId(), type, left, right, criteria, outputSymbols, filter, leftHashSymbol, rightHashSymbol, distributionType);
+        return new JoinNode(idAllocator.getNextId(), type, left, right, criteria, outputSymbols, filter, leftHashSymbol, rightHashSymbol, distributionType, Optional.empty());
     }
 
     public PlanNode indexJoin(IndexJoinNode.Type type, TableScanNode probe, TableScanNode index)
