@@ -15,6 +15,7 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.server.testing.TestingPrestoServer;
+import com.facebook.presto.tpch.TpchPlugin;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.UnexpectedResponseException;
@@ -43,6 +44,8 @@ import static org.testng.Assert.assertTrue;
 @Test(singleThreaded = true)
 public class TestQueryStateInfoResource
 {
+    private static final String LONG_LASTING_QUERY = "SELECT * FROM tpch.sf1.lineitem";
+
     private TestingPrestoServer server;
     private HttpClient client;
     private QueryResults queryResults;
@@ -51,6 +54,8 @@ public class TestQueryStateInfoResource
             throws Exception
     {
         server = new TestingPrestoServer();
+        server.installPlugin(new TpchPlugin());
+        server.createCatalog("tpch", "tpch");
         client = new JettyHttpClient();
     }
 
@@ -59,14 +64,14 @@ public class TestQueryStateInfoResource
     {
         Request request1 = preparePost()
                 .setUri(uriBuilderFrom(server.getBaseUrl()).replacePath("/v1/statement").build())
-                .setBodyGenerator(createStaticBodyGenerator("show catalogs", UTF_8))
+                .setBodyGenerator(createStaticBodyGenerator(LONG_LASTING_QUERY, UTF_8))
                 .setHeader(PRESTO_USER, "user1")
                 .build();
         queryResults = client.execute(request1, createJsonResponseHandler(jsonCodec(QueryResults.class)));
 
         Request request2 = preparePost()
                 .setUri(uriBuilderFrom(server.getBaseUrl()).replacePath("/v1/statement").build())
-                .setBodyGenerator(createStaticBodyGenerator("show catalogs", UTF_8))
+                .setBodyGenerator(createStaticBodyGenerator(LONG_LASTING_QUERY, UTF_8))
                 .setHeader(PRESTO_USER, "user2")
                 .build();
         client.execute(request2, createJsonResponseHandler(jsonCodec(QueryResults.class)));
