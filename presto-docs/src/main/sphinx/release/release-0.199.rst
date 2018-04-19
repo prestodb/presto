@@ -68,6 +68,7 @@ Hive Changes
 * Partition name listings, both via the ``$partitions`` table and using
   ``SHOW PARTITIONS``, are no longer subject to the limit defined by the
   ``hive.max-partitions-per-scan`` config option.
+* Allow marking partitions as offline via the ``presto_offline`` partition property.
 
 Thrift Connector Changes
 ------------------------
