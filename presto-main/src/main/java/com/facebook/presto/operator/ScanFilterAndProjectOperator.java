@@ -96,7 +96,7 @@ public class ScanFilterAndProjectOperator
         this.pageBuilderMemoryContext = operatorContext.newLocalSystemMemoryContext();
         this.mergingOutput = requireNonNull(mergingOutput, "mergingOutput is null");
 
-        this.pageBuilder = new PageBuilder(getTypes());
+        this.pageBuilder = new PageBuilder(this.types);
     }
 
     @Override
