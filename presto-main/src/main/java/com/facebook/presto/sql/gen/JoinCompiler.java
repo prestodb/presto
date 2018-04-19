@@ -16,7 +16,6 @@ package com.facebook.presto.sql.gen;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.JoinHash;
 import com.facebook.presto.operator.JoinHashSupplier;
 import com.facebook.presto.operator.LookupSourceSupplier;
@@ -680,6 +679,7 @@ public class JoinCompiler
         Scope scope = positionNotDistinctFromRowMethod.getScope();
         BytecodeBlock body = positionNotDistinctFromRowMethod.getBody();
         if (groupByUsesEqualTo) {
+            // positionNotDistinctFromRow delegates to positionEqualsRow when groupByUsesEqualTo is set.
             body.append(thisVariable.invoke(
                     "positionEqualsRow",
                     boolean.class,
