@@ -288,7 +288,7 @@ public class HiveSplitManager
                 String partName = makePartName(table.getPartitionColumns(), partition.getValues());
 
                 // verify partition is online
-                verifyOnline(tableName, Optional.of(partName), getProtectMode(partition), table.getParameters());
+                verifyOnline(tableName, Optional.of(partName), getProtectMode(partition), partition.getParameters());
 
                 // verify partition is not marked as non-readable
                 String partitionNotReadable = partition.getParameters().get(OBJECT_NOT_READABLE);
