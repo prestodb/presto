@@ -104,7 +104,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
 @ThreadSafe
-public class SqlQueryManager<C>
+public class SqlQueryManager
         implements QueryManager
 {
     private static final Logger log = Logger.get(SqlQueryManager.class);
@@ -113,7 +113,7 @@ public class SqlQueryManager<C>
 
     private final ExecutorService queryExecutor;
     private final ThreadPoolExecutorMBean queryExecutorMBean;
-    private final ResourceGroupManager<C> resourceGroupManager;
+    private final ResourceGroupManager<?> resourceGroupManager;
     private final ClusterMemoryManager memoryManager;
 
     private final boolean isIncludeCoordinator;
@@ -157,7 +157,7 @@ public class SqlQueryManager<C>
             NodeSchedulerConfig nodeSchedulerConfig,
             QueryManagerConfig queryManagerConfig,
             QueryMonitor queryMonitor,
-            ResourceGroupManager<C> resourceGroupManager,
+            ResourceGroupManager<?> resourceGroupManager,
             ClusterMemoryManager memoryManager,
             LocationFactory locationFactory,
             TransactionManager transactionManager,
@@ -366,7 +366,7 @@ public class SqlQueryManager<C>
         QueryId queryId = queryIdGenerator.createNextQueryId();
 
         Session session = null;
-        SelectionContext<C> selectionContext;
+        SelectionContext<?> selectionContext;
         QueryExecution queryExecution;
         Statement statement;
         try {
