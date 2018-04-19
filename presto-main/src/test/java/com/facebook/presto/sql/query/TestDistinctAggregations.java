@@ -222,4 +222,22 @@ public class TestDistinctAggregations
                         "   (3, 30, 300)) t(x, y, z)",
                 "VALUES (BIGINT '6', BIGINT '60', BIGINT '900')");
     }
+
+    @Test
+    public void testMixedDistinctWithFilter()
+    {
+        assertions.assertQuery(
+                "SELECT " +
+                        "     count(DISTINCT x) FILTER (WHERE x > 0), " +
+                        "     sum(x) " +
+                        "FROM (VALUES 0, 1, 1, 2) t(x)",
+                "VALUES (BIGINT '2', BIGINT '4')");
+
+        assertions.assertQuery(
+                "SELECT " +
+                        "     count(DISTINCT x), " +
+                        "     sum(x) FILTER (WHERE x > 0) " +
+                        "FROM (VALUES 0, 1, 1, 2) t(x)",
+                "VALUES (BIGINT '3', BIGINT '4')");
+    }
 }
