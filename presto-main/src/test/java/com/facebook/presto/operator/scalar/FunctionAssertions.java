@@ -588,24 +588,22 @@ public final class FunctionAssertions
 
         // execute as standalone operator
         OperatorFactory operatorFactory = compileFilterProject(Optional.empty(), projectionRowExpression, compiler);
-        assertType(operatorFactory.getTypes(), expectedType);
-        Object directOperatorValue = selectSingleValue(operatorFactory, session);
+        Object directOperatorValue = selectSingleValue(operatorFactory, expectedType, session);
         results.add(directOperatorValue);
 
         // interpret
-        Operator interpretedFilterProject = interpretedFilterProject(Optional.empty(), projectionExpression, session);
-        assertType(interpretedFilterProject.getTypes(), expectedType);
-        Object interpretedValue = selectSingleValue(interpretedFilterProject);
+        Operator interpretedFilterProject = interpretedFilterProject(Optional.empty(), projectionExpression, expectedType, session);
+        Object interpretedValue = selectSingleValue(interpretedFilterProject, expectedType);
         results.add(interpretedValue);
 
         // execute over normal operator
         SourceOperatorFactory scanProjectOperatorFactory = compileScanFilterProject(Optional.empty(), projectionRowExpression, compiler);
         assertType(scanProjectOperatorFactory.getTypes(), expectedType);
-        Object scanOperatorValue = selectSingleValue(scanProjectOperatorFactory, createNormalSplit(), session);
+        Object scanOperatorValue = selectSingleValue(scanProjectOperatorFactory, expectedType, createNormalSplit(), session);
         results.add(scanOperatorValue);
 
         // execute over record set
-        Object recordValue = selectSingleValue(scanProjectOperatorFactory, createRecordSetSplit(), session);
+        Object recordValue = selectSingleValue(scanProjectOperatorFactory, expectedType, createRecordSetSplit(), session);
         results.add(recordValue);
 
         //
@@ -619,6 +617,8 @@ public final class FunctionAssertions
             results.add(queryResult);
         }
 
+        // validate type at end since some tests expect failure and for those UNKNOWN is used instead of actual type
+        assertEquals(projectionRowExpression.getType(), expectedType);
         return results;
     }
 
@@ -635,28 +635,27 @@ public final class FunctionAssertions
         return toRowExpression(translatedProjection, expressionTypes);
     }
 
-    private Object selectSingleValue(OperatorFactory operatorFactory, Session session)
+    private Object selectSingleValue(OperatorFactory operatorFactory, Type type, Session session)
     {
         Operator operator = operatorFactory.createOperator(createDriverContext(session));
-        return selectSingleValue(operator);
+        return selectSingleValue(operator, type);
     }
 
-    private Object selectSingleValue(SourceOperatorFactory operatorFactory, Split split, Session session)
+    private Object selectSingleValue(SourceOperatorFactory operatorFactory, Type type, Split split, Session session)
     {
         SourceOperator operator = operatorFactory.createOperator(createDriverContext(session));
         operator.addSplit(split);
         operator.noMoreSplits();
-        return selectSingleValue(operator);
+        return selectSingleValue(operator, type);
     }
 
-    private Object selectSingleValue(Operator operator)
+    private Object selectSingleValue(Operator operator, Type type)
     {
         Page output = getAtMostOnePage(operator, SOURCE_PAGE);
 
         assertNotNull(output);
         assertEquals(output.getPositionCount(), 1);
         assertEquals(output.getChannelCount(), 1);
-        Type type = operator.getTypes().get(0);
 
         Block block = output.getBlock(0);
         assertEquals(block.getPositionCount(), 1);
@@ -700,7 +699,7 @@ public final class FunctionAssertions
         }
 
         // interpret
-        boolean interpretedValue = executeFilter(interpretedFilterProject(Optional.of(filterExpression), TRUE_LITERAL, session));
+        boolean interpretedValue = executeFilter(interpretedFilterProject(Optional.of(filterExpression), TRUE_LITERAL, BOOLEAN, session));
         results.add(interpretedValue);
 
         // execute over normal operator
@@ -821,7 +820,7 @@ public final class FunctionAssertions
             assertEquals(page.getPositionCount(), 1);
             assertEquals(page.getChannelCount(), 1);
 
-            assertTrue(operator.getTypes().get(0).getBoolean(page.getBlock(0), 0));
+            assertTrue(BOOLEAN.getBoolean(page.getBlock(0), 0));
             value = true;
         }
         else {
@@ -862,7 +861,7 @@ public final class FunctionAssertions
         return hasSymbolReferences.get();
     }
 
-    private Operator interpretedFilterProject(Optional<Expression> filter, Expression projection, Session session)
+    private Operator interpretedFilterProject(Optional<Expression> filter, Expression projection, Type expectedType, Session session)
     {
         Optional<PageFilter> pageFilter = filter
                 .map(expression -> new InterpretedPageFilter(
@@ -874,6 +873,7 @@ public final class FunctionAssertions
                         session));
 
         PageProjection pageProjection = new InterpretedPageProjection(projection, SYMBOL_TYPES, INPUT_MAPPING, metadata, SQL_PARSER, session);
+        assertEquals(pageProjection.getType(), expectedType);
 
         PageProcessor processor = new PageProcessor(pageFilter, ImmutableList.of(pageProjection));
         OperatorFactory operatorFactory = new FilterAndProjectOperatorFactory(

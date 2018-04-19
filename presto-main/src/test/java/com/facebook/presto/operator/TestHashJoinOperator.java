@@ -459,7 +459,7 @@ public class TestHashJoinOperator
                     .row("33", 123_003L, "33", 303L)
                     .build();
 
-            assertEqualsIgnoreOrder(getProperColumns(joinOperator, probePages, actualPages).getMaterializedRows(), expected.getMaterializedRows());
+            assertEqualsIgnoreOrder(getProperColumns(joinOperator, concat(probePages.getTypes(), buildPages.getTypes()), probePages, actualPages).getMaterializedRows(), expected.getMaterializedRows());
         }
         finally {
             joinOperatorFactory.noMoreOperators();
@@ -514,9 +514,8 @@ public class TestHashJoinOperator
         return result;
     }
 
-    private static MaterializedResult getProperColumns(Operator joinOperator, RowPagesBuilder probePages, List<Page> actualPages)
+    private static MaterializedResult getProperColumns(Operator joinOperator, List<Type> types, RowPagesBuilder probePages, List<Page> actualPages)
     {
-        List<Type> types = joinOperator.getTypes();
         if (probePages.getHashChannel().isPresent()) {
             List<Integer> hashChannels = ImmutableList.of(probePages.getHashChannel().get());
             actualPages = dropChannel(actualPages, hashChannels);
