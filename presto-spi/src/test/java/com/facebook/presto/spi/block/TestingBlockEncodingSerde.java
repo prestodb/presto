@@ -26,6 +26,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
+// This class is exactly the same as BlockEncodingManager.
+// It is needed for tests for TupleDomain. They are in SPI and don't have access to BlockEncodingManager.
 public final class TestingBlockEncodingSerde
         implements BlockEncodingSerde
 {
@@ -54,6 +56,9 @@ public final class TestingBlockEncodingSerde
         addBlockEncodingFactory(ArrayBlockEncoding.FACTORY);
         addBlockEncodingFactory(MapBlockEncoding.FACTORY);
         addBlockEncodingFactory(SingleMapBlockEncoding.FACTORY);
+        addBlockEncodingFactory(RowBlockEncoding.FACTORY);
+        addBlockEncodingFactory(SingleRowBlockEncoding.FACTORY);
+        addBlockEncodingFactory(RunLengthBlockEncoding.FACTORY);
 
         for (BlockEncodingFactory<?> factory : requireNonNull(blockEncodingFactories, "blockEncodingFactories is null")) {
             addBlockEncodingFactory(factory);

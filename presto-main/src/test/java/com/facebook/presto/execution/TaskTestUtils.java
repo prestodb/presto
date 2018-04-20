@@ -16,6 +16,7 @@ package com.facebook.presto.execution;
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.TaskSource;
+import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.cost.CoefficientBasedStatsCalculator;
@@ -38,7 +39,6 @@ import com.facebook.presto.operator.LookupJoinOperators;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
 import com.facebook.presto.server.ServerMainModule;
-import com.facebook.presto.spi.block.TestingBlockEncodingSerde;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.TestingTypeManager;
@@ -160,7 +160,7 @@ public final class TaskTestUtils
                 (types, partitionFunction, spillContext, memoryContext) -> {
                     throw new UnsupportedOperationException();
                 },
-                new TestingBlockEncodingSerde(new TestingTypeManager()),
+                new BlockEncodingManager(new TestingTypeManager()),
                 new PagesIndex.TestingFactory(false),
                 new JoinCompiler(),
                 new LookupJoinOperators());

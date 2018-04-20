@@ -16,6 +16,7 @@ package com.facebook.presto.execution;
 import com.facebook.presto.OutputBuffers.OutputBufferId;
 import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.TaskSource;
+import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.execution.buffer.BufferState;
@@ -44,7 +45,6 @@ import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.UpdatablePageSource;
-import com.facebook.presto.spi.block.TestingBlockEncodingSerde;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.type.TestingTypeManager;
@@ -155,7 +155,7 @@ public class TestSqlTaskExecution
                     TABLE_SCAN_NODE_ID,
                     outputBuffer,
                     Function.identity(),
-                    new PagesSerdeFactory(new TestingBlockEncodingSerde(new TestingTypeManager()), false));
+                    new PagesSerdeFactory(new BlockEncodingManager(new TestingTypeManager()), false));
             LocalExecutionPlan localExecutionPlan = new LocalExecutionPlan(
                     ImmutableList.of(new DriverFactory(
                             0,
@@ -378,7 +378,7 @@ public class TestSqlTaskExecution
                     joinCNodeId,
                     outputBuffer,
                     Function.identity(),
-                    new PagesSerdeFactory(new TestingBlockEncodingSerde(new TestingTypeManager()), false));
+                    new PagesSerdeFactory(new BlockEncodingManager(new TestingTypeManager()), false));
             TestingCrossJoinOperatorFactory joinOperatorFactoryA = new TestingCrossJoinOperatorFactory(2, joinANodeId, buildStatesA);
             TestingCrossJoinOperatorFactory joinOperatorFactoryB = new TestingCrossJoinOperatorFactory(102, joinBNodeId, buildStatesB);
             TestingCrossJoinOperatorFactory joinOperatorFactoryC = new TestingCrossJoinOperatorFactory(3, joinCNodeId, buildStatesC);
