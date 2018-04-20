@@ -3,7 +3,7 @@ services:
 
   mysql:
     hostname: mysql
-    image: 'mysql'
+    image: 'mysql:5.7'
     ports:
       - '13306:13306'
     command:
