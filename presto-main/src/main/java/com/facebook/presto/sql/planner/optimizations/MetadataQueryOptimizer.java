@@ -26,7 +26,7 @@ import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.DeterminismEvaluator;
-import com.facebook.presto.sql.planner.LiteralInterpreter;
+import com.facebook.presto.sql.planner.LiteralEncoder;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
@@ -168,7 +168,7 @@ public class MetadataQueryOptimizer
                             return context.defaultRewrite(node);
                         }
                         else {
-                            rowBuilder.add(LiteralInterpreter.toExpression(value.getValue(), type));
+                            rowBuilder.add(LiteralEncoder.toExpression(value.getValue(), type));
                         }
                     }
                     rowsBuilder.add(rowBuilder.build());
