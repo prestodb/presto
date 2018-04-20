@@ -24,6 +24,8 @@ import java.util.Base64;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.io.BaseEncoding.base16;
@@ -200,6 +202,23 @@ public class TestVarbinaryFunctions
     }
 
     @Test
+    public void testFromIEEE754Binary32()
+    {
+        assertFunction("from_ieee754_32(from_hex('3F800000'))", REAL, 1.0f);
+        assertFunction("from_ieee754_32(to_ieee754_32(CAST(1.0 AS REAL)))", REAL, 1.0f);
+        assertFunction("from_ieee754_32(from_hex('4048F5C3'))", REAL, 3.14f);
+        assertFunction("from_ieee754_32(to_ieee754_32(CAST(3.14 AS REAL)))", REAL, 3.14f);
+        assertFunction("from_ieee754_32(to_ieee754_32(CAST(NAN() AS REAL)))", REAL, Float.NaN);
+        assertFunction("from_ieee754_32(to_ieee754_32(CAST(INFINITY() AS REAL)))", REAL, Float.POSITIVE_INFINITY);
+        assertFunction("from_ieee754_32(to_ieee754_32(CAST(-INFINITY() AS REAL)))", REAL, Float.NEGATIVE_INFINITY);
+        assertFunction("from_ieee754_32(to_ieee754_32(CAST(3.4028235E38 AS REAL)))", REAL, 3.4028235E38f);
+        assertFunction("from_ieee754_32(to_ieee754_32(CAST(-3.4028235E38 AS REAL)))", REAL, -3.4028235E38f);
+        assertFunction("from_ieee754_32(to_ieee754_32(CAST(1.4E-45 AS REAL)))", REAL, 1.4E-45f);
+        assertFunction("from_ieee754_32(to_ieee754_32(CAST(-1.4E-45 AS REAL)))", REAL, -1.4E-45f);
+        assertInvalidFunction("from_ieee754_32(from_hex('0000'))", "Input floating-point value must be exactly 4 bytes long");
+    }
+
+    @Test
     public void testToIEEE754Binary64()
     {
         assertFunction("to_ieee754_64(0.0)", VARBINARY, sqlVarbinaryHex("0000000000000000"));
@@ -212,6 +231,22 @@ public class TestVarbinaryFunctions
         assertFunction("to_ieee754_64(-1.7976931348623157E308)", VARBINARY, sqlVarbinaryHex("FFEFFFFFFFFFFFFF"));
         assertFunction("to_ieee754_64(4.9E-324)", VARBINARY, sqlVarbinaryHex("0000000000000001"));
         assertFunction("to_ieee754_64(-4.9E-324)", VARBINARY, sqlVarbinaryHex("8000000000000001"));
+    }
+
+    @Test
+    public void testFromIEEE754Binary64()
+    {
+        assertFunction("from_ieee754_64(from_hex('0000000000000000'))", DOUBLE, 0.0);
+        assertFunction("from_ieee754_64(from_hex('3FF0000000000000'))", DOUBLE, 1.0);
+        assertFunction("from_ieee754_64(to_ieee754_64(3.1415926))", DOUBLE, 3.1415926);
+        assertFunction("from_ieee754_64(to_ieee754_64(NAN()))", DOUBLE, Double.NaN);
+        assertFunction("from_ieee754_64(to_ieee754_64(INFINITY()))", DOUBLE, Double.POSITIVE_INFINITY);
+        assertFunction("from_ieee754_64(to_ieee754_64(-INFINITY()))", DOUBLE, Double.NEGATIVE_INFINITY);
+        assertFunction("from_ieee754_64(to_ieee754_64(1.7976931348623157E308))", DOUBLE, 1.7976931348623157E308);
+        assertFunction("from_ieee754_64(to_ieee754_64(-1.7976931348623157E308))", DOUBLE, -1.7976931348623157E308);
+        assertFunction("from_ieee754_64(to_ieee754_64(4.9E-324))", DOUBLE, 4.9E-324);
+        assertFunction("from_ieee754_64(to_ieee754_64(-4.9E-324))", DOUBLE, -4.9E-324);
+        assertInvalidFunction("from_ieee754_64(from_hex('00000000'))", "Input floating-point value must be exactly 8 bytes long");
     }
 
     @Test
