@@ -60,11 +60,12 @@ public class PasswordAuthenticatorManager
             return;
         }
 
-        Map<String, String> properties = new HashMap<>(loadProperties(CONFIG_FILE));
+        File configFileLocation = CONFIG_FILE.getAbsoluteFile();
+        Map<String, String> properties = new HashMap<>(loadProperties(configFileLocation));
 
         String name = properties.remove(NAME_PROPERTY);
         checkArgument(!isNullOrEmpty(name),
-                "Password authenticator configuration %s does not contain %s", CONFIG_FILE.getAbsoluteFile(), NAME_PROPERTY);
+                "Password authenticator configuration %s does not contain %s", configFileLocation, NAME_PROPERTY);
 
         log.info("-- Loading password authenticator --");
 
