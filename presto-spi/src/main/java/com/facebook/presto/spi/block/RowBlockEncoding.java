@@ -14,7 +14,6 @@
 
 package com.facebook.presto.spi.block;
 
-import com.facebook.presto.spi.type.TypeManager;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 
@@ -93,7 +92,7 @@ public class RowBlockEncoding
         }
 
         @Override
-        public RowBlockEncoding readEncoding(TypeManager typeManager, BlockEncodingSerde serde, SliceInput input)
+        public RowBlockEncoding readEncoding(BlockEncodingSerde serde, SliceInput input)
         {
             int numFields = input.readInt();
             BlockEncoding[] fieldBlockEncodings = new BlockEncoding[numFields];

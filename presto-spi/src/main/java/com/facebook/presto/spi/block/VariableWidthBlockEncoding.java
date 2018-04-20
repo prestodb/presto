@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.spi.block;
 
-import com.facebook.presto.spi.type.TypeManager;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
@@ -84,7 +83,7 @@ public class VariableWidthBlockEncoding
         }
 
         @Override
-        public VariableWidthBlockEncoding readEncoding(TypeManager manager, BlockEncodingSerde serde, SliceInput input)
+        public VariableWidthBlockEncoding readEncoding(BlockEncodingSerde serde, SliceInput input)
         {
             return new VariableWidthBlockEncoding();
         }

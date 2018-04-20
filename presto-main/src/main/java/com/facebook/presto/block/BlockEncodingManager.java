@@ -47,7 +47,6 @@ import static java.util.Objects.requireNonNull;
 public final class BlockEncodingManager
         implements BlockEncodingSerde
 {
-    private final TypeManager typeManager;
     private final ConcurrentMap<String, BlockEncodingFactory<?>> blockEncodings = new ConcurrentHashMap<>();
 
     public BlockEncodingManager(TypeManager typeManager, BlockEncodingFactory<?>... blockEncodingFactories)
@@ -60,8 +59,6 @@ public final class BlockEncodingManager
     {
         // This function should be called from Guice and tests only
 
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
-
         // always add the built-in BlockEncodingFactories
         addBlockEncodingFactory(new VariableWidthBlockEncodingFactory());
         addBlockEncodingFactory(new FixedWidthBlockEncodingFactory());
@@ -71,8 +68,8 @@ public final class BlockEncodingManager
         addBlockEncodingFactory(new LongArrayBlockEncodingFactory());
         addBlockEncodingFactory(new DictionaryBlockEncodingFactory());
         addBlockEncodingFactory(new ArrayBlockEncodingFactory());
-        addBlockEncodingFactory(new MapBlockEncodingFactory());
-        addBlockEncodingFactory(new SingleMapBlockEncodingFactory());
+        addBlockEncodingFactory(new MapBlockEncodingFactory(typeManager));
+        addBlockEncodingFactory(new SingleMapBlockEncodingFactory(typeManager));
         addBlockEncodingFactory(new RowBlockEncodingFactory());
         addBlockEncodingFactory(new SingleRowBlockEncodingFactory());
         addBlockEncodingFactory(new RunLengthBlockEncodingFactory());
@@ -100,7 +97,7 @@ public final class BlockEncodingManager
         checkArgument(blockEncoding != null, "Unknown block encoding %s", encodingName);
 
         // load read the encoding factory from the output stream
-        return blockEncoding.readEncoding(typeManager, this, input);
+        return blockEncoding.readEncoding(this, input);
     }
 
     @Override

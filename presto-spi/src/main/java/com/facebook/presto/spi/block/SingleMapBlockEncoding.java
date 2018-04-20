@@ -93,6 +93,13 @@ public class SingleMapBlockEncoding
     public static class SingleMapBlockEncodingFactory
             implements BlockEncodingFactory<SingleMapBlockEncoding>
     {
+        private final TypeManager typeManager;
+
+        public SingleMapBlockEncodingFactory(TypeManager typeManager)
+        {
+            this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        }
+
         @Override
         public String getName()
         {
@@ -100,7 +107,7 @@ public class SingleMapBlockEncoding
         }
 
         @Override
-        public SingleMapBlockEncoding readEncoding(TypeManager typeManager, BlockEncodingSerde serde, SliceInput input)
+        public SingleMapBlockEncoding readEncoding(BlockEncodingSerde serde, SliceInput input)
         {
             Type keyType = TypeSerde.readType(typeManager, input);
             MethodHandle keyNativeHashCode = typeManager.resolveOperator(OperatorType.HASH_CODE, singletonList(keyType));

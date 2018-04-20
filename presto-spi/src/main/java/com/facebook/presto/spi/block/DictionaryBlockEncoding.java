@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.spi.block;
 
-import com.facebook.presto.spi.type.TypeManager;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
@@ -101,7 +100,7 @@ public class DictionaryBlockEncoding
         }
 
         @Override
-        public DictionaryBlockEncoding readEncoding(TypeManager manager, BlockEncodingSerde serde, SliceInput input)
+        public DictionaryBlockEncoding readEncoding(BlockEncodingSerde serde, SliceInput input)
         {
             BlockEncoding dictionaryEncoding = serde.readBlockEncoding(input);
             return new DictionaryBlockEncoding(dictionaryEncoding);

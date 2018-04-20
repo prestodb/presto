@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.spi.block;
 
-import com.facebook.presto.spi.type.TypeManager;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 
@@ -73,7 +72,7 @@ public class ShortArrayBlockEncoding
         }
 
         @Override
-        public ShortArrayBlockEncoding readEncoding(TypeManager manager, BlockEncodingSerde serde, SliceInput input)
+        public ShortArrayBlockEncoding readEncoding(BlockEncodingSerde serde, SliceInput input)
         {
             return new ShortArrayBlockEncoding();
         }

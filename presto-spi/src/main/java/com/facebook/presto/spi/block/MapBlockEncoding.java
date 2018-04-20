@@ -111,6 +111,13 @@ public class MapBlockEncoding
     public static class MapBlockEncodingFactory
             implements BlockEncodingFactory<MapBlockEncoding>
     {
+        private final TypeManager typeManager;
+
+        public MapBlockEncodingFactory(TypeManager typeManager)
+        {
+            this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        }
+
         @Override
         public String getName()
         {
@@ -118,7 +125,7 @@ public class MapBlockEncoding
         }
 
         @Override
-        public MapBlockEncoding readEncoding(TypeManager typeManager, BlockEncodingSerde serde, SliceInput input)
+        public MapBlockEncoding readEncoding(BlockEncodingSerde serde, SliceInput input)
         {
             Type keyType = TypeSerde.readType(typeManager, input);
             MethodHandle keyNativeEquals = typeManager.resolveOperator(OperatorType.EQUAL, asList(keyType, keyType));
