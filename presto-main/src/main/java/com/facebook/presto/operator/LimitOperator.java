@@ -56,7 +56,7 @@ public class LimitOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, LimitOperator.class.getSimpleName());
-            return new LimitOperator(operatorContext, types, limit);
+            return new LimitOperator(operatorContext, limit);
         }
 
         @Override
@@ -73,14 +73,12 @@ public class LimitOperator
     }
 
     private final OperatorContext operatorContext;
-    private final List<Type> types;
     private Page nextPage;
     private long remainingLimit;
 
-    public LimitOperator(OperatorContext operatorContext, List<Type> types, long limit)
+    public LimitOperator(OperatorContext operatorContext, long limit)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.types = requireNonNull(types, "types is null");
 
         checkArgument(limit >= 0, "limit must be at least zero");
         this.remainingLimit = limit;
@@ -90,12 +88,6 @@ public class LimitOperator
     public OperatorContext getOperatorContext()
     {
         return operatorContext;
-    }
-
-    @Override
-    public List<Type> getTypes()
-    {
-        return types;
     }
 
     @Override

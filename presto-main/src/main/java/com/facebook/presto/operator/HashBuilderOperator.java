@@ -281,12 +281,6 @@ public class HashBuilderOperator
         return operatorContext;
     }
 
-    @Override
-    public List<Type> getTypes()
-    {
-        return lookupSourceFactory.getTypes();
-    }
-
     @VisibleForTesting
     public State getState()
     {

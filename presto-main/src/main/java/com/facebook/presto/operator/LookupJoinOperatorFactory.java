@@ -155,7 +155,6 @@ public class LookupJoinOperatorFactory
         probeReferenceCount.retain();
         return new LookupJoinOperator(
                 operatorContext,
-                getTypes(),
                 probeTypes,
                 buildOutputTypes,
                 joinType,

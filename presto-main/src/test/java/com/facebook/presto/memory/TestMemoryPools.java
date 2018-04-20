@@ -26,7 +26,6 @@ import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spiller.SpillSpaceTracker;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.LocalQueryRunner;
@@ -318,12 +317,6 @@ public class TestMemoryPools
         public OperatorContext getOperatorContext()
         {
             return operatorContext;
-        }
-
-        @Override
-        public List<Type> getTypes()
-        {
-            return ImmutableList.of();
         }
 
         @Override

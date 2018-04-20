@@ -110,12 +110,6 @@ public class DeleteOperator
     }
 
     @Override
-    public List<Type> getTypes()
-    {
-        return TYPES;
-    }
-
-    @Override
     public void finish()
     {
         if (state == State.RUNNING) {

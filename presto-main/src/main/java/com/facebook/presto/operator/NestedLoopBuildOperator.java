@@ -100,12 +100,6 @@ public class NestedLoopBuildOperator
     }
 
     @Override
-    public List<Type> getTypes()
-    {
-        return nestedLoopJoinPagesSupplier.getTypes();
-    }
-
-    @Override
     public void finish()
     {
         if (finished) {

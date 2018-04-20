@@ -94,7 +94,6 @@ public class MarkDistinctOperator
     }
 
     private final OperatorContext operatorContext;
-    private final List<Type> types;
     private final MarkDistinctHash markDistinctHash;
     private final LocalMemoryContext localUserMemoryContext;
 
@@ -108,7 +107,6 @@ public class MarkDistinctOperator
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
 
-        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         requireNonNull(hashChannel, "hashChannel is null");
         requireNonNull(markDistinctChannels, "markDistinctChannels is null");
 
@@ -124,12 +122,6 @@ public class MarkDistinctOperator
     public OperatorContext getOperatorContext()
     {
         return operatorContext;
-    }
-
-    @Override
-    public List<Type> getTypes()
-    {
-        return types;
     }
 
     @Override

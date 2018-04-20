@@ -99,7 +99,6 @@ public class UnnestOperator
     private final List<Integer> unnestChannels;
     private final List<Type> unnestTypes;
     private final boolean withOrdinality;
-    private final List<Type> outputTypes;
     private final PageBuilder pageBuilder;
     private final List<Unnester> unnesters;
     private boolean finishing;
@@ -123,8 +122,7 @@ public class UnnestOperator
         if (withOrdinality) {
             outputTypesBuilder.add(BIGINT);
         }
-        this.outputTypes = outputTypesBuilder.build();
-        this.pageBuilder = new PageBuilder(outputTypes);
+        this.pageBuilder = new PageBuilder(outputTypesBuilder.build());
         this.unnesters = new ArrayList<>(unnestTypes.size());
         for (Type type : unnestTypes) {
             if (type instanceof ArrayType) {
@@ -154,12 +152,6 @@ public class UnnestOperator
     public OperatorContext getOperatorContext()
     {
         return operatorContext;
-    }
-
-    @Override
-    public final List<Type> getTypes()
-    {
-        return outputTypes;
     }
 
     @Override

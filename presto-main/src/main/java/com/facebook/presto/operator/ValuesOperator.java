@@ -56,7 +56,7 @@ public class ValuesOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, ValuesOperator.class.getSimpleName());
-            return new ValuesOperator(operatorContext, types, pages);
+            return new ValuesOperator(operatorContext, pages);
         }
 
         @Override
@@ -73,13 +73,11 @@ public class ValuesOperator
     }
 
     private final OperatorContext operatorContext;
-    private final ImmutableList<Type> types;
     private final Iterator<Page> pages;
 
-    public ValuesOperator(OperatorContext operatorContext, List<Type> types, List<Page> pages)
+    public ValuesOperator(OperatorContext operatorContext, List<Page> pages)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
 
         requireNonNull(pages, "pages is null");
 
@@ -90,12 +88,6 @@ public class ValuesOperator
     public OperatorContext getOperatorContext()
     {
         return operatorContext;
-    }
-
-    @Override
-    public List<Type> getTypes()
-    {
-        return types;
     }
 
     @Override

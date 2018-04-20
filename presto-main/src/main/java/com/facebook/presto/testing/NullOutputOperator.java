@@ -22,7 +22,6 @@ import com.facebook.presto.operator.OutputFactory;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.function.Function;
@@ -66,7 +65,7 @@ public class NullOutputOperator
         public Operator createOperator(DriverContext driverContext)
         {
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, NullOutputOperator.class.getSimpleName());
-            return new NullOutputOperator(operatorContext, types);
+            return new NullOutputOperator(operatorContext);
         }
 
         @Override
@@ -82,25 +81,17 @@ public class NullOutputOperator
     }
 
     private final OperatorContext operatorContext;
-    private final List<Type> types;
     private boolean finished;
 
-    public NullOutputOperator(OperatorContext operatorContext, List<Type> types)
+    public NullOutputOperator(OperatorContext operatorContext)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
     }
 
     @Override
     public OperatorContext getOperatorContext()
     {
         return operatorContext;
-    }
-
-    @Override
-    public List<Type> getTypes()
-    {
-        return types;
     }
 
     @Override

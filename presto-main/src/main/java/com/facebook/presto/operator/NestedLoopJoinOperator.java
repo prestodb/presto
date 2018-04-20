@@ -71,7 +71,7 @@ public class NestedLoopJoinOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, NestedLoopJoinOperator.class.getSimpleName());
-            return new NestedLoopJoinOperator(operatorContext, nestedLoopJoinPagesSupplier, probeTypes);
+            return new NestedLoopJoinOperator(operatorContext, nestedLoopJoinPagesSupplier);
         }
 
         @Override
@@ -95,7 +95,6 @@ public class NestedLoopJoinOperator
     private final ListenableFuture<NestedLoopJoinPages> nestedLoopJoinPagesFuture;
 
     private final OperatorContext operatorContext;
-    private final List<Type> types;
 
     private List<Page> buildPages;
     private Page probePage;
@@ -104,30 +103,18 @@ public class NestedLoopJoinOperator
     private boolean finishing;
     private boolean closed;
 
-    public NestedLoopJoinOperator(OperatorContext operatorContext, NestedLoopJoinPagesSupplier buildPagesSupplier, List<Type> probeTypes)
+    public NestedLoopJoinOperator(OperatorContext operatorContext, NestedLoopJoinPagesSupplier buildPagesSupplier)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.buildPagesSupplier = requireNonNull(buildPagesSupplier, "buildPagesSupplier is null");
         this.nestedLoopJoinPagesFuture = buildPagesSupplier.getPagesFuture();
         buildPagesSupplier.retain();
-
-        requireNonNull(probeTypes, "probeTypes is null");
-        this.types = ImmutableList.<Type>builder()
-                .addAll(probeTypes)
-                .addAll(buildPagesSupplier.getTypes())
-                .build();
     }
 
     @Override
     public OperatorContext getOperatorContext()
     {
         return operatorContext;
-    }
-
-    @Override
-    public List<Type> getTypes()
-    {
-        return types;
     }
 
     @Override

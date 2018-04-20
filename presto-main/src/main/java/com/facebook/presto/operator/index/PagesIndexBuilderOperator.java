@@ -94,12 +94,6 @@ public class PagesIndexBuilderOperator
     }
 
     @Override
-    public List<Type> getTypes()
-    {
-        return ImmutableList.of();
-    }
-
-    @Override
     public void finish()
     {
         finished = true;

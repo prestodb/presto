@@ -88,7 +88,6 @@ public class ExchangeOperator
 
             return new ExchangeOperator(
                     operatorContext,
-                    types,
                     sourceId,
                     serdeFactory.createPagesSerde(),
                     exchangeClient);
@@ -104,12 +103,10 @@ public class ExchangeOperator
     private final OperatorContext operatorContext;
     private final PlanNodeId sourceId;
     private final ExchangeClient exchangeClient;
-    private final List<Type> types;
     private final PagesSerde serde;
 
     public ExchangeOperator(
             OperatorContext operatorContext,
-            List<Type> types,
             PlanNodeId sourceId,
             PagesSerde serde,
             ExchangeClient exchangeClient)
@@ -118,7 +115,6 @@ public class ExchangeOperator
         this.sourceId = requireNonNull(sourceId, "sourceId is null");
         this.exchangeClient = requireNonNull(exchangeClient, "exchangeClient is null");
         this.serde = requireNonNull(serde, "serde is null");
-        this.types = requireNonNull(types, "types is null");
 
         operatorContext.setInfoSupplier(exchangeClient::getStatus);
     }
@@ -151,12 +147,6 @@ public class ExchangeOperator
     public OperatorContext getOperatorContext()
     {
         return operatorContext;
-    }
-
-    @Override
-    public List<Type> getTypes()
-    {
-        return types;
     }
 
     @Override

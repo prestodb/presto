@@ -95,7 +95,6 @@ public class AggregationOperator
     private final OperatorContext operatorContext;
     private final LocalMemoryContext systemMemoryContext;
     private final LocalMemoryContext userMemoryContext;
-    private final List<Type> types;
     private final List<Aggregator> aggregates;
 
     private State state = State.NEEDS_INPUT;
@@ -109,10 +108,8 @@ public class AggregationOperator
         requireNonNull(step, "step is null");
         this.partial = step.isOutputPartial();
 
-        requireNonNull(accumulatorFactories, "accumulatorFactories is null");
-        this.types = toTypes(step, accumulatorFactories);
-
         // wrapper each function with an aggregator
+        requireNonNull(accumulatorFactories, "accumulatorFactories is null");
         ImmutableList.Builder<Aggregator> builder = ImmutableList.builder();
         for (AccumulatorFactory accumulatorFactory : accumulatorFactories) {
             builder.add(new Aggregator(accumulatorFactory, step));
@@ -124,12 +121,6 @@ public class AggregationOperator
     public OperatorContext getOperatorContext()
     {
         return operatorContext;
-    }
-
-    @Override
-    public List<Type> getTypes()
-    {
-        return types;
     }
 
     @Override

@@ -137,12 +137,6 @@ public class TopNOperator
     }
 
     @Override
-    public List<Type> getTypes()
-    {
-        return types;
-    }
-
-    @Override
     public void finish()
     {
         finishing = true;

@@ -137,7 +137,6 @@ public class TopNRowNumberOperator
     private final OperatorContext operatorContext;
     private final LocalMemoryContext localUserMemoryContext;
 
-    private final List<Type> types;
     private final List<Integer> outputChannels;
 
     private final GroupByHash groupByHash;
@@ -175,8 +174,6 @@ public class TopNRowNumberOperator
 
         checkArgument(maxRowCountPerPartition > 0, "maxRowCountPerPartition must be > 0");
 
-        this.types = toTypes(sourceTypes, outputChannels, generateRowNumber);
-
         if (!partitionChannels.isEmpty()) {
             checkArgument(expectedPositions > 0, "expectedPositions must be > 0");
             groupByHash = createGroupByHash(
@@ -192,6 +189,7 @@ public class TopNRowNumberOperator
             groupByHash = new NoChannelGroupByHash();
         }
 
+        List<Type> types = toTypes(sourceTypes, outputChannels, generateRowNumber);
         this.groupedTopNBuilder = new GroupedTopNBuilder(
                 ImmutableList.copyOf(sourceTypes),
                 new SimplePageWithPositionComparator(types, sortChannels, sortOrders),
@@ -204,12 +202,6 @@ public class TopNRowNumberOperator
     public OperatorContext getOperatorContext()
     {
         return operatorContext;
-    }
-
-    @Override
-    public List<Type> getTypes()
-    {
-        return types;
     }
 
     @Override
