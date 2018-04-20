@@ -194,12 +194,6 @@ public class HandTpchQuery1
         }
 
         @Override
-        public List<Type> getTypes()
-        {
-            return TYPES;
-        }
-
-        @Override
         public void finish()
         {
             finishing = true;

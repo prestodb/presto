@@ -126,12 +126,6 @@ public class ExplainAnalyzeOperator
     }
 
     @Override
-    public List<Type> getTypes()
-    {
-        return ImmutableList.of(VARCHAR);
-    }
-
-    @Override
     public void finish()
     {
         finishing = true;

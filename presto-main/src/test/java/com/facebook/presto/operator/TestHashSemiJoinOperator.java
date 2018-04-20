@@ -97,7 +97,7 @@ public class TestHashSemiJoinOperator
         // build
         OperatorContext operatorContext = driverContext.addOperatorContext(0, new PlanNodeId("test"), ValuesOperator.class.getSimpleName());
         RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), BIGINT);
-        Operator buildOperator = new ValuesOperator(operatorContext, rowPagesBuilder.getTypes(), rowPagesBuilder
+        Operator buildOperator = new ValuesOperator(operatorContext, rowPagesBuilder
                 .row(10L)
                 .row(30L)
                 .row(30L)
@@ -189,7 +189,7 @@ public class TestHashSemiJoinOperator
         OperatorContext operatorContext = driverContext.addOperatorContext(0, new PlanNodeId("test"), ValuesOperator.class.getSimpleName());
         List<Type> buildTypes = ImmutableList.of(BIGINT);
         RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), buildTypes);
-        Operator buildOperator = new ValuesOperator(operatorContext, buildTypes, rowPagesBuilder
+        Operator buildOperator = new ValuesOperator(operatorContext, rowPagesBuilder
                 .row(0L)
                 .row(1L)
                 .row(2L)
@@ -245,7 +245,7 @@ public class TestHashSemiJoinOperator
         OperatorContext operatorContext = driverContext.addOperatorContext(0, new PlanNodeId("test"), ValuesOperator.class.getSimpleName());
         List<Type> buildTypes = ImmutableList.of(BIGINT);
         RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), buildTypes);
-        Operator buildOperator = new ValuesOperator(operatorContext, buildTypes, rowPagesBuilder
+        Operator buildOperator = new ValuesOperator(operatorContext, rowPagesBuilder
                 .row(0L)
                 .row(1L)
                 .row(3L)
@@ -301,7 +301,7 @@ public class TestHashSemiJoinOperator
         OperatorContext operatorContext = driverContext.addOperatorContext(0, new PlanNodeId("test"), ValuesOperator.class.getSimpleName());
         List<Type> buildTypes = ImmutableList.of(BIGINT);
         RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), buildTypes);
-        Operator buildOperator = new ValuesOperator(operatorContext, buildTypes, rowPagesBuilder
+        Operator buildOperator = new ValuesOperator(operatorContext, rowPagesBuilder
                 .row(0L)
                 .row(1L)
                 .row((Object) null)
@@ -359,7 +359,7 @@ public class TestHashSemiJoinOperator
         OperatorContext operatorContext = driverContext.addOperatorContext(0, new PlanNodeId("test"), ValuesOperator.class.getSimpleName());
         List<Type> buildTypes = ImmutableList.of(BIGINT);
         RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), buildTypes);
-        Operator buildOperator = new ValuesOperator(operatorContext, buildTypes, rowPagesBuilder
+        Operator buildOperator = new ValuesOperator(operatorContext, rowPagesBuilder
                 .addSequencePage(10000, 20)
                 .build());
         SetBuilderOperatorFactory setBuilderOperatorFactory = new SetBuilderOperatorFactory(

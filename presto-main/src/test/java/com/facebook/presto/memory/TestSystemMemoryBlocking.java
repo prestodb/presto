@@ -103,7 +103,6 @@ public class TestSystemMemoryBlocking
                         .addSequencePage(10, 1)
                         .addSequencePage(10, 1)
                         .build()),
-                types,
                 ImmutableList.of());
         PageConsumerOperator sink = createSinkOperator(types);
         Driver driver = Driver.createDriver(driverContext, source, sink);

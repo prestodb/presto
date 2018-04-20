@@ -54,7 +54,6 @@ public class LookupJoinOperator
         implements Operator
 {
     private final OperatorContext operatorContext;
-    private final List<Type> allTypes;
     private final List<Type> probeTypes;
     private final JoinProbeFactory joinProbeFactory;
     private final Runnable afterClose;
@@ -99,7 +98,6 @@ public class LookupJoinOperator
 
     public LookupJoinOperator(
             OperatorContext operatorContext,
-            List<Type> allTypes,
             List<Type> probeTypes,
             List<Type> buildOutputTypes,
             JoinType joinType,
@@ -111,7 +109,6 @@ public class LookupJoinOperator
             PartitioningSpillerFactory partitioningSpillerFactory)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.allTypes = ImmutableList.copyOf(requireNonNull(allTypes, "allTypes is null"));
         this.probeTypes = ImmutableList.copyOf(requireNonNull(probeTypes, "probeTypes is null"));
 
         requireNonNull(joinType, "joinType is null");
@@ -136,12 +133,6 @@ public class LookupJoinOperator
     public OperatorContext getOperatorContext()
     {
         return operatorContext;
-    }
-
-    @Override
-    public List<Type> getTypes()
-    {
-        return allTypes;
     }
 
     @Override

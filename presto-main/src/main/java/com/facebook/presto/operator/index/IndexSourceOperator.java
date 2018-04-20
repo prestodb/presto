@@ -29,7 +29,6 @@ import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.UpdatablePageSource;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Optional;
@@ -87,7 +86,6 @@ public class IndexSourceOperator
                     operatorContext,
                     sourceId,
                     index,
-                    types,
                     probeKeyNormalizer);
         }
 
@@ -101,7 +99,6 @@ public class IndexSourceOperator
     private final OperatorContext operatorContext;
     private final PlanNodeId planNodeId;
     private final ConnectorIndex index;
-    private final List<Type> types;
     private final Function<RecordSet, RecordSet> probeKeyNormalizer;
 
     private Operator source;
@@ -110,13 +107,11 @@ public class IndexSourceOperator
             OperatorContext operatorContext,
             PlanNodeId planNodeId,
             ConnectorIndex index,
-            List<Type> types,
             Function<RecordSet, RecordSet> probeKeyNormalizer)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
         this.index = requireNonNull(index, "index is null");
-        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.probeKeyNormalizer = requireNonNull(probeKeyNormalizer, "probeKeyNormalizer is null");
     }
 
@@ -143,7 +138,7 @@ public class IndexSourceOperator
         // Normalize the incoming RecordSet to something that can be consumed by the index
         RecordSet normalizedRecordSet = probeKeyNormalizer.apply(indexSplit.getKeyRecordSet());
         ConnectorPageSource result = index.lookup(normalizedRecordSet);
-        source = new PageSourceOperator(result, types, operatorContext);
+        source = new PageSourceOperator(result, operatorContext);
 
         Object splitInfo = split.getInfo();
         if (splitInfo != null) {
@@ -157,14 +152,8 @@ public class IndexSourceOperator
     public void noMoreSplits()
     {
         if (source == null) {
-            source = new FinishedOperator(operatorContext, types);
+            source = new FinishedOperator(operatorContext);
         }
-    }
-
-    @Override
-    public List<Type> getTypes()
-    {
-        return types;
     }
 
     @Override

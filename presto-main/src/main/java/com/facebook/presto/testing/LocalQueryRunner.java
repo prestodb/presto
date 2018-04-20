@@ -895,7 +895,7 @@ public class LocalQueryRunner
             {
                 OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, "BenchmarkSource");
                 ConnectorPageSource pageSource = pageSourceManager.createPageSource(session, split, columnHandles);
-                return new PageSourceOperator(pageSource, columnTypes, operatorContext);
+                return new PageSourceOperator(pageSource, operatorContext);
             }
 
             @Override

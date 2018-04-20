@@ -15,14 +15,11 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.type.Type;
-import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
@@ -32,15 +29,13 @@ public class PageSourceOperator
         implements Operator, Closeable
 {
     private final ConnectorPageSource pageSource;
-    private final List<Type> types;
     private final OperatorContext operatorContext;
     private long completedBytes;
     private long readTimeNanos;
 
-    public PageSourceOperator(ConnectorPageSource pageSource, List<Type> types, OperatorContext operatorContext)
+    public PageSourceOperator(ConnectorPageSource pageSource, OperatorContext operatorContext)
     {
         this.pageSource = requireNonNull(pageSource, "pageSource is null");
-        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
     }
 
@@ -48,12 +43,6 @@ public class PageSourceOperator
     public OperatorContext getOperatorContext()
     {
         return operatorContext;
-    }
-
-    @Override
-    public List<Type> getTypes()
-    {
-        return types;
     }
 
     @Override

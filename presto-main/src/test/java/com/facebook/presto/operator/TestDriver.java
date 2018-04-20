@@ -98,7 +98,7 @@ public class TestDriver
     public void testNormalFinish()
     {
         List<Type> types = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
-        ValuesOperator source = new ValuesOperator(driverContext.addOperatorContext(0, new PlanNodeId("test"), "values"), types, rowPagesBuilder(types)
+        ValuesOperator source = new ValuesOperator(driverContext.addOperatorContext(0, new PlanNodeId("test"), "values"), rowPagesBuilder(types)
                 .addSequencePage(10, 20, 30, 40)
                 .build());
 
@@ -120,7 +120,7 @@ public class TestDriver
     public void testAbruptFinish()
     {
         List<Type> types = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
-        ValuesOperator source = new ValuesOperator(driverContext.addOperatorContext(0, new PlanNodeId("test"), "values"), types, rowPagesBuilder(types)
+        ValuesOperator source = new ValuesOperator(driverContext.addOperatorContext(0, new PlanNodeId("test"), "values"), rowPagesBuilder(types)
                 .addSequencePage(10, 20, 30, 40)
                 .build());
 
@@ -158,7 +158,6 @@ public class TestDriver
                                 .build());
                     }
                 },
-                types,
                 ImmutableList.of());
 
         PageConsumerOperator sink = createSinkOperator(types);
@@ -257,7 +256,6 @@ public class TestDriver
                                 .build());
                     }
                 },
-                types,
                 ImmutableList.of());
 
         Driver driver = Driver.createDriver(driverContext, source, createSinkOperator(types));
@@ -286,7 +284,6 @@ public class TestDriver
                                 .build());
                     }
                 },
-                types,
                 ImmutableList.of());
 
         BrokenOperator brokenOperator = new BrokenOperator(driverContext.addOperatorContext(0, new PlanNodeId("test"), "source"));
@@ -409,12 +406,6 @@ public class TestDriver
         }
 
         @Override
-        public List<Type> getTypes()
-        {
-            return ImmutableList.of();
-        }
-
-        @Override
         public void finish()
         {
             waitForUnlock();
@@ -470,10 +461,9 @@ public class TestDriver
                 OperatorContext operatorContext,
                 PlanNodeId planNodeId,
                 PageSourceProvider pageSourceProvider,
-                List<Type> types,
                 Iterable<ColumnHandle> columns)
         {
-            super(operatorContext, planNodeId, pageSourceProvider, types, columns);
+            super(operatorContext, planNodeId, pageSourceProvider, columns);
         }
 
         @Override
@@ -495,10 +485,9 @@ public class TestDriver
                 OperatorContext operatorContext,
                 PlanNodeId planNodeId,
                 PageSourceProvider pageSourceProvider,
-                List<Type> types,
                 Iterable<ColumnHandle> columns)
         {
-            super(operatorContext, planNodeId, pageSourceProvider, types, columns);
+            super(operatorContext, planNodeId, pageSourceProvider, columns);
         }
 
         @Override

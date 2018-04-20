@@ -173,12 +173,6 @@ public class SpatialIndexBuilderOperator
     }
 
     @Override
-    public List<Type> getTypes()
-    {
-        return pagesSpatialIndexFactory.getTypes();
-    }
-
-    @Override
     public boolean needsInput()
     {
         return !finished;
