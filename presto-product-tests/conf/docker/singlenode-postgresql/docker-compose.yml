@@ -3,7 +3,7 @@ services:
 
   postgres:
     hostname: postgres
-    image: 'postgres'
+    image: 'postgres:10.3'
     ports:
       - '15432:15432'
     environment:
