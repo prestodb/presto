@@ -197,7 +197,7 @@ public class TestQueuesDb
         QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
         assertEquals(queryManager.getQueryInfo(queryId).getErrorCode(), QUERY_REJECTED.toErrorCode());
         int selectorCount = getSelectors(queryRunner).size();
-        dao.insertSelector(4, 100_000, "user.*", "(?i).*reject.*", null, null);
+        dao.insertSelector(4, 100_000, "user.*", "(?i).*reject.*", null, null, null);
         dbConfigurationManager.load();
         assertEquals(getSelectors(queryRunner).size(), selectorCount + 1);
         // Verify the query can be submitted
@@ -229,7 +229,7 @@ public class TestQueuesDb
         dao.insertResourceGroup(8, "reject-all-queries", "1MB", 0, 0, 0, null, null, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
 
         // add a new selector that has a higher priority than the existing dashboard selector and that routes queries to the "reject-all-queries" resource group
-        dao.insertSelector(8, 200, "user.*", "(?i).*dashboard.*", null, null);
+        dao.insertSelector(8, 200, "user.*", "(?i).*dashboard.*", null, null, null);
 
         // reload the configuration
         dbConfigurationManager.load();

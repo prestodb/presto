@@ -16,10 +16,13 @@ package com.facebook.presto.execution;
 import com.facebook.presto.Session;
 import com.facebook.presto.resourceGroups.ResourceGroupManagerPlugin;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.session.ResourceEstimates;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -141,12 +144,12 @@ public class TestQueues
 
     private QueryId createBackfill(DistributedQueryRunner queryRunner)
     {
-        return createQuery(queryRunner, newSession("backfill", ImmutableSet.of()), LONG_LASTING_QUERY);
+        return createQuery(queryRunner, newSession("backfill", ImmutableSet.of(), null), LONG_LASTING_QUERY);
     }
 
     private QueryId createScheduledQuery(DistributedQueryRunner queryRunner)
     {
-        return createQuery(queryRunner, newSession("scheduled", ImmutableSet.of()), LONG_LASTING_QUERY);
+        return createQuery(queryRunner, newSession("scheduled", ImmutableSet.of(), null), LONG_LASTING_QUERY);
     }
 
     @Test(timeOut = 240_000)
@@ -207,6 +210,62 @@ public class TestQueues
     }
 
     @Test(timeOut = 240_000)
+    public void testSelectorResourceEstimateBasedSelection()
+            throws Exception
+    {
+        try (DistributedQueryRunner queryRunner = createQueryRunner()) {
+            queryRunner.installPlugin(new ResourceGroupManagerPlugin());
+            queryRunner.getCoordinator().getResourceGroupManager().get()
+                    .setConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_resource_estimate_based_config.json")));
+
+            assertResourceGroup(
+                    queryRunner,
+                    newSessionWithResourceEstimates(new ResourceEstimates(
+                            Optional.of(Duration.valueOf("4m")),
+                            Optional.empty(),
+                            Optional.of(DataSize.valueOf("400MB")))),
+                    LONG_LASTING_QUERY,
+                    "global.small");
+
+            assertResourceGroup(
+                    queryRunner,
+                    newSessionWithResourceEstimates(new ResourceEstimates(
+                            Optional.of(Duration.valueOf("4m")),
+                            Optional.empty(),
+                            Optional.of(DataSize.valueOf("600MB")))),
+                    LONG_LASTING_QUERY,
+                    "global.other");
+
+            assertResourceGroup(
+                    queryRunner,
+                    newSessionWithResourceEstimates(new ResourceEstimates(
+                            Optional.of(Duration.valueOf("4m")),
+                            Optional.empty(),
+                            Optional.empty())),
+                    LONG_LASTING_QUERY,
+                    "global.other");
+
+            assertResourceGroup(
+                    queryRunner,
+                    newSessionWithResourceEstimates(new ResourceEstimates(
+                            Optional.of(Duration.valueOf("1s")),
+                            Optional.of(Duration.valueOf("1s")),
+                            Optional.of(DataSize.valueOf("6TB")))),
+                    LONG_LASTING_QUERY,
+                    "global.huge_memory");
+
+            assertResourceGroup(
+                    queryRunner,
+                    newSessionWithResourceEstimates(new ResourceEstimates(
+                            Optional.of(Duration.valueOf("100h")),
+                            Optional.empty(),
+                            Optional.of(DataSize.valueOf("4TB")))),
+                    LONG_LASTING_QUERY,
+                    "global.other");
+        }
+    }
+
+    @Test(timeOut = 240_000)
     public void testQueryTypeBasedSelection()
             throws Exception
     {
@@ -253,7 +312,7 @@ public class TestQueues
 
     private QueryId createDashboardQuery(DistributedQueryRunner queryRunner)
     {
-        return createQuery(queryRunner, newSession("dashboard", ImmutableSet.of()), LONG_LASTING_QUERY);
+        return createQuery(queryRunner, newSession("dashboard", ImmutableSet.of(), null), LONG_LASTING_QUERY);
     }
 
     private QueryId createAdHocQuery(DistributedQueryRunner queryRunner)
@@ -263,26 +322,32 @@ public class TestQueues
 
     private static Session newAdhocSession()
     {
-        return newSession("adhoc", ImmutableSet.of());
+        return newSession("adhoc", ImmutableSet.of(), null);
     }
 
     private static Session newRejectionSession()
     {
-        return newSession("reject", ImmutableSet.of());
+        return newSession("reject", ImmutableSet.of(), null);
     }
 
     private static Session newSessionWithTags(Set<String> clientTags)
     {
-        return newSession("sessionWithTags", clientTags);
+        return newSession("sessionWithTags", clientTags, null);
     }
 
-    private static Session newSession(String source, Set<String> clientTags)
+    private static Session newSessionWithResourceEstimates(ResourceEstimates resourceEstimates)
+    {
+        return newSession("sessionWithTags", ImmutableSet.of(), resourceEstimates);
+    }
+
+    private static Session newSession(String source, Set<String> clientTags, ResourceEstimates resourceEstimates)
     {
         return testSessionBuilder()
                 .setCatalog("tpch")
                 .setSchema("sf100000")
                 .setSource(source)
                 .setClientTags(clientTags)
+                .setResourceEstimates(resourceEstimates)
                 .build();
     }
 }

@@ -18,6 +18,7 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManager;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
 import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
+import com.facebook.presto.spi.session.ResourceEstimates;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
@@ -39,6 +40,8 @@ import static org.testng.Assert.fail;
 
 public class TestFileResourceGroupConfigurationManager
 {
+    private static final ResourceEstimates EMPTY_RESOURCE_ESTIMATES = new ResourceEstimates(Optional.empty(), Optional.empty(), Optional.empty());
+
     @Test
     public void testInvalid()
     {
@@ -57,13 +60,13 @@ public class TestFileResourceGroupConfigurationManager
     {
         FileResourceGroupConfigurationManager manager = parse("resource_groups_config_query_type.json");
         List<ResourceGroupSelector> selectors = manager.getSelectors();
-        assertMatch(selectors, new SelectionCriteria(true, "test_user", Optional.empty(), ImmutableSet.of(), Optional.of("select")), "global.select");
-        assertMatch(selectors, new SelectionCriteria(true, "test_user", Optional.empty(), ImmutableSet.of(), Optional.of("explain")), "global.explain");
-        assertMatch(selectors, new SelectionCriteria(true, "test_user", Optional.empty(), ImmutableSet.of(), Optional.of("insert")), "global.insert");
-        assertMatch(selectors, new SelectionCriteria(true, "test_user", Optional.empty(), ImmutableSet.of(), Optional.of("delete")), "global.delete");
-        assertMatch(selectors, new SelectionCriteria(true, "test_user", Optional.empty(), ImmutableSet.of(), Optional.of("describe")), "global.describe");
-        assertMatch(selectors, new SelectionCriteria(true, "test_user", Optional.empty(), ImmutableSet.of(), Optional.of("data_definition")), "global.data_definition");
-        assertMatch(selectors, new SelectionCriteria(true, "test_user", Optional.empty(), ImmutableSet.of(), Optional.of("sth_else")), "global.other");
+        assertMatch(selectors, new SelectionCriteria(true, "test_user", Optional.empty(), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, Optional.of("select")), "global.select");
+        assertMatch(selectors, new SelectionCriteria(true, "test_user", Optional.empty(), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, Optional.of("explain")), "global.explain");
+        assertMatch(selectors, new SelectionCriteria(true, "test_user", Optional.empty(), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, Optional.of("insert")), "global.insert");
+        assertMatch(selectors, new SelectionCriteria(true, "test_user", Optional.empty(), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, Optional.of("delete")), "global.delete");
+        assertMatch(selectors, new SelectionCriteria(true, "test_user", Optional.empty(), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, Optional.of("describe")), "global.describe");
+        assertMatch(selectors, new SelectionCriteria(true, "test_user", Optional.empty(), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, Optional.of("data_definition")), "global.data_definition");
+        assertMatch(selectors, new SelectionCriteria(true, "test_user", Optional.empty(), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, Optional.of("sth_else")), "global.other");
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Selector specifies an invalid query type: invalid_query_type")
