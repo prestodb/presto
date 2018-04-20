@@ -42,7 +42,7 @@ public class ArrayBlockEncoding
 
         int valuesStartOffset = offsets[offsetBase];
         int valuesEndOffset = offsets[offsetBase + positionCount];
-        Block values = arrayBlock.getValues().getRegion(valuesStartOffset, valuesEndOffset - valuesStartOffset);
+        Block values = arrayBlock.getRawElementBlock().getRegion(valuesStartOffset, valuesEndOffset - valuesStartOffset);
         blockEncodingSerde.writeBlock(sliceOutput, values);
 
         sliceOutput.appendInt(positionCount);

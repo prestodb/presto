@@ -36,7 +36,7 @@ public class SingleRowBlockEncoding
         int rowIndex = singleRowBlock.getRowIndex();
         sliceOutput.appendInt(numFields);
         for (int i = 0; i < numFields; i++) {
-            blockEncodingSerde.writeBlock(sliceOutput, singleRowBlock.getFieldBlock(i).getRegion(rowIndex, 1));
+            blockEncodingSerde.writeBlock(sliceOutput, singleRowBlock.getRawFieldBlock(i).getRegion(rowIndex, 1));
         }
     }
 

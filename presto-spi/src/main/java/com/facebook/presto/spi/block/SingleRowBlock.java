@@ -39,7 +39,7 @@ public class SingleRowBlock
     }
 
     @Override
-    protected Block getFieldBlock(int fieldIndex)
+    protected Block getRawFieldBlock(int fieldIndex)
     {
         return fieldBlocks[fieldIndex];
     }
@@ -55,7 +55,7 @@ public class SingleRowBlock
     {
         long sizeInBytes = 0;
         for (int i = 0; i < fieldBlocks.length; i++) {
-            sizeInBytes += getFieldBlock(i).getSizeInBytes();
+            sizeInBytes += getRawFieldBlock(i).getSizeInBytes();
         }
         return sizeInBytes;
     }
@@ -65,7 +65,7 @@ public class SingleRowBlock
     {
         long retainedSizeInBytes = INSTANCE_SIZE;
         for (int i = 0; i < fieldBlocks.length; i++) {
-            retainedSizeInBytes += getFieldBlock(i).getRetainedSizeInBytes();
+            retainedSizeInBytes += getRawFieldBlock(i).getRetainedSizeInBytes();
         }
         return retainedSizeInBytes;
     }

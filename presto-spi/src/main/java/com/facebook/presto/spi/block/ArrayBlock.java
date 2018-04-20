@@ -143,7 +143,7 @@ public class ArrayBlock
     }
 
     @Override
-    protected Block getValues()
+    protected Block getRawElementBlock()
     {
         return values;
     }

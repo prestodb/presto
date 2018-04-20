@@ -22,7 +22,7 @@ import static com.facebook.presto.spi.block.BlockUtil.compactOffsets;
 public abstract class AbstractArrayBlock
         implements Block
 {
-    protected abstract Block getValues();
+    protected abstract Block getRawElementBlock();
 
     protected abstract int[] getOffsets();
 
@@ -70,7 +70,7 @@ public abstract class AbstractArrayBlock
             }
             newPosition++;
         }
-        Block newValues = getValues().copyPositions(valuesPositions.elements(), 0, valuesPositions.size());
+        Block newValues = getRawElementBlock().copyPositions(valuesPositions.elements(), 0, valuesPositions.size());
         return createArrayBlockInternal(0, length, newValueIsNull, newOffsets, newValues);
     }
 
@@ -85,7 +85,7 @@ public abstract class AbstractArrayBlock
                 length,
                 getValueIsNull(),
                 getOffsets(),
-                getValues());
+                getRawElementBlock());
     }
 
     @Override
@@ -97,7 +97,7 @@ public abstract class AbstractArrayBlock
         int valueStart = getOffsets()[getOffsetBase() + position];
         int valueEnd = getOffsets()[getOffsetBase() + position + length];
 
-        return getValues().getRegionSizeInBytes(valueStart, valueEnd - valueStart) + ((Integer.BYTES + Byte.BYTES) * (long) length);
+        return getRawElementBlock().getRegionSizeInBytes(valueStart, valueEnd - valueStart) + ((Integer.BYTES + Byte.BYTES) * (long) length);
     }
 
     @Override
@@ -108,12 +108,12 @@ public abstract class AbstractArrayBlock
 
         int startValueOffset = getOffset(position);
         int endValueOffset = getOffset(position + length);
-        Block newValues = getValues().copyRegion(startValueOffset, endValueOffset - startValueOffset);
+        Block newValues = getRawElementBlock().copyRegion(startValueOffset, endValueOffset - startValueOffset);
 
         int[] newOffsets = compactOffsets(getOffsets(), position + getOffsetBase(), length);
         boolean[] newValueIsNull = compactArray(getValueIsNull(), position + getOffsetBase(), length);
 
-        if (newValues == getValues() && newOffsets == getOffsets() && newValueIsNull == getValueIsNull()) {
+        if (newValues == getRawElementBlock() && newOffsets == getOffsets() && newValueIsNull == getValueIsNull()) {
             return this;
         }
         return createArrayBlockInternal(0, length, newValueIsNull, newOffsets, newValues);
@@ -129,7 +129,7 @@ public abstract class AbstractArrayBlock
 
         int startValueOffset = getOffset(position);
         int endValueOffset = getOffset(position + 1);
-        return clazz.cast(getValues().getRegion(startValueOffset, endValueOffset - startValueOffset));
+        return clazz.cast(getRawElementBlock().getRegion(startValueOffset, endValueOffset - startValueOffset));
     }
 
     @Override
@@ -146,7 +146,7 @@ public abstract class AbstractArrayBlock
 
         int startValueOffset = getOffset(position);
         int valueLength = getOffset(position + 1) - startValueOffset;
-        Block newValues = getValues().copyRegion(startValueOffset, valueLength);
+        Block newValues = getRawElementBlock().copyRegion(startValueOffset, valueLength);
 
         return createArrayBlockInternal(
                 0,
@@ -169,7 +169,7 @@ public abstract class AbstractArrayBlock
 
         int startValueOffset = getOffset(position);
         int endValueOffset = getOffset(position + 1);
-        return function.apply(getValues(), startValueOffset, endValueOffset - startValueOffset);
+        return function.apply(getRawElementBlock(), startValueOffset, endValueOffset - startValueOffset);
     }
 
     private void checkReadablePosition(int position)

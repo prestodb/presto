@@ -58,8 +58,8 @@ public class SingleMapBlockEncoding
 
         int offset = singleMapBlock.getOffset();
         int positionCount = singleMapBlock.getPositionCount();
-        blockEncodingSerde.writeBlock(sliceOutput, singleMapBlock.getKeyBlock().getRegion(offset / 2, positionCount / 2));
-        blockEncodingSerde.writeBlock(sliceOutput, singleMapBlock.getValueBlock().getRegion(offset / 2, positionCount / 2));
+        blockEncodingSerde.writeBlock(sliceOutput, singleMapBlock.getRawKeyBlock().getRegion(offset / 2, positionCount / 2));
+        blockEncodingSerde.writeBlock(sliceOutput, singleMapBlock.getRawValueBlock().getRegion(offset / 2, positionCount / 2));
         int[] hashTable = singleMapBlock.getHashTable();
         sliceOutput.appendInt(positionCount / 2 * HASH_MULTIPLIER);
         sliceOutput.writeBytes(wrappedIntArray(hashTable, offset / 2 * HASH_MULTIPLIER, positionCount / 2 * HASH_MULTIPLIER));

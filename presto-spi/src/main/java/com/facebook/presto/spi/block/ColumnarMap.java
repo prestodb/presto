@@ -46,8 +46,8 @@ public class ColumnarMap
         // get the keys and values for visible region
         int firstEntryPosition = mapBlock.getOffset(0);
         int totalEntryCount = mapBlock.getOffset(block.getPositionCount()) - firstEntryPosition;
-        Block keysBlock = mapBlock.getKeys().getRegion(firstEntryPosition, totalEntryCount);
-        Block valuesBlock = mapBlock.getValues().getRegion(firstEntryPosition, totalEntryCount);
+        Block keysBlock = mapBlock.getRawKeyBlock().getRegion(firstEntryPosition, totalEntryCount);
+        Block valuesBlock = mapBlock.getRawValueBlock().getRegion(firstEntryPosition, totalEntryCount);
 
         return new ColumnarMap(block, offsetBase, offsets, keysBlock, valuesBlock);
     }

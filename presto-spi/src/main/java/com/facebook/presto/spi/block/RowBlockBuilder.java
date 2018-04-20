@@ -68,7 +68,7 @@ public class RowBlockBuilder
     }
 
     @Override
-    protected Block[] getFieldBlocks()
+    protected Block[] getRawFieldBlocks()
     {
         return fieldBlockBuilders;
     }
@@ -251,11 +251,11 @@ public class RowBlockBuilder
 
         int fieldBlockOffset = rowBlock.getFieldBlockOffset(position);
         for (int i = 0; i < rowBlock.numFields; i++) {
-            if (rowBlock.getFieldBlocks()[i].isNull(fieldBlockOffset)) {
+            if (rowBlock.getRawFieldBlocks()[i].isNull(fieldBlockOffset)) {
                 entryBuilder.appendNull();
             }
             else {
-                rowBlock.getFieldBlocks()[i].writePositionTo(fieldBlockOffset, entryBuilder);
+                rowBlock.getRawFieldBlocks()[i].writePositionTo(fieldBlockOffset, entryBuilder);
             }
         }
 

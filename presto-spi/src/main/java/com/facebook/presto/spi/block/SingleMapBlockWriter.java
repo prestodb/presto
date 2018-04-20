@@ -49,13 +49,13 @@ public class SingleMapBlockWriter
     }
 
     @Override
-    Block getKeyBlock()
+    Block getRawKeyBlock()
     {
         return keyBlockBuilder;
     }
 
     @Override
-    Block getValueBlock()
+    Block getRawValueBlock()
     {
         return valueBlockBuilder;
     }

@@ -192,13 +192,13 @@ public class MapBlock
     }
 
     @Override
-    protected Block getKeys()
+    protected Block getRawKeyBlock()
     {
         return keyBlock;
     }
 
     @Override
-    protected Block getValues()
+    protected Block getRawValueBlock()
     {
         return valueBlock;
     }

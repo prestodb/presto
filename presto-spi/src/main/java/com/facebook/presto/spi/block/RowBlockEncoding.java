@@ -46,7 +46,7 @@ public class RowBlockEncoding
 
         sliceOutput.appendInt(numFields);
         for (int i = 0; i < numFields; i++) {
-            blockEncodingSerde.writeBlock(sliceOutput, rowBlock.getFieldBlocks()[i].getRegion(startFieldBlockOffset, endFieldBlockOffset - startFieldBlockOffset));
+            blockEncodingSerde.writeBlock(sliceOutput, rowBlock.getRawFieldBlocks()[i].getRegion(startFieldBlockOffset, endFieldBlockOffset - startFieldBlockOffset));
         }
 
         sliceOutput.appendInt(positionCount);

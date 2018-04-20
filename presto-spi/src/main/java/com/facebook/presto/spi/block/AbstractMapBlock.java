@@ -45,9 +45,9 @@ public abstract class AbstractMapBlock
         this.keyBlockNativeEquals = keyBlockNativeEquals;
     }
 
-    protected abstract Block getKeys();
+    protected abstract Block getRawKeyBlock();
 
-    protected abstract Block getValues();
+    protected abstract Block getRawValueBlock();
 
     protected abstract int[] getHashTables();
 
@@ -119,8 +119,8 @@ public abstract class AbstractMapBlock
             }
         }
 
-        Block newKeys = getKeys().copyPositions(entriesPositions.elements(), 0, entriesPositions.size());
-        Block newValues = getValues().copyPositions(entriesPositions.elements(), 0, entriesPositions.size());
+        Block newKeys = getRawKeyBlock().copyPositions(entriesPositions.elements(), 0, entriesPositions.size());
+        Block newValues = getRawValueBlock().copyPositions(entriesPositions.elements(), 0, entriesPositions.size());
         return createMapBlockInternal(0, length, newMapIsNull, newOffsets, newKeys, newValues, newHashTable, keyType, keyBlockNativeEquals, keyNativeHashCode);
     }
 
@@ -135,8 +135,8 @@ public abstract class AbstractMapBlock
                 length,
                 getMapIsNull(),
                 getOffsets(),
-                getKeys(),
-                getValues(),
+                getRawKeyBlock(),
+                getRawValueBlock(),
                 getHashTables(),
                 keyType,
                 keyBlockNativeEquals,
@@ -153,8 +153,8 @@ public abstract class AbstractMapBlock
         int entriesEnd = getOffsets()[getOffsetBase() + position + length];
         int entryCount = entriesEnd - entriesStart;
 
-        return getKeys().getRegionSizeInBytes(entriesStart, entryCount) +
-                getValues().getRegionSizeInBytes(entriesStart, entryCount) +
+        return getRawKeyBlock().getRegionSizeInBytes(entriesStart, entryCount) +
+                getRawValueBlock().getRegionSizeInBytes(entriesStart, entryCount) +
                 (Integer.BYTES + Byte.BYTES) * (long) length +
                 Integer.BYTES * HASH_MULTIPLIER * (long) entryCount;
     }
@@ -167,14 +167,14 @@ public abstract class AbstractMapBlock
 
         int startValueOffset = getOffset(position);
         int endValueOffset = getOffset(position + length);
-        Block newKeys = getKeys().copyRegion(startValueOffset, endValueOffset - startValueOffset);
-        Block newValues = getValues().copyRegion(startValueOffset, endValueOffset - startValueOffset);
+        Block newKeys = getRawKeyBlock().copyRegion(startValueOffset, endValueOffset - startValueOffset);
+        Block newValues = getRawValueBlock().copyRegion(startValueOffset, endValueOffset - startValueOffset);
 
         int[] newOffsets = compactOffsets(getOffsets(), position + getOffsetBase(), length);
         boolean[] newMapIsNull = compactArray(getMapIsNull(), position + getOffsetBase(), length);
         int[] newHashTable = compactArray(getHashTables(), startValueOffset * HASH_MULTIPLIER, (endValueOffset - startValueOffset) * HASH_MULTIPLIER);
 
-        if (newKeys == getKeys() && newValues == getValues() && newOffsets == getOffsets() && newMapIsNull == getMapIsNull() && newHashTable == getHashTables()) {
+        if (newKeys == getRawKeyBlock() && newValues == getRawValueBlock() && newOffsets == getOffsets() && newMapIsNull == getMapIsNull() && newHashTable == getHashTables()) {
             return this;
         }
         return createMapBlockInternal(
@@ -203,8 +203,8 @@ public abstract class AbstractMapBlock
         return clazz.cast(new SingleMapBlock(
                 startEntryOffset * 2,
                 (endEntryOffset - startEntryOffset) * 2,
-                getKeys(),
-                getValues(),
+                getRawKeyBlock(),
+                getRawValueBlock(),
                 getHashTables(),
                 keyType,
                 keyNativeHashCode,
@@ -226,8 +226,8 @@ public abstract class AbstractMapBlock
         int startValueOffset = getOffset(position);
         int endValueOffset = getOffset(position + 1);
         int valueLength = endValueOffset - startValueOffset;
-        Block newKeys = getKeys().copyRegion(startValueOffset, valueLength);
-        Block newValues = getValues().copyRegion(startValueOffset, valueLength);
+        Block newKeys = getRawKeyBlock().copyRegion(startValueOffset, valueLength);
+        Block newValues = getRawValueBlock().copyRegion(startValueOffset, valueLength);
         int[] newHashTable = Arrays.copyOfRange(getHashTables(), startValueOffset * HASH_MULTIPLIER, endValueOffset * HASH_MULTIPLIER);
 
         return createMapBlockInternal(

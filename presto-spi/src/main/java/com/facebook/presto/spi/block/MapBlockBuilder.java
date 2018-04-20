@@ -98,13 +98,13 @@ public class MapBlockBuilder
     }
 
     @Override
-    protected Block getKeys()
+    protected Block getRawKeyBlock()
     {
         return keyBlockBuilder;
     }
 
     @Override
-    protected Block getValues()
+    protected Block getRawValueBlock()
     {
         return valueBlockBuilder;
     }
@@ -343,17 +343,17 @@ public class MapBlockBuilder
         int startValueOffset = mapBlock.getOffset(position);
         int endValueOffset = mapBlock.getOffset(position + 1);
         for (int i = startValueOffset; i < endValueOffset; i++) {
-            if (mapBlock.getKeys().isNull(i)) {
+            if (mapBlock.getRawKeyBlock().isNull(i)) {
                 throw new IllegalArgumentException("Map keys must not be null");
             }
             else {
-                mapBlock.getKeys().writePositionTo(i, keyBlockBuilder);
+                mapBlock.getRawKeyBlock().writePositionTo(i, keyBlockBuilder);
             }
-            if (mapBlock.getValues().isNull(i)) {
+            if (mapBlock.getRawValueBlock().isNull(i)) {
                 valueBlockBuilder.appendNull();
             }
             else {
-                mapBlock.getValues().writePositionTo(i, valueBlockBuilder);
+                mapBlock.getRawValueBlock().writePositionTo(i, valueBlockBuilder);
             }
         }
 

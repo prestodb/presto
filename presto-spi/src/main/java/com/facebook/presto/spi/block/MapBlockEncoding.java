@@ -66,8 +66,8 @@ public class MapBlockEncoding
 
         TypeSerde.writeType(sliceOutput, mapBlock.keyType);
 
-        blockEncodingSerde.writeBlock(sliceOutput, mapBlock.getKeys().getRegion(entriesStartOffset, entriesEndOffset - entriesStartOffset));
-        blockEncodingSerde.writeBlock(sliceOutput, mapBlock.getValues().getRegion(entriesStartOffset, entriesEndOffset - entriesStartOffset));
+        blockEncodingSerde.writeBlock(sliceOutput, mapBlock.getRawKeyBlock().getRegion(entriesStartOffset, entriesEndOffset - entriesStartOffset));
+        blockEncodingSerde.writeBlock(sliceOutput, mapBlock.getRawValueBlock().getRegion(entriesStartOffset, entriesEndOffset - entriesStartOffset));
 
         sliceOutput.appendInt((entriesEndOffset - entriesStartOffset) * HASH_MULTIPLIER);
         sliceOutput.writeBytes(wrappedIntArray(hashTable, entriesStartOffset * HASH_MULTIPLIER, (entriesEndOffset - entriesStartOffset) * HASH_MULTIPLIER));

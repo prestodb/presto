@@ -96,13 +96,13 @@ public class SingleMapBlock
     }
 
     @Override
-    Block getKeyBlock()
+    Block getRawKeyBlock()
     {
         return keyBlock;
     }
 
     @Override
-    Block getValueBlock()
+    Block getRawValueBlock()
     {
         return valueBlock;
     }

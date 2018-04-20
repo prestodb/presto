@@ -115,7 +115,7 @@ public class ArrayBlockBuilder
     }
 
     @Override
-    protected Block getValues()
+    protected Block getRawElementBlock()
     {
         return values;
     }
@@ -172,11 +172,11 @@ public class ArrayBlockBuilder
         int startValueOffset = arrayBlock.getOffset(position);
         int endValueOffset = arrayBlock.getOffset(position + 1);
         for (int i = startValueOffset; i < endValueOffset; i++) {
-            if (arrayBlock.getValues().isNull(i)) {
+            if (arrayBlock.getRawElementBlock().isNull(i)) {
                 entryBuilder.appendNull();
             }
             else {
-                arrayBlock.getValues().writePositionTo(i, entryBuilder);
+                arrayBlock.getRawElementBlock().writePositionTo(i, entryBuilder);
             }
         }
 

@@ -116,7 +116,7 @@ public class RowBlock
     }
 
     @Override
-    protected Block[] getFieldBlocks()
+    protected Block[] getRawFieldBlocks()
     {
         return fieldBlocks;
     }

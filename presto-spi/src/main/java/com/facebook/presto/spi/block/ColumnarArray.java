@@ -38,7 +38,7 @@ public class ColumnarArray
         }
 
         AbstractArrayBlock arrayBlock = (AbstractArrayBlock) block;
-        Block elementsBlock = arrayBlock.getValues();
+        Block elementsBlock = arrayBlock.getRawElementBlock();
 
         // trim elements to just visible region
         int elementsOffset = 0;
