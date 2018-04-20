@@ -93,7 +93,13 @@ public abstract class AbstractResourceConfigurationManager
         ImmutableList.Builder<ResourceGroupSelector> selectors = ImmutableList.builder();
         for (SelectorSpec spec : managerSpec.getSelectors()) {
             validateSelectors(managerSpec.getRootGroups(), spec);
-            selectors.add(new StaticSelector(spec.getUserRegex(), spec.getSourceRegex(), spec.getClientTags(), spec.getQueryType(), spec.getGroup()));
+            selectors.add(new StaticSelector(
+                    spec.getUserRegex(),
+                    spec.getSourceRegex(),
+                    spec.getClientTags(),
+                    spec.getResourceEstimate(),
+                    spec.getQueryType(),
+                    spec.getGroup()));
         }
         return selectors.build();
     }

@@ -395,6 +395,7 @@ public class SqlQueryManager
                     sessionContext.getIdentity().getUser(),
                     Optional.ofNullable(sessionContext.getSource()),
                     sessionContext.getClientTags(),
+                    sessionContext.getResourceEstimates(),
                     queryType));
 
             session = sessionSupplier.createSession(queryId, sessionContext, queryType, selectionContext.getResourceGroupId());
