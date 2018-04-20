@@ -25,7 +25,6 @@ import static com.facebook.presto.spi.block.EncoderUtil.encodeNullsAsBits;
 public class FixedWidthBlockEncoding
         implements BlockEncoding
 {
-    public static final BlockEncodingFactory<FixedWidthBlockEncoding> FACTORY = new FixedWidthBlockEncodingFactory();
     private static final String NAME = "FIXED_WIDTH";
     private final int fixedSize;
 

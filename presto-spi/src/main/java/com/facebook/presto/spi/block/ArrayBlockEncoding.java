@@ -23,7 +23,6 @@ import static com.facebook.presto.spi.block.ArrayBlock.createArrayBlockInternal;
 public class ArrayBlockEncoding
         implements BlockEncoding
 {
-    public static final BlockEncodingFactory<ArrayBlockEncoding> FACTORY = new ArrayBlockEncodingFactory();
     private static final String NAME = "ARRAY";
 
     private final BlockEncoding valueBlockEncoding;

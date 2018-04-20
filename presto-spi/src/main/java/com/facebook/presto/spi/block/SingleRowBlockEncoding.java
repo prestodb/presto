@@ -23,7 +23,6 @@ import static java.util.Objects.requireNonNull;
 public class SingleRowBlockEncoding
         implements BlockEncoding
 {
-    public static final BlockEncodingFactory<SingleRowBlockEncoding> FACTORY = new SingleRowBlockEncodingFactory();
     private static final String NAME = "ROW_ELEMENT";
 
     private final BlockEncoding[] fieldBlockEncodings;

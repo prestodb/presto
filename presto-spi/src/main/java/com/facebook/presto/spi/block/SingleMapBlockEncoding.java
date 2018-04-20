@@ -35,7 +35,6 @@ import static java.util.Objects.requireNonNull;
 public class SingleMapBlockEncoding
         implements BlockEncoding
 {
-    public static final BlockEncodingFactory<SingleMapBlockEncoding> FACTORY = new SingleMapBlockEncodingFactory();
     private static final String NAME = "MAP_ELEMENT";
 
     private final Type keyType;

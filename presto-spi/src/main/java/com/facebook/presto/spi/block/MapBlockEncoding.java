@@ -36,7 +36,6 @@ import static java.util.Objects.requireNonNull;
 public class MapBlockEncoding
         implements BlockEncoding
 {
-    public static final BlockEncodingFactory<MapBlockEncoding> FACTORY = new MapBlockEncodingFactory();
     private static final String NAME = "MAP";
 
     private final Type keyType;

@@ -22,7 +22,6 @@ import static java.util.Objects.requireNonNull;
 public class RunLengthBlockEncoding
         implements BlockEncoding
 {
-    public static final BlockEncodingFactory<RunLengthBlockEncoding> FACTORY = new RunLengthBlockEncodingFactory();
     private static final String NAME = "RLE";
 
     private final BlockEncoding valueBlockEncoding;
@@ -67,7 +66,7 @@ public class RunLengthBlockEncoding
         return new RunLengthEncodedBlock(value, positionCount);
     }
 
-    private static class RunLengthBlockEncodingFactory
+    public static class RunLengthBlockEncodingFactory
             implements BlockEncodingFactory<RunLengthBlockEncoding>
     {
         @Override

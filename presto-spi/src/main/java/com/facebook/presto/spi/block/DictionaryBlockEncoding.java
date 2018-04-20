@@ -23,7 +23,6 @@ import static java.util.Objects.requireNonNull;
 public class DictionaryBlockEncoding
         implements BlockEncoding
 {
-    public static final BlockEncodingFactory<DictionaryBlockEncoding> FACTORY = new DictionaryBlockEncodingFactory();
     private static final String NAME = "DICTIONARY";
     private final BlockEncoding dictionaryEncoding;
 

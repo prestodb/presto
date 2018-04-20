@@ -26,7 +26,6 @@ import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 public class VariableWidthBlockEncoding
         implements BlockEncoding
 {
-    public static final BlockEncodingFactory<VariableWidthBlockEncoding> FACTORY = new VariableWidthBlockEncodingFactory();
     private static final String NAME = "VARIABLE_WIDTH";
 
     @Override

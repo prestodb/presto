@@ -13,22 +13,22 @@
  */
 package com.facebook.presto.block;
 
-import com.facebook.presto.spi.block.ArrayBlockEncoding;
+import com.facebook.presto.spi.block.ArrayBlockEncoding.ArrayBlockEncodingFactory;
 import com.facebook.presto.spi.block.BlockEncoding;
 import com.facebook.presto.spi.block.BlockEncodingFactory;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
-import com.facebook.presto.spi.block.ByteArrayBlockEncoding;
-import com.facebook.presto.spi.block.DictionaryBlockEncoding;
-import com.facebook.presto.spi.block.FixedWidthBlockEncoding;
-import com.facebook.presto.spi.block.IntArrayBlockEncoding;
-import com.facebook.presto.spi.block.LongArrayBlockEncoding;
-import com.facebook.presto.spi.block.MapBlockEncoding;
-import com.facebook.presto.spi.block.RowBlockEncoding;
-import com.facebook.presto.spi.block.RunLengthBlockEncoding;
-import com.facebook.presto.spi.block.ShortArrayBlockEncoding;
-import com.facebook.presto.spi.block.SingleMapBlockEncoding;
-import com.facebook.presto.spi.block.SingleRowBlockEncoding;
-import com.facebook.presto.spi.block.VariableWidthBlockEncoding;
+import com.facebook.presto.spi.block.ByteArrayBlockEncoding.ByteArrayBlockEncodingFactory;
+import com.facebook.presto.spi.block.DictionaryBlockEncoding.DictionaryBlockEncodingFactory;
+import com.facebook.presto.spi.block.FixedWidthBlockEncoding.FixedWidthBlockEncodingFactory;
+import com.facebook.presto.spi.block.IntArrayBlockEncoding.IntArrayBlockEncodingFactory;
+import com.facebook.presto.spi.block.LongArrayBlockEncoding.LongArrayBlockEncodingFactory;
+import com.facebook.presto.spi.block.MapBlockEncoding.MapBlockEncodingFactory;
+import com.facebook.presto.spi.block.RowBlockEncoding.RowBlockEncodingFactory;
+import com.facebook.presto.spi.block.RunLengthBlockEncoding.RunLengthBlockEncodingFactory;
+import com.facebook.presto.spi.block.ShortArrayBlockEncoding.ShortArrayBlockEncodingFactory;
+import com.facebook.presto.spi.block.SingleMapBlockEncoding.SingleMapBlockEncodingFactory;
+import com.facebook.presto.spi.block.SingleRowBlockEncoding.SingleRowBlockEncodingFactory;
+import com.facebook.presto.spi.block.VariableWidthBlockEncoding.VariableWidthBlockEncodingFactory;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.SliceInput;
@@ -63,19 +63,19 @@ public final class BlockEncodingManager
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
 
         // always add the built-in BlockEncodingFactories
-        addBlockEncodingFactory(VariableWidthBlockEncoding.FACTORY);
-        addBlockEncodingFactory(FixedWidthBlockEncoding.FACTORY);
-        addBlockEncodingFactory(ByteArrayBlockEncoding.FACTORY);
-        addBlockEncodingFactory(ShortArrayBlockEncoding.FACTORY);
-        addBlockEncodingFactory(IntArrayBlockEncoding.FACTORY);
-        addBlockEncodingFactory(LongArrayBlockEncoding.FACTORY);
-        addBlockEncodingFactory(DictionaryBlockEncoding.FACTORY);
-        addBlockEncodingFactory(ArrayBlockEncoding.FACTORY);
-        addBlockEncodingFactory(MapBlockEncoding.FACTORY);
-        addBlockEncodingFactory(SingleMapBlockEncoding.FACTORY);
-        addBlockEncodingFactory(RowBlockEncoding.FACTORY);
-        addBlockEncodingFactory(SingleRowBlockEncoding.FACTORY);
-        addBlockEncodingFactory(RunLengthBlockEncoding.FACTORY);
+        addBlockEncodingFactory(new VariableWidthBlockEncodingFactory());
+        addBlockEncodingFactory(new FixedWidthBlockEncodingFactory());
+        addBlockEncodingFactory(new ByteArrayBlockEncodingFactory());
+        addBlockEncodingFactory(new ShortArrayBlockEncodingFactory());
+        addBlockEncodingFactory(new IntArrayBlockEncodingFactory());
+        addBlockEncodingFactory(new LongArrayBlockEncodingFactory());
+        addBlockEncodingFactory(new DictionaryBlockEncodingFactory());
+        addBlockEncodingFactory(new ArrayBlockEncodingFactory());
+        addBlockEncodingFactory(new MapBlockEncodingFactory());
+        addBlockEncodingFactory(new SingleMapBlockEncodingFactory());
+        addBlockEncodingFactory(new RowBlockEncodingFactory());
+        addBlockEncodingFactory(new SingleRowBlockEncodingFactory());
+        addBlockEncodingFactory(new RunLengthBlockEncodingFactory());
 
         for (BlockEncodingFactory<?> factory : requireNonNull(blockEncodingFactories, "blockEncodingFactories is null")) {
             addBlockEncodingFactory(factory);

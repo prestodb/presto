@@ -23,7 +23,6 @@ import static com.facebook.presto.spi.block.EncoderUtil.encodeNullsAsBits;
 public class LongArrayBlockEncoding
         implements BlockEncoding
 {
-    public static final BlockEncodingFactory<LongArrayBlockEncoding> FACTORY = new LongArrayBlockEncodingFactory();
     private static final String NAME = "LONG_ARRAY";
 
     @Override

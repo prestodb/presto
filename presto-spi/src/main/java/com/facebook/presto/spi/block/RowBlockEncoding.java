@@ -25,7 +25,6 @@ import static java.util.Objects.requireNonNull;
 public class RowBlockEncoding
         implements BlockEncoding
 {
-    public static final BlockEncodingFactory<RowBlockEncoding> FACTORY = new RowBlockEncodingFactory();
     private static final String NAME = "ROW";
 
     private final BlockEncoding[] fieldBlockEncodings;

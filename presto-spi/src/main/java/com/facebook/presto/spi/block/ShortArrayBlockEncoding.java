@@ -23,7 +23,6 @@ import static com.facebook.presto.spi.block.EncoderUtil.encodeNullsAsBits;
 public class ShortArrayBlockEncoding
         implements BlockEncoding
 {
-    public static final BlockEncodingFactory<ShortArrayBlockEncoding> FACTORY = new ShortArrayBlockEncodingFactory();
     private static final String NAME = "SHORT_ARRAY";
 
     @Override
