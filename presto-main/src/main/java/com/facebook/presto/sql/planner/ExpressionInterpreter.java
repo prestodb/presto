@@ -117,8 +117,6 @@ import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.createConstant
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.EXPRESSION_NOT_CONSTANT;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.gen.VarArgsToMapAdapterGenerator.generateVarArgsToMapAdapter;
-import static com.facebook.presto.sql.planner.LiteralEncoder.toExpression;
-import static com.facebook.presto.sql.planner.LiteralEncoder.toExpressions;
 import static com.facebook.presto.sql.planner.iterative.rule.CanonicalizeExpressionRewriter.canonicalizeExpression;
 import static com.facebook.presto.type.LikeFunctions.isLikePattern;
 import static com.facebook.presto.type.LikeFunctions.unescapeLiteralLikePattern;
@@ -135,6 +133,7 @@ public class ExpressionInterpreter
 {
     private final Expression expression;
     private final Metadata metadata;
+    private final LiteralEncoder literalEncoder;
     private final ConnectorSession session;
     private final boolean optimize;
     private final Map<NodeRef<Expression>, Type> expressionTypes;
@@ -149,10 +148,6 @@ public class ExpressionInterpreter
 
     public static ExpressionInterpreter expressionInterpreter(Expression expression, Metadata metadata, Session session, Map<NodeRef<Expression>, Type> expressionTypes)
     {
-        requireNonNull(expression, "expression is null");
-        requireNonNull(metadata, "metadata is null");
-        requireNonNull(session, "session is null");
-
         return new ExpressionInterpreter(expression, metadata, session, expressionTypes, false);
     }
 
@@ -229,9 +224,10 @@ public class ExpressionInterpreter
 
     private ExpressionInterpreter(Expression expression, Metadata metadata, Session session, Map<NodeRef<Expression>, Type> expressionTypes, boolean optimize)
     {
-        this.expression = expression;
-        this.metadata = metadata;
-        this.session = session.toConnectorSession();
+        this.expression = requireNonNull(expression, "expression is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.literalEncoder = new LiteralEncoder(metadata.getBlockEncodingSerde());
+        this.session = requireNonNull(session, "session is null").toConnectorSession();
         this.expressionTypes = ImmutableMap.copyOf(requireNonNull(expressionTypes, "expressionTypes is null"));
         verify((expressionTypes.containsKey(NodeRef.of(expression))));
         this.optimize = optimize;
@@ -1251,6 +1247,16 @@ public class ExpressionInterpreter
         {
             Signature operatorSignature = metadata.getFunctionRegistry().resolveOperator(operatorType, argumentTypes);
             return functionInvoker.invoke(operatorSignature, session, argumentValues);
+        }
+
+        private Expression toExpression(Object base, Type type)
+        {
+            return literalEncoder.toExpression(base, type);
+        }
+
+        private List<Expression> toExpressions(List<Object> values, List<Type> types)
+        {
+            return literalEncoder.toExpressions(values, types);
         }
     }
 

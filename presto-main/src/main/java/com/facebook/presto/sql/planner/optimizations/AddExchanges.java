@@ -28,6 +28,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DomainTranslator;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
+import com.facebook.presto.sql.planner.LiteralEncoder;
 import com.facebook.presto.sql.planner.LookupSymbolResolver;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
@@ -131,10 +132,12 @@ public class AddExchanges
 {
     private final SqlParser parser;
     private final Metadata metadata;
+    private final DomainTranslator domainTranslator;
 
     public AddExchanges(Metadata metadata, SqlParser parser)
     {
         this.metadata = metadata;
+        this.domainTranslator = new DomainTranslator(new LiteralEncoder(metadata.getBlockEncodingSerde()));
         this.parser = parser;
     }
 
@@ -546,7 +549,7 @@ public class AddExchanges
             // expensive to evaluate in the call to shouldPrune below.
             Expression constraint = combineConjuncts(
                     deterministicPredicate,
-                    DomainTranslator.toPredicate(newDomain.simplify().transform(assignments::get)));
+                    domainTranslator.toPredicate(newDomain.simplify().transform(assignments::get)));
 
             LayoutConstraintEvaluator evaluator = new LayoutConstraintEvaluator(
                     session,
@@ -590,7 +593,7 @@ public class AddExchanges
                         PlanWithProperties result = new PlanWithProperties(tableScan, deriveProperties(tableScan, ImmutableList.of()));
 
                         Expression resultingPredicate = combineConjuncts(
-                                DomainTranslator.toPredicate(layout.getUnenforcedConstraint().transform(assignments::get)),
+                                domainTranslator.toPredicate(layout.getUnenforcedConstraint().transform(assignments::get)),
                                 filterNonDeterministicConjuncts(predicate),
                                 decomposedPredicate.getRemainingExpression());
 

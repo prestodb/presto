@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.TupleDomain;
@@ -56,6 +55,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.metadata.FunctionRegistry.getMagicLiteralFunctionSignature;
+import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.spi.predicate.TupleDomain.withColumnDomains;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -74,7 +74,6 @@ import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.ExpressionUtils.and;
 import static com.facebook.presto.sql.ExpressionUtils.or;
-import static com.facebook.presto.sql.planner.LiteralEncoder.toExpression;
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.EQUAL;
@@ -96,7 +95,9 @@ import static org.testng.Assert.fail;
 
 public class TestDomainTranslator
 {
-    private static final Metadata METADATA = MetadataManager.createTestMetadataManager();
+    private static final Metadata METADATA = createTestMetadataManager();
+    private static final LiteralEncoder LITERAL_ENCODER = new LiteralEncoder(METADATA.getBlockEncodingSerde());
+    private static final DomainTranslator DOMAIN_TRANSLATOR = new DomainTranslator(LITERAL_ENCODER);
 
     private static final Symbol C_BIGINT = new Symbol("c_bigint");
     private static final Symbol C_DOUBLE = new Symbol("c_double");
@@ -1222,7 +1223,7 @@ public class TestDomainTranslator
 
     private static Expression toPredicate(TupleDomain<Symbol> tupleDomain)
     {
-        return DomainTranslator.toPredicate(tupleDomain);
+        return DOMAIN_TRANSLATOR.toPredicate(tupleDomain);
     }
 
     private static Expression unprocessableExpression1(Symbol symbol)
@@ -1308,7 +1309,7 @@ public class TestDomainTranslator
     private static InPredicate in(Expression expression, Type expressisonType, List<?> values)
     {
         List<Type> types = nCopies(values.size(), expressisonType);
-        List<Expression> expressions = LiteralEncoder.toExpressions(values, types);
+        List<Expression> expressions = LITERAL_ENCODER.toExpressions(values, types);
         return new InPredicate(expression, new InListExpression(expressions));
     }
 
@@ -1449,6 +1450,16 @@ public class TestDomainTranslator
         if (!actual.equals(expected)) {
             fail(format("for comparison [%s] expected %s but found %s", expression.toString(), expected.toString(SESSION), actual.toString(SESSION)));
         }
+    }
+
+    private static Expression toExpression(Object object, Type type)
+    {
+        return LITERAL_ENCODER.toExpression(object, type);
+    }
+
+    private static List<Expression> toExpressions(List<?> objects, List<? extends Type> types)
+    {
+        return LITERAL_ENCODER.toExpressions(objects, types);
     }
 
     private static class NumericValues<T>

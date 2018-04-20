@@ -18,6 +18,7 @@ import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.scalar.VarbinaryFunctions;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Decimals;
@@ -61,9 +62,14 @@ import static java.util.Objects.requireNonNull;
 
 public final class LiteralEncoder
 {
-    private LiteralEncoder() {}
+    private final BlockEncodingSerde blockEncodingSerde;
 
-    public static List<Expression> toExpressions(List<?> objects, List<? extends Type> types)
+    public LiteralEncoder(BlockEncodingSerde blockEncodingSerde)
+    {
+        this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
+    }
+
+    public List<Expression> toExpressions(List<?> objects, List<? extends Type> types)
     {
         requireNonNull(objects, "objects is null");
         requireNonNull(types, "types is null");
@@ -78,7 +84,7 @@ public final class LiteralEncoder
         return expressions.build();
     }
 
-    public static Expression toExpression(Object object, Type type)
+    public Expression toExpression(Object object, Type type)
     {
         requireNonNull(type, "type is null");
 
@@ -176,7 +182,7 @@ public final class LiteralEncoder
 
         if (object instanceof Block) {
             SliceOutput output = new DynamicSliceOutput(toIntExact(((Block) object).getSizeInBytes()));
-            BlockSerdeUtil.writeBlock(output, (Block) object);
+            BlockSerdeUtil.writeBlock(blockEncodingSerde, output, (Block) object);
             object = output.slice();
             // This if condition will evaluate to true: object instanceof Slice && !type.equals(VARCHAR)
         }

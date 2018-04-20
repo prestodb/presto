@@ -13,11 +13,14 @@
  */
 package com.facebook.presto.hive.util;
 
+import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.block.BlockSerdeUtil;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.RowType;
+import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.TypeToken;
@@ -65,6 +68,8 @@ import static org.testng.Assert.assertEquals;
 @SuppressWarnings("PackageVisibleField")
 public class TestSerDeUtils
 {
+    private final BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager(new TypeRegistry());
+
     private static class ListHolder
     {
         List<InnerStruct> array;
@@ -292,16 +297,16 @@ public class TestSerDeUtils
         assertBlockEquals(actual, expected);
     }
 
-    private static void assertBlockEquals(Block actual, Block expected)
+    private void assertBlockEquals(Block actual, Block expected)
     {
         assertEquals(blockToSlice(actual), blockToSlice(expected));
     }
 
-    private static Slice blockToSlice(Block block)
+    private Slice blockToSlice(Block block)
     {
         // This function is strictly for testing use only
         SliceOutput sliceOutput = new DynamicSliceOutput(1000);
-        BlockSerdeUtil.writeBlock(sliceOutput, block);
+        BlockSerdeUtil.writeBlock(blockEncodingSerde, sliceOutput, block);
         return sliceOutput.slice();
     }
 

@@ -41,7 +41,7 @@ public class SimplifyExpressions
         extends ExpressionRewriteRuleSet
 {
     @VisibleForTesting
-    static Expression rewrite(Expression expression, Session session, SymbolAllocator symbolAllocator, Metadata metadata, SqlParser sqlParser)
+    static Expression rewrite(Expression expression, Session session, SymbolAllocator symbolAllocator, Metadata metadata, LiteralEncoder literalEncoder, SqlParser sqlParser)
     {
         requireNonNull(metadata, "metadata is null");
         requireNonNull(sqlParser, "sqlParser is null");
@@ -52,7 +52,7 @@ public class SimplifyExpressions
         expression = extractCommonPredicates(expression);
         Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, metadata, sqlParser, symbolAllocator.getTypes(), expression, emptyList() /* parameters already replaced */);
         ExpressionInterpreter interpreter = ExpressionInterpreter.expressionOptimizer(expression, metadata, session, expressionTypes);
-        return LiteralEncoder.toExpression(interpreter.optimize(NoOpSymbolResolver.INSTANCE), expressionTypes.get(NodeRef.of(expression)));
+        return literalEncoder.toExpression(interpreter.optimize(NoOpSymbolResolver.INSTANCE), expressionTypes.get(NodeRef.of(expression)));
     }
 
     public SimplifyExpressions(Metadata metadata, SqlParser sqlParser)
@@ -75,7 +75,8 @@ public class SimplifyExpressions
     {
         requireNonNull(metadata, "metadata is null");
         requireNonNull(sqlParser, "sqlParser is null");
+        LiteralEncoder literalEncoder = new LiteralEncoder(metadata.getBlockEncodingSerde());
 
-        return (expression, context) -> rewrite(expression, context.getSession(), context.getSymbolAllocator(), metadata, sqlParser);
+        return (expression, context) -> rewrite(expression, context.getSession(), context.getSymbolAllocator(), metadata, literalEncoder, sqlParser);
     }
 }

@@ -93,7 +93,7 @@ public final class TestingBlockEncodingSerde
         String encodingName = encoding.getName();
 
         // look up the encoding factory
-        BlockEncodingFactory<BlockEncoding> blockEncoding = encoding.getFactory();
+        BlockEncodingFactory blockEncoding = blockEncodings.get(encodingName);
 
         // write the name to the output
         writeLengthPrefixedString(output, encodingName);

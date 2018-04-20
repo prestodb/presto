@@ -62,24 +62,4 @@ public final class BlockSerdeUtil
         blockEncodingSerde.writeBlockEncoding(output, encoding);
         encoding.writeBlock(output, block);
     }
-
-    // This class is only used in LiteralInterpreter for magic literal. Most likely, you shouldn't use it from anywhere else.
-    public static void writeBlock(SliceOutput output, Block block)
-    {
-        while (true) {
-            // TODO: respect replacementBlockForWrite for Blocks nested in other Block
-            // A proposed simplified design for block encoding decoding will address this to-do item.
-
-            BlockEncoding encoding = block.getEncoding();
-            Optional<Block> replaceBlock = encoding.replacementBlockForWrite(block);
-            if (!replaceBlock.isPresent()) {
-                break;
-            }
-            block = replaceBlock.get();
-        }
-
-        BlockEncoding encoding = block.getEncoding();
-        BlockEncodingManager.writeBlockEncodingInternal(output, encoding);
-        encoding.writeBlock(output, block);
-    }
 }

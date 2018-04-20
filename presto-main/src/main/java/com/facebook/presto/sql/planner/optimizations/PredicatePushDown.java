@@ -18,6 +18,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DeterminismEvaluator;
+import com.facebook.presto.sql.planner.DomainTranslator;
 import com.facebook.presto.sql.planner.EffectivePredicateExtractor;
 import com.facebook.presto.sql.planner.EqualityInference;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
@@ -93,11 +94,15 @@ public class PredicatePushDown
     private static final Logger log = Logger.get(PredicatePushDown.class);
 
     private final Metadata metadata;
+    private final LiteralEncoder literalEncoder;
+    private final EffectivePredicateExtractor effectivePredicateExtractor;
     private final SqlParser sqlParser;
 
     public PredicatePushDown(Metadata metadata, SqlParser sqlParser)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.literalEncoder = new LiteralEncoder(metadata.getBlockEncodingSerde());
+        this.effectivePredicateExtractor = new EffectivePredicateExtractor(new DomainTranslator(literalEncoder));
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
     }
 
@@ -109,7 +114,10 @@ public class PredicatePushDown
         requireNonNull(types, "types is null");
         requireNonNull(idAllocator, "idAllocator is null");
 
-        return SimplePlanRewriter.rewriteWith(new Rewriter(symbolAllocator, idAllocator, metadata, sqlParser, session, types), plan, BooleanLiteral.TRUE_LITERAL);
+        return SimplePlanRewriter.rewriteWith(
+                new Rewriter(symbolAllocator, idAllocator, metadata, literalEncoder, effectivePredicateExtractor, sqlParser, session, types),
+                plan,
+                BooleanLiteral.TRUE_LITERAL);
     }
 
     private static class Rewriter
@@ -118,6 +126,8 @@ public class PredicatePushDown
         private final SymbolAllocator symbolAllocator;
         private final PlanNodeIdAllocator idAllocator;
         private final Metadata metadata;
+        private final LiteralEncoder literalEncoder;
+        private final EffectivePredicateExtractor effectivePredicateExtractor;
         private final SqlParser sqlParser;
         private final Session session;
         private final Map<Symbol, Type> types;
@@ -127,6 +137,8 @@ public class PredicatePushDown
                 SymbolAllocator symbolAllocator,
                 PlanNodeIdAllocator idAllocator,
                 Metadata metadata,
+                LiteralEncoder literalEncoder,
+                EffectivePredicateExtractor effectivePredicateExtractor,
                 SqlParser sqlParser,
                 Session session,
                 Map<Symbol, Type> types)
@@ -134,6 +146,8 @@ public class PredicatePushDown
             this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
+            this.literalEncoder = requireNonNull(literalEncoder, "literalEncoder is null");
+            this.effectivePredicateExtractor = requireNonNull(effectivePredicateExtractor, "effectivePredicateExtractor is null");
             this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
             this.session = requireNonNull(session, "session is null");
             this.types = requireNonNull(types, "types is null");
@@ -283,8 +297,8 @@ public class PredicatePushDown
             // See if we can rewrite outer joins in terms of a plain inner join
             node = tryNormalizeToOuterToInnerJoin(node, inheritedPredicate);
 
-            Expression leftEffectivePredicate = EffectivePredicateExtractor.extract(node.getLeft());
-            Expression rightEffectivePredicate = EffectivePredicateExtractor.extract(node.getRight());
+            Expression leftEffectivePredicate = effectivePredicateExtractor.extract(node.getLeft());
+            Expression rightEffectivePredicate = effectivePredicateExtractor.extract(node.getRight());
             Expression joinPredicate = extractJoinPredicate(node);
 
             Expression leftPredicate;
@@ -754,7 +768,7 @@ public class PredicatePushDown
                     expression,
                     emptyList() /* parameters have already been replaced */);
             ExpressionInterpreter optimizer = ExpressionInterpreter.expressionOptimizer(expression, metadata, session, expressionTypes);
-            return LiteralEncoder.toExpression(optimizer.optimize(NoOpSymbolResolver.INSTANCE), expressionTypes.get(NodeRef.of(expression)));
+            return literalEncoder.toExpression(optimizer.optimize(NoOpSymbolResolver.INSTANCE), expressionTypes.get(NodeRef.of(expression)));
         }
 
         /**
@@ -849,8 +863,8 @@ public class PredicatePushDown
         {
             Expression inheritedPredicate = context.get();
             Expression deterministicInheritedPredicate = filterDeterministicConjuncts(inheritedPredicate);
-            Expression sourceEffectivePredicate = filterDeterministicConjuncts(EffectivePredicateExtractor.extract(node.getSource()));
-            Expression filteringSourceEffectivePredicate = filterDeterministicConjuncts(EffectivePredicateExtractor.extract(node.getFilteringSource()));
+            Expression sourceEffectivePredicate = filterDeterministicConjuncts(effectivePredicateExtractor.extract(node.getSource()));
+            Expression filteringSourceEffectivePredicate = filterDeterministicConjuncts(effectivePredicateExtractor.extract(node.getFilteringSource()));
             Expression joinExpression = new ComparisonExpression(
                     ComparisonExpressionType.EQUAL,
                     node.getSourceJoinSymbol().toSymbolReference(),

@@ -56,6 +56,7 @@ import static com.facebook.presto.sql.planner.EqualityInference.createEqualityIn
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Computes the effective predicate at the top of the specified PlanNode
@@ -64,11 +65,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
  */
 public class EffectivePredicateExtractor
 {
-    public static Expression extract(PlanNode node)
-    {
-        return node.accept(new Visitor(), null);
-    }
-
     private static final Predicate<Map.Entry<Symbol, ? extends Expression>> SYMBOL_MATCHES_EXPRESSION =
             entry -> entry.getValue().equals(entry.getKey().toSymbolReference());
 
@@ -81,11 +77,28 @@ public class EffectivePredicateExtractor
                 return new ComparisonExpression(ComparisonExpressionType.EQUAL, reference, expression);
             };
 
-    private EffectivePredicateExtractor() {}
+    private final DomainTranslator domainTranslator;
+
+    public EffectivePredicateExtractor(DomainTranslator domainTranslator)
+    {
+        this.domainTranslator = requireNonNull(domainTranslator, "domainTranslator is null");
+    }
+
+    public Expression extract(PlanNode node)
+    {
+        return node.accept(new Visitor(domainTranslator), null);
+    }
 
     private static class Visitor
             extends PlanVisitor<Expression, Void>
     {
+        private final DomainTranslator domainTranslator;
+
+        public Visitor(DomainTranslator domainTranslator)
+        {
+            this.domainTranslator = requireNonNull(domainTranslator, "domainTranslator is null");
+        }
+
         @Override
         protected Expression visitPlan(PlanNode node, Void context)
         {
@@ -178,7 +191,7 @@ public class EffectivePredicateExtractor
         public Expression visitTableScan(TableScanNode node, Void context)
         {
             Map<ColumnHandle, Symbol> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
-            return DomainTranslator.toPredicate(node.getCurrentConstraint().simplify().transform(assignments::get));
+            return domainTranslator.toPredicate(node.getCurrentConstraint().simplify().transform(assignments::get));
         }
 
         @Override

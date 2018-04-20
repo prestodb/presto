@@ -65,7 +65,6 @@ import static com.facebook.presto.sql.ExpressionUtils.and;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.combineDisjunctsWithDefault;
 import static com.facebook.presto.sql.ExpressionUtils.or;
-import static com.facebook.presto.sql.planner.LiteralEncoder.toExpression;
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.EQUAL;
@@ -87,11 +86,14 @@ import static java.util.stream.Collectors.toList;
 
 public final class DomainTranslator
 {
-    private DomainTranslator()
+    private final LiteralEncoder literalEncoder;
+
+    public DomainTranslator(LiteralEncoder literalEncoder)
     {
+        this.literalEncoder = requireNonNull(literalEncoder, "literalEncoder is null");
     }
 
-    public static Expression toPredicate(TupleDomain<Symbol> tupleDomain)
+    public Expression toPredicate(TupleDomain<Symbol> tupleDomain)
     {
         if (tupleDomain.isNone()) {
             return FALSE_LITERAL;
@@ -104,7 +106,7 @@ public final class DomainTranslator
                 .collect(collectingAndThen(toImmutableList(), ExpressionUtils::combineConjuncts));
     }
 
-    private static Expression toPredicate(Domain domain, SymbolReference reference)
+    private Expression toPredicate(Domain domain, SymbolReference reference)
     {
         if (domain.getValues().isNone()) {
             return domain.isNullAllowed() ? new IsNullPredicate(reference) : FALSE_LITERAL;
@@ -131,7 +133,7 @@ public final class DomainTranslator
         return combineDisjunctsWithDefault(disjuncts, TRUE_LITERAL);
     }
 
-    private static Expression processRange(Type type, Range range, SymbolReference reference)
+    private Expression processRange(Type type, Range range, SymbolReference reference)
     {
         if (range.isAll()) {
             return TRUE_LITERAL;
@@ -139,17 +141,17 @@ public final class DomainTranslator
 
         if (isBetween(range)) {
             // specialize the range with BETWEEN expression if possible b/c it is currently more efficient
-            return new BetweenPredicate(reference, toExpression(range.getLow().getValue(), type), toExpression(range.getHigh().getValue(), type));
+            return new BetweenPredicate(reference, literalEncoder.toExpression(range.getLow().getValue(), type), literalEncoder.toExpression(range.getHigh().getValue(), type));
         }
 
         List<Expression> rangeConjuncts = new ArrayList<>();
         if (!range.getLow().isLowerUnbounded()) {
             switch (range.getLow().getBound()) {
                 case ABOVE:
-                    rangeConjuncts.add(new ComparisonExpression(GREATER_THAN, reference, toExpression(range.getLow().getValue(), type)));
+                    rangeConjuncts.add(new ComparisonExpression(GREATER_THAN, reference, literalEncoder.toExpression(range.getLow().getValue(), type)));
                     break;
                 case EXACTLY:
-                    rangeConjuncts.add(new ComparisonExpression(GREATER_THAN_OR_EQUAL, reference, toExpression(range.getLow().getValue(),
+                    rangeConjuncts.add(new ComparisonExpression(GREATER_THAN_OR_EQUAL, reference, literalEncoder.toExpression(range.getLow().getValue(),
                             type)));
                     break;
                 case BELOW:
@@ -163,10 +165,10 @@ public final class DomainTranslator
                 case ABOVE:
                     throw new IllegalStateException("High Marker should never use ABOVE bound: " + range);
                 case EXACTLY:
-                    rangeConjuncts.add(new ComparisonExpression(LESS_THAN_OR_EQUAL, reference, toExpression(range.getHigh().getValue(), type)));
+                    rangeConjuncts.add(new ComparisonExpression(LESS_THAN_OR_EQUAL, reference, literalEncoder.toExpression(range.getHigh().getValue(), type)));
                     break;
                 case BELOW:
-                    rangeConjuncts.add(new ComparisonExpression(LESS_THAN, reference, toExpression(range.getHigh().getValue(), type)));
+                    rangeConjuncts.add(new ComparisonExpression(LESS_THAN, reference, literalEncoder.toExpression(range.getHigh().getValue(), type)));
                     break;
                 default:
                     throw new AssertionError("Unhandled bound: " + range.getHigh().getBound());
@@ -177,7 +179,7 @@ public final class DomainTranslator
         return combineConjuncts(rangeConjuncts);
     }
 
-    private static Expression combineRangeWithExcludedPoints(Type type, SymbolReference reference, Range range, List<Expression> excludedPoints)
+    private Expression combineRangeWithExcludedPoints(Type type, SymbolReference reference, Range range, List<Expression> excludedPoints)
     {
         if (excludedPoints.isEmpty()) {
             return processRange(type, range, reference);
@@ -191,7 +193,7 @@ public final class DomainTranslator
         return combineConjuncts(processRange(type, range, reference), excludedPointsExpression);
     }
 
-    private static List<Expression> extractDisjuncts(Type type, Ranges ranges, SymbolReference reference)
+    private List<Expression> extractDisjuncts(Type type, Ranges ranges, SymbolReference reference)
     {
         List<Expression> disjuncts = new ArrayList<>();
         List<Expression> singleValues = new ArrayList<>();
@@ -206,14 +208,14 @@ public final class DomainTranslator
 
         for (Range range : originalUnionSingleValues) {
             if (range.isSingleValue()) {
-                singleValues.add(toExpression(range.getSingleValue(), type));
+                singleValues.add(literalEncoder.toExpression(range.getSingleValue(), type));
                 continue;
             }
 
             // attempt to optimize ranges that can be coalesced as long as single value points are excluded
             List<Expression> singleValuesInRange = new ArrayList<>();
             while (singleValueExclusions.hasNext() && range.contains(singleValueExclusions.peek())) {
-                singleValuesInRange.add(toExpression(singleValueExclusions.next().getSingleValue(), type));
+                singleValuesInRange.add(literalEncoder.toExpression(singleValueExclusions.next().getSingleValue(), type));
             }
 
             if (!singleValuesInRange.isEmpty()) {
@@ -234,10 +236,10 @@ public final class DomainTranslator
         return disjuncts;
     }
 
-    private static List<Expression> extractDisjuncts(Type type, DiscreteValues discreteValues, SymbolReference reference)
+    private List<Expression> extractDisjuncts(Type type, DiscreteValues discreteValues, SymbolReference reference)
     {
         List<Expression> values = discreteValues.getValues().stream()
-                .map(object -> toExpression(object, type))
+                .map(object -> literalEncoder.toExpression(object, type))
                 .collect(toList());
 
         // If values is empty, then the equatableValues was either ALL or NONE, both of which should already have been checked for
@@ -282,6 +284,7 @@ public final class DomainTranslator
             extends AstVisitor<ExtractionResult, Boolean>
     {
         private final Metadata metadata;
+        private final LiteralEncoder literalEncoder;
         private final Session session;
         private final Map<Symbol, Type> types;
         private final FunctionInvoker functionInvoker;
@@ -289,6 +292,7 @@ public final class DomainTranslator
         private Visitor(Metadata metadata, Session session, Map<Symbol, Type> types)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
+            this.literalEncoder = new LiteralEncoder(metadata.getBlockEncodingSerde());
             this.session = requireNonNull(session, "session is null");
             this.types = ImmutableMap.copyOf(requireNonNull(types, "types is null"));
             this.functionInvoker = new FunctionInvoker(metadata.getFunctionRegistry());
@@ -607,7 +611,7 @@ public final class DomainTranslator
             boolean coercedValueIsEqualToOriginal = originalComparedToCoerced == 0;
             boolean coercedValueIsLessThanOriginal = originalComparedToCoerced > 0;
             boolean coercedValueIsGreaterThanOriginal = originalComparedToCoerced < 0;
-            Expression coercedLiteral = toExpression(coercedValue, symbolExpressionType);
+            Expression coercedLiteral = literalEncoder.toExpression(coercedValue, symbolExpressionType);
 
             switch (comparisonType) {
                 case GREATER_THAN_OR_EQUAL:

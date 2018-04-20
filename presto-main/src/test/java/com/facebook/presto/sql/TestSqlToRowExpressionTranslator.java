@@ -13,18 +13,13 @@
  */
 package com.facebook.presto.sql;
 
-import com.facebook.presto.block.BlockEncodingManager;
-import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.metadata.SchemaPropertyManager;
-import com.facebook.presto.metadata.SessionPropertyManager;
-import com.facebook.presto.metadata.TablePropertyManager;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.Scope;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
+import com.facebook.presto.sql.planner.LiteralEncoder;
 import com.facebook.presto.sql.planner.NoOpSymbolResolver;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
@@ -32,10 +27,7 @@ import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NodeRef;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableMap;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
@@ -46,36 +38,16 @@ import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.Decimals.encodeScaledValue;
-import static com.facebook.presto.sql.planner.LiteralEncoder.toExpression;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
-import static com.facebook.presto.transaction.TransactionManager.createTestTransactionManager;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 
 public class TestSqlToRowExpressionTranslator
 {
-    private Metadata metadata;
-
-    @BeforeClass
-    public void setUp()
-    {
-        metadata = new MetadataManager(
-                new FeaturesConfig(),
-                new TypeRegistry(),
-                new BlockEncodingManager(new TypeRegistry()),
-                new SessionPropertyManager(),
-                new SchemaPropertyManager(),
-                new TablePropertyManager(),
-                createTestTransactionManager(new CatalogManager()));
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void tearDown()
-    {
-        metadata = null;
-    }
+    private final Metadata metadata = MetadataManager.createTestMetadataManager();
+    private final LiteralEncoder literalEncoder = new LiteralEncoder(metadata.getBlockEncodingSerde());
 
     @Test(timeOut = 10_000)
     public void testPossibleExponentialOptimizationTime()
@@ -129,7 +101,7 @@ public class TestSqlToRowExpressionTranslator
         Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(expression);
         ExpressionInterpreter interpreter = ExpressionInterpreter.expressionOptimizer(expression, metadata, TEST_SESSION, expressionTypes);
         Object value = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
-        return toExpression(value, expressionTypes.get(NodeRef.of(expression)));
+        return literalEncoder.toExpression(value, expressionTypes.get(NodeRef.of(expression)));
     }
 
     private Map<NodeRef<Expression>, Type> getExpressionTypes(Expression expression)
