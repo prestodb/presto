@@ -13,31 +13,29 @@
  */
 package com.facebook.presto.spi.block;
 
-import com.facebook.presto.spi.type.TypeManager;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
+
+import java.util.Optional;
 
 public class LazyBlockEncoding
         implements BlockEncoding
 {
-    private final BlockEncoding delegate;
+    private static final String NAME = "LAZY";
 
-    public LazyBlockEncoding(BlockEncoding delegate)
-    {
-        this.delegate = delegate;
-    }
+    public LazyBlockEncoding() {}
 
     @Override
     public String getName()
     {
-        return delegate.getName();
+        return NAME;
     }
 
     @Override
     public void writeBlock(SliceOutput sliceOutput, Block block)
     {
-        // The down casts here are safe because it is the block itself the provides this encoding implementation.
-        delegate.writeBlock(sliceOutput, ((LazyBlock) block).getBlock());
+        // We implemented replacementBlockForWrite, so we will never need to write a lazy block
+        throw new UnsupportedOperationException();
     }
 
     @Override
@@ -48,37 +46,15 @@ public class LazyBlockEncoding
     }
 
     @Override
-    public BlockEncodingFactory getFactory()
+    public Optional<Block> replacementBlockForWrite(Block block)
     {
-        return new LazyBlockEncodingFactory(delegate.getFactory());
+        return Optional.of(((LazyBlock) block).getBlock());
     }
 
-    public static class LazyBlockEncodingFactory
-            implements BlockEncodingFactory<LazyBlockEncoding>
+    @Override
+    public BlockEncodingFactory getFactory()
     {
-        private final BlockEncodingFactory delegate;
-
-        public LazyBlockEncodingFactory(BlockEncodingFactory delegate)
-        {
-            this.delegate = delegate;
-        }
-
-        @Override
-        public String getName()
-        {
-            return delegate.getName();
-        }
-
-        @Override
-        public LazyBlockEncoding readEncoding(TypeManager manager, BlockEncodingSerde serde, SliceInput input)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void writeEncoding(BlockEncodingSerde serde, SliceOutput output, LazyBlockEncoding blockEncoding)
-        {
-            delegate.writeEncoding(serde, output, blockEncoding.delegate);
-        }
+        // We implemented replacementBlockForWrite, so we will never need to write a lazy block
+        throw new UnsupportedOperationException();
     }
 }

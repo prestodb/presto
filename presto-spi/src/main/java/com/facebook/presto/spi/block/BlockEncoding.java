@@ -16,6 +16,8 @@ package com.facebook.presto.spi.block;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 
+import java.util.Optional;
+
 public interface BlockEncoding
 {
     /**
@@ -35,6 +37,14 @@ public interface BlockEncoding
     void writeBlock(SliceOutput sliceOutput, Block block);
 
     /**
+     * This method allows the implementor to specify a replacement object that will be serialized instead of the original one.
+     */
+    default Optional<Block> replacementBlockForWrite(Block block)
+    {
+        return Optional.empty();
+    }
+
+    /*
      * Return associated factory
      */
     BlockEncodingFactory getFactory();

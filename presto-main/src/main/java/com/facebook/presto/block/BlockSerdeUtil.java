@@ -21,6 +21,7 @@ import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Optional;
 
 import static com.facebook.presto.util.Reflection.methodHandle;
 
@@ -45,6 +46,18 @@ public final class BlockSerdeUtil
 
     public static void writeBlock(BlockEncodingSerde blockEncodingSerde, SliceOutput output, Block block)
     {
+        while (true) {
+            // TODO: respect replacementBlockForWrite for Blocks nested in other Block
+            // A proposed simplified design for block encoding decoding will address this to-do item.
+
+            BlockEncoding encoding = block.getEncoding();
+            Optional<Block> replaceBlock = encoding.replacementBlockForWrite(block);
+            if (!replaceBlock.isPresent()) {
+                break;
+            }
+            block = replaceBlock.get();
+        }
+
         BlockEncoding encoding = block.getEncoding();
         blockEncodingSerde.writeBlockEncoding(output, encoding);
         encoding.writeBlock(output, block);
@@ -53,6 +66,18 @@ public final class BlockSerdeUtil
     // This class is only used in LiteralInterpreter for magic literal. Most likely, you shouldn't use it from anywhere else.
     public static void writeBlock(SliceOutput output, Block block)
     {
+        while (true) {
+            // TODO: respect replacementBlockForWrite for Blocks nested in other Block
+            // A proposed simplified design for block encoding decoding will address this to-do item.
+
+            BlockEncoding encoding = block.getEncoding();
+            Optional<Block> replaceBlock = encoding.replacementBlockForWrite(block);
+            if (!replaceBlock.isPresent()) {
+                break;
+            }
+            block = replaceBlock.get();
+        }
+
         BlockEncoding encoding = block.getEncoding();
         BlockEncodingManager.writeBlockEncodingInternal(output, encoding);
         encoding.writeBlock(output, block);

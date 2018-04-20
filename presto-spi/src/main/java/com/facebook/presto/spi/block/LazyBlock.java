@@ -196,7 +196,7 @@ public class LazyBlock
     public BlockEncoding getEncoding()
     {
         assureLoaded();
-        return new LazyBlockEncoding(block.getEncoding());
+        return new LazyBlockEncoding();
     }
 
     @Override
