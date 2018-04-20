@@ -71,9 +71,9 @@ public abstract class AbstractMapBlock
     }
 
     @Override
-    public BlockEncoding getEncoding()
+    public String getEncodingName()
     {
-        return new MapBlockEncoding(keyType, keyBlockNativeEquals, keyNativeHashCode, getKeys().getEncoding(), getValues().getEncoding());
+        return MapBlockEncoding.NAME;
     }
 
     @Override

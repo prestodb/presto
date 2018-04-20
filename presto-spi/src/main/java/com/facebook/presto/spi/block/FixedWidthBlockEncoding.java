@@ -24,16 +24,7 @@ import static com.facebook.presto.spi.block.EncoderUtil.encodeNullsAsBits;
 public class FixedWidthBlockEncoding
         implements BlockEncoding
 {
-    private static final String NAME = "FIXED_WIDTH";
-    private final int fixedSize;
-
-    public FixedWidthBlockEncoding(int fixedSize)
-    {
-        if (fixedSize < 0) {
-            throw new IllegalArgumentException("fixedSize is negative");
-        }
-        this.fixedSize = fixedSize;
-    }
+    public static final String NAME = "FIXED_WIDTH";
 
     @Override
     public String getName()
@@ -41,18 +32,13 @@ public class FixedWidthBlockEncoding
         return NAME;
     }
 
-    public int getFixedSize()
-    {
-        return fixedSize;
-    }
-
     @Override
-    public void writeBlock(SliceOutput sliceOutput, Block block)
+    public void writeBlock(BlockEncodingSerde blockEncodingSerde, SliceOutput sliceOutput, Block block)
     {
         AbstractFixedWidthBlock fixedWidthBlock = (AbstractFixedWidthBlock) block;
 
-        int positionCount = fixedWidthBlock.getPositionCount();
-        sliceOutput.appendInt(positionCount);
+        sliceOutput.appendInt(fixedWidthBlock.fixedSize);
+        sliceOutput.appendInt(fixedWidthBlock.getPositionCount());
 
         // write null bits 8 at a time
         encodeNullsAsBits(sliceOutput, fixedWidthBlock);
@@ -64,8 +50,9 @@ public class FixedWidthBlockEncoding
     }
 
     @Override
-    public Block readBlock(SliceInput sliceInput)
+    public Block readBlock(BlockEncodingSerde blockEncodingSerde, SliceInput sliceInput)
     {
+        int fixedSize = sliceInput.readInt();
         int positionCount = sliceInput.readInt();
 
         boolean[] valueIsNull = decodeNullBits(sliceInput, positionCount);
@@ -74,28 +61,5 @@ public class FixedWidthBlockEncoding
         Slice slice = sliceInput.readSlice(blockSize);
 
         return new FixedWidthBlock(fixedSize, positionCount, slice, Slices.wrappedBooleanArray(valueIsNull));
-    }
-
-    public static class FixedWidthBlockEncodingFactory
-            implements BlockEncodingFactory<FixedWidthBlockEncoding>
-    {
-        @Override
-        public String getName()
-        {
-            return NAME;
-        }
-
-        @Override
-        public FixedWidthBlockEncoding readEncoding(BlockEncodingSerde serde, SliceInput input)
-        {
-            int entrySize = input.readInt();
-            return new FixedWidthBlockEncoding(entrySize);
-        }
-
-        @Override
-        public void writeEncoding(BlockEncodingSerde serde, SliceOutput output, FixedWidthBlockEncoding blockEncoding)
-        {
-            output.writeInt(blockEncoding.getFixedSize());
-        }
     }
 }

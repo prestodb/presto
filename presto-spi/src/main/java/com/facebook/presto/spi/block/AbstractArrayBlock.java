@@ -36,9 +36,9 @@ public abstract class AbstractArrayBlock
     }
 
     @Override
-    public BlockEncoding getEncoding()
+    public String getEncodingName()
     {
-        return new ArrayBlockEncoding(getValues().getEncoding());
+        return ArrayBlockEncoding.NAME;
     }
 
     @Override

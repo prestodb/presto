@@ -172,9 +172,9 @@ public class ShortArrayBlock
     }
 
     @Override
-    public BlockEncoding getEncoding()
+    public String getEncodingName()
     {
-        return new ShortArrayBlockEncoding();
+        return ShortArrayBlockEncoding.NAME;
     }
 
     @Override

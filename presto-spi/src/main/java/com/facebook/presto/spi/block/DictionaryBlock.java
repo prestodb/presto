@@ -258,9 +258,9 @@ public class DictionaryBlock
     }
 
     @Override
-    public BlockEncoding getEncoding()
+    public String getEncodingName()
     {
-        return new DictionaryBlockEncoding(dictionary.getEncoding());
+        return DictionaryBlockEncoding.NAME;
     }
 
     @Override

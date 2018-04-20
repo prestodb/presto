@@ -196,7 +196,7 @@ public class SingleRowBlockWriter
     }
 
     @Override
-    public BlockEncoding getEncoding()
+    public String getEncodingName()
     {
         throw new UnsupportedOperationException();
     }

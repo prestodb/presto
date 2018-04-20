@@ -38,7 +38,7 @@ public class SingleMapBlock
     private final Block keyBlock;
     private final Block valueBlock;
     private final int[] hashTable;
-    private final Type keyType;
+    final Type keyType;
     private final MethodHandle keyNativeHashCode;
     private final MethodHandle keyBlockNativeEquals;
 
@@ -84,9 +84,9 @@ public class SingleMapBlock
     }
 
     @Override
-    public BlockEncoding getEncoding()
+    public String getEncodingName()
     {
-        return new SingleMapBlockEncoding(keyType, keyNativeHashCode, keyBlockNativeEquals, keyBlock.getEncoding(), valueBlock.getEncoding());
+        return SingleMapBlockEncoding.NAME;
     }
 
     @Override

@@ -13,11 +13,15 @@
  */
 package com.facebook.presto.block;
 
+import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.BlockEncoding;
+import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.block.DictionaryId;
+import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
@@ -51,6 +55,13 @@ import static org.testng.Assert.fail;
 @Test
 public abstract class AbstractTestBlock
 {
+    private static final TypeManager TYPE_MANAGER = new TypeRegistry();
+    private static final BlockEncodingSerde BLOCK_ENCODING_SERDE = new BlockEncodingManager(TYPE_MANAGER);
+    static {
+        // associate TYPE_MANAGER with a function registry
+        new FunctionRegistry(TYPE_MANAGER, new BlockEncodingManager(TYPE_MANAGER), new FeaturesConfig());
+    }
+
     protected <T> void assertBlock(Block block, Supplier<BlockBuilder> newBlockBuilder, T[] expectedValues)
     {
         assertBlockPositions(block, newBlockBuilder, expectedValues);
@@ -363,9 +374,8 @@ public abstract class AbstractTestBlock
     private static Block copyBlockViaBlockSerde(Block block)
     {
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
-        BlockEncoding blockEncoding = block.getEncoding();
-        blockEncoding.writeBlock(sliceOutput, block);
-        return blockEncoding.readBlock(sliceOutput.slice().getInput());
+        BLOCK_ENCODING_SERDE.writeBlock(sliceOutput, block);
+        return BLOCK_ENCODING_SERDE.readBlock(sliceOutput.slice().getInput());
     }
 
     private static Block copyBlockViaWritePositionTo(Block block, Supplier<BlockBuilder> newBlockBuilder)

@@ -172,9 +172,9 @@ public class IntArrayBlock
     }
 
     @Override
-    public BlockEncoding getEncoding()
+    public String getEncodingName()
     {
-        return new IntArrayBlockEncoding();
+        return IntArrayBlockEncoding.NAME;
     }
 
     @Override

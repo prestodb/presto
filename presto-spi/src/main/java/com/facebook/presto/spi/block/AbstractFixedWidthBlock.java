@@ -145,9 +145,9 @@ public abstract class AbstractFixedWidthBlock
     }
 
     @Override
-    public BlockEncoding getEncoding()
+    public String getEncodingName()
     {
-        return new FixedWidthBlockEncoding(fixedSize);
+        return FixedWidthBlockEncoding.NAME;
     }
 
     @Override

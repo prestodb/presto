@@ -22,7 +22,7 @@ import static com.facebook.presto.spi.block.EncoderUtil.encodeNullsAsBits;
 public class ByteArrayBlockEncoding
         implements BlockEncoding
 {
-    private static final String NAME = "BYTE_ARRAY";
+    public static final String NAME = "BYTE_ARRAY";
 
     @Override
     public String getName()
@@ -31,7 +31,7 @@ public class ByteArrayBlockEncoding
     }
 
     @Override
-    public void writeBlock(SliceOutput sliceOutput, Block block)
+    public void writeBlock(BlockEncodingSerde blockEncodingSerde, SliceOutput sliceOutput, Block block)
     {
         int positionCount = block.getPositionCount();
         sliceOutput.appendInt(positionCount);
@@ -46,7 +46,7 @@ public class ByteArrayBlockEncoding
     }
 
     @Override
-    public Block readBlock(SliceInput sliceInput)
+    public Block readBlock(BlockEncodingSerde blockEncodingSerde, SliceInput sliceInput)
     {
         int positionCount = sliceInput.readInt();
 
@@ -60,26 +60,5 @@ public class ByteArrayBlockEncoding
         }
 
         return new ByteArrayBlock(positionCount, valueIsNull, values);
-    }
-
-    public static class ByteArrayBlockEncodingFactory
-            implements BlockEncodingFactory<ByteArrayBlockEncoding>
-    {
-        @Override
-        public String getName()
-        {
-            return NAME;
-        }
-
-        @Override
-        public ByteArrayBlockEncoding readEncoding(BlockEncodingSerde serde, SliceInput input)
-        {
-            return new ByteArrayBlockEncoding();
-        }
-
-        @Override
-        public void writeEncoding(BlockEncodingSerde serde, SliceOutput output, ByteArrayBlockEncoding blockEncoding)
-        {
-        }
     }
 }

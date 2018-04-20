@@ -29,12 +29,12 @@ public interface BlockEncoding
      * Read a block from the specified input.  The returned
      * block should begin at the specified position.
      */
-    Block readBlock(SliceInput input);
+    Block readBlock(BlockEncodingSerde blockEncodingSerde, SliceInput input);
 
     /**
      * Write the specified block to the specified output
      */
-    void writeBlock(SliceOutput sliceOutput, Block block);
+    void writeBlock(BlockEncodingSerde blockEncodingSerde, SliceOutput sliceOutput, Block block);
 
     /**
      * This method allows the implementor to specify a replacement object that will be serialized instead of the original one.

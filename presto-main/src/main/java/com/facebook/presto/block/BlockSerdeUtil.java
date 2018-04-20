@@ -14,14 +14,12 @@
 package com.facebook.presto.block;
 
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockEncoding;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 
 import java.lang.invoke.MethodHandle;
-import java.util.Optional;
 
 import static com.facebook.presto.util.Reflection.methodHandle;
 
@@ -40,26 +38,11 @@ public final class BlockSerdeUtil
 
     public static Block readBlock(BlockEncodingSerde blockEncodingSerde, SliceInput input)
     {
-        BlockEncoding blockEncoding = blockEncodingSerde.readBlockEncoding(input);
-        return blockEncoding.readBlock(input);
+        return blockEncodingSerde.readBlock(input);
     }
 
     public static void writeBlock(BlockEncodingSerde blockEncodingSerde, SliceOutput output, Block block)
     {
-        while (true) {
-            // TODO: respect replacementBlockForWrite for Blocks nested in other Block
-            // A proposed simplified design for block encoding decoding will address this to-do item.
-
-            BlockEncoding encoding = block.getEncoding();
-            Optional<Block> replaceBlock = encoding.replacementBlockForWrite(block);
-            if (!replaceBlock.isPresent()) {
-                break;
-            }
-            block = replaceBlock.get();
-        }
-
-        BlockEncoding encoding = block.getEncoding();
-        blockEncodingSerde.writeBlockEncoding(output, encoding);
-        encoding.writeBlock(output, block);
+        blockEncodingSerde.writeBlock(output, block);
     }
 }

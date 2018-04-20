@@ -192,7 +192,7 @@ public interface Block
     /**
      * Get the encoding for this block.
      */
-    BlockEncoding getEncoding();
+    String getEncodingName();
 
     /**
      * Create a new block from the current block by keeping the same elements

@@ -21,7 +21,7 @@ import java.util.Optional;
 public class LazyBlockEncoding
         implements BlockEncoding
 {
-    private static final String NAME = "LAZY";
+    public static final String NAME = "LAZY";
 
     public LazyBlockEncoding() {}
 
@@ -32,16 +32,16 @@ public class LazyBlockEncoding
     }
 
     @Override
-    public void writeBlock(SliceOutput sliceOutput, Block block)
+    public Block readBlock(BlockEncodingSerde blockEncodingSerde, SliceInput input)
     {
-        // We implemented replacementBlockForWrite, so we will never need to write a lazy block
+        // We write the actual underlying block, so we will never need to read a lazy block
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public Block readBlock(SliceInput sliceInput)
+    public void writeBlock(BlockEncodingSerde blockEncodingSerde, SliceOutput sliceOutput, Block block)
     {
-        // We write the actual underlying block, so we will never need to read a lazy block
+        // We implemented replacementBlockForWrite, so we will never need to write a lazy block
         throw new UnsupportedOperationException();
     }
 

@@ -91,9 +91,9 @@ public class RunLengthEncodedBlock
     }
 
     @Override
-    public RunLengthBlockEncoding getEncoding()
+    public String getEncodingName()
     {
-        return new RunLengthBlockEncoding(value.getEncoding());
+        return RunLengthBlockEncoding.NAME;
     }
 
     @Override

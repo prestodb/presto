@@ -227,9 +227,9 @@ public class ByteArrayBlockBuilder
     }
 
     @Override
-    public BlockEncoding getEncoding()
+    public String getEncodingName()
     {
-        return new ByteArrayBlockEncoding();
+        return ByteArrayBlockEncoding.NAME;
     }
 
     @Override

@@ -21,7 +21,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.server.security.PasswordAuthenticatorManager;
 import com.facebook.presto.spi.Plugin;
-import com.facebook.presto.spi.block.BlockEncodingFactory;
+import com.facebook.presto.spi.block.BlockEncoding;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.eventlistener.EventListenerFactory;
@@ -175,9 +175,9 @@ public class PluginManager
 
     public void installPlugin(Plugin plugin)
     {
-        for (BlockEncodingFactory<?> blockEncodingFactory : plugin.getBlockEncodingFactories(blockEncodingManager)) {
-            log.info("Registering block encoding %s", blockEncodingFactory.getName());
-            blockEncodingManager.addBlockEncodingFactory(blockEncodingFactory);
+        for (BlockEncoding blockEncoding : plugin.getBlockEncodings()) {
+            log.info("Registering block encoding %s", blockEncoding.getName());
+            blockEncodingManager.addBlockEncoding(blockEncoding);
         }
 
         for (Type type : plugin.getTypes()) {

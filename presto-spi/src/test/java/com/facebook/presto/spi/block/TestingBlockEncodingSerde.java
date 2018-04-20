@@ -13,24 +13,12 @@
  */
 package com.facebook.presto.spi.block;
 
-import com.facebook.presto.spi.block.ArrayBlockEncoding.ArrayBlockEncodingFactory;
-import com.facebook.presto.spi.block.ByteArrayBlockEncoding.ByteArrayBlockEncodingFactory;
-import com.facebook.presto.spi.block.DictionaryBlockEncoding.DictionaryBlockEncodingFactory;
-import com.facebook.presto.spi.block.FixedWidthBlockEncoding.FixedWidthBlockEncodingFactory;
-import com.facebook.presto.spi.block.IntArrayBlockEncoding.IntArrayBlockEncodingFactory;
-import com.facebook.presto.spi.block.LongArrayBlockEncoding.LongArrayBlockEncodingFactory;
-import com.facebook.presto.spi.block.MapBlockEncoding.MapBlockEncodingFactory;
-import com.facebook.presto.spi.block.RowBlockEncoding.RowBlockEncodingFactory;
-import com.facebook.presto.spi.block.RunLengthBlockEncoding.RunLengthBlockEncodingFactory;
-import com.facebook.presto.spi.block.ShortArrayBlockEncoding.ShortArrayBlockEncodingFactory;
-import com.facebook.presto.spi.block.SingleMapBlockEncoding.SingleMapBlockEncodingFactory;
-import com.facebook.presto.spi.block.SingleRowBlockEncoding.SingleRowBlockEncodingFactory;
-import com.facebook.presto.spi.block.VariableWidthBlockEncoding.VariableWidthBlockEncodingFactory;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -44,74 +32,86 @@ import static java.util.Objects.requireNonNull;
 public final class TestingBlockEncodingSerde
         implements BlockEncodingSerde
 {
-    private final ConcurrentMap<String, BlockEncodingFactory<?>> blockEncodings = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, BlockEncoding> blockEncodings = new ConcurrentHashMap<>();
 
-    public TestingBlockEncodingSerde(TypeManager typeManager, BlockEncodingFactory<?>... blockEncodingFactories)
+    public TestingBlockEncodingSerde(TypeManager typeManager, BlockEncoding... blockEncodings)
     {
-        this(typeManager, ImmutableSet.copyOf(blockEncodingFactories));
+        this(typeManager, ImmutableSet.copyOf(blockEncodings));
     }
 
-    public TestingBlockEncodingSerde(TypeManager typeManager, Set<BlockEncodingFactory<?>> blockEncodingFactories)
+    public TestingBlockEncodingSerde(TypeManager typeManager, Set<BlockEncoding> blockEncodings)
     {
         // This function should be called from Guice and tests only
 
         requireNonNull(typeManager, "typeManager is null");
 
-        // always add the built-in BlockEncodingFactories
-        addBlockEncodingFactory(new VariableWidthBlockEncodingFactory());
-        addBlockEncodingFactory(new FixedWidthBlockEncodingFactory());
-        addBlockEncodingFactory(new ByteArrayBlockEncodingFactory());
-        addBlockEncodingFactory(new ShortArrayBlockEncodingFactory());
-        addBlockEncodingFactory(new IntArrayBlockEncodingFactory());
-        addBlockEncodingFactory(new LongArrayBlockEncodingFactory());
-        addBlockEncodingFactory(new DictionaryBlockEncodingFactory());
-        addBlockEncodingFactory(new ArrayBlockEncodingFactory());
-        addBlockEncodingFactory(new MapBlockEncodingFactory(typeManager));
-        addBlockEncodingFactory(new SingleMapBlockEncodingFactory(typeManager));
-        addBlockEncodingFactory(new RowBlockEncodingFactory());
-        addBlockEncodingFactory(new SingleRowBlockEncodingFactory());
-        addBlockEncodingFactory(new RunLengthBlockEncodingFactory());
+        // always add the built-in BlockEncodings
+        addBlockEncoding(new VariableWidthBlockEncoding());
+        addBlockEncoding(new FixedWidthBlockEncoding());
+        addBlockEncoding(new ByteArrayBlockEncoding());
+        addBlockEncoding(new ShortArrayBlockEncoding());
+        addBlockEncoding(new IntArrayBlockEncoding());
+        addBlockEncoding(new LongArrayBlockEncoding());
+        addBlockEncoding(new DictionaryBlockEncoding());
+        addBlockEncoding(new ArrayBlockEncoding());
+        addBlockEncoding(new MapBlockEncoding(typeManager));
+        addBlockEncoding(new SingleMapBlockEncoding(typeManager));
+        addBlockEncoding(new RowBlockEncoding());
+        addBlockEncoding(new SingleRowBlockEncoding());
+        addBlockEncoding(new RunLengthBlockEncoding());
+        addBlockEncoding(new LazyBlockEncoding());
 
-        for (BlockEncodingFactory<?> factory : requireNonNull(blockEncodingFactories, "blockEncodingFactories is null")) {
-            addBlockEncodingFactory(factory);
+        for (BlockEncoding blockEncoding : requireNonNull(blockEncodings, "blockEncodings is null")) {
+            addBlockEncoding(blockEncoding);
         }
     }
 
-    public void addBlockEncodingFactory(BlockEncodingFactory<?> blockEncoding)
+    public void addBlockEncoding(BlockEncoding blockEncoding)
     {
         requireNonNull(blockEncoding, "blockEncoding is null");
-        BlockEncodingFactory<?> existingEntry = blockEncodings.putIfAbsent(blockEncoding.getName(), blockEncoding);
+        BlockEncoding existingEntry = blockEncodings.putIfAbsent(blockEncoding.getName(), blockEncoding);
         checkArgument(existingEntry == null, "Encoding %s is already registered", blockEncoding.getName());
     }
 
     @Override
-    public BlockEncoding readBlockEncoding(SliceInput input)
+    public Block readBlock(SliceInput input)
     {
         // read the encoding name
         String encodingName = readLengthPrefixedString(input);
 
         // look up the encoding factory
-        BlockEncodingFactory<?> blockEncoding = blockEncodings.get(encodingName);
+        BlockEncoding blockEncoding = blockEncodings.get(encodingName);
         checkArgument(blockEncoding != null, "Unknown block encoding %s", encodingName);
 
         // load read the encoding factory from the output stream
-        return blockEncoding.readEncoding(this, input);
+        return blockEncoding.readBlock(this, input);
     }
 
     @Override
-    public void writeBlockEncoding(SliceOutput output, BlockEncoding encoding)
+    public void writeBlock(SliceOutput output, Block block)
     {
-        // get the encoding name
-        String encodingName = encoding.getName();
+        while (true) {
+            // get the encoding name
+            String encodingName = block.getEncodingName();
 
-        // look up the encoding factory
-        BlockEncodingFactory blockEncoding = blockEncodings.get(encodingName);
+            // look up the encoding factory
+            BlockEncoding blockEncoding = blockEncodings.get(encodingName);
 
-        // write the name to the output
-        writeLengthPrefixedString(output, encodingName);
+            // see if a replacement block should be written instead
+            Optional<Block> replacementBlock = blockEncoding.replacementBlockForWrite(block);
+            if (replacementBlock.isPresent()) {
+                block = replacementBlock.get();
+                continue;
+            }
 
-        // write the encoding to the output
-        blockEncoding.writeEncoding(this, output, encoding);
+            // write the name to the output
+            writeLengthPrefixedString(output, encodingName);
+
+            // write the block to the output
+            blockEncoding.writeBlock(this, output, block);
+
+            break;
+        }
     }
 
     private static String readLengthPrefixedString(SliceInput input)

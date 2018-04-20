@@ -228,9 +228,9 @@ public class IntArrayBlockBuilder
     }
 
     @Override
-    public BlockEncoding getEncoding()
+    public String getEncodingName()
     {
-        return new IntArrayBlockEncoding();
+        return IntArrayBlockEncoding.NAME;
     }
 
     @Override

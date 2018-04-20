@@ -33,6 +33,11 @@ public class SingleRowBlock
         this.fieldBlocks = fieldBlocks;
     }
 
+    int getNumFields()
+    {
+        return fieldBlocks.length;
+    }
+
     @Override
     protected Block getFieldBlock(int fieldIndex)
     {
@@ -75,13 +80,9 @@ public class SingleRowBlock
     }
 
     @Override
-    public BlockEncoding getEncoding()
+    public String getEncodingName()
     {
-        BlockEncoding[] fieldBlockEncodings = new BlockEncoding[fieldBlocks.length];
-        for (int i = 0; i < fieldBlocks.length; i++) {
-            fieldBlockEncodings[i] = fieldBlocks[i].getEncoding();
-        }
-        return new SingleRowBlockEncoding(fieldBlockEncodings);
+        return SingleRowBlockEncoding.NAME;
     }
 
     public int getRowIndex()

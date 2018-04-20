@@ -193,10 +193,10 @@ public class LazyBlock
     }
 
     @Override
-    public BlockEncoding getEncoding()
+    public String getEncodingName()
     {
         assureLoaded();
-        return new LazyBlockEncoding();
+        return LazyBlockEncoding.NAME;
     }
 
     @Override

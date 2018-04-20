@@ -31,28 +31,17 @@ import static io.airlift.slice.Slices.wrappedIntArray;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
-import static java.util.Objects.requireNonNull;
 
 public class MapBlockEncoding
         implements BlockEncoding
 {
-    private static final String NAME = "MAP";
+    public static final String NAME = "MAP";
 
-    private final Type keyType;
-    private final MethodHandle keyNativeHashCode;
-    private final MethodHandle keyBlockNativeEquals;
-    private final BlockEncoding keyBlockEncoding;
-    private final BlockEncoding valueBlockEncoding;
+    private final TypeManager typeManager;
 
-    public MapBlockEncoding(Type keyType, MethodHandle keyBlockNativeEquals, MethodHandle keyNativeHashCode, BlockEncoding keyBlockEncoding, BlockEncoding valueBlockEncoding)
+    public MapBlockEncoding(TypeManager typeManager)
     {
-        this.keyType = requireNonNull(keyType, "keyType is null");
-        // keyNativeHashCode can only be null due to map block kill switch. deprecated.new-map-block
-        this.keyNativeHashCode = keyNativeHashCode;
-        // keyBlockNativeEquals can only be null due to map block kill switch. deprecated.new-map-block
-        this.keyBlockNativeEquals = keyBlockNativeEquals;
-        this.keyBlockEncoding = requireNonNull(keyBlockEncoding, "keyBlockEncoding is null");
-        this.valueBlockEncoding = requireNonNull(valueBlockEncoding, "valueBlockEncoding is null");
+        this.typeManager = typeManager;
     }
 
     @Override
@@ -62,7 +51,7 @@ public class MapBlockEncoding
     }
 
     @Override
-    public void writeBlock(SliceOutput sliceOutput, Block block)
+    public void writeBlock(BlockEncodingSerde blockEncodingSerde, SliceOutput sliceOutput, Block block)
     {
         AbstractMapBlock mapBlock = (AbstractMapBlock) block;
 
@@ -74,8 +63,11 @@ public class MapBlockEncoding
 
         int entriesStartOffset = offsets[offsetBase];
         int entriesEndOffset = offsets[offsetBase + positionCount];
-        keyBlockEncoding.writeBlock(sliceOutput, mapBlock.getKeys().getRegion(entriesStartOffset, entriesEndOffset - entriesStartOffset));
-        valueBlockEncoding.writeBlock(sliceOutput, mapBlock.getValues().getRegion(entriesStartOffset, entriesEndOffset - entriesStartOffset));
+
+        TypeSerde.writeType(sliceOutput, mapBlock.keyType);
+
+        blockEncodingSerde.writeBlock(sliceOutput, mapBlock.getKeys().getRegion(entriesStartOffset, entriesEndOffset - entriesStartOffset));
+        blockEncodingSerde.writeBlock(sliceOutput, mapBlock.getValues().getRegion(entriesStartOffset, entriesEndOffset - entriesStartOffset));
 
         sliceOutput.appendInt((entriesEndOffset - entriesStartOffset) * HASH_MULTIPLIER);
         sliceOutput.writeBytes(wrappedIntArray(hashTable, entriesStartOffset * HASH_MULTIPLIER, (entriesEndOffset - entriesStartOffset) * HASH_MULTIPLIER));
@@ -88,10 +80,15 @@ public class MapBlockEncoding
     }
 
     @Override
-    public Block readBlock(SliceInput sliceInput)
+    public Block readBlock(BlockEncodingSerde blockEncodingSerde, SliceInput sliceInput)
     {
-        Block keyBlock = keyBlockEncoding.readBlock(sliceInput);
-        Block valueBlock = valueBlockEncoding.readBlock(sliceInput);
+        Type keyType = TypeSerde.readType(typeManager, sliceInput);
+        MethodHandle keyNativeEquals = typeManager.resolveOperator(OperatorType.EQUAL, asList(keyType, keyType));
+        MethodHandle keyBlockNativeEquals = compose(keyNativeEquals, nativeValueGetter(keyType));
+        MethodHandle keyNativeHashCode = typeManager.resolveOperator(OperatorType.HASH_CODE, singletonList(keyType));
+
+        Block keyBlock = blockEncodingSerde.readBlock(sliceInput);
+        Block valueBlock = blockEncodingSerde.readBlock(sliceInput);
 
         int[] hashTable = new int[sliceInput.readInt()];
         sliceInput.readBytes(wrappedIntArray(hashTable));
@@ -106,43 +103,5 @@ public class MapBlockEncoding
         sliceInput.readBytes(wrappedIntArray(offsets));
         boolean[] mapIsNull = EncoderUtil.decodeNullBits(sliceInput, positionCount);
         return createMapBlockInternal(0, positionCount, mapIsNull, offsets, keyBlock, valueBlock, hashTable, keyType, keyBlockNativeEquals, keyNativeHashCode);
-    }
-
-    public static class MapBlockEncodingFactory
-            implements BlockEncodingFactory<MapBlockEncoding>
-    {
-        private final TypeManager typeManager;
-
-        public MapBlockEncodingFactory(TypeManager typeManager)
-        {
-            this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        }
-
-        @Override
-        public String getName()
-        {
-            return NAME;
-        }
-
-        @Override
-        public MapBlockEncoding readEncoding(BlockEncodingSerde serde, SliceInput input)
-        {
-            Type keyType = TypeSerde.readType(typeManager, input);
-            MethodHandle keyNativeEquals = typeManager.resolveOperator(OperatorType.EQUAL, asList(keyType, keyType));
-            MethodHandle keyBlockNativeEquals = compose(keyNativeEquals, nativeValueGetter(keyType));
-            MethodHandle keyNativeHashCode = typeManager.resolveOperator(OperatorType.HASH_CODE, singletonList(keyType));
-
-            BlockEncoding keyBlockEncoding = serde.readBlockEncoding(input);
-            BlockEncoding valueBlockEncoding = serde.readBlockEncoding(input);
-            return new MapBlockEncoding(keyType, keyBlockNativeEquals, keyNativeHashCode, keyBlockEncoding, valueBlockEncoding);
-        }
-
-        @Override
-        public void writeEncoding(BlockEncodingSerde serde, SliceOutput output, MapBlockEncoding blockEncoding)
-        {
-            TypeSerde.writeType(output, blockEncoding.keyType);
-            serde.writeBlockEncoding(output, blockEncoding.keyBlockEncoding);
-            serde.writeBlockEncoding(output, blockEncoding.valueBlockEncoding);
-        }
     }
 }

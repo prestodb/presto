@@ -13,10 +13,14 @@
  */
 package com.facebook.presto.block;
 
+import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockEncoding;
+import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
+import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.type.TypeRegistry;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 
@@ -29,6 +33,13 @@ import static org.testng.Assert.assertTrue;
 
 final class ColumnarTestUtils
 {
+    private static final TypeManager TYPE_MANAGER = new TypeRegistry();
+    private static final BlockEncodingSerde BLOCK_ENCODING_SERDE = new BlockEncodingManager(TYPE_MANAGER);
+    static {
+        // associate TYPE_MANAGER with a function registry
+        new FunctionRegistry(TYPE_MANAGER, new BlockEncodingManager(TYPE_MANAGER), new FeaturesConfig());
+    }
+
     private ColumnarTestUtils() {}
 
     public static <T> void assertBlock(Block block, T[] expectedValues)
@@ -109,9 +120,8 @@ final class ColumnarTestUtils
     private static Block copyBlock(Block block)
     {
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
-        BlockEncoding blockEncoding = block.getEncoding();
-        blockEncoding.writeBlock(sliceOutput, block);
-        return blockEncoding.readBlock(sliceOutput.slice().getInput());
+        BLOCK_ENCODING_SERDE.writeBlock(sliceOutput, block);
+        return BLOCK_ENCODING_SERDE.readBlock(sliceOutput.slice().getInput());
     }
 
     public static DictionaryBlock createTestDictionaryBlock(Block block)

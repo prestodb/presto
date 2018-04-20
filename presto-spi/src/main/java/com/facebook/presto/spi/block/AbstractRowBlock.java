@@ -48,13 +48,9 @@ public abstract class AbstractRowBlock
     }
 
     @Override
-    public RowBlockEncoding getEncoding()
+    public String getEncodingName()
     {
-        BlockEncoding[] fieldBlockEncodings = new BlockEncoding[numFields];
-        for (int i = 0; i < numFields; i++) {
-            fieldBlockEncodings[i] = getFieldBlocks()[i].getEncoding();
-        }
-        return new RowBlockEncoding(fieldBlockEncodings);
+        return RowBlockEncoding.NAME;
     }
 
     @Override

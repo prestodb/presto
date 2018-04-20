@@ -147,7 +147,7 @@ public abstract class AbstractSingleArrayBlock
     }
 
     @Override
-    public BlockEncoding getEncoding()
+    public String getEncodingName()
     {
         // SingleArrayBlockEncoding does not exist
         throw new UnsupportedOperationException();

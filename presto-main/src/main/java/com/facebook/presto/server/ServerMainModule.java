@@ -104,7 +104,7 @@ import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockEncodingFactory;
+import com.facebook.presto.spi.block.BlockEncoding;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -472,7 +472,7 @@ public class ServerMainModule
         // block encodings
         binder.bind(BlockEncodingManager.class).in(Scopes.SINGLETON);
         binder.bind(BlockEncodingSerde.class).to(BlockEncodingManager.class).in(Scopes.SINGLETON);
-        newSetBinder(binder, new TypeLiteral<BlockEncodingFactory<?>>() {});
+        newSetBinder(binder, BlockEncoding.class);
         jsonBinder(binder).addSerializerBinding(Block.class).to(BlockJsonSerde.Serializer.class);
         jsonBinder(binder).addDeserializerBinding(Block.class).to(BlockJsonSerde.Deserializer.class);
 

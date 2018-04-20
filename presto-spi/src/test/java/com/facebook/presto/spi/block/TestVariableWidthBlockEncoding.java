@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.block;
 
+import com.facebook.presto.spi.type.TestingTypeManager;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.DynamicSliceOutput;
 import org.testng.annotations.Test;
@@ -23,6 +24,8 @@ import static org.testng.Assert.assertEquals;
 
 public class TestVariableWidthBlockEncoding
 {
+    private final BlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde(new TestingTypeManager());
+
     @Test
     public void testRoundTrip()
     {
@@ -34,9 +37,8 @@ public class TestVariableWidthBlockEncoding
         Block expectedBlock = expectedBlockBuilder.build();
 
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
-        BlockEncoding blockEncoding = new VariableWidthBlockEncoding();
-        blockEncoding.writeBlock(sliceOutput, expectedBlock);
-        Block actualBlock = blockEncoding.readBlock(sliceOutput.slice().getInput());
+        blockEncodingSerde.writeBlock(sliceOutput, expectedBlock);
+        Block actualBlock = blockEncodingSerde.readBlock(sliceOutput.slice().getInput());
         assertBlockEquals(VARCHAR, actualBlock, expectedBlock);
     }
 

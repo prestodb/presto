@@ -219,9 +219,9 @@ public class LongArrayBlock
     }
 
     @Override
-    public BlockEncoding getEncoding()
+    public String getEncodingName()
     {
-        return new LongArrayBlockEncoding();
+        return LongArrayBlockEncoding.NAME;
     }
 
     @Override

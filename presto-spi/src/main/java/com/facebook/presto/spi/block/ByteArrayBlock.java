@@ -172,9 +172,9 @@ public class ByteArrayBlock
     }
 
     @Override
-    public BlockEncoding getEncoding()
+    public String getEncodingName()
     {
-        return new ByteArrayBlockEncoding();
+        return ByteArrayBlockEncoding.NAME;
     }
 
     @Override
