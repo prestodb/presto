@@ -37,14 +37,12 @@ public class ThriftConnectorFactory
         implements ConnectorFactory
 {
     private final String name;
-    private final Module locationModule;
-    private final SessionPropertyProvider sessionPropertyProvider;
+    private final Module module;
 
-    public ThriftConnectorFactory(String name, Module locationModule, SessionPropertyProvider sessionPropertyProvider)
+    public ThriftConnectorFactory(String name, Module module)
     {
         this.name = requireNonNull(name, "name is null");
-        this.locationModule = requireNonNull(locationModule, "locationModule is null");
-        this.sessionPropertyProvider = requireNonNull(sessionPropertyProvider, "sessionPropertyProvider is null");
+        this.module = requireNonNull(module, "module is null");
     }
 
     @Override
@@ -69,9 +67,8 @@ public class ThriftConnectorFactory
                     binder -> {
                         binder.bind(MBeanServer.class).toInstance(new RebindSafeMBeanServer(getPlatformMBeanServer()));
                         binder.bind(TypeManager.class).toInstance(context.getTypeManager());
-                        binder.bind(SessionPropertyProvider.class).toInstance(sessionPropertyProvider);
                     },
-                    locationModule,
+                    module,
                     new ThriftModule(connectorId));
 
             Injector injector = app

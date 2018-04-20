@@ -46,7 +46,6 @@ public class ThriftPageSource
 {
     private final PrestoThriftId splitId;
     private final PrestoThriftService client;
-    private final Map<String, String> thriftHeader;
     private final List<String> columnNames;
     private final List<Type> columnTypes;
     private final long maxBytesPerResponse;
@@ -60,7 +59,7 @@ public class ThriftPageSource
 
     public ThriftPageSource(
             DriftClient<PrestoThriftService> client,
-            Map<String, String> thriftHeader,
+            Map<String, String> thriftHeaders,
             ThriftConnectorSplit split,
             List<ColumnHandle> columns,
             ThriftConnectorStats stats,
@@ -75,7 +74,7 @@ public class ThriftPageSource
             columnNames.add(thriftColumnHandle.getColumnName());
             columnTypes.add(thriftColumnHandle.getColumnType());
         }
-        this.thriftHeader = requireNonNull(thriftHeader, "thriftHeader is null");
+        requireNonNull(thriftHeaders, "thriftHeaders is null");
         this.columnNames = columnNames.build();
         this.columnTypes = columnTypes.build();
         this.stats = requireNonNull(stats, "stats is null");
@@ -92,12 +91,13 @@ public class ThriftPageSource
         // init client
         requireNonNull(client, "client is null");
         if (split.getAddresses().isEmpty()) {
-            this.client = client.get(thriftHeader);
+            this.client = client.get(thriftHeaders);
         }
         else {
-            this.client = client.get(Optional.of(split.getAddresses().stream()
+            String hosts = split.getAddresses().stream()
                     .map(HostAddress::toString)
-                    .collect(joining(","))), thriftHeader);
+                    .collect(joining(","));
+            this.client = client.get(Optional.of(hosts), thriftHeaders);
         }
     }
 

@@ -72,7 +72,7 @@ public class ThriftSplitManager
     {
         ThriftTableLayoutHandle layoutHandle = (ThriftTableLayoutHandle) layout;
         return new ThriftSplitSource(
-                client.get(sessionProperties.createHeaderFromSession(session)),
+                client.get(sessionProperties.toHeader(session)),
                 new PrestoThriftSchemaTableName(layoutHandle.getSchemaName(), layoutHandle.getTableName()),
                 layoutHandle.getColumns().map(ThriftSplitManager::columnNames),
                 tupleDomainToThriftTupleDomain(layoutHandle.getConstraint()));

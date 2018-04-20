@@ -23,12 +23,14 @@ import org.testng.annotations.Test;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanSessionProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.doubleSessionProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerSessionProperty;
+import static com.facebook.presto.spi.session.PropertyMetadata.longSessionProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringSessionProperty;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -39,42 +41,56 @@ public class TestThriftSessionProperties
     @Test
     public void testCreateHeaderFromSession()
     {
-        Map<String, String> result = sessionProperties.createHeaderFromSession(
-                createTestSession(
-                        ImmutableMap.of(
-                                "string_session_prop", "123",
-                                "int_session_prop", 1,
-                                "double_session_prop", 100.0,
-                                "bool_session_prop", true)));
-        Map<String, String> expected = ImmutableMap.of(
-                "test_session_prop1", "123",
-                "test_session_prop2", "1",
-                "test_session_prop3", "100.0",
-                "test_session_prop4", "true");
+        Map<String, Object> sessionValues = ImmutableMap.<String, Object>builder()
+                .put("string_session_prop", "123")
+                .put("int_session_prop", 1)
+                .put("long_session_prop", 13L)
+                .put("double_session_prop", 100.0)
+                .put("bool_session_prop", true)
+                .build();
+
+        Map<String, String> result = sessionProperties.toHeader(createTestSession(sessionValues));
+        Map<String, String> expected = ImmutableMap.<String, String>builder()
+                .put("test_session_prop1", "123")
+                .put("test_session_prop2", "1")
+                .put("test_session_prop3", "13")
+                .put("test_session_prop4", "100.0")
+                .put("test_session_prop5", "true")
+                .build();
+
         assertEquals(result, expected);
     }
 
     @Test
     public void testIgnoreDefault()
     {
-        Map<String, String> result = sessionProperties.createHeaderFromSession(
-                createTestSession(
-                        ImmutableMap.of(
-                                "int_session_prop", 0,
-                                "double_session_prop", 0.0,
-                                "bool_session_prop", false)));
+        Map<String, Object> sessionValues = ImmutableMap.<String, Object>builder()
+                .put("int_session_prop", -1)
+                .put("long_session_prop", 1)
+                .put("double_session_prop", 0.01)
+                .put("bool_session_prop", false)
+                .put("another_string_session_prop", "123")
+                .build();
+        Map<String, String> result = sessionProperties.toHeader(createTestSession(sessionValues));
 
         assertTrue(result.isEmpty());
     }
 
-    @Test(expectedExceptions = UnsupportedOperationException.class)
+    @Test(expectedExceptions = IllegalArgumentException.class)
     public void testRejectUnknownType()
     {
         ThriftSessionProperties sessionProperties = new ThriftSessionProperties(() ->
                 ImmutableMap.of(
                         "test_session_prop",
-                        new PropertyMetadata<>("unsupported_typed_prop", "custom types are not supported", VARCHAR, TestingClass.class,
-                                null, false, value -> new TestingClass((String) value), object -> object == null ? null : object.getValue())));
+                        new PropertyMetadata<>(
+                                "unsupported_typed_prop",
+                                "complex types are not supported",
+                                BIGINT,
+                                AtomicLong.class,
+                                null,
+                                false,
+                                value -> new AtomicLong(((Number) value).intValue()),
+                                object -> object == null ? null : object.toString())));
     }
 
     private ConnectorSession createTestSession(Map<String, Object> sessionValues)
@@ -90,38 +106,20 @@ public class TestThriftSessionProperties
                 false);
     }
 
-    private static class TestingClass
-    {
-        private final String value;
-
-        public TestingClass(String value)
-        {
-            this.value = value;
-        }
-
-        String getValue()
-        {
-            return value;
-        }
-
-        @Override
-        public String toString()
-        {
-            return value;
-        }
-    }
-
     private static class TestingThriftSessionProperties
             implements SessionPropertyProvider
     {
         @Override
         public Map<String, PropertyMetadata<?>> getHeaderProperties()
         {
-            return ImmutableMap.of(
-                    "test_session_prop1", stringSessionProperty("string_session_prop", "test string session prop", null, false),
-                    "test_session_prop2", integerSessionProperty("int_session_prop", "test int session prop", 0, false),
-                    "test_session_prop3", doubleSessionProperty("double_session_prop", "test double session prop", 0.0, false),
-                    "test_session_prop4", booleanSessionProperty("bool_session_prop", "test boolean session prop", false, false));
+            return ImmutableMap.<String, PropertyMetadata<?>>builder()
+                    .put("test_session_prop1", stringSessionProperty("string_session_prop", "test string session prop", null, false))
+                    .put("test_session_prop2", integerSessionProperty("int_session_prop", "test int session prop", -1, false))
+                    .put("test_session_prop3", longSessionProperty("long_session_prop", "test long session prop", 1L, false))
+                    .put("test_session_prop4", doubleSessionProperty("double_session_prop", "test double session prop", 0.01, false))
+                    .put("test_session_prop5", booleanSessionProperty("bool_session_prop", "test boolean session prop", false, false))
+                    .put("test_session_prop6", stringSessionProperty("another_string_session_prop", "another test string session prop", "123", false))
+                    .build();
         }
     }
 }

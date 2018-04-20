@@ -15,12 +15,9 @@ package com.facebook.presto.connector.thrift;
 
 import com.facebook.presto.spi.session.PropertyMetadata;
 
-import javax.validation.constraints.NotNull;
-
 import java.util.Map;
 
-interface SessionPropertyProvider
+public interface SessionPropertyProvider
 {
-    @NotNull
     Map<String, PropertyMetadata<?>> getHeaderProperties();
 }

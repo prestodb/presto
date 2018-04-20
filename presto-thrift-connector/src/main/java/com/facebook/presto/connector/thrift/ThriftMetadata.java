@@ -94,7 +94,7 @@ public class ThriftMetadata
     public List<String> listSchemaNames(ConnectorSession session)
     {
         try {
-            return client.get(sessionProperties.createHeaderFromSession(session)).listSchemaNames();
+            return client.get(sessionProperties.toHeader(session)).listSchemaNames();
         }
         catch (PrestoThriftServiceException | TException e) {
             throw toPrestoException(e);
@@ -143,7 +143,8 @@ public class ThriftMetadata
     public List<SchemaTableName> listTables(ConnectorSession session, String schemaNameOrNull)
     {
         try {
-            return client.get(sessionProperties.createHeaderFromSession(session)).listTables(new PrestoThriftNullableSchemaName(schemaNameOrNull)).stream()
+            return client.get(sessionProperties.toHeader(session))
+                    .listTables(new PrestoThriftNullableSchemaName(schemaNameOrNull)).stream()
                     .map(PrestoThriftSchemaTableName::toSchemaTableName)
                     .collect(toImmutableList());
         }

@@ -56,6 +56,14 @@ public class ThriftIndexProvider
             List<ColumnHandle> lookupSchema,
             List<ColumnHandle> outputSchema)
     {
-        return new ThriftConnectorIndex(client, sessionProperties.createHeaderFromSession(session), stats, (ThriftIndexHandle) indexHandle, lookupSchema, outputSchema, maxBytesPerResponse, lookupRequestsConcurrency);
+        return new ThriftConnectorIndex(
+                client,
+                sessionProperties.toHeader(session),
+                stats,
+                (ThriftIndexHandle) indexHandle,
+                lookupSchema,
+                outputSchema,
+                maxBytesPerResponse,
+                lookupRequestsConcurrency);
     }
 }

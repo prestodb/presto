@@ -30,7 +30,7 @@ public class ThriftConnectorIndex
         implements ConnectorIndex
 {
     private final DriftClient<PrestoThriftService> client;
-    private final Map<String, String> thriftHeader;
+    private final Map<String, String> thriftHeaders;
     private final ThriftIndexHandle indexHandle;
     private final List<ColumnHandle> lookupColumns;
     private final List<ColumnHandle> outputColumns;
@@ -40,7 +40,7 @@ public class ThriftConnectorIndex
 
     public ThriftConnectorIndex(
             DriftClient<PrestoThriftService> client,
-            Map<String, String> thriftHeader,
+            Map<String, String> thriftHeaders,
             ThriftConnectorStats stats,
             ThriftIndexHandle indexHandle,
             List<ColumnHandle> lookupColumns,
@@ -49,7 +49,7 @@ public class ThriftConnectorIndex
             int lookupRequestsConcurrency)
     {
         this.client = requireNonNull(client, "client is null");
-        this.thriftHeader = requireNonNull(thriftHeader, "thriftHeader is null");
+        this.thriftHeaders = requireNonNull(thriftHeaders, "thriftHeaders is null");
         this.stats = requireNonNull(stats, "stats is null");
         this.indexHandle = requireNonNull(indexHandle, "indexHandle is null");
         this.lookupColumns = requireNonNull(lookupColumns, "lookupColumns is null");
@@ -61,7 +61,7 @@ public class ThriftConnectorIndex
     @Override
     public ConnectorPageSource lookup(RecordSet recordSet)
     {
-        return new ThriftIndexPageSource(client, thriftHeader, stats, indexHandle, lookupColumns, outputColumns, recordSet, maxBytesPerResponse, lookupRequestsConcurrency);
+        return new ThriftIndexPageSource(client, thriftHeaders, stats, indexHandle, lookupColumns, outputColumns, recordSet, maxBytesPerResponse, lookupRequestsConcurrency);
     }
 
     @Override

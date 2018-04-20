@@ -17,12 +17,15 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 
 import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableMap.builder;
 import static java.util.Objects.requireNonNull;
 
@@ -34,13 +37,14 @@ public final class ThriftSessionProperties
 {
     private final List<PropertyMetadata<?>> sessionProperties;
     private final Map<String, PropertyMetadata<?>> headerProperties;
+    private static final Set<Class<?>> SUPPORTED_TYPES = ImmutableSet.of(Integer.class, Long.class, Double.class, Boolean.class, String.class);
 
     @Inject
     public ThriftSessionProperties(SessionPropertyProvider sessionPropertyProvider)
     {
         requireNonNull(sessionPropertyProvider, "sessionPropertyProvider is null");
-        headerProperties = requireNonNull(sessionPropertyProvider.getHeaderProperties(), "sessionPropertyProvider returns null header properties");
-        headerProperties.values().stream().forEach(sessionProperty -> checkIfTypeSupported(sessionProperty.getJavaType()));
+        headerProperties = requireNonNull(sessionPropertyProvider.getHeaderProperties(), "sessionPropertyProvider returned null header properties");
+        headerProperties.values().stream().forEach(property -> checkIfTypeSupported(property.getJavaType()));
         sessionProperties = ImmutableList.copyOf(headerProperties.values());
     }
 
@@ -49,7 +53,7 @@ public final class ThriftSessionProperties
         return sessionProperties;
     }
 
-    public Map<String, String> createHeaderFromSession(ConnectorSession session)
+    public Map<String, String> toHeader(ConnectorSession session)
     {
         ImmutableMap.Builder<String, String> header = builder();
         headerProperties.forEach((name, property) -> {
@@ -63,12 +67,6 @@ public final class ThriftSessionProperties
 
     private void checkIfTypeSupported(Class<?> javaType)
     {
-        if (javaType != Long.class
-                && javaType != Double.class
-                && javaType != Integer.class
-                && javaType != Boolean.class
-                && javaType != String.class) {
-            throw new UnsupportedOperationException(String.format("Java type %s is not supported to be passed to thrift header", javaType));
-        }
+        checkArgument(SUPPORTED_TYPES.contains(javaType), "Java type %s is not supported to be passed to thrift header", javaType);
     }
 }

@@ -52,6 +52,6 @@ public class ThriftPageSourceProvider
             ConnectorSplit split,
             List<ColumnHandle> columns)
     {
-        return new ThriftPageSource(client, sessionProperties.createHeaderFromSession(session), (ThriftConnectorSplit) split, columns, stats, maxBytesPerResponse);
+        return new ThriftPageSource(client, sessionProperties.toHeader(session), (ThriftConnectorSplit) split, columns, stats, maxBytesPerResponse);
     }
 }
