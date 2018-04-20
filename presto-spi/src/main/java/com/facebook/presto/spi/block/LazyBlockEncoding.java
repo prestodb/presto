@@ -50,11 +50,4 @@ public class LazyBlockEncoding
     {
         return Optional.of(((LazyBlock) block).getBlock());
     }
-
-    @Override
-    public BlockEncodingFactory getFactory()
-    {
-        // We implemented replacementBlockForWrite, so we will never need to write a lazy block
-        throw new UnsupportedOperationException();
-    }
 }

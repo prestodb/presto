@@ -87,12 +87,6 @@ public class DictionaryBlockEncoding
         return new DictionaryBlock(positionCount, dictionaryBlock, ids, false, new DictionaryId(mostSignificantBits, leastSignificantBits, sequenceId));
     }
 
-    @Override
-    public BlockEncodingFactory getFactory()
-    {
-        return FACTORY;
-    }
-
     public BlockEncoding getDictionaryEncoding()
     {
         return dictionaryEncoding;

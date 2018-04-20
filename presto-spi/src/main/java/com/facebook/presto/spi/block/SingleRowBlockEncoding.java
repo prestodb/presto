@@ -59,12 +59,6 @@ public class SingleRowBlockEncoding
         return new SingleRowBlock(0, fieldBlocks);
     }
 
-    @Override
-    public BlockEncodingFactory getFactory()
-    {
-        return FACTORY;
-    }
-
     public static class SingleRowBlockEncodingFactory
             implements BlockEncodingFactory<SingleRowBlockEncoding>
     {

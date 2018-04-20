@@ -43,9 +43,4 @@ public interface BlockEncoding
     {
         return Optional.empty();
     }
-
-    /*
-     * Return associated factory
-     */
-    BlockEncodingFactory getFactory();
 }

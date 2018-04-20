@@ -64,12 +64,6 @@ public class ShortArrayBlockEncoding
         return new ShortArrayBlock(positionCount, valueIsNull, values);
     }
 
-    @Override
-    public BlockEncodingFactory getFactory()
-    {
-        return FACTORY;
-    }
-
     public static class ShortArrayBlockEncodingFactory
             implements BlockEncodingFactory<ShortArrayBlockEncoding>
     {

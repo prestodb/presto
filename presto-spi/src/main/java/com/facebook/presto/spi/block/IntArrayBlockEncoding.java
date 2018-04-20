@@ -64,12 +64,6 @@ public class IntArrayBlockEncoding
         return new IntArrayBlock(positionCount, valueIsNull, values);
     }
 
-    @Override
-    public BlockEncodingFactory getFactory()
-    {
-        return FACTORY;
-    }
-
     public static class IntArrayBlockEncodingFactory
             implements BlockEncodingFactory<IntArrayBlockEncoding>
     {

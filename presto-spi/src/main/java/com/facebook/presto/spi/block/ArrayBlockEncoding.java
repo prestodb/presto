@@ -73,12 +73,6 @@ public class ArrayBlockEncoding
         return createArrayBlockInternal(0, positionCount, valueIsNull, offsets, values);
     }
 
-    @Override
-    public BlockEncodingFactory getFactory()
-    {
-        return FACTORY;
-    }
-
     public static class ArrayBlockEncodingFactory
             implements BlockEncodingFactory<ArrayBlockEncoding>
     {

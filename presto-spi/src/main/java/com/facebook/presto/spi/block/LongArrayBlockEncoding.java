@@ -64,12 +64,6 @@ public class LongArrayBlockEncoding
         return new LongArrayBlock(positionCount, valueIsNull, values);
     }
 
-    @Override
-    public BlockEncodingFactory getFactory()
-    {
-        return FACTORY;
-    }
-
     public static class LongArrayBlockEncodingFactory
             implements BlockEncodingFactory<LongArrayBlockEncoding>
     {

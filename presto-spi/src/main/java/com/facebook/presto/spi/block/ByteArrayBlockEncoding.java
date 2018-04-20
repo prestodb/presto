@@ -64,12 +64,6 @@ public class ByteArrayBlockEncoding
         return new ByteArrayBlock(positionCount, valueIsNull, values);
     }
 
-    @Override
-    public BlockEncodingFactory getFactory()
-    {
-        return FACTORY;
-    }
-
     public static class ByteArrayBlockEncodingFactory
             implements BlockEncodingFactory<ByteArrayBlockEncoding>
     {

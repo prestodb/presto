@@ -84,12 +84,6 @@ public class RowBlockEncoding
         return createRowBlockInternal(0, positionCount, rowIsNull, fieldBlockOffsets, fieldBlocks);
     }
 
-    @Override
-    public BlockEncodingFactory getFactory()
-    {
-        return FACTORY;
-    }
-
     public static class RowBlockEncodingFactory
             implements BlockEncodingFactory<RowBlockEncoding>
     {

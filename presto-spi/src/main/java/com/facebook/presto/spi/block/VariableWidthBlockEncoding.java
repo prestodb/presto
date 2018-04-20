@@ -75,12 +75,6 @@ public class VariableWidthBlockEncoding
         return new VariableWidthBlock(positionCount, slice, offsets, valueIsNull);
     }
 
-    @Override
-    public BlockEncodingFactory getFactory()
-    {
-        return FACTORY;
-    }
-
     public static class VariableWidthBlockEncodingFactory
             implements BlockEncodingFactory<VariableWidthBlockEncoding>
     {

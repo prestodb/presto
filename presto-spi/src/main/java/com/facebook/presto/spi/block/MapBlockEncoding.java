@@ -109,12 +109,6 @@ public class MapBlockEncoding
         return createMapBlockInternal(0, positionCount, mapIsNull, offsets, keyBlock, valueBlock, hashTable, keyType, keyBlockNativeEquals, keyNativeHashCode);
     }
 
-    @Override
-    public BlockEncodingFactory getFactory()
-    {
-        return FACTORY;
-    }
-
     public static class MapBlockEncodingFactory
             implements BlockEncodingFactory<MapBlockEncoding>
     {

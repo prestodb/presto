@@ -91,12 +91,6 @@ public class SingleMapBlockEncoding
         return new SingleMapBlock(0, keyBlock.getPositionCount() * 2, keyBlock, valueBlock, hashTable, keyType, keyNativeHashCode, keyBlockNativeEquals);
     }
 
-    @Override
-    public BlockEncodingFactory getFactory()
-    {
-        return FACTORY;
-    }
-
     public static class SingleMapBlockEncodingFactory
             implements BlockEncodingFactory<SingleMapBlockEncoding>
     {
