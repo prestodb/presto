@@ -62,6 +62,7 @@ import io.airlift.stats.TestingGcMonitor;
 import io.airlift.units.DataSize;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -73,12 +74,15 @@ import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NO
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.stats.CpuTimer.CpuDuration;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -123,6 +127,24 @@ public abstract class AbstractOperatorBenchmark
     {
         localQueryRunner.getTransactionManager().asyncAbort(session.getRequiredTransactionId());
         super.tearDown();
+    }
+
+    protected final List<Type> getColumnTypes(String tableName, String... columnNames)
+    {
+        checkState(session.getCatalog().isPresent(), "catalog not set");
+        checkState(session.getSchema().isPresent(), "schema not set");
+
+        // look up the table
+        Metadata metadata = localQueryRunner.getMetadata();
+        QualifiedObjectName qualifiedTableName = new QualifiedObjectName(session.getCatalog().get(), session.getSchema().get(), tableName);
+        TableHandle tableHandle = metadata.getTableHandle(session, qualifiedTableName)
+                .orElseThrow(() -> new IllegalArgumentException(format("Table %s does not exist", qualifiedTableName)));
+
+        Map<String, ColumnHandle> allColumnHandles = metadata.getColumnHandles(session, tableHandle);
+        return Arrays.stream(columnNames)
+                .map(allColumnHandles::get)
+                .map(columnHandle -> metadata.getColumnMetadata(session, tableHandle, columnHandle).getType())
+                .collect(toImmutableList());
     }
 
     protected final OperatorFactory createTableScanOperator(int operatorId, PlanNodeId planNodeId, String tableName, String... columnNames)
