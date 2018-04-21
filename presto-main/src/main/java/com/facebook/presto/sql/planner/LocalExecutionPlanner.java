@@ -955,7 +955,7 @@ public class LocalExecutionPlanner
                     node.getLimit(),
                     hashChannel,
                     joinCompiler);
-            return new PhysicalOperation(operatorFactory, source.getLayout(), source);
+            return new PhysicalOperation(operatorFactory, makeLayout(node), source);
         }
 
         @Override

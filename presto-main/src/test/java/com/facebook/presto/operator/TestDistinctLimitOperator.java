@@ -95,7 +95,7 @@ public class TestDistinctLimitOperator
                 .addSequencePage(5, 2)
                 .build();
 
-        OperatorFactory operatorFactory = new DistinctLimitOperator.DistinctLimitOperatorFactory(0, new PlanNodeId("test"), ImmutableList.of(BIGINT), Ints.asList(0), 5, rowPagesBuilder.getHashChannel(), joinCompiler);
+        OperatorFactory operatorFactory = new DistinctLimitOperator.DistinctLimitOperatorFactory(0, new PlanNodeId("test"), rowPagesBuilder.getTypes(), Ints.asList(0), 5, rowPagesBuilder.getHashChannel(), joinCompiler);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT)
                 .row(1L)
@@ -105,7 +105,7 @@ public class TestDistinctLimitOperator
                 .row(5L)
                 .build();
 
-        assertOperatorEquals(operatorFactory, driverContext, input, expected);
+        assertOperatorEquals(operatorFactory, driverContext, input, expected, hashEnabled, ImmutableList.of(1));
     }
 
     @Test(dataProvider = "hashEnabledValues")
@@ -117,7 +117,7 @@ public class TestDistinctLimitOperator
                 .addSequencePage(3, 2)
                 .build();
 
-        OperatorFactory operatorFactory = new DistinctLimitOperator.DistinctLimitOperatorFactory(0, new PlanNodeId("test"), ImmutableList.of(BIGINT), Ints.asList(0), 3, rowPagesBuilder.getHashChannel(), joinCompiler);
+        OperatorFactory operatorFactory = new DistinctLimitOperator.DistinctLimitOperatorFactory(0, new PlanNodeId("test"), rowPagesBuilder.getTypes(), Ints.asList(0), 3, rowPagesBuilder.getHashChannel(), joinCompiler);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT)
                 .row(1L)
@@ -125,7 +125,7 @@ public class TestDistinctLimitOperator
                 .row(3L)
                 .build();
 
-        assertOperatorEquals(operatorFactory, driverContext, input, expected);
+        assertOperatorEquals(operatorFactory, driverContext, input, expected, hashEnabled, ImmutableList.of(1));
     }
 
     @Test(dataProvider = "hashEnabledValues")
@@ -137,7 +137,7 @@ public class TestDistinctLimitOperator
                 .addSequencePage(3, 2)
                 .build();
 
-        OperatorFactory operatorFactory = new DistinctLimitOperator.DistinctLimitOperatorFactory(0, new PlanNodeId("test"), ImmutableList.of(BIGINT), Ints.asList(0), 5, rowPagesBuilder.getHashChannel(), joinCompiler);
+        OperatorFactory operatorFactory = new DistinctLimitOperator.DistinctLimitOperatorFactory(0, new PlanNodeId("test"), rowPagesBuilder.getTypes(), Ints.asList(0), 5, rowPagesBuilder.getHashChannel(), joinCompiler);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT)
                 .row(1L)
@@ -146,7 +146,7 @@ public class TestDistinctLimitOperator
                 .row(4L)
                 .build();
 
-        assertOperatorEquals(operatorFactory, driverContext, input, expected);
+        assertOperatorEquals(operatorFactory, driverContext, input, expected, hashEnabled, ImmutableList.of(1));
     }
 
     @Test(dataProvider = "dataType")
@@ -157,7 +157,7 @@ public class TestDistinctLimitOperator
         OperatorFactory operatorFactory = new DistinctLimitOperator.DistinctLimitOperatorFactory(
                 0,
                 new PlanNodeId("test"),
-                ImmutableList.of(type),
+                ImmutableList.of(type, BIGINT),
                 ImmutableList.of(0),
                 Integer.MAX_VALUE,
                 Optional.of(1),
