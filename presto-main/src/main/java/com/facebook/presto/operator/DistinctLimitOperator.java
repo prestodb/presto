@@ -15,7 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -31,6 +31,7 @@ import static com.facebook.presto.operator.GroupByHash.createGroupByHash;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class DistinctLimitOperator
@@ -43,6 +44,7 @@ public class DistinctLimitOperator
         private final PlanNodeId planNodeId;
         private final List<Integer> distinctChannels;
         private final List<Type> types;
+        private final List<Type> sourceTypes;
         private final long limit;
         private final Optional<Integer> hashChannel;
         private boolean closed;
@@ -51,7 +53,7 @@ public class DistinctLimitOperator
         public DistinctLimitOperatorFactory(
                 int operatorId,
                 PlanNodeId planNodeId,
-                List<? extends Type> types,
+                List<? extends Type> sourceTypes,
                 List<Integer> distinctChannels,
                 long limit,
                 Optional<Integer> hashChannel,
@@ -59,8 +61,13 @@ public class DistinctLimitOperator
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
-            this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+            this.sourceTypes = ImmutableList.copyOf(requireNonNull(sourceTypes, "sourceTypes is null"));
             this.distinctChannels = requireNonNull(distinctChannels, "distinctChannels is null");
+
+            types = ImmutableList.<Type>builder()
+                    .addAll(distinctChannels.stream().map(sourceTypes::get).collect(toImmutableList()))
+                    .addAll(hashChannel.map(sourceTypes::get).map(ImmutableList::of).orElse(ImmutableList.of()))
+                    .build();
 
             checkArgument(limit >= 0, "limit must be at least zero");
             this.limit = limit;
@@ -79,7 +86,10 @@ public class DistinctLimitOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, DistinctLimitOperator.class.getSimpleName());
-            return new DistinctLimitOperator(operatorContext, types, distinctChannels, limit, hashChannel, joinCompiler);
+            List<Type> distinctTypes = distinctChannels.stream()
+                    .map(sourceTypes::get)
+                    .collect(toImmutableList());
+            return new DistinctLimitOperator(operatorContext, distinctChannels, distinctTypes, limit, hashChannel, joinCompiler);
         }
 
         @Override
@@ -91,20 +101,19 @@ public class DistinctLimitOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new DistinctLimitOperatorFactory(operatorId, planNodeId, types, distinctChannels, limit, hashChannel, joinCompiler);
+            return new DistinctLimitOperatorFactory(operatorId, planNodeId, sourceTypes, distinctChannels, limit, hashChannel, joinCompiler);
         }
     }
 
     private final OperatorContext operatorContext;
-    private final List<Type> types;
     private final LocalMemoryContext localUserMemoryContext;
 
-    private final PageBuilder pageBuilder;
     private Page inputPage;
     private long remainingLimit;
 
     private boolean finishing;
 
+    private final List<Integer> outputChannels;
     private final GroupByHash groupByHash;
     private long nextDistinctId;
 
@@ -112,28 +121,27 @@ public class DistinctLimitOperator
     private GroupByIdBlock groupByIds;
     private Work<GroupByIdBlock> unfinishedWork;
 
-    public DistinctLimitOperator(OperatorContext operatorContext, List<Type> types, List<Integer> distinctChannels, long limit, Optional<Integer> hashChannel, JoinCompiler joinCompiler)
+    public DistinctLimitOperator(OperatorContext operatorContext, List<Integer> distinctChannels, List<Type> distinctTypes, long limit, Optional<Integer> hashChannel, JoinCompiler joinCompiler)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.localUserMemoryContext = operatorContext.localUserMemoryContext();
         requireNonNull(distinctChannels, "distinctChannels is null");
         checkArgument(limit >= 0, "limit must be at least zero");
         requireNonNull(hashChannel, "hashChannel is null");
 
-        ImmutableList.Builder<Type> distinctTypes = ImmutableList.builder();
-        for (int channel : distinctChannels) {
-            distinctTypes.add(types.get(channel));
-        }
+        outputChannels = ImmutableList.<Integer>builder()
+                .addAll(distinctChannels)
+                .addAll(hashChannel.map(ImmutableList::of).orElse(ImmutableList.of()))
+                .build();
+
         this.groupByHash = createGroupByHash(
-                distinctTypes.build(),
+                distinctTypes,
                 Ints.toArray(distinctChannels),
                 hashChannel,
                 Math.min((int) limit, 10_000),
                 isDictionaryAggregationEnabled(operatorContext.getSession()),
                 joinCompiler,
                 this::updateMemoryReservation);
-        this.pageBuilder = new PageBuilder(types);
         remainingLimit = limit;
     }
 
@@ -147,7 +155,6 @@ public class DistinctLimitOperator
     public void finish()
     {
         finishing = true;
-        pageBuilder.reset();
     }
 
     @Override
@@ -184,15 +191,14 @@ public class DistinctLimitOperator
             return null;
         }
 
-        verify(pageBuilder.getPositionCount() == 0);
         verify(inputPage != null);
+        int distinctCount = 0;
+        int[] distinctPositions = new int[inputPage.getPositionCount()];
         for (int position = 0; position < groupByIds.getPositionCount(); position++) {
             if (groupByIds.getGroupId(position) == nextDistinctId) {
-                pageBuilder.declarePosition();
-                for (int channel = 0; channel < types.size(); channel++) {
-                    Type type = types.get(channel);
-                    type.appendTo(inputPage.getBlock(channel), position, pageBuilder.getBlockBuilder(channel));
-                }
+                distinctPositions[distinctCount] = position;
+                distinctCount++;
+
                 remainingLimit--;
                 nextDistinctId++;
                 if (remainingLimit == 0) {
@@ -200,16 +206,25 @@ public class DistinctLimitOperator
                 }
             }
         }
+        Page result = maskToDistinctOutputPositions(distinctCount, distinctPositions);
+
         groupByIds = null;
         inputPage = null;
 
-        Page result = null;
-        if (!pageBuilder.isEmpty()) {
-            result = pageBuilder.build();
-            pageBuilder.reset();
-        }
-
         updateMemoryReservation();
+        return result;
+    }
+
+    private Page maskToDistinctOutputPositions(int distinctCount, int[] distinctPositions)
+    {
+        Page result = null;
+        if (distinctCount > 0) {
+            Block[] blocks = outputChannels.stream()
+                    .map(inputPage::getBlock)
+                    .map(block -> block.getPositions(distinctPositions, 0, distinctCount))
+                    .toArray(Block[]::new);
+            result = new Page(distinctCount, blocks);
+        }
         return result;
     }
 
