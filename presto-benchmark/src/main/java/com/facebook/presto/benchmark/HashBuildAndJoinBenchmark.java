@@ -24,6 +24,7 @@ import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.PartitionedLookupSourceFactory;
 import com.facebook.presto.operator.TaskContext;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spiller.SingleStreamSpillerFactory;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.LocalQueryRunner;
@@ -40,7 +41,6 @@ import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQuer
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunnerHashEnabled;
 import static com.facebook.presto.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spiller.PartitioningSpillerFactory.unsupportedPartitioningSpillerFactory;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -50,7 +50,9 @@ public class HashBuildAndJoinBenchmark
         extends AbstractOperatorBenchmark
 {
     private final boolean hashEnabled;
+    private final List<Type> ordersTableTypes = getColumnTypes("orders", "orderkey", "totalprice");
     private final OperatorFactory ordersTableScan = createTableScanOperator(0, new PlanNodeId("test"), "orders", "orderkey", "totalprice");
+    private final List<Type> lineItemTableTypes = getColumnTypes("lineitem", "orderkey", "quantity");
     private final OperatorFactory lineItemTableScan = createTableScanOperator(0, new PlanNodeId("test"), "lineitem", "orderkey", "quantity");
     private static final LookupJoinOperators LOOKUP_JOIN_OPERATORS = new LookupJoinOperators();
 
@@ -74,22 +76,25 @@ public class HashBuildAndJoinBenchmark
     {
         ImmutableList.Builder<OperatorFactory> driversBuilder = ImmutableList.builder();
         driversBuilder.add(ordersTableScan);
-        OperatorFactory source = ordersTableScan;
+        List<Type> sourceTypes = ordersTableTypes;
         OptionalInt hashChannel = OptionalInt.empty();
         if (hashEnabled) {
-            source = createHashProjectOperator(1, new PlanNodeId("test"), ImmutableList.of(BIGINT, DOUBLE));
-            driversBuilder.add(source);
-            hashChannel = OptionalInt.of(2);
+            driversBuilder.add(createHashProjectOperator(1, new PlanNodeId("test"), sourceTypes));
+            sourceTypes = ImmutableList.<Type>builder()
+                    .addAll(sourceTypes)
+                    .add(BIGINT)
+                    .build();
+            hashChannel = OptionalInt.of(sourceTypes.size() - 1);
         }
 
         // hash build
         LookupSourceFactoryManager lookupSourceFactoryManager = LookupSourceFactoryManager.allAtOnce(new PartitionedLookupSourceFactory(
-                source.getTypes(),
+                sourceTypes,
                 ImmutableList.of(0, 1).stream()
-                        .map(source.getTypes()::get)
+                        .map(sourceTypes::get)
                         .collect(toImmutableList()),
                 Ints.asList(0).stream()
-                        .map(source.getTypes()::get)
+                        .map(sourceTypes::get)
                         .collect(toImmutableList()),
                 1,
                 requireNonNull(ImmutableMap.of(), "layout is null"),
@@ -97,7 +102,7 @@ public class HashBuildAndJoinBenchmark
         HashBuilderOperatorFactory hashBuilder = new HashBuilderOperatorFactory(
                 2,
                 new PlanNodeId("test"),
-                source.getTypes(),
+                sourceTypes,
                 lookupSourceFactoryManager,
                 ImmutableList.of(0, 1),
                 Ints.asList(0),
@@ -117,19 +122,22 @@ public class HashBuildAndJoinBenchmark
         // join
         ImmutableList.Builder<OperatorFactory> joinDriversBuilder = ImmutableList.builder();
         joinDriversBuilder.add(lineItemTableScan);
-        source = lineItemTableScan;
+        sourceTypes = lineItemTableTypes;
         hashChannel = OptionalInt.empty();
         if (hashEnabled) {
-            source = createHashProjectOperator(1, new PlanNodeId("test"), ImmutableList.of(BIGINT, BIGINT));
-            joinDriversBuilder.add(source);
-            hashChannel = OptionalInt.of(2);
+            joinDriversBuilder.add(createHashProjectOperator(1, new PlanNodeId("test"), sourceTypes));
+            sourceTypes = ImmutableList.<Type>builder()
+                    .addAll(sourceTypes)
+                    .add(BIGINT)
+                    .build();
+            hashChannel = OptionalInt.of(sourceTypes.size() - 1);
         }
 
         OperatorFactory joinOperator = LOOKUP_JOIN_OPERATORS.innerJoin(
                 2,
                 new PlanNodeId("test"),
                 lookupSourceFactoryManager,
-                source.getTypes(),
+                sourceTypes,
                 Ints.asList(0),
                 hashChannel,
                 Optional.empty(),
