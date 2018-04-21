@@ -568,7 +568,6 @@ public class TestHashAggregationOperator
     @Test
     public void testMergeWithMemorySpill()
     {
-        List<Integer> hashChannels = Ints.asList(0);
         RowPagesBuilder rowPagesBuilder = rowPagesBuilder(BIGINT);
 
         int smallPagesSpillThresholdSize = 150000;
@@ -582,7 +581,7 @@ public class TestHashAggregationOperator
                 0,
                 new PlanNodeId("test"),
                 ImmutableList.of(BIGINT),
-                hashChannels,
+                ImmutableList.of(0),
                 ImmutableList.of(),
                 Step.SINGLE,
                 false,
@@ -599,12 +598,12 @@ public class TestHashAggregationOperator
 
         DriverContext driverContext = createDriverContext(smallPagesSpillThresholdSize);
 
-        MaterializedResult.Builder resultBuilder = resultBuilder(driverContext.getSession(), BIGINT);
+        MaterializedResult.Builder resultBuilder = resultBuilder(driverContext.getSession(), BIGINT, BIGINT);
         for (int i = 0; i < smallPagesSpillThresholdSize + 10; ++i) {
             resultBuilder.row((long) i, (long) i);
         }
 
-        assertOperatorEqualsIgnoreOrder(operatorFactory, driverContext, input, resultBuilder.build(), false, Optional.of(hashChannels.size()));
+        assertOperatorEqualsIgnoreOrder(operatorFactory, driverContext, input, resultBuilder.build());
     }
 
     @Test
