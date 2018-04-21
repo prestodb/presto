@@ -34,6 +34,7 @@ import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.PageSourceOperator;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskStats;
+import com.facebook.presto.operator.project.InputPageProjection;
 import com.facebook.presto.operator.project.InterpretedPageProjection;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.operator.project.PageProjection;
@@ -51,7 +52,6 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.optimizations.HashGenerationOptimizer;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.transaction.TransactionId;
 import com.google.common.collect.ImmutableList;
@@ -208,13 +208,7 @@ public abstract class AbstractOperatorBenchmark
             Symbol symbol = new Symbol("h" + channel);
             symbolTypes.put(symbol, types.get(channel));
             symbolToInputMapping.put(symbol, channel);
-            projections.add(new InterpretedPageProjection(
-                    new SymbolReference(symbol.getName()),
-                    ImmutableMap.of(symbol, types.get(channel)),
-                    ImmutableMap.of(symbol, channel),
-                    localQueryRunner.getMetadata(),
-                    localQueryRunner.getSqlParser(),
-                    session));
+            projections.add(new InputPageProjection(channel, types.get(channel)));
         }
 
         Optional<Expression> hashExpression = HashGenerationOptimizer.getHashExpression(ImmutableList.copyOf(symbolTypes.build().keySet()));
