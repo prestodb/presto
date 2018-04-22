@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.sql.planner.LogicalPlanner;
 import com.facebook.presto.sql.planner.RuleStatsRecorder;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.plan.Assignments;
@@ -31,6 +32,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.spi.StandardErrorCode.ABANDONED_QUERY;
 import static com.facebook.presto.spi.StandardErrorCode.OPTIMIZER_TIMEOUT;
 import static com.facebook.presto.sql.planner.plan.Patterns.project;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
@@ -84,6 +86,36 @@ public class TestIterativeOptimizer
         }
         catch (PrestoException ex) {
             assertEquals(ex.getErrorCode(), OPTIMIZER_TIMEOUT.toErrorCode());
+        }
+    }
+
+    @Test(timeOut = 1000)
+    public void optimizerAbortsOnCancelledQuery()
+    {
+        PlanOptimizer optimizer = new IterativeOptimizer(
+                new RuleStatsRecorder(),
+                queryRunner.getStatsCalculator(),
+                queryRunner.getCostCalculator(),
+                ImmutableSet.of(new NonConvergingRule()));
+
+        try {
+            long startTime = System.nanoTime();
+            queryRunner.inTransaction(transactionSession -> {
+                queryRunner.createPlan(transactionSession,
+                        "SELECT * FROM nation",
+                        ImmutableList.of(optimizer),
+                        LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED,
+                        () -> {
+                        if (System.nanoTime() - startTime > 500_000) {
+                            throw new PrestoException(ABANDONED_QUERY, "Query was abandoned");
+                        }
+                        });
+                fail("The optimizer should not converge");
+                return null;
+            });
+        }
+        catch (PrestoException ex) {
+            assertEquals(ex.getErrorCode(), ABANDONED_QUERY.toErrorCode());
         }
     }
 

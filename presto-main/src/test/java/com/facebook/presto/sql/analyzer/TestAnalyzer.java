@@ -63,6 +63,7 @@ import java.util.function.Consumer;
 
 import static com.facebook.presto.connector.ConnectorId.createInformationSchemaConnectorId;
 import static com.facebook.presto.connector.ConnectorId.createSystemTablesConnectorId;
+import static com.facebook.presto.execution.SqlQueryExecution.ValidQueryChecker.alwaysValid;
 import static com.facebook.presto.metadata.ViewDefinition.ViewColumn;
 import static com.facebook.presto.operator.scalar.ApplyFunction.APPLY_FUNCTION;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -1606,7 +1607,7 @@ public class TestAnalyzer
                 .execute(clientSession, session -> {
                     Analyzer analyzer = createAnalyzer(session, metadata);
                     Statement statement = SQL_PARSER.createStatement(query);
-                    analyzer.analyze(statement);
+                    analyzer.analyze(statement, alwaysValid());
                 });
     }
 

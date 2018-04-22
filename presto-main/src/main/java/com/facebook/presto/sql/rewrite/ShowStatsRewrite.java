@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.rewrite;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.SqlQueryExecution.ValidQueryChecker;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
@@ -96,9 +97,9 @@ public class ShowStatsRewrite
     private static final int MAX_LOW_HIGH_LENGTH = 32;
 
     @Override
-    public Statement rewrite(Session session, Metadata metadata, SqlParser parser, Optional<QueryExplainer> queryExplainer, Statement node, List<Expression> parameters, AccessControl accessControl)
+    public Statement rewrite(Session session, Metadata metadata, SqlParser parser, Optional<QueryExplainer> queryExplainer, Statement node, List<Expression> parameters, AccessControl accessControl, ValidQueryChecker validQueryChecker)
     {
-        return (Statement) new Visitor(metadata, session, parameters, queryExplainer).process(node, null);
+        return (Statement) new Visitor(metadata, session, parameters, queryExplainer, validQueryChecker).process(node, null);
     }
 
     private static class Visitor
@@ -108,13 +109,15 @@ public class ShowStatsRewrite
         private final Session session;
         private final List<Expression> parameters;
         private final Optional<QueryExplainer> queryExplainer;
+        private final ValidQueryChecker validQueryChecker;
 
-        public Visitor(Metadata metadata, Session session, List<Expression> parameters, Optional<QueryExplainer> queryExplainer)
+        public Visitor(Metadata metadata, Session session, List<Expression> parameters, Optional<QueryExplainer> queryExplainer, ValidQueryChecker validQueryChecker)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.session = requireNonNull(session, "session is null");
             this.parameters = requireNonNull(parameters, "parameters is null");
             this.queryExplainer = requireNonNull(queryExplainer, "queryExplainer is null");
+            this.validQueryChecker = requireNonNull(validQueryChecker, "validQueryChecker is null");
         }
 
         @Override
@@ -235,7 +238,7 @@ public class ShowStatsRewrite
                 return Constraint.alwaysTrue();
             }
 
-            Plan plan = queryExplainer.get().getLogicalPlan(session, new Query(Optional.empty(), specification, Optional.empty(), Optional.empty()), parameters);
+            Plan plan = queryExplainer.get().getLogicalPlan(session, new Query(Optional.empty(), specification, Optional.empty(), Optional.empty()), parameters, validQueryChecker);
 
             Optional<TableScanNode> scanNode = searchFrom(plan.getRoot())
                     .where(TableScanNode.class::isInstance)

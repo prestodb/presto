@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.execution.SqlQueryExecution.ValidQueryChecker;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.NewTableLayout;
 import com.facebook.presto.metadata.QualifiedObjectName;
@@ -124,12 +125,12 @@ public class LogicalPlanner
         this.sqlParser = sqlParser;
     }
 
-    public Plan plan(Analysis analysis)
+    public Plan plan(Analysis analysis, ValidQueryChecker validQueryChecker)
     {
-        return plan(analysis, Stage.OPTIMIZED_AND_VALIDATED);
+        return plan(analysis, Stage.OPTIMIZED_AND_VALIDATED, validQueryChecker);
     }
 
-    public Plan plan(Analysis analysis, Stage stage)
+    public Plan plan(Analysis analysis, Stage stage, ValidQueryChecker validQueryChecker)
     {
         PlanNode root = planStatement(analysis, analysis.getStatement());
 
@@ -137,7 +138,7 @@ public class LogicalPlanner
 
         if (stage.ordinal() >= Stage.OPTIMIZED.ordinal()) {
             for (PlanOptimizer optimizer : planOptimizers) {
-                root = optimizer.optimize(root, session, symbolAllocator.getTypes(), symbolAllocator, idAllocator);
+                root = optimizer.optimize(root, session, symbolAllocator.getTypes(), symbolAllocator, idAllocator, validQueryChecker);
                 requireNonNull(root, format("%s returned a null plan", optimizer.getClass().getName()));
             }
         }

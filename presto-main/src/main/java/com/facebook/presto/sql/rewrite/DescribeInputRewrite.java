@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.rewrite;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.SqlQueryExecution.ValidQueryChecker;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.type.Type;
@@ -61,9 +62,10 @@ final class DescribeInputRewrite
             Optional<QueryExplainer> queryExplainer,
             Statement node,
             List<Expression> parameters,
-            AccessControl accessControl)
+            AccessControl accessControl,
+            ValidQueryChecker validQueryChecker)
     {
-        return (Statement) new Visitor(session, parser, metadata, queryExplainer, parameters, accessControl).process(node, null);
+        return (Statement) new Visitor(session, parser, metadata, queryExplainer, parameters, accessControl, validQueryChecker).process(node, null);
     }
 
     private static final class Visitor
@@ -75,6 +77,7 @@ final class DescribeInputRewrite
         private final Optional<QueryExplainer> queryExplainer;
         private final List<Expression> parameters;
         private final AccessControl accessControl;
+        private final ValidQueryChecker validQueryChecker;
 
         public Visitor(
                 Session session,
@@ -82,7 +85,8 @@ final class DescribeInputRewrite
                 Metadata metadata,
                 Optional<QueryExplainer> queryExplainer,
                 List<Expression> parameters,
-                AccessControl accessControl)
+                AccessControl accessControl,
+                ValidQueryChecker validQueryChecker)
         {
             this.session = requireNonNull(session, "session is null");
             this.parser = parser;
@@ -90,6 +94,7 @@ final class DescribeInputRewrite
             this.queryExplainer = queryExplainer;
             this.accessControl = accessControl;
             this.parameters = parameters;
+            this.validQueryChecker = requireNonNull(validQueryChecker, "isDone is null");
         }
 
         @Override
@@ -101,7 +106,7 @@ final class DescribeInputRewrite
 
             // create  analysis for the query we are describing.
             Analyzer analyzer = new Analyzer(session, metadata, parser, accessControl, queryExplainer, parameters);
-            Analysis analysis = analyzer.analyze(statement, true);
+            Analysis analysis = analyzer.analyze(statement, validQueryChecker, true);
 
             // get all parameters in query
             List<Parameter> parameters = getParameters(statement);

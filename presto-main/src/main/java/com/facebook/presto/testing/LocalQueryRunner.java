@@ -53,6 +53,7 @@ import com.facebook.presto.execution.RenameTableTask;
 import com.facebook.presto.execution.ResetSessionTask;
 import com.facebook.presto.execution.RollbackTask;
 import com.facebook.presto.execution.SetSessionTask;
+import com.facebook.presto.execution.SqlQueryExecution.ValidQueryChecker;
 import com.facebook.presto.execution.StartTransactionTask;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.resourceGroups.NoOpResourceGroupManager;
@@ -176,6 +177,7 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Function;
 
+import static com.facebook.presto.execution.SqlQueryExecution.ValidQueryChecker.alwaysValid;
 import static com.facebook.presto.execution.SqlQueryManager.unwrapExecuteStatement;
 import static com.facebook.presto.execution.SqlQueryManager.validateParameters;
 import static com.facebook.presto.operator.PipelineExecutionStrategy.GROUPED_EXECUTION;
@@ -814,6 +816,11 @@ public class LocalQueryRunner
 
     public Plan createPlan(Session session, @Language("SQL") String sql, List<PlanOptimizer> optimizers, LogicalPlanner.Stage stage)
     {
+        return createPlan(session, sql, optimizers, stage, alwaysValid());
+    }
+
+    public Plan createPlan(Session session, @Language("SQL") String sql, List<PlanOptimizer> optimizers, LogicalPlanner.Stage stage, ValidQueryChecker validQueryChecker)
+    {
         Statement wrapped = sqlParser.createStatement(sql, createParsingOptions(session));
         Statement statement = unwrapExecuteStatement(wrapped, sqlParser, session);
 
@@ -840,8 +847,8 @@ public class LocalQueryRunner
 
         LogicalPlanner logicalPlanner = new LogicalPlanner(session, optimizers, new PlanSanityChecker(true), idAllocator, metadata, sqlParser);
 
-        Analysis analysis = analyzer.analyze(statement);
-        return logicalPlanner.plan(analysis, stage);
+        Analysis analysis = analyzer.analyze(statement, validQueryChecker);
+        return logicalPlanner.plan(analysis, stage, validQueryChecker);
     }
 
     private static List<Split> getNextBatch(SplitSource splitSource)

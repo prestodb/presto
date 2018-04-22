@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.SqlQueryExecution.ValidQueryChecker;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.OptimizerStatsRecorder;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
@@ -43,13 +44,14 @@ public final class StatsRecordingPlanOptimizer
             Session session,
             Map<Symbol, Type> types,
             SymbolAllocator symbolAllocator,
-            PlanNodeIdAllocator idAllocator)
+            PlanNodeIdAllocator idAllocator,
+            ValidQueryChecker validQueryChecker)
     {
         PlanNode result;
         long duration;
         try {
             long start = System.nanoTime();
-            result = delegate.optimize(plan, session, types, symbolAllocator, idAllocator);
+            result = delegate.optimize(plan, session, types, symbolAllocator, idAllocator, validQueryChecker);
             duration = System.nanoTime() - start;
         }
         catch (RuntimeException e) {

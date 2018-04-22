@@ -15,6 +15,7 @@ package com.facebook.presto.sql.rewrite;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.execution.SqlQueryExecution.ValidQueryChecker;
 import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
@@ -133,9 +134,10 @@ final class ShowQueriesRewrite
             Optional<QueryExplainer> queryExplainer,
             Statement node,
             List<Expression> parameters,
-            AccessControl accessControl)
+            AccessControl accessControl,
+            ValidQueryChecker validQueryChecker)
     {
-        return (Statement) new Visitor(metadata, parser, session, parameters, accessControl, queryExplainer).process(node, null);
+        return (Statement) new Visitor(metadata, parser, session, parameters, accessControl, queryExplainer, validQueryChecker).process(node, null);
     }
 
     private static class Visitor
@@ -147,8 +149,9 @@ final class ShowQueriesRewrite
         List<Expression> parameters;
         private final AccessControl accessControl;
         private Optional<QueryExplainer> queryExplainer;
+        private final ValidQueryChecker validQueryChecker;
 
-        public Visitor(Metadata metadata, SqlParser sqlParser, Session session, List<Expression> parameters, AccessControl accessControl, Optional<QueryExplainer> queryExplainer)
+        public Visitor(Metadata metadata, SqlParser sqlParser, Session session, List<Expression> parameters, AccessControl accessControl, Optional<QueryExplainer> queryExplainer, ValidQueryChecker validQueryChecker)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
@@ -156,6 +159,7 @@ final class ShowQueriesRewrite
             this.parameters = requireNonNull(parameters, "parameters is null");
             this.accessControl = requireNonNull(accessControl, "accessControl is null");
             this.queryExplainer = requireNonNull(queryExplainer, "queryExplainer is null");
+            this.validQueryChecker = requireNonNull(validQueryChecker, "isDone is null");
         }
 
         @Override

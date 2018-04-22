@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.SqlQueryExecution.ValidQueryChecker;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
@@ -60,14 +61,14 @@ public class Analyzer
         this.parameters = parameters;
     }
 
-    public Analysis analyze(Statement statement)
+    public Analysis analyze(Statement statement, ValidQueryChecker validQueryChecker)
     {
-        return analyze(statement, false);
+        return analyze(statement, validQueryChecker, false);
     }
 
-    public Analysis analyze(Statement statement, boolean isDescribe)
+    public Analysis analyze(Statement statement, ValidQueryChecker validQueryChecker, boolean isDescribe)
     {
-        Statement rewrittenStatement = StatementRewrite.rewrite(session, metadata, sqlParser, queryExplainer, statement, parameters, accessControl);
+        Statement rewrittenStatement = StatementRewrite.rewrite(session, metadata, sqlParser, queryExplainer, statement, parameters, accessControl, validQueryChecker);
         Analysis analysis = new Analysis(rewrittenStatement, parameters, isDescribe);
         StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session);
         analyzer.analyze(rewrittenStatement, Optional.empty());

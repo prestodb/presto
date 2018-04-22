@@ -14,6 +14,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.SqlQueryExecution.ValidQueryChecker;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.ViewDefinition;
@@ -34,6 +35,7 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.execution.SqlQueryExecution.ValidQueryChecker.fromStateMachine;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.metadata.ViewDefinition.ViewColumn;
 import static com.facebook.presto.sql.SqlFormatterUtil.getFormattedSql;
@@ -80,7 +82,7 @@ public class CreateViewTask
 
         String sql = getFormattedSql(statement.getQuery(), sqlParser, Optional.of(parameters));
 
-        Analysis analysis = analyzeStatement(statement, session, metadata, accessControl, parameters);
+        Analysis analysis = analyzeStatement(statement, session, metadata, accessControl, parameters, fromStateMachine(stateMachine));
 
         List<ViewColumn> columns = analysis.getOutputDescriptor(statement.getQuery())
                 .getVisibleFields().stream()
@@ -94,9 +96,9 @@ public class CreateViewTask
         return immediateFuture(null);
     }
 
-    private Analysis analyzeStatement(Statement statement, Session session, Metadata metadata, AccessControl accessControl, List<Expression> parameters)
+    private Analysis analyzeStatement(Statement statement, Session session, Metadata metadata, AccessControl accessControl, List<Expression> parameters, ValidQueryChecker validQueryChecker)
     {
         Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.empty(), parameters);
-        return analyzer.analyze(statement);
+        return analyzer.analyze(statement, validQueryChecker);
     }
 }

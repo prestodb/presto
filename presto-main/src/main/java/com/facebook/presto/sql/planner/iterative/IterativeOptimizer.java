@@ -21,6 +21,7 @@ import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.cost.CostProvider;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.cost.StatsProvider;
+import com.facebook.presto.execution.SqlQueryExecution.ValidQueryChecker;
 import com.facebook.presto.matching.Match;
 import com.facebook.presto.matching.Matcher;
 import com.facebook.presto.spi.PrestoException;
@@ -75,12 +76,13 @@ public class IterativeOptimizer
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
+    public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, ValidQueryChecker validQueryChecker)
     {
         // only disable new rules if we have legacy rules to fall back to
         if (!SystemSessionProperties.isNewOptimizerEnabled(session) && !legacyRules.isEmpty()) {
             for (PlanOptimizer optimizer : legacyRules) {
-                plan = optimizer.optimize(plan, session, symbolAllocator.getTypes(), symbolAllocator, idAllocator);
+                validQueryChecker.check();
+                plan = optimizer.optimize(plan, session, symbolAllocator.getTypes(), symbolAllocator, idAllocator, validQueryChecker);
             }
 
             return plan;
@@ -91,7 +93,7 @@ public class IterativeOptimizer
         Matcher matcher = new PlanNodeMatcher(lookup);
 
         Duration timeout = SystemSessionProperties.getOptimizerTimeout(session);
-        Context context = new Context(memo, lookup, idAllocator, symbolAllocator, System.nanoTime(), timeout.toMillis(), session);
+        Context context = new Context(memo, lookup, idAllocator, symbolAllocator, System.nanoTime(), timeout.toMillis(), session, validQueryChecker);
         exploreGroup(memo.getRootGroup(), context, matcher);
 
         return memo.extract();
@@ -99,10 +101,10 @@ public class IterativeOptimizer
 
     private boolean exploreGroup(int group, Context context, Matcher matcher)
     {
+        context.validQueryChecker.check();
         // tracks whether this group or any children groups change as
         // this method executes
         boolean progress = exploreNode(group, context, matcher);
-
         while (exploreChildren(group, context, matcher)) {
             progress = true;
 
@@ -119,6 +121,7 @@ public class IterativeOptimizer
 
     private boolean exploreNode(int group, Context context, Matcher matcher)
     {
+        context.validQueryChecker.check();
         PlanNode node = context.memo.getNode(group);
 
         boolean done = false;
@@ -132,6 +135,7 @@ public class IterativeOptimizer
             done = true;
             Iterator<Rule<?>> possiblyMatchingRules = ruleIndex.getCandidates(node).iterator();
             while (possiblyMatchingRules.hasNext()) {
+                context.validQueryChecker.check();
                 Rule<?> rule = possiblyMatchingRules.next();
 
                 if (!rule.isEnabled(context.session)) {
@@ -184,6 +188,7 @@ public class IterativeOptimizer
 
     private boolean exploreChildren(int group, Context context, Matcher matcher)
     {
+        context.validQueryChecker.check();
         boolean progress = false;
 
         PlanNode expression = context.memo.getNode(group);
@@ -252,6 +257,7 @@ public class IterativeOptimizer
         private final long startTimeInNanos;
         private final long timeoutInMilliseconds;
         private final Session session;
+        private final ValidQueryChecker validQueryChecker;
 
         public Context(
                 Memo memo,
@@ -260,7 +266,8 @@ public class IterativeOptimizer
                 SymbolAllocator symbolAllocator,
                 long startTimeInNanos,
                 long timeoutInMilliseconds,
-                Session session)
+                Session session,
+                ValidQueryChecker validQueryChecker)
         {
             checkArgument(timeoutInMilliseconds >= 0, "Timeout has to be a non-negative number [milliseconds]");
 
@@ -271,6 +278,7 @@ public class IterativeOptimizer
             this.startTimeInNanos = startTimeInNanos;
             this.timeoutInMilliseconds = timeoutInMilliseconds;
             this.session = session;
+            this.validQueryChecker = requireNonNull(validQueryChecker, "validQueryChecker is null");
         }
     }
 }

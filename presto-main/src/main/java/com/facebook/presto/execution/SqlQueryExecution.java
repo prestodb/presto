@@ -29,6 +29,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.operator.ForScheduler;
 import com.facebook.presto.security.AccessControl;
+import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
@@ -77,9 +78,12 @@ import java.util.function.Consumer;
 
 import static com.facebook.presto.OutputBuffers.BROADCAST_PARTITION_ID;
 import static com.facebook.presto.OutputBuffers.createInitialEmptyOutputBuffers;
+import static com.facebook.presto.execution.SqlQueryExecution.ValidQueryChecker.fromStateMachine;
+import static com.facebook.presto.spi.StandardErrorCode.ABANDONED_QUERY;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -164,12 +168,6 @@ public final class SqlQueryExecution
             requireNonNull(self, "self is null");
             this.stateMachine = QueryStateMachine.begin(queryId, query, session, self, false, transactionManager, accessControl, queryExecutor, metadata);
 
-            // analyze query
-            Analyzer analyzer = new Analyzer(stateMachine.getSession(), metadata, sqlParser, accessControl, Optional.of(queryExplainer), parameters);
-            this.analysis = analyzer.analyze(statement);
-
-            stateMachine.setUpdateType(analysis.getUpdateType());
-
             // when the query finishes cache the final query info, and clear the reference to the output stage
             stateMachine.addStateChangeListener(state -> {
                 if (!state.isDone()) {
@@ -182,6 +180,12 @@ public final class SqlQueryExecution
                     scheduler.abort();
                 }
             });
+
+            // analyze query
+            Analyzer analyzer = new Analyzer(stateMachine.getSession(), metadata, sqlParser, accessControl, Optional.of(queryExplainer), parameters);
+            this.analysis = analyzer.analyze(statement, fromStateMachine(stateMachine));
+
+            stateMachine.setUpdateType(analysis.getUpdateType());
 
             this.remoteTaskFactory = new MemoryTrackingRemoteTaskFactory(requireNonNull(remoteTaskFactory, "remoteTaskFactory is null"), stateMachine);
         }
@@ -324,7 +328,7 @@ public final class SqlQueryExecution
         // plan query
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
         LogicalPlanner logicalPlanner = new LogicalPlanner(stateMachine.getSession(), planOptimizers, idAllocator, metadata, sqlParser);
-        Plan plan = logicalPlanner.plan(analysis);
+        Plan plan = logicalPlanner.plan(analysis, fromStateMachine(stateMachine));
         queryPlan.set(plan);
 
         // extract inputs
@@ -679,5 +683,27 @@ public final class SqlQueryExecution
                     parameters,
                     schedulerStats);
         }
+    }
+
+    public interface ValidQueryChecker
+    {
+        static ValidQueryChecker fromStateMachine(QueryStateMachine stateMachine)
+        {
+            return () -> {
+                if (stateMachine.isDone()) {
+                    ErrorCodeSupplier errorCodeSupplier = stateMachine.getFinalQueryInfo()
+                            .map(info -> (ErrorCodeSupplier) () -> info.getErrorCode())
+                            .orElse(ABANDONED_QUERY);
+                    throw new PrestoException(errorCodeSupplier, format("Query %s is not running", stateMachine.getQueryId()));
+                }
+            };
+        }
+
+        static ValidQueryChecker alwaysValid()
+        {
+            return () -> {};
+        }
+
+        void check();
     }
 }
