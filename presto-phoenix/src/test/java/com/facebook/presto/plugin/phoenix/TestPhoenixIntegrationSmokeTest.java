@@ -57,6 +57,14 @@ public class TestPhoenixIntegrationSmokeTest
     }
 
     @Test
+    public void testCreateTableWithPresplits()
+    {
+        assertUpdate("CREATE TABLE test_create_presplits_table_as_if_not_exists (rid varchar(10), val1 varchar(10)) with(rowkeys = ARRAY['rid'], SPLIT_ON='\"1\",\"2\",\"3\"')");
+        assertTrue(getQueryRunner().tableExists(getSession(), "test_create_presplits_table_as_if_not_exists"));
+        assertTableColumnNames("test_create_presplits_table_as_if_not_exists", "rid", "val1");
+    }
+
+    @Test
     public void createTableWithEveryType()
             throws Exception
     {

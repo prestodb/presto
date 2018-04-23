@@ -376,6 +376,7 @@ public class PhoenixClient
 
             ImmutableList.Builder<String> talbeOptions = ImmutableList.builder();
             PhoenixTableProperties.getSaltBuckets(tableProperties).ifPresent(value -> talbeOptions.add(TableProperty.SALT_BUCKETS + "=" + value));
+            PhoenixTableProperties.getSplitOn(tableProperties).ifPresent(value -> talbeOptions.add("SPLIT ON (" + value.replace('"', '\'') + ")"));
             PhoenixTableProperties.getDisableWal(tableProperties).ifPresent(value -> talbeOptions.add(TableProperty.DISABLE_WAL + "=" + value));
             PhoenixTableProperties.getImmutableRows(tableProperties).ifPresent(value -> talbeOptions.add(TableProperty.IMMUTABLE_ROWS + "=" + value));
             PhoenixTableProperties.getDefaultColumnFamily(tableProperties).ifPresent(value -> talbeOptions.add(TableProperty.DEFAULT_COLUMN_FAMILY + "=" + value));

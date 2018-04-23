@@ -21,6 +21,7 @@ import org.apache.hadoop.hbase.HBaseTestingUtility;
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.MiniHBaseCluster;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
@@ -29,9 +30,10 @@ import static com.facebook.presto.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
 import static java.lang.String.format;
 
 public final class TestingPhoenixServer
+        implements Closeable
 {
     private static final Logger LOG = Logger.get(TestingPhoenixServer.class);
-    private HBaseTestingUtility htu;
+    private HBaseTestingUtility hbaseTestingUtility;
     private int port;
 
     private final Configuration conf = HBaseConfiguration.create();
@@ -43,13 +45,13 @@ public final class TestingPhoenixServer
         this.conf.setInt(HConstants.HBASE_CLIENT_RETRIES_NUMBER, 1);
         this.conf.set("hbase.regionserver.wal.codec", "org.apache.hadoop.hbase.regionserver.wal.IndexedWALEditCodec");
         this.conf.setBoolean("phoenix.schema.isNamespaceMappingEnabled", true);
-        this.htu = new HBaseTestingUtility(conf);
+        this.hbaseTestingUtility = new HBaseTestingUtility(conf);
 
         try {
             this.port = randomPort();
-            this.htu.startMiniZKCluster(1, port);
+            this.hbaseTestingUtility.startMiniZKCluster(1, port);
 
-            MiniHBaseCluster hbm = htu.startMiniHBaseCluster(1, 4);
+            MiniHBaseCluster hbm = hbaseTestingUtility.startMiniHBaseCluster(1, 4);
             hbm.waitForActiveAndReadyMaster();
             LOG.info("Phoenix server ready: %s", getJdbcUrl());
         }
@@ -58,19 +60,24 @@ public final class TestingPhoenixServer
         }
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            if (htu != null) {
-                try {
-                    LOG.info("Shutting down HBase cluster.");
-                    htu.shutdownMiniHBaseCluster();
-                    htu.shutdownMiniZKCluster();
-                }
-                catch (IOException e) {
-                    Thread.currentThread().interrupt();
-                    throw new PrestoException(SERVER_SHUTTING_DOWN, "Failed to shutdown HTU instance", e);
-                }
-                htu = null;
-            }
+            close();
         }));
+    }
+
+    public void close()
+    {
+        if (hbaseTestingUtility != null) {
+            try {
+                LOG.info("Shutting down HBase cluster.");
+                hbaseTestingUtility.shutdownMiniHBaseCluster();
+                hbaseTestingUtility.shutdownMiniZKCluster();
+            }
+            catch (IOException e) {
+                Thread.currentThread().interrupt();
+                throw new PrestoException(SERVER_SHUTTING_DOWN, "Failed to shutdown HTU instance", e);
+            }
+            hbaseTestingUtility = null;
+        }
     }
 
     private static int randomPort()

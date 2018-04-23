@@ -41,6 +41,7 @@ public final class PhoenixTableProperties
 {
     public static final String ROWKEYS = "rowkeys";
     public static final String SALT_BUCKETS = "salt_buckets";
+    public static final String SPLIT_ON = "split_on";
     public static final String DISABLE_WAL = "disable_wal";
     public static final String IMMUTABLE_ROWS = "immutable_rows";
     public static final String DEFAULT_COLUMN_FAMILY = "default_column_family";
@@ -70,6 +71,11 @@ public final class PhoenixTableProperties
                 integerSessionProperty(
                         SALT_BUCKETS,
                         "numeric property causes an extra byte to be transparently prepended to every row key to ensure an evenly distributed read and write load across all region servers.",
+                        null,
+                        false),
+                stringSessionProperty(
+                        SPLIT_ON,
+                        "Per-split table Salting does automatic table splitting but in case you want to exactly control where table split occurs with out adding extra byte or change row key order then you can pre-split a table.",
                         null,
                         false),
                 booleanSessionProperty(
@@ -132,6 +138,18 @@ public final class PhoenixTableProperties
         requireNonNull(tableProperties);
 
         Integer value = (Integer) tableProperties.get(SALT_BUCKETS);
+        if (value == null) {
+            return Optional.empty();
+        }
+
+        return Optional.of(value);
+    }
+
+    public static Optional<String> getSplitOn(Map<String, Object> tableProperties)
+    {
+        requireNonNull(tableProperties);
+
+        String value = (String) tableProperties.get(SPLIT_ON);
         if (value == null) {
             return Optional.empty();
         }

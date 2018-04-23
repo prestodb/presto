@@ -1,6 +1,6 @@
-===================
+=================
 Phoenix Connector
-===================
+=================
 
 The Phoenix connector allows querying data stored in Phoenix.
 
@@ -119,6 +119,7 @@ Property Name               Default Value    Description
 =========================== ================ ======================================================================================================
 ``rowkeys``                 (first column)   Presto column name that maps to the Phoenix primary key. ``row_timestamp`` is `Row timestamp <https://phoenix.apache.org/rowtimestamp.html>`
 ``salt_buckets``            (none)           ``salt_buckets`` numeric property causes an extra byte to be transparently prepended to every row key to ensure an evenly distributed read and write load across all region servers.
+``split_on``                (none)           Per-split table Salting does automatic table splitting but in case you want to exactly control where table split occurs with out adding extra byte or change row key order then you can pre-split a table.
 ``disable_wal``             false            ``disable_wal`` boolean option when true causes HBase not to write data to the write-ahead-log, thus making updates faster at the expense of potentially losing data in the event of a region server failure.
 ``immutable_rows``          false            ``immutable_rows`` boolean option when true declares that your table has rows which are write-once, append-only (i.e. the same row is never updated).
 ``default_column_family``   ``0``            ``default_column_family`` string option determines the column family used used when none is specified. The value is case sensitive.
