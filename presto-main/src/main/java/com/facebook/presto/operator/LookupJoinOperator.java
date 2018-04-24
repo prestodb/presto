@@ -239,13 +239,6 @@ public class LookupJoinOperator
             }
             lookupSourceProvider = requireNonNull(getDone(lookupSourceProviderFuture));
             statisticsCounter.updateLookupSourcePositions(lookupSourceProvider.withLease(lookupSourceLease -> lookupSourceLease.getLookupSource().getJoinPositionCount()));
-
-            // check if we can finish the join earlier
-            if (!probeOnOuterSide &&
-                    lookupSourceProvider.withLease(lookupSourceLease ->
-                            lookupSourceLease.getLookupSource().isEmpty())) {
-                finishing = true;
-            }
         }
         return true;
     }

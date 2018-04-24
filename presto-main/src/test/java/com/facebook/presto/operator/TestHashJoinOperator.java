@@ -97,7 +97,6 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
-import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
@@ -988,8 +987,6 @@ public class TestHashJoinOperator
         operator.addInput(pages.get(0));
         Page outputPage = operator.getOutput();
         assertNull(outputPage);
-
-        assertFalse(operator.needsInput());
     }
 
     @Test(dataProvider = "hashJoinTestValues")
@@ -1021,8 +1018,6 @@ public class TestHashJoinOperator
         operator.addInput(pages.get(0));
         Page outputPage = operator.getOutput();
         assertNull(outputPage);
-
-        assertFalse(operator.needsInput());
     }
 
     @Test(dataProvider = "hashJoinTestValues")
