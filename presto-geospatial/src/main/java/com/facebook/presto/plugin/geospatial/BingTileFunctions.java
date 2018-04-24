@@ -159,6 +159,37 @@ public class BingTileFunctions
         return latitudeLongitudeToTile(latitude, longitude, toIntExact(zoomLevel)).encode();
     }
 
+    @Description("Given a (longitude, latitude) point, returns the surrounding Bing tiles at the specified zoom level")
+    @ScalarFunction("bing_tiles_around")
+    @SqlType("array(" + BingTileType.NAME + ")")
+    public static Block bingTilesAround(
+            @SqlType(StandardTypes.DOUBLE) double latitude,
+            @SqlType(StandardTypes.DOUBLE) double longitude,
+            @SqlType(StandardTypes.INTEGER) long zoomLevel)
+    {
+        checkLatitude(latitude, LATITUDE_OUT_OF_RANGE);
+        checkLongitude(longitude, LONGITUDE_OUT_OF_RANGE);
+        checkZoomLevel(zoomLevel);
+
+        long mapSize = mapSize(toIntExact(zoomLevel));
+        long maxTileIndex = (mapSize / TILE_PIXELS) - 1;
+
+        int tileX = longitudeToTileX(longitude, mapSize);
+        int tileY = longitudeToTileY(latitude, mapSize);
+
+        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, 9);
+        for (int i = -1; i <= 1; i++) {
+            for (int j = -1; j <= 1; j++) {
+                int x = tileX + i;
+                int y = tileY + j;
+                if (x >= 0 && x <= maxTileIndex && y >= 0 && y <= maxTileIndex) {
+                    BIGINT.writeLong(blockBuilder, BingTile.fromCoordinates(x, y, toIntExact(zoomLevel)).encode());
+                }
+            }
+        }
+        return blockBuilder.build();
+    }
+
     @Description("Given a Bing tile, returns the polygon representation of the tile")
     @ScalarFunction("bing_tile_polygon")
     @SqlType(GEOMETRY_TYPE_NAME)
@@ -371,16 +402,51 @@ public class BingTileFunctions
         return new Point(longitude, latitude);
     }
 
+    /**
+     * Returns a Bing tile at a given zoom level containing a point at a given latitude and longitude.
+     * Latitude must be within [-85.05112878, 85.05112878] range. Longitude must be within [-180, 180] range.
+     * Zoom levels from 1 to 23 are supported.
+     */
     private static BingTile latitudeLongitudeToTile(double latitude, double longitude, int zoomLevel)
     {
+        long mapSize = mapSize(zoomLevel);
+        int tileX = longitudeToTileX(longitude, mapSize);
+        int tileY = longitudeToTileY(latitude, mapSize);
+        return BingTile.fromCoordinates(tileX, tileY, zoomLevel);
+    }
+
+    /**
+     * Given latitude and longitude in degrees, and the level of detail, the pixel XY coordinates can be calculated as follows:
+     * sinLatitude = sin(latitude * pi/180)
+     * pixelX = ((longitude + 180) / 360) * 256 * 2level
+     * pixelY = (0.5 – log((1 + sinLatitude) / (1 – sinLatitude)) / (4 * pi)) * 256 * 2level
+     * The latitude and longitude are assumed to be on the WGS 84 datum. Even though Bing Maps uses a spherical projection,
+     * it’s important to convert all geographic coordinates into a common datum, and WGS 84 was chosen to be that datum.
+     * The longitude is assumed to range from -180 to +180 degrees, and the latitude must be clipped to range from -85.05112878 to 85.05112878.
+     * This avoids a singularity at the poles, and it causes the projected map to be square.
+     * <p>
+     * reference: https://msdn.microsoft.com/en-us/library/bb259689.aspx
+     */
+    private static int longitudeToTileX(double longitude, long mapSize)
+    {
         double x = (longitude + 180) / 360;
+        return axisToCoordinates(x, mapSize);
+    }
+
+    private static int longitudeToTileY(double latitude, long mapSize)
+    {
         double sinLatitude = Math.sin(latitude * Math.PI / 180);
         double y = 0.5 - Math.log((1 + sinLatitude) / (1 - sinLatitude)) / (4 * Math.PI);
+        return axisToCoordinates(y, mapSize);
+    }
 
-        long mapSize = mapSize(zoomLevel);
-        int tileX = (int) clip(x * mapSize, 0, mapSize - 1);
-        int tileY = (int) clip(y * mapSize, 0, mapSize - 1);
-        return BingTile.fromCoordinates(tileX / TILE_PIXELS, tileY / TILE_PIXELS, zoomLevel);
+    /**
+     * Take axis and convert it to Tile coordinates
+     */
+    private static int axisToCoordinates(double axis, long mapSize)
+    {
+        int tileAxis = (int) clip(axis * mapSize, 0, mapSize - 1);
+        return tileAxis / TILE_PIXELS;
     }
 
     private static Envelope tileToEnvelope(BingTile tile)
