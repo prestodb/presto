@@ -50,6 +50,12 @@ public interface JdbcClient
     Connection getConnection(JdbcSplit split)
             throws SQLException;
 
+    default void abortReadConnection(Connection connection)
+            throws SQLException
+    {
+        // most drivers do not need this
+    }
+
     PreparedStatement buildSql(Connection connection, JdbcSplit split, List<JdbcColumnHandle> columnHandles)
             throws SQLException;
 

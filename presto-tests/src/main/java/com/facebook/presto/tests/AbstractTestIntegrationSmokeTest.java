@@ -22,6 +22,7 @@ import java.util.List;
 
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.tests.QueryAssertions.assertContains;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 public abstract class AbstractTestIntegrationSmokeTest
@@ -68,6 +69,12 @@ public abstract class AbstractTestIntegrationSmokeTest
     public void testIsNullPredicate()
     {
         assertQuery("SELECT * FROM ORDERS WHERE orderkey = 10 OR orderkey IS NULL");
+    }
+
+    @Test
+    public void testLimit()
+    {
+        assertEquals(computeActual("SELECT * FROM ORDERS LIMIT 10").getRowCount(), 10);
     }
 
     @Test
