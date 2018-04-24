@@ -126,6 +126,7 @@ public class QuerySessionSupplier
                 .setUserAgent(context.getUserAgent())
                 .setClientInfo(context.getClientInfo())
                 .setClientTags(context.getClientTags())
+                .setTraceToken(context.getTraceToken())
                 .setResourceEstimates(context.getResourceEstimates());
 
         if (context.getTimeZoneId() != null) {

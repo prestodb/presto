@@ -63,6 +63,12 @@ public class TestingSessionContext
     }
 
     @Override
+    public Optional<String> getTraceToken()
+    {
+        return session.getTraceToken();
+    }
+
+    @Override
     public String getRemoteUserAddress()
     {
         return session.getRemoteUserAddress().orElse(null);

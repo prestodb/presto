@@ -62,6 +62,7 @@ public final class Session
     private final Optional<String> remoteUserAddress;
     private final Optional<String> userAgent;
     private final Optional<String> clientInfo;
+    private final Optional<String> traceToken;
     private final Set<String> clientTags;
     private final ResourceEstimates resourceEstimates;
     private final long startTime;
@@ -79,6 +80,7 @@ public final class Session
             Optional<String> source,
             Optional<String> catalog,
             Optional<String> schema,
+            Optional<String> traceToken,
             TimeZoneKey timeZoneKey,
             Locale locale,
             Optional<String> remoteUserAddress,
@@ -100,6 +102,7 @@ public final class Session
         this.source = requireNonNull(source, "source is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
+        this.traceToken = requireNonNull(traceToken, "traceToken is null");
         this.timeZoneKey = requireNonNull(timeZoneKey, "timeZoneKey is null");
         this.locale = requireNonNull(locale, "locale is null");
         this.remoteUserAddress = requireNonNull(remoteUserAddress, "remoteUserAddress is null");
@@ -186,6 +189,11 @@ public final class Session
     public Set<String> getClientTags()
     {
         return clientTags;
+    }
+
+    public Optional<String> getTraceToken()
+    {
+        return traceToken;
     }
 
     public ResourceEstimates getResourceEstimates()
@@ -301,6 +309,7 @@ public final class Session
                 source,
                 catalog,
                 schema,
+                traceToken,
                 timeZoneKey,
                 locale,
                 remoteUserAddress,
@@ -343,6 +352,7 @@ public final class Session
                 source,
                 catalog,
                 schema,
+                traceToken,
                 timeZoneKey,
                 locale,
                 remoteUserAddress,
@@ -367,6 +377,7 @@ public final class Session
                 .add("source", source.orElse(null))
                 .add("catalog", catalog.orElse(null))
                 .add("schema", schema.orElse(null))
+                .add("traceToken", traceToken.orElse(null))
                 .add("timeZoneKey", timeZoneKey)
                 .add("locale", locale)
                 .add("remoteUserAddress", remoteUserAddress.orElse(null))
@@ -399,6 +410,7 @@ public final class Session
         private String source;
         private String catalog;
         private String schema;
+        private Optional<String> traceToken = Optional.empty();
         private TimeZoneKey timeZoneKey = TimeZoneKey.getTimeZoneKey(TimeZone.getDefault().getID());
         private Locale locale = Locale.getDefault();
         private String remoteUserAddress;
@@ -429,6 +441,7 @@ public final class Session
             this.source = session.source.orElse(null);
             this.catalog = session.catalog.orElse(null);
             this.schema = session.schema.orElse(null);
+            this.traceToken = requireNonNull(session.traceToken, "traceToken is null");
             this.timeZoneKey = session.timeZoneKey;
             this.locale = session.locale;
             this.remoteUserAddress = session.remoteUserAddress.orElse(null);
@@ -487,6 +500,12 @@ public final class Session
         public SessionBuilder setSource(String source)
         {
             this.source = source;
+            return this;
+        }
+
+        public SessionBuilder setTraceToken(Optional<String> traceToken)
+        {
+            this.traceToken = requireNonNull(traceToken, "traceToken is null");
             return this;
         }
 
@@ -569,6 +588,7 @@ public final class Session
                     Optional.ofNullable(source),
                     Optional.ofNullable(catalog),
                     Optional.ofNullable(schema),
+                    traceToken,
                     timeZoneKey,
                     locale,
                     Optional.ofNullable(remoteUserAddress),

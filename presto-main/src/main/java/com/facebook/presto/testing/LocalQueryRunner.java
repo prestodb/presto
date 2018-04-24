@@ -382,6 +382,7 @@ public class LocalQueryRunner
                 defaultSession.getSource(),
                 defaultSession.getCatalog(),
                 defaultSession.getSchema(),
+                defaultSession.getTraceToken(),
                 defaultSession.getTimeZoneKey(),
                 defaultSession.getLocale(),
                 defaultSession.getRemoteUserAddress(),

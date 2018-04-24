@@ -62,5 +62,7 @@ public interface SessionContext
 
     Optional<TransactionId> getTransactionId();
 
+    Optional<String> getTraceToken();
+
     boolean supportClientTransaction();
 }

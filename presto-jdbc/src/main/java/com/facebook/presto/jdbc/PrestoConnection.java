@@ -44,6 +44,7 @@ import java.sql.Struct;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Properties;
 import java.util.TimeZone;
 import java.util.concurrent.ConcurrentHashMap;
@@ -633,7 +634,7 @@ public class PrestoConnection
     StatementClient startQuery(String sql, Map<String, String> sessionPropertiesOverride)
     {
         String source = firstNonNull(clientInfo.get("ApplicationName"), "presto-jdbc");
-
+        Optional<String> traceToken = Optional.ofNullable(clientInfo.get("TraceToken"));
         Iterable<String> clientTags = Splitter.on(',').trimResults().omitEmptyStrings()
                 .split(nullToEmpty(clientInfo.get("ClientTags")));
 
@@ -648,6 +649,7 @@ public class PrestoConnection
                 httpUri,
                 user,
                 source,
+                traceToken,
                 ImmutableSet.copyOf(clientTags),
                 clientInfo.get("ClientInfo"),
                 catalog.get(),

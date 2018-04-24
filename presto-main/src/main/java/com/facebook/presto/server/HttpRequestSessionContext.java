@@ -54,6 +54,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_SCHEMA;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SOURCE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TIME_ZONE;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_TRACE_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TRANSACTION_ID;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
 import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
@@ -75,6 +76,7 @@ public final class HttpRequestSessionContext
     private final Identity identity;
 
     private final String source;
+    private final Optional<String> traceToken;
     private final String userAgent;
     private final String remoteUserAddress;
     private final String timeZoneId;
@@ -103,6 +105,7 @@ public final class HttpRequestSessionContext
         identity = new Identity(user, Optional.ofNullable(servletRequest.getUserPrincipal()));
 
         source = servletRequest.getHeader(PRESTO_SOURCE);
+        traceToken = Optional.ofNullable(trimEmptyToNull(servletRequest.getHeader(PRESTO_TRACE_TOKEN)));
         userAgent = servletRequest.getHeader(USER_AGENT);
         remoteUserAddress = servletRequest.getRemoteAddr();
         timeZoneId = servletRequest.getHeader(PRESTO_TIME_ZONE);
@@ -245,6 +248,12 @@ public final class HttpRequestSessionContext
     public boolean supportClientTransaction()
     {
         return clientTransactionSupport;
+    }
+
+    @Override
+    public Optional<String> getTraceToken()
+    {
+        return traceToken;
     }
 
     private static List<String> splitSessionHeader(Enumeration<String> headers)

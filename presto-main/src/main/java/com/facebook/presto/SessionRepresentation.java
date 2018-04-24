@@ -43,6 +43,7 @@ public final class SessionRepresentation
     private final Optional<String> source;
     private final Optional<String> catalog;
     private final Optional<String> schema;
+    private final Optional<String> traceToken;
     private final TimeZoneKey timeZoneKey;
     private final Locale locale;
     private final Optional<String> remoteUserAddress;
@@ -65,6 +66,7 @@ public final class SessionRepresentation
             @JsonProperty("source") Optional<String> source,
             @JsonProperty("catalog") Optional<String> catalog,
             @JsonProperty("schema") Optional<String> schema,
+            @JsonProperty("traceToken") Optional<String> traceToken,
             @JsonProperty("timeZoneKey") TimeZoneKey timeZoneKey,
             @JsonProperty("locale") Locale locale,
             @JsonProperty("remoteUserAddress") Optional<String> remoteUserAddress,
@@ -85,6 +87,7 @@ public final class SessionRepresentation
         this.source = requireNonNull(source, "source is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
+        this.traceToken = requireNonNull(traceToken, "traceToken is null");
         this.timeZoneKey = requireNonNull(timeZoneKey, "timeZoneKey is null");
         this.locale = requireNonNull(locale, "locale is null");
         this.remoteUserAddress = requireNonNull(remoteUserAddress, "remoteUserAddress is null");
@@ -137,6 +140,12 @@ public final class SessionRepresentation
     public Optional<String> getSource()
     {
         return source;
+    }
+
+    @JsonProperty
+    public Optional<String> getTraceToken()
+    {
+        return traceToken;
     }
 
     @JsonProperty
@@ -227,6 +236,7 @@ public final class SessionRepresentation
                 source,
                 catalog,
                 schema,
+                traceToken,
                 timeZoneKey,
                 locale,
                 remoteUserAddress,

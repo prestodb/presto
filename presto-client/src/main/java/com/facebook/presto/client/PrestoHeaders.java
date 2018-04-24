@@ -21,6 +21,7 @@ public final class PrestoHeaders
     public static final String PRESTO_SCHEMA = "X-Presto-Schema";
     public static final String PRESTO_TIME_ZONE = "X-Presto-Time-Zone";
     public static final String PRESTO_LANGUAGE = "X-Presto-Language";
+    public static final String PRESTO_TRACE_TOKEN = "X-Presto-Trace-Token";
     public static final String PRESTO_SESSION = "X-Presto-Session";
     public static final String PRESTO_SET_CATALOG = "X-Presto-Set-Catalog";
     public static final String PRESTO_SET_SCHEMA = "X-Presto-Set-Schema";
