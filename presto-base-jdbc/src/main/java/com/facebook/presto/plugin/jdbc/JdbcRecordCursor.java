@@ -14,9 +14,9 @@
 package com.facebook.presto.plugin.jdbc;
 
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Throwables;
 import com.google.common.base.VerifyException;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
@@ -28,6 +28,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
 
+import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
@@ -217,7 +218,7 @@ public class JdbcRecordCursor
             // do nothing
         }
         catch (SQLException e) {
-            throw new RuntimeException(e);
+            // ignore exception from close
         }
     }
 
@@ -232,6 +233,6 @@ public class JdbcRecordCursor
                 e.addSuppressed(closeException);
             }
         }
-        return Throwables.propagate(e);
+        return new PrestoException(JDBC_ERROR, e);
     }
 }
