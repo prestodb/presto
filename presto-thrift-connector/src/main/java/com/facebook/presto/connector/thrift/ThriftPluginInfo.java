@@ -17,6 +17,7 @@ import com.facebook.presto.connector.thrift.api.PrestoThriftService;
 import com.google.inject.Module;
 
 import static com.facebook.presto.connector.thrift.location.ExtendedSimpleAddressSelectorBinder.extendedSimpleAddressSelector;
+import static com.google.inject.Scopes.SINGLETON;
 import static io.airlift.drift.client.guice.DriftClientBinder.driftClientBinder;
 
 public class ThriftPluginInfo
@@ -26,10 +27,13 @@ public class ThriftPluginInfo
         return "presto-thrift";
     }
 
-    public Module getLocationModule()
+    public Module getModule()
     {
-        return binder -> driftClientBinder(binder)
-                .bindDriftClient(PrestoThriftService.class)
-                .withAddressSelector(extendedSimpleAddressSelector());
+        return binder -> {
+            binder.bind(ThriftHeaderProvider.class).to(DefaultThriftHeaderProvider.class).in(SINGLETON);
+            driftClientBinder(binder)
+                    .bindDriftClient(PrestoThriftService.class)
+                    .withAddressSelector(extendedSimpleAddressSelector());
+        };
     }
 }

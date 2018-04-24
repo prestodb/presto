@@ -21,6 +21,7 @@ import com.facebook.presto.spi.RecordSet;
 import io.airlift.drift.client.DriftClient;
 
 import java.util.List;
+import java.util.Map;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -29,6 +30,7 @@ public class ThriftConnectorIndex
         implements ConnectorIndex
 {
     private final DriftClient<PrestoThriftService> client;
+    private final Map<String, String> thriftHeaders;
     private final ThriftIndexHandle indexHandle;
     private final List<ColumnHandle> lookupColumns;
     private final List<ColumnHandle> outputColumns;
@@ -38,6 +40,7 @@ public class ThriftConnectorIndex
 
     public ThriftConnectorIndex(
             DriftClient<PrestoThriftService> client,
+            Map<String, String> thriftHeaders,
             ThriftConnectorStats stats,
             ThriftIndexHandle indexHandle,
             List<ColumnHandle> lookupColumns,
@@ -46,6 +49,7 @@ public class ThriftConnectorIndex
             int lookupRequestsConcurrency)
     {
         this.client = requireNonNull(client, "client is null");
+        this.thriftHeaders = requireNonNull(thriftHeaders, "thriftHeaders is null");
         this.stats = requireNonNull(stats, "stats is null");
         this.indexHandle = requireNonNull(indexHandle, "indexHandle is null");
         this.lookupColumns = requireNonNull(lookupColumns, "lookupColumns is null");
@@ -57,7 +61,7 @@ public class ThriftConnectorIndex
     @Override
     public ConnectorPageSource lookup(RecordSet recordSet)
     {
-        return new ThriftIndexPageSource(client, stats, indexHandle, lookupColumns, outputColumns, recordSet, maxBytesPerResponse, lookupRequestsConcurrency);
+        return new ThriftIndexPageSource(client, thriftHeaders, stats, indexHandle, lookupColumns, outputColumns, recordSet, maxBytesPerResponse, lookupRequestsConcurrency);
     }
 
     @Override

@@ -70,16 +70,19 @@ public class ThriftMetadata
     private static final Duration REFRESH_AFTER_WRITE = new Duration(2, MINUTES);
 
     private final DriftClient<PrestoThriftService> client;
+    private final ThriftHeaderProvider thriftHeaderProvider;
     private final TypeManager typeManager;
     private final LoadingCache<SchemaTableName, Optional<ThriftTableMetadata>> tableCache;
 
     @Inject
     public ThriftMetadata(
             DriftClient<PrestoThriftService> client,
+            ThriftHeaderProvider thriftHeaderProvider,
             TypeManager typeManager,
             @ForMetadataRefresh Executor metadataRefreshExecutor)
     {
         this.client = requireNonNull(client, "client is null");
+        this.thriftHeaderProvider = requireNonNull(thriftHeaderProvider, "thriftHeaderProvider is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.tableCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(EXPIRE_AFTER_WRITE.toMillis(), MILLISECONDS)
@@ -91,7 +94,7 @@ public class ThriftMetadata
     public List<String> listSchemaNames(ConnectorSession session)
     {
         try {
-            return client.get().listSchemaNames();
+            return client.get(thriftHeaderProvider.getHeaders(session)).listSchemaNames();
         }
         catch (PrestoThriftServiceException | TException e) {
             throw toPrestoException(e);
@@ -140,7 +143,7 @@ public class ThriftMetadata
     public List<SchemaTableName> listTables(ConnectorSession session, String schemaNameOrNull)
     {
         try {
-            return client.get().listTables(new PrestoThriftNullableSchemaName(schemaNameOrNull)).stream()
+            return client.get(thriftHeaderProvider.getHeaders(session)).listTables(new PrestoThriftNullableSchemaName(schemaNameOrNull)).stream()
                     .map(PrestoThriftSchemaTableName::toSchemaTableName)
                     .collect(toImmutableList());
         }

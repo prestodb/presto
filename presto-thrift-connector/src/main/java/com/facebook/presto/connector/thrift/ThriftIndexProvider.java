@@ -32,14 +32,16 @@ public class ThriftIndexProvider
         implements ConnectorIndexProvider
 {
     private final DriftClient<PrestoThriftService> client;
+    private final ThriftHeaderProvider thriftHeaderProvider;
     private final long maxBytesPerResponse;
     private final int lookupRequestsConcurrency;
     private final ThriftConnectorStats stats;
 
     @Inject
-    public ThriftIndexProvider(DriftClient<PrestoThriftService> client, ThriftConnectorStats stats, ThriftConnectorConfig config)
+    public ThriftIndexProvider(DriftClient<PrestoThriftService> client, ThriftHeaderProvider thriftHeaderProvider, ThriftConnectorStats stats, ThriftConnectorConfig config)
     {
         this.client = requireNonNull(client, "client is null");
+        this.thriftHeaderProvider = requireNonNull(thriftHeaderProvider, "thriftHeaderProvider is null");
         this.stats = requireNonNull(stats, "stats is null");
         requireNonNull(config, "config is null");
         this.maxBytesPerResponse = config.getMaxResponseSize().toBytes();
@@ -54,6 +56,14 @@ public class ThriftIndexProvider
             List<ColumnHandle> lookupSchema,
             List<ColumnHandle> outputSchema)
     {
-        return new ThriftConnectorIndex(client, stats, (ThriftIndexHandle) indexHandle, lookupSchema, outputSchema, maxBytesPerResponse, lookupRequestsConcurrency);
+        return new ThriftConnectorIndex(
+                client,
+                thriftHeaderProvider.getHeaders(session),
+                stats,
+                (ThriftIndexHandle) indexHandle,
+                lookupSchema,
+                outputSchema,
+                maxBytesPerResponse,
+                lookupRequestsConcurrency);
     }
 }

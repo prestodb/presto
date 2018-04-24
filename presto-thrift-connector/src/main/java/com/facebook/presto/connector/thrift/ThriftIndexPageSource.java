@@ -65,6 +65,7 @@ public class ThriftIndexPageSource
     private static final int MAX_SPLIT_COUNT = 10_000_000;
 
     private final DriftClient<PrestoThriftService> client;
+    private final Map<String, String> thriftHeaders;
     private final PrestoThriftSchemaTableName schemaTableName;
     private final List<String> lookupColumnNames;
     private final List<String> outputColumnNames;
@@ -92,6 +93,7 @@ public class ThriftIndexPageSource
 
     public ThriftIndexPageSource(
             DriftClient<PrestoThriftService> client,
+            Map<String, String> thriftHeaders,
             ThriftConnectorStats stats,
             ThriftIndexHandle indexHandle,
             List<ColumnHandle> lookupColumns,
@@ -101,6 +103,7 @@ public class ThriftIndexPageSource
             int lookupRequestsConcurrency)
     {
         this.client = requireNonNull(client, "client is null");
+        this.thriftHeaders = requireNonNull(thriftHeaders, "thriftHeaders is null");
         this.stats = requireNonNull(stats, "stats is null");
 
         requireNonNull(indexHandle, "indexHandle is null");
@@ -285,7 +288,7 @@ public class ThriftIndexPageSource
     private ListenableFuture<PrestoThriftSplitBatch> sendSplitRequest(@Nullable PrestoThriftId nextToken)
     {
         long start = System.nanoTime();
-        ListenableFuture<PrestoThriftSplitBatch> future = client.get().getIndexSplits(
+        ListenableFuture<PrestoThriftSplitBatch> future = client.get(thriftHeaders).getIndexSplits(
                 schemaTableName,
                 lookupColumnNames,
                 outputColumnNames,
@@ -315,12 +318,12 @@ public class ThriftIndexPageSource
     private PrestoThriftService openClient(PrestoThriftSplit split)
     {
         if (split.getHosts().isEmpty()) {
-            return client.get();
+            return client.get(thriftHeaders);
         }
-
-        return client.get(Optional.of(split.getHosts().stream()
+        String hosts = split.getHosts().stream()
                 .map(host -> host.toHostAddress().toString())
-                .collect(joining(","))));
+                .collect(joining(","));
+        return client.get(Optional.of(hosts), thriftHeaders);
     }
 
     @Override
