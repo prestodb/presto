@@ -260,6 +260,11 @@ These functions convert between geometries and
     and longitude. Latitude must be within ``[-85.05112878, 85.05112878]`` range.
     Longitude must be within ``[-180, 180]`` range. Zoom levels from 1 to 23 are supported.
 
+.. function:: bing_tiles_around(latitude, longitude, zoom_level) -> array<BingTile>
+
+    Returns a collection of Bing tiles that surround the point specified
+    by the latitude and longitude arguments at a given zoom level
+
 .. function:: bing_tile_coordinates(tile) -> row<x, y>
 
     Returns the XY coordinates of a given Bing tile.

@@ -576,7 +576,6 @@ public final class FunctionAssertions
 
         List<Object> results = new ArrayList<>();
 
-        //
         // If the projection does not need bound values, execute query using full engine
         if (!needsBoundValue(projectionExpression)) {
             MaterializedResult result = runner.execute("SELECT " + projection);
