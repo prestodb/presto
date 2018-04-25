@@ -24,16 +24,16 @@ import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static org.testng.Assert.fail;
 
-public class TestNodeMemoryConfig
+public class TestReservedSystemMemoryConfig
 {
     @Test
     public void testDefaults()
     {
         // This can't use assertRecordedDefaults because the default value is dependent on the current max heap size, which varies based on the current size of the survivor space.
         for (int i = 0; i < 1_000; i++) {
-            DataSize expected = new DataSize(Runtime.getRuntime().maxMemory() * 0.1, BYTE);
-            NodeMemoryConfig config = new NodeMemoryConfig();
-            if (expected.equals(config.getMaxQueryMemoryPerNode())) {
+            DataSize expected = new DataSize(Runtime.getRuntime().maxMemory() * 0.4, BYTE);
+            ReservedSystemMemoryConfig config = new ReservedSystemMemoryConfig();
+            if (expected.equals(config.getReservedSystemMemory())) {
                 return;
             }
         }
@@ -45,11 +45,11 @@ public class TestNodeMemoryConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("query.max-memory-per-node", "1GB")
+                .put("resources.reserved-system-memory", "1GB")
                 .build();
 
-        NodeMemoryConfig expected = new NodeMemoryConfig()
-                .setMaxQueryMemoryPerNode(new DataSize(1, GIGABYTE));
+        ReservedSystemMemoryConfig expected = new ReservedSystemMemoryConfig()
+                .setReservedSystemMemory(new DataSize(1, GIGABYTE));
 
         assertFullMapping(properties, expected);
     }

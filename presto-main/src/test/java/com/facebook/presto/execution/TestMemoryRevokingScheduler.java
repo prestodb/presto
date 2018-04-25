@@ -50,6 +50,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static com.facebook.presto.execution.TaskTestUtils.createTestQueryMonitor;
 import static com.facebook.presto.execution.TaskTestUtils.createTestingPlanner;
 import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
+import static com.facebook.presto.memory.LocalMemoryManager.SYSTEM_POOL;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
@@ -188,7 +189,7 @@ public class TestMemoryRevokingScheduler
     {
         // Given
         SqlTask sqlTask1 = newSqlTask();
-        MemoryPool anotherMemoryPool = new MemoryPool(new MemoryPoolId("test"), new DataSize(10, BYTE));
+        MemoryPool anotherMemoryPool = new MemoryPool(SYSTEM_POOL, new DataSize(10, BYTE));
         sqlTask1.getQueryContext().setMemoryPool(anotherMemoryPool);
         OperatorContext operatorContext1 = createContexts(sqlTask1);
 
@@ -289,10 +290,11 @@ public class TestMemoryRevokingScheduler
                 taskId,
                 location,
                 "fake",
-                new QueryContext(new QueryId("query"),
+                new QueryContext(
+                        new QueryId("query"),
                         new DataSize(1, MEGABYTE),
-                        new DataSize(2, MEGABYTE),
                         memoryPool,
+                        new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE)),
                         new TestingGcMonitor(),
                         executor,
                         scheduledExecutor,

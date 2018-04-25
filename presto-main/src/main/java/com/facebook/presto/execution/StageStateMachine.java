@@ -81,7 +81,6 @@ public class StageStateMachine
 
     private final AtomicLong peakUserMemory = new AtomicLong();
     private final AtomicLong currentUserMemory = new AtomicLong();
-    private final AtomicLong currentTotalMemory = new AtomicLong();
 
     public StageStateMachine(
             StageId stageId,
@@ -187,16 +186,12 @@ public class StageStateMachine
         return currentUserMemory.get();
     }
 
-    public long getTotalMemoryReservation()
+    public void updateMemoryUsage(long deltaUserMemoryInBytes)
     {
-        return currentTotalMemory.get();
-    }
-
-    public void updateMemoryUsage(long deltaUserMemoryInBytes, long deltaTotalMemoryInBytes)
-    {
-        currentTotalMemory.addAndGet(deltaTotalMemoryInBytes);
-        currentUserMemory.addAndGet(deltaUserMemoryInBytes);
-        peakUserMemory.updateAndGet(currentPeakValue -> Math.max(currentUserMemory.get(), currentPeakValue));
+        long currentMemoryValue = currentUserMemory.addAndGet(deltaUserMemoryInBytes);
+        if (currentMemoryValue > peakUserMemory.get()) {
+            peakUserMemory.updateAndGet(x -> currentMemoryValue > x ? currentMemoryValue : x);
+        }
     }
 
     public StageInfo getStageInfo(Supplier<Iterable<TaskInfo>> taskInfosSupplier, Supplier<Iterable<StageInfo>> subStageInfosSupplier)
@@ -222,7 +217,6 @@ public class StageStateMachine
 
         long cumulativeUserMemory = 0;
         long userMemoryReservation = 0;
-        long totalMemoryReservation = 0;
         long peakUserMemoryReservation = peakUserMemory.get();
 
         long totalScheduledTime = 0;
@@ -270,11 +264,7 @@ public class StageStateMachine
             completedDrivers += taskStats.getCompletedDrivers();
 
             cumulativeUserMemory += taskStats.getCumulativeUserMemory();
-
-            long taskUserMemory = taskStats.getUserMemoryReservation().toBytes();
-            long taskSystemMemory = taskStats.getSystemMemoryReservation().toBytes();
-            userMemoryReservation += taskUserMemory;
-            totalMemoryReservation += taskUserMemory + taskSystemMemory;
+            userMemoryReservation += taskStats.getUserMemoryReservation().toBytes();
 
             totalScheduledTime += taskStats.getTotalScheduledTime().roundTo(NANOSECONDS);
             totalCpuTime += taskStats.getTotalCpuTime().roundTo(NANOSECONDS);
@@ -331,7 +321,6 @@ public class StageStateMachine
 
                 cumulativeUserMemory,
                 succinctBytes(userMemoryReservation),
-                succinctBytes(totalMemoryReservation),
                 succinctBytes(peakUserMemoryReservation),
                 succinctDuration(totalScheduledTime, NANOSECONDS),
                 succinctDuration(totalCpuTime, NANOSECONDS),

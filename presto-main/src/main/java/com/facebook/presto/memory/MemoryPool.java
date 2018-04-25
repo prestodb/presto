@@ -243,7 +243,7 @@ public class MemoryPool
         return reservedRevocableBytes;
     }
 
-    synchronized long getQueryMemoryReservation(QueryId queryId)
+    synchronized long getQueryUserMemoryReservation(QueryId queryId)
     {
         return queryMemoryReservations.getOrDefault(queryId, 0L);
     }

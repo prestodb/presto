@@ -214,11 +214,6 @@ public final class SqlStageExecution
         return stateMachine.getUserMemoryReservation();
     }
 
-    public long getTotalMemoryReservation()
-    {
-        return stateMachine.getTotalMemoryReservation();
-    }
-
     public synchronized Duration getTotalCpuTime()
     {
         long millis = getAllTasks().stream()
@@ -421,8 +416,7 @@ public final class SqlStageExecution
     private class StageTaskListener
             implements StateChangeListener<TaskStatus>
     {
-        private long previousUserMemory;
-        private long previousSystemMemory;
+        private long previousMemory;
         private final Set<Lifespan> completedDriverGroups = new HashSet<>();
 
         @Override
@@ -465,13 +459,10 @@ public final class SqlStageExecution
 
         private synchronized void updateMemoryUsage(TaskStatus taskStatus)
         {
-            long currentUserMemory = taskStatus.getMemoryReservation().toBytes();
-            long currentSystemMemory = taskStatus.getSystemMemoryReservation().toBytes();
-            long deltaUserMemoryInBytes = currentUserMemory - previousUserMemory;
-            long deltaTotalMemoryInBytes = (currentUserMemory + currentSystemMemory) - (previousUserMemory + previousSystemMemory);
-            previousUserMemory = currentUserMemory;
-            previousSystemMemory = currentSystemMemory;
-            stateMachine.updateMemoryUsage(deltaUserMemoryInBytes, deltaTotalMemoryInBytes);
+            long currentMemory = taskStatus.getMemoryReservation().toBytes();
+            long deltaMemoryInBytes = currentMemory - previousMemory;
+            previousMemory = currentMemory;
+            stateMachine.updateMemoryUsage(deltaMemoryInBytes);
         }
 
         private synchronized void updateCompletedDriverGroups(TaskStatus taskStatus)
