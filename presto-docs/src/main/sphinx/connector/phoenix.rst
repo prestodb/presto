@@ -9,6 +9,20 @@ Compatibility
 
 Connector is compatible with all Phoenix versions starting from 4.13.x.
 
+Installation
+------------
+
+To install a pre-built phoenix, use these directions:
+
+* Download and expand the latest phoenix-[version]-bin.tar.
+* Add the phoenix-[version]-server.jar to the classpath of all HBase region server and master and remove any previous version. An easy way to do this is to copy it into the HBase lib directory.
+* Restart HBase.
+* Add Phoenix connector in Presto.
+
+Note that this uses apache hbase version. If your HBase cluster is using CDH version,
+you'll install CDH compatibility version and recompile Phoenix connector.
+You can do this via pom.xml change.
+
 Configuration
 -------------
 
@@ -134,3 +148,4 @@ Phoenix Connector Limitations
 -----------------------------
 
 * Only one dimensional arrays are currently supported.
+* Does not support global and local indexes, Only rowkey based pushdown is currently supported.
