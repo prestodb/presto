@@ -35,7 +35,6 @@ import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
@@ -133,12 +132,7 @@ public final class LiteralInterpreter
 
             if (JSON.equals(type)) {
                 Signature operatorSignature = new Signature("json_parse", SCALAR, JSON.getTypeSignature(), VARCHAR.getTypeSignature());
-                try {
-                    return functionInvoker.invoke(operatorSignature, session, ImmutableList.of(utf8Slice(node.getValue())));
-                }
-                catch (Throwable throwable) {
-                    throw Throwables.propagate(throwable);
-                }
+                return functionInvoker.invoke(operatorSignature, session, ImmutableList.of(utf8Slice(node.getValue())));
             }
 
             try {
@@ -147,9 +141,6 @@ public final class LiteralInterpreter
             }
             catch (IllegalArgumentException e) {
                 throw new SemanticException(TYPE_MISMATCH, node, "No literal form for type %s", type);
-            }
-            catch (Throwable throwable) {
-                throw Throwables.propagate(throwable);
             }
         }
 
@@ -165,7 +156,7 @@ public final class LiteralInterpreter
             try {
                 return parseTimestampLiteral(session.getTimeZoneKey(), node.getValue());
             }
-            catch (Exception e) {
+            catch (RuntimeException e) {
                 throw new SemanticException(INVALID_LITERAL, node, "'%s' is not a valid timestamp literal", node.getValue());
             }
         }

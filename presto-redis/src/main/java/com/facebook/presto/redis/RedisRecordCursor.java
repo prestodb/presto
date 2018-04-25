@@ -19,7 +19,6 @@ import com.facebook.presto.decoder.FieldValueProvider;
 import com.facebook.presto.decoder.RowDecoder;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Throwables;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -323,9 +322,6 @@ public class RedisRecordCursor
                     return false;
             }
         }
-        catch (Exception e) {
-            throw Throwables.propagate(e);
-        }
         return true;
     }
 
@@ -358,9 +354,6 @@ public class RedisRecordCursor
                     log.debug("Redis type for key %s is unsupported", keyString);
                     return false;
             }
-        }
-        catch (Exception e) {
-            throw Throwables.propagate(e);
         }
         return true;
     }

@@ -19,10 +19,10 @@ import com.facebook.presto.raptor.metadata.ShardInfo;
 import com.facebook.presto.raptor.metadata.ShardManager;
 import com.facebook.presto.raptor.metadata.TableColumn;
 import com.facebook.presto.raptor.metadata.TableMetadata;
-import com.google.common.base.Throwables;
 import io.airlift.log.Logger;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
@@ -58,8 +58,8 @@ class OrganizationJob
         try {
             runJob(organizationSet.getTableId(), organizationSet.getBucketNumber(), organizationSet.getShards());
         }
-        catch (Throwable e) {
-            throw Throwables.propagate(e);
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
         }
     }
 

@@ -23,7 +23,6 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tests.StandaloneQueryRunner;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
@@ -91,18 +90,11 @@ public class TestMinimalFunctionality
     private void populateData(int count)
     {
         JsonEncoder jsonEncoder = new JsonEncoder();
-        try {
-            for (long i = 0; i < count; i++) {
-                Object value = ImmutableMap.of("id", Long.toString(i), "value", UUID.randomUUID().toString());
-
-                try (Jedis jedis = embeddedRedis.getJedisPool().getResource()) {
-                    jedis.set(tableName + ":" + i,
-                            jsonEncoder.toString(value));
-                }
+        for (long i = 0; i < count; i++) {
+            Object value = ImmutableMap.of("id", Long.toString(i), "value", UUID.randomUUID().toString());
+            try (Jedis jedis = embeddedRedis.getJedisPool().getResource()) {
+                jedis.set(tableName + ":" + i, jsonEncoder.toString(value));
             }
-        }
-        catch (Exception e) {
-            throw Throwables.propagate(e);
         }
     }
 

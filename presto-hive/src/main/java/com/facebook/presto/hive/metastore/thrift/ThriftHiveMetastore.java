@@ -24,7 +24,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -70,6 +69,7 @@ import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.toGr
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Sets.newHashSet;
 import static java.lang.String.format;
@@ -127,7 +127,7 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            throw propagate(e);
         }
     }
 
@@ -151,7 +151,7 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            throw propagate(e);
         }
     }
 
@@ -191,7 +191,7 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            throw propagate(e);
         }
     }
 
@@ -219,7 +219,7 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            throw propagate(e);
         }
     }
 
@@ -248,7 +248,7 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            throw propagate(e);
         }
     }
 
@@ -277,7 +277,7 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            throw propagate(e);
         }
     }
 
@@ -302,7 +302,7 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            throw propagate(e);
         }
     }
 
@@ -327,7 +327,7 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            throw propagate(e);
         }
     }
 
@@ -352,7 +352,7 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            throw propagate(e);
         }
     }
 
@@ -377,7 +377,7 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            throw propagate(e);
         }
     }
 
@@ -405,7 +405,7 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            throw propagate(e);
         }
     }
 
@@ -430,7 +430,7 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            throw propagate(e);
         }
     }
 
@@ -459,7 +459,7 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            throw propagate(e);
         }
     }
 
@@ -483,7 +483,7 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            throw propagate(e);
         }
     }
 
@@ -507,7 +507,7 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            throw propagate(e);
         }
     }
 
@@ -542,7 +542,7 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            throw propagate(e);
         }
     }
 
@@ -567,7 +567,7 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            throw propagate(e);
         }
     }
 
@@ -592,7 +592,7 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            throw propagate(e);
         }
     }
 
@@ -617,7 +617,7 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            throw propagate(e);
         }
     }
 
@@ -645,7 +645,7 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            throw propagate(e);
         }
     }
 
@@ -671,7 +671,7 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            throw propagate(e);
         }
     }
 
@@ -746,7 +746,7 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            throw propagate(e);
         }
     }
 
@@ -782,10 +782,7 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
-            if (e instanceof InterruptedException) {
-                Thread.currentThread().interrupt();
-            }
-            throw Throwables.propagate(e);
+            throw propagate(e);
         }
     }
 
@@ -899,6 +896,7 @@ public class ThriftHiveMetastore
         if (throwable instanceof InterruptedException) {
             Thread.currentThread().interrupt();
         }
-        throw Throwables.propagate(throwable);
+        throwIfUnchecked(throwable);
+        throw new RuntimeException(throwable);
     }
 }

@@ -14,6 +14,7 @@
 package com.facebook.presto.mongodb;
 
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
@@ -27,7 +28,6 @@ import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -54,7 +54,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -149,7 +148,13 @@ public class MongoSession
     public MongoTable getTable(SchemaTableName tableName)
             throws TableNotFoundException
     {
-        return getCacheValue(tableCache, tableName, TableNotFoundException.class);
+        try {
+            return tableCache.getUnchecked(tableName);
+        }
+        catch (UncheckedExecutionException e) {
+            throwIfInstanceOf(e.getCause(), PrestoException.class);
+            throw e;
+        }
     }
 
     public void createTable(SchemaTableName name, List<MongoColumnHandle> columns)
@@ -215,21 +220,6 @@ public class MongoSession
     public List<MongoIndex> getIndexes(SchemaTableName tableName)
     {
         return MongoIndex.parse(getCollection(tableName).listIndexes());
-    }
-
-    private static <K, V, E extends Exception> V getCacheValue(LoadingCache<K, V> cache, K key, Class<E> exceptionClass)
-            throws E
-    {
-        try {
-            return cache.get(key);
-        }
-        catch (ExecutionException | UncheckedExecutionException e) {
-            Throwable t = e.getCause();
-            if (t != null) {
-                throwIfInstanceOf(t, exceptionClass);
-            }
-            throw Throwables.propagate(t);
-        }
     }
 
     public MongoCursor<Document> execute(MongoSplit split, List<MongoColumnHandle> columns)

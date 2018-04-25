@@ -23,11 +23,11 @@ import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.base.Throwables;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
+import java.io.UncheckedIOException;
 import java.util.Map;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -111,7 +111,7 @@ public final class SetDigestFunctions
             return Slices.utf8Slice(OBJECT_MAPPER.writeValueAsString(digest.getHashCounts()));
         }
         catch (JsonProcessingException e) {
-            throw Throwables.propagate(e);
+            throw new UncheckedIOException(e);
         }
     }
 }

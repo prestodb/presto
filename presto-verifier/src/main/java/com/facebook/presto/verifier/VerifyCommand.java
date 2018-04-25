@@ -36,7 +36,6 @@ import com.facebook.presto.sql.tree.ShowSchemas;
 import com.facebook.presto.sql.tree.ShowSession;
 import com.facebook.presto.sql.tree.ShowTables;
 import com.facebook.presto.sql.tree.Statement;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
@@ -55,6 +54,8 @@ import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
@@ -167,17 +168,18 @@ public class VerifyCommand
 
     private static void loadJdbcDriver(URL[] urls, String jdbcClassName)
     {
-        try {
-            try (URLClassLoader classLoader = new URLClassLoader(urls)) {
-                Driver driver = (Driver) Class.forName(jdbcClassName, true, classLoader).getConstructor().newInstance();
-                // The code calling the DriverManager to load the driver needs to be in the same class loader as the driver
-                // In order to bypass this we create a shim that wraps the specified jdbc driver class.
-                // TODO: Change the implementation to be DataSource based instead of DriverManager based.
-                DriverManager.registerDriver(new ForwardingDriver(driver));
-            }
+        try (URLClassLoader classLoader = new URLClassLoader(urls)) {
+            Driver driver = (Driver) Class.forName(jdbcClassName, true, classLoader).getConstructor().newInstance();
+            // The code calling the DriverManager to load the driver needs to be in the same class loader as the driver
+            // In order to bypass this we create a shim that wraps the specified jdbc driver class.
+            // TODO: Change the implementation to be DataSource based instead of DriverManager based.
+            DriverManager.registerDriver(new ForwardingDriver(driver));
         }
-        catch (Exception e) {
-            throw Throwables.propagate(e);
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        catch (SQLException | ReflectiveOperationException e) {
+            throw new RuntimeException(e);
         }
     }
 

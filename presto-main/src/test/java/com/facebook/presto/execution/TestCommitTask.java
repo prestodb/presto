@@ -25,12 +25,10 @@ import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.transaction.TransactionId;
 import com.facebook.presto.transaction.TransactionManager;
-import com.google.common.base.Throwables;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.net.URI;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_IN_TRANSACTION;
@@ -89,13 +87,8 @@ public class TestCommitTask
         QueryStateMachine stateMachine = QueryStateMachine.begin(new QueryId("query"), "COMMIT", session, URI.create("fake://uri"), true, transactionManager, accessControl, executor, metadata);
 
         try {
-            try {
-                getFutureValue(new CommitTask().execute(new Commit(), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList()));
-                fail();
-            }
-            catch (CompletionException e) {
-                throw Throwables.propagate(e.getCause());
-            }
+            getFutureValue(new CommitTask().execute(new Commit(), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList()));
+            fail();
         }
         catch (PrestoException e) {
             assertEquals(e.getErrorCode(), NOT_IN_TRANSACTION.toErrorCode());
@@ -118,13 +111,8 @@ public class TestCommitTask
         QueryStateMachine stateMachine = QueryStateMachine.begin(new QueryId("query"), "COMMIT", session, URI.create("fake://uri"), true, transactionManager, accessControl, executor, metadata);
 
         try {
-            try {
-                getFutureValue(new CommitTask().execute(new Commit(), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList()));
-                fail();
-            }
-            catch (CompletionException e) {
-                throw Throwables.propagate(e.getCause());
-            }
+            getFutureValue(new CommitTask().execute(new Commit(), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList()));
+            fail();
         }
         catch (PrestoException e) {
             assertEquals(e.getErrorCode(), UNKNOWN_TRANSACTION.toErrorCode());

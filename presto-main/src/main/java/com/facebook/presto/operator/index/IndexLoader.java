@@ -29,7 +29,6 @@ import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -193,7 +192,7 @@ public class IndexLoader
                     for (UpdateRequest request : requests) {
                         request.failed(t);
                     }
-                    Throwables.propagate(t);
+                    throw t;
                 }
 
                 // Try loading just my request

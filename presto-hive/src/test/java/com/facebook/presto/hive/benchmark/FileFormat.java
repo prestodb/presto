@@ -48,7 +48,6 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.OutputStreamSliceOutput;
 import org.apache.hadoop.conf.Configuration;
@@ -336,13 +335,8 @@ public enum FileFormat
     private static final JobConf conf;
 
     static {
-        try {
-            conf = new JobConf(new Configuration(false));
-            conf.set("fs.file.impl", "org.apache.hadoop.fs.RawLocalFileSystem");
-        }
-        catch (Exception e) {
-            throw Throwables.propagate(e);
-        }
+        conf = new JobConf(new Configuration(false));
+        conf.set("fs.file.impl", "org.apache.hadoop.fs.RawLocalFileSystem");
     }
 
     public boolean supports(TestData testData)

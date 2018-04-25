@@ -123,7 +123,7 @@ public final class DateTimeUtils
             DateTime dateTime = TIMESTAMP_WITH_TIME_ZONE_FORMATTER.parseDateTime(value);
             return packDateTimeWithZone(dateTime);
         }
-        catch (Exception e) {
+        catch (RuntimeException e) {
             return TIMESTAMP_WITHOUT_TIME_ZONE_FORMATTER.withChronology(getChronology(timeZoneKey)).parseMillis(value);
         }
     }

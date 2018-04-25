@@ -38,7 +38,6 @@ import com.facebook.presto.spi.type.VarbinaryType;
 import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.type.TypeRegistry;
-import com.google.common.base.Throwables;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -88,6 +87,7 @@ import org.joda.time.DateTimeZone;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.lang.reflect.Field;
 import java.math.BigInteger;
 import java.sql.Date;
@@ -818,7 +818,7 @@ public class OrcTester
                 actualValue = ((OrcLazyObject) actualValue).materialize();
             }
             catch (IOException e) {
-                throw Throwables.propagate(e);
+                throw new UncheckedIOException(e);
             }
         }
         if (actualValue instanceof BooleanWritable) {
@@ -1115,8 +1115,8 @@ public class OrcTester
         try {
             writer.getClass().getMethod("enterLowMemoryMode").invoke(writer);
         }
-        catch (Exception e) {
-            throw Throwables.propagate(e);
+        catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
         }
     }
 
@@ -1127,8 +1127,8 @@ public class OrcTester
             writerField.setAccessible(true);
             return writerField.get(instance);
         }
-        catch (Exception e) {
-            throw Throwables.propagate(e);
+        catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
         }
     }
 
@@ -1139,8 +1139,8 @@ public class OrcTester
             writerField.setAccessible(true);
             writerField.set(instance, value);
         }
-        catch (Exception e) {
-            throw Throwables.propagate(e);
+        catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
         }
     }
 

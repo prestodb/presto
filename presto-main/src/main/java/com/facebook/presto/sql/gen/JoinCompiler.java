@@ -32,13 +32,10 @@ import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
-import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.ExecutionError;
-import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.ClassDefinition;
@@ -67,7 +64,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.concurrent.ExecutionException;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.sql.gen.InputReferenceCompiler.generateInputReference;
@@ -137,16 +133,11 @@ public class JoinCompiler
 
     public LookupSourceSupplierFactory compileLookupSourceFactory(List<? extends Type> types, List<Integer> joinChannels, Optional<Integer> sortChannel, Optional<List<Integer>> outputChannels)
     {
-        try {
-            return lookupSourceFactories.get(new CacheKey(
-                    types,
-                    outputChannels.orElse(rangeList(types.size())),
-                    joinChannels,
-                    sortChannel));
-        }
-        catch (ExecutionException | UncheckedExecutionException | ExecutionError e) {
-            throw Throwables.propagate(e.getCause());
-        }
+        return lookupSourceFactories.getUnchecked(new CacheKey(
+                types,
+                outputChannels.orElse(rangeList(types.size())),
+                joinChannels,
+                sortChannel));
     }
 
     public PagesHashStrategyFactory compilePagesHashStrategyFactory(List<Type> types, List<Integer> joinChannels)
@@ -160,16 +151,11 @@ public class JoinCompiler
         requireNonNull(joinChannels, "joinChannels is null");
         requireNonNull(outputChannels, "outputChannels is null");
 
-        try {
-            return new PagesHashStrategyFactory(hashStrategies.get(new CacheKey(
-                    types,
-                    outputChannels.orElse(rangeList(types.size())),
-                    joinChannels,
-                    Optional.empty())));
-        }
-        catch (ExecutionException | UncheckedExecutionException | ExecutionError e) {
-            throw Throwables.propagate(e.getCause());
-        }
+        return new PagesHashStrategyFactory(hashStrategies.getUnchecked(new CacheKey(
+                types,
+                outputChannels.orElse(rangeList(types.size())),
+                joinChannels,
+                Optional.empty())));
     }
 
     private List<Integer> rangeList(int endExclusive)
@@ -939,8 +925,8 @@ public class JoinCompiler
             try {
                 return constructor.newInstance(session, pagesHashStrategy, addresses, channels, filterFunctionFactory, sortChannel, searchFunctionFactories);
             }
-            catch (Exception e) {
-                throw Throwables.propagate(e);
+            catch (ReflectiveOperationException e) {
+                throw new RuntimeException(e);
             }
         }
     }
@@ -964,8 +950,8 @@ public class JoinCompiler
             try {
                 return constructor.newInstance(channels, hashChannel);
             }
-            catch (Exception e) {
-                throw Throwables.propagate(e);
+            catch (ReflectiveOperationException e) {
+                throw new RuntimeException(e);
             }
         }
     }

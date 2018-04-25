@@ -34,7 +34,6 @@ import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.VariableReferenceExpression;
-import com.google.common.base.Throwables;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -73,6 +72,7 @@ import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.field;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.facebook.presto.util.Reflection.methodHandle;
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.lang.Boolean.TRUE;
 
 @SuppressWarnings("MethodMayBeStatic")
@@ -241,8 +241,9 @@ public class BenchmarkArrayFilter
                 try {
                     keep = (Boolean) function.invokeExact(input);
                 }
-                catch (Throwable throwable) {
-                    throw Throwables.propagate(throwable);
+                catch (Throwable t) {
+                    throwIfUnchecked(t);
+                    throw new RuntimeException(t);
                 }
                 if (TRUE.equals(keep)) {
                     block.writePositionTo(position, resultBuilder);

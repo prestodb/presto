@@ -32,7 +32,6 @@ import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.sql.tree.Extract.Field;
 import com.facebook.presto.type.LikeFunctions;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ObjectArrays;
@@ -65,7 +64,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.Callable;
 import java.util.stream.LongStream;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
@@ -154,7 +152,7 @@ public class TestExpressionCompiler
     private long start;
     private ListeningExecutorService executor;
     private FunctionAssertions functionAssertions;
-    private List<ListenableFuture<Void>> futures;
+    private List<ListenableFuture<?>> futures;
 
     @BeforeSuite
     public void setupClass()
@@ -1786,18 +1784,13 @@ public class TestExpressionCompiler
         addCallable(new AssertExecuteTask(functionAssertions, expression, expectedType, expected));
     }
 
-    private void addCallable(Callable<Void> callable)
+    private void addCallable(Runnable runnable)
     {
         if (PARALLEL) {
-            futures.add(executor.submit(callable));
+            futures.add(executor.submit(runnable));
         }
         else {
-            try {
-                callable.call();
-            }
-            catch (Exception e) {
-                throw Throwables.propagate(e);
-            }
+            runnable.run();
         }
     }
 
@@ -1829,7 +1822,7 @@ public class TestExpressionCompiler
     }
 
     private static class AssertExecuteTask
-            implements Callable<Void>
+            implements Runnable
     {
         private final FunctionAssertions functionAssertions;
         private final String expression;
@@ -1845,7 +1838,7 @@ public class TestExpressionCompiler
         }
 
         @Override
-        public Void call()
+        public void run()
         {
             try {
                 functionAssertions.assertFunction(expression, expectedType, expected);
@@ -1853,7 +1846,6 @@ public class TestExpressionCompiler
             catch (Throwable e) {
                 throw new RuntimeException("Error processing " + expression, e);
             }
-            return null;
         }
     }
 
@@ -1868,7 +1860,7 @@ public class TestExpressionCompiler
     }
 
     private static class AssertFilterTask
-            implements Callable<Void>
+            implements Runnable
     {
         private final FunctionAssertions functionAssertions;
         private final String filter;
@@ -1884,7 +1876,7 @@ public class TestExpressionCompiler
         }
 
         @Override
-        public Void call()
+        public void run()
         {
             try {
                 functionAssertions.assertFilter(filter, expected, withNoInputColumns);
@@ -1892,7 +1884,6 @@ public class TestExpressionCompiler
             catch (Throwable e) {
                 throw new RuntimeException("Error processing " + filter, e);
             }
-            return null;
         }
     }
 }

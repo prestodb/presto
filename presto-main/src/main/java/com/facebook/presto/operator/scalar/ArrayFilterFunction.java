@@ -22,7 +22,6 @@ import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.function.TypeParameterSpecialization;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.lambda.LambdaFunctionInterface;
-import com.google.common.base.Throwables;
 import io.airlift.slice.Slice;
 
 import static java.lang.Boolean.TRUE;
@@ -49,13 +48,7 @@ public final class ArrayFilterFunction
                 input = elementType.getLong(arrayBlock, position);
             }
 
-            Boolean keep;
-            try {
-                keep = function.apply(input);
-            }
-            catch (Throwable throwable) {
-                throw Throwables.propagate(throwable);
-            }
+            Boolean keep = function.apply(input);
             if (TRUE.equals(keep)) {
                 elementType.appendTo(arrayBlock, position, resultBuilder);
             }
@@ -79,13 +72,7 @@ public final class ArrayFilterFunction
                 input = elementType.getDouble(arrayBlock, position);
             }
 
-            Boolean keep;
-            try {
-                keep = function.apply(input);
-            }
-            catch (Throwable throwable) {
-                throw Throwables.propagate(throwable);
-            }
+            Boolean keep = function.apply(input);
             if (TRUE.equals(keep)) {
                 elementType.appendTo(arrayBlock, position, resultBuilder);
             }
@@ -109,13 +96,7 @@ public final class ArrayFilterFunction
                 input = elementType.getBoolean(arrayBlock, position);
             }
 
-            Boolean keep;
-            try {
-                keep = function.apply(input);
-            }
-            catch (Throwable throwable) {
-                throw Throwables.propagate(throwable);
-            }
+            Boolean keep = function.apply(input);
             if (TRUE.equals(keep)) {
                 elementType.appendTo(arrayBlock, position, resultBuilder);
             }
@@ -139,13 +120,7 @@ public final class ArrayFilterFunction
                 input = elementType.getSlice(arrayBlock, position);
             }
 
-            Boolean keep;
-            try {
-                keep = function.apply(input);
-            }
-            catch (Throwable throwable) {
-                throw Throwables.propagate(throwable);
-            }
+            Boolean keep = function.apply(input);
             if (TRUE.equals(keep)) {
                 elementType.appendTo(arrayBlock, position, resultBuilder);
             }
@@ -169,13 +144,7 @@ public final class ArrayFilterFunction
                 input = (Block) elementType.getObject(arrayBlock, position);
             }
 
-            Boolean keep;
-            try {
-                keep = function.apply(input);
-            }
-            catch (Throwable throwable) {
-                throw Throwables.propagate(throwable);
-            }
+            Boolean keep = function.apply(input);
             if (TRUE.equals(keep)) {
                 elementType.appendTo(arrayBlock, position, resultBuilder);
             }
@@ -194,13 +163,7 @@ public final class ArrayFilterFunction
         int positionCount = arrayBlock.getPositionCount();
         BlockBuilder resultBuilder = elementType.createBlockBuilder(null, positionCount);
         for (int position = 0; position < positionCount; position++) {
-            Boolean keep;
-            try {
-                keep = function.apply(null);
-            }
-            catch (Throwable throwable) {
-                throw Throwables.propagate(throwable);
-            }
+            Boolean keep = function.apply(null);
             if (TRUE.equals(keep)) {
                 resultBuilder.appendNull();
             }

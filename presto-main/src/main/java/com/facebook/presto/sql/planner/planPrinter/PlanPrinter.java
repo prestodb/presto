@@ -99,7 +99,6 @@ import com.google.common.base.CaseFormat;
 import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -1438,9 +1437,6 @@ public class PlanPrinter
         }
         catch (OperatorNotFoundException e) {
             return "<UNREPRESENTABLE VALUE>";
-        }
-        catch (Throwable throwable) {
-            throw Throwables.propagate(throwable);
         }
     }
 }

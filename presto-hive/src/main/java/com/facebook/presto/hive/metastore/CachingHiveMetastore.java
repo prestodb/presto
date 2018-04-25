@@ -16,14 +16,13 @@ package com.facebook.presto.hive.metastore;
 import com.facebook.presto.hive.ForCachingHiveMetastore;
 import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveType;
-import com.google.common.base.Throwables;
+import com.facebook.presto.spi.PrestoException;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.common.util.concurrent.ExecutionError;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.units.Duration;
 import org.weakref.jmx.Managed;
@@ -46,6 +45,8 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.hive.HiveUtil.toPartitionValues;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.cache.CacheLoader.asyncReloading;
 import static com.google.common.collect.Iterables.transform;
 import static com.google.common.collect.Streams.stream;
@@ -205,10 +206,11 @@ public class CachingHiveMetastore
     private static <K, V> V get(LoadingCache<K, V> cache, K key)
     {
         try {
-            return cache.get(key);
+            return cache.getUnchecked(key);
         }
-        catch (ExecutionException | UncheckedExecutionException | ExecutionError e) {
-            throw Throwables.propagate(e.getCause());
+        catch (UncheckedExecutionException e) {
+            throwIfInstanceOf(e.getCause(), PrestoException.class);
+            throw e;
         }
     }
 
@@ -217,8 +219,10 @@ public class CachingHiveMetastore
         try {
             return cache.getAll(keys);
         }
-        catch (ExecutionException | UncheckedExecutionException | ExecutionError e) {
-            throw Throwables.propagate(e.getCause());
+        catch (ExecutionException | UncheckedExecutionException e) {
+            throwIfInstanceOf(e.getCause(), PrestoException.class);
+            throwIfUnchecked(e);
+            throw new UncheckedExecutionException(e);
         }
     }
 

@@ -23,7 +23,6 @@ import com.facebook.presto.spi.type.FixedWidthType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
@@ -33,6 +32,7 @@ import java.util.List;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public final class TypeUtils
@@ -85,7 +85,8 @@ public final class TypeUtils
             }
         }
         catch (Throwable throwable) {
-            throw Throwables.propagate(throwable);
+            throwIfUnchecked(throwable);
+            throw new RuntimeException(throwable);
         }
     }
 

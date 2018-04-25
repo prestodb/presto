@@ -19,7 +19,6 @@ import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
@@ -31,6 +30,7 @@ import java.util.Set;
 
 import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -187,8 +187,9 @@ public class FieldSetFilteringRecordSet
                     return (boolean) field1.getEqualsMethodHandle().invoke(cursor.getObject(field1.getField()), cursor.getObject(field2.getField()));
                 }
             }
-            catch (Throwable throwable) {
-                throw Throwables.propagate(throwable);
+            catch (Throwable t) {
+                throwIfUnchecked(t);
+                throw new RuntimeException(t);
             }
         }
 
