@@ -89,7 +89,7 @@ public class TopNRowNumberOperator
             checkArgument(maxRowCountPerPartition > 0, "maxRowCountPerPartition must be > 0");
             this.maxRowCountPerPartition = maxRowCountPerPartition;
             checkArgument(expectedPositions > 0, "expectedPositions must be > 0");
-            this.generateRowNumber = !partial || !partitionChannels.isEmpty();
+            this.generateRowNumber = !partial;
             this.expectedPositions = expectedPositions;
             this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
             this.types = toTypes(sourceTypes, outputChannels, generateRowNumber);
