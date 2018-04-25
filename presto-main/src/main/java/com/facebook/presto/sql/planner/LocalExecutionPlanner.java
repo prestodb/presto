@@ -161,7 +161,9 @@ import com.facebook.presto.sql.tree.OrderBy;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.base.VerifyException;
+import com.google.common.collect.ContiguousSet;
 import com.google.common.collect.HashMultimap;
+import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMap.Builder;
@@ -239,11 +241,13 @@ import static com.google.common.base.Functions.forMap;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.DiscreteDomain.integers;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.Range.closedOpen;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
@@ -671,7 +675,7 @@ public class LocalExecutionPlanner
                     new PagesSerdeFactory(blockEncodingSerde, isExchangeCompressionEnabled(session)),
                     types);
 
-            return new PhysicalOperation(operatorFactory, makeLayout(node), UNGROUPED_EXECUTION);
+            return new PhysicalOperation(operatorFactory, makeLayout(node), context, UNGROUPED_EXECUTION);
         }
 
         @Override
@@ -688,7 +692,7 @@ public class LocalExecutionPlanner
                     statsCalculator,
                     costCalculator,
                     node.isVerbose());
-            return new PhysicalOperation(operatorFactory, makeLayout(node), source);
+            return new PhysicalOperation(operatorFactory, makeLayout(node), context, source);
         }
 
         @Override
@@ -734,7 +738,7 @@ public class LocalExecutionPlanner
                     hashChannel,
                     10_000,
                     joinCompiler);
-            return new PhysicalOperation(operatorFactory, outputMappings.build(), source);
+            return new PhysicalOperation(operatorFactory, outputMappings.build(), context, source);
         }
 
         @Override
@@ -785,7 +789,7 @@ public class LocalExecutionPlanner
                     1000,
                     joinCompiler);
 
-            return new PhysicalOperation(operatorFactory, makeLayout(node), source);
+            return new PhysicalOperation(operatorFactory, makeLayout(node), context, source);
         }
 
         @Override
@@ -870,7 +874,7 @@ public class LocalExecutionPlanner
                     10_000,
                     pagesIndexFactory);
 
-            return new PhysicalOperation(operatorFactory, outputMappings.build(), source);
+            return new PhysicalOperation(operatorFactory, outputMappings.build(), context, source);
         }
 
         @Override
@@ -895,7 +899,7 @@ public class LocalExecutionPlanner
                     sortChannels,
                     sortOrders);
 
-            return new PhysicalOperation(operator, source.getLayout(), source);
+            return new PhysicalOperation(operator, source.getLayout(), context, source);
         }
 
         @Override
@@ -927,7 +931,7 @@ public class LocalExecutionPlanner
                     sortOrder.build(),
                     pagesIndexFactory);
 
-            return new PhysicalOperation(operator, source.getLayout(), source);
+            return new PhysicalOperation(operator, source.getLayout(), context, source);
         }
 
         @Override
@@ -936,7 +940,7 @@ public class LocalExecutionPlanner
             PhysicalOperation source = node.getSource().accept(this, context);
 
             OperatorFactory operatorFactory = new LimitOperatorFactory(context.getNextOperatorId(), node.getId(), source.getTypes(), node.getCount());
-            return new PhysicalOperation(operatorFactory, source.getLayout(), source);
+            return new PhysicalOperation(operatorFactory, source.getLayout(), context, source);
         }
 
         @Override
@@ -955,7 +959,7 @@ public class LocalExecutionPlanner
                     node.getLimit(),
                     hashChannel,
                     joinCompiler);
-            return new PhysicalOperation(operatorFactory, makeLayout(node), source);
+            return new PhysicalOperation(operatorFactory, makeLayout(node), context, source);
         }
 
         @Override
@@ -1005,7 +1009,7 @@ public class LocalExecutionPlanner
                     outputTypes.build(),
                     mappings.build());
 
-            return new PhysicalOperation(groupIdOperatorFactory, newLayout, source);
+            return new PhysicalOperation(groupIdOperatorFactory, newLayout, context, source);
         }
 
         @Override
@@ -1014,13 +1018,13 @@ public class LocalExecutionPlanner
             PhysicalOperation source = node.getSource().accept(this, context);
 
             if (node.getGroupingKeys().isEmpty()) {
-                return planGlobalAggregation(context.getNextOperatorId(), node, source);
+                return planGlobalAggregation(node, source, context);
             }
 
             boolean spillEnabled = isSpillEnabled(context.getSession());
             DataSize unspillMemoryLimit = getAggregationOperatorUnspillMemoryLimit(context.getSession());
 
-            return planGroupByAggregation(node, source, context.getNextOperatorId(), spillEnabled, unspillMemoryLimit);
+            return planGroupByAggregation(node, source, spillEnabled, unspillMemoryLimit, context);
         }
 
         @Override
@@ -1031,7 +1035,7 @@ public class LocalExecutionPlanner
             List<Integer> channels = getChannelsForSymbols(node.getDistinctSymbols(), source.getLayout());
             Optional<Integer> hashChannel = node.getHashSymbol().map(channelGetter(source));
             MarkDistinctOperatorFactory operator = new MarkDistinctOperatorFactory(context.getNextOperatorId(), node.getId(), source.getTypes(), channels, hashChannel, joinCompiler);
-            return new PhysicalOperation(operator, makeLayout(node), source);
+            return new PhysicalOperation(operator, makeLayout(node), context, source);
         }
 
         @Override
@@ -1164,7 +1168,7 @@ public class LocalExecutionPlanner
                             getFilterAndProjectMinOutputPageSize(session),
                             getFilterAndProjectMinOutputPageRowCount(session));
 
-                    return new PhysicalOperation(operatorFactory, outputMappings, groupEnumerable ? GROUPED_EXECUTION : UNGROUPED_EXECUTION);
+                    return new PhysicalOperation(operatorFactory, outputMappings, context, groupEnumerable ? GROUPED_EXECUTION : UNGROUPED_EXECUTION);
                 }
                 else {
                     Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(translatedFilter, translatedProjections, Optional.of(context.getStageId() + "_" + planNodeId));
@@ -1177,7 +1181,7 @@ public class LocalExecutionPlanner
                             getFilterAndProjectMinOutputPageSize(session),
                             getFilterAndProjectMinOutputPageRowCount(session));
 
-                    return new PhysicalOperation(operatorFactory, outputMappings, source);
+                    return new PhysicalOperation(operatorFactory, outputMappings, context, source);
                 }
             }
             catch (RuntimeException e) {
@@ -1210,7 +1214,7 @@ public class LocalExecutionPlanner
 
             List<Type> types = getSourceOperatorTypes(node, context.getTypes());
             OperatorFactory operatorFactory = new TableScanOperatorFactory(context.getNextOperatorId(), node.getId(), pageSourceProvider, types, columns);
-            return new PhysicalOperation(operatorFactory, makeLayout(node), groupEnumerable ? GROUPED_EXECUTION : UNGROUPED_EXECUTION);
+            return new PhysicalOperation(operatorFactory, makeLayout(node), context, groupEnumerable ? GROUPED_EXECUTION : UNGROUPED_EXECUTION);
         }
 
         @Override
@@ -1228,7 +1232,7 @@ public class LocalExecutionPlanner
 
             if (node.getRows().isEmpty()) {
                 OperatorFactory operatorFactory = new ValuesOperatorFactory(context.getNextOperatorId(), node.getId(), outputTypes, ImmutableList.of());
-                return new PhysicalOperation(operatorFactory, makeLayout(node), UNGROUPED_EXECUTION);
+                return new PhysicalOperation(operatorFactory, makeLayout(node), context, UNGROUPED_EXECUTION);
             }
 
             PageBuilder pageBuilder = new PageBuilder(node.getRows().size(), outputTypes);
@@ -1250,7 +1254,7 @@ public class LocalExecutionPlanner
             }
 
             OperatorFactory operatorFactory = new ValuesOperatorFactory(context.getNextOperatorId(), node.getId(), outputTypes, ImmutableList.of(pageBuilder.build()));
-            return new PhysicalOperation(operatorFactory, makeLayout(node), UNGROUPED_EXECUTION);
+            return new PhysicalOperation(operatorFactory, makeLayout(node), context, UNGROUPED_EXECUTION);
         }
 
         @Override
@@ -1299,7 +1303,7 @@ public class LocalExecutionPlanner
                     unnestChannels,
                     unnestTypes.build(),
                     ordinalityType.isPresent());
-            return new PhysicalOperation(operatorFactory, outputMappings.build(), source);
+            return new PhysicalOperation(operatorFactory, outputMappings.build(), context, source);
         }
 
         private ImmutableMap<Symbol, Integer> makeLayout(PlanNode node)
@@ -1354,7 +1358,7 @@ public class LocalExecutionPlanner
 
             List<Type> types = getSourceOperatorTypes(node, context.getTypes());
             OperatorFactory operatorFactory = new IndexSourceOperator.IndexSourceOperatorFactory(context.getNextOperatorId(), node.getId(), index, types, probeKeyNormalizer);
-            return new PhysicalOperation(operatorFactory, makeLayout(node), UNGROUPED_EXECUTION);
+            return new PhysicalOperation(operatorFactory, makeLayout(node), context, UNGROUPED_EXECUTION);
         }
 
         /**
@@ -1500,7 +1504,7 @@ public class LocalExecutionPlanner
                 default:
                     throw new AssertionError("Unknown type: " + node.getType());
             }
-            return new PhysicalOperation(lookupJoinOperatorFactory, outputMappings.build(), probeSource);
+            return new PhysicalOperation(lookupJoinOperatorFactory, outputMappings.build(), context, probeSource);
         }
 
         @Override
@@ -1685,7 +1689,7 @@ public class LocalExecutionPlanner
             }
 
             OperatorFactory operatorFactory = new NestedLoopJoinOperatorFactory(context.getNextOperatorId(), node.getId(), nestedLoopJoinPagesSupplier, probeSource.getTypes());
-            PhysicalOperation operation = new PhysicalOperation(operatorFactory, outputMappings.build(), probeSource);
+            PhysicalOperation operation = new PhysicalOperation(operatorFactory, outputMappings.build(), context, probeSource);
             return operation;
         }
 
@@ -1722,7 +1726,7 @@ public class LocalExecutionPlanner
                 outputMappings.put(symbol, i);
             }
 
-            return new PhysicalOperation(operator, outputMappings.build(), probeSource);
+            return new PhysicalOperation(operator, outputMappings.build(), context, probeSource);
         }
 
         private OperatorFactory createSpatialLookupJoin(JoinNode node,
@@ -1828,7 +1832,7 @@ public class LocalExecutionPlanner
                 outputMappings.put(symbol, i);
             }
 
-            return new PhysicalOperation(operator, outputMappings.build(), probeSource);
+            return new PhysicalOperation(operator, outputMappings.build(), context, probeSource);
         }
 
         private LookupSourceFactoryManager createLookupSourceFactory(
@@ -2064,7 +2068,7 @@ public class LocalExecutionPlanner
                     .build();
 
             HashSemiJoinOperatorFactory operator = new HashSemiJoinOperatorFactory(context.getNextOperatorId(), node.getId(), setProvider, probeSource.getTypes(), probeChannel);
-            return new PhysicalOperation(operator, outputMappings, probeSource);
+            return new PhysicalOperation(operator, outputMappings, context, probeSource);
         }
 
         @Override
@@ -2098,7 +2102,7 @@ public class LocalExecutionPlanner
                     .put(node.getOutputSymbols().get(1), 1)
                     .build();
 
-            return new PhysicalOperation(operatorFactory, layout, source);
+            return new PhysicalOperation(operatorFactory, layout, context, source);
         }
 
         @Override
@@ -2109,7 +2113,7 @@ public class LocalExecutionPlanner
             OperatorFactory operatorFactory = new TableFinishOperatorFactory(context.getNextOperatorId(), node.getId(), createTableFinisher(session, node, metadata));
             Map<Symbol, Integer> layout = ImmutableMap.of(node.getOutputSymbols().get(0), 0);
 
-            return new PhysicalOperation(operatorFactory, layout, source);
+            return new PhysicalOperation(operatorFactory, layout, context, source);
         }
 
         @Override
@@ -2124,7 +2128,7 @@ public class LocalExecutionPlanner
                     .put(node.getOutputSymbols().get(1), 1)
                     .build();
 
-            return new PhysicalOperation(operatorFactory, layout, source);
+            return new PhysicalOperation(operatorFactory, layout, context, source);
         }
 
         @Override
@@ -2132,7 +2136,7 @@ public class LocalExecutionPlanner
         {
             OperatorFactory operatorFactory = new MetadataDeleteOperatorFactory(context.getNextOperatorId(), node.getId(), node.getTableLayout(), metadata, session, node.getTarget().getHandle());
 
-            return new PhysicalOperation(operatorFactory, makeLayout(node), UNGROUPED_EXECUTION);
+            return new PhysicalOperation(operatorFactory, makeLayout(node), context, UNGROUPED_EXECUTION);
         }
 
         @Override
@@ -2149,7 +2153,7 @@ public class LocalExecutionPlanner
             List<Type> types = getSourceOperatorTypes(node, context.getTypes());
 
             OperatorFactory operatorFactory = new EnforceSingleRowOperator.EnforceSingleRowOperatorFactory(context.getNextOperatorId(), node.getId(), types);
-            return new PhysicalOperation(operatorFactory, makeLayout(node), source);
+            return new PhysicalOperation(operatorFactory, makeLayout(node), context, source);
         }
 
         @Override
@@ -2162,7 +2166,7 @@ public class LocalExecutionPlanner
                     context.getNextOperatorId(),
                     node.getId(),
                     types);
-            return new PhysicalOperation(operatorFactory, makeLayout(node), source);
+            return new PhysicalOperation(operatorFactory, makeLayout(node), context, source);
         }
 
         @Override
@@ -2242,7 +2246,7 @@ public class LocalExecutionPlanner
             verify(context.getDriverInstanceCount().getAsInt() == localExchangeFactory.getBufferCount(),
                     "driver instance count must match the number of exchange partitions");
 
-            return new PhysicalOperation(new LocalExchangeSourceOperatorFactory(context.getNextOperatorId(), node.getId(), localExchangeFactory), makeLayout(node), exchangeSourcePipelineExecutionStrategy);
+            return new PhysicalOperation(new LocalExchangeSourceOperatorFactory(context.getNextOperatorId(), node.getId(), localExchangeFactory), makeLayout(node), context, exchangeSourcePipelineExecutionStrategy);
         }
 
         @Override
@@ -2299,7 +2303,7 @@ public class LocalExecutionPlanner
                     .bind(arguments, maskChannel, source.getTypes(), getChannelsForSymbols(sortKeys, source.getLayout()), sortOrders, pagesIndexFactory, aggregation.getCall().isDistinct(), joinCompiler, session);
         }
 
-        private PhysicalOperation planGlobalAggregation(int operatorId, AggregationNode node, PhysicalOperation source)
+        private PhysicalOperation planGlobalAggregation(AggregationNode node, PhysicalOperation source, LocalExecutionPlanContext context)
         {
             int outputChannel = 0;
             ImmutableMap.Builder<Symbol, Integer> outputMappings = ImmutableMap.builder();
@@ -2312,17 +2316,17 @@ public class LocalExecutionPlanner
                 outputChannel++;
             }
 
-            OperatorFactory operatorFactory = new AggregationOperatorFactory(operatorId, node.getId(), node.getStep(), accumulatorFactories);
+            OperatorFactory operatorFactory = new AggregationOperatorFactory(context.getNextOperatorId(), node.getId(), node.getStep(), accumulatorFactories);
 
-            return new PhysicalOperation(operatorFactory, outputMappings.build(), source);
+            return new PhysicalOperation(operatorFactory, outputMappings.build(), context, source);
         }
 
         private PhysicalOperation planGroupByAggregation(
                 AggregationNode node,
                 PhysicalOperation source,
-                int operatorId,
                 boolean spillEnabled,
-                DataSize unspillMemoryLimit)
+                DataSize unspillMemoryLimit,
+                LocalExecutionPlanContext context)
         {
             List<Symbol> groupBySymbols = node.getGroupingKeys();
 
@@ -2371,7 +2375,7 @@ public class LocalExecutionPlanner
 
             Map<Symbol, Integer> mappings = outputMappings.build();
             OperatorFactory operatorFactory = new HashAggregationOperatorFactory(
-                    operatorId,
+                    context.getNextOperatorId(),
                     node.getId(),
                     groupByTypes,
                     groupByChannels,
@@ -2388,7 +2392,7 @@ public class LocalExecutionPlanner
                     spillerFactory,
                     joinCompiler);
 
-            return new PhysicalOperation(operatorFactory, mappings, source);
+            return new PhysicalOperation(operatorFactory, mappings, context, source);
         }
     }
 
@@ -2462,18 +2466,19 @@ public class LocalExecutionPlanner
 
         private final PipelineExecutionStrategy pipelineExecutionStrategy;
 
-        public PhysicalOperation(OperatorFactory operatorFactory, Map<Symbol, Integer> layout, PipelineExecutionStrategy pipelineExecutionStrategy)
+        public PhysicalOperation(OperatorFactory operatorFactory, Map<Symbol, Integer> layout, LocalExecutionPlanContext context, PipelineExecutionStrategy pipelineExecutionStrategy)
         {
             requireNonNull(operatorFactory, "operatorFactory is null");
             requireNonNull(layout, "layout is null");
 
             this.operatorFactories = ImmutableList.of(operatorFactory);
             this.layout = ImmutableMap.copyOf(layout);
-            this.types = operatorFactory.getTypes();
+            this.types = toTypes(layout, context);
+            verify(this.types.equals(operatorFactory.getTypes()));
             this.pipelineExecutionStrategy = pipelineExecutionStrategy;
         }
 
-        public PhysicalOperation(OperatorFactory operatorFactory, Map<Symbol, Integer> layout, PhysicalOperation source)
+        public PhysicalOperation(OperatorFactory operatorFactory, Map<Symbol, Integer> layout, LocalExecutionPlanContext context, PhysicalOperation source)
         {
             requireNonNull(operatorFactory, "operatorFactory is null");
             requireNonNull(layout, "layout is null");
@@ -2481,8 +2486,24 @@ public class LocalExecutionPlanner
 
             this.operatorFactories = ImmutableList.<OperatorFactory>builder().addAll(source.getOperatorFactories()).add(operatorFactory).build();
             this.layout = ImmutableMap.copyOf(layout);
-            this.types = operatorFactory.getTypes();
+            this.types = toTypes(layout, context);
+            verify(this.types.equals(operatorFactory.getTypes()));
             this.pipelineExecutionStrategy = source.pipelineExecutionStrategy;
+        }
+
+        private static List<Type> toTypes(Map<Symbol, Integer> layout, LocalExecutionPlanContext context)
+        {
+            // verify layout covers all values
+            int channelCount = layout.values().stream().mapToInt(Integer::intValue).max().orElse(-1) + 1;
+            checkArgument(
+                    layout.size() == channelCount && ImmutableSet.copyOf(layout.values()).containsAll(ContiguousSet.create(closedOpen(0, channelCount), integers())),
+                    "Layout does not have a symbol for every output channel: %s", layout);
+            Map<Integer, Symbol> channelLayout = ImmutableBiMap.copyOf(layout).inverse();
+
+            return range(0, channelCount)
+                    .mapToObj(channelLayout::get)
+                    .map(context.getTypes()::get)
+                    .collect(toImmutableList());
         }
 
         public int symbolToChannel(Symbol input)
