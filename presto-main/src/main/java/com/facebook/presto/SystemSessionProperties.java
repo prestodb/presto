@@ -91,6 +91,7 @@ public final class SystemSessionProperties
     public static final String FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_SIZE = "filter_and_project_min_output_page_size";
     public static final String FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_ROW_COUNT = "filter_and_project_min_output_page_row_count";
     public static final String USE_MARK_DISTINCT = "use_mark_distinct";
+    public static final String PREFER_PARTITIAL_AGGREGATION = "prefer_partial_aggregation";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -412,6 +413,11 @@ public final class SystemSessionProperties
                         USE_MARK_DISTINCT,
                         "Implement DISTINCT aggregations using MarkDistinct",
                         featuresConfig.isUseMarkDistinct(),
+                        false),
+                booleanSessionProperty(
+                        PREFER_PARTITIAL_AGGREGATION,
+                        "Prefer splitting aggregations into partial and final stages",
+                        featuresConfig.isPreferPartialAggregation(),
                         false));
     }
 
@@ -681,6 +687,11 @@ public final class SystemSessionProperties
     public static boolean useMarkDistinct(Session session)
     {
         return session.getSystemProperty(USE_MARK_DISTINCT, Boolean.class);
+    }
+
+    public static boolean preferPartialAggregation(Session session)
+    {
+        return session.getSystemProperty(PREFER_PARTITIAL_AGGREGATION, Boolean.class);
     }
 
     private static int validateValueIsPowerOfTwo(Object value, String property)

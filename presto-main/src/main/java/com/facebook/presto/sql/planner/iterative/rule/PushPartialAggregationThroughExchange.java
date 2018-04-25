@@ -41,6 +41,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.SystemSessionProperties.preferPartialAggregation;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
@@ -94,7 +95,7 @@ public class PushPartialAggregationThroughExchange
             return Result.ofPlanNode(split(aggregationNode, context));
         }
 
-        if (!decomposable) {
+        if (!decomposable || !preferPartialAggregation(context.getSession())) {
             return Result.empty();
         }
 
