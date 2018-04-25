@@ -2468,27 +2468,35 @@ public class LocalExecutionPlanner
 
         public PhysicalOperation(OperatorFactory operatorFactory, Map<Symbol, Integer> layout, LocalExecutionPlanContext context, PipelineExecutionStrategy pipelineExecutionStrategy)
         {
-            requireNonNull(operatorFactory, "operatorFactory is null");
-            requireNonNull(layout, "layout is null");
-
-            this.operatorFactories = ImmutableList.of(operatorFactory);
-            this.layout = ImmutableMap.copyOf(layout);
-            this.types = toTypes(layout, context);
-            verify(this.types.equals(operatorFactory.getTypes()));
-            this.pipelineExecutionStrategy = pipelineExecutionStrategy;
+            this(operatorFactory, layout, context, Optional.empty(), pipelineExecutionStrategy);
         }
 
         public PhysicalOperation(OperatorFactory operatorFactory, Map<Symbol, Integer> layout, LocalExecutionPlanContext context, PhysicalOperation source)
         {
+            this(operatorFactory, layout, context, Optional.of(requireNonNull(source, "source is null")), source.getPipelineExecutionStrategy());
+        }
+
+        private PhysicalOperation(
+                OperatorFactory operatorFactory,
+                Map<Symbol, Integer> layout,
+                LocalExecutionPlanContext context,
+                Optional<PhysicalOperation> source,
+                PipelineExecutionStrategy pipelineExecutionStrategy)
+        {
             requireNonNull(operatorFactory, "operatorFactory is null");
             requireNonNull(layout, "layout is null");
+            requireNonNull(context, "context is null");
             requireNonNull(source, "source is null");
+            requireNonNull(pipelineExecutionStrategy, "pipelineExecutionStrategy is null");
 
-            this.operatorFactories = ImmutableList.<OperatorFactory>builder().addAll(source.getOperatorFactories()).add(operatorFactory).build();
+            this.operatorFactories = ImmutableList.<OperatorFactory>builder()
+                    .addAll(source.map(PhysicalOperation::getOperatorFactories).orElse(ImmutableList.of()))
+                    .add(operatorFactory)
+                    .build();
             this.layout = ImmutableMap.copyOf(layout);
             this.types = toTypes(layout, context);
             verify(this.types.equals(operatorFactory.getTypes()));
-            this.pipelineExecutionStrategy = source.pipelineExecutionStrategy;
+            this.pipelineExecutionStrategy = pipelineExecutionStrategy;
         }
 
         private static List<Type> toTypes(Map<Symbol, Integer> layout, LocalExecutionPlanContext context)
