@@ -204,8 +204,8 @@ public class ThriftHiveMetastore
                     .stopOnIllegalExceptions()
                     .run("getTable", stats.getGetTable().wrap(() -> {
                         try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
-                            org.apache.hadoop.hive.metastore.api.Table table = client.getTable(databaseName, tableName);
-                            if (table.getTableType().equals(TableType.VIRTUAL_VIEW.name()) && (!isPrestoView(table))) {
+                            Table table = client.getTable(databaseName, tableName);
+                            if (table.getTableType().equals(TableType.VIRTUAL_VIEW.name()) && !isPrestoView(table)) {
                                 throw new HiveViewNotSupportedException(new SchemaTableName(databaseName, tableName));
                             }
                             return Optional.of(table);
@@ -221,6 +221,11 @@ public class ThriftHiveMetastore
         catch (Exception e) {
             throw Throwables.propagate(e);
         }
+    }
+
+    private static boolean isPrestoView(Table table)
+    {
+        return "true".equals(table.getParameters().get(PRESTO_VIEW_FLAG));
     }
 
     @Override
@@ -430,7 +435,7 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public void alterTable(String databaseName, String tableName, org.apache.hadoop.hive.metastore.api.Table table)
+    public void alterTable(String databaseName, String tableName, Table table)
     {
         try {
             retry()
@@ -456,11 +461,6 @@ public class ThriftHiveMetastore
         catch (Exception e) {
             throw Throwables.propagate(e);
         }
-    }
-
-    private boolean isPrestoView(org.apache.hadoop.hive.metastore.api.Table table)
-    {
-        return "true".equals(table.getParameters().get(PRESTO_VIEW_FLAG));
     }
 
     @Override
@@ -659,7 +659,7 @@ public class ThriftHiveMetastore
                         try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
                             List<Role> roles = client.listRoles(user, USER);
                             if (roles == null) {
-                                return ImmutableSet.<String>of();
+                                return ImmutableSet.of();
                             }
                             return ImmutableSet.copyOf(roles.stream()
                                     .map(Role::getRoleName)
@@ -715,7 +715,8 @@ public class ThriftHiveMetastore
                             Set<HivePrivilegeInfo> existingPrivileges = getTablePrivileges(hivePrincipal, databaseName, tableName);
 
                             Set<PrivilegeGrantInfo> privilegesToGrant = newHashSet(requestedPrivileges);
-                            for (Iterator<PrivilegeGrantInfo> iterator = privilegesToGrant.iterator(); iterator.hasNext(); ) {
+                            Iterator<PrivilegeGrantInfo> iterator = privilegesToGrant.iterator();
+                            while (iterator.hasNext()) {
                                 HivePrivilegeInfo requestedPrivilege = getOnlyElement(parsePrivilege(iterator.next()));
 
                                 for (HivePrivilegeInfo existingPrivilege : existingPrivileges) {
@@ -788,7 +789,7 @@ public class ThriftHiveMetastore
         }
     }
 
-    private PrivilegeBag buildPrivilegeBag(
+    private static PrivilegeBag buildPrivilegeBag(
             String databaseName,
             String tableName,
             HivePrincipal hivePrincipal,
@@ -806,7 +807,7 @@ public class ThriftHiveMetastore
         return new PrivilegeBag(privilegeBagBuilder.build());
     }
 
-    private boolean containsAllPrivilege(Set<PrivilegeGrantInfo> requestedPrivileges)
+    private static boolean containsAllPrivilege(Set<PrivilegeGrantInfo> requestedPrivileges)
     {
         return requestedPrivileges.stream()
                 .anyMatch(privilege -> privilege.getPrivilege().equalsIgnoreCase("all"));
@@ -817,9 +818,7 @@ public class ThriftHiveMetastore
         if (hivePrincipal.getPrincipalType() == ROLE) {
             return getRolePrivileges(hivePrincipal, new HiveObjectRef(TABLE, databaseName, tableName, null, null));
         }
-        else {
-            return getUserPrivileges(hivePrincipal, new HiveObjectRef(TABLE, databaseName, tableName, null, null));
-        }
+        return getUserPrivileges(hivePrincipal, new HiveObjectRef(TABLE, databaseName, tableName, null, null));
     }
 
     private Set<HivePrivilegeInfo> getRolePrivileges(HivePrincipal hivePrincipal, HiveObjectRef hiveObjectRef)
@@ -895,7 +894,7 @@ public class ThriftHiveMetastore
                 .stopOn(PrestoException.class);
     }
 
-    private RuntimeException propagate(Throwable throwable)
+    private static RuntimeException propagate(Throwable throwable)
     {
         if (throwable instanceof InterruptedException) {
             Thread.currentThread().interrupt();
