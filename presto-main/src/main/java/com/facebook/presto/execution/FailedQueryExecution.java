@@ -95,12 +95,6 @@ public class FailedQueryExecution
     }
 
     @Override
-    public long getTotalMemoryReservation()
-    {
-        return 0;
-    }
-
-    @Override
     public Duration getTotalCpuTime()
     {
         return new Duration(0, TimeUnit.SECONDS);

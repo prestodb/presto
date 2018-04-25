@@ -20,6 +20,7 @@ import com.facebook.presto.execution.buffer.BufferState;
 import com.facebook.presto.execution.executor.TaskExecutor;
 import com.facebook.presto.memory.LocalMemoryManager;
 import com.facebook.presto.memory.NodeMemoryConfig;
+import com.facebook.presto.memory.ReservedSystemMemoryConfig;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.operator.ExchangeClientSupplier;
@@ -67,7 +68,7 @@ public class TestSqlTaskManager
 
     public TestSqlTaskManager()
     {
-        localMemoryManager = new LocalMemoryManager(new NodeMemoryConfig());
+        localMemoryManager = new LocalMemoryManager(new NodeMemoryConfig(), new ReservedSystemMemoryConfig());
         localSpillManager = new LocalSpillManager(new NodeSpillConfig());
         taskExecutor = new TaskExecutor(8, 16);
         taskExecutor.start();

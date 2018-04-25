@@ -50,7 +50,6 @@ public class TestStageStats
             12.0,
             new DataSize(13, BYTE),
             new DataSize(14, BYTE),
-            new DataSize(15, BYTE),
 
             new Duration(15, NANOSECONDS),
             new Duration(16, NANOSECONDS),
@@ -113,8 +112,7 @@ public class TestStageStats
 
         assertEquals(actual.getCumulativeUserMemory(), 12.0);
         assertEquals(actual.getUserMemoryReservation(), new DataSize(13, BYTE));
-        assertEquals(actual.getTotalMemoryReservation(), new DataSize(14, BYTE));
-        assertEquals(actual.getPeakUserMemoryReservation(), new DataSize(15, BYTE));
+        assertEquals(actual.getPeakUserMemoryReservation(), new DataSize(14, BYTE));
 
         assertEquals(actual.getTotalScheduledTime(), new Duration(15, NANOSECONDS));
         assertEquals(actual.getTotalCpuTime(), new Duration(16, NANOSECONDS));

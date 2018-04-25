@@ -15,21 +15,18 @@ package com.facebook.presto.memory.context;
 
 import com.google.common.util.concurrent.ListenableFuture;
 
-import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
 class ChildAggregatedMemoryContext
-        extends AbstractAggregatedMemoryContext
+        extends AggregatedMemoryContext
 {
-    private final AbstractAggregatedMemoryContext parentMemoryContext;
+    private final AggregatedMemoryContext parentMemoryContext;
 
     ChildAggregatedMemoryContext(AggregatedMemoryContext parentMemoryContext)
     {
-        verify(parentMemoryContext instanceof AbstractAggregatedMemoryContext);
-        this.parentMemoryContext = (AbstractAggregatedMemoryContext) requireNonNull(parentMemoryContext, "parentMemoryContext is null");
+        this.parentMemoryContext = requireNonNull(parentMemoryContext, "parentMemoryContext is null");
     }
 
-    @Override
     synchronized ListenableFuture<?> updateBytes(long bytes)
     {
         // update the parent before updating usedBytes as it may throw a runtime exception (e.g., ExceededMemoryLimitException)
@@ -38,7 +35,6 @@ class ChildAggregatedMemoryContext
         return future;
     }
 
-    @Override
     synchronized boolean tryUpdateBytes(long delta)
     {
         if (parentMemoryContext.tryUpdateBytes(delta)) {
@@ -48,8 +44,7 @@ class ChildAggregatedMemoryContext
         return false;
     }
 
-    @Override
-    synchronized AbstractAggregatedMemoryContext getParent()
+    synchronized AggregatedMemoryContext getParent()
     {
         return parentMemoryContext;
     }

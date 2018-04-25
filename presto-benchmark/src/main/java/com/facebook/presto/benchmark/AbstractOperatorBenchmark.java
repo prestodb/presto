@@ -132,13 +132,14 @@ public abstract class AbstractOperatorBenchmark
                 .setSystemProperty("optimizer.optimize-hash-generation", "true")
                 .build();
         MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE));
+        MemoryPool systemMemoryPool = new MemoryPool(new MemoryPoolId("testSystem"), new DataSize(1, GIGABYTE));
         SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(new DataSize(1, GIGABYTE));
 
         TaskContext taskContext = new QueryContext(
                 new QueryId("test"),
                 new DataSize(256, MEGABYTE),
-                new DataSize(512, MEGABYTE),
                 memoryPool,
+                systemMemoryPool,
                 new TestingGcMonitor(),
                 localQueryRunner.getExecutor(),
                 localQueryRunner.getScheduler(),

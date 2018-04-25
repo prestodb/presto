@@ -131,16 +131,16 @@ public class SqlTaskManager
         SqlTaskExecutionFactory sqlTaskExecutionFactory = new SqlTaskExecutionFactory(taskNotificationExecutor, taskExecutor, planner, queryMonitor, config);
 
         this.localMemoryManager = requireNonNull(localMemoryManager, "localMemoryManager is null");
-        DataSize maxQueryUserMemoryPerNode = nodeMemoryConfig.getMaxQueryMemoryPerNode();
-        DataSize maxQueryTotalMemoryPerNode = nodeMemoryConfig.getMaxQueryTotalMemoryPerNode();
+        DataSize maxQueryMemoryPerNode = nodeMemoryConfig.getMaxQueryMemoryPerNode();
+
         DataSize maxQuerySpillPerNode = nodeSpillConfig.getQueryMaxSpillPerNode();
 
         queryContexts = CacheBuilder.newBuilder().weakValues().build(CacheLoader.from(
                 queryId -> new QueryContext(
                         queryId,
-                        maxQueryUserMemoryPerNode,
-                        maxQueryTotalMemoryPerNode,
+                        maxQueryMemoryPerNode,
                         localMemoryManager.getPool(LocalMemoryManager.GENERAL_POOL),
+                        localMemoryManager.getPool(LocalMemoryManager.SYSTEM_POOL),
                         gcMonitor,
                         taskNotificationExecutor,
                         driverYieldExecutor,

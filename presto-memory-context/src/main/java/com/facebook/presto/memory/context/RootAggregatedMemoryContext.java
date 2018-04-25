@@ -18,7 +18,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import static java.util.Objects.requireNonNull;
 
 class RootAggregatedMemoryContext
-        extends AbstractAggregatedMemoryContext
+        extends AggregatedMemoryContext
 {
     private final MemoryReservationHandler reservationHandler;
     private final long guaranteedMemory;
@@ -29,7 +29,6 @@ class RootAggregatedMemoryContext
         this.guaranteedMemory = guaranteedMemory;
     }
 
-    @Override
     synchronized ListenableFuture<?> updateBytes(long bytes)
     {
         ListenableFuture<?> future = reservationHandler.reserveMemory(bytes);
@@ -41,7 +40,6 @@ class RootAggregatedMemoryContext
         return future;
     }
 
-    @Override
     synchronized boolean tryUpdateBytes(long delta)
     {
         if (reservationHandler.tryReserveMemory(delta)) {
@@ -51,13 +49,11 @@ class RootAggregatedMemoryContext
         return false;
     }
 
-    @Override
-    synchronized AbstractAggregatedMemoryContext getParent()
+    synchronized AggregatedMemoryContext getParent()
     {
         return null;
     }
 
-    @Override
     void closeContext()
     {
         reservationHandler.reserveMemory(-getBytes());

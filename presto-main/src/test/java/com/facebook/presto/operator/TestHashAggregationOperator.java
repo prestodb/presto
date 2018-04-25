@@ -301,7 +301,7 @@ public class TestHashAggregationOperator
         assertEquals(operator.getOperatorContext().getOperatorStats().getUserMemoryReservation().toBytes(), 0);
     }
 
-    @Test(dataProvider = "hashEnabled", expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded local user memory limit of 10B")
+    @Test(dataProvider = "hashEnabled", expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded local memory limit of 10B")
     public void testMemoryLimit(boolean hashEnabled)
     {
         MetadataManager metadata = MetadataManager.createTestMetadataManager();
@@ -414,7 +414,7 @@ public class TestHashAggregationOperator
         assertEquals(count, 5_000 * 500);
     }
 
-    @Test(dataProvider = "hashEnabled", expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded local user memory limit of 3MB")
+    @Test(dataProvider = "hashEnabled", expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded local memory limit of 3MB")
     public void testHashBuilderResizeLimit(boolean hashEnabled)
     {
         BlockBuilder builder = VARCHAR.createBlockBuilder(null, 1, DEFAULT_MAX_BLOCK_SIZE_IN_BYTES);
@@ -509,7 +509,7 @@ public class TestHashAggregationOperator
                 new DataSize(1, KILOBYTE),
                 joinCompiler);
 
-        DriverContext driverContext = createDriverContext(1024);
+        DriverContext driverContext = createDriverContext(1024, Integer.MAX_VALUE);
 
         try (Operator operator = operatorFactory.createOperator(driverContext)) {
             List<Page> expectedPages = rowPagesBuilder(BIGINT, BIGINT)
@@ -622,6 +622,7 @@ public class TestHashAggregationOperator
         DriverContext driverContext = TestingTaskContext.builder(executor, scheduledExecutor, TEST_SESSION)
                 .setQueryMaxMemory(DataSize.valueOf("7MB"))
                 .setMemoryPoolSize(DataSize.valueOf("1GB"))
+                .setSystemMemoryPoolSize(DataSize.valueOf("10B"))
                 .build()
                 .addPipelineContext(0, true, true)
                 .addDriverContext();
@@ -664,10 +665,16 @@ public class TestHashAggregationOperator
         return createDriverContext(Integer.MAX_VALUE);
     }
 
-    private DriverContext createDriverContext(long memoryLimit)
+    private DriverContext createDriverContext(long systemMemoryLimit)
+    {
+        return createDriverContext(Integer.MAX_VALUE, systemMemoryLimit);
+    }
+
+    private DriverContext createDriverContext(long memoryLimit, long systemMemoryLimit)
     {
         return TestingTaskContext.builder(executor, scheduledExecutor, TEST_SESSION)
                 .setMemoryPoolSize(succinctBytes(memoryLimit))
+                .setSystemMemoryPoolSize(succinctBytes(systemMemoryLimit))
                 .build()
                 .addPipelineContext(0, true, true)
                 .addDriverContext();

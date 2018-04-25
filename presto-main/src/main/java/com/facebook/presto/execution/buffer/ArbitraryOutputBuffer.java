@@ -230,7 +230,7 @@ public class ArbitraryOutputBuffer
             clientBuffer.loadPagesIfNecessary(masterBuffer);
         }
 
-        return memoryManager.getBufferBlockedFuture();
+        return memoryManager.getNotFullFuture();
     }
 
     @Override

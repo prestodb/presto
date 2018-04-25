@@ -20,23 +20,21 @@ import javax.validation.constraints.NotNull;
 
 import static io.airlift.units.DataSize.Unit.BYTE;
 
-// This is separate from MemoryManagerConfig because it's difficult to test the default value of maxQueryMemoryPerNode
-public class NodeMemoryConfig
+// This is separate from MemoryManagerConfig because it's difficult to test the default value of reservedSystemMemory
+public class ReservedSystemMemoryConfig
 {
-    public static final String QUERY_MAX_MEMORY_PER_NODE_CONFIG = "query.max-memory-per-node";
-
-    private DataSize maxQueryMemoryPerNode = new DataSize(Runtime.getRuntime().maxMemory() * 0.1, BYTE);
+    private DataSize reservedSystemMemory = new DataSize(Runtime.getRuntime().maxMemory() * 0.4, BYTE);
 
     @NotNull
-    public DataSize getMaxQueryMemoryPerNode()
+    public DataSize getReservedSystemMemory()
     {
-        return maxQueryMemoryPerNode;
+        return reservedSystemMemory;
     }
 
-    @Config(QUERY_MAX_MEMORY_PER_NODE_CONFIG)
-    public NodeMemoryConfig setMaxQueryMemoryPerNode(DataSize maxQueryMemoryPerNode)
+    @Config("resources.reserved-system-memory")
+    public ReservedSystemMemoryConfig setReservedSystemMemory(DataSize reservedSystemMemory)
     {
-        this.maxQueryMemoryPerNode = maxQueryMemoryPerNode;
+        this.reservedSystemMemory = reservedSystemMemory;
         return this;
     }
 }

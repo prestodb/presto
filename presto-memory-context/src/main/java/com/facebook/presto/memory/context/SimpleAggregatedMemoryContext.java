@@ -19,28 +19,24 @@ import com.google.common.util.concurrent.ListenableFuture;
  * SimpleAggregatedMemoryContext doesn't have a parent or a reservation handler. It just counts bytes.
  */
 class SimpleAggregatedMemoryContext
-        extends AbstractAggregatedMemoryContext
+        extends AggregatedMemoryContext
 {
-    @Override
     synchronized ListenableFuture<?> updateBytes(long bytes)
     {
         addBytes(bytes);
         return NOT_BLOCKED;
     }
 
-    @Override
     synchronized boolean tryUpdateBytes(long delta)
     {
         addBytes(delta);
         return true;
     }
 
-    @Override
-    synchronized AbstractAggregatedMemoryContext getParent()
+    synchronized AggregatedMemoryContext getParent()
     {
         return null;
     }
 
-    @Override
     void closeContext() {}
 }
