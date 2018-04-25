@@ -266,7 +266,7 @@ public class SourcePartitionedScheduler
             // 1. It always returns a completed future when there are no tasks, regardless of whether all nodes are blocked.
             // 2. The returned future will only be completed when a node with an assigned task becomes unblocked. Other nodes don't trigger future completion.
             // As a result, to avoid busy loops caused by 1, we check pendingSplits.isEmpty() instead of placementFuture.isDone() here.
-            if (scheduleGroup.nextSplitBatchFuture == null && scheduleGroup.pendingSplits.isEmpty() && scheduleGroup.state != ScheduleGroupState.DONE) {
+            if (scheduleGroup.nextSplitBatchFuture == null && scheduleGroup.pendingSplits.isEmpty()) {
                 anyNotBlocked = true;
             }
         }
