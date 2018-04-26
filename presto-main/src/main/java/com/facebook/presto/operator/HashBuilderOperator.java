@@ -16,7 +16,6 @@ package com.facebook.presto.operator;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spiller.SingleStreamSpiller;
 import com.facebook.presto.spiller.SingleStreamSpillerFactory;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
@@ -57,7 +56,6 @@ public class HashBuilderOperator
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;
-        private final List<Type> types;
         private final LookupSourceFactoryManager lookupSourceFactoryManager;
         private final List<Integer> outputChannels;
         private final List<Integer> hashChannels;
@@ -78,7 +76,6 @@ public class HashBuilderOperator
         public HashBuilderOperatorFactory(
                 int operatorId,
                 PlanNodeId planNodeId,
-                List<Type> types,
                 LookupSourceFactoryManager lookupSourceFactory,
                 List<Integer> outputChannels,
                 List<Integer> hashChannels,
@@ -93,7 +90,6 @@ public class HashBuilderOperator
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
-            this.types = requireNonNull(types, "types is null");
             requireNonNull(sortChannel, "sortChannel can not be null");
             requireNonNull(searchFunctionFactories, "searchFunctionFactories is null");
             checkArgument(sortChannel.isPresent() != searchFunctionFactories.isEmpty(), "both or none sortChannel and searchFunctionFactories must be set");
@@ -110,12 +106,6 @@ public class HashBuilderOperator
             this.singleStreamSpillerFactory = requireNonNull(singleStreamSpillerFactory, "singleStreamSpillerFactory is null");
 
             this.expectedPositions = expectedPositions;
-        }
-
-        @Override
-        public List<Type> getTypes()
-        {
-            return types;
         }
 
         @Override

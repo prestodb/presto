@@ -123,12 +123,6 @@ public class FilterAndProjectOperator
         }
 
         @Override
-        public List<Type> getTypes()
-        {
-            return types;
-        }
-
-        @Override
         public Operator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");

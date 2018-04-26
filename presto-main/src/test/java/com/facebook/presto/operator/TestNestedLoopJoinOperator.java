@@ -483,8 +483,8 @@ public class TestNestedLoopJoinOperator
     {
         DriverContext driverContext = taskContext.addPipelineContext(0, true, true).addDriverContext();
 
-        ValuesOperatorFactory valuesOperatorFactory = new ValuesOperatorFactory(0, new PlanNodeId("test"), buildPages.getTypes(), buildPages.build());
-        NestedLoopBuildOperatorFactory nestedLoopBuildOperatorFactory = new NestedLoopBuildOperatorFactory(1, new PlanNodeId("test"), buildPages.getTypes());
+        ValuesOperatorFactory valuesOperatorFactory = new ValuesOperatorFactory(0, new PlanNodeId("test"), buildPages.build());
+        NestedLoopBuildOperatorFactory nestedLoopBuildOperatorFactory = new NestedLoopBuildOperatorFactory(1, new PlanNodeId("test"));
 
         Driver driver = Driver.createDriver(driverContext,
                 valuesOperatorFactory.createOperator(driverContext),

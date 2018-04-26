@@ -43,7 +43,6 @@ public class DistinctLimitOperator
         private final int operatorId;
         private final PlanNodeId planNodeId;
         private final List<Integer> distinctChannels;
-        private final List<Type> types;
         private final List<Type> sourceTypes;
         private final long limit;
         private final Optional<Integer> hashChannel;
@@ -64,21 +63,10 @@ public class DistinctLimitOperator
             this.sourceTypes = ImmutableList.copyOf(requireNonNull(sourceTypes, "sourceTypes is null"));
             this.distinctChannels = requireNonNull(distinctChannels, "distinctChannels is null");
 
-            types = ImmutableList.<Type>builder()
-                    .addAll(distinctChannels.stream().map(sourceTypes::get).collect(toImmutableList()))
-                    .addAll(hashChannel.map(sourceTypes::get).map(ImmutableList::of).orElse(ImmutableList.of()))
-                    .build();
-
             checkArgument(limit >= 0, "limit must be at least zero");
             this.limit = limit;
             this.hashChannel = requireNonNull(hashChannel, "hashChannel is null");
             this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
-        }
-
-        @Override
-        public List<Type> getTypes()
-        {
-            return types;
         }
 
         @Override

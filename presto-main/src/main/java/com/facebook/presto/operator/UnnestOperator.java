@@ -44,7 +44,6 @@ public class UnnestOperator
         private final List<Type> unnestTypes;
         private final boolean withOrdinality;
         private boolean closed;
-        private final ImmutableList<Type> types;
 
         public UnnestOperatorFactory(int operatorId, PlanNodeId planNodeId, List<Integer> replicateChannels, List<Type> replicateTypes, List<Integer> unnestChannels, List<Type> unnestTypes, boolean withOrdinality)
         {
@@ -57,19 +56,6 @@ public class UnnestOperator
             this.unnestTypes = ImmutableList.copyOf(requireNonNull(unnestTypes, "unnestTypes is null"));
             checkArgument(unnestChannels.size() == unnestTypes.size(), "unnestChannels and unnestTypes do not match");
             this.withOrdinality = withOrdinality;
-            ImmutableList.Builder<Type> typesBuilder = ImmutableList.<Type>builder()
-                    .addAll(replicateTypes)
-                    .addAll(getUnnestedTypes(unnestTypes));
-            if (withOrdinality) {
-                typesBuilder.add(BIGINT);
-            }
-            this.types = typesBuilder.build();
-        }
-
-        @Override
-        public List<Type> getTypes()
-        {
-            return types;
         }
 
         @Override

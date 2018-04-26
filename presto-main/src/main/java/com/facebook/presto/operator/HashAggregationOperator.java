@@ -63,7 +63,6 @@ public class HashAggregationOperator
         private final Optional<Integer> groupIdChannel;
 
         private final int expectedGroups;
-        private final List<Type> types;
         private final DataSize maxPartialMemory;
         private final boolean spillEnabled;
         private final DataSize memoryLimitForMerge;
@@ -183,14 +182,6 @@ public class HashAggregationOperator
             this.memoryLimitForMergeWithMemory = requireNonNull(memoryLimitForMergeWithMemory, "memoryLimitForMergeWithMemory is null");
             this.spillerFactory = requireNonNull(spillerFactory, "spillerFactory is null");
             this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
-
-            this.types = toTypes(groupByTypes, step, accumulatorFactories, hashChannel);
-        }
-
-        @Override
-        public List<Type> getTypes()
-        {
-            return types;
         }
 
         @Override

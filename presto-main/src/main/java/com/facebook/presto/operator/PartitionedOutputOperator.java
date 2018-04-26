@@ -28,7 +28,6 @@ import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.util.Mergeable;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
@@ -147,12 +146,6 @@ public class PartitionedOutputOperator
             this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
             this.serdeFactory = requireNonNull(serdeFactory, "serdeFactory is null");
             this.maxMemory = requireNonNull(maxMemory, "maxMemory is null");
-        }
-
-        @Override
-        public List<Type> getTypes()
-        {
-            return ImmutableList.of();
         }
 
         @Override

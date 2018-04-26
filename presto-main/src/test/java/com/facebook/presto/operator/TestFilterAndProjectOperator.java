@@ -163,6 +163,6 @@ public class TestFilterAndProjectOperator
                 .row(10L)
                 .build();
 
-        assertOperatorEquals(operatorFactory, driverContext, input, expected);
+        assertOperatorEquals(operatorFactory, ImmutableList.of(BIGINT), driverContext, input, expected);
     }
 }

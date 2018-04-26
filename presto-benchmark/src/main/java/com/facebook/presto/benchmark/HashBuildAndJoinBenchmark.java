@@ -102,7 +102,6 @@ public class HashBuildAndJoinBenchmark
         HashBuilderOperatorFactory hashBuilder = new HashBuilderOperatorFactory(
                 2,
                 new PlanNodeId("test"),
-                sourceTypes,
                 lookupSourceFactoryManager,
                 ImmutableList.of(0, 1),
                 Ints.asList(0),
@@ -144,7 +143,7 @@ public class HashBuildAndJoinBenchmark
                 OptionalInt.empty(),
                 unsupportedPartitioningSpillerFactory());
         joinDriversBuilder.add(joinOperator);
-        joinDriversBuilder.add(new NullOutputOperatorFactory(3, new PlanNodeId("test"), joinOperator.getTypes()));
+        joinDriversBuilder.add(new NullOutputOperatorFactory(3, new PlanNodeId("test")));
         DriverFactory joinDriverFactory = new DriverFactory(1, true, true, joinDriversBuilder.build(), OptionalInt.empty(), UNGROUPED_EXECUTION);
         Driver joinDriver = joinDriverFactory.createDriver(taskContext.addPipelineContext(1, true, true).addDriverContext());
         joinDriverFactory.noMoreDrivers();

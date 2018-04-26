@@ -17,11 +17,8 @@ import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.google.common.collect.ImmutableList;
 
-import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -40,24 +37,15 @@ public class AssignUniqueIdOperator
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;
-        private final List<Type> types;
         private boolean closed;
         private final AtomicLong valuePool = new AtomicLong();
 
         public AssignUniqueIdOperatorFactory(
                 int operatorId,
-                PlanNodeId planNodeId,
-                List<? extends Type> types)
+                PlanNodeId planNodeId)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
-            this.types = ImmutableList.copyOf(types);
-        }
-
-        @Override
-        public List<Type> getTypes()
-        {
-            return types;
         }
 
         @Override
@@ -81,7 +69,7 @@ public class AssignUniqueIdOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new AssignUniqueIdOperatorFactory(operatorId, planNodeId, types);
+            return new AssignUniqueIdOperatorFactory(operatorId, planNodeId);
         }
     }
 

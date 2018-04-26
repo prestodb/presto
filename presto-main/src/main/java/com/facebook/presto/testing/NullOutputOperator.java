@@ -37,7 +37,7 @@ public class NullOutputOperator
         @Override
         public OperatorFactory createOutputOperator(int operatorId, PlanNodeId planNodeId, List<Type> types, Function<Page, Page> pagePreprocessor, PagesSerdeFactory serdeFactory)
         {
-            return new NullOutputOperatorFactory(operatorId, planNodeId, types);
+            return new NullOutputOperatorFactory(operatorId, planNodeId);
         }
     }
 
@@ -46,19 +46,11 @@ public class NullOutputOperator
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;
-        private final List<Type> types;
 
-        public NullOutputOperatorFactory(int operatorId, PlanNodeId planNodeId, List<Type> types)
+        public NullOutputOperatorFactory(int operatorId, PlanNodeId planNodeId)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
-            this.types = types;
-        }
-
-        @Override
-        public List<Type> getTypes()
-        {
-            return types;
         }
 
         @Override
@@ -76,7 +68,7 @@ public class NullOutputOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new NullOutputOperatorFactory(operatorId, planNodeId, types);
+            return new NullOutputOperatorFactory(operatorId, planNodeId);
         }
     }
 

@@ -40,7 +40,6 @@ import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.operator.project.PageProjection;
 import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.QueryId;
@@ -161,16 +160,12 @@ public abstract class AbstractOperatorBenchmark
         // lookup the columns
         Map<String, ColumnHandle> allColumnHandles = metadata.getColumnHandles(session, tableHandle);
         ImmutableList.Builder<ColumnHandle> columnHandlesBuilder = ImmutableList.builder();
-        ImmutableList.Builder<Type> columnTypesBuilder = ImmutableList.builder();
         for (String columnName : columnNames) {
             ColumnHandle columnHandle = allColumnHandles.get(columnName);
             checkArgument(columnHandle != null, "Table %s does not have a column %s", tableName, columnName);
             columnHandlesBuilder.add(columnHandle);
-            ColumnMetadata columnMetadata = metadata.getColumnMetadata(session, tableHandle, columnHandle);
-            columnTypesBuilder.add(columnMetadata.getType());
         }
         List<ColumnHandle> columnHandles = columnHandlesBuilder.build();
-        List<Type> columnTypes = columnTypesBuilder.build();
 
         // get the split for this table
         List<TableLayoutResult> layouts = metadata.getLayouts(session, tableHandle, Constraint.alwaysTrue(), Optional.empty());
@@ -178,12 +173,6 @@ public abstract class AbstractOperatorBenchmark
 
         return new OperatorFactory()
         {
-            @Override
-            public List<Type> getTypes()
-            {
-                return columnTypes;
-            }
-
             @Override
             public Operator createOperator(DriverContext driverContext)
             {

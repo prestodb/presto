@@ -335,12 +335,6 @@ public class ScanFilterAndProjectOperator
         }
 
         @Override
-        public List<Type> getTypes()
-        {
-            return types;
-        }
-
-        @Override
         public SourceOperator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");

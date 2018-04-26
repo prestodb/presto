@@ -14,14 +14,9 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.execution.Lifespan;
-import com.facebook.presto.spi.type.Type;
-
-import java.util.List;
 
 public interface OperatorFactory
 {
-    List<Type> getTypes();
-
     Operator createOperator(DriverContext driverContext);
 
     /**

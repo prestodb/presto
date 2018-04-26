@@ -153,12 +153,6 @@ public class HandTpchQuery1
             }
 
             @Override
-            public List<Type> getTypes()
-            {
-                return TYPES;
-            }
-
-            @Override
             public Operator createOperator(DriverContext driverContext)
             {
                 OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, new PlanNodeId("test"), TpchQuery1Operator.class.getSimpleName());

@@ -365,13 +365,11 @@ public class TestSqlTaskExecution
             ValuesOperatorFactory valuesOperatorFactory1 = new ValuesOperatorFactory(
                     101,
                     values1NodeId,
-                    ImmutableList.of(VARCHAR),
                     ImmutableList.of(new Page(createStringsBlock("multiplier1"))));
             TestingScanOperatorFactory scanOperatorFactory2 = new TestingScanOperatorFactory(201, scan2NodeId, ImmutableList.of(VARCHAR));
             ValuesOperatorFactory valuesOperatorFactory3 = new ValuesOperatorFactory(
                     301,
                     values3NodeId,
-                    ImmutableList.of(VARCHAR),
                     ImmutableList.of(new Page(createStringsBlock("x", "y", "multiplier3"))));
             TaskOutputOperatorFactory taskOutputOperatorFactory = new TaskOutputOperatorFactory(
                     4,
@@ -754,12 +752,6 @@ public class TestSqlTaskExecution
         }
 
         @Override
-        public List<Type> getTypes()
-        {
-            return ImmutableList.of(VARCHAR);
-        }
-
-        @Override
         public SourceOperator createOperator(DriverContext driverContext)
         {
             checkState(!overallNoMoreOperators, "noMoreOperators() has been called");
@@ -928,12 +920,6 @@ public class TestSqlTaskExecution
         }
 
         @Override
-        public List<Type> getTypes()
-        {
-            return ImmutableList.of(VARCHAR);
-        }
-
-        @Override
         public Operator createOperator(DriverContext driverContext)
         {
             checkState(!overallNoMoreOperators, "noMoreOperators() has been called");
@@ -1066,12 +1052,6 @@ public class TestSqlTaskExecution
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.buildStates = requireNonNull(buildStates, "buildStates is null");
-        }
-
-        @Override
-        public List<Type> getTypes()
-        {
-            return ImmutableList.of(VARCHAR);
         }
 
         @Override

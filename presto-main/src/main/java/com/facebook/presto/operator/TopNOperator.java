@@ -63,12 +63,6 @@ public class TopNOperator
         }
 
         @Override
-        public List<Type> getTypes()
-        {
-            return sourceTypes;
-        }
-
-        @Override
         public Operator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");

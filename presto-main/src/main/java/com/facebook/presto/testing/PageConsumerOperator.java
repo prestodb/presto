@@ -22,7 +22,6 @@ import com.facebook.presto.operator.OutputFactory;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.function.Consumer;
@@ -66,12 +65,6 @@ public class PageConsumerOperator
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.pageConsumer = requireNonNull(pageConsumer, "pageConsumer is null");
             this.pagePreprocessor = requireNonNull(pagePreprocessor, "pagePreprocessor is null");
-        }
-
-        @Override
-        public List<Type> getTypes()
-        {
-            return ImmutableList.of();
         }
 
         @Override

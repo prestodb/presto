@@ -32,7 +32,6 @@ import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.MoreFutures.getDone;
 import static io.airlift.slice.SizeOf.sizeOf;
 
@@ -47,8 +46,6 @@ public class SpatialJoinOperator
         private final JoinNode.Type joinType;
         private final List<Type> probeTypes;
         private final List<Integer> probeOutputChannels;
-        private final List<Type> probeOutputTypes;
-        private final List<Type> buildOutputTypes;
         private final int probeGeometryChannel;
         private final PagesSpatialIndexFactory pagesSpatialIndexFactory;
 
@@ -68,22 +65,9 @@ public class SpatialJoinOperator
             this.planNodeId = planNodeId;
             this.joinType = joinType;
             this.probeTypes = ImmutableList.copyOf(probeTypes);
-            this.probeOutputTypes = probeOutputChannels.stream()
-                    .map(probeTypes::get)
-                    .collect(toImmutableList());
-            this.buildOutputTypes = pagesSpatialIndexFactory.getOutputTypes();
             this.probeOutputChannels = ImmutableList.copyOf(probeOutputChannels);
             this.probeGeometryChannel = probeGeometryChannel;
             this.pagesSpatialIndexFactory = pagesSpatialIndexFactory;
-        }
-
-        @Override
-        public List<Type> getTypes()
-        {
-            return ImmutableList.<Type>builder()
-                    .addAll(probeOutputTypes)
-                    .addAll(buildOutputTypes)
-                    .build();
         }
 
         @Override
@@ -97,7 +81,6 @@ public class SpatialJoinOperator
             return new SpatialJoinOperator(
                     operatorContext,
                     joinType,
-                    getTypes(),
                     probeTypes,
                     probeOutputChannels,
                     probeGeometryChannel,
@@ -126,7 +109,6 @@ public class SpatialJoinOperator
     private final LocalMemoryContext localUserMemoryContext;
     private final JoinNode.Type joinType;
     private final List<Type> probeTypes;
-    private final List<Type> outputTypes;
     private final List<Integer> probeOutputChannels;
     private final int probeGeometryChannel;
     private final PagesSpatialIndexFactory pagesSpatialIndexFactory;
@@ -150,7 +132,6 @@ public class SpatialJoinOperator
     public SpatialJoinOperator(
             OperatorContext operatorContext,
             JoinNode.Type joinType,
-            List<Type> outputTypes,
             List<Type> probeTypes,
             List<Integer> probeOutputChannels,
             int probeGeometryChannel,
@@ -164,8 +145,12 @@ public class SpatialJoinOperator
         this.probeGeometryChannel = probeGeometryChannel;
         this.pagesSpatialIndexFactory = pagesSpatialIndexFactory;
         this.pagesSpatialIndexFuture = pagesSpatialIndexFactory.createPagesSpatialIndex();
-        this.outputTypes = ImmutableList.copyOf(outputTypes);
-        this.pageBuilder = new PageBuilder(outputTypes);
+        this.pageBuilder = new PageBuilder(ImmutableList.<Type>builder()
+                .addAll(probeOutputChannels.stream()
+                        .map(probeTypes::get)
+                        .iterator())
+                .addAll(pagesSpatialIndexFactory.getOutputTypes())
+                .build());
     }
 
     @Override
@@ -264,8 +249,9 @@ public class SpatialJoinOperator
 
                 pageBuilder.declarePosition();
                 appendProbe();
-                for (int i = probeOutputChannels.size(); i < outputTypes.size(); i++) {
-                    pageBuilder.getBlockBuilder(i).appendNull();
+                int buildColumnCount = pagesSpatialIndexFactory.getOutputTypes().size();
+                for (int i = 0; i < buildColumnCount; i++) {
+                    pageBuilder.getBlockBuilder(probeOutputChannels.size() + i).appendNull();
                 }
             }
 

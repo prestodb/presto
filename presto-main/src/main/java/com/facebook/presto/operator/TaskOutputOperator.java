@@ -20,7 +20,6 @@ import com.facebook.presto.execution.buffer.SerializedPage;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
@@ -68,12 +67,6 @@ public class TaskOutputOperator
             this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
             this.pagePreprocessor = requireNonNull(pagePreprocessor, "pagePreprocessor is null");
             this.serdeFactory = requireNonNull(serdeFactory, "serdeFactory is null");
-        }
-
-        @Override
-        public List<Type> getTypes()
-        {
-            return ImmutableList.of();
         }
 
         @Override

@@ -16,12 +16,8 @@ package com.facebook.presto.operator;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.FixedWidthBlock;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
-
-import java.util.List;
 
 import static com.facebook.presto.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
 import static com.google.common.base.Preconditions.checkState;
@@ -36,20 +32,12 @@ public class EnforceSingleRowOperator
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;
-        private final List<Type> types;
         private boolean closed;
 
-        public EnforceSingleRowOperatorFactory(int operatorId, PlanNodeId planNodeId, List<Type> types)
+        public EnforceSingleRowOperatorFactory(int operatorId, PlanNodeId planNodeId)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
-            this.types = ImmutableList.copyOf(requireNonNull(types, "type is null"));
-        }
-
-        @Override
-        public List<Type> getTypes()
-        {
-            return types;
         }
 
         @Override
@@ -69,7 +57,7 @@ public class EnforceSingleRowOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new EnforceSingleRowOperatorFactory(operatorId, planNodeId, types);
+            return new EnforceSingleRowOperatorFactory(operatorId, planNodeId);
         }
     }
 

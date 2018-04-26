@@ -91,12 +91,6 @@ public class SpatialIndexBuilderOperator
         }
 
         @Override
-        public List<Type> getTypes()
-        {
-            return pagesSpatialIndexFactory.getTypes();
-        }
-
-        @Override
         public SpatialIndexBuilderOperator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");

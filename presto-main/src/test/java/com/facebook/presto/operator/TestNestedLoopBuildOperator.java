@@ -17,7 +17,6 @@ import com.facebook.presto.operator.NestedLoopBuildOperator.NestedLoopBuildOpera
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.TestingTaskContext;
-import com.google.common.collect.ImmutableList;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -28,7 +27,6 @@ import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.block.BlockAssertions.createLongSequenceBlock;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -61,7 +59,7 @@ public class TestNestedLoopBuildOperator
             throws Exception
     {
         TaskContext taskContext = createTaskContext();
-        NestedLoopBuildOperatorFactory nestedLoopBuildOperatorFactory = new NestedLoopBuildOperatorFactory(3, new PlanNodeId("test"), ImmutableList.of(BIGINT));
+        NestedLoopBuildOperatorFactory nestedLoopBuildOperatorFactory = new NestedLoopBuildOperatorFactory(3, new PlanNodeId("test"));
         DriverContext driverContext = taskContext.addPipelineContext(0, true, true).addDriverContext();
         NestedLoopBuildOperator nestedLoopBuildOperator = (NestedLoopBuildOperator) nestedLoopBuildOperatorFactory.createOperator(driverContext);
         NestedLoopJoinPagesSupplier nestedLoopJoinPagesSupplier = nestedLoopBuildOperatorFactory.getNestedLoopJoinPagesSupplier();
@@ -91,7 +89,7 @@ public class TestNestedLoopBuildOperator
             throws Exception
     {
         TaskContext taskContext = createTaskContext();
-        NestedLoopBuildOperatorFactory nestedLoopBuildOperatorFactory = new NestedLoopBuildOperatorFactory(3, new PlanNodeId("test"), ImmutableList.of());
+        NestedLoopBuildOperatorFactory nestedLoopBuildOperatorFactory = new NestedLoopBuildOperatorFactory(3, new PlanNodeId("test"));
         DriverContext driverContext = taskContext.addPipelineContext(0, true, true).addDriverContext();
         NestedLoopBuildOperator nestedLoopBuildOperator = (NestedLoopBuildOperator) nestedLoopBuildOperatorFactory.createOperator(driverContext);
         NestedLoopJoinPagesSupplier nestedLoopJoinPagesSupplier = nestedLoopBuildOperatorFactory.getNestedLoopJoinPagesSupplier();

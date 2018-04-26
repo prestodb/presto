@@ -22,7 +22,6 @@ import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 
@@ -65,12 +64,6 @@ public class ExplainAnalyzeOperator
             this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
             this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
             this.verbose = verbose;
-        }
-
-        @Override
-        public List<Type> getTypes()
-        {
-            return ImmutableList.of(VARCHAR);
         }
 
         @Override

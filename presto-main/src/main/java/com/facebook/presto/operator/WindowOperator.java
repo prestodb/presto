@@ -61,7 +61,6 @@ public class WindowOperator
         private final List<SortOrder> sortOrder;
         private final int preSortedChannelPrefix;
         private final int expectedPositions;
-        private final List<Type> types;
         private boolean closed;
         private final PagesIndex.Factory pagesIndexFactory;
 
@@ -105,18 +104,6 @@ public class WindowOperator
             this.sortOrder = ImmutableList.copyOf(sortOrder);
             this.preSortedChannelPrefix = preSortedChannelPrefix;
             this.expectedPositions = expectedPositions;
-            this.types = Stream.concat(
-                    outputChannels.stream()
-                            .map(sourceTypes::get),
-                    windowFunctionDefinitions.stream()
-                            .map(WindowFunctionDefinition::getType))
-                    .collect(toImmutableList());
-        }
-
-        @Override
-        public List<Type> getTypes()
-        {
-            return types;
         }
 
         @Override

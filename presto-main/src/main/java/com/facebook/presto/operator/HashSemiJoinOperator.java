@@ -42,7 +42,6 @@ public class HashSemiJoinOperator
         private final SetSupplier setSupplier;
         private final List<Type> probeTypes;
         private final int probeJoinChannel;
-        private final List<Type> types;
         private boolean closed;
 
         public HashSemiJoinOperatorFactory(int operatorId, PlanNodeId planNodeId, SetSupplier setSupplier, List<? extends Type> probeTypes, int probeJoinChannel)
@@ -53,17 +52,6 @@ public class HashSemiJoinOperator
             this.probeTypes = ImmutableList.copyOf(probeTypes);
             checkArgument(probeJoinChannel >= 0, "probeJoinChannel is negative");
             this.probeJoinChannel = probeJoinChannel;
-
-            this.types = ImmutableList.<Type>builder()
-                    .addAll(probeTypes)
-                    .add(BOOLEAN)
-                    .build();
-        }
-
-        @Override
-        public List<Type> getTypes()
-        {
-            return types;
         }
 
         @Override

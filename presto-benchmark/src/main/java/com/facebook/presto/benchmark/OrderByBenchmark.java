@@ -43,7 +43,7 @@ public class OrderByBenchmark
         List<Type> tableScanTypes = getColumnTypes("orders", "totalprice", "clerk");
         OperatorFactory tableScanOperator = createTableScanOperator(0, new PlanNodeId("test"), "orders", "totalprice", "clerk");
 
-        LimitOperatorFactory limitOperator = new LimitOperatorFactory(1, new PlanNodeId("test"), tableScanTypes, ROWS);
+        LimitOperatorFactory limitOperator = new LimitOperatorFactory(1, new PlanNodeId("test"), ROWS);
 
         OrderByOperatorFactory orderByOperator = new OrderByOperatorFactory(
                 2,

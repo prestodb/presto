@@ -19,7 +19,6 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.UpdatablePageSource;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.EmptySplit;
 import com.facebook.presto.split.EmptySplitPageSource;
 import com.facebook.presto.split.PageSourceProvider;
@@ -49,7 +48,6 @@ public class TableScanOperator
         private final int operatorId;
         private final PlanNodeId sourceId;
         private final PageSourceProvider pageSourceProvider;
-        private final List<Type> types;
         private final List<ColumnHandle> columns;
         private boolean closed;
 
@@ -57,12 +55,10 @@ public class TableScanOperator
                 int operatorId,
                 PlanNodeId sourceId,
                 PageSourceProvider pageSourceProvider,
-                List<Type> types,
                 Iterable<ColumnHandle> columns)
         {
             this.operatorId = operatorId;
             this.sourceId = requireNonNull(sourceId, "sourceId is null");
-            this.types = requireNonNull(types, "types is null");
             this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
             this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
         }
@@ -71,12 +67,6 @@ public class TableScanOperator
         public PlanNodeId getSourceId()
         {
             return sourceId;
-        }
-
-        @Override
-        public List<Type> getTypes()
-        {
-            return types;
         }
 
         @Override

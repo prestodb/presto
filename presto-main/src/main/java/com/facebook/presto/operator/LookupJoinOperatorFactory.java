@@ -44,7 +44,6 @@ public class LookupJoinOperatorFactory
     private final int operatorId;
     private final PlanNodeId planNodeId;
     private final List<Type> probeTypes;
-    private final List<Type> probeOutputTypes;
     private final List<Type> buildOutputTypes;
     private final JoinType joinType;
     private final JoinProbeFactory joinProbeFactory;
@@ -73,7 +72,6 @@ public class LookupJoinOperatorFactory
         this.operatorId = operatorId;
         this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
         this.probeTypes = ImmutableList.copyOf(requireNonNull(probeTypes, "probeTypes is null"));
-        this.probeOutputTypes = ImmutableList.copyOf(requireNonNull(probeOutputTypes, "probeOutputTypes is null"));
         this.buildOutputTypes = ImmutableList.copyOf(requireNonNull(buildOutputTypes, "buildOutputTypes is null"));
         this.joinType = requireNonNull(joinType, "joinType is null");
         this.joinProbeFactory = requireNonNull(joinProbeFactory, "joinProbeFactory is null");
@@ -115,7 +113,6 @@ public class LookupJoinOperatorFactory
         operatorId = other.operatorId;
         planNodeId = other.planNodeId;
         probeTypes = other.probeTypes;
-        probeOutputTypes = other.probeOutputTypes;
         buildOutputTypes = other.buildOutputTypes;
         joinType = other.joinType;
         joinProbeFactory = other.joinProbeFactory;
@@ -130,15 +127,6 @@ public class LookupJoinOperatorFactory
     public int getOperatorId()
     {
         return operatorId;
-    }
-
-    @Override
-    public List<Type> getTypes()
-    {
-        return ImmutableList.<Type>builder()
-                .addAll(probeOutputTypes)
-                .addAll(buildOutputTypes)
-                .build();
     }
 
     @Override

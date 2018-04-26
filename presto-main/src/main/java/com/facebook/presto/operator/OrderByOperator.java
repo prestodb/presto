@@ -40,7 +40,6 @@ public class OrderByOperator
         private final int expectedPositions;
         private final List<Integer> sortChannels;
         private final List<SortOrder> sortOrder;
-        private final List<Type> types;
         private boolean closed;
         private final PagesIndex.Factory pagesIndexFactory;
 
@@ -62,14 +61,7 @@ public class OrderByOperator
             this.sortChannels = ImmutableList.copyOf(requireNonNull(sortChannels, "sortChannels is null"));
             this.sortOrder = ImmutableList.copyOf(requireNonNull(sortOrder, "sortOrder is null"));
 
-            this.types = toTypes(sourceTypes, outputChannels);
             this.pagesIndexFactory = requireNonNull(pagesIndexFactory, "pagesIndexFactory is null");
-        }
-
-        @Override
-        public List<Type> getTypes()
-        {
-            return types;
         }
 
         @Override

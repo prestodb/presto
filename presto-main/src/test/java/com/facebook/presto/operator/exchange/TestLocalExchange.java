@@ -504,7 +504,6 @@ public class TestLocalExchange
 
     private static void assertSource(LocalExchangeSource source, int pageCount)
     {
-        assertEquals(source.getTypes(), TYPES);
         LocalExchangeBufferInfo bufferInfo = source.getBufferInfo();
         assertEquals(bufferInfo.getBufferedPages(), pageCount);
         assertFalse(source.isFinished());
@@ -523,7 +522,6 @@ public class TestLocalExchange
 
     private static void assertSourceFinished(LocalExchangeSource source)
     {
-        assertEquals(source.getTypes(), TYPES);
         assertTrue(source.isFinished());
         LocalExchangeBufferInfo bufferInfo = source.getBufferInfo();
         assertEquals(bufferInfo.getBufferedPages(), 0);
@@ -538,7 +536,6 @@ public class TestLocalExchange
 
     private static void assertRemovePage(LocalExchangeSource source, Page expectedPage)
     {
-        assertEquals(source.getTypes(), TYPES);
         assertTrue(source.waitForReading().isDone());
         Page actualPage = source.removePage();
         assertNotNull(actualPage);
@@ -549,7 +546,6 @@ public class TestLocalExchange
 
     private static void assertPartitionedRemovePage(LocalExchangeSource source, int partition, int partitionCount)
     {
-        assertEquals(source.getTypes(), TYPES);
         assertTrue(source.waitForReading().isDone());
         Page page = source.removePage();
         assertNotNull(page);
@@ -562,14 +558,12 @@ public class TestLocalExchange
 
     private static void assertSinkCanWrite(LocalExchangeSink sink)
     {
-        assertEquals(sink.getTypes(), TYPES);
         assertFalse(sink.isFinished());
         assertTrue(sink.waitForWriting().isDone());
     }
 
     private static ListenableFuture<?> assertSinkWriteBlocked(LocalExchangeSink sink)
     {
-        assertEquals(sink.getTypes(), TYPES);
         assertFalse(sink.isFinished());
         ListenableFuture<?> writeFuture = sink.waitForWriting();
         assertFalse(writeFuture.isDone());
@@ -578,7 +572,6 @@ public class TestLocalExchange
 
     private static void assertSinkFinished(LocalExchangeSink sink)
     {
-        assertEquals(sink.getTypes(), TYPES);
         assertTrue(sink.isFinished());
         assertTrue(sink.waitForWriting().isDone());
 

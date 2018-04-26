@@ -481,7 +481,6 @@ public class TestOrcPageSourceMemoryTracking
                     0,
                     new PlanNodeId("0"),
                     (session, split, columnHandles) -> pageSource,
-                    types,
                     columns.stream().map(columnHandle -> (ColumnHandle) columnHandle).collect(toList()));
             SourceOperator operator = sourceOperatorFactory.createOperator(driverContext);
             operator.addSplit(new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit()));

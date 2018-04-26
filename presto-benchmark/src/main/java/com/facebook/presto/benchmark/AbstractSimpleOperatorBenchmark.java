@@ -25,7 +25,6 @@ import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.testing.NullOutputOperator.NullOutputOperatorFactory;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -53,7 +52,7 @@ public abstract class AbstractSimpleOperatorBenchmark
     {
         List<OperatorFactory> operatorFactories = new ArrayList<>(createOperatorFactories());
 
-        operatorFactories.add(new NullOutputOperatorFactory(999, new PlanNodeId("test"), Iterables.getLast(operatorFactories).getTypes()));
+        operatorFactories.add(new NullOutputOperatorFactory(999, new PlanNodeId("test")));
 
         return new DriverFactory(0, true, true, operatorFactories, OptionalInt.empty(), UNGROUPED_EXECUTION);
     }

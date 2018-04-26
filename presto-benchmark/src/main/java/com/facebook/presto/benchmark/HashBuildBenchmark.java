@@ -73,7 +73,6 @@ public class HashBuildBenchmark
         HashBuilderOperatorFactory hashBuilder = new HashBuilderOperatorFactory(
                 1,
                 new PlanNodeId("test"),
-                ordersTypes,
                 lookupSourceFactoryManager,
                 ImmutableList.of(0, 1),
                 Ints.asList(0),
@@ -91,7 +90,7 @@ public class HashBuildBenchmark
 
         // empty join so build finishes
         ImmutableList.Builder<OperatorFactory> joinDriversBuilder = ImmutableList.builder();
-        joinDriversBuilder.add(new ValuesOperatorFactory(0, new PlanNodeId("values"), ImmutableList.of(BIGINT), ImmutableList.of()));
+        joinDriversBuilder.add(new ValuesOperatorFactory(0, new PlanNodeId("values"), ImmutableList.of()));
         OperatorFactory joinOperator = LOOKUP_JOIN_OPERATORS.innerJoin(
                 2,
                 new PlanNodeId("test"),
@@ -103,7 +102,7 @@ public class HashBuildBenchmark
                 OptionalInt.empty(),
                 unsupportedPartitioningSpillerFactory());
         joinDriversBuilder.add(joinOperator);
-        joinDriversBuilder.add(new NullOutputOperatorFactory(3, new PlanNodeId("test"), joinOperator.getTypes()));
+        joinDriversBuilder.add(new NullOutputOperatorFactory(3, new PlanNodeId("test")));
         DriverFactory joinDriverFactory = new DriverFactory(1, true, true, joinDriversBuilder.build(), OptionalInt.empty(), UNGROUPED_EXECUTION);
         Driver joinDriver = joinDriverFactory.createDriver(taskContext.addPipelineContext(1, true, true).addDriverContext());
         joinDriverFactory.noMoreDrivers();

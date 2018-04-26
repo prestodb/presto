@@ -19,7 +19,6 @@ import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.io.Closeable;
@@ -44,7 +43,6 @@ public class NestedLoopJoinOperator
         private final PlanNodeId planNodeId;
         private final NestedLoopJoinPagesSupplier nestedLoopJoinPagesSupplier;
         private final List<Type> probeTypes;
-        private final List<Type> types;
         private boolean closed;
 
         public NestedLoopJoinOperatorFactory(int operatorId, PlanNodeId planNodeId, NestedLoopJoinPagesSupplier nestedLoopJoinPagesSupplier, List<Type> probeTypes)
@@ -54,16 +52,6 @@ public class NestedLoopJoinOperator
             this.nestedLoopJoinPagesSupplier = nestedLoopJoinPagesSupplier;
             this.nestedLoopJoinPagesSupplier.retain();
             this.probeTypes = probeTypes;
-            this.types = ImmutableList.<Type>builder()
-                    .addAll(probeTypes)
-                    .addAll(nestedLoopJoinPagesSupplier.getTypes())
-                    .build();
-        }
-
-        @Override
-        public List<Type> getTypes()
-        {
-            return types;
         }
 
         @Override

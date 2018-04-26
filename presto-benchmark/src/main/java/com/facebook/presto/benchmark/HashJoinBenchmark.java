@@ -82,7 +82,6 @@ public class HashJoinBenchmark
             HashBuilderOperatorFactory hashBuilder = new HashBuilderOperatorFactory(
                     1,
                     new PlanNodeId("test"),
-                    ordersTypes,
                     lookupSourceFactoryManager,
                     ImmutableList.of(0, 1),
                     Ints.asList(0),
@@ -111,7 +110,7 @@ public class HashJoinBenchmark
 
         OperatorFactory joinOperator = LOOKUP_JOIN_OPERATORS.innerJoin(1, new PlanNodeId("test"), lookupSourceFactoryManager, lineItemTypes, Ints.asList(0), OptionalInt.empty(), Optional.empty(), OptionalInt.empty(), unsupportedPartitioningSpillerFactory());
 
-        NullOutputOperatorFactory output = new NullOutputOperatorFactory(2, new PlanNodeId("test"), joinOperator.getTypes());
+        NullOutputOperatorFactory output = new NullOutputOperatorFactory(2, new PlanNodeId("test"));
 
         DriverFactory driverFactory = new DriverFactory(1, true, true, ImmutableList.of(lineItemTableScan, joinOperator, output), OptionalInt.empty(), UNGROUPED_EXECUTION);
         DriverContext driverContext = taskContext.addPipelineContext(1, true, true).addDriverContext();

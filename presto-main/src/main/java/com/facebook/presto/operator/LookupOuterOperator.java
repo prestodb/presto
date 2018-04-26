@@ -44,7 +44,6 @@ public class LookupOuterOperator
         private final int operatorId;
         private final PlanNodeId planNodeId;
         private final Function<Lifespan, ListenableFuture<OuterPositionIterator>> outerPositionsFuture;
-        private final List<Type> types;
         private final List<Type> probeOutputTypes;
         private final List<Type> buildOutputTypes;
         private final Function<Lifespan, ReferenceCount> referenceCount;
@@ -66,22 +65,11 @@ public class LookupOuterOperator
             this.probeOutputTypes = ImmutableList.copyOf(requireNonNull(probeOutputTypes, "probeOutputTypes is null"));
             this.buildOutputTypes = ImmutableList.copyOf(requireNonNull(buildOutputTypes, "buildOutputTypes is null"));
             this.referenceCount = requireNonNull(referenceCount, "referenceCount is null");
-
-            this.types = ImmutableList.<Type>builder()
-                    .addAll(probeOutputTypes)
-                    .addAll(buildOutputTypes)
-                    .build();
         }
 
         public int getOperatorId()
         {
             return operatorId;
-        }
-
-        @Override
-        public List<Type> getTypes()
-        {
-            return types;
         }
 
         @Override

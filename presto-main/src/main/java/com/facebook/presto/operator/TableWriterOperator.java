@@ -81,12 +81,6 @@ public class TableWriterOperator
         }
 
         @Override
-        public List<Type> getTypes()
-        {
-            return TYPES;
-        }
-
-        @Override
         public Operator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");

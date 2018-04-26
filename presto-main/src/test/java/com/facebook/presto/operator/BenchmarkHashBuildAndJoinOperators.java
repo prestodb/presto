@@ -298,7 +298,6 @@ public class BenchmarkHashBuildAndJoinOperators
         HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(
                 HASH_BUILD_OPERATOR_ID,
                 TEST_PLAN_NODE_ID,
-                buildContext.getTypes(),
                 lookupSourceFactoryManager,
                 outputChannels,
                 buildContext.getHashChannels(),

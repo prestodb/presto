@@ -56,7 +56,6 @@ public class TopNRowNumberOperator
         private final Optional<Integer> hashChannel;
         private final int expectedPositions;
 
-        private final List<Type> types;
         private final boolean generateRowNumber;
         private boolean closed;
         private final JoinCompiler joinCompiler;
@@ -92,13 +91,6 @@ public class TopNRowNumberOperator
             this.generateRowNumber = !partial;
             this.expectedPositions = expectedPositions;
             this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
-            this.types = toTypes(sourceTypes, outputChannels, generateRowNumber);
-        }
-
-        @Override
-        public List<Type> getTypes()
-        {
-            return types;
         }
 
         @Override

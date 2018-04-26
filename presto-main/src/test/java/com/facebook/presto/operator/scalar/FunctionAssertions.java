@@ -598,7 +598,6 @@ public final class FunctionAssertions
 
         // execute over normal operator
         SourceOperatorFactory scanProjectOperatorFactory = compileScanFilterProject(Optional.empty(), projectionRowExpression, compiler);
-        assertType(scanProjectOperatorFactory.getTypes(), expectedType);
         Object scanOperatorValue = selectSingleValue(scanProjectOperatorFactory, expectedType, createNormalSplit(), session);
         results.add(scanOperatorValue);
 

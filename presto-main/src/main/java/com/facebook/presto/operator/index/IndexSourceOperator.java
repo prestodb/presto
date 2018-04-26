@@ -27,10 +27,8 @@ import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.UpdatablePageSource;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -47,7 +45,6 @@ public class IndexSourceOperator
         private final int operatorId;
         private final PlanNodeId sourceId;
         private final ConnectorIndex index;
-        private final List<Type> types;
         private final Function<RecordSet, RecordSet> probeKeyNormalizer;
         private boolean closed;
 
@@ -55,13 +52,11 @@ public class IndexSourceOperator
                 int operatorId,
                 PlanNodeId sourceId,
                 ConnectorIndex index,
-                List<Type> types,
                 Function<RecordSet, RecordSet> probeKeyNormalizer)
         {
             this.operatorId = operatorId;
             this.sourceId = requireNonNull(sourceId, "sourceId is null");
             this.index = requireNonNull(index, "index is null");
-            this.types = requireNonNull(types, "types is null");
             this.probeKeyNormalizer = requireNonNull(probeKeyNormalizer, "probeKeyNormalizer is null");
         }
 
@@ -69,12 +64,6 @@ public class IndexSourceOperator
         public PlanNodeId getSourceId()
         {
             return sourceId;
-        }
-
-        @Override
-        public List<Type> getTypes()
-        {
-            return types;
         }
 
         @Override

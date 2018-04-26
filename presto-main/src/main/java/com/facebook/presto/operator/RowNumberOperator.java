@@ -53,7 +53,6 @@ public class RowNumberOperator
         private final List<Type> partitionTypes;
         private final Optional<Integer> hashChannel;
         private final int expectedPositions;
-        private final List<Type> types;
         private boolean closed;
         private final JoinCompiler joinCompiler;
 
@@ -80,14 +79,7 @@ public class RowNumberOperator
             this.hashChannel = requireNonNull(hashChannel, "hashChannel is null");
             checkArgument(expectedPositions > 0, "expectedPositions < 0");
             this.expectedPositions = expectedPositions;
-            this.types = toTypes(sourceTypes, outputChannels);
             this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
-        }
-
-        @Override
-        public List<Type> getTypes()
-        {
-            return types;
         }
 
         @Override
