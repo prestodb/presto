@@ -22,6 +22,7 @@ import com.esri.core.geometry.Polygon;
 import com.esri.core.geometry.Polyline;
 import com.esri.core.geometry.SpatialReference;
 import com.esri.core.geometry.ogc.OGCGeometry;
+import com.esri.core.geometry.ogc.OGCGeometryCollection;
 import com.esri.core.geometry.ogc.OGCLineString;
 import com.esri.core.geometry.ogc.OGCMultiPolygon;
 import com.esri.core.geometry.ogc.OGCPoint;
@@ -61,6 +62,7 @@ import static com.facebook.presto.geospatial.serde.GeometrySerde.serialize;
 import static com.facebook.presto.plugin.geospatial.GeometryType.GEOMETRY_TYPE_NAME;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.StandardTypes.DOUBLE;
+import static com.facebook.presto.spi.type.StandardTypes.INTEGER;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Math.atan2;
@@ -379,6 +381,47 @@ public final class GeoFunctions
             return null;
         }
         return Long.valueOf(((OGCPolygon) geometry).numInteriorRing());
+    }
+
+    @Description("Returns the cardinality of the geometry collection")
+    @ScalarFunction("ST_NumGeometries")
+    @SqlType(StandardTypes.INTEGER)
+    public static long stNumGeometries(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
+    {
+        OGCGeometry geometry = deserialize(input);
+        if (geometry.isEmpty()) {
+            return 0;
+        }
+        GeometryType type = GeometryType.getForEsriGeometryType(geometry.geometryType());
+        if (!type.isMultitype()) {
+            return 1;
+        }
+        return ((OGCGeometryCollection) geometry).numGeometries();
+    }
+
+    @SqlNullable
+    @Description("Returns the geometry element at the specified index (indices started with 1)")
+    @ScalarFunction("ST_GeometryN")
+    @SqlType(GEOMETRY_TYPE_NAME)
+    public static Slice stGeometryN(@SqlType(GEOMETRY_TYPE_NAME) Slice input, @SqlType(INTEGER) long index)
+    {
+        OGCGeometry geometry = deserialize(input);
+        if (geometry.isEmpty()) {
+            return null;
+        }
+        GeometryType type = GeometryType.getForEsriGeometryType(geometry.geometryType());
+        if (!type.isMultitype()) {
+            if (index == 1) {
+                return input;
+            }
+            return null;
+        }
+        OGCGeometryCollection geometryCollection = ((OGCGeometryCollection) geometry);
+        if (index < 1 || index > geometryCollection.numGeometries()) {
+            return null;
+        }
+        OGCGeometry ogcGeometry = geometryCollection.geometryN((int) index - 1);
+        return serialize(ogcGeometry);
     }
 
     @Description("Returns the number of points in a Geometry")
