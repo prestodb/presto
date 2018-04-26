@@ -78,15 +78,10 @@ public class Page
 
     public long getRetainedSizeInBytes()
     {
-        long retainedSizeInBytes = this.retainedSizeInBytes.get();
-        if (retainedSizeInBytes < 0) {
-            retainedSizeInBytes = INSTANCE_SIZE + sizeOf(blocks);
-            for (Block block : blocks) {
-                retainedSizeInBytes += block.getRetainedSizeInBytes();
-            }
-            this.retainedSizeInBytes.set(retainedSizeInBytes);
+        if (retainedSizeInBytes.get() < 0) {
+            updateRetainedSize();
         }
-        return retainedSizeInBytes;
+        return retainedSizeInBytes.get();
     }
 
     public Block getBlock(int channel)
@@ -157,11 +152,7 @@ public class Page
             }
         }
 
-        long retainedSize = 0;
-        for (Block block : blocks) {
-            retainedSize += block.getRetainedSizeInBytes();
-        }
-        retainedSizeInBytes.set(retainedSize);
+        updateRetainedSize();
     }
 
     private Map<DictionaryId, DictionaryBlockIndexes> getRelatedDictionaryBlocks()
@@ -295,6 +286,15 @@ public class Page
         System.arraycopy(blocks, 0, result, 1, blocks.length);
 
         return new Page(positionCount, result);
+    }
+
+    private void updateRetainedSize()
+    {
+        long retainedSizeInBytes = INSTANCE_SIZE + sizeOf(blocks);
+        for (Block block : blocks) {
+            retainedSizeInBytes += block.getRetainedSizeInBytes();
+        }
+        this.retainedSizeInBytes.set(retainedSizeInBytes);
     }
 
     private static class DictionaryBlockIndexes
