@@ -147,6 +147,17 @@ Accessors
     Returns the 2-dimensional cartesian minimum distance (based on spatial ref)
     between two geometries in projected units.
 
+.. function:: ST_GeometryN(Geometry, index) -> Geometry
+
+    Returns the geometry element at a given index (indices start at 1).
+    If the geometry is a collection of geometries (e.g., GEOMETRYCOLLECTION or MULTI*),
+    returns the geometry at a given index.
+    If the given index is less than 1 or greater than the total number of elements in the collection,
+    returns ``NULL``.
+    Use :func:``ST_NumGeometries`` to find out the total number of elements.
+    Singular geometries (e.g., POINT, LINESTRING, POLYGON), are treated as collections of one element.
+    Empty geometries are treated as empty collections.
+
 .. function:: ST_GeometryType(Geometry) -> varchar
 
     Returns the type of the geometry.
@@ -213,6 +224,14 @@ Accessors
 .. function:: ST_Y(Point) -> double
 
     Return the Y coordinate of the point.
+
+.. function:: ST_NumGeometries(Geometry) -> bigint
+
+    Returns the number of geometries in the collection.
+    If the geometry is a collection of geometries (e.g., GEOMETRYCOLLECTION or MULTI*),
+    returns the number of geometries,
+    for single geometries returns 1,
+    for empty geometries returns 0.
 
 .. function:: ST_NumPoints(Geometry) -> bigint
 
