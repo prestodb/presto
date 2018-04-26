@@ -85,10 +85,6 @@ Mathematical Functions
 
     Returns the base 10 logarithm of ``x``.
 
-.. function:: log(x, b) -> double
-
-    Returns the base ``b`` logarithm of ``x``.
-
 .. function:: mod(n, m) -> [same as input]
 
     Returns the modulus (remainder) of ``n`` divided by ``m``.
