@@ -16,7 +16,7 @@ General Changes
   equivalent to ``log(x, b)`` is ``ln(x) / ln(b)``. The function can be
   restored with the ``deprecated.legacy-log-function`` config option.
 * Allow including a comment when adding a column to a table with ``ALTER TABLE``.
-* Add :func:`from_ieee754_32` and func:`from_ieee754_64` functions.
+* Add :func:`from_ieee754_32` and :func:`from_ieee754_64` functions.
 * Add :func:`ST_GeometryType` geospatial function.
 
 Hive Changes
