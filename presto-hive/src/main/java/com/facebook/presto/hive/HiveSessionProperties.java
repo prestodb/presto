@@ -21,6 +21,7 @@ import io.airlift.units.DataSize;
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanSessionProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringSessionProperty;
@@ -109,8 +110,8 @@ public final class HiveSessionProperties
                         false),
                 booleanSessionProperty(
                         ORC_OPTIMIZED_WRITER_VALIDATE,
-                        "Experimental: ORC: Validate writer files",
-                        hiveClientConfig.isOrcWriterValidate(),
+                        "Experimental: ORC: Force all validation for files",
+                        hiveClientConfig.getOrcWriterValidationPercentage() > 0.0,
                         false),
                 dataSizeSessionProperty(
                         ORC_OPTIMIZED_WRITER_MAX_STRIPE_SIZE,
@@ -224,9 +225,23 @@ public final class HiveSessionProperties
         return session.getProperty(ORC_OPTIMIZED_WRITER_ENABLED, Boolean.class);
     }
 
-    public static boolean isOrcOptimizedWriterValidate(ConnectorSession session)
+    public static boolean isOrcOptimizedWriterValidate(ConnectorSession session, double orcWriterValidationPercentage)
     {
-        return session.getProperty(ORC_OPTIMIZED_WRITER_VALIDATE, Boolean.class);
+        boolean validate = session.getProperty(ORC_OPTIMIZED_WRITER_VALIDATE, Boolean.class);
+
+        // if validation sampling is disabled, just use the session property value
+        if (orcWriterValidationPercentage <= 0.0) {
+            return validate;
+        }
+
+        // session property can disabled validation
+        if (!validate) {
+            return false;
+        }
+
+        // session property can not force validation when sampling is enabled
+        // todo change this if session properties support null
+        return ThreadLocalRandom.current().nextDouble() < orcWriterValidationPercentage;
     }
 
     public static DataSize getOrcOptimizedWriterMaxStripeSize(ConnectorSession session)
