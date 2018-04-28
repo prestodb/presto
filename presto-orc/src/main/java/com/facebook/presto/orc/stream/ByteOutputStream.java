@@ -137,6 +137,7 @@ public class ByteOutputStream
     {
         closed = true;
         flushSequence();
+        buffer.close();
     }
 
     @Override

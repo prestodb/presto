@@ -51,6 +51,7 @@ public class CompressedMetadataWriter
     {
         buffer.reset();
         metadataWriter.writeMetadata(buffer, metadata);
+        buffer.close();
         return buffer.writeDataTo(output);
     }
 
@@ -60,6 +61,7 @@ public class CompressedMetadataWriter
     {
         buffer.reset();
         metadataWriter.writeFooter(buffer, footer);
+        buffer.close();
         return buffer.writeDataTo(output);
     }
 
@@ -69,6 +71,7 @@ public class CompressedMetadataWriter
     {
         buffer.reset();
         metadataWriter.writeStripeFooter(buffer, footer);
+        buffer.close();
         return buffer.writeDataTo(output);
     }
 
@@ -78,6 +81,7 @@ public class CompressedMetadataWriter
     {
         buffer.reset();
         metadataWriter.writeRowIndexes(buffer, rowGroupIndexes);
+        buffer.close();
         return buffer.writeDataTo(output);
     }
 }

@@ -736,6 +736,7 @@ public class LongOutputStreamV2
     {
         closed = true;
         flush();
+        buffer.close();
     }
 
     @Override

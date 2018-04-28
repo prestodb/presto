@@ -64,6 +64,7 @@ public class ByteArrayOutputStream
     public void close()
     {
         closed = true;
+        buffer.close();
     }
 
     @Override

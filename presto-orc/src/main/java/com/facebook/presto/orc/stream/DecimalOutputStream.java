@@ -99,6 +99,7 @@ public class DecimalOutputStream
     public void close()
     {
         closed = true;
+        buffer.close();
     }
 
     @Override

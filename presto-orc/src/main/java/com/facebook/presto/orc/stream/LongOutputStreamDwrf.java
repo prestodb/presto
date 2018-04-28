@@ -68,6 +68,7 @@ public class LongOutputStreamDwrf
     public void close()
     {
         closed = true;
+        buffer.close();
     }
 
     @Override

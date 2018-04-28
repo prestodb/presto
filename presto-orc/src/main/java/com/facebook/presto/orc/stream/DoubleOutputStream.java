@@ -52,6 +52,7 @@ public class DoubleOutputStream
     public void close()
     {
         closed = true;
+        buffer.close();
     }
 
     @Override
