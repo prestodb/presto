@@ -28,6 +28,8 @@ public interface ValueOutputStream<C extends StreamCheckpoint>
 
     List<C> getCheckpoints();
 
+    long getDataStreamBytes();
+
     Optional<Stream> writeDataStreams(int column, SliceOutput outputStream);
 
     long getBufferedBytes();

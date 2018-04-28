@@ -101,6 +101,15 @@ public class PresentOutputStream
         return Optional.of(booleanOutputStream.getCheckpoints());
     }
 
+    public long getDataStreamBytes()
+    {
+        checkArgument(closed);
+        if (booleanOutputStream == null) {
+            return 0;
+        }
+        return booleanOutputStream.getDataStreamBytes();
+    }
+
     public Optional<Stream> writeDataStreams(int column, SliceOutput outputStream)
     {
         checkArgument(closed);

@@ -196,9 +196,9 @@ public class SliceDirectColumnWriter
         checkState(closed);
 
         ImmutableList.Builder<OutputDataStream> outputDataStreams = ImmutableList.builder();
-        outputDataStreams.add(new OutputDataStream(sliceOutput -> presentStream.writeDataStreams(column, sliceOutput), presentStream.getBufferedBytes()));
-        outputDataStreams.add(new OutputDataStream(sliceOutput -> lengthStream.writeDataStreams(column, sliceOutput), lengthStream.getBufferedBytes()));
-        outputDataStreams.add(new OutputDataStream(sliceOutput -> dataStream.writeDataStreams(column, sliceOutput), dataStream.getBufferedBytes()));
+        outputDataStreams.add(new OutputDataStream(sliceOutput -> presentStream.writeDataStreams(column, sliceOutput), presentStream.getDataStreamBytes()));
+        outputDataStreams.add(new OutputDataStream(sliceOutput -> lengthStream.writeDataStreams(column, sliceOutput), lengthStream.getDataStreamBytes()));
+        outputDataStreams.add(new OutputDataStream(sliceOutput -> dataStream.writeDataStreams(column, sliceOutput), dataStream.getDataStreamBytes()));
         return outputDataStreams.build();
     }
 

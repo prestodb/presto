@@ -158,6 +158,13 @@ public class BooleanOutputStream
     }
 
     @Override
+    public long getDataStreamBytes()
+    {
+        checkState(closed);
+        return byteOutputStream.getDataStreamBytes();
+    }
+
+    @Override
     public Optional<Stream> writeDataStreams(int column, SliceOutput outputStream)
     {
         checkState(closed);

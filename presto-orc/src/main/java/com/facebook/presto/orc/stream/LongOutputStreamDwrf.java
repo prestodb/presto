@@ -79,6 +79,13 @@ public class LongOutputStreamDwrf
     }
 
     @Override
+    public long getDataStreamBytes()
+    {
+        checkState(closed);
+        return buffer.getOutputDataSize();
+    }
+
+    @Override
     public Optional<Stream> writeDataStreams(int column, SliceOutput outputStream)
     {
         checkState(closed);

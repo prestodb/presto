@@ -102,6 +102,12 @@ public class OrcOutputBuffer
         }
     }
 
+    public long getOutputDataSize()
+    {
+        checkState(bufferPosition == 0, "Buffer must be flushed before getOutputDataSize can be called");
+        return compressedOutputStream.size();
+    }
+
     public int writeDataTo(SliceOutput outputStream)
     {
         checkState(bufferPosition == 0, "Buffer must be closed before writeDataTo can be called");
