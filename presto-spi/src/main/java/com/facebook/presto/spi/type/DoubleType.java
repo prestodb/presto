@@ -76,7 +76,8 @@ public final class DoubleType
     @Override
     public long hash(Block block, int position)
     {
-        return AbstractLongType.hash(block.getLong(position, 0));
+        // convert to canonical NaN if necessary
+        return AbstractLongType.hash(doubleToLongBits(longBitsToDouble(block.getLong(position, 0))));
     }
 
     @Override

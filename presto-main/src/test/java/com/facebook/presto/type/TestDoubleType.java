@@ -15,8 +15,13 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.LongArrayBlockBuilder;
+import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static java.lang.Double.doubleToLongBits;
+import static java.lang.Double.doubleToRawLongBits;
+import static org.testng.Assert.assertEquals;
 
 public class TestDoubleType
         extends AbstractTestType
@@ -47,5 +52,20 @@ public class TestDoubleType
     protected Object getGreaterValue(Object value)
     {
         return ((Double) value) + 0.1;
+    }
+
+    @Test
+    public void testNaNHash()
+    {
+        BlockBuilder blockBuilder = new LongArrayBlockBuilder(null, 4);
+        blockBuilder.writeLong(doubleToLongBits(Double.NaN));
+        blockBuilder.writeLong(doubleToRawLongBits(Double.NaN));
+        // the following two are the long values of a double NaN
+        blockBuilder.writeLong(-0x000fffffffffffffL);
+        blockBuilder.writeLong(0x7ff8000000000000L);
+
+        assertEquals(DOUBLE.hash(blockBuilder, 0), DOUBLE.hash(blockBuilder, 1));
+        assertEquals(DOUBLE.hash(blockBuilder, 0), DOUBLE.hash(blockBuilder, 2));
+        assertEquals(DOUBLE.hash(blockBuilder, 0), DOUBLE.hash(blockBuilder, 3));
     }
 }
