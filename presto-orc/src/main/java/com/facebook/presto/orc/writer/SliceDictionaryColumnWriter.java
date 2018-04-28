@@ -153,7 +153,7 @@ public class SliceDictionaryColumnWriter
     }
 
     @Override
-    public void convertToDirect()
+    public long convertToDirect()
     {
         checkState(!closed);
         checkState(!directEncoded);
@@ -182,6 +182,8 @@ public class SliceDictionaryColumnWriter
         statisticsBuilder = newStringStatisticsBuilder();
 
         directEncoded = true;
+
+        return directColumnWriter.getBufferedBytes();
     }
 
     private void writeDictionaryRowGroup(Block dictionary, int valueCount, IntBigArray dictionaryIndexes)

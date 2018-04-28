@@ -91,6 +91,7 @@ public class OrcWriter
     private final List<Type> types;
     private final OrcEncoding orcEncoding;
     private final CompressionKind compression;
+    private final int stripeMinBytes;
     private final int stripeMaxBytes;
     private final int stripeMaxRowCount;
     private final int rowGroupMaxRowCount;
@@ -138,8 +139,9 @@ public class OrcWriter
         recordValidation(validation -> validation.setCompression(compression));
 
         requireNonNull(options, "options is null");
+        checkArgument(options.getStripeMaxSize().compareTo(options.getStripeMinSize()) >= 0, "stripeMaxSize must be greater than stripeMinSize");
+        this.stripeMinBytes = toIntExact(requireNonNull(options.getStripeMinSize(), "stripeMinSize is null").toBytes());
         this.stripeMaxBytes = toIntExact(requireNonNull(options.getStripeMaxSize(), "stripeMaxSize is null").toBytes());
-        checkArgument(options.getStripeMaxRowCount() >= options.getStripeMinRowCount(), "stripeMaxRowCount must be greater than stripeMinRowCount");
         this.stripeMaxRowCount = options.getStripeMaxRowCount();
         this.rowGroupMaxRowCount = options.getRowGroupMaxRowCount();
         recordValidation(validation -> validation.setRowGroupMaxRowCount(rowGroupMaxRowCount));
@@ -182,8 +184,8 @@ public class OrcWriter
         this.columnWriters = columnWriters.build();
         this.dictionaryCompressionOptimizer = new DictionaryCompressionOptimizer(
                 sliceColumnWriters.build(),
+                stripeMinBytes,
                 stripeMaxBytes,
-                options.getStripeMinRowCount(),
                 stripeMaxRowCount,
                 toIntExact(requireNonNull(options.getDictionaryMaxMemory(), "dictionaryMaxMemory is null").toBytes()));
 
@@ -281,7 +283,7 @@ public class OrcWriter
         else if (bufferedBytes + dictionaryCompressionOptimizer.getDictionaryMemoryBytes() > stripeMaxBytes) {
             writeStripe(MAX_BYTES);
         }
-        else if (dictionaryCompressionOptimizer.isFull()) {
+        else if (dictionaryCompressionOptimizer.isFull(bufferedBytes)) {
             writeStripe(DICTIONARY_FULL);
         }
 

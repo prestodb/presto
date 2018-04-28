@@ -59,9 +59,9 @@ public class TestOrcWriter
                 ORC,
                 NONE,
                 new OrcWriterOptions()
+                        .withStripeMinSize(new DataSize(0, MEGABYTE))
                         .withStripeMaxSize(new DataSize(32, MEGABYTE))
                         .withStripeMaxRowCount(ORC_STRIPE_SIZE)
-                        .withStripeMinRowCount(ORC_STRIPE_SIZE)
                         .withRowGroupMaxRowCount(ORC_ROW_GROUP_SIZE)
                         .withDictionaryMaxMemory(new DataSize(32, MEGABYTE)),
                 ImmutableMap.of(),
