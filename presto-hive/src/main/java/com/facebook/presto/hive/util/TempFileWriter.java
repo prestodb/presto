@@ -17,6 +17,7 @@ import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode;
 import com.facebook.presto.orc.OrcWriter;
 import com.facebook.presto.orc.OrcWriterOptions;
 import com.facebook.presto.orc.OrcWriterStats;
+import com.facebook.presto.orc.OutputStreamOrcDataSink;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
@@ -76,7 +77,7 @@ public class TempFileWriter
                 .collect(toImmutableList());
 
         return new OrcWriter(
-                output,
+                new OutputStreamOrcDataSink(output),
                 columnNames,
                 types,
                 ORC,

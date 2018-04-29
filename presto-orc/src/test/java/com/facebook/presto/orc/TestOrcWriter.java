@@ -55,7 +55,7 @@ public class TestOrcWriter
         for (OrcWriteValidationMode validationMode : OrcWriteValidationMode.values()) {
             TempFile tempFile = new TempFile();
             OrcWriter writer = new OrcWriter(
-                    new FileOutputStream(tempFile.getFile()),
+                new OutputStreamOrcDataSink(new FileOutputStream(tempFile.getFile())),
                     ImmutableList.of("test1", "test2", "test3", "test4", "test5"),
                     ImmutableList.of(VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR),
                     ORC,

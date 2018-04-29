@@ -36,7 +36,6 @@ import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.slice.OutputStreamSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.joda.time.DateTimeZone;
@@ -46,7 +45,6 @@ import javax.annotation.Nullable;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -88,7 +86,7 @@ public class OrcWriter
         PRESTO_ORC_WRITER_VERSION = version == null ? "UNKNOWN" : version;
     }
 
-    private final OutputStreamSliceOutput output;
+    private final OrcDataSink orcDataSink;
     private final List<Type> types;
     private final OrcEncoding orcEncoding;
     private final CompressionKind compression;
@@ -118,7 +116,7 @@ public class OrcWriter
     private final OrcWriteValidation.OrcWriteValidationBuilder validationBuilder;
 
     public OrcWriter(
-            OutputStream outputStream,
+            OrcDataSink orcDataSink,
             List<String> columnNames,
             List<Type> types,
             OrcEncoding orcEncoding,
@@ -132,7 +130,7 @@ public class OrcWriter
     {
         this.validationBuilder = validate ? new OrcWriteValidation.OrcWriteValidationBuilder(validationMode, types).setStringStatisticsLimitInBytes(toIntExact(options.getMaxStringStatisticsLimit().toBytes())) : null;
 
-        this.output = new OutputStreamSliceOutput(requireNonNull(outputStream, "outputStream is null"));
+        this.orcDataSink = requireNonNull(orcDataSink, "orcDataSink is null");
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.orcEncoding = requireNonNull(orcEncoding, "orcEncoding is null");
         this.compression = requireNonNull(compression, "compression is null");
@@ -296,7 +294,7 @@ public class OrcWriter
             throws IOException
     {
         List<DataOutput> outputData = new ArrayList<>();
-        long stripeStartOffset = output.longSize();
+        long stripeStartOffset = orcDataSink.size();
         // add header to first stripe (this is not required but nice to have)
         if (closedStripes.isEmpty()) {
             outputData.add(createDataOutput(MAGIC));
@@ -310,7 +308,7 @@ public class OrcWriter
         }
 
         // write all data
-        outputData.forEach(data -> data.writeData(output));
+        orcDataSink.write(outputData);
 
         // open next stripe
         columnWriters.forEach(ColumnWriter::reset);
@@ -416,7 +414,7 @@ public class OrcWriter
 
         flushStripe(CLOSED);
 
-        output.close();
+        orcDataSink.close();
     }
 
     /**

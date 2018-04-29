@@ -626,7 +626,7 @@ public class OrcTester
 
         OrcWriter writer;
         writer = new OrcWriter(
-                new FileOutputStream(outputFile),
+                new OutputStreamOrcDataSink(new FileOutputStream(outputFile)),
                 ImmutableList.of("test"),
                 ImmutableList.of(type),
                 format.getOrcEncoding(),
