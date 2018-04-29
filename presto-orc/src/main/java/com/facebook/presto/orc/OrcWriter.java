@@ -27,6 +27,7 @@ import com.facebook.presto.orc.metadata.StripeFooter;
 import com.facebook.presto.orc.metadata.StripeInformation;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.facebook.presto.orc.metadata.statistics.StripeStatistics;
+import com.facebook.presto.orc.stream.DataOutput;
 import com.facebook.presto.orc.stream.StreamDataOutput;
 import com.facebook.presto.orc.writer.ColumnWriter;
 import com.facebook.presto.orc.writer.SliceDictionaryColumnWriter;
@@ -61,10 +62,10 @@ import static com.facebook.presto.orc.OrcWriterStats.FlushReason.MAX_BYTES;
 import static com.facebook.presto.orc.OrcWriterStats.FlushReason.MAX_ROWS;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
 import static com.facebook.presto.orc.metadata.PostScript.MAGIC;
+import static com.facebook.presto.orc.stream.DataOutput.createDataOutput;
 import static com.facebook.presto.orc.writer.ColumnWriters.createColumnWriter;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.Iterables.concat;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Integer.min;
 import static java.lang.Math.toIntExact;
@@ -312,15 +313,18 @@ public class OrcWriter
 
         columnWriters.forEach(ColumnWriter::close);
 
+        List<DataOutput> outputData = new ArrayList<>();
+        List<Stream> allStreams = new ArrayList<>(columnWriters.size() * 2);
+
         // get index streams
         long indexLength = 0;
-        List<StreamDataOutput> indexStreams = new ArrayList<>(columnWriters.size() * 2);
         for (ColumnWriter columnWriter : columnWriters) {
-            List<StreamDataOutput> streams = columnWriter.getIndexStreams(metadataWriter);
-            indexStreams.addAll(streams);
-            indexLength += streams.stream()
-                    .mapToLong(StreamDataOutput::getSizeInBytes)
-                    .sum();
+            for (StreamDataOutput indexStream : columnWriter.getIndexStreams(metadataWriter)) {
+                // The ordering is critical because the stream only contain a length with no offset.
+                outputData.add(indexStream);
+                allStreams.add(indexStream.getStream());
+                indexLength += indexStream.getSizeInBytes();
+            }
         }
 
         // data streams (sorted by size)
@@ -335,12 +339,11 @@ public class OrcWriter
         }
         Collections.sort(dataStreams);
 
-        // write streams
-        List<Stream> allStreams = new ArrayList<>();
-        for (StreamDataOutput streamDataOutput : concat(indexStreams, dataStreams)) {
-            streamDataOutput.writeData(output);
+        // add data streams
+        for (StreamDataOutput dataStream : dataStreams) {
             // The ordering is critical because the stream only contain a length with no offset.
-            allStreams.add(streamDataOutput.getStream());
+            outputData.add(dataStream);
+            allStreams.add(dataStream.getStream());
         }
 
         Map<Integer, ColumnEncoding> columnEncodings = new HashMap<>();
@@ -353,10 +356,12 @@ public class OrcWriter
         columnEncodings.put(0, new ColumnEncoding(DIRECT, 0));
         columnStatistics.put(0, new ColumnStatistics((long) stripeRowCount, 0, null, null, null, null, null, null, null, null));
 
+        // add footer
         StripeFooter stripeFooter = new StripeFooter(allStreams, toDenseList(columnEncodings, orcTypes.size()));
         Slice footer = metadataWriter.writeStripeFooter(stripeFooter);
-        output.writeBytes(footer);
+        outputData.add(createDataOutput(footer));
 
+        // create final stripe statistics
         StripeStatistics statistics = new StripeStatistics(toDenseList(columnStatistics, orcTypes.size()));
         recordValidation(validation -> validation.addStripeStatistics(stripeStartOffset, statistics));
         StripeInformation stripeInformation = new StripeInformation(stripeRowCount, stripeStartOffset, indexLength, dataLength, footer.length());
@@ -364,6 +369,9 @@ public class OrcWriter
         closedStripes.add(closedStripe);
         closedStripesRetainedBytes += closedStripe.getRetainedSizeInBytes();
         stats.recordStripeWritten(flushReason, stripeInformation.getTotalLength(), stripeInformation.getNumberOfRows(), dictionaryCompressionOptimizer.getDictionaryMemoryBytes());
+
+        // write all data
+        outputData.forEach(data -> data.writeData(output));
 
         // open next stripe
         columnWriters.forEach(ColumnWriter::reset);

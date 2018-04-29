@@ -25,7 +25,7 @@ import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
 public final class StreamDataOutput
-        implements Comparable<StreamDataOutput>
+        implements DataOutput, Comparable<StreamDataOutput>
 {
     private final ToLongFunction<SliceOutput> writer;
     private final Stream stream;
@@ -52,6 +52,7 @@ public final class StreamDataOutput
         return Long.compare(getSizeInBytes(), otherStream.getSizeInBytes());
     }
 
+    @Override
     public long getSizeInBytes()
     {
         return stream.getLength();
@@ -62,6 +63,7 @@ public final class StreamDataOutput
         return stream;
     }
 
+    @Override
     public void writeData(SliceOutput sliceOutput)
     {
         long size = writer.applyAsLong(sliceOutput);
