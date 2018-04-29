@@ -67,6 +67,7 @@ import static com.facebook.presto.orc.stream.DataOutput.createDataOutput;
 import static com.facebook.presto.orc.writer.ColumnWriters.createColumnWriter;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Integer.min;
 import static java.lang.Math.toIntExact;
@@ -188,9 +189,6 @@ public class OrcWriter
                 stripeMaxRowCount,
                 toIntExact(requireNonNull(options.getDictionaryMaxMemory(), "dictionaryMaxMemory is null").toBytes()));
 
-        // this is not required but nice to have
-        output.writeBytes(MAGIC);
-
         for (Entry<String, String> entry : this.userMetadata.entrySet()) {
             recordValidation(validation -> validation.addMetadataProperty(entry.getKey(), utf8Slice(entry.getValue())));
         }
@@ -274,13 +272,13 @@ public class OrcWriter
         // flush stripe if necessary
         bufferedBytes = toIntExact(columnWriters.stream().mapToLong(ColumnWriter::getBufferedBytes).sum());
         if (stripeRowCount == stripeMaxRowCount) {
-            writeStripe(MAX_ROWS);
+            flushStripe(MAX_ROWS);
         }
         else if (bufferedBytes + dictionaryCompressionOptimizer.getDictionaryMemoryBytes() > stripeMaxBytes) {
-            writeStripe(MAX_BYTES);
+            flushStripe(MAX_BYTES);
         }
         else if (dictionaryCompressionOptimizer.isFull(bufferedBytes)) {
-            writeStripe(DICTIONARY_FULL);
+            flushStripe(DICTIONARY_FULL);
         }
 
         columnWritersRetainedBytes = columnWriters.stream().mapToLong(ColumnWriter::getRetainedBytes).sum();
@@ -294,14 +292,47 @@ public class OrcWriter
         rowGroupRowCount = 0;
     }
 
-    private void writeStripe(FlushReason flushReason)
+    private void flushStripe(FlushReason flushReason)
+            throws IOException
+    {
+        List<DataOutput> outputData = new ArrayList<>();
+        long stripeStartOffset = output.longSize();
+        // add header to first stripe (this is not required but nice to have)
+        if (closedStripes.isEmpty()) {
+            outputData.add(createDataOutput(MAGIC));
+            stripeStartOffset += MAGIC.length();
+        }
+        // add stripe data
+        outputData.addAll(bufferStripeData(stripeStartOffset, flushReason));
+        // if the file is being closed, add the file footer
+        if (flushReason == CLOSED) {
+            outputData.addAll(bufferFileFooter());
+        }
+
+        // write all data
+        outputData.forEach(data -> data.writeData(output));
+
+        // open next stripe
+        columnWriters.forEach(ColumnWriter::reset);
+        dictionaryCompressionOptimizer.reset();
+        rowGroupRowCount = 0;
+        stripeRowCount = 0;
+        bufferedBytes = toIntExact(columnWriters.stream().mapToLong(ColumnWriter::getBufferedBytes).sum());
+    }
+
+    /**
+     * Collect the data for for the stripe.  This is not the actual data, but
+     * instead are functions that know how to write the data.
+     */
+    private List<DataOutput> bufferStripeData(long stripeStartOffset, FlushReason flushReason)
             throws IOException
     {
         if (stripeRowCount == 0) {
-            return;
+            verify(flushReason == CLOSED, "An empty stripe is not allowed");
+            // column writers must be closed or the reset call will fail
+            columnWriters.forEach(ColumnWriter::close);
+            return ImmutableList.of();
         }
-
-        recordValidation(validation -> validation.addStripe(stripeRowCount));
 
         if (rowGroupRowCount > 0) {
             finishRowGroup();
@@ -313,7 +344,7 @@ public class OrcWriter
         columnWriters.forEach(ColumnWriter::close);
 
         List<DataOutput> outputData = new ArrayList<>();
-        List<Stream> allStreams = new ArrayList<>(columnWriters.size() * 2);
+        List<Stream> allStreams = new ArrayList<>(columnWriters.size() * 3);
 
         // get index streams
         long indexLength = 0;
@@ -362,23 +393,14 @@ public class OrcWriter
 
         // create final stripe statistics
         StripeStatistics statistics = new StripeStatistics(toDenseList(columnStatistics, orcTypes.size()));
-        long stripeStartOffset = output.longSize();
         recordValidation(validation -> validation.addStripeStatistics(stripeStartOffset, statistics));
         StripeInformation stripeInformation = new StripeInformation(stripeRowCount, stripeStartOffset, indexLength, dataLength, footer.length());
         ClosedStripe closedStripe = new ClosedStripe(stripeInformation, statistics);
         closedStripes.add(closedStripe);
         closedStripesRetainedBytes += closedStripe.getRetainedSizeInBytes();
+        recordValidation(validation -> validation.addStripe(stripeInformation.getNumberOfRows()));
         stats.recordStripeWritten(flushReason, stripeInformation.getTotalLength(), stripeInformation.getNumberOfRows(), dictionaryCompressionOptimizer.getDictionaryMemoryBytes());
-
-        // write all data
-        outputData.forEach(data -> data.writeData(output));
-
-        // open next stripe
-        columnWriters.forEach(ColumnWriter::reset);
-        dictionaryCompressionOptimizer.reset();
-        rowGroupRowCount = 0;
-        stripeRowCount = 0;
-        bufferedBytes = toIntExact(columnWriters.stream().mapToLong(ColumnWriter::getBufferedBytes).sum());
+        return outputData;
     }
 
     @Override
@@ -392,10 +414,20 @@ public class OrcWriter
         stats.updateSizeInBytes(-previouslyRecordedSizeInBytes);
         previouslyRecordedSizeInBytes = 0;
 
-        writeStripe(CLOSED);
+        flushStripe(CLOSED);
 
+        output.close();
+    }
+
+    /**
+     * Collect the data for for the file footer.  This is not the actual data, but
+     * instead are functions that know how to write the data.
+     */
+    private List<DataOutput> bufferFileFooter()
+            throws IOException
+    {
         List<DataOutput> outputData = new ArrayList<>();
-        
+
         Metadata metadata = new Metadata(closedStripes.stream()
                 .map(ClosedStripe::getStatistics)
                 .collect(toList()));
@@ -436,11 +468,7 @@ public class OrcWriter
         Slice postscriptSlice = metadataWriter.writePostscript(footerSlice.length(), metadataSlice.length(), compression, maxCompressionBufferSize);
         outputData.add(createDataOutput(postscriptSlice));
         outputData.add(createDataOutput(Slices.wrappedBuffer((byte) postscriptSlice.length())));
-
-        // write all data
-        outputData.forEach(data -> data.writeData(output));
-
-        output.close();
+        return outputData;
     }
 
     private void recordValidation(Consumer<OrcWriteValidationBuilder> task)
