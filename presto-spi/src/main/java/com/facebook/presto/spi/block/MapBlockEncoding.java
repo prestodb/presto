@@ -14,23 +14,16 @@
 
 package com.facebook.presto.spi.block;
 
-import com.facebook.presto.spi.function.OperatorType;
+import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSerde;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 
-import java.lang.invoke.MethodHandle;
-
 import static com.facebook.presto.spi.block.AbstractMapBlock.HASH_MULTIPLIER;
-import static com.facebook.presto.spi.block.MapBlock.createMapBlockInternal;
-import static com.facebook.presto.spi.block.MethodHandleUtil.compose;
-import static com.facebook.presto.spi.block.MethodHandleUtil.nativeValueGetter;
 import static io.airlift.slice.Slices.wrappedIntArray;
 import static java.lang.String.format;
-import static java.util.Arrays.asList;
-import static java.util.Collections.singletonList;
 
 public class MapBlockEncoding
         implements BlockEncoding
@@ -83,9 +76,6 @@ public class MapBlockEncoding
     public Block readBlock(BlockEncodingSerde blockEncodingSerde, SliceInput sliceInput)
     {
         Type keyType = TypeSerde.readType(typeManager, sliceInput);
-        MethodHandle keyNativeEquals = typeManager.resolveOperator(OperatorType.EQUAL, asList(keyType, keyType));
-        MethodHandle keyBlockNativeEquals = compose(keyNativeEquals, nativeValueGetter(keyType));
-        MethodHandle keyNativeHashCode = typeManager.resolveOperator(OperatorType.HASH_CODE, singletonList(keyType));
 
         Block keyBlock = blockEncodingSerde.readBlock(sliceInput);
         Block valueBlock = blockEncodingSerde.readBlock(sliceInput);
@@ -102,6 +92,6 @@ public class MapBlockEncoding
         int[] offsets = new int[positionCount + 1];
         sliceInput.readBytes(wrappedIntArray(offsets));
         boolean[] mapIsNull = EncoderUtil.decodeNullBits(sliceInput, positionCount);
-        return createMapBlockInternal(0, positionCount, mapIsNull, offsets, keyBlock, valueBlock, hashTable, keyType, keyBlockNativeEquals, keyNativeHashCode);
+        return MapType.createMapBlockInternal(typeManager, keyType, 0, positionCount, mapIsNull, offsets, keyBlock, valueBlock, hashTable);
     }
 }

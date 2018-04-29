@@ -96,11 +96,13 @@ public class MapBlock
     /**
      * Create a map block directly without per element validations.
      *
+     * Internal use by this package and com.facebook.presto.spi.Type only.
+     *
      * @param keyType key type K
      * @param keyBlockNativeEquals equality between key stack type and a block+position; signature is (K, Block, int)boolean
      * @param keyNativeHashCode hash of a key stack type; signature is (K)long
      */
-    static MapBlock createMapBlockInternal(
+    public static MapBlock createMapBlockInternal(
             int startOffset,
             int positionCount,
             boolean[] mapIsNull,

@@ -27,6 +27,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TypeUtils.checkElementNotNull;
 import static com.facebook.presto.spi.type.TypeUtils.hashPosition;
 import static java.lang.String.format;
@@ -244,5 +245,27 @@ public class MapType
                 keyBlockNativeEquals,
                 keyNativeHashCode,
                 keyBlockHashCode);
+    }
+
+    /**
+     * Create a map block directly without per element validations.
+     *
+     * Internal use by com.facebook.presto.spi.Block only.
+     */
+    public static Block createMapBlockInternal(
+            TypeManager typeManager,
+            Type keyType,
+            int startOffset,
+            int positionCount,
+            boolean[] mapIsNull,
+            int[] offsets,
+            Block keyBlock,
+            Block valueBlock,
+            int[] hashTables)
+    {
+        // TypeManager caches types. Therefore, it is important that we go through it instead of coming up with the MethodHandles directly.
+        // BIGINT is chosen arbitrarily here. Any type will do.
+        MapType mapType = (MapType) typeManager.getType(new TypeSignature(StandardTypes.MAP, TypeSignatureParameter.of(keyType.getTypeSignature()), TypeSignatureParameter.of(BIGINT.getTypeSignature())));
+        return MapBlock.createMapBlockInternal(startOffset, positionCount, mapIsNull, offsets, keyBlock, valueBlock, hashTables, keyType, mapType.keyBlockNativeEquals, mapType.keyNativeHashCode);
     }
 }
