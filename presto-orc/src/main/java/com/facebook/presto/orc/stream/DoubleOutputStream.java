@@ -18,15 +18,14 @@ import com.facebook.presto.orc.checkpoint.DoubleStreamCheckpoint;
 import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.orc.metadata.Stream;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.SliceOutput;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.Math.toIntExact;
 
 public class DoubleOutputStream
         implements ValueOutputStream<DoubleStreamCheckpoint>
@@ -70,18 +69,12 @@ public class DoubleOutputStream
     }
 
     @Override
-    public long getDataStreamBytes()
+    public OutputDataStream getOutputDataStream(int column)
     {
-        checkState(closed);
-        return buffer.getOutputDataSize();
-    }
-
-    @Override
-    public Optional<Stream> writeDataStreams(int column, SliceOutput outputStream)
-    {
-        checkState(closed);
-        int length = buffer.writeDataTo(outputStream);
-        return Optional.of(new Stream(column, DATA, length, false));
+        return new OutputDataStream(
+                buffer::writeDataTo,
+                new Stream(column, DATA, toIntExact(buffer.getOutputDataSize()), false),
+                buffer.getOutputDataSize());
     }
 
     @Override

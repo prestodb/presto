@@ -20,15 +20,14 @@ import com.facebook.presto.orc.metadata.Stream;
 import com.facebook.presto.orc.metadata.Stream.StreamKind;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import io.airlift.slice.SliceOutput;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.Math.toIntExact;
 
 /**
  * This is a concatenation of all byte array content, and a separate length stream will be used to get the boundaries.
@@ -82,18 +81,12 @@ public class ByteArrayOutputStream
     }
 
     @Override
-    public long getDataStreamBytes()
+    public OutputDataStream getOutputDataStream(int column)
     {
-        checkState(closed);
-        return buffer.getOutputDataSize();
-    }
-
-    @Override
-    public Optional<Stream> writeDataStreams(int column, SliceOutput outputStream)
-    {
-        checkState(closed);
-        int length = buffer.writeDataTo(outputStream);
-        return Optional.of(new Stream(column, streamKind, length, false));
+        return new OutputDataStream(
+                buffer::writeDataTo,
+                new Stream(column, streamKind, toIntExact(buffer.getOutputDataSize()), false),
+                buffer.getOutputDataSize());
     }
 
     @Override

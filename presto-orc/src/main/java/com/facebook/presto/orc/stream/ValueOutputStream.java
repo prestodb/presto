@@ -14,11 +14,8 @@
 package com.facebook.presto.orc.stream;
 
 import com.facebook.presto.orc.checkpoint.StreamCheckpoint;
-import com.facebook.presto.orc.metadata.Stream;
-import io.airlift.slice.SliceOutput;
 
 import java.util.List;
-import java.util.Optional;
 
 public interface ValueOutputStream<C extends StreamCheckpoint>
 {
@@ -28,9 +25,7 @@ public interface ValueOutputStream<C extends StreamCheckpoint>
 
     List<C> getCheckpoints();
 
-    long getDataStreamBytes();
-
-    Optional<Stream> writeDataStreams(int column, SliceOutput outputStream);
+    OutputDataStream getOutputDataStream(int column);
 
     long getBufferedBytes();
 

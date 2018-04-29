@@ -224,9 +224,9 @@ public class DecimalColumnWriter
         checkState(closed);
 
         ImmutableList.Builder<OutputDataStream> outputDataStreams = ImmutableList.builder();
-        outputDataStreams.add(new OutputDataStream(sliceOutput -> presentStream.writeDataStreams(column, sliceOutput), presentStream.getDataStreamBytes()));
-        outputDataStreams.add(new OutputDataStream(sliceOutput -> dataStream.writeDataStreams(column, sliceOutput), dataStream.getDataStreamBytes()));
-        outputDataStreams.add(new OutputDataStream(sliceOutput -> scaleStream.writeDataStreams(column, sliceOutput), scaleStream.getDataStreamBytes()));
+        presentStream.getOutputDataStream(column).ifPresent(outputDataStreams::add);
+        outputDataStreams.add(dataStream.getOutputDataStream(column));
+        outputDataStreams.add(scaleStream.getOutputDataStream(column));
         return outputDataStreams.build();
     }
 

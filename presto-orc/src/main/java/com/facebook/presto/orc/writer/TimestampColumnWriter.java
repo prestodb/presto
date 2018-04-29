@@ -228,9 +228,9 @@ public class TimestampColumnWriter
         checkState(closed);
 
         ImmutableList.Builder<OutputDataStream> outputDataStreams = ImmutableList.builder();
-        outputDataStreams.add(new OutputDataStream(sliceOutput -> presentStream.writeDataStreams(column, sliceOutput), presentStream.getDataStreamBytes()));
-        outputDataStreams.add(new OutputDataStream(sliceOutput -> secondsStream.writeDataStreams(column, sliceOutput), secondsStream.getDataStreamBytes()));
-        outputDataStreams.add(new OutputDataStream(sliceOutput -> nanosStream.writeDataStreams(column, sliceOutput), nanosStream.getDataStreamBytes()));
+        presentStream.getOutputDataStream(column).ifPresent(outputDataStreams::add);
+        outputDataStreams.add(secondsStream.getOutputDataStream(column));
+        outputDataStreams.add(nanosStream.getOutputDataStream(column));
         return outputDataStreams.build();
     }
 

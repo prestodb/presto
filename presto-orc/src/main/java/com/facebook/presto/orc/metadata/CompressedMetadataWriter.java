@@ -78,7 +78,7 @@ public class CompressedMetadataWriter
     private Slice getSliceOutput()
     {
         buffer.close();
-        DynamicSliceOutput output = new DynamicSliceOutput(toIntExact(buffer.getOuputDataSize()));
+        DynamicSliceOutput output = new DynamicSliceOutput(toIntExact(buffer.getOutputDataSize()));
         buffer.writeDataTo(output);
         Slice slice = output.slice();
         buffer.reset();

@@ -17,7 +17,6 @@ import com.facebook.presto.orc.OrcOutputBuffer;
 import com.facebook.presto.orc.checkpoint.BooleanStreamCheckpoint;
 import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.orc.metadata.Stream;
-import io.airlift.slice.SliceOutput;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
@@ -29,6 +28,7 @@ import java.util.Optional;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.Math.toIntExact;
 
 public class PresentOutputStream
 {
@@ -101,23 +101,22 @@ public class PresentOutputStream
         return Optional.of(booleanOutputStream.getCheckpoints());
     }
 
-    public long getDataStreamBytes()
-    {
-        checkArgument(closed);
-        if (booleanOutputStream == null) {
-            return 0;
-        }
-        return booleanOutputStream.getDataStreamBytes();
-    }
-
-    public Optional<Stream> writeDataStreams(int column, SliceOutput outputStream)
+    public Optional<OutputDataStream> getOutputDataStream(int column)
     {
         checkArgument(closed);
         if (booleanOutputStream == null) {
             return Optional.empty();
         }
-        Stream stream = booleanOutputStream.writeDataStreams(column, outputStream).get();
-        return Optional.of(new Stream(stream.getColumn(), PRESENT, stream.getLength(), stream.isUseVInts()));
+        OutputDataStream outputDataStream = booleanOutputStream.getOutputDataStream(column);
+        // rewrite the DATA stream created by the boolean output stream to a PRESENT stream
+        Stream stream = new Stream(column, PRESENT, toIntExact(outputDataStream.getSizeInBytes()), outputDataStream.getStream().isUseVInts());
+        return Optional.of(new OutputDataStream(
+                sliceOutput -> {
+                    outputDataStream.writeData(sliceOutput);
+                    return stream.getLength();
+                },
+                stream,
+                outputDataStream.getSizeInBytes()));
     }
 
     public long getBufferedBytes()

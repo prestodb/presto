@@ -438,10 +438,10 @@ public class SliceDictionaryColumnWriter
 
         // actually write data
         ImmutableList.Builder<OutputDataStream> outputDataStreams = ImmutableList.builder();
-        outputDataStreams.add(new OutputDataStream(sliceOutput -> presentStream.writeDataStreams(column, sliceOutput), presentStream.getDataStreamBytes()));
-        outputDataStreams.add(new OutputDataStream(sliceOutput -> dataStream.writeDataStreams(column, sliceOutput), dataStream.getDataStreamBytes()));
-        outputDataStreams.add(new OutputDataStream(sliceOutput -> dictionaryLengthStream.writeDataStreams(column, sliceOutput), dictionaryLengthStream.getDataStreamBytes()));
-        outputDataStreams.add(new OutputDataStream(sliceOutput -> dictionaryDataStream.writeDataStreams(column, sliceOutput), dictionaryDataStream.getDataStreamBytes()));
+        presentStream.getOutputDataStream(column).ifPresent(outputDataStreams::add);
+        outputDataStreams.add(dataStream.getOutputDataStream(column));
+        outputDataStreams.add(dictionaryLengthStream.getOutputDataStream(column));
+        outputDataStreams.add(dictionaryDataStream.getOutputDataStream(column));
         return outputDataStreams.build();
     }
 

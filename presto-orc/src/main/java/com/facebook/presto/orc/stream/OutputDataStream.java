@@ -19,15 +19,17 @@ import io.airlift.slice.SliceOutput;
 
 import javax.annotation.Nonnull;
 
-import java.util.Optional;
-import java.util.function.Function;
+import java.util.function.ToLongFunction;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
 public final class OutputDataStream
         implements Comparable<OutputDataStream>
 {
-    private final Function<SliceOutput, Optional<Stream>> writer;
+    private final ToLongFunction<SliceOutput> writer;
+    private final Stream stream;
     private final long sizeInBytes;
 
     public OutputDataStream(Slice slice, Stream stream)
@@ -35,14 +37,17 @@ public final class OutputDataStream
         this(
                 sliceOutput -> {
                     sliceOutput.writeBytes(slice);
-                    return Optional.of(stream);
+                    return slice.length();
                 },
+                stream,
                 slice.length());
     }
 
-    public OutputDataStream(Function<SliceOutput, Optional<Stream>> writer, long sizeInBytes)
+    public OutputDataStream(ToLongFunction<SliceOutput> writer, Stream stream, long sizeInBytes)
     {
         this.writer = requireNonNull(writer, "writer is null");
+        this.stream = requireNonNull(stream, "stream is null");
+        checkArgument(sizeInBytes >= 0, "sizeInBytes is negative");
         this.sizeInBytes = sizeInBytes;
     }
 
@@ -57,8 +62,14 @@ public final class OutputDataStream
         return sizeInBytes;
     }
 
-    public Optional<Stream> writeData(SliceOutput sliceOutput)
+    public Stream getStream()
     {
-        return writer.apply(sliceOutput);
+        return stream;
+    }
+
+    public void writeData(SliceOutput sliceOutput)
+    {
+        long size = writer.applyAsLong(sliceOutput);
+        verify(stream.getLength() == size, "Data stream did not write expected size");
     }
 }

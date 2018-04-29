@@ -175,8 +175,8 @@ public class FloatColumnWriter
         checkState(closed);
 
         ImmutableList.Builder<OutputDataStream> outputDataStreams = ImmutableList.builder();
-        outputDataStreams.add(new OutputDataStream(sliceOutput -> presentStream.writeDataStreams(column, sliceOutput), presentStream.getDataStreamBytes()));
-        outputDataStreams.add(new OutputDataStream(sliceOutput -> dataStream.writeDataStreams(column, sliceOutput), dataStream.getDataStreamBytes()));
+        presentStream.getOutputDataStream(column).ifPresent(outputDataStreams::add);
+        outputDataStreams.add(dataStream.getOutputDataStream(column));
         return outputDataStreams.build();
     }
 

@@ -210,7 +210,7 @@ public class StructColumnWriter
         checkState(closed);
 
         ImmutableList.Builder<OutputDataStream> outputDataStreams = ImmutableList.builder();
-        outputDataStreams.add(new OutputDataStream(sliceOutput -> presentStream.writeDataStreams(column, sliceOutput), presentStream.getDataStreamBytes()));
+        presentStream.getOutputDataStream(column).ifPresent(outputDataStreams::add);
         for (ColumnWriter structField : structFields) {
             outputDataStreams.addAll(structField.getOutputDataStreams());
         }

@@ -26,7 +26,6 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 import static com.facebook.presto.orc.stream.LongOutputStreamV2.SerializationUtils.encodeBitWidth;
 import static com.facebook.presto.orc.stream.LongOutputStreamV2.SerializationUtils.findClosestNumBits;
@@ -39,6 +38,7 @@ import static com.facebook.presto.orc.stream.LongOutputStreamV2.SerializationUti
 import static com.facebook.presto.orc.stream.LongOutputStreamV2.SerializationUtils.zigzagEncode;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class LongOutputStreamV2
@@ -747,18 +747,13 @@ public class LongOutputStreamV2
     }
 
     @Override
-    public long getDataStreamBytes()
+    public OutputDataStream getOutputDataStream(int column)
     {
         checkState(closed);
-        return buffer.getOutputDataSize();
-    }
-
-    @Override
-    public Optional<Stream> writeDataStreams(int column, SliceOutput outputStream)
-    {
-        checkState(closed);
-        int length = buffer.writeDataTo(outputStream);
-        return Optional.of(new Stream(column, streamKind, length, true));
+        return new OutputDataStream(
+                buffer::writeDataTo,
+                new Stream(column, streamKind, toIntExact(buffer.getOutputDataSize()), true),
+                buffer.getOutputDataSize());
     }
 
     @Override

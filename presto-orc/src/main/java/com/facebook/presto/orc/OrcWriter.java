@@ -51,7 +51,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -340,13 +339,10 @@ public class OrcWriter
         // write streams
         List<Stream> allStreams = new ArrayList<>();
         for (OutputDataStream outputDataStream : concat(indexStreams, dataStreams)) {
-            Optional<Stream> stream = outputDataStream.writeData(output);
-            if (!stream.isPresent()) {
-                continue;
-            }
+            outputDataStream.writeData(output);
             // The ordering is critical because the stream only contain a length with no offset.
-            allStreams.add(stream.get());
-            verify(stream.get().getLength() == outputDataStream.getSizeInBytes(), "Data stream did not write expected size");
+            allStreams.add(outputDataStream.getStream());
+            verify(outputDataStream.getStream().getLength() == outputDataStream.getSizeInBytes(), "Data stream did not write expected size");
         }
 
         Map<Integer, ColumnEncoding> columnEncodings = new HashMap<>();

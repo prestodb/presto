@@ -34,7 +34,6 @@ import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimp
 import static com.facebook.presto.orc.OrcDecompressor.createOrcDecompressor;
 import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 public class TestBooleanStream
         extends AbstractTestValueStream<Boolean, BooleanStreamCheckpoint, BooleanOutputStream, BooleanInputStream>
@@ -91,11 +90,12 @@ public class TestBooleanStream
             outputStream.close();
 
             DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1000);
-            Optional<Stream> stream = outputStream.writeDataStreams(33, sliceOutput);
-            assertTrue(stream.isPresent());
-            assertEquals(stream.get().getStreamKind(), StreamKind.DATA);
-            assertEquals(stream.get().getColumn(), 33);
-            assertEquals(stream.get().getLength(), sliceOutput.size());
+            OutputDataStream outputDataStream = outputStream.getOutputDataStream(33);
+            outputDataStream.writeData(sliceOutput);
+            Stream stream = outputDataStream.getStream();
+            assertEquals(stream.getStreamKind(), StreamKind.DATA);
+            assertEquals(stream.getColumn(), 33);
+            assertEquals(stream.getLength(), sliceOutput.size());
 
             BooleanInputStream valueStream = createValueStream(sliceOutput.slice());
             for (int index = 0; index < expectedValues.size(); index++) {

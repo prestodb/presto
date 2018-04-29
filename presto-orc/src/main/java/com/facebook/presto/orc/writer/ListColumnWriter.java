@@ -212,8 +212,8 @@ public class ListColumnWriter
         checkState(closed);
 
         ImmutableList.Builder<OutputDataStream> outputDataStreams = ImmutableList.builder();
-        outputDataStreams.add(new OutputDataStream(sliceOutput -> presentStream.writeDataStreams(column, sliceOutput), presentStream.getDataStreamBytes()));
-        outputDataStreams.add(new OutputDataStream(sliceOutput -> lengthStream.writeDataStreams(column, sliceOutput), lengthStream.getDataStreamBytes()));
+        presentStream.getOutputDataStream(column).ifPresent(outputDataStreams::add);
+        outputDataStreams.add(lengthStream.getOutputDataStream(column));
         outputDataStreams.addAll(elementWriter.getOutputDataStreams());
         return outputDataStreams.build();
     }
