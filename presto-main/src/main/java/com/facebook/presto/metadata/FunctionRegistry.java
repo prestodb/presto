@@ -284,7 +284,6 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
-import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.type.DecimalCasts.BIGINT_TO_DECIMAL_CAST;
 import static com.facebook.presto.type.DecimalCasts.BOOLEAN_TO_DECIMAL_CAST;
 import static com.facebook.presto.type.DecimalCasts.DECIMAL_TO_BIGINT_CAST;
@@ -331,6 +330,7 @@ import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -348,6 +348,7 @@ public class FunctionRegistry
     private static final Set<Class<?>> SUPPORTED_LITERAL_TYPES = ImmutableSet.of(long.class, double.class, Slice.class, boolean.class);
 
     private final TypeManager typeManager;
+    private final LoadingCache<FirstOrderFunctionKey, Signature> firstOrderFunctionSignatureCache;
     private final LoadingCache<Signature, SpecializedFunctionKey> specializedFunctionKeyCache;
     private final LoadingCache<SpecializedFunctionKey, ScalarFunctionImplementation> specializedScalarCache;
     private final LoadingCache<SpecializedFunctionKey, InternalAggregationFunction> specializedAggregationCache;
@@ -360,6 +361,9 @@ public class FunctionRegistry
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.magicLiteralFunction = new MagicLiteralFunction(blockEncodingSerde);
 
+        firstOrderFunctionSignatureCache = CacheBuilder.newBuilder()
+                .maximumSize(1000)
+                .build(CacheLoader.from(key -> doResolveFunction(key.getName(), fromTypeSignatures(key.getParameterTypes()))));
         specializedFunctionKeyCache = CacheBuilder.newBuilder()
                 .maximumSize(1000)
                 .build(CacheLoader.from(this::doGetSpecializedFunctionKey));
@@ -636,7 +640,32 @@ public class FunctionRegistry
         return Iterables.any(functions.get(name), function -> function.getSignature().getKind() == AGGREGATE);
     }
 
+    public Signature resolveFirstOrderFunction(QualifiedName name, List<TypeSignature> parameterTypes)
+    {
+        try {
+            return firstOrderFunctionSignatureCache.getUnchecked(new FirstOrderFunctionKey(name, parameterTypes));
+        }
+        catch (UncheckedExecutionException e) {
+            throwIfUnchecked(e.getCause());
+            throw new RuntimeException(e.getCause());
+        }
+    }
+
     public Signature resolveFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
+    {
+        if (parameterTypes.stream().noneMatch(TypeSignatureProvider::hasDependency)) {
+            return resolveFirstOrderFunction(
+                    name,
+                    parameterTypes.stream()
+                            .map(TypeSignatureProvider::getTypeSignature)
+                            .collect(toImmutableList()));
+        }
+        else {
+            return doResolveFunction(name, parameterTypes);
+        }
+    }
+
+    private Signature doResolveFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
     {
         Collection<SqlFunction> allCandidates = functions.get(name);
         List<SqlFunction> exactCandidates = allCandidates.stream()
@@ -1030,7 +1059,11 @@ public class FunctionRegistry
             throws OperatorNotFoundException
     {
         try {
-            return resolveFunction(QualifiedName.of(mangleOperatorName(operatorType)), fromTypes(argumentTypes));
+            return resolveFirstOrderFunction(
+                    QualifiedName.of(mangleOperatorName(operatorType)),
+                    argumentTypes.stream()
+                        .map(Type::getTypeSignature)
+                        .collect(toImmutableList()));
         }
         catch (PrestoException e) {
             if (e.getErrorCode().getCode() == FUNCTION_NOT_FOUND.toErrorCode().getCode()) {

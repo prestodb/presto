@@ -54,7 +54,6 @@ import java.util.Optional;
 import java.util.function.Function;
 
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
-import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static com.facebook.presto.sql.planner.plan.SimplePlanRewriter.rewriteWith;
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
@@ -146,19 +145,19 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
                     ImmutableMap.of(
                             minValue, new Aggregation(
                                     new FunctionCall(MIN, outputColumnReferences),
-                                    functionRegistry.resolveFunction(MIN, fromTypeSignatures(outputColumnTypeSignature)),
+                                    functionRegistry.resolveFirstOrderFunction(MIN, outputColumnTypeSignature),
                                     Optional.empty()),
                             maxValue, new Aggregation(
                                     new FunctionCall(MAX, outputColumnReferences),
-                                    functionRegistry.resolveFunction(MAX, fromTypeSignatures(outputColumnTypeSignature)),
+                                    functionRegistry.resolveFirstOrderFunction(MAX, outputColumnTypeSignature),
                                     Optional.empty()),
                             countAllValue, new Aggregation(
                                     new FunctionCall(COUNT, emptyList()),
-                                    functionRegistry.resolveFunction(COUNT, emptyList()),
+                                    functionRegistry.resolveFirstOrderFunction(COUNT, emptyList()),
                                     Optional.empty()),
                             countNonNullValue, new Aggregation(
                                     new FunctionCall(COUNT, outputColumnReferences),
-                                    functionRegistry.resolveFunction(COUNT, fromTypeSignatures(outputColumnTypeSignature)),
+                                    functionRegistry.resolveFirstOrderFunction(COUNT, outputColumnTypeSignature),
                                     Optional.empty())),
                     ImmutableList.of(ImmutableList.of()),
                     AggregationNode.Step.SINGLE,
