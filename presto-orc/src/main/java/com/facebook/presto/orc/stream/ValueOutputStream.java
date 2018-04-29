@@ -25,7 +25,7 @@ public interface ValueOutputStream<C extends StreamCheckpoint>
 
     List<C> getCheckpoints();
 
-    OutputDataStream getOutputDataStream(int column);
+    StreamDataOutput getStreamDataOutput(int column);
 
     long getBufferedBytes();
 

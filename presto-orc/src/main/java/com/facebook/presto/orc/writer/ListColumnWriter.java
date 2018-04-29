@@ -24,8 +24,8 @@ import com.facebook.presto.orc.metadata.Stream;
 import com.facebook.presto.orc.metadata.Stream.StreamKind;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.facebook.presto.orc.stream.LongOutputStream;
-import com.facebook.presto.orc.stream.OutputDataStream;
 import com.facebook.presto.orc.stream.PresentOutputStream;
+import com.facebook.presto.orc.stream.StreamDataOutput;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.ColumnarArray;
 import com.google.common.collect.ImmutableList;
@@ -168,7 +168,7 @@ public class ListColumnWriter
     }
 
     @Override
-    public List<OutputDataStream> writeIndexStreams(CompressedMetadataWriter metadataWriter)
+    public List<StreamDataOutput> getIndexStreams(CompressedMetadataWriter metadataWriter)
             throws IOException
     {
         checkState(closed);
@@ -189,9 +189,9 @@ public class ListColumnWriter
         Slice slice = metadataWriter.writeRowIndexes(rowGroupIndexes.build());
         Stream stream = new Stream(column, StreamKind.ROW_INDEX, slice.length(), false);
 
-        ImmutableList.Builder<OutputDataStream> indexStreams = ImmutableList.builder();
-        indexStreams.add(new OutputDataStream(slice, stream));
-        indexStreams.addAll(elementWriter.writeIndexStreams(metadataWriter));
+        ImmutableList.Builder<StreamDataOutput> indexStreams = ImmutableList.builder();
+        indexStreams.add(new StreamDataOutput(slice, stream));
+        indexStreams.addAll(elementWriter.getIndexStreams(metadataWriter));
         return indexStreams.build();
     }
 
@@ -207,14 +207,14 @@ public class ListColumnWriter
     }
 
     @Override
-    public List<OutputDataStream> getOutputDataStreams()
+    public List<StreamDataOutput> getDataStreams()
     {
         checkState(closed);
 
-        ImmutableList.Builder<OutputDataStream> outputDataStreams = ImmutableList.builder();
-        presentStream.getOutputDataStream(column).ifPresent(outputDataStreams::add);
-        outputDataStreams.add(lengthStream.getOutputDataStream(column));
-        outputDataStreams.addAll(elementWriter.getOutputDataStreams());
+        ImmutableList.Builder<StreamDataOutput> outputDataStreams = ImmutableList.builder();
+        presentStream.getStreamDataOutput(column).ifPresent(outputDataStreams::add);
+        outputDataStreams.add(lengthStream.getStreamDataOutput(column));
+        outputDataStreams.addAll(elementWriter.getDataStreams());
         return outputDataStreams.build();
     }
 

@@ -21,8 +21,8 @@ import com.facebook.presto.orc.metadata.RowGroupIndex;
 import com.facebook.presto.orc.metadata.Stream;
 import com.facebook.presto.orc.metadata.Stream.StreamKind;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
-import com.facebook.presto.orc.stream.OutputDataStream;
 import com.facebook.presto.orc.stream.PresentOutputStream;
+import com.facebook.presto.orc.stream.StreamDataOutput;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.ColumnarRow;
 import com.google.common.collect.ImmutableList;
@@ -168,7 +168,7 @@ public class StructColumnWriter
     }
 
     @Override
-    public List<OutputDataStream> writeIndexStreams(CompressedMetadataWriter metadataWriter)
+    public List<StreamDataOutput> getIndexStreams(CompressedMetadataWriter metadataWriter)
             throws IOException
     {
         checkState(closed);
@@ -187,10 +187,10 @@ public class StructColumnWriter
         Slice slice = metadataWriter.writeRowIndexes(rowGroupIndexes.build());
         Stream stream = new Stream(column, StreamKind.ROW_INDEX, slice.length(), false);
 
-        ImmutableList.Builder<OutputDataStream> indexStreams = ImmutableList.builder();
-        indexStreams.add(new OutputDataStream(slice, stream));
+        ImmutableList.Builder<StreamDataOutput> indexStreams = ImmutableList.builder();
+        indexStreams.add(new StreamDataOutput(slice, stream));
         for (ColumnWriter structField : structFields) {
-            indexStreams.addAll(structField.writeIndexStreams(metadataWriter));
+            indexStreams.addAll(structField.getIndexStreams(metadataWriter));
         }
         return indexStreams.build();
     }
@@ -205,14 +205,14 @@ public class StructColumnWriter
     }
 
     @Override
-    public List<OutputDataStream> getOutputDataStreams()
+    public List<StreamDataOutput> getDataStreams()
     {
         checkState(closed);
 
-        ImmutableList.Builder<OutputDataStream> outputDataStreams = ImmutableList.builder();
-        presentStream.getOutputDataStream(column).ifPresent(outputDataStreams::add);
+        ImmutableList.Builder<StreamDataOutput> outputDataStreams = ImmutableList.builder();
+        presentStream.getStreamDataOutput(column).ifPresent(outputDataStreams::add);
         for (ColumnWriter structField : structFields) {
-            outputDataStreams.addAll(structField.getOutputDataStreams());
+            outputDataStreams.addAll(structField.getDataStreams());
         }
         return outputDataStreams.build();
     }

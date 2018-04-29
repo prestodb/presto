@@ -30,8 +30,8 @@ import com.facebook.presto.orc.stream.ByteArrayOutputStream;
 import com.facebook.presto.orc.stream.LongOutputStream;
 import com.facebook.presto.orc.stream.LongOutputStreamV1;
 import com.facebook.presto.orc.stream.LongOutputStreamV2;
-import com.facebook.presto.orc.stream.OutputDataStream;
 import com.facebook.presto.orc.stream.PresentOutputStream;
+import com.facebook.presto.orc.stream.StreamDataOutput;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.type.Type;
@@ -389,13 +389,13 @@ public class SliceDictionaryColumnWriter
     }
 
     @Override
-    public List<OutputDataStream> writeIndexStreams(CompressedMetadataWriter metadataWriter)
+    public List<StreamDataOutput> getIndexStreams(CompressedMetadataWriter metadataWriter)
             throws IOException
     {
         checkState(closed);
 
         if (directEncoded) {
-            return directColumnWriter.writeIndexStreams(metadataWriter);
+            return directColumnWriter.getIndexStreams(metadataWriter);
         }
 
         ImmutableList.Builder<RowGroupIndex> rowGroupIndexes = ImmutableList.builder();
@@ -413,7 +413,7 @@ public class SliceDictionaryColumnWriter
 
         Slice slice = metadataWriter.writeRowIndexes(rowGroupIndexes.build());
         Stream stream = new Stream(column, StreamKind.ROW_INDEX, slice.length(), false);
-        return ImmutableList.of(new OutputDataStream(slice, stream));
+        return ImmutableList.of(new StreamDataOutput(slice, stream));
     }
 
     private static List<Integer> createSliceColumnPositionList(
@@ -428,20 +428,20 @@ public class SliceDictionaryColumnWriter
     }
 
     @Override
-    public List<OutputDataStream> getOutputDataStreams()
+    public List<StreamDataOutput> getDataStreams()
     {
         checkState(closed);
 
         if (directEncoded) {
-            return directColumnWriter.getOutputDataStreams();
+            return directColumnWriter.getDataStreams();
         }
 
         // actually write data
-        ImmutableList.Builder<OutputDataStream> outputDataStreams = ImmutableList.builder();
-        presentStream.getOutputDataStream(column).ifPresent(outputDataStreams::add);
-        outputDataStreams.add(dataStream.getOutputDataStream(column));
-        outputDataStreams.add(dictionaryLengthStream.getOutputDataStream(column));
-        outputDataStreams.add(dictionaryDataStream.getOutputDataStream(column));
+        ImmutableList.Builder<StreamDataOutput> outputDataStreams = ImmutableList.builder();
+        presentStream.getStreamDataOutput(column).ifPresent(outputDataStreams::add);
+        outputDataStreams.add(dataStream.getStreamDataOutput(column));
+        outputDataStreams.add(dictionaryLengthStream.getStreamDataOutput(column));
+        outputDataStreams.add(dictionaryDataStream.getStreamDataOutput(column));
         return outputDataStreams.build();
     }
 

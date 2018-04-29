@@ -29,8 +29,8 @@ import com.facebook.presto.orc.metadata.statistics.ShortDecimalStatisticsBuilder
 import com.facebook.presto.orc.stream.DecimalOutputStream;
 import com.facebook.presto.orc.stream.LongOutputStream;
 import com.facebook.presto.orc.stream.LongOutputStreamV2;
-import com.facebook.presto.orc.stream.OutputDataStream;
 import com.facebook.presto.orc.stream.PresentOutputStream;
+import com.facebook.presto.orc.stream.StreamDataOutput;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Decimals;
@@ -180,7 +180,7 @@ public class DecimalColumnWriter
     }
 
     @Override
-    public List<OutputDataStream> writeIndexStreams(CompressedMetadataWriter metadataWriter)
+    public List<StreamDataOutput> getIndexStreams(CompressedMetadataWriter metadataWriter)
             throws IOException
     {
         checkState(closed);
@@ -202,7 +202,7 @@ public class DecimalColumnWriter
 
         Slice slice = metadataWriter.writeRowIndexes(rowGroupIndexes.build());
         Stream stream = new Stream(column, StreamKind.ROW_INDEX, slice.length(), false);
-        return ImmutableList.of(new OutputDataStream(slice, stream));
+        return ImmutableList.of(new StreamDataOutput(slice, stream));
     }
 
     private static List<Integer> createDecimalColumnPositionList(
@@ -219,14 +219,14 @@ public class DecimalColumnWriter
     }
 
     @Override
-    public List<OutputDataStream> getOutputDataStreams()
+    public List<StreamDataOutput> getDataStreams()
     {
         checkState(closed);
 
-        ImmutableList.Builder<OutputDataStream> outputDataStreams = ImmutableList.builder();
-        presentStream.getOutputDataStream(column).ifPresent(outputDataStreams::add);
-        outputDataStreams.add(dataStream.getOutputDataStream(column));
-        outputDataStreams.add(scaleStream.getOutputDataStream(column));
+        ImmutableList.Builder<StreamDataOutput> outputDataStreams = ImmutableList.builder();
+        presentStream.getStreamDataOutput(column).ifPresent(outputDataStreams::add);
+        outputDataStreams.add(dataStream.getStreamDataOutput(column));
+        outputDataStreams.add(scaleStream.getStreamDataOutput(column));
         return outputDataStreams.build();
     }
 

@@ -27,8 +27,8 @@ import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.facebook.presto.orc.metadata.statistics.SliceColumnStatisticsBuilder;
 import com.facebook.presto.orc.stream.ByteArrayOutputStream;
 import com.facebook.presto.orc.stream.LongOutputStream;
-import com.facebook.presto.orc.stream.OutputDataStream;
 import com.facebook.presto.orc.stream.PresentOutputStream;
+import com.facebook.presto.orc.stream.StreamDataOutput;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
@@ -152,7 +152,7 @@ public class SliceDirectColumnWriter
     }
 
     @Override
-    public List<OutputDataStream> writeIndexStreams(CompressedMetadataWriter metadataWriter)
+    public List<StreamDataOutput> getIndexStreams(CompressedMetadataWriter metadataWriter)
             throws IOException
     {
         checkState(closed);
@@ -174,7 +174,7 @@ public class SliceDirectColumnWriter
 
         Slice slice = metadataWriter.writeRowIndexes(rowGroupIndexes.build());
         Stream stream = new Stream(column, StreamKind.ROW_INDEX, slice.length(), false);
-        return ImmutableList.of(new OutputDataStream(slice, stream));
+        return ImmutableList.of(new StreamDataOutput(slice, stream));
     }
 
     private static List<Integer> createSliceColumnPositionList(
@@ -191,14 +191,14 @@ public class SliceDirectColumnWriter
     }
 
     @Override
-    public List<OutputDataStream> getOutputDataStreams()
+    public List<StreamDataOutput> getDataStreams()
     {
         checkState(closed);
 
-        ImmutableList.Builder<OutputDataStream> outputDataStreams = ImmutableList.builder();
-        presentStream.getOutputDataStream(column).ifPresent(outputDataStreams::add);
-        outputDataStreams.add(lengthStream.getOutputDataStream(column));
-        outputDataStreams.add(dataStream.getOutputDataStream(column));
+        ImmutableList.Builder<StreamDataOutput> outputDataStreams = ImmutableList.builder();
+        presentStream.getStreamDataOutput(column).ifPresent(outputDataStreams::add);
+        outputDataStreams.add(lengthStream.getStreamDataOutput(column));
+        outputDataStreams.add(dataStream.getStreamDataOutput(column));
         return outputDataStreams.build();
     }
 

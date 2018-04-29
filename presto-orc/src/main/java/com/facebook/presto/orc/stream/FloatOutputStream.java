@@ -69,9 +69,9 @@ public class FloatOutputStream
     }
 
     @Override
-    public OutputDataStream getOutputDataStream(int column)
+    public StreamDataOutput getStreamDataOutput(int column)
     {
-        return new OutputDataStream(buffer::writeDataTo, new Stream(column, DATA, toIntExact(buffer.getOutputDataSize()), false));
+        return new StreamDataOutput(buffer::writeDataTo, new Stream(column, DATA, toIntExact(buffer.getOutputDataSize()), false));
     }
 
     @Override

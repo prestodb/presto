@@ -27,7 +27,7 @@ import com.facebook.presto.orc.metadata.StripeFooter;
 import com.facebook.presto.orc.metadata.StripeInformation;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.facebook.presto.orc.metadata.statistics.StripeStatistics;
-import com.facebook.presto.orc.stream.OutputDataStream;
+import com.facebook.presto.orc.stream.StreamDataOutput;
 import com.facebook.presto.orc.writer.ColumnWriter;
 import com.facebook.presto.orc.writer.SliceDictionaryColumnWriter;
 import com.facebook.presto.spi.Page;
@@ -314,33 +314,33 @@ public class OrcWriter
 
         // get index streams
         long indexLength = 0;
-        List<OutputDataStream> indexStreams = new ArrayList<>(columnWriters.size() * 2);
+        List<StreamDataOutput> indexStreams = new ArrayList<>(columnWriters.size() * 2);
         for (ColumnWriter columnWriter : columnWriters) {
-            List<OutputDataStream> streams = columnWriter.writeIndexStreams(metadataWriter);
+            List<StreamDataOutput> streams = columnWriter.getIndexStreams(metadataWriter);
             indexStreams.addAll(streams);
             indexLength += streams.stream()
-                    .mapToLong(OutputDataStream::getSizeInBytes)
+                    .mapToLong(StreamDataOutput::getSizeInBytes)
                     .sum();
         }
 
         // data streams (sorted by size)
         long dataLength = 0;
-        List<OutputDataStream> dataStreams = new ArrayList<>(columnWriters.size() * 2);
+        List<StreamDataOutput> dataStreams = new ArrayList<>(columnWriters.size() * 2);
         for (ColumnWriter columnWriter : columnWriters) {
-            List<OutputDataStream> streams = columnWriter.getOutputDataStreams();
+            List<StreamDataOutput> streams = columnWriter.getDataStreams();
             dataStreams.addAll(streams);
             dataLength += streams.stream()
-                    .mapToLong(OutputDataStream::getSizeInBytes)
+                    .mapToLong(StreamDataOutput::getSizeInBytes)
                     .sum();
         }
         Collections.sort(dataStreams);
 
         // write streams
         List<Stream> allStreams = new ArrayList<>();
-        for (OutputDataStream outputDataStream : concat(indexStreams, dataStreams)) {
-            outputDataStream.writeData(output);
+        for (StreamDataOutput streamDataOutput : concat(indexStreams, dataStreams)) {
+            streamDataOutput.writeData(output);
             // The ordering is critical because the stream only contain a length with no offset.
-            allStreams.add(outputDataStream.getStream());
+            allStreams.add(streamDataOutput.getStream());
         }
 
         Map<Integer, ColumnEncoding> columnEncodings = new HashMap<>();

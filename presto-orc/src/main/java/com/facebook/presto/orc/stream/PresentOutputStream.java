@@ -101,18 +101,18 @@ public class PresentOutputStream
         return Optional.of(booleanOutputStream.getCheckpoints());
     }
 
-    public Optional<OutputDataStream> getOutputDataStream(int column)
+    public Optional<StreamDataOutput> getStreamDataOutput(int column)
     {
         checkArgument(closed);
         if (booleanOutputStream == null) {
             return Optional.empty();
         }
-        OutputDataStream outputDataStream = booleanOutputStream.getOutputDataStream(column);
+        StreamDataOutput streamDataOutput = booleanOutputStream.getStreamDataOutput(column);
         // rewrite the DATA stream created by the boolean output stream to a PRESENT stream
-        Stream stream = new Stream(column, PRESENT, toIntExact(outputDataStream.getSizeInBytes()), outputDataStream.getStream().isUseVInts());
-        return Optional.of(new OutputDataStream(
+        Stream stream = new Stream(column, PRESENT, toIntExact(streamDataOutput.getSizeInBytes()), streamDataOutput.getStream().isUseVInts());
+        return Optional.of(new StreamDataOutput(
                 sliceOutput -> {
-                    outputDataStream.writeData(sliceOutput);
+                    streamDataOutput.writeData(sliceOutput);
                     return stream.getLength();
                 },
                 stream));

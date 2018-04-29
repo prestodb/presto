@@ -24,13 +24,13 @@ import java.util.function.ToLongFunction;
 import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
-public final class OutputDataStream
-        implements Comparable<OutputDataStream>
+public final class StreamDataOutput
+        implements Comparable<StreamDataOutput>
 {
     private final ToLongFunction<SliceOutput> writer;
     private final Stream stream;
 
-    public OutputDataStream(Slice slice, Stream stream)
+    public StreamDataOutput(Slice slice, Stream stream)
     {
         this(
                 sliceOutput -> {
@@ -40,14 +40,14 @@ public final class OutputDataStream
                 stream);
     }
 
-    public OutputDataStream(ToLongFunction<SliceOutput> writer, Stream stream)
+    public StreamDataOutput(ToLongFunction<SliceOutput> writer, Stream stream)
     {
         this.writer = requireNonNull(writer, "writer is null");
         this.stream = requireNonNull(stream, "stream is null");
     }
 
     @Override
-    public int compareTo(@Nonnull OutputDataStream otherStream)
+    public int compareTo(@Nonnull StreamDataOutput otherStream)
     {
         return Long.compare(getSizeInBytes(), otherStream.getSizeInBytes());
     }

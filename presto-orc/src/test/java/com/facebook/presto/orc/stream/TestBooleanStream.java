@@ -90,9 +90,9 @@ public class TestBooleanStream
             outputStream.close();
 
             DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1000);
-            OutputDataStream outputDataStream = outputStream.getOutputDataStream(33);
-            outputDataStream.writeData(sliceOutput);
-            Stream stream = outputDataStream.getStream();
+            StreamDataOutput streamDataOutput = outputStream.getStreamDataOutput(33);
+            streamDataOutput.writeData(sliceOutput);
+            Stream stream = streamDataOutput.getStream();
             assertEquals(stream.getStreamKind(), StreamKind.DATA);
             assertEquals(stream.getColumn(), 33);
             assertEquals(stream.getLength(), sliceOutput.size());
