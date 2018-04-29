@@ -83,10 +83,7 @@ public class ByteArrayOutputStream
     @Override
     public OutputDataStream getOutputDataStream(int column)
     {
-        return new OutputDataStream(
-                buffer::writeDataTo,
-                new Stream(column, streamKind, toIntExact(buffer.getOutputDataSize()), false),
-                buffer.getOutputDataSize());
+        return new OutputDataStream(buffer::writeDataTo, new Stream(column, streamKind, toIntExact(buffer.getOutputDataSize()), false));
     }
 
     @Override

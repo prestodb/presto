@@ -21,7 +21,6 @@ import javax.annotation.Nonnull;
 
 import java.util.function.ToLongFunction;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
@@ -30,7 +29,6 @@ public final class OutputDataStream
 {
     private final ToLongFunction<SliceOutput> writer;
     private final Stream stream;
-    private final long sizeInBytes;
 
     public OutputDataStream(Slice slice, Stream stream)
     {
@@ -39,27 +37,24 @@ public final class OutputDataStream
                     sliceOutput.writeBytes(slice);
                     return slice.length();
                 },
-                stream,
-                slice.length());
+                stream);
     }
 
-    public OutputDataStream(ToLongFunction<SliceOutput> writer, Stream stream, long sizeInBytes)
+    public OutputDataStream(ToLongFunction<SliceOutput> writer, Stream stream)
     {
         this.writer = requireNonNull(writer, "writer is null");
         this.stream = requireNonNull(stream, "stream is null");
-        checkArgument(sizeInBytes >= 0, "sizeInBytes is negative");
-        this.sizeInBytes = sizeInBytes;
     }
 
     @Override
     public int compareTo(@Nonnull OutputDataStream otherStream)
     {
-        return Long.compare(sizeInBytes, otherStream.sizeInBytes);
+        return Long.compare(getSizeInBytes(), otherStream.getSizeInBytes());
     }
 
     public long getSizeInBytes()
     {
-        return sizeInBytes;
+        return stream.getLength();
     }
 
     public Stream getStream()

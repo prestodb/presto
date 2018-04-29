@@ -115,8 +115,7 @@ public class PresentOutputStream
                     outputDataStream.writeData(sliceOutput);
                     return stream.getLength();
                 },
-                stream,
-                outputDataStream.getSizeInBytes()));
+                stream));
     }
 
     public long getBufferedBytes()

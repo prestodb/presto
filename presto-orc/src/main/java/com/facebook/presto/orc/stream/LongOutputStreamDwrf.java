@@ -80,10 +80,7 @@ public class LongOutputStreamDwrf
     @Override
     public OutputDataStream getOutputDataStream(int column)
     {
-        return new OutputDataStream(
-                buffer::writeDataTo,
-                new Stream(column, streamKind, toIntExact(buffer.getOutputDataSize()), true),
-                buffer.getOutputDataSize());
+        return new OutputDataStream(buffer::writeDataTo, new Stream(column, streamKind, toIntExact(buffer.getOutputDataSize()), true));
     }
 
     @Override

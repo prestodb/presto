@@ -64,7 +64,6 @@ import static com.facebook.presto.orc.metadata.PostScript.MAGIC;
 import static com.facebook.presto.orc.writer.ColumnWriters.createColumnWriter;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.concat;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Integer.min;
@@ -342,7 +341,6 @@ public class OrcWriter
             outputDataStream.writeData(output);
             // The ordering is critical because the stream only contain a length with no offset.
             allStreams.add(outputDataStream.getStream());
-            verify(outputDataStream.getStream().getLength() == outputDataStream.getSizeInBytes(), "Data stream did not write expected size");
         }
 
         Map<Integer, ColumnEncoding> columnEncodings = new HashMap<>();
