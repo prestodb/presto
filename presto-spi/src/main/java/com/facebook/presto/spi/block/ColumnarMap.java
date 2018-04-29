@@ -70,7 +70,8 @@ public class ColumnarMap
             int dictionaryId = dictionaryBlock.getId(position);
             int entryCount = columnarMap.getEntryCount(dictionaryId);
 
-            int startOffset = columnarMap.getOffset(dictionaryId);
+            // adjust to the element block start offset
+            int startOffset = columnarMap.getOffset(dictionaryId) - columnarMap.getOffset(0);
             for (int entryIndex = 0; entryIndex < entryCount; entryIndex++) {
                 dictionaryIds[nextDictionaryIndex] = startOffset + entryIndex;
                 nextDictionaryIndex++;

@@ -24,6 +24,7 @@ import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
 import java.lang.reflect.Array;
+import java.util.Arrays;
 
 import static com.facebook.presto.block.ColumnarTestUtils.alternatingNullValues;
 import static com.facebook.presto.block.ColumnarTestUtils.assertBlock;
@@ -69,6 +70,17 @@ public class TestColumnarArray
         assertColumnarArray(block, expectedValues);
         assertDictionaryBlock(block, expectedValues);
         assertRunLengthEncodedBlock(block, expectedValues);
+
+        int offset = 1;
+        int length = expectedValues.length - 2;
+        Block blockRegion = block.getRegion(offset, length);
+        T[] expectedValuesRegion = Arrays.copyOfRange(expectedValues, offset, offset + length);
+
+        assertBlock(blockRegion, expectedValuesRegion);
+
+        assertColumnarArray(blockRegion, expectedValuesRegion);
+        assertDictionaryBlock(blockRegion, expectedValuesRegion);
+        assertRunLengthEncodedBlock(blockRegion, expectedValuesRegion);
     }
 
     private static <T> void assertDictionaryBlock(Block block, T[] expectedValues)
