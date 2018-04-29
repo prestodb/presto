@@ -105,7 +105,6 @@ public class OrcWriter
 
     private final List<ColumnWriter> columnWriters;
     private final DictionaryCompressionOptimizer dictionaryCompressionOptimizer;
-    private long stripeStartOffset;
     private int stripeRowCount;
     private int rowGroupRowCount;
     private int bufferedBytes;
@@ -191,7 +190,6 @@ public class OrcWriter
 
         // this is not required but nice to have
         output.writeBytes(MAGIC);
-        stripeStartOffset = output.longSize();
 
         for (Entry<String, String> entry : this.userMetadata.entrySet()) {
             recordValidation(validation -> validation.addMetadataProperty(entry.getKey(), utf8Slice(entry.getValue())));
@@ -364,6 +362,7 @@ public class OrcWriter
 
         // create final stripe statistics
         StripeStatistics statistics = new StripeStatistics(toDenseList(columnStatistics, orcTypes.size()));
+        long stripeStartOffset = output.longSize();
         recordValidation(validation -> validation.addStripeStatistics(stripeStartOffset, statistics));
         StripeInformation stripeInformation = new StripeInformation(stripeRowCount, stripeStartOffset, indexLength, dataLength, footer.length());
         ClosedStripe closedStripe = new ClosedStripe(stripeInformation, statistics);
@@ -379,7 +378,6 @@ public class OrcWriter
         dictionaryCompressionOptimizer.reset();
         rowGroupRowCount = 0;
         stripeRowCount = 0;
-        stripeStartOffset = output.longSize();
         bufferedBytes = toIntExact(columnWriters.stream().mapToLong(ColumnWriter::getBufferedBytes).sum());
     }
 
