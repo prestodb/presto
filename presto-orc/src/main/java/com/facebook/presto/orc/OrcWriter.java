@@ -38,6 +38,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.OutputStreamSliceOutput;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -395,11 +396,13 @@ public class OrcWriter
 
         writeStripe(CLOSED);
 
+        List<DataOutput> outputData = new ArrayList<>();
+        
         Metadata metadata = new Metadata(closedStripes.stream()
                 .map(ClosedStripe::getStatistics)
                 .collect(toList()));
         Slice metadataSlice = metadataWriter.writeMetadata(metadata);
-        output.writeBytes(metadataSlice);
+        outputData.add(createDataOutput(metadataSlice));
 
         long numberOfRows = closedStripes.stream()
                 .mapToLong(stripe -> stripe.getStripeInformation().getNumberOfRows())
@@ -429,12 +432,15 @@ public class OrcWriter
         closedStripesRetainedBytes = 0;
 
         Slice footerSlice = metadataWriter.writeFooter(footer);
-        output.writeBytes(footerSlice);
+        outputData.add(createDataOutput(footerSlice));
 
         recordValidation(validation -> validation.setVersion(metadataWriter.getOrcMetadataVersion()));
         Slice postscriptSlice = metadataWriter.writePostscript(footerSlice.length(), metadataSlice.length(), compression, maxCompressionBufferSize);
-        output.writeBytes(postscriptSlice);
-        output.writeByte(postscriptSlice.length());
+        outputData.add(createDataOutput(postscriptSlice));
+        outputData.add(createDataOutput(Slices.wrappedBuffer((byte) postscriptSlice.length())));
+
+        // write all data
+        outputData.forEach(data -> data.writeData(output));
 
         output.close();
     }
