@@ -16,8 +16,8 @@ package com.facebook.presto.orc.writer;
 import com.facebook.presto.orc.checkpoint.BooleanStreamCheckpoint;
 import com.facebook.presto.orc.checkpoint.ByteStreamCheckpoint;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
+import com.facebook.presto.orc.metadata.CompressedMetadataWriter;
 import com.facebook.presto.orc.metadata.CompressionKind;
-import com.facebook.presto.orc.metadata.MetadataWriter;
 import com.facebook.presto.orc.metadata.RowGroupIndex;
 import com.facebook.presto.orc.metadata.Stream;
 import com.facebook.presto.orc.metadata.Stream.StreamKind;
@@ -29,7 +29,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.slice.SliceOutput;
+import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
@@ -131,7 +131,7 @@ public class ByteColumnWriter
     }
 
     @Override
-    public List<Stream> writeIndexStreams(SliceOutput outputStream, MetadataWriter metadataWriter)
+    public List<OutputDataStream> writeIndexStreams(CompressedMetadataWriter metadataWriter)
             throws IOException
     {
         checkState(closed);
@@ -149,8 +149,9 @@ public class ByteColumnWriter
             rowGroupIndexes.add(new RowGroupIndex(positions, columnStatistics));
         }
 
-        int length = metadataWriter.writeRowIndexes(outputStream, rowGroupIndexes.build());
-        return ImmutableList.of(new Stream(column, StreamKind.ROW_INDEX, length, false));
+        Slice slice = metadataWriter.writeRowIndexes(rowGroupIndexes.build());
+        Stream stream = new Stream(column, StreamKind.ROW_INDEX, slice.length(), false);
+        return ImmutableList.of(new OutputDataStream(slice, stream));
     }
 
     private static List<Integer> createByteColumnPositionList(

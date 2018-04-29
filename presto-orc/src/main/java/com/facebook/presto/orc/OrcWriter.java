@@ -21,7 +21,6 @@ import com.facebook.presto.orc.metadata.CompressedMetadataWriter;
 import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.orc.metadata.Footer;
 import com.facebook.presto.orc.metadata.Metadata;
-import com.facebook.presto.orc.metadata.MetadataWriter;
 import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.orc.metadata.Stream;
 import com.facebook.presto.orc.metadata.StripeFooter;
@@ -67,6 +66,7 @@ import static com.facebook.presto.orc.writer.ColumnWriters.createColumnWriter;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.Iterables.concat;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Integer.min;
 import static java.lang.Math.toIntExact;
@@ -97,7 +97,7 @@ public class OrcWriter
     private final int rowGroupMaxRowCount;
     private final int maxCompressionBufferSize;
     private final Map<String, String> userMetadata;
-    private final MetadataWriter metadataWriter;
+    private final CompressedMetadataWriter metadataWriter;
     private final DateTimeZone hiveStorageTimeZone;
 
     private final List<ClosedStripe> closedStripes = new ArrayList<>();
@@ -314,29 +314,32 @@ public class OrcWriter
 
         columnWriters.forEach(ColumnWriter::close);
 
-        List<Stream> allStreams = new ArrayList<>();
-
-        // write index streams
+        // get index streams
         long indexLength = 0;
+        List<OutputDataStream> indexStreams = new ArrayList<>(columnWriters.size() * 2);
         for (ColumnWriter columnWriter : columnWriters) {
-            List<Stream> indexStreams = columnWriter.writeIndexStreams(output, metadataWriter);
-            allStreams.addAll(indexStreams);
-            indexLength += indexStreams.stream()
-                    .mapToInt(Stream::getLength)
-                    .asLongStream()
+            List<OutputDataStream> streams = columnWriter.writeIndexStreams(metadataWriter);
+            indexStreams.addAll(streams);
+            indexLength += streams.stream()
+                    .mapToLong(OutputDataStream::getSizeInBytes)
                     .sum();
         }
 
-        // sort data streams
-        List<OutputDataStream> outputDataStreams = new ArrayList<>(columnWriters.size() * 2);
-        for (ColumnWriter columnWriter : columnWriters) {
-            outputDataStreams.addAll(columnWriter.getOutputDataStreams());
-        }
-        Collections.sort(outputDataStreams);
-
-        // write data streams
+        // data streams (sorted by size)
         long dataLength = 0;
-        for (OutputDataStream outputDataStream : outputDataStreams) {
+        List<OutputDataStream> dataStreams = new ArrayList<>(columnWriters.size() * 2);
+        for (ColumnWriter columnWriter : columnWriters) {
+            List<OutputDataStream> streams = columnWriter.getOutputDataStreams();
+            dataStreams.addAll(streams);
+            dataLength += streams.stream()
+                    .mapToLong(OutputDataStream::getSizeInBytes)
+                    .sum();
+        }
+        Collections.sort(dataStreams);
+
+        // write streams
+        List<Stream> allStreams = new ArrayList<>();
+        for (OutputDataStream outputDataStream : concat(indexStreams, dataStreams)) {
             Optional<Stream> stream = outputDataStream.writeData(output);
             if (!stream.isPresent()) {
                 continue;
@@ -344,7 +347,6 @@ public class OrcWriter
             // The ordering is critical because the stream only contain a length with no offset.
             allStreams.add(stream.get());
             verify(stream.get().getLength() == outputDataStream.getSizeInBytes(), "Data stream did not write expected size");
-            dataLength += outputDataStream.getSizeInBytes();
         }
 
         Map<Integer, ColumnEncoding> columnEncodings = new HashMap<>();
@@ -358,11 +360,12 @@ public class OrcWriter
         columnStatistics.put(0, new ColumnStatistics((long) stripeRowCount, 0, null, null, null, null, null, null, null, null));
 
         StripeFooter stripeFooter = new StripeFooter(allStreams, toDenseList(columnEncodings, orcTypes.size()));
-        int footerLength = metadataWriter.writeStripeFooter(output, stripeFooter);
+        Slice footer = metadataWriter.writeStripeFooter(stripeFooter);
+        output.writeBytes(footer);
 
         StripeStatistics statistics = new StripeStatistics(toDenseList(columnStatistics, orcTypes.size()));
         recordValidation(validation -> validation.addStripeStatistics(stripeStartOffset, statistics));
-        StripeInformation stripeInformation = new StripeInformation(stripeRowCount, stripeStartOffset, indexLength, dataLength, footerLength);
+        StripeInformation stripeInformation = new StripeInformation(stripeRowCount, stripeStartOffset, indexLength, dataLength, footer.length());
         ClosedStripe closedStripe = new ClosedStripe(stripeInformation, statistics);
         closedStripes.add(closedStripe);
         closedStripesRetainedBytes += closedStripe.getRetainedSizeInBytes();
@@ -393,7 +396,8 @@ public class OrcWriter
         Metadata metadata = new Metadata(closedStripes.stream()
                 .map(ClosedStripe::getStatistics)
                 .collect(toList()));
-        int metadataLength = metadataWriter.writeMetadata(output, metadata);
+        Slice metadataSlice = metadataWriter.writeMetadata(metadata);
+        output.writeBytes(metadataSlice);
 
         long numberOfRows = closedStripes.stream()
                 .mapToLong(stripe -> stripe.getStripeInformation().getNumberOfRows())
@@ -422,12 +426,13 @@ public class OrcWriter
         closedStripes.clear();
         closedStripesRetainedBytes = 0;
 
-        int footerLength = metadataWriter.writeFooter(output, footer);
+        Slice footerSlice = metadataWriter.writeFooter(footer);
+        output.writeBytes(footerSlice);
 
         recordValidation(validation -> validation.setVersion(metadataWriter.getOrcMetadataVersion()));
-        int postScriptLength = metadataWriter.writePostscript(output, footerLength, metadataLength, compression, maxCompressionBufferSize);
-
-        output.writeByte(postScriptLength);
+        Slice postscriptSlice = metadataWriter.writePostscript(footerSlice.length(), metadataSlice.length(), compression, maxCompressionBufferSize);
+        output.writeBytes(postscriptSlice);
+        output.writeByte(postscriptSlice.length());
 
         output.close();
     }

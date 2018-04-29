@@ -14,6 +14,7 @@
 package com.facebook.presto.orc.stream;
 
 import com.facebook.presto.orc.metadata.Stream;
+import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 
 import javax.annotation.Nonnull;
@@ -28,6 +29,16 @@ public final class OutputDataStream
 {
     private final Function<SliceOutput, Optional<Stream>> writer;
     private final long sizeInBytes;
+
+    public OutputDataStream(Slice slice, Stream stream)
+    {
+        this(
+                sliceOutput -> {
+                    sliceOutput.writeBytes(slice);
+                    return Optional.of(stream);
+                },
+                slice.length());
+    }
 
     public OutputDataStream(Function<SliceOutput, Optional<Stream>> writer, long sizeInBytes)
     {
