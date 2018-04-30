@@ -90,8 +90,11 @@ public class Distribution
 
             ImmutableList.Builder<Type> types = ImmutableList.builder();
             for (String typeName : typeNames) {
-                Type type = typeManager.getType(parseTypeSignature(typeName));
-                if (type == null) {
+                Type type;
+                try {
+                    type = typeManager.getType(parseTypeSignature(typeName));
+                }
+                catch (IllegalArgumentException e) {
                     throw new PrestoException(RAPTOR_ERROR, "Unknown distribution column type: " + typeName);
                 }
                 types.add(type);

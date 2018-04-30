@@ -26,7 +26,6 @@ import com.google.inject.multibindings.Multibinder;
 import javax.inject.Inject;
 
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
@@ -84,9 +83,7 @@ public class KafkaConnectorModule
         @Override
         protected Type _deserialize(String value, DeserializationContext context)
         {
-            Type type = typeManager.getType(parseTypeSignature(value));
-            checkArgument(type != null, "Unknown type %s", value);
-            return type;
+            return typeManager.getType(parseTypeSignature(value));
         }
     }
 }

@@ -682,12 +682,10 @@ public class FunctionRegistry
 
             // lookup the type
             Type type = typeManager.getType(parseTypeSignature(typeName));
-            requireNonNull(type, format("Type %s not registered", typeName));
 
             // verify we have one parameter of the proper type
             checkArgument(parameterTypes.size() == 1, "Expected one argument to literal function, but got %s", parameterTypes);
             Type parameterType = typeManager.getType(parameterTypes.get(0).getTypeSignature());
-            requireNonNull(parameterType, format("Type %s not found", parameterTypes.get(0)));
 
             return getMagicLiteralFunctionSignature(type);
         }
@@ -978,7 +976,6 @@ public class FunctionRegistry
 
             // lookup the type
             Type type = typeManager.getType(parseTypeSignature(typeName));
-            requireNonNull(type, format("Type %s not registered", typeName));
 
             // verify we have one parameter of the proper type
             checkArgument(parameterTypes.size() == 1, "Expected one argument to literal function, but got %s", parameterTypes);

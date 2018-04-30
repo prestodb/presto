@@ -102,8 +102,14 @@ public class CreateTableTask
             if (element instanceof ColumnDefinition) {
                 ColumnDefinition column = (ColumnDefinition) element;
                 String name = column.getName().getValue().toLowerCase(Locale.ENGLISH);
-                Type type = metadata.getType(parseTypeSignature(column.getType()));
-                if ((type == null) || type.equals(UNKNOWN)) {
+                Type type;
+                try {
+                    type = metadata.getType(parseTypeSignature(column.getType()));
+                }
+                catch (IllegalArgumentException e) {
+                    throw new SemanticException(TYPE_MISMATCH, element, "Unknown type '%s' for column '%s'", column.getType(), column.getName());
+                }
+                if (type.equals(UNKNOWN)) {
                     throw new SemanticException(TYPE_MISMATCH, element, "Unknown type '%s' for column '%s'", column.getType(), column.getName());
                 }
                 if (columns.containsKey(name)) {

@@ -687,8 +687,11 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitGenericLiteral(GenericLiteral node, StackableAstVisitorContext<Context> context)
         {
-            Type type = typeManager.getType(parseTypeSignature(node.getType()));
-            if (type == null) {
+            Type type;
+            try {
+                type = typeManager.getType(parseTypeSignature(node.getType()));
+            }
+            catch (IllegalArgumentException e) {
                 throw new SemanticException(TYPE_MISMATCH, node, "Unknown type: " + node.getType());
             }
 
@@ -946,8 +949,11 @@ public class ExpressionAnalyzer
         @Override
         public Type visitCast(Cast node, StackableAstVisitorContext<Context> context)
         {
-            Type type = typeManager.getType(parseTypeSignature(node.getType()));
-            if (type == null) {
+            Type type;
+            try {
+                type = typeManager.getType(parseTypeSignature(node.getType()));
+            }
+            catch (IllegalArgumentException e) {
                 throw new SemanticException(TYPE_MISMATCH, node, "Unknown type: " + node.getType());
             }
 

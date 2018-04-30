@@ -53,7 +53,6 @@ import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -65,8 +64,17 @@ public class TestTypeRegistry
     @Test
     public void testNonexistentType()
     {
-        TypeManager typeManager = new TypeRegistry();
-        assertNull(typeManager.getType(parseTypeSignature("not a real type")));
+        try {
+            TypeManager typeManager = new TypeRegistry();
+            typeManager.getType(parseTypeSignature("not a real type"));
+            fail("Expect to throw IllegalArgumentException");
+        }
+        catch (IllegalArgumentException e) {
+            assertTrue(e.getMessage().matches("Unknown type.*"));
+        }
+        catch (Throwable t) {
+            fail("Expect to throw IllegalArgumentException, got " + t.getClass());
+        }
     }
 
     @Test
