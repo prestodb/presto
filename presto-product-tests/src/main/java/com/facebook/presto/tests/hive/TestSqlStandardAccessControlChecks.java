@@ -66,16 +66,6 @@ public class TestSqlStandardAccessControlChecks
     }
 
     @Test(groups = {AUTHORIZATION, HIVE_CONNECTOR, PROFILE_SPECIFIC_TESTS})
-    public void testAccessControlShowPartitions()
-    {
-        assertThat(() -> bobExecutor.executeQuery(format("SHOW PARTITIONS FROM %s", tableName)))
-                .failsWithMessage(format("Access Denied: Cannot select from table default.%s$partitions", tableName));
-
-        aliceExecutor.executeQuery(format("GRANT SELECT ON %s TO bob", tableName));
-        assertThat(bobExecutor.executeQuery(format("SHOW PARTITIONS FROM %s", tableName))).hasNoRows();
-    }
-
-    @Test(groups = {AUTHORIZATION, HIVE_CONNECTOR, PROFILE_SPECIFIC_TESTS})
     public void testAccessControlInsert()
     {
         assertThat(() -> bobExecutor.executeQuery(format("INSERT INTO %s VALUES (3, 22)", tableName)))
