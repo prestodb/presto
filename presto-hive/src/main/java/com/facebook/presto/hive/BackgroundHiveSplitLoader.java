@@ -358,6 +358,8 @@ public class BackgroundHiveSplitLoader
         if (headerCount > 0) {
             // do not split file when skip.header.line.count is used
             jobConf.setLong("mapreduce.input.fileinputformat.split.minsize", Long.MAX_VALUE);
+            // TODO remove this when Hadoop 1.x is not supported
+            jobConf.setLong("mapred.min.split.size", Long.MAX_VALUE);
         }
     }
 
