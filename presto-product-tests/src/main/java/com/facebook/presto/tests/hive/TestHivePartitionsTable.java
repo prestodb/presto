@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.tests.convention;
+package com.facebook.presto.tests.hive;
 
 import com.google.common.math.IntMath;
 import io.prestodb.tempto.ProductTest;
@@ -49,7 +49,7 @@ import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
-public class TestShowPartitions
+public class TestHivePartitionsTable
         extends ProductTest
         implements RequirementsProvider
 {
@@ -102,34 +102,36 @@ public class TestShowPartitions
     public void testShowPartitionsFromHiveTable()
     {
         String tableNameInDatabase = tablesState.get(PARTITIONED_TABLE).getNameInDatabase();
+        String partitionsTable = "\"" + tableNameInDatabase + "$partitions\"";
 
         QueryResult partitionListResult;
 
-        partitionListResult = query("SHOW PARTITIONS FROM " + tableNameInDatabase);
+        partitionListResult = query("SELECT * FROM " + partitionsTable);
         assertThat(partitionListResult).containsExactly(row(1), row(2));
         assertColumnNames(partitionListResult, "part_col");
 
-        partitionListResult = query(format("SHOW PARTITIONS FROM %s WHERE part_col = 1", tableNameInDatabase));
+        partitionListResult = query(format("SELECT * FROM %s WHERE part_col = 1", partitionsTable));
         assertThat(partitionListResult).containsExactly(row(1));
         assertColumnNames(partitionListResult, "part_col");
 
-        assertThat(() -> query(format("SHOW PARTITIONS FROM %s WHERE no_such_column = 1", tableNameInDatabase)))
+        assertThat(() -> query(format("SELECT * FROM %s WHERE no_such_column = 1", partitionsTable)))
                 .failsWithMessage("Column 'no_such_column' cannot be resolved");
-        assertThat(() -> query(format("SHOW PARTITIONS FROM %s WHERE col = 1", tableNameInDatabase)))
+        assertThat(() -> query(format("SELECT * FROM %s WHERE col = 1", partitionsTable)))
                 .failsWithMessage("Column 'col' cannot be resolved");
     }
 
     @Test(groups = {BASIC_SQL})
     public void testShowPartitionsFromUnpartitionedTable()
     {
-        assertThat(() -> query("SHOW PARTITIONS FROM nation"))
-                .failsWithMessageMatching(".*Table does not have partition columns: hive.default.nation");
+        assertThat(() -> query("SELECT * FROM \"nation$partitions\""))
+                .failsWithMessageMatching(".*Table hive.default.nation\\$partitions does not exist");
     }
 
     @Test(groups = {BASIC_SQL})
     public void testShowPartitionsFromHiveTableWithTooManyPartitions()
     {
         String tableName = tablesState.get(PARTITIONED_TABLE_WITH_VARIABLE_PARTITIONS).getNameInDatabase();
+        String partitionsTable = "\"" + tableName + "$partitions\"";
         createPartitions(tableName, TOO_MANY_PARTITIONS);
 
         // Verify we created enough partitions for the test to be meaningful
@@ -138,14 +140,14 @@ public class TestShowPartitions
 
         QueryResult partitionListResult;
 
-        partitionListResult = query(format("SHOW PARTITIONS FROM %s WHERE part_col < 7", tableName));
+        partitionListResult = query(format("SELECT * FROM %s WHERE part_col < 7", partitionsTable));
         assertThat(partitionListResult).containsExactly(row(0), row(1), row(2), row(3), row(4), row(5), row(6));
         assertColumnNames(partitionListResult, "part_col");
 
-        partitionListResult = query(format("SHOW PARTITIONS FROM %s WHERE part_col < -10", tableName));
+        partitionListResult = query(format("SELECT * FROM %s WHERE part_col < -10", partitionsTable));
         assertThat(partitionListResult).hasNoRows();
 
-        partitionListResult = query(format("SHOW PARTITIONS FROM %s ORDER BY part_col LIMIT 7", tableName));
+        partitionListResult = query(format("SELECT * FROM %s ORDER BY part_col LIMIT 7", partitionsTable));
         assertThat(partitionListResult).containsExactly(row(0), row(1), row(2), row(3), row(4), row(5), row(6));
     }
 
