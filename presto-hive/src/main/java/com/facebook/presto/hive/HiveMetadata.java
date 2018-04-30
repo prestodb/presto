@@ -339,7 +339,7 @@ public class HiveMetadata
                                         (List<Object>) IntStream.range(0, partitionColumns.size())
                                                 .mapToObj(fieldIdToColumnHandle::get)
                                                 .map(columnHandle -> hivePartition.getKeys().get(columnHandle).getValue())
-                                                .collect(toImmutableList()))
+                                                .collect(toList()))
                                 .iterator();
 
                 return new InMemoryRecordSet(partitionColumnTypes, records).cursor();

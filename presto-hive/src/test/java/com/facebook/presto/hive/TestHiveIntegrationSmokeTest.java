@@ -1150,6 +1150,26 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testNullPartitionValues()
+    {
+        assertUpdate("" +
+                "CREATE TABLE test_null_partition (test VARCHAR, part VARCHAR)\n" +
+                "WITH (partitioned_by = ARRAY['part'])");
+
+        assertUpdate("INSERT INTO test_null_partition VALUES ('hello', 'test'), ('world', null)", 2);
+
+        assertQuery(
+                "SELECT * FROM test_null_partition",
+                "VALUES ('hello', 'test'), ('world', null)");
+
+        assertQuery(
+                "SELECT * FROM \"test_null_partition$partitions\"",
+                "VALUES 'test', null");
+
+        assertUpdate("DROP TABLE test_null_partition");
+    }
+
+    @Test
     public void testPartitionPerScanLimit()
     {
         TestingHiveStorageFormat storageFormat = new TestingHiveStorageFormat(getSession(), HiveStorageFormat.DWRF);
