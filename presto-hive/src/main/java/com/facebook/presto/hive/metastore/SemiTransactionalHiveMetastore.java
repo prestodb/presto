@@ -27,6 +27,7 @@ import com.facebook.presto.spi.TableNotFoundException;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -903,6 +904,9 @@ public class SemiTransactionalHiveMetastore
         private final List<AlterPartitionOperation> alterPartitionOperations = new ArrayList<>();
         private final List<IrreversibleMetastoreOperation> metastoreDeleteOperations = new ArrayList<>();
 
+        // Flag for better error message
+        private boolean deleteOnly = true;
+
         private void prepareDropTable(SchemaTableName schemaTableName)
         {
             metastoreDeleteOperations.add(new IrreversibleMetastoreOperation(
@@ -912,6 +916,8 @@ public class SemiTransactionalHiveMetastore
 
         private void prepareAlterTable()
         {
+            deleteOnly = false;
+
             // Currently, ALTER action is never constructed for tables. Dropping a table and then re-creating it
             // in the same transaction is not supported now. The following line should be replaced with actual
             // implementation when create after drop support is introduced for a table.
@@ -920,6 +926,8 @@ public class SemiTransactionalHiveMetastore
 
         private void prepareAddTable(HdfsContext context, TableAndMore tableAndMore)
         {
+            deleteOnly = false;
+
             Table table = tableAndMore.getTable();
             if (table.getTableType().equals(MANAGED_TABLE.name())) {
                 String targetLocation = table.getStorage().getLocation();
@@ -967,6 +975,8 @@ public class SemiTransactionalHiveMetastore
 
         private void prepareInsertExistingTable(HdfsContext context, TableAndMore tableAndMore)
         {
+            deleteOnly = false;
+
             Table table = tableAndMore.getTable();
             Path targetPath = new Path(table.getStorage().getLocation());
             Path currentPath = tableAndMore.getCurrentLocation().get();
@@ -985,6 +995,8 @@ public class SemiTransactionalHiveMetastore
 
         private void prepareAlterPartition(HdfsContext context, PartitionAndMore partitionAndMore)
         {
+            deleteOnly = false;
+
             Partition partition = partitionAndMore.getPartition();
             String targetLocation = partition.getStorage().getLocation();
             Optional<Partition> oldPartition = delegate.getPartition(partition.getDatabaseName(), partition.getTableName(), partition.getValues());
@@ -1038,6 +1050,8 @@ public class SemiTransactionalHiveMetastore
 
         private void prepareAddPartition(HdfsContext context, PartitionAndMore partitionAndMore)
         {
+            deleteOnly = false;
+
             Partition partition = partitionAndMore.getPartition();
             String targetLocation = partition.getStorage().getLocation();
             Path currentPath = partitionAndMore.getCurrentLocation();
@@ -1061,6 +1075,8 @@ public class SemiTransactionalHiveMetastore
 
         private void prepareInsertExistingPartition(HdfsContext context, PartitionAndMore partitionAndMore)
         {
+            deleteOnly = false;
+
             Partition partition = partitionAndMore.getPartition();
             Path targetPath = new Path(partition.getStorage().getLocation());
             Path currentPath = partitionAndMore.getCurrentLocation();
@@ -1202,9 +1218,11 @@ public class SemiTransactionalHiveMetastore
         {
             List<String> failedIrreversibleOperationDescriptions = new ArrayList<>();
             List<Throwable> suppressedExceptions = new ArrayList<>();
+            boolean anySucceeded = false;
             for (IrreversibleMetastoreOperation irreversibleMetastoreOperation : metastoreDeleteOperations) {
                 try {
                     irreversibleMetastoreOperation.run();
+                    anySucceeded = true;
                 }
                 catch (Throwable t) {
                     failedIrreversibleOperationDescriptions.add(irreversibleMetastoreOperation.getDescription());
@@ -1215,12 +1233,16 @@ public class SemiTransactionalHiveMetastore
                 }
             }
             if (!suppressedExceptions.isEmpty()) {
-                PrestoException prestoException = new PrestoException(
-                        HIVE_METASTORE_ERROR,
-                        format(
-                                "The transaction didn't commit cleanly. Failed to execute some metastore delete operations: %s",
-                                failedIrreversibleOperationDescriptions.stream()
-                                        .collect(Collectors.joining("; "))));
+                StringBuilder message = new StringBuilder();
+                if (deleteOnly && !anySucceeded) {
+                    message.append("The following metastore delete operations failed: ");
+                }
+                else {
+                    message.append("The transaction didn't commit cleanly. All operations other than the following delete operations were completed: ");
+                }
+                Joiner.on("; ").appendTo(message, failedIrreversibleOperationDescriptions);
+
+                PrestoException prestoException = new PrestoException(HIVE_METASTORE_ERROR, message.toString());
                 suppressedExceptions.forEach(prestoException::addSuppressed);
                 throw prestoException;
             }
