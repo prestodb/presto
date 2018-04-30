@@ -393,6 +393,10 @@ Query the ``page_views`` table::
 
     SELECT * FROM hive.web.page_views
 
+List the partitions of the ``page_views`` table::
+
+    SELECT * FROM hive.web."page_views$partitions"
+
 Create an external Hive table named ``request_logs`` that points at
 existing data in S3::
 
