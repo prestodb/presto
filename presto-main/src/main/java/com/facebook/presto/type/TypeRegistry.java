@@ -31,8 +31,12 @@ import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.type.setdigest.SetDigestType;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.UncheckedExecutionException;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
@@ -85,6 +89,7 @@ import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.type.setdigest.SetDigestType.SET_DIGEST;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -95,6 +100,8 @@ public final class TypeRegistry
     private final ConcurrentMap<String, ParametricType> parametricTypes = new ConcurrentHashMap<>();
 
     private FunctionRegistry functionRegistry;
+
+    private final LoadingCache<TypeSignature, Type> parametricTypeCache;
 
     @VisibleForTesting
     public TypeRegistry()
@@ -154,6 +161,9 @@ public final class TypeRegistry
         for (Type type : types) {
             addType(type);
         }
+        parametricTypeCache = CacheBuilder.newBuilder()
+                .maximumSize(1000)
+                .build(CacheLoader.from(this::instantiateParametricType));
     }
 
     public void setFunctionRegistry(FunctionRegistry functionRegistry)
@@ -167,7 +177,13 @@ public final class TypeRegistry
     {
         Type type = types.get(signature);
         if (type == null) {
-            return instantiateParametricType(signature);
+            try {
+                return parametricTypeCache.getUnchecked(signature);
+            }
+            catch (UncheckedExecutionException e) {
+                throwIfUnchecked(e.getCause());
+                throw new RuntimeException(e.getCause());
+            }
         }
         return type;
     }
