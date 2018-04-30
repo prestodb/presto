@@ -102,9 +102,7 @@ public final class TypeUtils
 
     public static Type resolveType(TypeSignature typeName, TypeManager typeManager)
     {
-        Type type = typeManager.getType(typeName);
-        checkArgument(type != null, "Type '%s' not found", typeName);
-        return type;
+        return typeManager.getType(typeName);
     }
 
     public static List<Type> resolveTypes(List<TypeSignature> typeNames, TypeManager typeManager)

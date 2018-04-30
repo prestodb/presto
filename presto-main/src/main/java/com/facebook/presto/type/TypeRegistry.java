@@ -184,28 +184,19 @@ public final class TypeRegistry
 
         for (TypeSignatureParameter parameter : signature.getParameters()) {
             TypeParameter typeParameter = TypeParameter.of(parameter, this);
-            if (typeParameter == null) {
-                return null;
-            }
             parameters.add(typeParameter);
         }
 
         ParametricType parametricType = parametricTypes.get(signature.getBase().toLowerCase(Locale.ENGLISH));
         if (parametricType == null) {
-            return null;
+            throw new IllegalArgumentException("Unknown type " + signature);
         }
 
-        try {
-            Type instantiatedType = parametricType.createType(this, parameters);
+        Type instantiatedType = parametricType.createType(this, parameters);
 
-            // TODO: reimplement this check? Currently "varchar(Integer.MAX_VALUE)" fails with "varchar"
-            //checkState(instantiatedType.equalsSignature(signature), "Instantiated parametric type name (%s) does not match expected name (%s)", instantiatedType, signature);
-            return instantiatedType;
-        }
-        catch (IllegalArgumentException e) {
-            // TODO: check whether a type constructor actually exists rather than failing when it doesn't. This will be possible in the next version of the type system
-            return null;
-        }
+        // TODO: reimplement this check? Currently "varchar(Integer.MAX_VALUE)" fails with "varchar"
+        //checkState(instantiatedType.equalsSignature(signature), "Instantiated parametric type name (%s) does not match expected name (%s)", instantiatedType, signature);
+        return instantiatedType;
     }
 
     @Override
