@@ -22,6 +22,7 @@ import com.facebook.presto.orc.metadata.statistics.BooleanStatisticsBuilder;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.facebook.presto.orc.metadata.statistics.DateStatisticsBuilder;
 import com.facebook.presto.orc.metadata.statistics.DoubleStatisticsBuilder;
+import com.facebook.presto.orc.metadata.statistics.IntegerStatistics;
 import com.facebook.presto.orc.metadata.statistics.IntegerStatisticsBuilder;
 import com.facebook.presto.orc.metadata.statistics.LongDecimalStatisticsBuilder;
 import com.facebook.presto.orc.metadata.statistics.ShortDecimalStatisticsBuilder;
@@ -312,7 +313,20 @@ public class OrcWriteValidation
             throw new OrcCorruptionException(orcDataSourceId, "Write validation failed: unexpected boolean counts in %s statistics", name);
         }
         if (!Objects.equals(actualColumnStatistics.getIntegerStatistics(), expectedColumnStatistics.getIntegerStatistics())) {
-            throw new OrcCorruptionException(orcDataSourceId, "Write validation failed: unexpected integer range in %s statistics", name);
+            IntegerStatistics actualIntegerStatistics = actualColumnStatistics.getIntegerStatistics();
+            IntegerStatistics expectedIntegerStatistics = expectedColumnStatistics.getIntegerStatistics();
+            // The sum of the integer stats depends on the order of how we merge them.
+            // It is possible the sum can overflow with one order but not in another.
+            // Ignore the validation of sum if one of the two sums is null.
+            if (actualIntegerStatistics == null ||
+                    expectedIntegerStatistics == null ||
+                    !Objects.equals(actualIntegerStatistics.getMin(), expectedIntegerStatistics.getMin()) ||
+                    !Objects.equals(actualIntegerStatistics.getMax(), expectedIntegerStatistics.getMax()) ||
+                    (actualIntegerStatistics.getSum() != null &&
+                            expectedIntegerStatistics.getSum() != null &&
+                            !Objects.equals(actualIntegerStatistics.getSum(), expectedIntegerStatistics.getSum()))) {
+                throw new OrcCorruptionException(orcDataSourceId, "Write validation failed: unexpected integer range in %s statistics", name);
+            }
         }
         if (!Objects.equals(actualColumnStatistics.getDoubleStatistics(), expectedColumnStatistics.getDoubleStatistics())) {
             throw new OrcCorruptionException(orcDataSourceId, "Write validation failed: unexpected double range in %s statistics", name);
