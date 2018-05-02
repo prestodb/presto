@@ -312,7 +312,7 @@ public final class GeoFunctions
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Second argument to line_locate_point must be a Point. Got: %s", point.getGeometryType()));
         }
 
-        return new LengthIndexedLine(line).indexOf(point.getCoordinate());
+        return new LengthIndexedLine(line).indexOf(point.getCoordinate()) / line.getLength();
     }
 
     @SqlNullable

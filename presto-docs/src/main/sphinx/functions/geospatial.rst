@@ -228,7 +228,7 @@ Accessors
     Returns a float between 0 and 1 representing the location of the closest point on
     the LineString to the given Point, as a fraction of total 2d line length.
 
-    Returns ``null`` if a LineString or a Point is empty of ``null``.
+    Returns ``null`` if a LineString or a Point is empty or ``null``.
 
 .. function:: geometry_invalid_reason(Geometry) -> varchar
 
