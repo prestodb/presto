@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<configuration>
+	<property>
+		<name>hbase.regionserver.wal.codec</name>
+		<value>org.apache.hadoop.hbase.regionserver.wal.IndexedWALEditCodec</value>
+	</property>
+	<property>
+		<name>phoenix.schema.isNamespaceMappingEnabled</name>
+		<value>true</value>
+	</property>
+</configuration>

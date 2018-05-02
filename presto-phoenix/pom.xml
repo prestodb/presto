@@ -1,0 +1,223 @@
+<?xml version="1.0"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+	<parent>
+		<groupId>com.facebook.presto</groupId>
+		<artifactId>presto-root</artifactId>
+		<version>0.201-SNAPSHOT</version>
+	</parent>
+
+	<artifactId>presto-phoenix</artifactId>
+	<description>Presto - Phoenix Connector</description>
+	<packaging>presto-plugin</packaging>
+
+	<properties>
+		<air.main.basedir>${project.parent.basedir}</air.main.basedir>
+		<dep.phoenix.version>1.0</dep.phoenix.version>
+	</properties>
+
+	<dependencies>
+		<dependency>
+			<groupId>com.github.combineads</groupId>
+			<artifactId>presto-phoenix-core-shaded</artifactId>
+			<version>${dep.phoenix.version}</version>
+			<exclusions>
+				<exclusion>
+					<groupId>com.sun.jersey</groupId>
+					<artifactId>jersey-core</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>com.sun.jersey</groupId>
+					<artifactId>jersey-server</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>com.google.code.findbugs</groupId>
+					<artifactId>jsr305</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>commons-logging</groupId>
+					<artifactId>commons-logging</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>com.github.stephenc.findbugs</groupId>
+					<artifactId>findbugs-annotations</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>org.slf4j</groupId>
+					<artifactId>slf4j-log4j12</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>org.apache.htrace</groupId>
+					<artifactId>htrace-core4</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+
+		<dependency>
+			<groupId>com.github.combineads</groupId>
+			<artifactId>presto-hbase-testing-util-shaded</artifactId>
+			<version>${dep.phoenix.version}</version>
+			<scope>test</scope>
+			<exclusions>
+				<exclusion>
+					<groupId>com.sun.jersey</groupId>
+					<artifactId>jersey-server</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>commons-logging</groupId>
+					<artifactId>commons-logging</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>com.github.stephenc.findbugs</groupId>
+					<artifactId>findbugs-annotations</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>org.slf4j</groupId>
+					<artifactId>slf4j-log4j12</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+
+		<dependency>
+			<groupId>io.airlift</groupId>
+			<artifactId>bootstrap</artifactId>
+			<exclusions>
+				<exclusion>
+					<groupId>org.slf4j</groupId>
+					<artifactId>log4j-over-slf4j</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+
+		<dependency>
+			<groupId>io.airlift</groupId>
+			<artifactId>log</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>io.airlift</groupId>
+			<artifactId>configuration</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>com.google.guava</groupId>
+			<artifactId>guava</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>com.google.inject</groupId>
+			<artifactId>guice</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>com.google.code.findbugs</groupId>
+			<artifactId>jsr305</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>joda-time</groupId>
+			<artifactId>joda-time</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>javax.validation</groupId>
+			<artifactId>validation-api</artifactId>
+		</dependency>
+
+		<!-- Presto SPI -->
+		<dependency>
+			<groupId>com.facebook.presto</groupId>
+			<artifactId>presto-spi</artifactId>
+			<scope>provided</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>io.airlift</groupId>
+			<artifactId>slice</artifactId>
+			<scope>provided</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>io.airlift</groupId>
+			<artifactId>units</artifactId>
+			<scope>provided</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>com.fasterxml.jackson.core</groupId>
+			<artifactId>jackson-annotations</artifactId>
+			<scope>provided</scope>
+		</dependency>
+
+		<!-- for testing -->
+		<dependency>
+			<groupId>org.testng</groupId>
+			<artifactId>testng</artifactId>
+			<scope>test</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>io.airlift</groupId>
+			<artifactId>testing</artifactId>
+			<scope>test</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>io.airlift</groupId>
+			<artifactId>json</artifactId>
+			<scope>test</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>com.facebook.presto</groupId>
+			<artifactId>presto-main</artifactId>
+			<scope>test</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>com.facebook.presto</groupId>
+			<artifactId>presto-tpch</artifactId>
+			<scope>test</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>io.airlift.tpch</groupId>
+			<artifactId>tpch</artifactId>
+			<scope>test</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>com.facebook.presto</groupId>
+			<artifactId>presto-tests</artifactId>
+			<scope>test</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>org.jetbrains</groupId>
+			<artifactId>annotations</artifactId>
+			<scope>test</scope>
+		</dependency>
+	</dependencies>
+
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.basepom.maven</groupId>
+				<artifactId>duplicate-finder-maven-plugin</artifactId>
+				<configuration>
+					<ignoredDependencies>
+						<dependency>
+							<groupId>com.github.combineads</groupId>
+							<artifactId>presto-phoenix-core-shaded</artifactId>
+						</dependency>
+						<dependency>
+							<groupId>com.github.combineads</groupId>
+							<artifactId>presto-hbase-testing-util-shaded</artifactId>
+						</dependency>
+					</ignoredDependencies>
+				</configuration>
+			</plugin>
+		</plugins>
+	</build>
+</project>
