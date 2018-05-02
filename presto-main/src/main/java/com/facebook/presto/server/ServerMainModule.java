@@ -88,6 +88,7 @@ import com.facebook.presto.memory.MemoryResource;
 import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.memory.ReservedSystemMemoryConfig;
 import com.facebook.presto.metadata.CatalogManager;
+import com.facebook.presto.metadata.ColumnPropertyManager;
 import com.facebook.presto.metadata.DiscoveryNodeManager;
 import com.facebook.presto.metadata.ForNodeManager;
 import com.facebook.presto.metadata.HandleJsonModule;
@@ -273,6 +274,9 @@ public class ServerMainModule
 
         // table properties
         binder.bind(TablePropertyManager.class).in(Scopes.SINGLETON);
+
+        // column properties
+        binder.bind(ColumnPropertyManager.class).in(Scopes.SINGLETON);
 
         // node manager
         discoveryBinder(binder).bindSelector("presto");

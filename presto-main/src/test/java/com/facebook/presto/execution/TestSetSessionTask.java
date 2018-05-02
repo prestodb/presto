@@ -16,6 +16,7 @@ package com.facebook.presto.execution;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.CatalogManager;
+import com.facebook.presto.metadata.ColumnPropertyManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.SchemaPropertyManager;
 import com.facebook.presto.metadata.SessionPropertyManager;
@@ -73,6 +74,7 @@ public class TestSetSessionTask
                 new SessionPropertyManager(),
                 new SchemaPropertyManager(),
                 new TablePropertyManager(),
+                new ColumnPropertyManager(),
                 transactionManager);
 
         metadata.getSessionPropertyManager().addSystemSessionProperty(stringProperty(

@@ -113,6 +113,7 @@ public class MetadataManager
     private final SessionPropertyManager sessionPropertyManager;
     private final SchemaPropertyManager schemaPropertyManager;
     private final TablePropertyManager tablePropertyManager;
+    private final ColumnPropertyManager columnPropertyManager;
     private final TransactionManager transactionManager;
 
     private final ConcurrentMap<String, Collection<ConnectorMetadata>> catalogsByQueryId = new ConcurrentHashMap<>();
@@ -123,6 +124,7 @@ public class MetadataManager
             SessionPropertyManager sessionPropertyManager,
             SchemaPropertyManager schemaPropertyManager,
             TablePropertyManager tablePropertyManager,
+            ColumnPropertyManager columnPropertyManager,
             TransactionManager transactionManager)
     {
         this(featuresConfig,
@@ -132,6 +134,7 @@ public class MetadataManager
                 sessionPropertyManager,
                 schemaPropertyManager,
                 tablePropertyManager,
+                columnPropertyManager,
                 transactionManager);
     }
 
@@ -143,6 +146,7 @@ public class MetadataManager
             SessionPropertyManager sessionPropertyManager,
             SchemaPropertyManager schemaPropertyManager,
             TablePropertyManager tablePropertyManager,
+            ColumnPropertyManager columnPropertyManager,
             TransactionManager transactionManager)
     {
         functions = new FunctionRegistry(typeManager, blockEncodingSerde, featuresConfig);
@@ -153,6 +157,7 @@ public class MetadataManager
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.schemaPropertyManager = requireNonNull(schemaPropertyManager, "schemaPropertyManager is null");
         this.tablePropertyManager = requireNonNull(tablePropertyManager, "tablePropertyManager is null");
+        this.columnPropertyManager = requireNonNull(columnPropertyManager, "columnPropertyManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
 
         verifyComparableOrderableContract();
@@ -183,6 +188,7 @@ public class MetadataManager
                 new SessionPropertyManager(),
                 new SchemaPropertyManager(),
                 new TablePropertyManager(),
+                new ColumnPropertyManager(),
                 createTestTransactionManager(catalogManager));
     }
 
@@ -902,6 +908,12 @@ public class MetadataManager
     public TablePropertyManager getTablePropertyManager()
     {
         return tablePropertyManager;
+    }
+
+    @Override
+    public ColumnPropertyManager getColumnPropertyManager()
+    {
+        return columnPropertyManager;
     }
 
     private ViewDefinition deserializeView(String data)

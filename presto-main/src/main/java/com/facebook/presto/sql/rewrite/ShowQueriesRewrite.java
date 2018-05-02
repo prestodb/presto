@@ -27,6 +27,7 @@ import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.analyzer.SemanticException;
@@ -72,6 +73,7 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.primitives.Primitives;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -87,6 +89,7 @@ import static com.facebook.presto.metadata.MetadataListing.listSchemas;
 import static com.facebook.presto.metadata.MetadataUtil.createCatalogSchemaName;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedName;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_COLUMN_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static com.facebook.presto.sql.ExpressionFormatter.formatQualifiedName;
 import static com.facebook.presto.sql.ParsingUtil.createParsingOptions;
@@ -395,39 +398,19 @@ final class ShowQueriesRewrite
 
                 ConnectorTableMetadata connectorTableMetadata = metadata.getTableMetadata(session, tableHandle.get()).getMetadata();
 
+                Map<String, PropertyMetadata<?>> allColumnProperties = metadata.getColumnPropertyManager().getAllProperties().get(tableHandle.get().getConnectorId());
+
                 List<TableElement> columns = connectorTableMetadata.getColumns().stream()
                         .filter(column -> !column.isHidden())
-                        .map(column -> new ColumnDefinition(new Identifier(column.getName()), column.getType().getDisplayName(), Optional.ofNullable(column.getComment())))
+                        .map(column -> {
+                            List<Property> propertyNodes = buildProperties(objectName, Optional.of(column.getName()), INVALID_COLUMN_PROPERTY, column.getProperties(), allColumnProperties);
+                            return new ColumnDefinition(new Identifier(column.getName()), column.getType().getDisplayName(), propertyNodes, Optional.ofNullable(column.getComment()));
+                        })
                         .collect(toImmutableList());
 
                 Map<String, Object> properties = connectorTableMetadata.getProperties();
                 Map<String, PropertyMetadata<?>> allTableProperties = metadata.getTablePropertyManager().getAllProperties().get(tableHandle.get().getConnectorId());
-                ImmutableSortedMap.Builder<String, Expression> sqlProperties = ImmutableSortedMap.naturalOrder();
-
-                for (Map.Entry<String, Object> propertyEntry : properties.entrySet()) {
-                    String propertyName = propertyEntry.getKey();
-                    Object value = propertyEntry.getValue();
-                    if (value == null) {
-                        throw new PrestoException(INVALID_TABLE_PROPERTY, format("Property %s for table %s cannot have a null value", propertyName, objectName));
-                    }
-
-                    PropertyMetadata<?> property = allTableProperties.get(propertyName);
-                    if (!Primitives.wrap(property.getJavaType()).isInstance(value)) {
-                        throw new PrestoException(INVALID_TABLE_PROPERTY, format(
-                                "Property %s for table %s should have value of type %s, not %s",
-                                propertyName,
-                                objectName,
-                                property.getJavaType().getName(),
-                                value.getClass().getName()));
-                    }
-
-                    Expression sqlExpression = getExpression(property, value);
-                    sqlProperties.put(propertyName, sqlExpression);
-                }
-
-                List<Property> propertyNodes = sqlProperties.build().entrySet().stream()
-                        .map(entry -> new Property(new Identifier(entry.getKey()), entry.getValue()))
-                        .collect(toImmutableList());
+                List<Property> propertyNodes = buildProperties(objectName, Optional.empty(), INVALID_TABLE_PROPERTY, properties, allTableProperties);
 
                 CreateTable createTable = new CreateTable(
                         QualifiedName.of(objectName.getCatalogName(), objectName.getSchemaName(), objectName.getObjectName()),
@@ -439,6 +422,51 @@ final class ShowQueriesRewrite
             }
 
             throw new UnsupportedOperationException("SHOW CREATE only supported for tables and views");
+        }
+
+        private List<Property> buildProperties(
+                Object objectName,
+                Optional<String> columnName,
+                StandardErrorCode errorCode,
+                Map<String, Object> properties,
+                Map<String, PropertyMetadata<?>> allProperties)
+        {
+            if (properties.isEmpty()) {
+                return Collections.emptyList();
+            }
+
+            ImmutableSortedMap.Builder<String, Expression> sqlProperties = ImmutableSortedMap.naturalOrder();
+
+            for (Map.Entry<String, Object> propertyEntry : properties.entrySet()) {
+                String propertyName = propertyEntry.getKey();
+                Object value = propertyEntry.getValue();
+                if (value == null) {
+                    throw new PrestoException(errorCode, format("Property %s for %s cannot have a null value", propertyName, toQualifedName(objectName, columnName)));
+                }
+
+                PropertyMetadata<?> property = allProperties.get(propertyName);
+                if (!Primitives.wrap(property.getJavaType()).isInstance(value)) {
+                    throw new PrestoException(errorCode, format(
+                            "Property %s for %s should have value of type %s, not %s",
+                            propertyName,
+                            toQualifedName(objectName, columnName),
+                            property.getJavaType().getName(),
+                            value.getClass().getName()));
+                }
+
+                Expression sqlExpression = getExpression(property, value);
+                sqlProperties.put(propertyName, sqlExpression);
+            }
+
+            return sqlProperties.build().entrySet().stream()
+                    .map(entry -> new Property(new Identifier(entry.getKey()), entry.getValue()))
+                    .collect(toImmutableList());
+        }
+
+        private static String toQualifedName(Object objectName, Optional<String> columnName)
+        {
+            return columnName.map(s -> format("column %s of table %s", s, objectName))
+                    .orElseGet(() -> "table " + objectName);
         }
 
         @Override

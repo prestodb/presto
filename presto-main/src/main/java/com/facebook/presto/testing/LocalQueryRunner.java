@@ -23,6 +23,7 @@ import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.system.CatalogSystemTable;
+import com.facebook.presto.connector.system.ColumnPropertiesSystemTable;
 import com.facebook.presto.connector.system.GlobalSystemConnector;
 import com.facebook.presto.connector.system.GlobalSystemConnectorFactory;
 import com.facebook.presto.connector.system.NodeSystemTable;
@@ -63,6 +64,7 @@ import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.memory.MemoryManagerConfig;
 import com.facebook.presto.metadata.CatalogManager;
+import com.facebook.presto.metadata.ColumnPropertyManager;
 import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.Metadata;
@@ -317,6 +319,7 @@ public class LocalQueryRunner
                 new SessionPropertyManager(new SystemSessionProperties(new QueryManagerConfig(), new TaskManagerConfig(), new MemoryManagerConfig(), featuresConfig)),
                 new SchemaPropertyManager(),
                 new TablePropertyManager(),
+                new ColumnPropertyManager(),
                 transactionManager);
         this.joinCompiler = new JoinCompiler(metadata, featuresConfig);
         this.pageIndexerFactory = new GroupByHashPageIndexerFactory(joinCompiler);
@@ -355,6 +358,7 @@ public class LocalQueryRunner
                 new CatalogSystemTable(metadata, accessControl),
                 new SchemaPropertiesSystemTable(transactionManager, metadata),
                 new TablePropertiesSystemTable(transactionManager, metadata),
+                new ColumnPropertiesSystemTable(transactionManager, metadata),
                 new TransactionsSystemTable(typeRegistry, transactionManager)),
                 ImmutableSet.of());
 
