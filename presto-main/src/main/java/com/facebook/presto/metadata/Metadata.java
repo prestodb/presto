@@ -289,4 +289,6 @@ public interface Metadata
     SchemaPropertyManager getSchemaPropertyManager();
 
     TablePropertyManager getTablePropertyManager();
+
+    ColumnPropertyManager getColumnPropertyManager();
 }

@@ -391,6 +391,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public ColumnPropertyManager getColumnPropertyManager()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void dropColumn(Session session, TableHandle tableHandle, ColumnHandle column)
     {
         throw new UnsupportedOperationException();

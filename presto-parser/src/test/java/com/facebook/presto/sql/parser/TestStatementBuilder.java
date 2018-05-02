@@ -27,8 +27,8 @@ import static com.facebook.presto.sql.testing.TreeAssertions.assertFormattedSql;
 import static com.google.common.base.Strings.repeat;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public class TestStatementBuilder
 {
@@ -193,6 +193,10 @@ public class TestStatementBuilder
 
         printStatement("alter table a.b.c add column x bigint");
 
+        printStatement("alter table a.b.c add column x bigint comment 'large x'");
+        printStatement("alter table a.b.c add column x bigint with (weight = 2)");
+        printStatement("alter table a.b.c add column x bigint comment 'xtra' with (compression = 'LZ4', special = true)");
+
         printStatement("alter table a.b.c drop column x");
 
         printStatement("create schema test");
@@ -212,6 +216,7 @@ public class TestStatementBuilder
         printStatement("create table if not exists baz (a timestamp, b varchar)");
         printStatement("create table test (a boolean, b bigint) with (a = 'apple', b = 'banana')");
         printStatement("create table test (a boolean, b bigint) comment 'test' with (a = 'apple')");
+        printStatement("create table test (a boolean with (a = 'apple', b = 'banana'), b bigint comment 'bla' with (c = 'cherry')) comment 'test' with (a = 'apple')");
         printStatement("drop table test");
 
         printStatement("create view foo as with a as (select 123) select * from a");
@@ -323,9 +328,9 @@ public class TestStatementBuilder
 
     private static void assertSqlFormatter(String expression, String formatted)
     {
-        Expression originalExpression = SQL_PARSER.createExpression(expression);
+        Expression originalExpression = SQL_PARSER.createExpression(expression, new ParsingOptions());
         String real = SqlFormatter.formatSql(originalExpression, Optional.empty());
-        assertTrue(real.equals(formatted));
+        assertEquals(real, formatted);
     }
 
     private static void println(String s)

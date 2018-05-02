@@ -9,7 +9,7 @@ Synopsis
 
     CREATE TABLE [ IF NOT EXISTS ]
     table_name (
-      { column_name data_type [ COMMENT comment ]
+      { column_name data_type [ COMMENT comment ] [ WITH ( property_name = expression [, ...] ) ]
       | LIKE existing_table_name [ { INCLUDING | EXCLUDING } PROPERTIES ] }
       [, ...]
     )
@@ -27,10 +27,14 @@ The optional ``IF NOT EXISTS`` clause causes the error to be
 suppressed if the table already exists.
 
 The optional ``WITH`` clause can be used to set properties
-on the newly created table.  To list all available table
+on the newly created table or on single columns.  To list all available table
 properties, run the following query::
 
     SELECT * FROM system.metadata.table_properties
+
+To list all available column properties, run the following query::
+
+    SELECT * FROM system.metadata.column_properties
 
 The ``LIKE`` clause can be used to include all the column definitions from
 an existing table in the new table. Multiple ``LIKE`` clauses may be
@@ -41,6 +45,7 @@ copied to the new table. If the ``WITH`` clause specifies the same property
 name as one of the copied properties, the value from the ``WITH`` clause
 will be used. The default behavior is ``EXCLUDING PROPERTIES``. The
 ``INCLUDING PROPERTIES`` option maybe specified for at most one table.
+
 
 Examples
 --------

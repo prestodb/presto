@@ -265,6 +265,7 @@ public class ConnectorManager
                 .ifPresent(accessControl -> accessControlManager.addCatalogAccessControl(connectorId, accessControl));
 
         metadataManager.getTablePropertyManager().addProperties(connectorId, connector.getTableProperties());
+        metadataManager.getColumnPropertyManager().addProperties(connectorId, connector.getColumnProperties());
         metadataManager.getSchemaPropertyManager().addProperties(connectorId, connector.getSchemaProperties());
         metadataManager.getSessionPropertyManager().addConnectorSessionProperties(connectorId, connector.getSessionProperties());
     }
@@ -334,6 +335,7 @@ public class ConnectorManager
         private final List<PropertyMetadata<?>> sessionProperties;
         private final List<PropertyMetadata<?>> tableProperties;
         private final List<PropertyMetadata<?>> schemaProperties;
+        private final List<PropertyMetadata<?>> columnProperties;
 
         public MaterializedConnector(ConnectorId connectorId, Connector connector)
         {
@@ -418,6 +420,10 @@ public class ConnectorManager
             List<PropertyMetadata<?>> schemaProperties = connector.getSchemaProperties();
             requireNonNull(schemaProperties, "Connector %s returned a null schema properties set");
             this.schemaProperties = ImmutableList.copyOf(schemaProperties);
+
+            List<PropertyMetadata<?>> columnProperties = connector.getColumnProperties();
+            requireNonNull(columnProperties, "Connector %s returned a null column properties set");
+            this.columnProperties = ImmutableList.copyOf(columnProperties);
         }
 
         public ConnectorId getConnectorId()
@@ -478,6 +484,11 @@ public class ConnectorManager
         public List<PropertyMetadata<?>> getTableProperties()
         {
             return tableProperties;
+        }
+
+        public List<PropertyMetadata<?>> getColumnProperties()
+        {
+            return columnProperties;
         }
 
         public List<PropertyMetadata<?>> getSchemaProperties()

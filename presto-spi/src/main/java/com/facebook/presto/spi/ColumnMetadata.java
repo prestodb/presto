@@ -15,8 +15,12 @@ package com.facebook.presto.spi;
 
 import com.facebook.presto.spi.type.Type;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Objects;
 
+import static java.util.Collections.emptyMap;
+import static java.util.Collections.unmodifiableMap;
 import static java.util.Locale.ENGLISH;
 
 public class ColumnMetadata
@@ -26,18 +30,24 @@ public class ColumnMetadata
     private final String comment;
     private final String extraInfo;
     private final boolean hidden;
+    private final Map<String, Object> properties;
 
     public ColumnMetadata(String name, Type type)
     {
-        this(name, type, null, false);
+        this(name, type, null, null, false, emptyMap());
     }
 
     public ColumnMetadata(String name, Type type, String comment, boolean hidden)
     {
-        this(name, type, comment, null, hidden);
+        this(name, type, comment, null, hidden, emptyMap());
     }
 
     public ColumnMetadata(String name, Type type, String comment, String extraInfo, boolean hidden)
+    {
+        this(name, type, comment, extraInfo, hidden, emptyMap());
+    }
+
+    public ColumnMetadata(String name, Type type, String comment, String extraInfo, boolean hidden, Map<String, Object> properties)
     {
         if (name == null || name.isEmpty()) {
             throw new NullPointerException("name is null or empty");
@@ -45,12 +55,16 @@ public class ColumnMetadata
         if (type == null) {
             throw new NullPointerException("type is null");
         }
+        if (properties == null) {
+            throw new NullPointerException("properties is null");
+        }
 
         this.name = name.toLowerCase(ENGLISH);
         this.type = type;
         this.comment = comment;
         this.extraInfo = extraInfo;
         this.hidden = hidden;
+        this.properties = properties.isEmpty() ? emptyMap() : unmodifiableMap(new LinkedHashMap<>(properties));
     }
 
     public String getName()
@@ -78,6 +92,11 @@ public class ColumnMetadata
         return hidden;
     }
 
+    public Map<String, Object> getProperties()
+    {
+        return properties;
+    }
+
     @Override
     public String toString()
     {
@@ -92,6 +111,9 @@ public class ColumnMetadata
         }
         if (hidden) {
             sb.append(", hidden");
+        }
+        if (!properties.isEmpty()) {
+            sb.append(", properties=").append(properties);
         }
         sb.append('}');
         return sb.toString();

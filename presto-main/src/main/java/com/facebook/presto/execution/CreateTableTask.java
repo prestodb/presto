@@ -95,6 +95,9 @@ public class CreateTableTask
             return immediateFuture(null);
         }
 
+        ConnectorId connectorId = metadata.getCatalogHandle(session, tableName.getCatalogName())
+                .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog does not exist: " + tableName.getCatalogName()));
+
         LinkedHashMap<String, ColumnMetadata> columns = new LinkedHashMap<>();
         Map<String, Object> inheritedProperties = ImmutableMap.of();
         boolean includingProperties = false;
@@ -115,7 +118,17 @@ public class CreateTableTask
                 if (columns.containsKey(name)) {
                     throw new SemanticException(DUPLICATE_COLUMN_NAME, column, "Column name '%s' specified more than once", column.getName());
                 }
-                columns.put(name, new ColumnMetadata(name, type, column.getComment().orElse(null), false));
+
+                Map<String, Expression> sqlProperties = mapFromProperties(column.getProperties());
+                Map<String, Object> columnProperties = metadata.getColumnPropertyManager().getProperties(
+                        connectorId,
+                        tableName.getCatalogName(),
+                        sqlProperties,
+                        session,
+                        metadata,
+                        parameters);
+
+                columns.put(name, new ColumnMetadata(name, type, column.getComment().orElse(null), null, false, columnProperties));
             }
             else if (element instanceof LikeClause) {
                 LikeClause likeClause = (LikeClause) element;
@@ -155,9 +168,6 @@ public class CreateTableTask
         }
 
         accessControl.checkCanCreateTable(session.getRequiredTransactionId(), session.getIdentity(), tableName);
-
-        ConnectorId connectorId = metadata.getCatalogHandle(session, tableName.getCatalogName())
-                .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog does not exist: " + tableName.getCatalogName()));
 
         Map<String, Expression> sqlProperties = mapFromProperties(statement.getProperties());
         Map<String, Object> properties = metadata.getTablePropertyManager().getProperties(
