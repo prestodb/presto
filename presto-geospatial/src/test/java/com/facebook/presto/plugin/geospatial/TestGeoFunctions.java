@@ -257,9 +257,16 @@ public class TestGeoFunctions
     public void testLineLocatePoint()
     {
         assertFunction("line_locate_point(ST_GeometryFromText('LINESTRING (0 0, 0 1)'), ST_Point(0, 0.2))", DOUBLE, 0.2);
-        assertFunction("line_locate_point(ST_GeometryFromText('LINESTRING (0 0, 0 1, 2 1)'), ST_Point(0, 0.2))", DOUBLE, 0.2);
-        assertFunction("line_locate_point(ST_GeometryFromText('LINESTRING (0 0, 0 1, 2 1)'), ST_Point(0.9, 1))", DOUBLE, 1.9);
-        assertFunction("line_locate_point(ST_GeometryFromText('MULTILINESTRING ((0 0, 0 1), (2 2, 4 2))'), ST_Point(3, 1))", DOUBLE, 2.0);
+        assertFunction("line_locate_point(ST_GeometryFromText('LINESTRING (0 0, 0 1)'), ST_Point(0, 0))", DOUBLE, 0.0);
+        assertFunction("line_locate_point(ST_GeometryFromText('LINESTRING (0 0, 0 1)'), ST_Point(0, -1))", DOUBLE, 0.0);
+        assertFunction("line_locate_point(ST_GeometryFromText('LINESTRING (0 0, 0 1)'), ST_Point(0, 1))", DOUBLE, 1.0);
+        assertFunction("line_locate_point(ST_GeometryFromText('LINESTRING (0 0, 0 1)'), ST_Point(0, 2))", DOUBLE, 1.0);
+        assertFunction("line_locate_point(ST_GeometryFromText('LINESTRING (0 0, 0 1, 2 1)'), ST_Point(0, 0.2))", DOUBLE, 0.06666666666666667);
+        assertFunction("line_locate_point(ST_GeometryFromText('LINESTRING (0 0, 0 1, 2 1)'), ST_Point(0.9, 1))", DOUBLE, 0.6333333333333333);
+        assertFunction("line_locate_point(ST_GeometryFromText('LINESTRING (1 3, 5 4)'), ST_Point(1, 3))", DOUBLE, 0.0);
+        assertFunction("line_locate_point(ST_GeometryFromText('LINESTRING (1 3, 5 4)'), ST_Point(2, 3))", DOUBLE, 0.23529411764705882);
+        assertFunction("line_locate_point(ST_GeometryFromText('LINESTRING (1 3, 5 4)'), ST_Point(5, 4))", DOUBLE, 1.0);
+        assertFunction("line_locate_point(ST_GeometryFromText('MULTILINESTRING ((0 0, 0 1), (2 2, 4 2))'), ST_Point(3, 1))", DOUBLE, 0.6666666666666666);
 
         assertFunction("line_locate_point(ST_GeometryFromText('LINESTRING EMPTY'), ST_Point(0, 1))", DOUBLE, null);
         assertFunction("line_locate_point(ST_GeometryFromText('LINESTRING (0 0, 0 1, 2 1)'), ST_GeometryFromText('POINT EMPTY'))", DOUBLE, null);
