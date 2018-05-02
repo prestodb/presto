@@ -48,7 +48,6 @@ import java.util.Set;
 
 import static com.facebook.presto.connector.ConnectorId.createInformationSchemaConnectorId;
 import static com.facebook.presto.connector.ConnectorId.createSystemTablesConnectorId;
-import static com.facebook.presto.spi.security.AccessDeniedException.denySelectColumns;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectTable;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.facebook.presto.transaction.TransactionManager.createTestTransactionManager;
@@ -97,7 +96,6 @@ public class TestAccessControlManager
                     accessControlManager.checkCanCreateViewWithSelectFromView(transactionId, identity, tableName);
                     accessControlManager.checkCanShowSchemas(transactionId, identity, "catalog");
                     accessControlManager.checkCanShowTablesMetadata(transactionId, identity, new CatalogSchemaName("catalog", "schema"));
-                    accessControlManager.checkCanSelectFromColumns(transactionId, identity, tableName, ImmutableSet.of("column"));
                     Set<String> catalogs = ImmutableSet.of("catalog");
                     assertEquals(accessControlManager.filterCatalogs(identity, catalogs), catalogs);
                     Set<String> schemas = ImmutableSet.of("schema");
@@ -297,12 +295,6 @@ public class TestAccessControlManager
         }
 
         @Override
-        public void checkCanSelectFromColumns(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName, Set<String> columnNames)
-        {
-            denySelectColumns(tableName.toString(), columnNames);
-        }
-
-        @Override
         public void checkCanCreateSchema(ConnectorTransactionHandle transactionHandle, Identity identity, String schemaName)
         {
             throw new UnsupportedOperationException();
@@ -394,12 +386,6 @@ public class TestAccessControlManager
 
         @Override
         public void checkCanCreateViewWithSelectFromView(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName viewName)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void checkCanCreateViewWithSelectFromColumns(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName, Set<String> columnNames)
         {
             throw new UnsupportedOperationException();
         }

@@ -242,11 +242,6 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
-    public void checkCanSelectFromColumns(Identity identity, CatalogSchemaTableName table, Set<String> columns)
-    {
-    }
-
-    @Override
     public void checkCanSelectFromTable(Identity identity, CatalogSchemaTableName table)
     {
     }
@@ -283,11 +278,6 @@ public class FileBasedSystemAccessControl
 
     @Override
     public void checkCanCreateViewWithSelectFromView(Identity identity, CatalogSchemaTableName view)
-    {
-    }
-
-    @Override
-    public void checkCanCreateViewWithSelectFromColumns(Identity identity, CatalogSchemaTableName table, Set<String> columns)
     {
     }
 

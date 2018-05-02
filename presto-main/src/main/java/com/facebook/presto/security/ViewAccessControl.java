@@ -17,8 +17,6 @@ import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.transaction.TransactionId;
 
-import java.util.Set;
-
 import static java.util.Objects.requireNonNull;
 
 public class ViewAccessControl
@@ -44,12 +42,6 @@ public class ViewAccessControl
     }
 
     @Override
-    public void checkCanSelectFromColumns(TransactionId transactionId, Identity identity, QualifiedObjectName tableName, Set<String> columnNames)
-    {
-        delegate.checkCanCreateViewWithSelectFromColumns(transactionId, identity, tableName, columnNames);
-    }
-
-    @Override
     public void checkCanCreateViewWithSelectFromTable(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
     {
         delegate.checkCanCreateViewWithSelectFromTable(transactionId, identity, tableName);
@@ -59,11 +51,5 @@ public class ViewAccessControl
     public void checkCanCreateViewWithSelectFromView(TransactionId transactionId, Identity identity, QualifiedObjectName viewName)
     {
         delegate.checkCanCreateViewWithSelectFromView(transactionId, identity, viewName);
-    }
-
-    @Override
-    public void checkCanCreateViewWithSelectFromColumns(TransactionId transactionId, Identity identity, QualifiedObjectName tableName, Set<String> columnNames)
-    {
-        delegate.checkCanCreateViewWithSelectFromColumns(transactionId, identity, tableName, columnNames);
     }
 }

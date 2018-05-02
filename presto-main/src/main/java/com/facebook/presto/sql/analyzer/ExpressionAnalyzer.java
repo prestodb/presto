@@ -17,7 +17,6 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorNotFoundException;
-import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.security.DenyAllAccessControl;
@@ -93,10 +92,8 @@ import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.sql.tree.WindowFrame;
 import com.facebook.presto.type.FunctionType;
-import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Multimap;
 import io.airlift.slice.SliceUtf8;
 
 import javax.annotation.Nullable;
@@ -184,7 +181,6 @@ public class ExpressionAnalyzer
     // For lambda argument references, maps each QualifiedNameReference to the referenced LambdaArgumentDeclaration
     private final Map<NodeRef<Identifier>, LambdaArgumentDeclaration> lambdaArgumentReferences = new LinkedHashMap<>();
     private final Set<NodeRef<FunctionCall>> windowFunctions = new LinkedHashSet<>();
-    private final Multimap<QualifiedObjectName, String> tableColumnReferences = HashMultimap.create();
 
     private final Session session;
     private final List<Expression> parameters;
@@ -294,11 +290,6 @@ public class ExpressionAnalyzer
         return unmodifiableSet(windowFunctions);
     }
 
-    public Multimap<QualifiedObjectName, String> getTableColumnReferences()
-    {
-        return tableColumnReferences;
-    }
-
     private class Visitor
             extends StackableAstVisitor<Type, Context>
     {
@@ -387,27 +378,23 @@ public class ExpressionAnalyzer
 
         private Type handleResolvedField(Expression node, ResolvedField resolvedField, StackableAstVisitorContext<Context> context)
         {
-            return handleResolvedField(node, FieldId.from(resolvedField), resolvedField.getField(), context);
+            return handleResolvedField(node, FieldId.from(resolvedField), resolvedField.getType(), context);
         }
 
-        private Type handleResolvedField(Expression node, FieldId fieldId, Field field, StackableAstVisitorContext<Context> context)
+        private Type handleResolvedField(Expression node, FieldId fieldId, Type resolvedType, StackableAstVisitorContext<Context> context)
         {
             if (context.getContext().isInLambda()) {
                 LambdaArgumentDeclaration lambdaArgumentDeclaration = context.getContext().getFieldToLambdaArgumentDeclaration().get(fieldId);
                 if (lambdaArgumentDeclaration != null) {
                     // Lambda argument reference is not a column reference
                     lambdaArgumentReferences.put(NodeRef.of((Identifier) node), lambdaArgumentDeclaration);
-                    return setExpressionType(node, field.getType());
+                    return setExpressionType(node, resolvedType);
                 }
-            }
-
-            if (field.getOriginTable().isPresent() && field.getName().isPresent()) {
-                tableColumnReferences.put(field.getOriginTable().get(), field.getName().get());
             }
 
             FieldId previous = columnReferences.put(NodeRef.of(node), fieldId);
             checkState(previous == null, "%s already known to refer to %s", node, previous);
-            return setExpressionType(node, field.getType());
+            return setExpressionType(node, resolvedType);
         }
 
         @Override
@@ -1102,8 +1089,8 @@ public class ExpressionAnalyzer
         @Override
         public Type visitFieldReference(FieldReference node, StackableAstVisitorContext<Context> context)
         {
-            Field field = baseScope.getRelationType().getFieldByIndex(node.getFieldIndex());
-            return handleResolvedField(node, new FieldId(baseScope.getRelationId(), node.getFieldIndex()), field, context);
+            Type type = baseScope.getRelationType().getFieldByIndex(node.getFieldIndex()).getType();
+            return handleResolvedField(node, new FieldId(baseScope.getRelationId(), node.getFieldIndex()), type, context);
         }
 
         @Override
@@ -1559,7 +1546,6 @@ public class ExpressionAnalyzer
         analysis.addFunctionSignatures(resolvedFunctions);
         analysis.addColumnReferences(analyzer.getColumnReferences());
         analysis.addLambdaArgumentReferences(analyzer.getLambdaArgumentReferences());
-        analysis.addTableColumnMappings(analyzer.getTableColumnReferences());
 
         return new ExpressionAnalysis(
                 expressionTypes,

@@ -144,12 +144,6 @@ public class FileBasedAccessControl
     }
 
     @Override
-    public void checkCanSelectFromColumns(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName, Set<String> columnNames)
-    {
-        // allow - Column level privileges not yet implemented
-    }
-
-    @Override
     public void checkCanSelectFromTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
     {
         if (!checkTablePermission(identity, tableName, SELECT)) {
@@ -217,12 +211,6 @@ public class FileBasedAccessControl
         if (!checkTablePermission(identity, viewName, GRANT_SELECT)) {
             denyCreateViewWithSelect(viewName.toString());
         }
-    }
-
-    @Override
-    public void checkCanCreateViewWithSelectFromColumns(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName, Set<String> columnNames)
-    {
-        // allow - Column level privileges not yet implemented
     }
 
     @Override
