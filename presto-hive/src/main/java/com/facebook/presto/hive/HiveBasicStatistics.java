@@ -37,9 +37,19 @@ public class HiveBasicStatistics
     private final OptionalLong inMemoryDataSizeInBytes;
     private final OptionalLong onDiskDataSizeInBytes;
 
-    public HiveBasicStatistics(long fileCount, long rowCount, long rawDataSize, long totalSize)
+    public static HiveBasicStatistics createEmptyStatistics()
     {
-        this(OptionalLong.of(fileCount), OptionalLong.of(rowCount), OptionalLong.of(rawDataSize), OptionalLong.of(totalSize));
+        return new HiveBasicStatistics(OptionalLong.empty(), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.empty());
+    }
+
+    public static HiveBasicStatistics createZeroStatistics()
+    {
+        return new HiveBasicStatistics(0, 0, 0, 0);
+    }
+
+    public HiveBasicStatistics(long fileCount, long rowCount, long inMemoryDataSizeInBytes, long onDiskDataSizeInBytes)
+    {
+        this(OptionalLong.of(fileCount), OptionalLong.of(rowCount), OptionalLong.of(inMemoryDataSizeInBytes), OptionalLong.of(onDiskDataSizeInBytes));
     }
 
     public HiveBasicStatistics(

@@ -25,6 +25,7 @@ import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore.WriteMo
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.hive.statistics.HiveStatisticsProvider;
+import com.facebook.presto.hive.util.Statistics;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
@@ -96,6 +97,7 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import static com.facebook.presto.hive.HiveBasicStatistics.createZeroStatistics;
 import static com.facebook.presto.hive.HiveBucketing.getHiveBucketHandle;
 import static com.facebook.presto.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
@@ -153,6 +155,8 @@ import static com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore.
 import static com.facebook.presto.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
 import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static com.facebook.presto.hive.util.ConfigurationUtils.toJobConf;
+import static com.facebook.presto.hive.util.Statistics.ReduceOperator.ADD;
+import static com.facebook.presto.hive.util.Statistics.updateStatistics;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -607,7 +611,7 @@ public class HiveMetadata
         }
         List<HiveColumnHandle> columnHandles = getColumnHandles(tableMetadata, ImmutableSet.copyOf(partitionedBy), typeTranslator);
         HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(tableMetadata.getProperties());
-        Map<String, String> tableProperties = getTableProperties(tableMetadata);
+        Map<String, String> tableProperties = getEmptyTableProperties(tableMetadata, !partitionedBy.isEmpty());
 
         hiveStorageFormat.validateColumns(columnHandles);
 
@@ -645,7 +649,7 @@ public class HiveMetadata
         metastore.createTable(session, table, principalPrivileges, Optional.empty(), ignoreExisting);
     }
 
-    private Map<String, String> getTableProperties(ConnectorTableMetadata tableMetadata)
+    private Map<String, String> getEmptyTableProperties(ConnectorTableMetadata tableMetadata, boolean partitioned)
     {
         Builder<String, String> tableProperties = ImmutableMap.builder();
 
@@ -661,6 +665,10 @@ public class HiveMetadata
 
         // Table comment property
         tableMetadata.getComment().ifPresent(value -> tableProperties.put(TABLE_COMMENT, value));
+
+        if (!partitioned) {
+            tableProperties.putAll(createZeroStatistics().toPartitionParameters());
+        }
 
         return tableProperties.build();
     }
@@ -811,7 +819,7 @@ public class HiveMetadata
         List<String> partitionedBy = getPartitionedBy(tableMetadata.getProperties());
         Optional<HiveBucketProperty> bucketProperty = getBucketProperty(tableMetadata.getProperties());
 
-        Map<String, String> tableProperties = getTableProperties(tableMetadata);
+        Map<String, String> tableProperties = getEmptyTableProperties(tableMetadata, !partitionedBy.isEmpty());
 
         // get the root directory for the database
         SchemaTableName schemaTableName = tableMetadata.getTable();
@@ -888,14 +896,23 @@ public class HiveMetadata
             }
         }
 
+        if (table.getPartitionColumns().isEmpty()) {
+            HiveBasicStatistics tableStatistic = partitionUpdates.stream()
+                    .map(PartitionUpdate::getStatistics)
+                    .reduce(Statistics::add)
+                    .orElse(createZeroStatistics());
+            table = updateStatistics(table, tableStatistic, ADD);
+        }
+
         metastore.createTable(session, table, principalPrivileges, Optional.of(writePath), false);
 
         if (!handle.getPartitionedBy().isEmpty()) {
             if (isRespectTableFormat(session)) {
                 Verify.verify(handle.getPartitionStorageFormat() == handle.getTableStorageFormat());
             }
-            partitionUpdates.forEach(partitionUpdate ->
-                    metastore.addPartition(session, handle.getSchemaName(), handle.getTableName(), buildPartitionObject(session, table, partitionUpdate), partitionUpdate.getWritePath()));
+            for (PartitionUpdate update : partitionUpdates) {
+                metastore.addPartition(session, handle.getSchemaName(), handle.getTableName(), buildPartitionObject(session, table, update), update.getWritePath());
+            }
         }
 
         return Optional.of(new HiveWrittenPartitions(
@@ -1090,7 +1107,8 @@ public class HiveMetadata
                         handle.getSchemaName(),
                         handle.getTableName(),
                         partitionUpdate.getWritePath(),
-                        partitionUpdate.getFileNames());
+                        partitionUpdate.getFileNames(),
+                        partitionUpdate.getStatistics());
             }
             else if (!partitionUpdate.isNew()) {
                 // insert into existing partition
@@ -1100,7 +1118,8 @@ public class HiveMetadata
                         handle.getTableName(),
                         toPartitionValues(partitionUpdate.getName()),
                         partitionUpdate.getWritePath(),
-                        partitionUpdate.getFileNames());
+                        partitionUpdate.getFileNames(),
+                        partitionUpdate.getStatistics());
             }
             else {
                 // insert into new partition
@@ -1128,6 +1147,7 @@ public class HiveMetadata
                 .setParameters(ImmutableMap.<String, String>builder()
                         .put(PRESTO_VERSION_NAME, prestoVersion)
                         .put(PRESTO_QUERY_ID_NAME, session.getQueryId())
+                        .putAll(partitionUpdate.getStatistics().toPartitionParameters())
                         .build())
                 .withStorage(storage -> storage
                         .setStorageFormat(isRespectTableFormat(session) ?
