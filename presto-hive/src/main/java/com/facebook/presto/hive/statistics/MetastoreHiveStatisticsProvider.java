@@ -429,7 +429,6 @@ public class MetastoreHiveStatisticsProvider
 
     private PartitionStatistics readStatisticsFromParameters(Map<String, String> parameters, Map<String, HiveColumnStatistics> columnStatistics)
     {
-        boolean columnStatsAccurate = Boolean.valueOf(Optional.ofNullable(parameters.get("COLUMN_STATS_ACCURATE")).orElse("false"));
-        return new PartitionStatistics(HiveBasicStatistics.createFromPartitionParameters(parameters), columnStatistics, columnStatsAccurate);
+        return new PartitionStatistics(HiveBasicStatistics.createFromPartitionParameters(parameters), columnStatistics);
     }
 }

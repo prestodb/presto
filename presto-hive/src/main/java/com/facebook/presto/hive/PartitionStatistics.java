@@ -25,16 +25,13 @@ public class PartitionStatistics
 {
     private final HiveBasicStatistics basicStatistics;
     private final Map<String, HiveColumnStatistics> columnStatistics;
-    private final boolean columnStatsAccurate;
 
     public PartitionStatistics(
             HiveBasicStatistics basicStatistics,
-            Map<String, HiveColumnStatistics> columnStatistics,
-            boolean columnStatsAccurate)
+            Map<String, HiveColumnStatistics> columnStatistics)
     {
         this.basicStatistics = requireNonNull(basicStatistics, "basicStatistics is null");
         this.columnStatistics = ImmutableMap.copyOf(requireNonNull(columnStatistics, "columnStatistics can not be null"));
-        this.columnStatsAccurate = columnStatsAccurate;
     }
 
     public HiveBasicStatistics getBasicStatistics()
@@ -45,10 +42,5 @@ public class PartitionStatistics
     public Map<String, HiveColumnStatistics> getColumnStatistics()
     {
         return columnStatistics;
-    }
-
-    public boolean isColumnStatsAccurate()
-    {
-        return columnStatsAccurate;
     }
 }
