@@ -222,6 +222,7 @@ import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.entry;
 import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -2216,6 +2217,54 @@ public abstract class AbstractTestHiveClient
             catch (PrestoException e) {
                 assertEquals(e.getErrorCode(), NOT_SUPPORTED.toErrorCode());
             }
+        }
+    }
+
+    @Test
+    public void testCompareAndSetTableParameters()
+            throws Exception
+    {
+        SchemaTableName tableName = temporaryTable("compare_and_set_table_parameters");
+        try {
+            doCreateEmptyTable(tableName, ORC, CREATE_TABLE_COLUMNS);
+
+            metastoreClient.updateTableParameters(tableName.getSchemaName(), tableName.getTableName(), parameters -> {
+                Map<String, String> updated = new HashMap<>(parameters);
+                updated.put("test_key", "test_value");
+                return updated;
+            });
+
+            Table table = metastoreClient.getTable(tableName.getSchemaName(), tableName.getTableName())
+                    .orElseThrow(() -> new TableNotFoundException(tableName));
+            assertThat(table.getParameters()).contains(entry("test_key", "test_value"));
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testCompareAndSetPartitionParameters()
+            throws Exception
+    {
+        SchemaTableName tableName = temporaryTable("compare_and_set_partition_parameters");
+        try {
+            doCreateEmptyTable(tableName, ORC, CREATE_TABLE_COLUMNS_PARTITIONED);
+            insertData(tableName, CREATE_TABLE_PARTITIONED_DATA);
+            ImmutableList<String> partitionValues = ImmutableList.of("2015-07-01");
+
+            metastoreClient.updatePartitionParameters(tableName.getSchemaName(), tableName.getTableName(), partitionValues, parameters -> {
+                Map<String, String> updated = new HashMap<>(parameters);
+                updated.put("test_key", "test_value");
+                return updated;
+            });
+
+            Partition partition = metastoreClient.getPartition(tableName.getSchemaName(), tableName.getTableName(), partitionValues)
+                    .orElseThrow(() -> new PartitionNotFoundException(tableName, partitionValues));
+            assertThat(partition.getParameters()).contains(entry("test_key", "test_value"));
+        }
+        finally {
+            dropTable(tableName);
         }
     }
 

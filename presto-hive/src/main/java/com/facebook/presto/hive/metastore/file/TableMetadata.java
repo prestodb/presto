@@ -209,6 +209,22 @@ public class TableMetadata
                 viewExpandedText);
     }
 
+    public TableMetadata withParameters(Map<String, String> parameters)
+    {
+        return new TableMetadata(
+                owner,
+                tableType,
+                dataColumns,
+                partitionColumns,
+                parameters,
+                storageFormat,
+                bucketProperty,
+                serdeParameters,
+                externalLocation,
+                viewOriginalText,
+                viewExpandedText);
+    }
+
     public Table toTable(String databaseName, String tableName, String location)
     {
         return new Table(

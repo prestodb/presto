@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 
 public interface ExtendedHiveMetastore
 {
@@ -55,6 +56,8 @@ public interface ExtendedHiveMetastore
 
     void renameTable(String databaseName, String tableName, String newDatabaseName, String newTableName);
 
+    void updateTableParameters(String databaseName, String tableName, Function<Map<String, String>, Map<String, String>> update);
+
     void addColumn(String databaseName, String tableName, String columnName, HiveType columnType, String columnComment);
 
     void renameColumn(String databaseName, String tableName, String oldColumnName, String newColumnName);
@@ -79,6 +82,8 @@ public interface ExtendedHiveMetastore
     void dropPartition(String databaseName, String tableName, List<String> parts, boolean deleteData);
 
     void alterPartition(String databaseName, String tableName, Partition partition);
+
+    void updatePartitionParameters(String databaseName, String tableName, List<String> partitionValues, Function<Map<String, String>, Map<String, String>> update);
 
     Set<String> getRoles(String user);
 

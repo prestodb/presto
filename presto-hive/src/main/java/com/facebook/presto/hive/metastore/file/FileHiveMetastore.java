@@ -20,6 +20,7 @@ import com.facebook.presto.hive.HdfsEnvironment.HdfsContext;
 import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveHdfsConfiguration;
 import com.facebook.presto.hive.HiveType;
+import com.facebook.presto.hive.PartitionNotFoundException;
 import com.facebook.presto.hive.SchemaAlreadyExistsException;
 import com.facebook.presto.hive.TableAlreadyExistsException;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
@@ -400,6 +401,24 @@ public class FileHiveMetastore
     }
 
     @Override
+    public synchronized void updateTableParameters(String databaseName, String tableName, Function<Map<String, String>, Map<String, String>> update)
+    {
+        requireNonNull(databaseName, "databaseName is null");
+        requireNonNull(tableName, "tableName is null");
+        requireNonNull(update, "update is null");
+
+        Path tableMetadataDirectory = getTableMetadataDirectory(databaseName, tableName);
+        TableMetadata table = readSchemaFile("table", tableMetadataDirectory, tableCodec)
+                .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
+
+        Map<String, String> parameters = table.getParameters();
+        Map<String, String> updatedParameters = requireNonNull(update.apply(parameters), "updatedParameters is null");
+        if (!parameters.equals(updatedParameters)) {
+            writeSchemaFile("table", tableMetadataDirectory, tableCodec, table.withParameters(updatedParameters), true);
+        }
+    }
+
+    @Override
     public synchronized void addColumn(String databaseName, String tableName, String columnName, HiveType columnType, String columnComment)
     {
         alterTable(databaseName, tableName, oldTable -> {
@@ -596,6 +615,26 @@ public class FileHiveMetastore
 
         Path partitionMetadataDirectory = getPartitionMetadataDirectory(table, partition.getValues());
         writeSchemaFile("partition", partitionMetadataDirectory, partitionCodec, new PartitionMetadata(table, partition), true);
+    }
+
+    @Override
+    public synchronized void updatePartitionParameters(String databaseName, String tableName, List<String> partitionValues, Function<Map<String, String>, Map<String, String>> update)
+    {
+        requireNonNull(databaseName, "databaseName is null");
+        requireNonNull(tableName, "tableName is null");
+        requireNonNull(partitionValues, "partitionValues is null");
+        requireNonNull(update, "update is null");
+
+        Table table = getRequiredTable(databaseName, tableName);
+        Path partitionDirectory = getPartitionMetadataDirectory(table, partitionValues);
+        PartitionMetadata partition = readSchemaFile("partition", partitionDirectory, partitionCodec)
+                .orElseThrow(() -> new PartitionNotFoundException(new SchemaTableName(databaseName, tableName), partitionValues));
+
+        Map<String, String> parameters = partition.getParameters();
+        Map<String, String> updatedParameters = requireNonNull(update.apply(parameters), "updatedParameters is null");
+        if (!parameters.equals(updatedParameters)) {
+            writeSchemaFile("partition", partitionDirectory, partitionCodec, partition.withParameters(updatedParameters), true);
+        }
     }
 
     @Override

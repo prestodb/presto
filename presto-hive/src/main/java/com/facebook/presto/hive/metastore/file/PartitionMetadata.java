@@ -121,6 +121,12 @@ public class PartitionMetadata
         return externalLocation;
     }
 
+    public PartitionMetadata withParameters(Map<String, String> parameters)
+    {
+        requireNonNull(parameters, "parameters is null");
+        return new PartitionMetadata(columns, parameters, storageFormat, bucketProperty, serdeParameters, externalLocation);
+    }
+
     public Partition toPartition(String databaseName, String tableName, List<String> values, String location)
     {
         return new Partition(
