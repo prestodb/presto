@@ -24,8 +24,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.TableNotFoundException;
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -1824,7 +1822,7 @@ public class SemiTransactionalHiveMetastore
         }
     }
 
-    public static class PartitionAndMore
+    private static class PartitionAndMore
     {
         private final Partition partition;
         private final Path currentLocation;
@@ -1837,19 +1835,23 @@ public class SemiTransactionalHiveMetastore
             this.fileNames = requireNonNull(fileNames, "fileNames is null");
         }
 
-        @JsonCreator
-        public PartitionAndMore jsonCreator(@JsonProperty("partition") Partition partition, @JsonProperty("currentLocation") Path currentLocation)
-        {
-            return new PartitionAndMore(partition, currentLocation, Optional.empty());
-        }
-
-        @JsonProperty
         public Partition getPartition()
         {
             return partition;
         }
 
-        Partition getAugmentedPartitionForInTransactionRead()
+        public Path getCurrentLocation()
+        {
+            return currentLocation;
+        }
+
+        public List<String> getFileNames()
+        {
+            checkState(fileNames.isPresent());
+            return fileNames.get();
+        }
+
+        public Partition getAugmentedPartitionForInTransactionRead()
         {
             // This method augments the location field of the partition to the staging location.
             // This way, if the partition is accessed in an ongoing transaction, staged data
@@ -1864,16 +1866,14 @@ public class SemiTransactionalHiveMetastore
             return partition;
         }
 
-        @JsonProperty
-        public Path getCurrentLocation()
+        @Override
+        public String toString()
         {
-            return currentLocation;
-        }
-
-        public List<String> getFileNames()
-        {
-            checkState(fileNames.isPresent());
-            return fileNames.get();
+            return toStringHelper(this)
+                    .add("partition", partition)
+                    .add("currentLocation", currentLocation)
+                    .add("fileNames", fileNames)
+                    .toString();
         }
     }
 
