@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.parquet;
 
+import com.facebook.presto.hive.FileFormatDataSourceStats;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.parquet.predicate.ParquetPredicate;
@@ -116,6 +117,8 @@ public class ParquetHiveRecordCursor
     private long completedBytes;
     private boolean closed;
 
+    private final FileFormatDataSourceStats stats;
+
     public ParquetHiveRecordCursor(
             HdfsEnvironment hdfsEnvironment,
             String sessionUser,
@@ -129,12 +132,14 @@ public class ParquetHiveRecordCursor
             boolean useParquetColumnNames,
             TypeManager typeManager,
             boolean predicatePushdownEnabled,
-            TupleDomain<HiveColumnHandle> effectivePredicate)
+            TupleDomain<HiveColumnHandle> effectivePredicate,
+            FileFormatDataSourceStats stats)
     {
         requireNonNull(path, "path is null");
         checkArgument(length >= 0, "length is negative");
         requireNonNull(splitSchema, "splitSchema is null");
         requireNonNull(columns, "columns is null");
+        this.stats = requireNonNull(stats, "stats is null");
 
         this.totalBytes = length;
 
@@ -323,7 +328,7 @@ public class ParquetHiveRecordCursor
         ParquetDataSource dataSource = null;
         try {
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(sessionUser, path, configuration);
-            dataSource = buildHdfsParquetDataSource(fileSystem, path, start, length, fileSize);
+            dataSource = buildHdfsParquetDataSource(fileSystem, path, start, length, fileSize, stats);
             ParquetMetadata parquetMetadata = hdfsEnvironment.doAs(sessionUser, () -> ParquetFileReader.readFooter(configuration, path, NO_FILTER));
             List<BlockMetaData> blocks = parquetMetadata.getBlocks();
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();

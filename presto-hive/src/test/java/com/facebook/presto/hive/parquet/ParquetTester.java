@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.parquet;
 
+import com.facebook.presto.hive.FileFormatDataSourceStats;
 import com.facebook.presto.hive.parquet.reader.ParquetMetadataReader;
 import com.facebook.presto.hive.parquet.reader.ParquetReader;
 import com.facebook.presto.spi.block.Block;
@@ -191,7 +192,7 @@ public class ParquetTester
 
         long size = fileSystem.getFileStatus(path).getLen();
         FSDataInputStream inputStream = fileSystem.open(path);
-        ParquetDataSource dataSource = new HdfsParquetDataSource(path, size, inputStream);
+        ParquetDataSource dataSource = new HdfsParquetDataSource(path, size, inputStream, new FileFormatDataSourceStats());
 
         ParquetReader parquetReader = new ParquetReader(fileSchema, fileSchema, parquetMetadata.getBlocks(), dataSource, TYPE_MANAGER, newSimpleAggregatedMemoryContext());
         assertEquals(parquetReader.getPosition(), 0);
