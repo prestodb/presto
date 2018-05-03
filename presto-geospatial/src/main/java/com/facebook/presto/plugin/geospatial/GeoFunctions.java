@@ -14,9 +14,13 @@
 package com.facebook.presto.plugin.geospatial;
 
 import com.esri.core.geometry.Envelope;
+import com.esri.core.geometry.GeometryCursor;
 import com.esri.core.geometry.MultiPath;
 import com.esri.core.geometry.MultiPoint;
 import com.esri.core.geometry.MultiVertexGeometry;
+import com.esri.core.geometry.NonSimpleResult;
+import com.esri.core.geometry.NonSimpleResult.Reason;
+import com.esri.core.geometry.OperatorSimplifyOGC;
 import com.esri.core.geometry.Point;
 import com.esri.core.geometry.Polygon;
 import com.esri.core.geometry.Polyline;
@@ -38,16 +42,23 @@ import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.linearref.LengthIndexedLine;
-import org.locationtech.jts.operation.valid.IsValidOp;
-import org.locationtech.jts.operation.valid.TopologyValidationError;
 
 import java.util.EnumSet;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
+import static com.esri.core.geometry.NonSimpleResult.Reason.Clustering;
+import static com.esri.core.geometry.NonSimpleResult.Reason.Cracking;
+import static com.esri.core.geometry.NonSimpleResult.Reason.CrossOver;
+import static com.esri.core.geometry.NonSimpleResult.Reason.DegenerateSegments;
+import static com.esri.core.geometry.NonSimpleResult.Reason.OGCDisconnectedInterior;
+import static com.esri.core.geometry.NonSimpleResult.Reason.OGCPolygonSelfTangency;
+import static com.esri.core.geometry.NonSimpleResult.Reason.OGCPolylineSelfTangency;
 import static com.esri.core.geometry.ogc.OGCGeometry.createFromEsriGeometry;
 import static com.facebook.presto.geospatial.GeometryType.LINE_STRING;
 import static com.facebook.presto.geospatial.GeometryType.MULTI_LINE_STRING;
@@ -79,6 +90,15 @@ public final class GeoFunctions
     private static final Slice EMPTY_POLYGON = serialize(new OGCPolygon(new Polygon(), null));
     private static final Slice EMPTY_MULTIPOINT = serialize(createFromEsriGeometry(new MultiPoint(), null, true));
     private static final double EARTH_RADIUS_KM = 6371.01;
+    private static final Map<Reason, String> NON_SIMPLE_REASONS = ImmutableMap.<Reason, String>builder()
+            .put(DegenerateSegments, "Degenerate segments")
+            .put(Clustering, "Repeated points")
+            .put(Cracking, "Intersecting or overlapping segments")
+            .put(CrossOver, "Self-intersection")
+            .put(OGCPolylineSelfTangency, "Self-tangency")
+            .put(OGCPolygonSelfTangency, "Self-tangency")
+            .put(OGCDisconnectedInterior, "Disconnected interior")
+            .build();
 
     private GeoFunctions() {}
 
@@ -259,7 +279,17 @@ public final class GeoFunctions
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean stIsValid(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
     {
-        return JtsGeometrySerde.deserialize(input).isValid();
+        GeometryCursor cursor = deserialize(input).getEsriGeometryCursor();
+        while (true) {
+            com.esri.core.geometry.Geometry geometry = cursor.next();
+            if (geometry == null) {
+                return true;
+            }
+
+            if (!OperatorSimplifyOGC.local().isSimpleOGC(geometry, null, true, null, null)) {
+                return false;
+            }
+        }
     }
 
     @Description("Returns the reason for why the input geometry is not valid. Returns null if the input is valid.")
@@ -268,17 +298,36 @@ public final class GeoFunctions
     @SqlNullable
     public static Slice invalidReason(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
     {
-        Geometry geometry = JtsGeometrySerde.deserialize(input);
-        if (geometry == null) {
-            return null;
-        }
+        GeometryCursor cursor = deserialize(input).getEsriGeometryCursor();
+        NonSimpleResult result = new NonSimpleResult();
+        while (true) {
+            com.esri.core.geometry.Geometry geometry = cursor.next();
+            if (geometry == null) {
+                return null;
+            }
 
-        TopologyValidationError error = new IsValidOp(geometry).getValidationError();
-        if (error == null) {
-            return null;
-        }
+            if (!OperatorSimplifyOGC.local().isSimpleOGC(geometry, null, true, result, null)) {
+                String reasonText = NON_SIMPLE_REASONS.getOrDefault(result.m_reason, result.m_reason.name());
 
-        return utf8Slice(error.toString());
+                if (!(geometry instanceof MultiVertexGeometry)) {
+                    return utf8Slice(reasonText);
+                }
+
+                MultiVertexGeometry multiVertexGeometry = (MultiVertexGeometry) geometry;
+                if (result.m_vertexIndex1 >= 0 && result.m_vertexIndex2 >= 0) {
+                    Point point1 = multiVertexGeometry.getPoint(result.m_vertexIndex1);
+                    Point point2 = multiVertexGeometry.getPoint(result.m_vertexIndex2);
+                    return utf8Slice(format("%s at or near (%s %s) and (%s %s)", reasonText, point1.getX(), point1.getY(), point2.getX(), point2.getY()));
+                }
+
+                if (result.m_vertexIndex1 >= 0) {
+                    Point point = multiVertexGeometry.getPoint(result.m_vertexIndex1);
+                    return utf8Slice(format("%s at or near (%s %s)", reasonText, point.getX(), point.getY()));
+                }
+
+                return utf8Slice(reasonText);
+            }
+        }
     }
 
     @Description("Returns the length of a LineString or Multi-LineString using Euclidean measurement on a 2D plane (based on spatial ref) in projected units")
