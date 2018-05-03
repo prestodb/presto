@@ -928,7 +928,10 @@ public class HiveMetadata
                     partitionUpdate.isNew(),
                     partitionUpdate.getWritePath(),
                     partitionUpdate.getTargetPath(),
-                    fileNamesForMissingBuckets));
+                    fileNamesForMissingBuckets,
+                    0,
+                    0,
+                    0));
         }
         return partitionUpdatesForMissingBucketsBuilder.build();
     }

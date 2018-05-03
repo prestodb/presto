@@ -33,6 +33,7 @@ public class HiveWriter
     private final HiveWriterStats hiveWriterStats;
 
     private long rowCount;
+    private long inputSizeInBytes;
 
     public HiveWriter(HiveFileWriter fileWriter,
             Optional<String> partitionName,
@@ -74,6 +75,7 @@ public class HiveWriter
         hiveWriterStats.addInputPageSizesInBytes(dataPage.getRetainedSizeInBytes());
         fileWriter.appendRows(dataPage);
         rowCount += dataPage.getPositionCount();
+        inputSizeInBytes += dataPage.getSizeInBytes();
     }
 
     public void commit()
@@ -99,7 +101,10 @@ public class HiveWriter
                 isNew,
                 writePath,
                 targetPath,
-                ImmutableList.of(fileName));
+                ImmutableList.of(fileName),
+                rowCount,
+                inputSizeInBytes,
+                fileWriter.getWrittenBytes());
     }
 
     @Override
