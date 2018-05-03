@@ -14,6 +14,7 @@
 
 package com.facebook.presto.hive.statistics;
 
+import com.facebook.presto.hive.HiveBasicStatistics;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HivePartition;
 import com.facebook.presto.hive.HiveTableHandle;
@@ -23,7 +24,6 @@ import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.SchemaTableName;
@@ -40,8 +40,6 @@ import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.joda.time.DateTimeZone;
-
-import javax.annotation.Nullable;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -239,7 +237,7 @@ public class MetastoreHiveStatisticsProvider
     private Estimate calculateRowsCount(Map<String, PartitionStatistics> partitionStatistics)
     {
         List<Long> knownPartitionRowCounts = partitionStatistics.values().stream()
-                .map(PartitionStatistics::getRowCount)
+                .map(stats -> stats.getBasicStatistics().getRowCount())
                 .filter(OptionalLong::isPresent)
                 .map(OptionalLong::getAsLong)
                 .collect(toList());
@@ -322,7 +320,7 @@ public class MetastoreHiveStatisticsProvider
     private Estimate calculateNullsFractionForPartitioningKey(HiveColumnHandle partitionColumn, List<HivePartition> partitions, Map<String, PartitionStatistics> partitionStatistics)
     {
         OptionalDouble rowsPerPartition = partitionStatistics.values().stream()
-                .map(PartitionStatistics::getRowCount)
+                .map(stats -> stats.getBasicStatistics().getRowCount())
                 .filter(OptionalLong::isPresent)
                 .mapToLong(OptionalLong::getAsLong)
                 .average();
@@ -338,7 +336,7 @@ public class MetastoreHiveStatisticsProvider
         double estimatedNullsCount = partitions.stream()
                 .filter(partition -> partition.getKeys().get(partitionColumn).isNull())
                 .map(HivePartition::getPartitionId)
-                .mapToLong(partitionId -> partitionStatistics.get(partitionId).getRowCount().orElse((long) rowsPerPartition.getAsDouble()))
+                .mapToLong(partitionId -> partitionStatistics.get(partitionId).getBasicStatistics().getRowCount().orElse((long) rowsPerPartition.getAsDouble()))
                 .sum();
         return new Estimate(estimatedNullsCount / estimatedTotalRowsCount);
     }
@@ -431,33 +429,7 @@ public class MetastoreHiveStatisticsProvider
 
     private PartitionStatistics readStatisticsFromParameters(Map<String, String> parameters, Map<String, HiveColumnStatistics> columnStatistics)
     {
-        boolean columnStatsAcurate = Boolean.valueOf(Optional.ofNullable(parameters.get("COLUMN_STATS_ACCURATE")).orElse("false"));
-        OptionalLong numFiles = convertStringParameter(parameters.get("numFiles"));
-        OptionalLong numRows = convertStringParameter(parameters.get("numRows"));
-        OptionalLong rawDataSize = convertStringParameter(parameters.get("rawDataSize"));
-        OptionalLong totalSize = convertStringParameter(parameters.get("totalSize"));
-        return new PartitionStatistics(columnStatsAcurate, numFiles, numRows, rawDataSize, totalSize, columnStatistics);
-    }
-
-    private OptionalLong convertStringParameter(@Nullable String parameterValue)
-    {
-        if (parameterValue == null) {
-            return OptionalLong.empty();
-        }
-        try {
-            long longValue = Long.parseLong(parameterValue);
-            if (longValue < 0) {
-                return OptionalLong.empty();
-            }
-            return OptionalLong.of(longValue);
-        }
-        catch (NumberFormatException e) {
-            return OptionalLong.empty();
-        }
-    }
-
-    private ColumnMetadata getColumnMetadata(ColumnHandle columnHandle)
-    {
-        return ((HiveColumnHandle) columnHandle).getColumnMetadata(typeManager);
+        boolean columnStatsAccurate = Boolean.valueOf(Optional.ofNullable(parameters.get("COLUMN_STATS_ACCURATE")).orElse("false"));
+        return new PartitionStatistics(HiveBasicStatistics.createFromPartitionParameters(parameters), columnStatistics, columnStatsAccurate);
     }
 }
