@@ -126,6 +126,10 @@ public class TestMapOperators
                 "Duplicate map keys ([1, 2]) are not allowed");
 
         assertCachedInstanceHasBoundedRetainedSize("MAP(ARRAY ['1','3'], ARRAY [2,4])");
+
+        assertFunction("MAP(ARRAY [ARRAY[1]], ARRAY[2])", mapType(new ArrayType(INTEGER), INTEGER), ImmutableMap.of(ImmutableList.of(1), 2));
+        assertInvalidFunction("MAP(ARRAY [NULL], ARRAY[2])", "map key cannot be null");
+        assertInvalidFunction("MAP(ARRAY [ARRAY[NULL]], ARRAY[2])", "map key cannot be indeterminate: [null]");
     }
 
     @Test
