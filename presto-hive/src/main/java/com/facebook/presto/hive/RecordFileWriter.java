@@ -36,6 +36,7 @@ import org.apache.hadoop.mapred.JobConf;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Properties;
 
@@ -69,6 +70,8 @@ public class RecordFileWriter
     private final Object row;
     private final FieldSetter[] setters;
     private final long estimatedWriterSystemMemoryUsage;
+
+    private boolean committed;
 
     public RecordFileWriter(
             Path path,
@@ -122,7 +125,16 @@ public class RecordFileWriter
             return ((ExtendedRecordWriter) recordWriter).getWrittenBytes();
         }
 
-        // there is no good way to get this from RecordWriter
+        if (committed) {
+            try {
+                return path.getFileSystem(conf).getFileStatus(path).getLen();
+            }
+            catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        }
+
+        // there is no good way to get this when RecordWriter is not yet committed
         return 0;
     }
 
@@ -165,6 +177,7 @@ public class RecordFileWriter
     {
         try {
             recordWriter.close(false);
+            committed = true;
         }
         catch (IOException e) {
             throw new PrestoException(HIVE_WRITER_CLOSE_ERROR, "Error committing write to Hive", e);
