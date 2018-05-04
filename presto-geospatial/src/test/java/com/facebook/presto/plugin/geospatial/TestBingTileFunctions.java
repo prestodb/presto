@@ -244,4 +244,19 @@ public class TestBingTileFunctions
         assertFunction("bing_tile(3, 5, 3) <> bing_tile(3, 5, 4)", BOOLEAN, true);
         assertFunction("bing_tile('213') <> bing_tile('2131')", BOOLEAN, true);
     }
+
+    @Test
+    public void testDistinctFrom()
+    {
+        assertFunction("null IS DISTINCT FROM null", BOOLEAN, false);
+        assertFunction("bing_tile(3, 5, 3) IS DISTINCT FROM null", BOOLEAN, true);
+        assertFunction("null IS DISTINCT FROM bing_tile(3, 5, 3)", BOOLEAN, true);
+
+        assertFunction("bing_tile(3, 5, 3) IS DISTINCT FROM bing_tile(3, 5, 3)", BOOLEAN, false);
+        assertFunction("bing_tile('213') IS DISTINCT FROM bing_tile(3, 5, 3)", BOOLEAN, false);
+        assertFunction("bing_tile('213') IS DISTINCT FROM bing_tile('213')", BOOLEAN, false);
+
+        assertFunction("bing_tile(3, 5, 3) IS DISTINCT FROM bing_tile(3, 5, 4)", BOOLEAN, true);
+        assertFunction("bing_tile('213') IS DISTINCT FROM bing_tile('2131')", BOOLEAN, true);
+    }
 }
