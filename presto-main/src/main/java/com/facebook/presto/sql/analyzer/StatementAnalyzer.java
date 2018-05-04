@@ -52,6 +52,7 @@ import com.facebook.presto.sql.tree.CreateSchema;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.CreateView;
+import com.facebook.presto.sql.tree.Cube;
 import com.facebook.presto.sql.tree.Deallocate;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Delete;
@@ -71,6 +72,7 @@ import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Grant;
+import com.facebook.presto.sql.tree.GroupBy;
 import com.facebook.presto.sql.tree.GroupingElement;
 import com.facebook.presto.sql.tree.GroupingOperation;
 import com.facebook.presto.sql.tree.Identifier;
@@ -98,6 +100,7 @@ import com.facebook.presto.sql.tree.RenameTable;
 import com.facebook.presto.sql.tree.ResetSession;
 import com.facebook.presto.sql.tree.Revoke;
 import com.facebook.presto.sql.tree.Rollback;
+import com.facebook.presto.sql.tree.Rollup;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.Select;
@@ -138,6 +141,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.LEGACY_ORDER_BY;
+import static com.facebook.presto.SystemSessionProperties.getMaxGroupingSets;
 import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.metadata.FunctionKind.WINDOW;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
@@ -179,6 +183,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NON_NUMERIC_SAM
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.ORDER_BY_MUST_BE_IN_SELECT;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TABLE_ALREADY_EXISTS;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TOO_MANY_GROUPING_SETS;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_ANALYSIS_ERROR;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_IS_RECURSIVE;
@@ -1599,11 +1604,45 @@ class StatementAnalyzer
             }
         }
 
+        private void checkGroupingSetsCount(GroupBy node)
+        {
+            // If groupBy is distinct then crossProduct will be overestimated if there are duplicate grouping sets.
+            int crossProduct = 1;
+            for (GroupingElement element : node.getGroupingElements()) {
+                try {
+                    int product;
+                    if (element instanceof Cube) {
+                        int exponent = ((Cube) element).getColumns().size();
+                        if (exponent > 30) {
+                            throw new ArithmeticException();
+                        }
+                        product = 1 << exponent;
+                    }
+                    else if (element instanceof Rollup) {
+                        product = ((Rollup) element).getColumns().size() + 1;
+                    }
+                    else {
+                        product = element.enumerateGroupingSets().size();
+                    }
+                    crossProduct = Math.multiplyExact(crossProduct, product);
+                }
+                catch (ArithmeticException e) {
+                    throw new SemanticException(TOO_MANY_GROUPING_SETS, node,
+                            "GROUP BY has more than %s grouping sets but can contain at most %s", Integer.MAX_VALUE, getMaxGroupingSets(session));
+                }
+                if (crossProduct > getMaxGroupingSets(session)) {
+                    throw new SemanticException(TOO_MANY_GROUPING_SETS, node,
+                            "GROUP BY has %s grouping sets but can contain at most %s", crossProduct, getMaxGroupingSets(session));
+                }
+            }
+        }
+
         private List<List<Expression>> analyzeGroupBy(QuerySpecification node, Scope scope, List<Expression> outputExpressions)
         {
             List<Set<Expression>> computedGroupingSets = ImmutableList.of(); // empty list = no aggregations
 
             if (node.getGroupBy().isPresent()) {
+                checkGroupingSetsCount(node.getGroupBy().get());
                 List<List<Set<Expression>>> enumeratedGroupingSets = node.getGroupBy().get().getGroupingElements().stream()
                         .map(GroupingElement::enumerateGroupingSets)
                         .collect(toImmutableList());

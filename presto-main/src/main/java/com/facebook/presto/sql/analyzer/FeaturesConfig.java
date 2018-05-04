@@ -109,6 +109,7 @@ public class FeaturesConfig
 
     private DataSize filterAndProjectMinOutputPageSize = new DataSize(25, KILOBYTE);
     private int filterAndProjectMinOutputPageRowCount = 256;
+    private int maxGroupingSets = 2048;
 
     public double getCpuCostWeight()
     {
@@ -756,6 +757,18 @@ public class FeaturesConfig
     public FeaturesConfig setArrayAggGroupImplementation(ArrayAggGroupImplementation groupByMode)
     {
         this.arrayAggGroupImplementation = groupByMode;
+        return this;
+    }
+
+    public int getMaxGroupingSets()
+    {
+        return maxGroupingSets;
+    }
+
+    @Config("analyzer.max-grouping-sets")
+    public FeaturesConfig setMaxGroupingSets(int maxGroupingSets)
+    {
+        this.maxGroupingSets = maxGroupingSets;
         return this;
     }
 }

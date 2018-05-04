@@ -93,4 +93,6 @@ public enum SemanticErrorCode
     STANDALONE_LAMBDA,
 
     DUPLICATE_PROPERTY,
+
+    TOO_MANY_GROUPING_SETS,
 }

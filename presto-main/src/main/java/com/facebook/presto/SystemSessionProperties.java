@@ -92,6 +92,7 @@ public final class SystemSessionProperties
     public static final String FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_ROW_COUNT = "filter_and_project_min_output_page_row_count";
     public static final String USE_MARK_DISTINCT = "use_mark_distinct";
     public static final String PREFER_PARTITIAL_AGGREGATION = "prefer_partial_aggregation";
+    public static final String MAX_GROUPING_SETS = "max_grouping_sets";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -418,7 +419,12 @@ public final class SystemSessionProperties
                         PREFER_PARTITIAL_AGGREGATION,
                         "Prefer splitting aggregations into partial and final stages",
                         featuresConfig.isPreferPartialAggregation(),
-                        false));
+                        false),
+                integerSessionProperty(
+                        MAX_GROUPING_SETS,
+                        "Maximum number of grouping sets in a GROUP BY",
+                        featuresConfig.getMaxGroupingSets(),
+                        true));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -692,6 +698,11 @@ public final class SystemSessionProperties
     public static boolean preferPartialAggregation(Session session)
     {
         return session.getSystemProperty(PREFER_PARTITIAL_AGGREGATION, Boolean.class);
+    }
+
+    public static int getMaxGroupingSets(Session session)
+    {
+        return session.getSystemProperty(MAX_GROUPING_SETS, Integer.class);
     }
 
     private static int validateValueIsPowerOfTwo(Object value, String property)
