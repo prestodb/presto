@@ -18,6 +18,7 @@ import com.facebook.presto.spi.function.OperatorDependency;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
+import com.facebook.presto.spi.function.TypeParameterSpecialization;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 
@@ -52,6 +53,66 @@ public final class ArrayEqualOperator
             Object rightElement = readNativeValue(type, rightArray, i);
             try {
                 if (!(boolean) equalsFunction.invoke(leftElement, rightElement)) {
+                    return false;
+                }
+            }
+            catch (Throwable t) {
+                throw internalError(t);
+            }
+        }
+        return true;
+    }
+
+    @TypeParameter("E")
+    @TypeParameterSpecialization(name = "E", nativeContainerType = long.class)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean equalsLong(
+            @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"E", "E"}) MethodHandle equalsFunction,
+            @TypeParameter("E") Type type,
+            @SqlType("array(E)") Block leftArray,
+            @SqlType("array(E)") Block rightArray)
+    {
+        if (leftArray.getPositionCount() != rightArray.getPositionCount()) {
+            return false;
+        }
+
+        for (int i = 0; i < leftArray.getPositionCount(); i++) {
+            checkElementNotNull(leftArray.isNull(i), ARRAY_NULL_ELEMENT_MSG);
+            checkElementNotNull(rightArray.isNull(i), ARRAY_NULL_ELEMENT_MSG);
+            long leftElement = type.getLong(leftArray, i);
+            long rightElement = type.getLong(rightArray, i);
+            try {
+                if (!(boolean) equalsFunction.invokeExact(leftElement, rightElement)) {
+                    return false;
+                }
+            }
+            catch (Throwable t) {
+                throw internalError(t);
+            }
+        }
+        return true;
+    }
+
+    @TypeParameter("E")
+    @TypeParameterSpecialization(name = "E", nativeContainerType = double.class)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean equalsDouble(
+            @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"E", "E"}) MethodHandle equalsFunction,
+            @TypeParameter("E") Type type,
+            @SqlType("array(E)") Block leftArray,
+            @SqlType("array(E)") Block rightArray)
+    {
+        if (leftArray.getPositionCount() != rightArray.getPositionCount()) {
+            return false;
+        }
+
+        for (int i = 0; i < leftArray.getPositionCount(); i++) {
+            checkElementNotNull(leftArray.isNull(i), ARRAY_NULL_ELEMENT_MSG);
+            checkElementNotNull(rightArray.isNull(i), ARRAY_NULL_ELEMENT_MSG);
+            double leftElement = type.getDouble(leftArray, i);
+            double rightElement = type.getDouble(rightArray, i);
+            try {
+                if (!(boolean) equalsFunction.invokeExact(leftElement, rightElement)) {
                     return false;
                 }
             }
