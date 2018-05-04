@@ -33,6 +33,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.net.MediaType.JSON_UTF_8;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
 import static io.airlift.http.client.HttpStatus.OK;
 import static io.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
@@ -122,7 +123,7 @@ public class RemoteNodeMemory
                     lastUpdateNanos.set(System.nanoTime());
                     future.compareAndSet(responseFuture, null);
                 }
-            });
+            }, directExecutor());
         }
     }
 }

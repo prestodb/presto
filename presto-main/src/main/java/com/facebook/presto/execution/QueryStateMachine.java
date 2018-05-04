@@ -77,6 +77,7 @@ import static com.facebook.presto.spi.StandardErrorCode.USER_CANCELED;
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.airlift.units.Duration.succinctNanos;
 import static java.util.Objects.requireNonNull;
@@ -670,7 +671,7 @@ public class QueryStateMachine
                 {
                     transitionToFailed(throwable);
                 }
-            });
+            }, directExecutor());
         }
         else {
             transitionToFinished();
