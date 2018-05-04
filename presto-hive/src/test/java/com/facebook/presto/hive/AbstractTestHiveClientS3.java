@@ -401,7 +401,7 @@ public abstract class AbstractTestHiveClientS3
             metastoreClient.updateTableLocation(
                     database,
                     tableName.getTableName(),
-                    locationService.targetPath(((HiveOutputTableHandle) outputHandle).getLocationHandle(), Optional.empty()).toString());
+                    locationService.getTableWriteInfo(((HiveOutputTableHandle) outputHandle).getLocationHandle()).getTargetPath().toString());
         }
 
         try (Transaction transaction = newTransaction()) {

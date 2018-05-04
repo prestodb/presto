@@ -16,6 +16,7 @@ package com.facebook.presto.hive;
 import com.facebook.presto.GroupByHashPageIndexerFactory;
 import com.facebook.presto.hadoop.HadoopFileStatus;
 import com.facebook.presto.hive.HdfsEnvironment.HdfsContext;
+import com.facebook.presto.hive.LocationService.WriteInfo;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.metastore.CachingHiveMetastore;
 import com.facebook.presto.hive.metastore.Column;
@@ -170,6 +171,7 @@ import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.hive.HiveType.toHiveType;
 import static com.facebook.presto.hive.HiveUtil.columnExtraInfo;
 import static com.facebook.presto.hive.HiveWriteUtils.createDirectory;
+import static com.facebook.presto.hive.LocationHandle.WriteMode.STAGE_AND_MOVE_TO_TARGET_DIRECTORY;
 import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.TRANSACTION_CONFLICT;
@@ -2032,7 +2034,7 @@ public abstract class AbstractTestHiveClient
             try (Transaction transaction = newTransaction()) {
                 LocationService locationService = getLocationService(schemaName);
                 LocationHandle locationHandle = locationService.forNewTable(transaction.getMetastore(schemaName), session, schemaName, tableName);
-                targetPath = locationService.targetPathRoot(locationHandle);
+                targetPath = locationService.getQueryWriteInfo(locationHandle).getTargetPath();
                 Table table = createSimpleTable(schemaTableName, columns, session, targetPath, "q1");
                 transaction.getMetastore(schemaName)
                         .createTable(session, table, privileges, Optional.empty(), false);
@@ -2618,21 +2620,28 @@ public abstract class AbstractTestHiveClient
     protected Path getStagingPathRoot(ConnectorInsertTableHandle insertTableHandle)
     {
         HiveInsertTableHandle handle = (HiveInsertTableHandle) insertTableHandle;
-        return getLocationService(handle.getSchemaName()).writePathRoot(handle.getLocationHandle())
-                .orElseThrow(() -> new AssertionError("no write path root"));
+        WriteInfo writeInfo = getLocationService(handle.getSchemaName()).getQueryWriteInfo(handle.getLocationHandle());
+        if (writeInfo.getWriteMode() != STAGE_AND_MOVE_TO_TARGET_DIRECTORY) {
+            throw new AssertionError("writeMode is not STAGE_AND_MOVE_TO_TARGET_DIRECTORY");
+        }
+        return writeInfo.getWritePath();
     }
 
     protected Path getStagingPathRoot(ConnectorOutputTableHandle outputTableHandle)
     {
         HiveOutputTableHandle handle = (HiveOutputTableHandle) outputTableHandle;
-        return getLocationService(handle.getSchemaName()).writePathRoot(handle.getLocationHandle())
-                .orElseThrow(() -> new AssertionError("no write path root"));
+        return getLocationService(handle.getSchemaName())
+                .getQueryWriteInfo(handle.getLocationHandle())
+                .getWritePath();
     }
 
     protected Path getTargetPathRoot(ConnectorInsertTableHandle insertTableHandle)
     {
         HiveInsertTableHandle hiveInsertTableHandle = (HiveInsertTableHandle) insertTableHandle;
-        return getLocationService(hiveInsertTableHandle.getSchemaName()).targetPathRoot(hiveInsertTableHandle.getLocationHandle());
+
+        return getLocationService(hiveInsertTableHandle.getSchemaName())
+                .getQueryWriteInfo(hiveInsertTableHandle.getLocationHandle())
+                .getTargetPath();
     }
 
     protected Set<String> listAllDataFiles(Transaction transaction, String schemaName, String tableName)
@@ -3700,7 +3709,7 @@ public abstract class AbstractTestHiveClient
 
             LocationService locationService = getLocationService(schemaName);
             LocationHandle locationHandle = locationService.forNewTable(transaction.getMetastore(schemaName), session, schemaName, tableName);
-            targetPath = locationService.targetPathRoot(locationHandle);
+            targetPath = locationService.getQueryWriteInfo(locationHandle).getTargetPath();
 
             Table.Builder tableBuilder = Table.builder()
                     .setDatabaseName(schemaName)

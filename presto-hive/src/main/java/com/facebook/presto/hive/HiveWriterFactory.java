@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.HdfsEnvironment.HdfsContext;
+import com.facebook.presto.hive.LocationService.WriteInfo;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.HivePageSinkMetadataProvider;
 import com.facebook.presto.hive.metastore.Partition;
@@ -64,6 +65,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static com.facebook.presto.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static com.facebook.presto.hive.HiveType.toHiveTypes;
 import static com.facebook.presto.hive.HiveWriteUtils.getField;
+import static com.facebook.presto.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
 import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static com.facebook.presto.hive.util.ConfigurationUtils.toJobConf;
@@ -182,8 +184,9 @@ public class HiveWriterFactory
         Path writePath;
         if (isCreateTable) {
             this.table = null;
-            writePath = locationService.writePathRoot(locationHandle)
-                    .orElseThrow(() -> new IllegalArgumentException("CREATE TABLE must have a write path"));
+            WriteInfo writeInfo = locationService.getQueryWriteInfo(locationHandle);
+            checkArgument(writeInfo.getWriteMode() != DIRECT_TO_TARGET_EXISTING_DIRECTORY, "CREATE TABLE write mode cannot be DIRECT_TO_TARGET_EXISTING_DIRECTORY");
+            writePath = writeInfo.getWritePath();
         }
         else {
             Optional<Table> table = pageSinkMetadataProvider.getTable();
@@ -191,8 +194,7 @@ public class HiveWriterFactory
                 throw new PrestoException(HIVE_INVALID_METADATA, format("Table %s.%s was dropped during insert", schemaName, tableName));
             }
             this.table = table.get();
-            writePath = locationService.writePathRoot(locationHandle)
-                    .orElseGet(() -> locationService.targetPathRoot(locationHandle));
+            writePath = locationService.getQueryWriteInfo(locationHandle).getWritePath();
         }
 
         this.bucketCount = requireNonNull(bucketCount, "bucketCount is null");
@@ -259,8 +261,7 @@ public class HiveWriterFactory
 
         boolean isNew;
         Properties schema;
-        Path target;
-        Path write;
+        WriteInfo writeInfo;
         StorageFormat outputStorageFormat;
         if (!partition.isPresent()) {
             if (table == null) {
@@ -276,19 +277,26 @@ public class HiveWriterFactory
                         .map(HiveType::getHiveTypeName)
                         .map(HiveTypeName::toString)
                         .collect(joining(":")));
-                target = locationService.targetPath(locationHandle, partitionName);
-                write = locationService.writePath(locationHandle, partitionName).get();
 
-                if (partitionName.isPresent() && !target.equals(write)) {
-                    // When target path is different from write path,
-                    // verify that the target directory for the partition does not already exist
-                    if (HiveWriteUtils.pathExists(new HdfsContext(session, schemaName, tableName), hdfsEnvironment, target)) {
-                        throw new PrestoException(HIVE_PATH_ALREADY_EXISTS, format(
-                                "Target directory for new partition '%s' of table '%s.%s' already exists: %s",
-                                partitionName,
-                                schemaName,
-                                tableName,
-                                target));
+                if (!partitionName.isPresent()) {
+                    // new unpartitioned table
+                    writeInfo = locationService.getTableWriteInfo(locationHandle);
+                }
+                else {
+                    // a new partition in a new partitioned table
+                    writeInfo = locationService.getPartitionWriteInfo(locationHandle, partition, partitionName.get());
+
+                    if (!writeInfo.getWriteMode().isWritePathSameAsTargetPath()) {
+                        // When target path is different from write path,
+                        // verify that the target directory for the partition does not already exist
+                        if (HiveWriteUtils.pathExists(new HdfsContext(session, schemaName, tableName), hdfsEnvironment, writeInfo.getTargetPath())) {
+                            throw new PrestoException(HIVE_PATH_ALREADY_EXISTS, format(
+                                    "Target directory for new partition '%s' of table '%s.%s' already exists: %s",
+                                    partitionName,
+                                    schemaName,
+                                    tableName,
+                                    writeInfo.getTargetPath()));
+                        }
                     }
                 }
             }
@@ -296,7 +304,9 @@ public class HiveWriterFactory
                 // Write to: a new partition in an existing partitioned table,
                 //           or an existing unpartitioned table
                 if (partitionName.isPresent()) {
+                    // a new partition in an existing partitioned table
                     isNew = true;
+                    writeInfo = locationService.getPartitionWriteInfo(locationHandle, partition, partitionName.get());
                 }
                 else {
                     if (bucketNumber.isPresent()) {
@@ -306,10 +316,10 @@ public class HiveWriterFactory
                         throw new PrestoException(HIVE_PARTITION_READ_ONLY, "Unpartitioned Hive tables are immutable");
                     }
                     isNew = false;
+                    writeInfo = locationService.getTableWriteInfo(locationHandle);
                 }
+
                 schema = getHiveSchema(table);
-                target = locationService.targetPath(locationHandle, partitionName);
-                write = locationService.writePath(locationHandle, partitionName).orElse(target);
             }
 
             if (partitionName.isPresent()) {
@@ -357,15 +367,14 @@ public class HiveWriterFactory
             outputStorageFormat = partition.get().getStorage().getStorageFormat();
             schema = getHiveSchema(partition.get(), table);
 
-            target = locationService.targetPath(locationHandle, partition.get(), partitionName.get());
-            write = locationService.writePath(locationHandle, partitionName).orElse(target);
+            writeInfo = locationService.getPartitionWriteInfo(locationHandle, partition, partitionName.get());
         }
 
         validateSchema(partitionName, schema);
 
         String fileNameWithExtension = fileName + getFileExtension(conf, outputStorageFormat);
 
-        Path path = new Path(write, fileNameWithExtension);
+        Path path = new Path(writeInfo.getWritePath(), fileNameWithExtension);
 
         HiveFileWriter hiveFileWriter = null;
         for (HiveFileWriterFactory fileWriterFactory : fileWriterFactories) {
@@ -426,7 +435,15 @@ public class HiveWriterFactory
                     hiveWriter.getRowCount()));
         };
 
-        return new HiveWriter(hiveFileWriter, partitionName, isNew, fileNameWithExtension, write.toString(), target.toString(), onCommit, hiveWriterStats);
+        return new HiveWriter(
+                hiveFileWriter,
+                partitionName,
+                isNew,
+                fileNameWithExtension,
+                writeInfo.getWritePath().toString(),
+                writeInfo.getTargetPath().toString(),
+                onCommit,
+                hiveWriterStats);
     }
 
     private void validateSchema(Optional<String> partitionName, Properties schema)

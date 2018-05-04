@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.HdfsEnvironment.HdfsContext;
+import com.facebook.presto.hive.LocationService.WriteInfo;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
@@ -21,7 +22,6 @@ import com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.PrincipalPrivileges;
 import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
-import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore.WriteMode;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.hive.statistics.HiveStatisticsProvider;
@@ -149,9 +149,6 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getProtectMode;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.verifyOnline;
 import static com.facebook.presto.hive.metastore.PrincipalType.USER;
-import static com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore.WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY;
-import static com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore.WriteMode.DIRECT_TO_TARGET_NEW_DIRECTORY;
-import static com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore.WriteMode.STAGE_AND_MOVE_TO_TARGET_DIRECTORY;
 import static com.facebook.presto.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
 import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static com.facebook.presto.hive.util.ConfigurationUtils.toJobConf;
@@ -629,7 +626,7 @@ public class HiveMetadata
         else {
             external = false;
             LocationHandle locationHandle = locationService.forNewTable(metastore, session, schemaName, tableName);
-            targetPath = locationService.targetPathRoot(locationHandle);
+            targetPath = locationService.getQueryWriteInfo(locationHandle).getTargetPath();
         }
 
         Table table = buildTableObject(
@@ -848,10 +845,8 @@ public class HiveMetadata
                 session.getUser(),
                 tableProperties);
 
-        Path writePathRoot = locationService.writePathRoot(locationHandle).get();
-        Path targetPathRoot = locationService.targetPathRoot(locationHandle);
-        WriteMode mode = writePathRoot.equals(targetPathRoot) ? DIRECT_TO_TARGET_NEW_DIRECTORY : STAGE_AND_MOVE_TO_TARGET_DIRECTORY;
-        metastore.declareIntentionToWrite(session, mode, writePathRoot, result.getFilePrefix(), schemaTableName);
+        WriteInfo writeInfo = locationService.getQueryWriteInfo(locationHandle);
+        metastore.declareIntentionToWrite(session, writeInfo.getWriteMode(), writeInfo.getWritePath(), result.getFilePrefix(), schemaTableName);
 
         return result;
     }
@@ -866,9 +861,7 @@ public class HiveMetadata
                 .map(partitionUpdateCodec::fromJson)
                 .collect(toList());
 
-        Path targetPath = locationService.targetPathRoot(handle.getLocationHandle());
-        Path writePath = locationService.writePathRoot(handle.getLocationHandle()).get();
-
+        WriteInfo writeInfo = locationService.getQueryWriteInfo(handle.getLocationHandle());
         Table table = buildTableObject(
                 session.getQueryId(),
                 handle.getSchemaName(),
@@ -879,7 +872,7 @@ public class HiveMetadata
                 handle.getPartitionedBy(),
                 handle.getBucketProperty(),
                 handle.getAdditionalTableParameters(),
-                targetPath,
+                writeInfo.getTargetPath(),
                 false,
                 prestoVersion);
         PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(handle.getTableOwner());
@@ -904,7 +897,7 @@ public class HiveMetadata
             table = updateStatistics(table, tableStatistic, ADD);
         }
 
-        metastore.createTable(session, table, principalPrivileges, Optional.of(writePath), false);
+        metastore.createTable(session, table, principalPrivileges, Optional.of(writeInfo.getWritePath()), false);
 
         if (!handle.getPartitionedBy().isEmpty()) {
             if (isRespectTableFormat(session)) {
@@ -1055,16 +1048,8 @@ public class HiveMetadata
                 tableStorageFormat,
                 isRespectTableFormat(session) ? tableStorageFormat : HiveSessionProperties.getHiveStorageFormat(session));
 
-        Optional<Path> writePathRoot = locationService.writePathRoot(locationHandle);
-        Path targetPathRoot = locationService.targetPathRoot(locationHandle);
-        if (writePathRoot.isPresent()) {
-            WriteMode mode = writePathRoot.get().equals(targetPathRoot) ? DIRECT_TO_TARGET_NEW_DIRECTORY : STAGE_AND_MOVE_TO_TARGET_DIRECTORY;
-            metastore.declareIntentionToWrite(session, mode, writePathRoot.get(), result.getFilePrefix(), tableName);
-        }
-        else {
-            metastore.declareIntentionToWrite(session, DIRECT_TO_TARGET_EXISTING_DIRECTORY, targetPathRoot, result.getFilePrefix(), tableName);
-        }
-
+        WriteInfo writeInfo = locationService.getQueryWriteInfo(locationHandle);
+        metastore.declareIntentionToWrite(session, writeInfo.getWriteMode(), writeInfo.getWritePath(), result.getFilePrefix(), tableName);
         return result;
     }
 
