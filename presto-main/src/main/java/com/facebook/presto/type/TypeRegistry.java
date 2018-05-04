@@ -266,50 +266,70 @@ public final class TypeRegistry
     @Override
     public Optional<Type> getCommonSuperType(Type firstType, Type secondType)
     {
-        if (firstType.equals(secondType)) {
-            return Optional.of(secondType);
-        }
-
-        if (firstType.equals(UnknownType.UNKNOWN)) {
-            return Optional.of(secondType);
-        }
-
-        if (secondType.equals(UnknownType.UNKNOWN)) {
-            return Optional.of(firstType);
-        }
-
-        String firstTypeBaseName = firstType.getTypeSignature().getBase();
-        String secondTypeBaseName = secondType.getTypeSignature().getBase();
-        if (firstTypeBaseName.equals(secondTypeBaseName)) {
-            if (firstTypeBaseName.equals(StandardTypes.DECIMAL)) {
-                return Optional.of(getCommonSuperTypeForDecimal(
-                        (DecimalType) firstType, (DecimalType) secondType));
-            }
-            if (firstTypeBaseName.equals(StandardTypes.VARCHAR)) {
-                return Optional.of(getCommonSuperTypeForVarchar(
-                        (VarcharType) firstType, (VarcharType) secondType));
-            }
-            if (firstTypeBaseName.equals(StandardTypes.ROW)) {
-                return getCommonSuperTypeForRow((RowType) firstType, (RowType) secondType);
-            }
-
-            if (isCovariantParametrizedType(firstType)) {
-                return getCommonSuperTypeForCovariantParametrizedType(firstType, secondType);
-            }
+        TypeCompatibility compatibility = compatibility(firstType, secondType);
+        if (!compatibility.isCompatible()) {
             return Optional.empty();
         }
+        return Optional.of(compatibility.getCommonSuperType());
+    }
 
-        Optional<Type> coercedType = coerceTypeBase(firstType, secondType.getTypeSignature().getBase());
-        if (coercedType.isPresent()) {
-            return getCommonSuperType(coercedType.get(), secondType);
+    @Override
+    public boolean canCoerce(Type fromType, Type toType)
+    {
+        TypeCompatibility typeCompatibility = compatibility(fromType, toType);
+        return typeCompatibility.isCoercible();
+    }
+
+    private TypeCompatibility compatibility(Type fromType, Type toType)
+    {
+        if (fromType.equals(toType)) {
+            return TypeCompatibility.compatible(toType, true);
         }
 
-        coercedType = coerceTypeBase(secondType, firstType.getTypeSignature().getBase());
-        if (coercedType.isPresent()) {
-            return getCommonSuperType(firstType, coercedType.get());
+        if (fromType.equals(UnknownType.UNKNOWN)) {
+            return TypeCompatibility.compatible(toType, true);
         }
 
-        return Optional.empty();
+        if (toType.equals(UnknownType.UNKNOWN)) {
+            return TypeCompatibility.compatible(fromType, false);
+        }
+
+        String fromTypeBaseName = fromType.getTypeSignature().getBase();
+        String toTypeBaseName = toType.getTypeSignature().getBase();
+        if (fromTypeBaseName.equals(toTypeBaseName)) {
+            if (fromTypeBaseName.equals(StandardTypes.DECIMAL)) {
+                Type commonSuperType = getCommonSuperTypeForDecimal((DecimalType) fromType, (DecimalType) toType);
+                return TypeCompatibility.compatible(commonSuperType, commonSuperType.equals(toType));
+            }
+            if (fromTypeBaseName.equals(StandardTypes.VARCHAR)) {
+                Type commonSuperType = getCommonSuperTypeForVarchar((VarcharType) fromType, (VarcharType) toType);
+                return TypeCompatibility.compatible(commonSuperType, commonSuperType.equals(toType));
+            }
+            if (fromTypeBaseName.equals(StandardTypes.ROW)) {
+                return typeCompatibilityForRow((RowType) fromType, (RowType) toType);
+            }
+
+            if (isCovariantParametrizedType(fromType)) {
+                return typeCompatibilityForCovariantParametrizedType(fromType, toType);
+            }
+            return TypeCompatibility.incompatible();
+        }
+
+        Optional<Type> coercedType = coerceTypeBase(fromType, toType.getTypeSignature().getBase());
+        if (coercedType.isPresent()) {
+            return compatibility(coercedType.get(), toType);
+        }
+
+        coercedType = coerceTypeBase(toType, fromType.getTypeSignature().getBase());
+        if (coercedType.isPresent()) {
+            TypeCompatibility typeCompatibility = compatibility(fromType, coercedType.get());
+            if (!typeCompatibility.isCompatible()) {
+                return TypeCompatibility.incompatible();
+            }
+            return TypeCompatibility.compatible(typeCompatibility.getCommonSuperType(), false);
+        }
+
+        return TypeCompatibility.incompatible();
     }
 
     private static Type getCommonSuperTypeForDecimal(DecimalType firstType, DecimalType secondType)
@@ -330,19 +350,19 @@ public final class TypeRegistry
         return createVarcharType(Math.max(firstType.getLength(), secondType.getLength()));
     }
 
-    private Optional<Type> getCommonSuperTypeForRow(RowType firstType, RowType secondType)
+    private TypeCompatibility typeCompatibilityForRow(RowType firstType, RowType secondType)
     {
         List<Field> firstFields = firstType.getFields();
         List<Field> secondFields = secondType.getFields();
         if (firstFields.size() != secondFields.size()) {
-            return Optional.empty();
+            return TypeCompatibility.incompatible();
         }
 
         ImmutableList.Builder<RowType.Field> fields = ImmutableList.builder();
         for (int i = 0; i < firstFields.size(); i++) {
             Optional<Type> commonParameterType = getCommonSuperType(firstFields.get(i).getType(), secondFields.get(i).getType());
             if (!commonParameterType.isPresent()) {
-                return Optional.empty();
+                return TypeCompatibility.incompatible();
             }
 
             Optional<String> firstParameterName = firstFields.get(i).getName();
@@ -356,26 +376,31 @@ public final class TypeRegistry
             fields.add(new RowType.Field(name, commonParameterType.get()));
         }
 
-        return Optional.of(RowType.from(fields.build()));
+        RowType commonSuperType = RowType.from(fields.build());
+        return TypeCompatibility.compatible(commonSuperType, commonSuperType.equals(secondType));
     }
 
-    private Optional<Type> getCommonSuperTypeForCovariantParametrizedType(Type firstType, Type secondType)
+    private TypeCompatibility typeCompatibilityForCovariantParametrizedType(Type fromType, Type toType)
     {
-        checkState(firstType.getClass().equals(secondType.getClass()));
+        checkState(fromType.getClass().equals(toType.getClass()));
         ImmutableList.Builder<TypeSignatureParameter> commonParameterTypes = ImmutableList.builder();
-        List<Type> firstTypeParameters = firstType.getTypeParameters();
-        List<Type> secondTypeParameters = secondType.getTypeParameters();
+        List<Type> fromTypeParameters = fromType.getTypeParameters();
+        List<Type> toTypeParameters = toType.getTypeParameters();
 
-        checkState(firstTypeParameters.size() == secondTypeParameters.size());
-        for (int i = 0; i < firstTypeParameters.size(); i++) {
-            Optional<Type> commonParameterType = getCommonSuperType(firstTypeParameters.get(i), secondTypeParameters.get(i));
+        if (fromTypeParameters.size() != toTypeParameters.size()) {
+            return TypeCompatibility.incompatible();
+        }
+
+        for (int i = 0; i < fromTypeParameters.size(); i++) {
+            Optional<Type> commonParameterType = getCommonSuperType(fromTypeParameters.get(i), toTypeParameters.get(i));
             if (!commonParameterType.isPresent()) {
-                return Optional.empty();
+                return TypeCompatibility.incompatible();
             }
             commonParameterTypes.add(TypeSignatureParameter.of(commonParameterType.get().getTypeSignature()));
         }
-        String typeName = firstType.getTypeSignature().getBase();
-        return Optional.of(getType(new TypeSignature(typeName, commonParameterTypes.build())));
+        String typeBase = fromType.getTypeSignature().getBase();
+        Type commonSuperType = getType(new TypeSignature(typeBase, commonParameterTypes.build()));
+        return TypeCompatibility.compatible(commonSuperType, commonSuperType.equals(toType));
     }
 
     public void addType(Type type)
@@ -614,5 +639,48 @@ public final class TypeRegistry
     {
         requireNonNull(functionRegistry, "functionRegistry is null");
         return functionRegistry.getScalarFunctionImplementation(functionRegistry.resolveOperator(operatorType, argumentTypes)).getMethodHandle();
+    }
+
+    public static class TypeCompatibility
+    {
+        private final Optional<Type> commonSuperType;
+        private final boolean coercible;
+
+        // Do not call constructor directly. Use factory methods.
+        private TypeCompatibility(Optional<Type> commonSuperType, boolean coercible)
+        {
+            // Assert that: coercible => commonSuperType.isPresent
+            // The factory API is designed such that this is guaranteed.
+            checkArgument(!coercible || commonSuperType.isPresent());
+
+            this.commonSuperType = commonSuperType;
+            this.coercible = coercible;
+        }
+
+        private static TypeCompatibility compatible(Type commonSuperType, boolean coercible)
+        {
+            return new TypeCompatibility(Optional.of(commonSuperType), coercible);
+        }
+
+        private static TypeCompatibility incompatible()
+        {
+            return new TypeCompatibility(Optional.empty(), false);
+        }
+
+        public boolean isCompatible()
+        {
+            return commonSuperType.isPresent();
+        }
+
+        public Type getCommonSuperType()
+        {
+            checkState(commonSuperType.isPresent(), "Types are not compatible");
+            return commonSuperType.get();
+        }
+
+        public boolean isCoercible()
+        {
+            return coercible;
+        }
     }
 }
