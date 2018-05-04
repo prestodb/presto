@@ -43,6 +43,7 @@ import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.Objects.requireNonNull;
 
 public class DataDefinitionExecution<T extends Statement>
@@ -134,7 +135,7 @@ public class DataDefinitionExecution<T extends Statement>
                 {
                     fail(throwable);
                 }
-            });
+            }, directExecutor());
         }
         catch (Throwable e) {
             fail(e);
