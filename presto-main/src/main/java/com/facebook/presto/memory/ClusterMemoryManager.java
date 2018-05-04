@@ -101,7 +101,7 @@ public class ClusterMemoryManager
     private final Map<String, RemoteNodeMemory> nodes = new HashMap<>();
 
     //TODO remove when the system pool is completely removed
-    private boolean isLegacySystemPoolEnabled;
+    private final boolean isLegacySystemPoolEnabled;
 
     @GuardedBy("this")
     private final Map<MemoryPoolId, List<Consumer<MemoryPoolInfo>>> changeListeners = new HashMap<>();
@@ -131,6 +131,7 @@ public class ClusterMemoryManager
     {
         requireNonNull(config, "config is null");
         requireNonNull(nodeMemoryConfig, "nodeMemoryConfig is null");
+        requireNonNull(serverConfig, "serverConfig is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.locationFactory = requireNonNull(locationFactory, "locationFactory is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
@@ -204,7 +205,7 @@ public class ClusterMemoryManager
                 nanosSince(lastTimeNotOutOfMemory).compareTo(killOnOutOfMemoryDelay) > 0 &&
                 isLastKilledQueryGone()) {
             List<QueryMemoryInfo> queryMemoryInfoList = Streams.stream(queries)
-                    .map(query -> createQueryMemoryInfo(query))
+                    .map(this::createQueryMemoryInfo)
                     .collect(toImmutableList());
             List<MemoryInfo> nodeMemoryInfos = nodes.values().stream()
                     .map(RemoteNodeMemory::getInfo)
