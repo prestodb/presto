@@ -80,7 +80,7 @@ public class TestTypeRegistry
     @Test
     public void testIsTypeOnlyCoercion()
     {
-        assertTrue(typeRegistry.isTypeOnlyCoercion(BIGINT, BIGINT));
+        assertTrue(isTypeOnlyCoercion(BIGINT, BIGINT));
         assertTrue(isTypeOnlyCoercion("varchar(42)", "varchar(44)"));
         assertFalse(isTypeOnlyCoercion("varchar(44)", "varchar(42)"));
 
@@ -110,30 +110,30 @@ public class TestTypeRegistry
     @Test
     public void testCanCoerce()
     {
-        assertTrue(typeRegistry.canCoerce(BIGINT, BIGINT));
-        assertTrue(typeRegistry.canCoerce(UNKNOWN, BIGINT));
-        assertFalse(typeRegistry.canCoerce(BIGINT, UNKNOWN));
+        assertTrue(canCoerce(BIGINT, BIGINT));
+        assertTrue(canCoerce(UNKNOWN, BIGINT));
+        assertFalse(canCoerce(BIGINT, UNKNOWN));
 
-        assertTrue(typeRegistry.canCoerce(BIGINT, DOUBLE));
-        assertTrue(typeRegistry.canCoerce(DATE, TIMESTAMP));
-        assertTrue(typeRegistry.canCoerce(DATE, TIMESTAMP_WITH_TIME_ZONE));
-        assertTrue(typeRegistry.canCoerce(TIME, TIME_WITH_TIME_ZONE));
-        assertTrue(typeRegistry.canCoerce(TIMESTAMP, TIMESTAMP_WITH_TIME_ZONE));
-        assertTrue(typeRegistry.canCoerce(VARCHAR, JONI_REGEXP));
-        assertTrue(typeRegistry.canCoerce(VARCHAR, RE2J_REGEXP));
-        assertTrue(typeRegistry.canCoerce(VARCHAR, LIKE_PATTERN));
-        assertTrue(typeRegistry.canCoerce(VARCHAR, JSON_PATH));
+        assertTrue(canCoerce(BIGINT, DOUBLE));
+        assertTrue(canCoerce(DATE, TIMESTAMP));
+        assertTrue(canCoerce(DATE, TIMESTAMP_WITH_TIME_ZONE));
+        assertTrue(canCoerce(TIME, TIME_WITH_TIME_ZONE));
+        assertTrue(canCoerce(TIMESTAMP, TIMESTAMP_WITH_TIME_ZONE));
+        assertTrue(canCoerce(VARCHAR, JONI_REGEXP));
+        assertTrue(canCoerce(VARCHAR, RE2J_REGEXP));
+        assertTrue(canCoerce(VARCHAR, LIKE_PATTERN));
+        assertTrue(canCoerce(VARCHAR, JSON_PATH));
 
-        assertTrue(typeRegistry.canCoerce(REAL, DOUBLE));
-        assertTrue(typeRegistry.canCoerce(TINYINT, REAL));
-        assertTrue(typeRegistry.canCoerce(SMALLINT, REAL));
-        assertTrue(typeRegistry.canCoerce(INTEGER, REAL));
-        assertTrue(typeRegistry.canCoerce(BIGINT, REAL));
+        assertTrue(canCoerce(REAL, DOUBLE));
+        assertTrue(canCoerce(TINYINT, REAL));
+        assertTrue(canCoerce(SMALLINT, REAL));
+        assertTrue(canCoerce(INTEGER, REAL));
+        assertTrue(canCoerce(BIGINT, REAL));
 
-        assertFalse(typeRegistry.canCoerce(DOUBLE, BIGINT));
-        assertFalse(typeRegistry.canCoerce(TIMESTAMP, TIME_WITH_TIME_ZONE));
-        assertFalse(typeRegistry.canCoerce(TIMESTAMP_WITH_TIME_ZONE, TIMESTAMP));
-        assertFalse(typeRegistry.canCoerce(VARBINARY, VARCHAR));
+        assertFalse(canCoerce(DOUBLE, BIGINT));
+        assertFalse(canCoerce(TIMESTAMP, TIME_WITH_TIME_ZONE));
+        assertFalse(canCoerce(TIMESTAMP_WITH_TIME_ZONE, TIMESTAMP));
+        assertFalse(canCoerce(VARBINARY, VARCHAR));
         assertFalse(canCoerce("real", "decimal(37,1)"));
         assertFalse(canCoerce("real", "decimal(37,37)"));
         assertFalse(canCoerce("double", "decimal(37,1)"));
@@ -165,10 +165,10 @@ public class TestTypeRegistry
         assertFalse(canCoerce("char(42)", "char(40)"));
         assertFalse(canCoerce("char(42)", "varchar(40)"));
 
-        assertTrue(typeRegistry.canCoerce(createType("char(42)"), JONI_REGEXP));
-        assertTrue(typeRegistry.canCoerce(createType("char(42)"), RE2J_REGEXP));
-        assertTrue(typeRegistry.canCoerce(createType("char(42)"), LIKE_PATTERN));
-        assertTrue(typeRegistry.canCoerce(createType("char(42)"), JSON_PATH));
+        assertTrue(canCoerce(createType("char(42)"), JONI_REGEXP));
+        assertTrue(canCoerce(createType("char(42)"), RE2J_REGEXP));
+        assertTrue(canCoerce(createType("char(42)"), LIKE_PATTERN));
+        assertTrue(canCoerce(createType("char(42)"), JSON_PATH));
 
         assertTrue(canCoerce("decimal(22,1)", "decimal(23,1)"));
         assertFalse(canCoerce("decimal(23,1)", "decimal(22,1)"));
@@ -322,22 +322,30 @@ public class TestTypeRegistry
         return builder.build();
     }
 
-    private static void assertCommonSuperType(Type firstType, Type secondType, Type expected)
+    private void assertCommonSuperType(Type firstType, Type secondType, Type expected)
     {
-        TypeRegistry typeManager = new TypeRegistry();
-        assertEquals(typeManager.getCommonSuperType(firstType, secondType), Optional.ofNullable(expected));
-        assertEquals(typeManager.getCommonSuperType(secondType, firstType), Optional.ofNullable(expected));
+        assertEquals(typeRegistry.getCommonSuperType(firstType, secondType), Optional.ofNullable(expected));
+        assertEquals(typeRegistry.getCommonSuperType(secondType, firstType), Optional.ofNullable(expected));
     }
 
     private void assertCommonSuperType(String firstType, String secondType, String expected)
     {
-        assertEquals(typeRegistry.getCommonSuperType(createType(firstType), createType(secondType)), Optional.ofNullable(expected).map(this::createType));
-        assertEquals(typeRegistry.getCommonSuperType(createType(secondType), createType(firstType)), Optional.ofNullable(expected).map(this::createType));
+        assertCommonSuperType(createType(firstType), createType(secondType), expected == null ? null : createType(expected));
+    }
+
+    private boolean canCoerce(Type actual, Type expected)
+    {
+        return typeRegistry.canCoerce(actual, expected);
     }
 
     private boolean canCoerce(String actual, String expected)
     {
         return typeRegistry.canCoerce(createType(actual), createType(expected));
+    }
+
+    private boolean isTypeOnlyCoercion(Type actual, Type expected)
+    {
+        return typeRegistry.isTypeOnlyCoercion(actual, expected);
     }
 
     private boolean isTypeOnlyCoercion(String actual, String expected)
