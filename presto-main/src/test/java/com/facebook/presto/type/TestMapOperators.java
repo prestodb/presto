@@ -704,6 +704,11 @@ public class TestMapOperators
         assertFunction("MAP(ARRAY[1, 3], ARRAY['kittens','puppies']) IS DISTINCT FROM MAP(ARRAY[1, 2], ARRAY['kittens', 'pupp111'])", BOOLEAN, true);
         assertFunction("MAP(ARRAY[1, 3], ARRAY['kittens','puppies']) IS DISTINCT FROM MAP(ARRAY[1, 2], ARRAY['kittens', NULL])", BOOLEAN, true);
         assertFunction("MAP(ARRAY[1, 3], ARRAY['kittens','puppies']) IS DISTINCT FROM MAP(ARRAY[1, 2], ARRAY[NULL, NULL])", BOOLEAN, true);
+
+        assertFunction("MAP(ARRAY[1, 3], ARRAY[MAP(ARRAY['kittens'], ARRAY[1e0]), MAP(ARRAY['puppies'], ARRAY[3e0])]) " +
+                "IS DISTINCT FROM MAP(ARRAY[1, 3], ARRAY[MAP(ARRAY['kittens'], ARRAY[1e0]), MAP(ARRAY['puppies'], ARRAY[3e0])])", BOOLEAN, false);
+        assertFunction("MAP(ARRAY[1, 3], ARRAY[MAP(ARRAY['kittens'], ARRAY[1e0]), MAP(ARRAY['puppies'], ARRAY[3e0])]) " +
+                "IS DISTINCT FROM MAP(ARRAY[1, 3], ARRAY[MAP(ARRAY['kittens'], ARRAY[1e0]), MAP(ARRAY['puppies'], ARRAY[4e0])])", BOOLEAN, true);
     }
 
     @Test
