@@ -14,10 +14,14 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.connector.informationSchema.InformationSchemaConnector;
 import com.facebook.presto.connector.system.SystemConnector;
+import com.facebook.presto.execution.QueryManagerConfig;
+import com.facebook.presto.execution.TaskManagerConfig;
+import com.facebook.presto.memory.MemoryManagerConfig;
 import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.InMemoryNodeManager;
@@ -100,6 +104,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.REFERENCE_TO_OU
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.SAMPLE_PERCENTAGE_OUT_OF_RANGE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.SCHEMA_NOT_SPECIFIED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.STANDALONE_LAMBDA;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TOO_MANY_GROUPING_SETS;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_ANALYSIS_ERROR;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_IS_RECURSIVE;
@@ -516,6 +521,36 @@ public class TestAnalyzer
                         "FROM (VALUES (1, 2)) t(a, b)\n" +
                         "GROUP BY b\n" +
                         "ORDER BY MAX((SELECT x.someField))");
+    }
+
+    @Test
+    public void testTooManyGroupingElements()
+    {
+        Session session = testSessionBuilder(new SessionPropertyManager(new SystemSessionProperties(
+                new QueryManagerConfig(),
+                new TaskManagerConfig(),
+                new MemoryManagerConfig(),
+                new FeaturesConfig().setMaxGroupingSets(2048)))).build();
+        analyze(session, "SELECT a, b, c, d, e, f, g, h, i, j, k, SUM(l)" +
+                "FROM (VALUES (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12))\n" +
+                "t (a, b, c, d, e, f, g, h, i, j, k, l)\n" +
+                "GROUP BY CUBE (a, b, c, d, e, f), CUBE (g, h, i, j, k)");
+        assertFails(session, TOO_MANY_GROUPING_SETS,
+                "line 3:10: GROUP BY has 4096 grouping sets but can contain at most 2048",
+                "SELECT a, b, c, d, e, f, g, h, i, j, k, l, SUM(m)" +
+                        "FROM (VALUES (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13))\n" +
+                        "t (a, b, c, d, e, f, g, h, i, j, k, l, m)\n" +
+                        "GROUP BY CUBE (a, b, c, d, e, f), CUBE (g, h, i, j, k, l)");
+        assertFails(session, TOO_MANY_GROUPING_SETS,
+                format("line 3:10: GROUP BY has more than %s grouping sets but can contain at most 2048", Integer.MAX_VALUE),
+                "SELECT a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, " +
+                        "q, r, s, t, u, v, x, w, y, z, aa, ab, ac, ad, ae, SUM(af)" +
+                        "FROM (VALUES (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, " +
+                        "17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32))\n" +
+                        "t (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, " +
+                        "q, r, s, t, u, v, x, w, y, z, aa, ab, ac, ad, ae, af)\n" +
+                        "GROUP BY CUBE (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, " +
+                        "q, r, s, t, u, v, x, w, y, z, aa, ab, ac, ad, ae)");
     }
 
     @Test

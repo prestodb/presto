@@ -93,7 +93,8 @@ public class TestFeaturesConfig
                 .setUseMarkDistinct(true)
                 .setPreferPartialAggregation(true)
                 .setHistogramGroupImplementation(HistogramGroupImplementation.NEW)
-                .setArrayAggGroupImplementation(ArrayAggGroupImplementation.NEW));
+                .setArrayAggGroupImplementation(ArrayAggGroupImplementation.NEW)
+                .setMaxGroupingSets(2048));
     }
 
     @Test
@@ -152,6 +153,7 @@ public class TestFeaturesConfig
                 .put("arrayagg.implementation", "LEGACY")
                 .put("optimizer.use-mark-distinct", "false")
                 .put("optimizer.prefer-partial-aggregation", "false")
+                .put("analyzer.max-grouping-sets", "2047")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -206,7 +208,8 @@ public class TestFeaturesConfig
                 .setUseMarkDistinct(false)
                 .setPreferPartialAggregation(false)
                 .setHistogramGroupImplementation(HistogramGroupImplementation.LEGACY)
-                .setArrayAggGroupImplementation(ArrayAggGroupImplementation.LEGACY);
+                .setArrayAggGroupImplementation(ArrayAggGroupImplementation.LEGACY)
+                .setMaxGroupingSets(2047);
         assertFullMapping(properties, expected);
     }
 
