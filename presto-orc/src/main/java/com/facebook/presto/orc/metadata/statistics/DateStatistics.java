@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.metadata.statistics;
 
+import com.facebook.presto.orc.metadata.statistics.StatisticsHasher.Hashable;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Objects;
@@ -21,7 +22,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public class DateStatistics
-        implements RangeStatistics<Integer>
+        implements RangeStatistics<Integer>, Hashable
 {
     // 1 byte to denote if null + 4 bytes for the value (date is of integer type)
     public static final long DATE_VALUE_BYTES = Byte.BYTES + Integer.BYTES;
@@ -90,5 +91,12 @@ public class DateStatistics
                 .add("min", getMin())
                 .add("max", getMax())
                 .toString();
+    }
+
+    @Override
+    public void addHash(StatisticsHasher hasher)
+    {
+        hasher.putOptionalInt(hasMinimum, minimum)
+                .putOptionalInt(hasMaximum, maximum);
     }
 }

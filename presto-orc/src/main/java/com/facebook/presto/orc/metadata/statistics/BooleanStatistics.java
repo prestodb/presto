@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.metadata.statistics;
 
+import com.facebook.presto.orc.metadata.statistics.StatisticsHasher.Hashable;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Objects;
@@ -20,6 +21,7 @@ import java.util.Objects;
 import static com.google.common.base.MoreObjects.toStringHelper;
 
 public class BooleanStatistics
+        implements Hashable
 {
     // 1 byte to denote if null + 1 byte for the value
     public static final long BOOLEAN_VALUE_BYTES = Byte.BYTES + Byte.BYTES;
@@ -68,5 +70,11 @@ public class BooleanStatistics
         return toStringHelper(this)
                 .add("trueValueCount", trueValueCount)
                 .toString();
+    }
+
+    @Override
+    public void addHash(StatisticsHasher hasher)
+    {
+        hasher.putLong(trueValueCount);
     }
 }

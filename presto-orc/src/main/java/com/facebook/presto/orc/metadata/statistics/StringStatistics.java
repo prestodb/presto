@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.metadata.statistics;
 
+import com.facebook.presto.orc.metadata.statistics.StatisticsHasher.Hashable;
 import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -24,7 +25,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public class StringStatistics
-        implements RangeStatistics<Slice>
+        implements RangeStatistics<Slice>, Hashable
 {
     // 1 byte to denote if null + 4 bytes to denote offset
     public static final long STRING_VALUE_BYTES_OVERHEAD = Byte.BYTES + Integer.BYTES;
@@ -97,5 +98,13 @@ public class StringStatistics
                 .add("max", maximum == null ? "<null>" : maximum.toStringUtf8())
                 .add("sum", sum)
                 .toString();
+    }
+
+    @Override
+    public void addHash(StatisticsHasher hasher)
+    {
+        hasher.putOptionalSlice(minimum)
+                .putOptionalSlice(maximum)
+                .putLong(sum);
     }
 }

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.metadata.statistics;
 
+import com.facebook.presto.orc.metadata.statistics.StatisticsHasher.Hashable;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
@@ -28,6 +29,7 @@ import static com.facebook.presto.orc.metadata.statistics.StringStatisticsBuilde
 import static com.google.common.base.MoreObjects.toStringHelper;
 
 public class ColumnStatistics
+        implements Hashable
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(ColumnStatistics.class).instanceSize();
 
@@ -220,6 +222,19 @@ public class ColumnStatistics
                 .add("decimalStatistics", decimalStatistics)
                 .add("bloomFilter", bloomFilter)
                 .toString();
+    }
+
+    @Override
+    public void addHash(StatisticsHasher hasher)
+    {
+        hasher.putOptionalLong(hasNumberOfValues, numberOfValues)
+                .putOptionalHashable(booleanStatistics)
+                .putOptionalHashable(integerStatistics)
+                .putOptionalHashable(doubleStatistics)
+                .putOptionalHashable(stringStatistics)
+                .putOptionalHashable(dateStatistics)
+                .putOptionalHashable(decimalStatistics)
+                .putOptionalHashable(bloomFilter);
     }
 
     public static ColumnStatistics mergeColumnStatistics(List<ColumnStatistics> stats)
