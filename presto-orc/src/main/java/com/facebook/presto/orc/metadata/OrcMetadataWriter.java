@@ -246,6 +246,12 @@ public class OrcMetadataWriter
                     .build());
         }
 
+        if (columnStatistics.getBinaryStatistics() != null) {
+            builder.setBinaryStatistics(OrcProto.BinaryStatistics.newBuilder()
+                    .setSum(columnStatistics.getBinaryStatistics().getSum())
+                    .build());
+        }
+
         return builder.build();
     }
 

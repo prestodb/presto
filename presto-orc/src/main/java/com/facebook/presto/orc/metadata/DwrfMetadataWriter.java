@@ -203,6 +203,12 @@ public class DwrfMetadataWriter
             builder.setStringStatistics(statisticsBuilder.build());
         }
 
+        if (columnStatistics.getBinaryStatistics() != null) {
+            builder.setBinaryStatistics(DwrfProto.BinaryStatistics.newBuilder()
+                    .setSum(columnStatistics.getBinaryStatistics().getSum())
+                    .build());
+        }
+
         return builder.build();
     }
 
