@@ -128,9 +128,10 @@ public class OrcWriter
             Map<String, String> userMetadata,
             DateTimeZone hiveStorageTimeZone,
             boolean validate,
+            boolean validateLowMemory,
             OrcWriterStats stats)
     {
-        this.validationBuilder = validate ? new OrcWriteValidation.OrcWriteValidationBuilder(types).setStringStatisticsLimitInBytes(toIntExact(options.getMaxStringStatisticsLimit().toBytes())) : null;
+        this.validationBuilder = validate ? new OrcWriteValidation.OrcWriteValidationBuilder(validateLowMemory, types).setStringStatisticsLimitInBytes(toIntExact(options.getMaxStringStatisticsLimit().toBytes())) : null;
 
         this.output = new OutputStreamSliceOutput(requireNonNull(outputStream, "outputStream is null"));
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));

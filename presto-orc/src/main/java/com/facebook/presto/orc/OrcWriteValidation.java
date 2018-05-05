@@ -79,6 +79,7 @@ import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.lang.String.format;
@@ -225,16 +226,19 @@ public class OrcWriteValidation
 
         for (int rowGroupIndex = 0; rowGroupIndex < expectedRowGroupStatistics.size(); rowGroupIndex++) {
             RowGroupStatistics expectedRowGroup = expectedRowGroupStatistics.get(rowGroupIndex);
-            Map<Integer, ColumnStatistics> expectedStatistics = expectedRowGroup.getColumnStatistics();
-            if (!expectedStatistics.keySet().equals(actualRowGroupStatistics.keySet())) {
-                throw new OrcCorruptionException(orcDataSourceId, "Unexpected column in row group %s in stripe at offset %s", rowGroupIndex, stripeOffset);
-            }
-            for (Entry<Integer, ColumnStatistics> entry : expectedStatistics.entrySet()) {
-                int columnIndex = entry.getKey();
-                List<RowGroupIndex> actualRowGroup = actualRowGroupStatistics.get(columnIndex);
-                ColumnStatistics actual = actualRowGroup.get(rowGroupIndex).getColumnStatistics();
-                ColumnStatistics expected = entry.getValue();
-                validateColumnStatisticsEquivalent(orcDataSourceId, "Row group " + rowGroupIndex + " in stripe at offset " + stripeOffset, actual, expected);
+            Map<Integer, ColumnStatistics> expectedStatistics = null;
+            if (!expectedRowGroup.isLowMemoryMode()) {
+                expectedStatistics = expectedRowGroup.getColumnStatistics();
+                if (!expectedStatistics.keySet().equals(actualRowGroupStatistics.keySet())) {
+                    throw new OrcCorruptionException(orcDataSourceId, "Unexpected column in row group %s in stripe at offset %s", rowGroupIndex, stripeOffset);
+                }
+                for (Entry<Integer, ColumnStatistics> entry : expectedStatistics.entrySet()) {
+                    int columnIndex = entry.getKey();
+                    List<RowGroupIndex> actualRowGroup = actualRowGroupStatistics.get(columnIndex);
+                    ColumnStatistics actual = actualRowGroup.get(rowGroupIndex).getColumnStatistics();
+                    ColumnStatistics expected = entry.getValue();
+                    validateColumnStatisticsEquivalent(orcDataSourceId, "Row group " + rowGroupIndex + " in stripe at offset " + stripeOffset, actual, expected);
+                }
             }
 
             RowGroupStatistics actualRowGroup = buildActualRowGroupStatistics(rowGroupIndex, actualRowGroupStatistics);
@@ -246,9 +250,11 @@ public class OrcWriteValidation
 
     private static RowGroupStatistics buildActualRowGroupStatistics(int rowGroupIndex, Map<Integer, List<RowGroupIndex>> actualRowGroupStatistics)
     {
-        return new RowGroupStatistics(IntStream.range(1, actualRowGroupStatistics.size() + 1)
-                .boxed()
-                .collect(toImmutableMap(identity(), columnIndex -> actualRowGroupStatistics.get(columnIndex).get(rowGroupIndex).getColumnStatistics())));
+        return new RowGroupStatistics(
+                        false,
+                        IntStream.range(1, actualRowGroupStatistics.size() + 1)
+                                .boxed()
+                                .collect(toImmutableMap(identity(), columnIndex -> actualRowGroupStatistics.get(columnIndex).get(rowGroupIndex).getColumnStatistics())));
     }
 
     public void validateRowGroupStatistics(
@@ -267,17 +273,19 @@ public class OrcWriteValidation
         }
 
         RowGroupStatistics expectedRowGroup = rowGroups.get(rowGroupIndex);
-        RowGroupStatistics actualRowGroup = new RowGroupStatistics(IntStream.range(1, actual.size()).boxed().collect(toImmutableMap(identity(), actual::get)));
+        RowGroupStatistics actualRowGroup = new RowGroupStatistics(false, IntStream.range(1, actual.size()).boxed().collect(toImmutableMap(identity(), actual::get)));
 
-        Map<Integer, ColumnStatistics> expectedByColumnIndex = expectedRowGroup.getColumnStatistics();
+        if (!expectedRowGroup.isLowMemoryMode()) {
+            Map<Integer, ColumnStatistics> expectedByColumnIndex = expectedRowGroup.getColumnStatistics();
 
-        // new writer does not write row group stats for column zero (table row column)
-        List<ColumnStatistics> expected = IntStream.range(1, actual.size())
-                .mapToObj(expectedByColumnIndex::get)
-                .collect(toImmutableList());
-        actual = actual.subList(1, actual.size());
+            // new writer does not write row group stats for column zero (table row column)
+            List<ColumnStatistics> expected = IntStream.range(1, actual.size())
+                    .mapToObj(expectedByColumnIndex::get)
+                    .collect(toImmutableList());
+            actual = actual.subList(1, actual.size());
 
-        validateColumnStatisticsEquivalent(orcDataSourceId, "Row group " + rowGroupIndex + " in stripe at offset " + stripeOffset, actual, expected);
+            validateColumnStatisticsEquivalent(orcDataSourceId, "Row group " + rowGroupIndex + " in stripe at offset " + stripeOffset, actual, expected);
+        }
 
         if (expectedRowGroup.getHash() != actualRowGroup.getHash()) {
             throw new OrcCorruptionException(orcDataSourceId, "Checksum mismatch for row group %s in stripe at offset %s", rowGroupIndex, stripeOffset);
@@ -745,23 +753,44 @@ public class OrcWriteValidation
 
     private static class RowGroupStatistics
     {
+        private final boolean lowMemoryMode;
         private final SortedMap<Integer, ColumnStatistics> columnStatistics;
         private final long hash;
 
-        public RowGroupStatistics(Map<Integer, ColumnStatistics> columnStatistics)
+        public RowGroupStatistics(boolean lowMemoryMode, Map<Integer, ColumnStatistics> columnStatistics)
         {
-            this.columnStatistics = ImmutableSortedMap.copyOf(requireNonNull(columnStatistics, "columnStatistics is null"));
+            this.lowMemoryMode = lowMemoryMode;
+
+            requireNonNull(columnStatistics, "columnStatistics is null");
+            if (lowMemoryMode) {
+                this.columnStatistics = ImmutableSortedMap.of();
+                hash = hashColumnStatistics(ImmutableSortedMap.copyOf(columnStatistics));
+            }
+            else {
+                this.columnStatistics = ImmutableSortedMap.copyOf(columnStatistics);
+                hash = hashColumnStatistics(this.columnStatistics);
+            }
+        }
+
+        private static long hashColumnStatistics(SortedMap<Integer, ColumnStatistics> columnStatistics)
+        {
             StatisticsHasher statisticsHasher = new StatisticsHasher();
-            statisticsHasher.putInt(this.columnStatistics.size());
-            for (Entry<Integer, ColumnStatistics> entry : this.columnStatistics.entrySet()) {
+            statisticsHasher.putInt(columnStatistics.size());
+            for (Entry<Integer, ColumnStatistics> entry : columnStatistics.entrySet()) {
                 statisticsHasher.putInt(entry.getKey())
                         .putOptionalHashable(entry.getValue());
             }
-            hash = statisticsHasher.hash();
+            return statisticsHasher.hash();
+        }
+
+        public boolean isLowMemoryMode()
+        {
+            return lowMemoryMode;
         }
 
         public Map<Integer, ColumnStatistics> getColumnStatistics()
         {
+            verify(!lowMemoryMode, "columnStatistics are not available in low memory mode");
             return columnStatistics;
         }
 
@@ -773,6 +802,7 @@ public class OrcWriteValidation
 
     public static class OrcWriteValidationBuilder
     {
+        private final boolean lowMemoryMode;
         private List<Integer> version;
         private CompressionKind compression;
         private int rowGroupMaxRowCount;
@@ -785,8 +815,9 @@ public class OrcWriteValidation
         private final Map<Long, StripeStatistics> stripeStatistics = new HashMap<>();
         private List<ColumnStatistics> fileStatistics;
 
-        public OrcWriteValidationBuilder(List<Type> types)
+        public OrcWriteValidationBuilder(boolean lowMemoryMode, List<Type> types)
         {
+            this.lowMemoryMode = lowMemoryMode;
             this.checksum = new WriteChecksumBuilder(types);
         }
 
@@ -838,7 +869,7 @@ public class OrcWriteValidation
 
         public void addRowGroupStatistics(Map<Integer, ColumnStatistics> columnStatistics)
         {
-            currentRowGroupStatistics.add(new RowGroupStatistics(columnStatistics));
+            currentRowGroupStatistics.add(new RowGroupStatistics(lowMemoryMode, columnStatistics));
         }
 
         public void addStripeStatistics(long stripStartOffset, StripeStatistics columnStatistics)

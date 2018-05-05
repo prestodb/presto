@@ -42,6 +42,7 @@ public final class HiveSessionProperties
     private static final String ORC_STRING_STATISTICS_LIMIT = "orc_string_statistics_limit";
     private static final String ORC_OPTIMIZED_WRITER_ENABLED = "orc_optimized_writer_enabled";
     private static final String ORC_OPTIMIZED_WRITER_VALIDATE = "orc_optimized_writer_validate";
+    private static final String ORC_OPTIMIZED_WRITER_VALIDATE_LOW_MEMORY = "orc_optimized_writer_validate_low_memory";
     private static final String ORC_OPTIMIZED_WRITER_MAX_STRIPE_SIZE = "orc_optimized_writer_max_stripe_size";
     private static final String HIVE_STORAGE_FORMAT = "hive_storage_format";
     private static final String RESPECT_TABLE_FORMAT = "respect_table_format";
@@ -118,6 +119,11 @@ public final class HiveSessionProperties
                         ORC_OPTIMIZED_WRITER_VALIDATE,
                         "Experimental: ORC: Force all validation for files",
                         hiveClientConfig.getOrcWriterValidationPercentage() > 0.0,
+                        false),
+                booleanSessionProperty(
+                        ORC_OPTIMIZED_WRITER_VALIDATE_LOW_MEMORY,
+                        "Experimental: ORC: Use minimal memory for validation",
+                        hiveClientConfig.isOrcWriterValidationLowMemory(),
                         false),
                 dataSizeSessionProperty(
                         ORC_OPTIMIZED_WRITER_MAX_STRIPE_SIZE,
@@ -253,6 +259,11 @@ public final class HiveSessionProperties
         // session property can not force validation when sampling is enabled
         // todo change this if session properties support null
         return ThreadLocalRandom.current().nextDouble() < orcWriterValidationPercentage;
+    }
+
+    public static boolean isOrcOptimizedWriterValidateLowMemory(ConnectorSession session)
+    {
+        return session.getProperty(ORC_OPTIMIZED_WRITER_VALIDATE_LOW_MEMORY, Boolean.class);
     }
 
     public static DataSize getOrcOptimizedWriterMaxStripeSize(ConnectorSession session)

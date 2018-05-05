@@ -54,6 +54,7 @@ import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxMergeDista
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcOptimizedWriterMaxStripeSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcStreamBufferSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcStringStatisticsLimit;
+import static com.facebook.presto.hive.HiveSessionProperties.isOrcOptimizedWriterValidateLowMemory;
 import static com.facebook.presto.hive.HiveType.toHiveTypes;
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
@@ -202,6 +203,7 @@ public class OrcFileWriterFactory
                             .build(),
                     hiveStorageTimeZone,
                     validationInputFactory,
+                    isOrcOptimizedWriterValidateLowMemory(session),
                     stats));
         }
         catch (IOException e) {

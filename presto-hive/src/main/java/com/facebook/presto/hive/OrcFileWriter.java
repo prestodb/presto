@@ -70,6 +70,7 @@ public class OrcFileWriter
             Map<String, String> metadata,
             DateTimeZone hiveStorageTimeZone,
             Optional<Supplier<OrcDataSource>> validationInputFactory,
+            boolean validationLowMemory,
             OrcWriterStats stats)
     {
         this.outputStream = new CountingOutputStream(outputStream);
@@ -84,6 +85,7 @@ public class OrcFileWriter
                 metadata,
                 hiveStorageTimeZone,
                 validationInputFactory.isPresent(),
+                validationLowMemory,
                 stats);
         this.rollbackAction = requireNonNull(rollbackAction, "rollbackAction is null");
 

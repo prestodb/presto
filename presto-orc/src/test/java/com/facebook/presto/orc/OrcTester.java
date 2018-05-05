@@ -634,6 +634,7 @@ public class OrcTester
                 ImmutableMap.of(),
                 HIVE_STORAGE_TIME_ZONE,
                 true,
+                false,
                 stats);
 
         BlockBuilder blockBuilder = type.createBlockBuilder(null, 1024);

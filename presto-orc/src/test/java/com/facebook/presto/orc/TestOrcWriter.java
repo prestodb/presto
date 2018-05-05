@@ -67,6 +67,7 @@ public class TestOrcWriter
                 ImmutableMap.of(),
                 HIVE_STORAGE_TIME_ZONE,
                 true,
+                false,
                 new OrcWriterStats());
 
         // write down some data with unsorted streams

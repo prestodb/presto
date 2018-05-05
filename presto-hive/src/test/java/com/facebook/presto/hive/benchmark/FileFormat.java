@@ -510,6 +510,7 @@ public enum FileFormat
                     ImmutableMap.of(),
                     hiveStorageTimeZone,
                     false,
+                    true,
                     new OrcWriterStats());
         }
 
@@ -546,6 +547,7 @@ public enum FileFormat
                     ImmutableMap.of(),
                     hiveStorageTimeZone,
                     false,
+                    true,
                     new OrcWriterStats());
         }
 

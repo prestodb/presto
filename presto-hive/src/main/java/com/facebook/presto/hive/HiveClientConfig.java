@@ -107,6 +107,7 @@ public class HiveClientConfig
     private boolean orcLazyReadSmallRanges = true;
     private boolean orcOptimizedWriterEnabled;
     private double orcWriterValidationPercentage = 1.0;
+    private boolean orcWriterValidationLowMemory;
 
     private boolean rcfileOptimizedWriterEnabled = true;
     private boolean rcfileWriterValidate;
@@ -796,6 +797,19 @@ public class HiveClientConfig
     public HiveClientConfig setOrcWriterValidationPercentage(double orcWriterValidationPercentage)
     {
         this.orcWriterValidationPercentage = orcWriterValidationPercentage;
+        return this;
+    }
+
+    public boolean isOrcWriterValidationLowMemory()
+    {
+        return orcWriterValidationLowMemory;
+    }
+
+    @Config("hive.orc.writer.validation-low-memory")
+    @ConfigDescription("Use minimal memory for ORC file validation")
+    public HiveClientConfig setOrcWriterValidationLowMemory(boolean orcWriterValidationLowMemory)
+    {
+        this.orcWriterValidationLowMemory = orcWriterValidationLowMemory;
         return this;
     }
 
