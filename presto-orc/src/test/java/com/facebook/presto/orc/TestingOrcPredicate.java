@@ -258,14 +258,21 @@ public final class TestingOrcPredicate
 
             // statistics can be missing for any reason
             if (columnStatistics.getDoubleStatistics() != null) {
-                // verify min
-                if (Math.abs(columnStatistics.getDoubleStatistics().getMin() - Ordering.natural().nullsLast().min(chunk)) > 0.001) {
-                    return false;
+                if (chunk.stream().allMatch(Objects::isNull)) {
+                    if (columnStatistics.getDoubleStatistics().getMin() != null || columnStatistics.getDoubleStatistics().getMax() != null) {
+                        return false;
+                    }
                 }
+                else {
+                    // verify min
+                    if (Math.abs(columnStatistics.getDoubleStatistics().getMin() - Ordering.natural().nullsLast().min(chunk)) > 0.001) {
+                        return false;
+                    }
 
-                // verify max
-                if (Math.abs(columnStatistics.getDoubleStatistics().getMax() - Ordering.natural().nullsFirst().max(chunk)) > 0.001) {
-                    return false;
+                    // verify max
+                    if (Math.abs(columnStatistics.getDoubleStatistics().getMax() - Ordering.natural().nullsFirst().max(chunk)) > 0.001) {
+                        return false;
+                    }
                 }
             }
             return true;
@@ -304,13 +311,27 @@ public final class TestingOrcPredicate
 
             // statistics can be missing for any reason
             if (columnStatistics.getIntegerStatistics() != null) {
-                // verify min
-                if (!columnStatistics.getIntegerStatistics().getMin().equals(Ordering.natural().nullsLast().min(chunk))) {
-                    return false;
+                if (chunk.stream().allMatch(Objects::isNull)) {
+                    if (columnStatistics.getIntegerStatistics().getMin() != null || columnStatistics.getIntegerStatistics().getMax() != null) {
+                        return false;
+                    }
                 }
+                else {
+                    // verify min
+                    if (!columnStatistics.getIntegerStatistics().getMin().equals(Ordering.natural().nullsLast().min(chunk))) {
+                        return false;
+                    }
 
-                // verify max
-                if (!columnStatistics.getIntegerStatistics().getMax().equals(Ordering.natural().nullsFirst().max(chunk))) {
+                    // verify max
+                    if (!columnStatistics.getIntegerStatistics().getMax().equals(Ordering.natural().nullsFirst().max(chunk))) {
+                        return false;
+                    }
+                }
+                long sum = chunk.stream()
+                        .filter(Objects::nonNull)
+                        .mapToLong(Long::longValue)
+                        .sum();
+                if (columnStatistics.getIntegerStatistics().getSum() != sum) {
                     return false;
                 }
             }
@@ -352,23 +373,30 @@ public final class TestingOrcPredicate
 
             // statistics can be missing for any reason
             if (columnStatistics.getStringStatistics() != null) {
-                Slice chunkMin = Ordering.natural().nullsLast().min(slices);
-                Slice chunkMax = Ordering.natural().nullsFirst().max(slices);
-                if (format == DWRF && isHiveWriter) {
-                    // We use the OLD open source DWRF writer for tests which uses UTF-16be for string stats. These are widened by the our reader.
-                    if (columnStatistics.getStringStatistics().getMin().compareTo(chunkMin) > 0) {
-                        return false;
-                    }
-                    if (columnStatistics.getStringStatistics().getMax().compareTo(chunkMax) < 0) {
+                if (slices.isEmpty()) {
+                    if (columnStatistics.getStringStatistics().getMin() != null || columnStatistics.getStringStatistics().getMax() != null) {
                         return false;
                     }
                 }
                 else {
-                    if (!columnStatistics.getStringStatistics().getMin().equals(chunkMin)) {
-                        return false;
+                    Slice chunkMin = Ordering.natural().nullsLast().min(slices);
+                    Slice chunkMax = Ordering.natural().nullsFirst().max(slices);
+                    if (format == DWRF && isHiveWriter) {
+                        // We use the OLD open source DWRF writer for tests which uses UTF-16be for string stats. These are widened by the our reader.
+                        if (columnStatistics.getStringStatistics().getMin().compareTo(chunkMin) > 0) {
+                            return false;
+                        }
+                        if (columnStatistics.getStringStatistics().getMax().compareTo(chunkMax) < 0) {
+                            return false;
+                        }
                     }
-                    if (!columnStatistics.getStringStatistics().getMax().equals(chunkMax)) {
-                        return false;
+                    else {
+                        if (!columnStatistics.getStringStatistics().getMin().equals(chunkMin)) {
+                            return false;
+                        }
+                        if (!columnStatistics.getStringStatistics().getMax().equals(chunkMax)) {
+                            return false;
+                        }
                     }
                 }
             }
@@ -405,16 +433,23 @@ public final class TestingOrcPredicate
 
             // statistics can be missing for any reason
             if (columnStatistics.getStringStatistics() != null) {
-                // verify min
-                String chunkMin = Ordering.natural().nullsLast().min(strings);
-                if (columnStatistics.getStringStatistics().getMin().toStringUtf8().trim().compareTo(chunkMin) > 0) {
-                    return false;
+                if (strings.isEmpty()) {
+                    if (columnStatistics.getStringStatistics().getMin() != null || columnStatistics.getStringStatistics().getMax() != null) {
+                        return false;
+                    }
                 }
+                else {
+                    // verify min
+                    String chunkMin = Ordering.natural().nullsLast().min(strings);
+                    if (columnStatistics.getStringStatistics().getMin().toStringUtf8().trim().compareTo(chunkMin) > 0) {
+                        return false;
+                    }
 
-                // verify max
-                String chunkMax = Ordering.natural().nullsFirst().max(strings);
-                if (columnStatistics.getStringStatistics().getMax().toStringUtf8().trim().compareTo(chunkMax) < 0) {
-                    return false;
+                    // verify max
+                    String chunkMax = Ordering.natural().nullsFirst().max(strings);
+                    if (columnStatistics.getStringStatistics().getMax().toStringUtf8().trim().compareTo(chunkMax) < 0) {
+                        return false;
+                    }
                 }
             }
 
@@ -445,17 +480,24 @@ public final class TestingOrcPredicate
 
             // statistics can be missing for any reason
             if (columnStatistics.getDateStatistics() != null) {
-                // verify min
-                Long min = columnStatistics.getDateStatistics().getMin().longValue();
-                if (!min.equals(Ordering.natural().nullsLast().min(chunk))) {
-                    return false;
+                if (chunk.stream().allMatch(Objects::isNull)) {
+                    if (columnStatistics.getDateStatistics().getMin() != null || columnStatistics.getDateStatistics().getMax() != null) {
+                        return false;
+                    }
                 }
+                else {
+                    // verify min
+                    Long min = columnStatistics.getDateStatistics().getMin().longValue();
+                    if (!min.equals(Ordering.natural().nullsLast().min(chunk))) {
+                        return false;
+                    }
 
-                // verify max
-                Long statMax = columnStatistics.getDateStatistics().getMax().longValue();
-                Long chunkMax = Ordering.natural().nullsFirst().max(chunk);
-                if (!statMax.equals(chunkMax)) {
-                    return false;
+                    // verify max
+                    Long statMax = columnStatistics.getDateStatistics().getMax().longValue();
+                    Long chunkMax = Ordering.natural().nullsFirst().max(chunk);
+                    if (!statMax.equals(chunkMax)) {
+                        return false;
+                    }
                 }
             }
 

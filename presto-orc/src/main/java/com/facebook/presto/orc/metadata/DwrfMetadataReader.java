@@ -239,13 +239,13 @@ public class DwrfMetadataReader
         return new ColumnStatistics(
                 statistics.getNumberOfValues(),
                 minAverageValueBytes,
-                toBooleanStatistics(statistics.getBucketStatistics()),
-                toIntegerStatistics(statistics.getIntStatistics()),
-                toDoubleStatistics(statistics.getDoubleStatistics()),
-                toStringStatistics(hiveWriterVersion, statistics.getStringStatistics(), isRowGroup),
+                statistics.hasBucketStatistics() ? toBooleanStatistics(statistics.getBucketStatistics()) : null,
+                statistics.hasIntStatistics() ? toIntegerStatistics(statistics.getIntStatistics()) : null,
+                statistics.hasDoubleStatistics() ? toDoubleStatistics(statistics.getDoubleStatistics()) : null,
+                statistics.hasStringStatistics() ? toStringStatistics(hiveWriterVersion, statistics.getStringStatistics(), isRowGroup) : null,
                 null,
                 null,
-                toBinaryStatistics(statistics.getBinaryStatistics()),
+                statistics.hasBinaryStatistics() ? toBinaryStatistics(statistics.getBinaryStatistics()) : null,
                 null);
     }
 
@@ -260,10 +260,6 @@ public class DwrfMetadataReader
 
     private static IntegerStatistics toIntegerStatistics(DwrfProto.IntegerStatistics integerStatistics)
     {
-        if (!integerStatistics.hasMinimum() && !integerStatistics.hasMaximum()) {
-            return null;
-        }
-
         return new IntegerStatistics(
                 integerStatistics.hasMinimum() ? integerStatistics.getMinimum() : null,
                 integerStatistics.hasMaximum() ? integerStatistics.getMaximum() : null,
@@ -272,10 +268,6 @@ public class DwrfMetadataReader
 
     private static DoubleStatistics toDoubleStatistics(DwrfProto.DoubleStatistics doubleStatistics)
     {
-        if (!doubleStatistics.hasMinimum() && !doubleStatistics.hasMaximum()) {
-            return null;
-        }
-
         // if either min, max, or sum is NaN, ignore the stat
         if ((doubleStatistics.hasMinimum() && Double.isNaN(doubleStatistics.getMinimum())) ||
                 (doubleStatistics.hasMaximum() && Double.isNaN(doubleStatistics.getMaximum())) ||
@@ -292,10 +284,6 @@ public class DwrfMetadataReader
     static StringStatistics toStringStatistics(HiveWriterVersion hiveWriterVersion, DwrfProto.StringStatistics stringStatistics, boolean isRowGroup)
     {
         if (hiveWriterVersion == ORIGINAL && !isRowGroup) {
-            return null;
-        }
-
-        if (!stringStatistics.hasMinimum() && !stringStatistics.hasMaximum()) {
             return null;
         }
 
