@@ -172,16 +172,9 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testCreateTableAsSelect()
     {
-        assertUpdate("CREATE TABLE test_create_table_as_if_not_exists (a bigint, b double)");
-        assertTrue(getQueryRunner().tableExists(getSession(), "test_create_table_as_if_not_exists"));
-        assertTableColumnNames("test_create_table_as_if_not_exists", "a", "b");
-
-        assertUpdate("CREATE TABLE IF NOT EXISTS test_create_table_as_if_not_exists AS SELECT orderkey, discount FROM lineitem", 0);
-        assertTrue(getQueryRunner().tableExists(getSession(), "test_create_table_as_if_not_exists"));
-        assertTableColumnNames("test_create_table_as_if_not_exists", "a", "b");
-
-        assertUpdate("DROP TABLE test_create_table_as_if_not_exists");
-        assertFalse(getQueryRunner().tableExists(getSession(), "test_create_table_as_if_not_exists"));
+        // Some connectors support CREATE TABLE AS but not the ordinary CREATE TABLE. Let's test CTAS IF NOT EXISTS with a table that is guaranteed to exist.
+        assertUpdate("CREATE TABLE IF NOT EXISTS nation AS SELECT orderkey, discount FROM lineitem", 0);
+        assertTableColumnNames("nation", "nationkey", "name", "regionkey", "comment");
 
         assertCreateTableAsSelect(
                 "test_select",
@@ -232,7 +225,7 @@ public abstract class AbstractTestDistributedQueries
         assertCreateTableAsSelect(
                 Session.builder(getSession()).setSystemProperty("redistribute_writes", "true").build(),
                 "test_union_all",
-                "SELECT orderdate, orderkey, totalprice FROM orders UNION ALL " +
+                "SELECT CAST(orderdate AS DATE) orderdate, orderkey, totalprice FROM orders UNION ALL " +
                         "SELECT DATE '2000-01-01', 1234567890, 1.23",
                 "SELECT orderdate, orderkey, totalprice FROM orders UNION ALL " +
                         "SELECT DATE '2000-01-01', 1234567890, 1.23",
@@ -241,7 +234,7 @@ public abstract class AbstractTestDistributedQueries
         assertCreateTableAsSelect(
                 Session.builder(getSession()).setSystemProperty("redistribute_writes", "false").build(),
                 "test_union_all",
-                "SELECT orderdate, orderkey, totalprice FROM orders UNION ALL " +
+                "SELECT CAST(orderdate AS DATE) orderdate, orderkey, totalprice FROM orders UNION ALL " +
                         "SELECT DATE '2000-01-01', 1234567890, 1.23",
                 "SELECT orderdate, orderkey, totalprice FROM orders UNION ALL " +
                         "SELECT DATE '2000-01-01', 1234567890, 1.23",

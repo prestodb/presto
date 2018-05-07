@@ -60,6 +60,8 @@ public class TestAccumuloDistributedQueries
         // This test is overridden due to Function "UUID" not found errors
         // Some test cases from the base class are removed
 
+        // TODO some test cases from overridden method succeed to create table, but with wrong number or rows.
+
         assertUpdate("CREATE TABLE test_create_table_as_if_not_exists (a bigint, b double)");
         assertTrue(getQueryRunner().tableExists(getSession(), "test_create_table_as_if_not_exists"));
         assertTableColumnNames("test_create_table_as_if_not_exists", "a", "b");
