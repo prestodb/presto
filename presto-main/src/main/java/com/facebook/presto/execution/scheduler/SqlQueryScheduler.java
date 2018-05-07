@@ -294,6 +294,7 @@ public class SqlQueryScheduler
                 switch (plan.getFragment().getPipelineExecutionStrategy()) {
                     case GROUPED_EXECUTION:
                         connectorPartitionHandles = nodePartitioningManager.listPartitionHandles(session, partitioningHandle);
+                        checkState(connectorPartitionHandles.size() == nodePartitionMap.getBucketToPartition().length);
                         checkState(!ImmutableList.of(NOT_PARTITIONED).equals(connectorPartitionHandles));
                         break;
                     case UNGROUPED_EXECUTION:
