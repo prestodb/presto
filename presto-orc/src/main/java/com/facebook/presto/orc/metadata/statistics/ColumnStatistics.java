@@ -199,13 +199,24 @@ public class ColumnStatistics
                 Objects.equals(stringStatistics, that.stringStatistics) &&
                 Objects.equals(dateStatistics, that.dateStatistics) &&
                 Objects.equals(decimalStatistics, that.decimalStatistics) &&
+                Objects.equals(binaryStatistics, that.binaryStatistics) &&
                 Objects.equals(bloomFilter, that.bloomFilter);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(hasNumberOfValues, getNumberOfValues(), booleanStatistics, integerStatistics, doubleStatistics, stringStatistics, dateStatistics, decimalStatistics, bloomFilter);
+        return Objects.hash(
+                hasNumberOfValues,
+                getNumberOfValues(),
+                booleanStatistics,
+                integerStatistics,
+                doubleStatistics,
+                stringStatistics,
+                dateStatistics,
+                decimalStatistics,
+                binaryStatistics,
+                bloomFilter);
     }
 
     @Override
@@ -220,6 +231,7 @@ public class ColumnStatistics
                 .add("stringStatistics", stringStatistics)
                 .add("dateStatistics", dateStatistics)
                 .add("decimalStatistics", decimalStatistics)
+                .add("binaryStatistics", binaryStatistics)
                 .add("bloomFilter", bloomFilter)
                 .toString();
     }
@@ -234,6 +246,7 @@ public class ColumnStatistics
                 .putOptionalHashable(stringStatistics)
                 .putOptionalHashable(dateStatistics)
                 .putOptionalHashable(decimalStatistics)
+                .putOptionalHashable(binaryStatistics)
                 .putOptionalHashable(bloomFilter);
     }
 
