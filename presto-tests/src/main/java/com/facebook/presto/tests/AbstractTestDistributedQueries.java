@@ -172,6 +172,10 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testCreateTableAsSelect()
     {
+        assertUpdate("CREATE TABLE IF NOT EXISTS test_ctas AS SELECT name, regionkey FROM nation", "SELECT count(*) FROM nation");
+        assertTableColumnNames("test_ctas", "name", "regionkey");
+        assertUpdate("DROP TABLE test_ctas");
+
         // Some connectors support CREATE TABLE AS but not the ordinary CREATE TABLE. Let's test CTAS IF NOT EXISTS with a table that is guaranteed to exist.
         assertUpdate("CREATE TABLE IF NOT EXISTS nation AS SELECT orderkey, discount FROM lineitem", 0);
         assertTableColumnNames("nation", "nationkey", "name", "regionkey", "comment");
