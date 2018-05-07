@@ -68,6 +68,7 @@ public class TestLongMaxNAggregation
         testCustomAggregation(new Long[] {1L, 2L, null, 3L}, 5);
         testInvalidAggregation(new Long[] {1L, 2L, 3L}, 0);
         testInvalidAggregation(new Long[] {1L, 2L, 3L}, -1);
+        testInvalidAggregation(new Long[] {1L, 2L, 3L}, 10001);
     }
 
     private void testInvalidAggregation(Long[] x, int n)

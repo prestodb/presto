@@ -155,12 +155,13 @@ public class ExpressionRewriteRuleSet
         {
             boolean anyRewritten = false;
             ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
-            for (Map.Entry<Symbol, Aggregation> aggregation : aggregationNode.getAggregations().entrySet()) {
-                FunctionCall call = (FunctionCall) rewriter.rewrite(aggregation.getValue().getCall(), context);
+            for (Map.Entry<Symbol, Aggregation> entry : aggregationNode.getAggregations().entrySet()) {
+                Aggregation aggregation = entry.getValue();
+                FunctionCall call = (FunctionCall) rewriter.rewrite(aggregation.getCall(), context);
                 aggregations.put(
-                        aggregation.getKey(),
-                        new Aggregation(call, aggregation.getValue().getSignature(), aggregation.getValue().getMask()));
-                if (!aggregation.getValue().getCall().equals(call)) {
+                        entry.getKey(),
+                        new Aggregation(call, aggregation.getSignature(), aggregation.getMask()));
+                if (!aggregation.getCall().equals(call)) {
                     anyRewritten = true;
                 }
             }

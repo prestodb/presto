@@ -15,7 +15,6 @@ package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
-import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableMap;
 
@@ -32,7 +31,7 @@ public class TestDistributedSpilledQueries
         super(TestDistributedSpilledQueries::createQueryRunner);
     }
 
-    private static DistributedQueryRunner createQueryRunner()
+    public static DistributedQueryRunner createQueryRunner()
             throws Exception
     {
         Session defaultSession = testSessionBuilder()
@@ -50,7 +49,7 @@ public class TestDistributedSpilledQueries
                 .put("experimental.memory-revoking-target", "0.0")
                 .build();
 
-        DistributedQueryRunner queryRunner = new DistributedQueryRunner(defaultSession, 2, extraProperties, ImmutableMap.of(), new SqlParserOptions());
+        DistributedQueryRunner queryRunner = new DistributedQueryRunner(defaultSession, 2, extraProperties);
 
         try {
             queryRunner.installPlugin(new TpchPlugin());

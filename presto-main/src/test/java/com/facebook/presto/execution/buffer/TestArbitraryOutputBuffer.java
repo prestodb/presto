@@ -15,7 +15,6 @@ package com.facebook.presto.execution.buffer;
 
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.OutputBuffers.OutputBufferId;
-import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.execution.StateMachine;
 import com.facebook.presto.memory.context.SimpleLocalMemoryContext;
 import com.facebook.presto.spi.Page;
@@ -30,9 +29,7 @@ import org.testng.annotations.Test;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.stream.Collectors;
 
 import static com.facebook.presto.OutputBuffers.BROADCAST_PARTITION_ID;
 import static com.facebook.presto.OutputBuffers.BufferType.ARBITRARY;
@@ -40,18 +37,22 @@ import static com.facebook.presto.OutputBuffers.createInitialEmptyOutputBuffers;
 import static com.facebook.presto.execution.buffer.BufferResult.emptyResults;
 import static com.facebook.presto.execution.buffer.BufferState.OPEN;
 import static com.facebook.presto.execution.buffer.BufferState.TERMINAL_BUFFER_STATES;
-import static com.facebook.presto.execution.buffer.TestClientBuffer.assertBufferResultEquals;
-import static com.facebook.presto.execution.buffer.TestClientBuffer.getFuture;
-import static com.facebook.presto.execution.buffer.TestingPagesSerdeFactory.testingPagesSerde;
+import static com.facebook.presto.execution.buffer.BufferTestUtils.MAX_WAIT;
+import static com.facebook.presto.execution.buffer.BufferTestUtils.NO_WAIT;
+import static com.facebook.presto.execution.buffer.BufferTestUtils.PAGES_SERDE;
+import static com.facebook.presto.execution.buffer.BufferTestUtils.acknowledgeBufferResult;
+import static com.facebook.presto.execution.buffer.BufferTestUtils.assertBufferResultEquals;
+import static com.facebook.presto.execution.buffer.BufferTestUtils.assertFinished;
+import static com.facebook.presto.execution.buffer.BufferTestUtils.assertFutureIsDone;
+import static com.facebook.presto.execution.buffer.BufferTestUtils.createBufferResult;
+import static com.facebook.presto.execution.buffer.BufferTestUtils.createPage;
+import static com.facebook.presto.execution.buffer.BufferTestUtils.getFuture;
+import static com.facebook.presto.execution.buffer.BufferTestUtils.sizeOfPages;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -59,11 +60,6 @@ import static org.testng.Assert.fail;
 
 public class TestArbitraryOutputBuffer
 {
-    private static final PagesSerde PAGES_SERDE = testingPagesSerde();
-
-    private static final Duration NO_WAIT = new Duration(0, MILLISECONDS);
-    private static final Duration MAX_WAIT = new Duration(1, SECONDS);
-    private static final DataSize BUFFERED_PAGE_SIZE = new DataSize(PAGES_SERDE.serialize(createPage(42)).getRetainedSizeInBytes(), BYTE);
     private static final String TASK_INSTANCE_ID = "task-instance-id";
 
     private static final ImmutableList<BigintType> TYPES = ImmutableList.of(BIGINT);
@@ -235,6 +231,53 @@ public class TestArbitraryOutputBuffer
 
         assertBufferResultEquals(TYPES, getBufferResult(buffer, FIRST, 6, sizeOfPages(10), NO_WAIT), emptyResults(TASK_INSTANCE_ID, 6, true));
         assertBufferResultEquals(TYPES, getBufferResult(buffer, SECOND, 11, sizeOfPages(10), NO_WAIT), emptyResults(TASK_INSTANCE_ID, 11, true));
+    }
+
+    // TODO: remove this after PR #7987 is landed
+    @Test
+    public void testAcknowledge()
+    {
+        OutputBuffers outputBuffers = createInitialEmptyOutputBuffers(ARBITRARY);
+        ArbitraryOutputBuffer buffer = createArbitraryBuffer(outputBuffers, sizeOfPages(10));
+
+        // add three items
+        for (int i = 0; i < 3; i++) {
+            addPage(buffer, createPage(i));
+        }
+
+        outputBuffers = createInitialEmptyOutputBuffers(ARBITRARY).withBuffer(FIRST, BROADCAST_PARTITION_ID);
+
+        // add a queue
+        buffer.setOutputBuffers(outputBuffers);
+        assertQueueState(buffer, 3, FIRST, 0, 0);
+
+        // get the three elements
+        assertBufferResultEquals(TYPES, getBufferResult(buffer, FIRST, 0, sizeOfPages(10), NO_WAIT), bufferResult(0, createPage(0), createPage(1), createPage(2)));
+        // acknowledge pages 0 and 1
+        acknowledgeBufferResult(buffer, FIRST, 2);
+        // only page 2 is not removed
+        assertQueueState(buffer, 0, FIRST, 1, 2);
+        // acknowledge page 2
+        acknowledgeBufferResult(buffer, FIRST, 3);
+        // nothing left
+        assertQueueState(buffer, 0, FIRST, 0, 3);
+        // acknowledge more pages will fail
+        try {
+            acknowledgeBufferResult(buffer, FIRST, 4);
+        }
+        catch (IllegalArgumentException e) {
+            assertEquals(e.getMessage(), "Invalid sequence id");
+        }
+
+        // fill the buffer
+        for (int i = 3; i < 6; i++) {
+            addPage(buffer, createPage(i));
+        }
+        assertQueueState(buffer, 3, FIRST, 0, 3);
+
+        // getting new pages will again acknowledge the previously acknowledged pages but this is ok
+        buffer.get(FIRST, 3, sizeOfPages(1)).cancel(true);
+        assertQueueState(buffer, 2, FIRST, 1, 3);
     }
 
     @Test
@@ -812,7 +855,7 @@ public class TestArbitraryOutputBuffer
         buffer.setNoMorePages();
 
         // get and acknowledge 5 pages
-        assertBufferResultEquals(TYPES, getBufferResult(buffer, FIRST, 0, sizeOfPages(5), MAX_WAIT), bufferResult(0, pages));
+        assertBufferResultEquals(TYPES, getBufferResult(buffer, FIRST, 0, sizeOfPages(5), MAX_WAIT), createBufferResult(TASK_INSTANCE_ID, 0, pages));
 
         // buffer is not finished
         assertFalse(buffer.isFinished());
@@ -969,47 +1012,9 @@ public class TestArbitraryOutputBuffer
         return buffer;
     }
 
-    private static void assertFinished(OutputBuffer buffer)
-    {
-        assertTrue(buffer.isFinished());
-        for (BufferInfo bufferInfo : buffer.getInfo().getBuffers()) {
-            assertTrue(bufferInfo.isFinished());
-            assertEquals(bufferInfo.getBufferedPages(), 0);
-        }
-    }
-
-    private static void assertFutureIsDone(Future<?> future)
-    {
-        tryGetFutureValue(future, 5, SECONDS);
-        assertTrue(future.isDone());
-    }
-
     private static BufferResult bufferResult(long token, Page firstPage, Page... otherPages)
     {
         List<Page> pages = ImmutableList.<Page>builder().add(firstPage).add(otherPages).build();
-        return bufferResult(token, pages);
-    }
-
-    private static BufferResult bufferResult(long token, List<Page> pages)
-    {
-        checkArgument(!pages.isEmpty(), "pages is empty");
-        return new BufferResult(
-                TASK_INSTANCE_ID,
-                token,
-                token + pages.size(),
-                false,
-                pages.stream()
-                        .map(PAGES_SERDE::serialize)
-                        .collect(Collectors.toList()));
-    }
-
-    private static Page createPage(int id)
-    {
-        return new Page(BlockAssertions.createLongsBlock(id));
-    }
-
-    private static DataSize sizeOfPages(int count)
-    {
-        return new DataSize(BUFFERED_PAGE_SIZE.toBytes() * count, BYTE);
+        return createBufferResult(TASK_INSTANCE_ID, token, pages);
     }
 }

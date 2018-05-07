@@ -169,8 +169,6 @@ class ClientBuffer
 
     public ListenableFuture<BufferResult> getPages(long sequenceId, DataSize maxSize, Optional<PagesSupplier> pagesSupplier)
     {
-        checkArgument(sequenceId >= 0, "Invalid sequence id");
-
         // acknowledge pages first, out side of locks to not trigger callbacks while holding the lock
         acknowledgePages(sequenceId);
 
@@ -369,9 +367,9 @@ class ClientBuffer
     /**
      * Drops pages up to the specified sequence id
      */
-    private void acknowledgePages(long sequenceId)
+    public void acknowledgePages(long sequenceId)
     {
-        checkState(!Thread.holdsLock(this), "Can not acknowledge pages while holding a lock on this");
+        checkArgument(sequenceId >= 0, "Invalid sequence id");
 
         List<SerializedPageReference> removedPages = new ArrayList<>();
         synchronized (this) {

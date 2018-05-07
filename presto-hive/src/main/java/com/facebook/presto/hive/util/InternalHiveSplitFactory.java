@@ -15,6 +15,7 @@ package com.facebook.presto.hive.util;
 
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HivePartitionKey;
+import com.facebook.presto.hive.HiveSplit.BucketConversion;
 import com.facebook.presto.hive.HiveTypeName;
 import com.facebook.presto.hive.InternalHiveSplit;
 import com.facebook.presto.hive.InternalHiveSplit.InternalHiveBlock;
@@ -55,6 +56,7 @@ public class InternalHiveSplitFactory
     private final List<HivePartitionKey> partitionKeys;
     private final Optional<Domain> pathDomain;
     private final Map<Integer, HiveTypeName> columnCoercions;
+    private final Optional<BucketConversion> bucketConversion;
     private final boolean forceLocalScheduling;
 
     public InternalHiveSplitFactory(
@@ -65,6 +67,7 @@ public class InternalHiveSplitFactory
             List<HivePartitionKey> partitionKeys,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             Map<Integer, HiveTypeName> columnCoercions,
+            Optional<BucketConversion> bucketConversion,
             boolean forceLocalScheduling)
     {
         this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
@@ -74,6 +77,7 @@ public class InternalHiveSplitFactory
         this.partitionKeys = requireNonNull(partitionKeys, "partitionKeys is null");
         pathDomain = getPathDomain(requireNonNull(effectivePredicate, "effectivePredicate is null"));
         this.columnCoercions = requireNonNull(columnCoercions, "columnCoercions is null");
+        this.bucketConversion = requireNonNull(bucketConversion, "bucketConversion is null");
         this.forceLocalScheduling = forceLocalScheduling;
     }
 
@@ -178,7 +182,8 @@ public class InternalHiveSplitFactory
                 bucketNumber,
                 splittable,
                 forceLocalScheduling && allBlocksHaveRealAddress(blocks),
-                columnCoercions));
+                columnCoercions,
+                bucketConversion));
     }
 
     private static void checkBlocks(List<InternalHiveBlock> blocks, long start, long length)

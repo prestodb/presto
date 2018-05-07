@@ -17,7 +17,6 @@ import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
-import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
@@ -138,6 +137,9 @@ public abstract class AbstractTestDistributedQueries
         assertTableColumnNames("test_create", "a", "b", "c");
 
         assertUpdate("DROP TABLE test_create");
+        assertFalse(getQueryRunner().tableExists(getSession(), "test_create"));
+
+        assertQueryFails("CREATE TABLE test_create (a bad_type)", ".* Unknown type 'bad_type' for column 'a'");
         assertFalse(getQueryRunner().tableExists(getSession(), "test_create"));
 
         assertUpdate("CREATE TABLE test_create_table_if_not_exists (a bigint, b varchar, c double)");
@@ -290,7 +292,15 @@ public abstract class AbstractTestDistributedQueries
         assertExplainAnalyze("EXPLAIN ANALYZE SHOW SESSION");
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "EXPLAIN ANALYZE only supported for statements that are queries")
+    @Test
+    public void testExplainAnalyzeVerbose()
+    {
+        assertExplainAnalyze("EXPLAIN ANALYZE VERBOSE SELECT * FROM orders");
+        assertExplainAnalyze("EXPLAIN ANALYZE VERBOSE SELECT rank() OVER (PARTITION BY orderkey ORDER BY clerk DESC) FROM orders");
+        assertExplainAnalyze("EXPLAIN ANALYZE VERBOSE SELECT rank() OVER (PARTITION BY orderkey ORDER BY clerk DESC) FROM orders WHERE orderkey < 0");
+    }
+
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "EXPLAIN ANALYZE doesn't support statement type: DropTable")
     public void testExplainAnalyzeDDL()
     {
         computeActual("EXPLAIN ANALYZE DROP TABLE orders");
@@ -382,6 +392,7 @@ public abstract class AbstractTestDistributedQueries
 
         assertQueryFails("ALTER TABLE test_add_column ADD COLUMN x bigint", ".* Column 'x' already exists");
         assertQueryFails("ALTER TABLE test_add_column ADD COLUMN X bigint", ".* Column 'X' already exists");
+        assertQueryFails("ALTER TABLE test_add_column ADD COLUMN q bad_type", ".* Unknown type 'bad_type' for column 'q'");
 
         assertUpdate("ALTER TABLE test_add_column ADD COLUMN a bigint");
         assertUpdate("INSERT INTO test_add_column SELECT * FROM test_add_column_a", 1);
@@ -873,23 +884,22 @@ public abstract class AbstractTestDistributedQueries
                 .setSchema(getSession().getSchema().get())
                 .build();
 
-        // verify creation of view over a table requires special view creation privileges for the table
-        assertAccessDenied(
-                viewOwnerSession,
-                "CREATE VIEW test_view_access AS SELECT * FROM orders",
-                "Cannot select from table .*.orders.*",
-                privilege("orders", CREATE_VIEW_WITH_SELECT_TABLE));
-
-        // create the view
+        // view creation permissions are only checked at query time, not at creation
         assertAccessAllowed(
                 viewOwnerSession,
                 "CREATE VIEW test_view_access AS SELECT * FROM orders",
-                privilege("bogus", "bogus privilege to disable security", SELECT_TABLE));
+                privilege("orders", CREATE_VIEW_WITH_SELECT_TABLE));
 
         // verify selecting from a view over a table requires the view owner to have special view creation privileges for the table
         assertAccessDenied(
                 "SELECT * FROM test_view_access",
                 "Cannot select from table .*.orders.*",
+                privilege(viewOwnerSession.getUser(), "orders", CREATE_VIEW_WITH_SELECT_TABLE));
+
+        // verify the view owner can select from the view even without special view creation privileges
+        assertAccessAllowed(
+                viewOwnerSession,
+                "SELECT * FROM test_view_access",
                 privilege(viewOwnerSession.getUser(), "orders", CREATE_VIEW_WITH_SELECT_TABLE));
 
         // verify selecting from a view over a table does not require the session user to have SELECT privileges on the underlying table
@@ -906,18 +916,11 @@ public abstract class AbstractTestDistributedQueries
                 .setSchema(getSession().getSchema().get())
                 .build();
 
-        // verify creation of view over a view requires special view creation privileges for the view
-        assertAccessDenied(
-                nestedViewOwnerSession,
-                "CREATE VIEW test_nested_view_access AS SELECT * FROM test_view_access",
-                "Cannot select from view .*.test_view_access.*",
-                privilege("test_view_access", CREATE_VIEW_WITH_SELECT_VIEW));
-
-        // create the nested view
+        // view creation permissions are only checked at query time, not at creation
         assertAccessAllowed(
                 nestedViewOwnerSession,
                 "CREATE VIEW test_nested_view_access AS SELECT * FROM test_view_access",
-                privilege("bogus", "bogus privilege to disable security", SELECT_TABLE));
+                privilege("test_view_access", CREATE_VIEW_WITH_SELECT_VIEW));
 
         // verify selecting from a view over a view requires the view owner of the outer view to have special view creation privileges for the inner view
         assertAccessDenied(
@@ -962,7 +965,7 @@ public abstract class AbstractTestDistributedQueries
         String sql = "CREATE TABLE test_written_stats AS SELECT * FROM nation";
         DistributedQueryRunner distributedQueryRunner = (DistributedQueryRunner) getQueryRunner();
         ResultWithQueryId<MaterializedResult> resultResultWithQueryId = distributedQueryRunner.executeWithQueryId(getSession(), sql);
-        QueryInfo queryInfo = distributedQueryRunner.getQueryInfo(new QueryId(resultResultWithQueryId.getQueryId()));
+        QueryInfo queryInfo = distributedQueryRunner.getQueryInfo(resultResultWithQueryId.getQueryId());
 
         assertEquals(queryInfo.getQueryStats().getOutputPositions(), 1L);
         assertEquals(queryInfo.getQueryStats().getWrittenPositions(), 25L);
@@ -970,7 +973,7 @@ public abstract class AbstractTestDistributedQueries
 
         sql = "INSERT INTO test_written_stats SELECT * FROM nation LIMIT 10";
         resultResultWithQueryId = distributedQueryRunner.executeWithQueryId(getSession(), sql);
-        queryInfo = distributedQueryRunner.getQueryInfo(new QueryId(resultResultWithQueryId.getQueryId()));
+        queryInfo = distributedQueryRunner.getQueryInfo(resultResultWithQueryId.getQueryId());
 
         assertEquals(queryInfo.getQueryStats().getOutputPositions(), 1L);
         assertEquals(queryInfo.getQueryStats().getWrittenPositions(), 10L);

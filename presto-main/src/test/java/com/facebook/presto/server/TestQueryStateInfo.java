@@ -16,10 +16,9 @@ package com.facebook.presto.server;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.QueryStats;
+import com.facebook.presto.execution.resourceGroups.InternalResourceGroup;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupInfo;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -31,192 +30,65 @@ import org.testng.annotations.Test;
 import java.net.URI;
 import java.util.List;
 import java.util.Optional;
-import java.util.OptionalDouble;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.execution.QueryState.QUEUED;
-import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.operator.BlockedReason.WAITING_FOR_MEMORY;
-import static com.facebook.presto.server.QueryStateInfo.createQueryStateInfo;
-import static com.facebook.presto.spi.resourceGroups.ResourceGroupState.CAN_QUEUE;
-import static com.facebook.presto.spi.resourceGroups.ResourceGroupState.CAN_RUN;
-import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
-import static io.airlift.units.DataSize.Unit.BYTE;
-import static java.util.concurrent.TimeUnit.DAYS;
-import static java.util.concurrent.TimeUnit.HOURS;
+import static com.facebook.presto.server.QueryStateInfo.createQueuedQueryStateInfo;
+import static com.facebook.presto.spi.resourceGroups.SchedulingPolicy.WEIGHTED;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 public class TestQueryStateInfo
 {
     @Test
     public void testQueryStateInfo()
     {
-        ResourceGroupId groupRoot = new ResourceGroupId("root");
-        ResourceGroupId groupRootA = new ResourceGroupId(groupRoot, "a");
-        ResourceGroupId groupRootAX = new ResourceGroupId(groupRootA, "x");
-        ResourceGroupId groupRootAY = new ResourceGroupId(groupRootA, "y");
-        ResourceGroupId groupRootB = new ResourceGroupId(groupRoot, "b");
+        InternalResourceGroup.RootInternalResourceGroup root = new InternalResourceGroup.RootInternalResourceGroup("root", (group, export) -> {}, directExecutor());
+        root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+        root.setMaxQueuedQueries(40);
+        root.setHardConcurrencyLimit(0);
+        root.setSchedulingPolicy(WEIGHTED);
 
-        ResourceGroupInfo rootAXInfo = new ResourceGroupInfo(
-                groupRootAX,
-                new DataSize(6000, BYTE),
-                1,
-                1,
-                null,
-                10,
-                null,
-                CAN_QUEUE,
-                0,
-                new DataSize(4000, BYTE),
-                1,
-                1,
-                ImmutableList.of());
+        InternalResourceGroup rootA = root.getOrCreateSubGroup("a");
+        rootA.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+        rootA.setMaxQueuedQueries(20);
+        rootA.setHardConcurrencyLimit(0);
 
-        ResourceGroupInfo rootAYInfo = new ResourceGroupInfo(
-                groupRootAY,
-                new DataSize(8000, BYTE),
-                1,
-                1,
-                new Duration(10, HOURS),
-                10,
-                new Duration(1, DAYS),
-                CAN_RUN,
-                0,
-                new DataSize(0, BYTE),
-                0,
-                1,
-                ImmutableList.of());
-
-        ResourceGroupInfo rootAInfo = new ResourceGroupInfo(
-                groupRootA,
-                new DataSize(8000, BYTE),
-                1,
-                1,
-                null,
-                10,
-                null,
-                CAN_QUEUE,
-                1,
-                new DataSize(4000, BYTE),
-                1,
-                2,
-                ImmutableList.of(rootAXInfo, rootAYInfo));
-
-        ResourceGroupInfo rootBInfo = new ResourceGroupInfo(
-                groupRootB,
-                new DataSize(8000, BYTE),
-                1,
-                1,
-                new Duration(10, HOURS),
-                10,
-                new Duration(1, DAYS),
-                CAN_QUEUE,
-                0,
-                new DataSize(4000, BYTE),
-                1,
-                1,
-                ImmutableList.of());
-
-        ResourceGroupInfo rootInfo = new ResourceGroupInfo(
-                new ResourceGroupId("root"),
-                new DataSize(10000, BYTE),
-                2,
-                2,
-                null,
-                20,
-                null,
-                CAN_QUEUE,
-                0,
-                new DataSize(6000, BYTE),
-                2,
-                3,
-                ImmutableList.of(rootAInfo, rootBInfo));
+        InternalResourceGroup rootAX = rootA.getOrCreateSubGroup("x");
+        rootAX.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+        rootAX.setMaxQueuedQueries(10);
+        rootAX.setHardConcurrencyLimit(0);
 
         // Verify QueryStateInfo for query queued on resource group root.a.y
-        QueryStateInfo infoForQueryQueuedOnRootAY = createQueryStateInfo(
-                createQueryInfo("query_root_a_y", QUEUED, "SELECT 1"),
-                Optional.of(groupRootAY),
-                Optional.of(rootInfo));
-        assertEquals(infoForQueryQueuedOnRootAY.getQuery(), "SELECT 1");
-        assertEquals(infoForQueryQueuedOnRootAY.getQueryId().toString(), "query_root_a_y");
-        assertEquals(infoForQueryQueuedOnRootAY.getQueryState(), QUEUED);
-        assertEquals(infoForQueryQueuedOnRootAY.getProgress(), Optional.empty());
+        QueryStateInfo query = createQueuedQueryStateInfo(
+                createQueryInfo("query_root_a_x", QUEUED, "SELECT 1"),
+                Optional.of(rootAX.getId()),
+                Optional.of(ImmutableList.of(rootAX.getInfo(), rootA.getInfo(), root.getInfo())));
 
-        Optional<List<ResourceGroupInfo>> optionalRootAYResourceGroupChainInfo = infoForQueryQueuedOnRootAY.getResourceGroupChain();
-        assertTrue(optionalRootAYResourceGroupChainInfo.isPresent());
-        List<ResourceGroupInfo> rootAYResourceGroupChainInfo = optionalRootAYResourceGroupChainInfo.isPresent() ? optionalRootAYResourceGroupChainInfo.get() : ImmutableList.of();
-        assertEquals(rootAYResourceGroupChainInfo.size(), 3);
-        ResourceGroupInfo actualRootAYInfo = rootAYResourceGroupChainInfo.get(0);
-        assertEquals(actualRootAYInfo.getId().toString(), groupRootAY.toString());
-        assertEquals(actualRootAYInfo.getState(), rootAYInfo.getState());
-        assertEquals(actualRootAYInfo.getNumAggregatedRunningQueries(), rootAYInfo.getNumAggregatedRunningQueries());
-        assertEquals(actualRootAYInfo.getNumAggregatedQueuedQueries(), rootAYInfo.getNumAggregatedQueuedQueries());
-        ResourceGroupInfo actualRootAInfo = rootAYResourceGroupChainInfo.get(1);
-        assertEquals(actualRootAInfo.getId().toString(), groupRootA.toString());
-        assertEquals(actualRootAInfo.getState(), rootAInfo.getState());
-        assertEquals(actualRootAInfo.getNumAggregatedRunningQueries(), rootAInfo.getNumAggregatedRunningQueries());
-        assertEquals(actualRootAInfo.getNumAggregatedQueuedQueries(), rootAInfo.getNumAggregatedQueuedQueries());
+        assertEquals(query.getQuery(), "SELECT 1");
+        assertEquals(query.getQueryId().toString(), "query_root_a_x");
+        assertEquals(query.getQueryState(), QUEUED);
+        assertEquals(query.getProgress(), Optional.empty());
 
-        ResourceGroupInfo actualRootInfo = rootAYResourceGroupChainInfo.get(2);
-        assertEquals(actualRootInfo.getId().toString(), groupRoot.toString());
-        assertEquals(actualRootInfo.getState(), rootInfo.getState());
-        assertEquals(actualRootInfo.getNumAggregatedRunningQueries(), rootInfo.getNumAggregatedRunningQueries());
-        assertEquals(actualRootInfo.getNumAggregatedQueuedQueries(), rootInfo.getNumAggregatedQueuedQueries());
+        List<ResourceGroupInfo> chainInfo = query.getPathToRoot().get();
 
-        // Verify QueryStateInfo for query queued on resource group root.b
-        QueryStateInfo infoForQueryQueuedOnRootB = createQueryStateInfo(
-                createQueryInfo("query_root_b", QUEUED, "SELECT count(*) FROM t"),
-                Optional.of(groupRootB),
-                Optional.of(rootInfo));
-        assertEquals(infoForQueryQueuedOnRootB.getCatalog().get(), "tpch");
-        assertEquals(infoForQueryQueuedOnRootB.getSchema().get(), TINY_SCHEMA_NAME);
-        assertEquals(infoForQueryQueuedOnRootB.getQuery(), "SELECT count(*) FROM t");
-        assertEquals(infoForQueryQueuedOnRootB.getQueryId().toString(), "query_root_b");
-        assertEquals(infoForQueryQueuedOnRootB.getQueryState(), QUEUED);
-        assertEquals(infoForQueryQueuedOnRootB.getProgress(), Optional.empty());
+        assertEquals(chainInfo.size(), 3);
 
-        Optional<List<ResourceGroupInfo>> optionalRootBResourceGroupChainInfo = infoForQueryQueuedOnRootB.getResourceGroupChain();
-        assertTrue(optionalRootBResourceGroupChainInfo.isPresent());
-        List<ResourceGroupInfo> rootBResourceGroupChainInfo = optionalRootBResourceGroupChainInfo.isPresent() ? optionalRootBResourceGroupChainInfo.get() : ImmutableList.of();
-        assertEquals(rootBResourceGroupChainInfo.size(), 2);
+        ResourceGroupInfo rootAInfo = chainInfo.get(1);
+        ResourceGroupInfo expectedRootAInfo = rootA.getInfo();
+        assertEquals(rootAInfo.getId(), expectedRootAInfo.getId());
+        assertEquals(rootAInfo.getState(), expectedRootAInfo.getState());
+        assertEquals(rootAInfo.getNumRunningQueries(), expectedRootAInfo.getNumRunningQueries());
+        assertEquals(rootAInfo.getNumQueuedQueries(), expectedRootAInfo.getNumQueuedQueries());
 
-        ResourceGroupInfo actualRootBInfo = rootBResourceGroupChainInfo.get(0);
-        assertEquals(actualRootBInfo.getId().toString(), groupRootB.toString());
-        assertEquals(actualRootBInfo.getState(), rootBInfo.getState());
-        assertEquals(actualRootBInfo.getNumAggregatedRunningQueries(), rootBInfo.getNumAggregatedRunningQueries());
-        assertEquals(actualRootBInfo.getNumAggregatedQueuedQueries(), rootBInfo.getNumAggregatedQueuedQueries());
-
-        actualRootInfo = rootBResourceGroupChainInfo.get(1);
-        assertEquals(actualRootInfo.getId().toString(), groupRoot.toString());
-        assertEquals(actualRootInfo.getState(), rootInfo.getState());
-        assertEquals(actualRootInfo.getNumAggregatedRunningQueries(), rootInfo.getNumAggregatedRunningQueries());
-        assertEquals(actualRootInfo.getNumAggregatedQueuedQueries(), rootInfo.getNumAggregatedQueuedQueries());
-
-        // Verify QueryStateInfo for query running on resource group root.a.x
-        QueryStateInfo infoForQueryRunningOnRootAX = createQueryStateInfo(
-                createQueryInfo("query_root_a_x", RUNNING, "SELECT sum(a) FROM t"),
-                Optional.of(groupRootAX),
-                Optional.of(rootInfo));
-
-        assertEquals(infoForQueryRunningOnRootAX.getQuery(), "SELECT sum(a) FROM t");
-        assertEquals(infoForQueryRunningOnRootAX.getQueryId().toString(), "query_root_a_x");
-        assertEquals(infoForQueryRunningOnRootAX.getQueryState(), RUNNING);
-        assertEquals(infoForQueryRunningOnRootAX.getResourceGroupChain(), Optional.empty());
-
-        QueryProgressStats progress = infoForQueryRunningOnRootAX.getProgress().get();
-        assertTrue(progress.isBlocked());
-        assertEquals(progress.getProgressPercentage(), OptionalDouble.of(19));
-        assertEquals(progress.getExecutionStartTime(), DateTime.parse("1991-09-06T05:01-05:30"));
-        assertEquals(progress.getElapsedTimeMillis(), Duration.valueOf("8m").toMillis());
-        assertEquals(progress.getQueuedTimeMillis(), Duration.valueOf("7m").toMillis());
-        assertEquals(progress.getCpuTimeMillis(), Duration.valueOf("24m").toMillis());
-        assertEquals(progress.getScheduledTimeMillis(), Duration.valueOf("23m").toMillis());
-        assertEquals(progress.getBlockedTimeMillis(), Duration.valueOf("26m").toMillis());
-        assertEquals(progress.getCurrentMemoryBytes(), DataSize.valueOf("21GB").toBytes());
-        assertEquals(progress.getPeakMemoryBytes(), DataSize.valueOf("22GB").toBytes());
-        assertEquals(progress.getInputRows(), 28);
-        assertEquals(progress.getInputBytes(), DataSize.valueOf("27GB").toBytes());
+        ResourceGroupInfo actualRootInfo = chainInfo.get(2);
+        ResourceGroupInfo expectedRootInfo = root.getInfo();
+        assertEquals(actualRootInfo.getId(), expectedRootInfo.getId());
+        assertEquals(actualRootInfo.getState(), expectedRootInfo.getState());
+        assertEquals(actualRootInfo.getNumRunningQueries(), expectedRootInfo.getNumRunningQueries());
+        assertEquals(actualRootInfo.getNumQueuedQueries(), expectedRootInfo.getNumQueuedQueries());
     }
 
     private QueryInfo createQueryInfo(String queryId, QueryState state, String query)
@@ -253,6 +125,8 @@ public class TestQueryStateInfo
                         DataSize.valueOf("21GB"),
                         DataSize.valueOf("22GB"),
                         DataSize.valueOf("23GB"),
+                        DataSize.valueOf("24GB"),
+                        DataSize.valueOf("25GB"),
                         true,
                         Duration.valueOf("23m"),
                         Duration.valueOf("24m"),
@@ -267,6 +141,7 @@ public class TestQueryStateInfo
                         DataSize.valueOf("31GB"),
                         32,
                         DataSize.valueOf("33GB"),
+                        ImmutableList.of(),
                         ImmutableList.of()),
                 Optional.empty(),
                 Optional.empty(),
@@ -281,7 +156,6 @@ public class TestQueryStateInfo
                 null,
                 null,
                 ImmutableSet.of(),
-                Optional.empty(),
                 Optional.empty(),
                 false,
                 Optional.empty());

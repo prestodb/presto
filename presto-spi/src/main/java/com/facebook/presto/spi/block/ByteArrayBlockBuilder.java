@@ -179,6 +179,7 @@ public class ByteArrayBlockBuilder
     {
         checkReadablePosition(position);
         blockBuilder.writeByte(values[position]);
+        blockBuilder.closeEntry();
     }
 
     @Override
@@ -226,9 +227,9 @@ public class ByteArrayBlockBuilder
     }
 
     @Override
-    public BlockEncoding getEncoding()
+    public String getEncodingName()
     {
-        return new ByteArrayBlockEncoding();
+        return ByteArrayBlockEncoding.NAME;
     }
 
     @Override

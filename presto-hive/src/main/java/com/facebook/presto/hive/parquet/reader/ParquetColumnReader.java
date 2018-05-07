@@ -23,7 +23,6 @@ import com.facebook.presto.hive.parquet.dictionary.ParquetDictionary;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
@@ -151,7 +150,7 @@ public abstract class ParquetColumnReader
             throws IOException
     {
         seek();
-        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), nextBatchSize);
+        BlockBuilder blockBuilder = type.createBlockBuilder(null, nextBatchSize);
         int valueCount = 0;
         while (valueCount < nextBatchSize) {
             if (page == null) {

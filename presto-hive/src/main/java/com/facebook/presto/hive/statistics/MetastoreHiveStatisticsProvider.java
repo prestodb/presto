@@ -211,7 +211,7 @@ public class MetastoreHiveStatisticsProvider
         }
         else if (prestoType.equals(REAL)) {
             checkArgument(value instanceof Double, "expected Double value but got " + value.getClass());
-            return floatToRawIntBits((float) (double) value);
+            return (long) floatToRawIntBits((float) (double) value);
         }
         else if (prestoType.equals(DATE)) {
             checkArgument(value instanceof LocalDate, "expected LocalDate value but got " + value.getClass());

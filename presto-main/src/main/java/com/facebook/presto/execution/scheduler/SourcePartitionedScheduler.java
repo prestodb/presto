@@ -63,14 +63,26 @@ public class SourcePartitionedScheduler
 {
     private enum State
     {
+        /**
+         * No splits have been added to pendingSplits set.
+         */
         INITIALIZED,
-        // At least one split has been added to pendingSplits set.
+
+        /**
+         * At least one split has been added to pendingSplits set.
+         */
         SPLITS_ADDED,
-        // All splits from underlying SplitSource has been discovered.
-        // No more splits will be added to the pendingSplits set.
+
+        /**
+         * All splits from underlying SplitSource have been discovered.
+         * No more splits will be added to the pendingSplits set.
+         */
         NO_MORE_SPLITS,
-        // All splits has been provided to caller of this scheduler.
-        // Cleanup operations are done (e.g. drainCompletedLifespans has drained all driver groups).
+
+        /**
+         * All splits have been provided to caller of this scheduler.
+         * Cleanup operations are done (e.g., drainCompletedLifespans has drained all driver groups).
+         */
         FINISHED
     }
 
@@ -284,10 +296,6 @@ public class SourcePartitionedScheduler
                     splitSource.close();
                     // fall through
                 case NO_MORE_SPLITS:
-                    if (!scheduleGroups.isEmpty()) {
-                        // we are blocked on split assignment
-                        break;
-                    }
                     state = State.FINISHED;
                     whenFinishedOrNewLifespanAdded.set(null);
                     // fall through
@@ -333,6 +341,11 @@ public class SourcePartitionedScheduler
 
     public synchronized List<Lifespan> drainCompletedLifespans()
     {
+        if (scheduleGroups.isEmpty()) {
+            // Invoking splitSource.isFinished would fail if it was already closed, which is possible if scheduleGroups is empty.
+            return ImmutableList.of();
+        }
+
         ImmutableList.Builder<Lifespan> result = ImmutableList.builder();
         Iterator<Entry<Lifespan, ScheduleGroup>> entryIterator = scheduleGroups.entrySet().iterator();
         while (entryIterator.hasNext()) {
@@ -343,11 +356,11 @@ public class SourcePartitionedScheduler
             }
         }
 
-        if (scheduleGroups.isEmpty()) {
-            if (state == State.NO_MORE_SPLITS) {
-                state = State.FINISHED;
-                whenFinishedOrNewLifespanAdded.set(null);
-            }
+        if (scheduleGroups.isEmpty() && splitSource.isFinished()) {
+            // Wake up blocked caller so that it will invoke schedule() right away.
+            // Once schedule is invoked, state will be transitioned to FINISHED.
+            whenFinishedOrNewLifespanAdded.set(null);
+            whenFinishedOrNewLifespanAdded = SettableFuture.create();
         }
 
         return result.build();
@@ -429,13 +442,23 @@ public class SourcePartitionedScheduler
         }
     }
 
-    private enum ScheduleGroupState {
+    private enum ScheduleGroupState
+    {
+        /**
+         * The underlying SplitSource is not complete.
+         */
         DISCOVERING_SPLITS,
-        // All splits from underlying SplitSource has been discovered.
-        // No more splits will be added to the pendingSplits set.
+
+        /**
+         * All splits from underlying SplitSource has been discovered.
+         * No more splits will be added to the pendingSplits set.
+         */
         NO_MORE_SPLITS,
-        // All splits has been provided to caller of this scheduler.
-        // Cleanup operations (e.g. inform caller of noMoreSplits) are done.
+
+        /**
+         * All splits has been provided to caller of this scheduler.
+         * Cleanup operations (e.g. inform caller of noMoreSplits) are done.
+         */
         DONE
     }
 }

@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 
 import java.net.URI;
 import java.util.List;
@@ -29,6 +30,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class TaskStatus
 {
@@ -64,6 +66,9 @@ public class TaskStatus
     private final DataSize memoryReservation;
     private final DataSize systemMemoryReservation;
 
+    private final long fullGcCount;
+    private final Duration fullGcTime;
+
     private final List<ExecutionFailureInfo> failures;
 
     @JsonCreator
@@ -81,7 +86,9 @@ public class TaskStatus
             @JsonProperty("outputBufferOverutilized") boolean outputBufferOverutilized,
             @JsonProperty("physicalWrittenDataSize") DataSize physicalWrittenDataSize,
             @JsonProperty("memoryReservation") DataSize memoryReservation,
-            @JsonProperty("systemMemoryReservation") DataSize systemMemoryReservation)
+            @JsonProperty("systemMemoryReservation") DataSize systemMemoryReservation,
+            @JsonProperty("fullGcCount") long fullGcCount,
+            @JsonProperty("fullGcTime") Duration fullGcTime)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.taskInstanceId = requireNonNull(taskInstanceId, "taskInstanceId is null");
@@ -106,6 +113,10 @@ public class TaskStatus
         this.memoryReservation = requireNonNull(memoryReservation, "memoryReservation is null");
         this.systemMemoryReservation = requireNonNull(systemMemoryReservation, "systemMemoryReservation is null");
         this.failures = ImmutableList.copyOf(requireNonNull(failures, "failures is null"));
+
+        checkArgument(fullGcCount >= 0, "fullGcCount is negative");
+        this.fullGcCount = fullGcCount;
+        this.fullGcTime = requireNonNull(fullGcTime, "fullGcTime is null");
     }
 
     @JsonProperty
@@ -192,6 +203,18 @@ public class TaskStatus
         return systemMemoryReservation;
     }
 
+    @JsonProperty
+    public long getFullGcCount()
+    {
+        return fullGcCount;
+    }
+
+    @JsonProperty
+    public Duration getFullGcTime()
+    {
+        return fullGcTime;
+    }
+
     @Override
     public String toString()
     {
@@ -217,7 +240,9 @@ public class TaskStatus
                 false,
                 new DataSize(0, BYTE),
                 new DataSize(0, BYTE),
-                new DataSize(0, BYTE));
+                new DataSize(0, BYTE),
+                0,
+                new Duration(0, MILLISECONDS));
     }
 
     public static TaskStatus failWith(TaskStatus taskStatus, TaskState state, List<ExecutionFailureInfo> exceptions)
@@ -236,6 +261,8 @@ public class TaskStatus
                 taskStatus.isOutputBufferOverutilized(),
                 taskStatus.getPhysicalWrittenDataSize(),
                 taskStatus.getMemoryReservation(),
-                taskStatus.getSystemMemoryReservation());
+                taskStatus.getSystemMemoryReservation(),
+                taskStatus.getFullGcCount(),
+                taskStatus.getFullGcTime());
     }
 }

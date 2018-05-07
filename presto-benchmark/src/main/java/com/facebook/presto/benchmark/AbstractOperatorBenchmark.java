@@ -16,8 +16,8 @@ package com.facebook.presto.benchmark;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskStateMachine;
+import com.facebook.presto.memory.DefaultQueryContext;
 import com.facebook.presto.memory.MemoryPool;
-import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.TaskContext;
@@ -32,6 +32,7 @@ import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.transaction.TransactionId;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.stats.CpuTimer;
+import io.airlift.stats.TestingGcMonitor;
 import io.airlift.units.DataSize;
 
 import java.util.List;
@@ -112,7 +113,7 @@ public abstract class AbstractOperatorBenchmark
                 if (!driver.isFinished()) {
                     driver.process();
                     long lastPeakMemory = peakMemory;
-                    peakMemory = (long) taskContext.getTaskStats().getMemoryReservation().getValue(BYTE);
+                    peakMemory = (long) taskContext.getTaskStats().getUserMemoryReservation().getValue(BYTE);
                     if (peakMemory <= lastPeakMemory) {
                         peakMemory = lastPeakMemory;
                     }
@@ -131,10 +132,18 @@ public abstract class AbstractOperatorBenchmark
                 .setSystemProperty("optimizer.optimize-hash-generation", "true")
                 .build();
         MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE));
-        MemoryPool systemMemoryPool = new MemoryPool(new MemoryPoolId("testSystem"), new DataSize(1, GIGABYTE));
         SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(new DataSize(1, GIGABYTE));
 
-        TaskContext taskContext = new QueryContext(new QueryId("test"), new DataSize(256, MEGABYTE), memoryPool, systemMemoryPool, localQueryRunner.getExecutor(), localQueryRunner.getScheduler(), new DataSize(256, MEGABYTE), spillSpaceTracker)
+        TaskContext taskContext = new DefaultQueryContext(
+                new QueryId("test"),
+                new DataSize(256, MEGABYTE),
+                new DataSize(512, MEGABYTE),
+                memoryPool,
+                new TestingGcMonitor(),
+                localQueryRunner.getExecutor(),
+                localQueryRunner.getScheduler(),
+                new DataSize(256, MEGABYTE),
+                spillSpaceTracker)
                 .addTaskContext(new TaskStateMachine(new TaskId("query", 0, 0), localQueryRunner.getExecutor()),
                         session,
                         false,

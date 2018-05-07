@@ -27,6 +27,18 @@ public class OrcFileWriterConfig
         return options;
     }
 
+    public DataSize getStripeMinSize()
+    {
+        return options.getStripeMinSize();
+    }
+
+    @Config("hive.orc.writer.stripe-min-size")
+    public OrcFileWriterConfig setStripeMinSize(DataSize stripeMinSize)
+    {
+        options = options.withStripeMinSize(stripeMinSize);
+        return this;
+    }
+
     public DataSize getStripeMaxSize()
     {
         return options.getStripeMaxSize();
@@ -36,18 +48,6 @@ public class OrcFileWriterConfig
     public OrcFileWriterConfig setStripeMaxSize(DataSize stripeMaxSize)
     {
         options = options.withStripeMaxSize(stripeMaxSize);
-        return this;
-    }
-
-    public int getStripeMinRowCount()
-    {
-        return options.getStripeMinRowCount();
-    }
-
-    @Config("hive.orc.writer.stripe-min-rows")
-    public OrcFileWriterConfig setStripeMinRowCount(int stripeMinRowCount)
-    {
-        options = options.withStripeMinRowCount(stripeMinRowCount);
         return this;
     }
 
@@ -84,6 +84,30 @@ public class OrcFileWriterConfig
     public OrcFileWriterConfig setDictionaryMaxMemory(DataSize dictionaryMaxMemory)
     {
         options = options.withDictionaryMaxMemory(dictionaryMaxMemory);
+        return this;
+    }
+
+    public DataSize getStringStatisticsLimit()
+    {
+        return options.getMaxStringStatisticsLimit();
+    }
+
+    @Config("hive.orc.writer.string-statistics-limit")
+    public OrcFileWriterConfig setStringStatisticsLimit(DataSize stringStatisticsLimit)
+    {
+        options = options.withMaxStringStatisticsLimit(stringStatisticsLimit);
+        return this;
+    }
+
+    public DataSize getMaxCompressionBufferSize()
+    {
+        return options.getMaxCompressionBufferSize();
+    }
+
+    @Config("hive.orc.writer.max-compression-buffer-size")
+    public OrcFileWriterConfig setMaxCompressionBufferSize(DataSize maxCompressionBufferSize)
+    {
+        options = options.withMaxCompressionBufferSize(maxCompressionBufferSize);
         return this;
     }
 }

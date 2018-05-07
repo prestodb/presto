@@ -58,9 +58,17 @@ Binary Functions
 
     Encodes ``real`` in a 32-bit big-endian binary according to IEEE 754 single-precision floating-point format.
 
+.. function:: from_ieee754_32(binary) -> real
+
+    Decodes the 32-bit big-endian ``binary`` in IEEE 754 single-precision floating-point format.
+
 .. function:: to_ieee754_64(double) -> varbinary
 
     Encodes ``double`` in a 64-bit big-endian binary according to IEEE 754 double-precision floating-point format.
+
+.. function:: from_ieee754_64(binary) -> double
+
+    Decodes the 64-bit big-endian ``binary`` in IEEE 754 double-precision floating-point format.
 
 .. function:: crc32(binary) -> bigint
 
@@ -86,3 +94,19 @@ Binary Functions
 .. function:: xxhash64(binary) -> varbinary
 
     Computes the xxhash64 hash of ``binary``.
+
+.. function:: hmac_md5(binary, key) -> varbinary
+
+    Computes HMAC with md5 of ``binary`` with the given ``key``.
+
+.. function:: hmac_sha1(binary, key) -> varbinary
+
+    Computes HMAC with sha1 of ``binary`` with the given ``key``.
+
+.. function:: hmac_sha256(binary, key) -> varbinary
+
+    Computes HMAC with sha256 of ``binary`` with the given ``key``.
+
+.. function:: hmac_sha512(binary, key) -> varbinary
+
+    Computes HMAC with sha512 of ``binary`` with the given ``key``.

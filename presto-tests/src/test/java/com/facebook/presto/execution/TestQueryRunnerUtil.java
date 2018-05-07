@@ -15,13 +15,10 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
-import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.execution.QueryState.RUNNING;
@@ -64,10 +61,12 @@ public final class TestQueryRunnerUtil
         while (!expectedQueryStates.contains(queryManager.getQueryInfo(queryId).getState()));
     }
 
-    public static DistributedQueryRunner createQueryRunner(Map<String, String> properties)
+    public static DistributedQueryRunner createQueryRunner()
             throws Exception
     {
-        DistributedQueryRunner queryRunner = new DistributedQueryRunner(testSessionBuilder().build(), 2, ImmutableMap.of(), properties, new SqlParserOptions());
+        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(testSessionBuilder().build())
+                .setNodeCount(2)
+                .build();
 
         try {
             queryRunner.installPlugin(new TpchPlugin());

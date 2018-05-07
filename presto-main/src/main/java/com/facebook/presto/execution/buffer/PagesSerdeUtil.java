@@ -38,10 +38,9 @@ public class PagesSerdeUtil
 
     static void writeRawPage(Page page, SliceOutput output, BlockEncodingSerde serde)
     {
-        Block[] blocks = page.getBlocks();
-        output.writeInt(blocks.length);
-        for (Block block : blocks) {
-            writeBlock(serde, output, block);
+        output.writeInt(page.getChannelCount());
+        for (int channel = 0; channel < page.getChannelCount(); channel++) {
+            writeBlock(serde, output, page.getBlock(channel));
         }
     }
 

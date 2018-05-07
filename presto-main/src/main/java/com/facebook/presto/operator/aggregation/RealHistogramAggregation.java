@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.AggregationFunction;
 import com.facebook.presto.spi.function.AggregationState;
@@ -62,13 +61,11 @@ public class RealHistogramAggregation
         }
         else {
             Map<Double, Double> value = state.get().getBuckets();
-            BlockBuilder blockBuilder = REAL.createBlockBuilder(null, value.size() * 2);
+            BlockBuilder entryBuilder = out.beginBlockEntry();
             for (Map.Entry<Double, Double> entry : value.entrySet()) {
-                REAL.writeLong(blockBuilder, floatToRawIntBits(entry.getKey().floatValue()));
-                REAL.writeLong(blockBuilder, floatToRawIntBits(entry.getValue().floatValue()));
+                REAL.writeLong(entryBuilder, floatToRawIntBits(entry.getKey().floatValue()));
+                REAL.writeLong(entryBuilder, floatToRawIntBits(entry.getValue().floatValue()));
             }
-            Block block = blockBuilder.build();
-            out.writeObject(block);
             out.closeEntry();
         }
     }

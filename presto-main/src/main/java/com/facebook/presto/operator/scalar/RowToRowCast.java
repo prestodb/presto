@@ -64,7 +64,7 @@ import static io.airlift.bytecode.Parameter.arg;
 import static io.airlift.bytecode.ParameterizedType.type;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantBoolean;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
-import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
+import static io.airlift.bytecode.expression.BytecodeExpressions.constantNull;
 
 public class RowToRowCast
         extends SqlOperator
@@ -136,7 +136,7 @@ public class RowToRowCast
                 constantType(binder, toType).invoke(
                         "createBlockBuilder",
                         BlockBuilder.class,
-                        newInstance(BlockBuilderStatus.class),
+                        constantNull(BlockBuilderStatus.class),
                         constantInt(1))));
         body.append(singleRowBlockWriter.set(blockBuilder.invoke("beginBlockEntry", BlockBuilder.class)));
 

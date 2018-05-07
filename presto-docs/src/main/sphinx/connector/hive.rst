@@ -121,6 +121,8 @@ Property Name                                      Description                  
                                                    Example: ``thrift://192.0.2.3:9083`` or
                                                    ``thrift://192.0.2.3:9083,thrift://192.0.2.4:9083``
 
+``hive.metastore.username``                        The username Presto will use to access the Hive metastore.
+
 ``hive.config.resources``                          An optional comma-separated list of HDFS
                                                    configuration files. These files must exist on the
                                                    machines running Presto. Only specify this if
@@ -171,6 +173,8 @@ Property Name                                      Description                  
                                                    See :ref:`hive-file-based-authorization` for details.
 
 ``hive.non-managed-table-writes-enabled``          Enable writes to non-managed (external) Hive tables.         ``false``
+
+``hive.non-managed-table-creates-enabled``         Enable creating non-managed (external) Hive tables.          ``true``
 ================================================== ============================================================ ==========
 
 Amazon S3 Configuration
@@ -388,6 +392,10 @@ Drop a partition from the ``page_views`` table::
 Query the ``page_views`` table::
 
     SELECT * FROM hive.web.page_views
+
+List the partitions of the ``page_views`` table::
+
+    SELECT * FROM hive.web."page_views$partitions"
 
 Create an external Hive table named ``request_logs`` that points at
 existing data in S3::

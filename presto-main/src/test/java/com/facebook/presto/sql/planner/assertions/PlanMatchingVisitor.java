@@ -92,7 +92,7 @@ final class PlanMatchingVisitor
         if (match.isMatch()) {
             return match;
         }
-        return visitPlan(node, pattern);
+        return matchLeaf(node, pattern, pattern.shapeMatches(node));
     }
 
     @Override
@@ -140,12 +140,12 @@ final class PlanMatchingVisitor
                 continue;
             }
 
-                /*
-                 * We have to call detailMatches for two reasons:
-                 * 1) Make sure there aren't any mismatches checking the internals of a leaf node.
-                 * 2) Collect the aliases from the source nodes so we can add them to
-                 *    SymbolAliases. They'll be needed further up.
-                 */
+            /*
+             * We have to call detailMatches for two reasons:
+             * 1) Make sure there aren't any mismatches checking the internals of a leaf node.
+             * 2) Collect the aliases from the source nodes so we can add them to
+             *    SymbolAliases. They'll be needed further up.
+             */
             MatchResult matchResult = pattern.detailMatches(node, statsProvider, session, metadata, new SymbolAliases());
             if (matchResult.isMatch()) {
                 checkState(result == NO_MATCH, format("Ambiguous match on leaf node %s", node));

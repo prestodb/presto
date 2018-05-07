@@ -34,6 +34,7 @@ import static com.facebook.presto.spi.type.CharType.createCharType;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.Decimals.encodeScaledValue;
+import static com.facebook.presto.spi.type.Decimals.encodeShortScaledValue;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
@@ -96,10 +97,12 @@ public final class StandardReadMappings
 
     public static ReadMapping decimalReadMapping(DecimalType decimalType)
     {
+        // JDBC driver can return BigDecimal with lower scale than column's scale when there are trailing zeroes
+        int scale = decimalType.getScale();
         if (decimalType.isShort()) {
-            return longReadMapping(decimalType, (resultSet, columnIndex) -> resultSet.getBigDecimal(columnIndex).unscaledValue().longValueExact());
+            return longReadMapping(decimalType, (resultSet, columnIndex) -> encodeShortScaledValue(resultSet.getBigDecimal(columnIndex), scale));
         }
-        return sliceReadMapping(decimalType, (resultSet, columnIndex) -> encodeScaledValue(resultSet.getBigDecimal(columnIndex)));
+        return sliceReadMapping(decimalType, (resultSet, columnIndex) -> encodeScaledValue(resultSet.getBigDecimal(columnIndex), scale));
     }
 
     public static ReadMapping charReadMapping(CharType charType)
@@ -121,9 +124,16 @@ public final class StandardReadMappings
     public static ReadMapping dateReadMapping()
     {
         return longReadMapping(DATE, (resultSet, columnIndex) -> {
-            // JDBC returns a date using a timestamp at midnight in the JVM timezone
+            /*
+             * JDBC returns a date using a timestamp at midnight in the JVM timezone, or earliest time after that if there was no midnight.
+             * This works correctly for all dates and zones except when the missing local times 'gap' is 24h. I.e. this fails when JVM time
+             * zone is Pacific/Apia and date to be returned is 2011-12-30.
+             *
+             * `return resultSet.getObject(columnIndex, LocalDate.class).toEpochDay()` avoids these problems but
+             * is currently known not to work with Redshift (old Postgres connector) and SQL Server.
+             */
             long localMillis = resultSet.getDate(columnIndex).getTime();
-            // Convert it to a midnight in UTC
+            // Convert it to a ~midnight in UTC.
             long utcMillis = ISOChronology.getInstance().getZone().getMillisKeepLocal(UTC, localMillis);
             // convert to days
             return MILLISECONDS.toDays(utcMillis);
@@ -133,6 +143,11 @@ public final class StandardReadMappings
     public static ReadMapping timeReadMapping()
     {
         return longReadMapping(TIME, (resultSet, columnIndex) -> {
+            /*
+             * TODO `resultSet.getTime(columnIndex)` returns wrong value if JVM's zone had forward offset change during 1970-01-01
+             * and the time value being retrieved was not present in local time (a 'gap'), e.g. time retrieved is 00:10:00 and JVM zone is America/Hermosillo
+             * The problem can be averted by using `resultSet.getObject(columnIndex, LocalTime.class)` -- but this is not universally supported by JDBC drivers.
+             */
             Time time = resultSet.getTime(columnIndex);
             return UTC_CHRONOLOGY.millisOfDay().get(time.getTime());
         });
@@ -141,6 +156,12 @@ public final class StandardReadMappings
     public static ReadMapping timestampReadMapping()
     {
         return longReadMapping(TIMESTAMP, (resultSet, columnIndex) -> {
+            /*
+             * TODO `resultSet.getTimestamp(columnIndex)` returns wrong value if JVM's zone had forward offset change and the local time
+             * corresponding to timestamp value being retrieved was not present (a 'gap'), this includes regular DST changes (e.g. Europe/Warsaw)
+             * and one-time policy changes (Asia/Kathmandu's shift by 15 minutes on January 1, 1986, 00:00:00).
+             * The problem can be averted by using `resultSet.getObject(columnIndex, LocalDateTime.class)` -- but this is not universally supported by JDBC drivers.
+             */
             Timestamp timestamp = resultSet.getTimestamp(columnIndex);
             return timestamp.getTime();
         });

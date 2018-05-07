@@ -31,8 +31,12 @@ import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.type.setdigest.SetDigestType;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.UncheckedExecutionException;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
@@ -57,7 +61,7 @@ import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.P4HyperLogLogType.P4_HYPER_LOG_LOG;
 import static com.facebook.presto.spi.type.RealType.REAL;
-import static com.facebook.presto.spi.type.RowType.RowField;
+import static com.facebook.presto.spi.type.RowType.Field;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
@@ -85,7 +89,7 @@ import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.type.setdigest.SetDigestType.SET_DIGEST;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -96,6 +100,8 @@ public final class TypeRegistry
     private final ConcurrentMap<String, ParametricType> parametricTypes = new ConcurrentHashMap<>();
 
     private FunctionRegistry functionRegistry;
+
+    private final LoadingCache<TypeSignature, Type> parametricTypeCache;
 
     @VisibleForTesting
     public TypeRegistry()
@@ -155,6 +161,9 @@ public final class TypeRegistry
         for (Type type : types) {
             addType(type);
         }
+        parametricTypeCache = CacheBuilder.newBuilder()
+                .maximumSize(1000)
+                .build(CacheLoader.from(this::instantiateParametricType));
     }
 
     public void setFunctionRegistry(FunctionRegistry functionRegistry)
@@ -168,7 +177,13 @@ public final class TypeRegistry
     {
         Type type = types.get(signature);
         if (type == null) {
-            return instantiateParametricType(signature);
+            try {
+                return parametricTypeCache.getUnchecked(signature);
+            }
+            catch (UncheckedExecutionException e) {
+                throwIfUnchecked(e.getCause());
+                throw new RuntimeException(e.getCause());
+            }
         }
         return type;
     }
@@ -185,28 +200,19 @@ public final class TypeRegistry
 
         for (TypeSignatureParameter parameter : signature.getParameters()) {
             TypeParameter typeParameter = TypeParameter.of(parameter, this);
-            if (typeParameter == null) {
-                return null;
-            }
             parameters.add(typeParameter);
         }
 
         ParametricType parametricType = parametricTypes.get(signature.getBase().toLowerCase(Locale.ENGLISH));
         if (parametricType == null) {
-            return null;
+            throw new IllegalArgumentException("Unknown type " + signature);
         }
 
-        try {
-            Type instantiatedType = parametricType.createType(this, parameters);
+        Type instantiatedType = parametricType.createType(this, parameters);
 
-            // TODO: reimplement this check? Currently "varchar(Integer.MAX_VALUE)" fails with "varchar"
-            //checkState(instantiatedType.equalsSignature(signature), "Instantiated parametric type name (%s) does not match expected name (%s)", instantiatedType, signature);
-            return instantiatedType;
-        }
-        catch (IllegalArgumentException e) {
-            // TODO: check whether a type constructor actually exists rather than failing when it doesn't. This will be possible in the next version of the type system
-            return null;
-        }
+        // TODO: reimplement this check? Currently "varchar(Integer.MAX_VALUE)" fails with "varchar"
+        //checkState(instantiatedType.equalsSignature(signature), "Instantiated parametric type name (%s) does not match expected name (%s)", instantiatedType, signature);
+        return instantiatedType;
     }
 
     @Override
@@ -326,39 +332,31 @@ public final class TypeRegistry
 
     private Optional<Type> getCommonSuperTypeForRow(RowType firstType, RowType secondType)
     {
-        List<RowField> firstFields = firstType.getFields();
-        List<RowField> secondFields = secondType.getFields();
+        List<Field> firstFields = firstType.getFields();
+        List<Field> secondFields = secondType.getFields();
         if (firstFields.size() != secondFields.size()) {
             return Optional.empty();
         }
 
-        ImmutableList.Builder<Type> commonParameterTypes = ImmutableList.builder();
-        List<Optional<String>> commonParameterNames = new ArrayList<>();
+        ImmutableList.Builder<RowType.Field> fields = ImmutableList.builder();
         for (int i = 0; i < firstFields.size(); i++) {
             Optional<Type> commonParameterType = getCommonSuperType(firstFields.get(i).getType(), secondFields.get(i).getType());
             if (!commonParameterType.isPresent()) {
                 return Optional.empty();
             }
-            commonParameterTypes.add(commonParameterType.get());
 
             Optional<String> firstParameterName = firstFields.get(i).getName();
             Optional<String> secondParameterName = secondFields.get(i).getName();
+
+            Optional<String> name = Optional.empty();
             if (firstParameterName.equals(secondParameterName)) {
-                commonParameterNames.add(firstParameterName);
+                name = firstParameterName;
             }
-            else {
-                commonParameterNames.add(Optional.empty());
-            }
+
+            fields.add(new RowType.Field(name, commonParameterType.get()));
         }
 
-        List<String> names = null;
-        if (commonParameterNames.stream().allMatch(Optional::isPresent)) {
-            names = commonParameterNames.stream()
-                    .map(Optional::get)
-                    .collect(toImmutableList());
-        }
-
-        return Optional.of(new RowType(commonParameterTypes.build(), Optional.ofNullable(names)));
+        return Optional.of(RowType.from(fields.build()));
     }
 
     private Optional<Type> getCommonSuperTypeForCovariantParametrizedType(Type firstType, Type secondType)

@@ -40,6 +40,7 @@ import static com.facebook.presto.plugin.base.security.TableAccessControlRule.Ta
 import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateView;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateViewWithSelect;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDeleteTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropTable;
@@ -196,6 +197,9 @@ public class FileBasedAccessControl
         if (!checkTablePermission(identity, tableName, SELECT)) {
             denySelectTable(tableName.toString());
         }
+        if (!checkTablePermission(identity, tableName, GRANT_SELECT)) {
+            denyCreateViewWithSelect(tableName.toString());
+        }
     }
 
     @Override
@@ -205,7 +209,7 @@ public class FileBasedAccessControl
             denySelectView(viewName.toString());
         }
         if (!checkTablePermission(identity, viewName, GRANT_SELECT)) {
-            denyCreateView(viewName.toString());
+            denyCreateViewWithSelect(viewName.toString());
         }
     }
 

@@ -14,12 +14,14 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.metadata.TableLayout.TablePartitioning;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -67,9 +69,7 @@ import static java.util.Objects.requireNonNull;
  */
 public class PlanFragmenter
 {
-    private PlanFragmenter()
-    {
-    }
+    private PlanFragmenter() {}
 
     public static SubPlan createSubPlans(Session session, Metadata metadata, NodePartitioningManager nodePartitioningManager, Plan plan, boolean forceSingleNode)
     {
@@ -392,12 +392,14 @@ public class PlanFragmenter
         private final Session session;
         private final Metadata metadata;
         private final NodePartitioningManager nodePartitioningManager;
+        private final boolean groupedExecutionForAggregation;
 
         public GroupedExecutionTagger(Session session, Metadata metadata, NodePartitioningManager nodePartitioningManager)
         {
             this.session = requireNonNull(session, "session is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
+            this.groupedExecutionForAggregation = SystemSessionProperties.isGroupedExecutionForJoinEnabled(session);
         }
 
         @Override
@@ -412,11 +414,54 @@ public class PlanFragmenter
         @Override
         public GroupedExecutionProperties visitJoin(JoinNode node, Void context)
         {
-            GroupedExecutionProperties properties = processChildren(node);
-            if (properties.isCurrentNodeCapable()) {
-                return new GroupedExecutionProperties(true, true);
+            GroupedExecutionProperties left = node.getLeft().accept(this, null);
+            GroupedExecutionProperties right = node.getRight().accept(this, null);
+
+            if (!node.getDistributionType().isPresent()) {
+                // This is possible when the optimizers is invoked with `forceSingleNode` set to true.
+                return new GroupedExecutionProperties(false, false);
             }
-            return properties;
+
+            switch (node.getDistributionType().get()) {
+                case REPLICATED:
+                    // Broadcast join maintains partitioning for the left side.
+                    // Right side of a broadcast is not capable of grouped execution because it always comes from a remote exchange.
+                    checkState(!right.currentNodeCapable);
+                    return left;
+                case PARTITIONED:
+                    if (left.currentNodeCapable && right.currentNodeCapable) {
+                        return new GroupedExecutionProperties(true, true);
+                    }
+                    // right.subTreeUseful && !left.currentNodeCapable:
+                    //   It's not particularly helpful to do grouped execution on the right side
+                    //   because the benefit is likely cancelled out due to required buffering for hash build.
+                    //   In theory, it could still be helpful (e.g. when the underlying aggregation's intermediate group state maybe larger than aggregation output).
+                    //   However, this is not currently implemented. LookupSourceFactoryManager need to support such a lifecycle.
+                    // !right.currentNodeCapable:
+                    //   The build/right side needs to buffer fully for this JOIN, but the probe/left side will still stream through.
+                    //   As a result, there is no reason to change currentNodeCapable or subTreeUseful to false.
+                    //
+                    return left;
+                default:
+                    throw new UnsupportedOperationException("Unknown distribution type: " + node.getDistributionType());
+            }
+        }
+
+        @Override
+        public GroupedExecutionProperties visitAggregation(AggregationNode node, Void context)
+        {
+            GroupedExecutionProperties properties = processChildren(node);
+            if (groupedExecutionForAggregation && properties.isCurrentNodeCapable()) {
+                switch (node.getStep()) {
+                    case SINGLE:
+                    case FINAL:
+                        return new GroupedExecutionProperties(true, true);
+                    case PARTIAL:
+                    case INTERMEDIATE:
+                        return new GroupedExecutionProperties(true, properties.isSubTreeUseful());
+                }
+            }
+            return new GroupedExecutionProperties(false, false);
         }
 
         @Override
@@ -452,6 +497,18 @@ public class PlanFragmenter
 
     private static class GroupedExecutionProperties
     {
+        // currentNodeCapable:
+        //   Whether grouped execution is possible with the current node.
+        //   For example, a table scan is capable iff it supports addressable split discovery.
+        // subTreeUseful:
+        //   Whether grouped execution is beneficial in the current node, or any node below it.
+        //   For example, a JOIN can benefit from grouped execution because build can be flushed early, reducing peak memory requirement.
+        //
+        // In the current implementation, subTreeUseful implies currentNodeCapable.
+        // In theory, this doesn't have to be the case. Take an example where a GROUP BY feeds into the build side of a JOIN.
+        // Even if JOIN cannot take advantage of grouped execution, it could still be beneficial to execute the GROUP BY with grouped execution
+        // (e.g. when the underlying aggregation's intermediate group state may be larger than aggregation output).
+
         private final boolean currentNodeCapable;
         private final boolean subTreeUseful;
 
@@ -459,6 +516,8 @@ public class PlanFragmenter
         {
             this.currentNodeCapable = currentNodeCapable;
             this.subTreeUseful = subTreeUseful;
+            // Verify that `subTreeUseful` implies `currentNodeCapable`
+            checkArgument(!subTreeUseful || currentNodeCapable);
         }
 
         public boolean isCurrentNodeCapable()

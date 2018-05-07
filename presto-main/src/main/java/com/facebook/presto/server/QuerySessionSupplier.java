@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.session.SessionConfigurationContext;
 import com.facebook.presto.spi.session.SessionPropertyConfigurationManager;
@@ -110,7 +111,7 @@ public class QuerySessionSupplier
     }
 
     @Override
-    public Session createSession(QueryId queryId, SessionContext context)
+    public Session createSession(QueryId queryId, SessionContext context, Optional<String> queryType, ResourceGroupId resourceGroupId)
     {
         Identity identity = context.getIdentity();
         accessControl.checkCanSetUser(identity.getPrincipal().orElse(null), identity.getUser());
@@ -124,7 +125,8 @@ public class QuerySessionSupplier
                 .setRemoteUserAddress(context.getRemoteUserAddress())
                 .setUserAgent(context.getUserAgent())
                 .setClientInfo(context.getClientInfo())
-                .setClientTags(context.getClientTags());
+                .setClientTags(context.getClientTags())
+                .setResourceEstimates(context.getResourceEstimates());
 
         if (context.getTimeZoneId() != null) {
             sessionBuilder.setTimeZoneKey(getTimeZoneKey(context.getTimeZoneId()));
@@ -138,7 +140,9 @@ public class QuerySessionSupplier
             SessionConfigurationContext configContext = new SessionConfigurationContext(
                     context.getIdentity().getUser(),
                     Optional.ofNullable(context.getSource()),
-                    context.getClientTags());
+                    context.getClientTags(),
+                    queryType,
+                    resourceGroupId);
             for (Entry<String, String> entry : sessionPropertyConfigurationManager.get().getSystemSessionProperties(configContext).entrySet()) {
                 sessionBuilder.setSystemProperty(entry.getKey(), entry.getValue());
             }

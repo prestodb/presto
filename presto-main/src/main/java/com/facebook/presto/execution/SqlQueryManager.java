@@ -19,8 +19,8 @@ import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.execution.QueryExecution.QueryExecutionFactory;
 import com.facebook.presto.execution.QueryExecution.QueryOutputInfo;
-import com.facebook.presto.execution.SqlQueryExecution.SqlQueryExecutionFactory;
-import com.facebook.presto.execution.resourceGroups.QueryQueueFullException;
+import com.facebook.presto.execution.StateMachine.StateChangeListener;
+import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.memory.ClusterMemoryManager;
 import com.facebook.presto.metadata.InternalNodeManager;
@@ -30,9 +30,13 @@ import com.facebook.presto.server.SessionContext;
 import com.facebook.presto.server.SessionSupplier;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import com.facebook.presto.spi.resourceGroups.SelectionContext;
+import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.parser.ParsingException;
+import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.tree.Execute;
@@ -40,6 +44,7 @@ import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.transaction.TransactionManager;
+import com.facebook.presto.util.StatementUtils;
 import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
@@ -85,6 +90,7 @@ import static com.facebook.presto.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
 import static com.facebook.presto.spi.StandardErrorCode.SERVER_STARTING_UP;
 import static com.facebook.presto.sql.ParsingUtil.createParsingOptions;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PARAMETER_USAGE;
+import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DECIMAL;
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.verifyExpressionIsConstant;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -107,7 +113,7 @@ public class SqlQueryManager
 
     private final ExecutorService queryExecutor;
     private final ThreadPoolExecutorMBean queryExecutorMBean;
-    private final QueryQueueManager queueManager;
+    private final ResourceGroupManager resourceGroupManager;
     private final ClusterMemoryManager memoryManager;
 
     private final boolean isIncludeCoordinator;
@@ -151,7 +157,7 @@ public class SqlQueryManager
             NodeSchedulerConfig nodeSchedulerConfig,
             QueryManagerConfig queryManagerConfig,
             QueryMonitor queryMonitor,
-            QueryQueueManager queueManager,
+            ResourceGroupManager resourceGroupManager,
             ClusterMemoryManager memoryManager,
             LocationFactory locationFactory,
             TransactionManager transactionManager,
@@ -170,7 +176,7 @@ public class SqlQueryManager
 
         requireNonNull(nodeSchedulerConfig, "nodeSchedulerConfig is null");
         requireNonNull(queryManagerConfig, "queryManagerConfig is null");
-        this.queueManager = requireNonNull(queueManager, "queueManager is null");
+        this.resourceGroupManager = requireNonNull(resourceGroupManager, "resourceGroupManager is null");
         this.memoryManager = requireNonNull(memoryManager, "memoryManager is null");
 
         this.queryMonitor = requireNonNull(queryMonitor, "queryMonitor is null");
@@ -296,89 +302,58 @@ public class SqlQueryManager
     @Override
     public void addOutputInfoListener(QueryId queryId, Consumer<QueryOutputInfo> listener)
     {
-        requireNonNull(queryId, "queryId is null");
         requireNonNull(listener, "listener is null");
 
-        QueryExecution query = queries.get(queryId);
-        if (query == null) {
-            throw new NoSuchElementException();
-        }
+        getQuery(queryId).addOutputInfoListener(listener);
+    }
 
-        query.addOutputInfoListener(listener);
+    @Override
+    public void addStateChangeListener(QueryId queryId, StateChangeListener<QueryState> listener)
+    {
+        requireNonNull(listener, "listener is null");
+
+        getQuery(queryId).addStateChangeListener(listener);
     }
 
     @Override
     public ListenableFuture<QueryState> getStateChange(QueryId queryId, QueryState currentState)
     {
-        requireNonNull(queryId, "queryId is null");
-
-        QueryExecution query = queries.get(queryId);
-        if (query == null) {
-            return immediateFailedFuture(new NoSuchElementException());
-        }
-
-        return query.getStateChange(currentState);
+        return tryGetQuery(queryId)
+                .map(query -> query.getStateChange(currentState))
+                .orElseGet(() -> immediateFailedFuture(new NoSuchElementException()));
     }
 
     @Override
     public QueryInfo getQueryInfo(QueryId queryId)
     {
-        requireNonNull(queryId, "queryId is null");
-
-        QueryExecution query = queries.get(queryId);
-        if (query == null) {
-            throw new NoSuchElementException();
-        }
-
-        return query.getQueryInfo();
+        return getQuery(queryId).getQueryInfo();
     }
 
     @Override
     public Optional<ResourceGroupId> getQueryResourceGroup(QueryId queryId)
     {
-        requireNonNull(queryId, "queryId is null");
-
-        QueryExecution query = queries.get(queryId);
-        if (query != null) {
-            return query.getResourceGroup();
-        }
-
-        return Optional.empty();
+        return tryGetQuery(queryId)
+                .flatMap(QueryExecution::getResourceGroup);
     }
 
     @Override
     public Plan getQueryPlan(QueryId queryId)
     {
-        requireNonNull(queryId, "queryId is null");
-
-        QueryExecution query = queries.get(queryId);
-        if (query == null) {
-            throw new NoSuchElementException();
-        }
-
-        return query.getQueryPlan();
+        return getQuery(queryId).getQueryPlan();
     }
 
     @Override
     public Optional<QueryState> getQueryState(QueryId queryId)
     {
-        requireNonNull(queryId, "queryId is null");
-
-        return Optional.ofNullable(queries.get(queryId))
+        return tryGetQuery(queryId)
                 .map(QueryExecution::getState);
     }
 
     @Override
     public void recordHeartbeat(QueryId queryId)
     {
-        requireNonNull(queryId, "queryId is null");
-
-        QueryExecution query = queries.get(queryId);
-        if (query == null) {
-            return;
-        }
-
-        query.recordHeartbeat();
+        tryGetQuery(queryId)
+                .ifPresent(QueryExecution::recordHeartbeat);
     }
 
     @Override
@@ -391,6 +366,7 @@ public class SqlQueryManager
         QueryId queryId = queryIdGenerator.createNextQueryId();
 
         Session session = null;
+        SelectionContext<?> selectionContext;
         QueryExecution queryExecution;
         Statement statement;
         try {
@@ -407,12 +383,22 @@ public class SqlQueryManager
                 acceptQueries.set(true);
             }
 
-            session = sessionSupplier.createSession(queryId, sessionContext);
             if (query.length() > maxQueryLength) {
                 int queryLength = query.length();
                 query = query.substring(0, maxQueryLength);
                 throw new PrestoException(QUERY_TEXT_TOO_LARGE, format("Query text length (%s) exceeds the maximum length (%s)", queryLength, maxQueryLength));
             }
+
+            Optional<String> queryType = getQueryType(query);
+            selectionContext = resourceGroupManager.selectGroup(new SelectionCriteria(
+                    sessionContext.getIdentity().getPrincipal().isPresent(),
+                    sessionContext.getIdentity().getUser(),
+                    Optional.ofNullable(sessionContext.getSource()),
+                    sessionContext.getClientTags(),
+                    sessionContext.getResourceEstimates(),
+                    queryType));
+
+            session = sessionSupplier.createSession(queryId, sessionContext, queryType, selectionContext.getResourceGroupId());
             Statement wrappedStatement = sqlParser.createStatement(query, createParsingOptions(session));
             statement = unwrapExecuteStatement(wrappedStatement, sqlParser, session);
             List<Expression> parameters = wrappedStatement instanceof Execute ? ((Execute) wrappedStatement).getParameters() : emptyList();
@@ -423,8 +409,9 @@ public class SqlQueryManager
             }
             if (statement instanceof Explain && ((Explain) statement).isAnalyze()) {
                 Statement innerStatement = ((Explain) statement).getStatement();
-                if (!(executionFactories.get(innerStatement.getClass()) instanceof SqlQueryExecutionFactory)) {
-                    throw new PrestoException(NOT_SUPPORTED, "EXPLAIN ANALYZE only supported for statements that are queries");
+                Optional<QueryType> innerQueryType = StatementUtils.getQueryType(innerStatement.getClass());
+                if (!innerQueryType.isPresent() || innerQueryType.get() == QueryType.DATA_DEFINITION) {
+                    throw new PrestoException(NOT_SUPPORTED, "EXPLAIN ANALYZE doesn't support statement type: " + innerStatement.getClass().getSimpleName());
                 }
             }
             queryExecution = queryExecutionFactory.createQueryExecution(queryId, query, session, statement, parameters);
@@ -441,11 +428,16 @@ public class SqlQueryManager
                         .setIdentity(sessionContext.getIdentity())
                         .build();
             }
-            Optional<ResourceGroupId> resourceGroup = Optional.empty();
-            if (e instanceof QueryQueueFullException) {
-                resourceGroup = Optional.of(((QueryQueueFullException) e).getResourceGroup());
-            }
-            QueryExecution execution = new FailedQueryExecution(queryId, query, resourceGroup, session, self, transactionManager, queryExecutor, metadata, e);
+            QueryExecution execution = new FailedQueryExecution(
+                    queryId,
+                    query,
+                    Optional.empty(),
+                    session,
+                    self,
+                    transactionManager,
+                    queryExecutor,
+                    metadata,
+                    e);
 
             QueryInfo queryInfo = null;
             try {
@@ -454,6 +446,7 @@ public class SqlQueryManager
                 queryInfo = execution.getQueryInfo();
                 queryMonitor.queryCreatedEvent(queryInfo);
                 queryMonitor.queryCompletedEvent(queryInfo);
+                stats.queryQueued();
                 stats.queryStarted();
                 stats.queryStopped();
                 stats.queryFinished(queryInfo);
@@ -486,9 +479,15 @@ public class SqlQueryManager
         queries.put(queryId, queryExecution);
 
         // start the query in the background
-        queueManager.submit(statement, queryExecution, queryExecutor);
+        resourceGroupManager.submit(statement, queryExecution, selectionContext, queryExecutor);
 
         return queryInfo;
+    }
+
+    private Optional<String> getQueryType(String query)
+    {
+        Statement statement = sqlParser.createStatement(query, new ParsingOptions(AS_DECIMAL));
+        return StatementUtils.getQueryType(statement.getClass()).map(Enum::name);
     }
 
     public static Statement unwrapExecuteStatement(Statement statement, SqlParser sqlParser, Session session)
@@ -515,26 +514,19 @@ public class SqlQueryManager
     @Override
     public void failQuery(QueryId queryId, Throwable cause)
     {
-        requireNonNull(queryId, "queryId is null");
         requireNonNull(cause, "cause is null");
 
-        QueryExecution query = queries.get(queryId);
-        if (query != null) {
-            query.fail(cause);
-        }
+        tryGetQuery(queryId)
+                .ifPresent(query -> query.fail(cause));
     }
 
     @Override
     public void cancelQuery(QueryId queryId)
     {
-        requireNonNull(queryId, "queryId is null");
-
         log.debug("Cancel query %s", queryId);
 
-        QueryExecution query = queries.get(queryId);
-        if (query != null) {
-            query.cancelQuery();
-        }
+        tryGetQuery(queryId)
+                .ifPresent(QueryExecution::cancelQuery);
     }
 
     @Override
@@ -544,10 +536,8 @@ public class SqlQueryManager
 
         log.debug("Cancel stage %s", stageId);
 
-        QueryExecution query = queries.get(stageId.getQueryId());
-        if (query != null) {
-            query.cancelStage(stageId);
-        }
+        tryGetQuery(stageId.getQueryId())
+                .ifPresent(query -> query.cancelStage(stageId));
     }
 
     @Override
@@ -732,20 +722,15 @@ public class SqlQueryManager
         }
     }
 
-    /**
-     * Set up a callback to fire when a query is completed. The callback will be called at most once.
-     */
-    static void addCompletionCallback(QueryExecution queryExecution, Runnable callback)
+    private QueryExecution getQuery(QueryId queryId)
     {
-        AtomicBoolean taskExecuted = new AtomicBoolean();
-        queryExecution.addStateChangeListener(newValue -> {
-            if (newValue.isDone() && taskExecuted.compareAndSet(false, true)) {
-                callback.run();
-            }
-        });
-        // Need to do this check in case the state changed before we added the previous state change listener
-        if (queryExecution.getState().isDone() && taskExecuted.compareAndSet(false, true)) {
-            callback.run();
-        }
+        return tryGetQuery(queryId)
+                .orElseThrow(NoSuchElementException::new);
+    }
+
+    private Optional<QueryExecution> tryGetQuery(QueryId queryId)
+    {
+        requireNonNull(queryId, "queryId is null");
+        return Optional.ofNullable(queries.get(queryId));
     }
 }

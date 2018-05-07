@@ -13,72 +13,34 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.RowPagesBuilder;
-import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
 import org.testng.annotations.Test;
-
-import java.util.Iterator;
-import java.util.List;
 
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
+import static com.facebook.presto.operator.WorkProcessorAssertion.assertFinishes;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public class TestMergeHashSort
 {
     @Test
-    public void testChannelIterator()
-    {
-        RowPagesBuilder pageBuilder = rowPagesBuilder(BIGINT);
-        pageBuilder.addSequencePage(2, 2);
-        pageBuilder.addSequencePage(2, 10);
-
-        MergeHashSort.PagePositions iterator = new MergeHashSort.SingleChannelPagePositions(pageBuilder.build().iterator(), aMemoryContext());
-
-        assertTrue(iterator.hasNext());
-        assertEquals(iterator.next().getPosition(), 0);
-
-        assertTrue(iterator.hasNext());
-        assertEquals(iterator.next().getPosition(), 1);
-
-        assertTrue(iterator.hasNext());
-        assertEquals(iterator.next().getPosition(), 0);
-
-        assertTrue(iterator.hasNext());
-        assertEquals(iterator.next().getPosition(), 1);
-
-        assertFalse(iterator.hasNext());
-    }
-
-    private LocalMemoryContext aMemoryContext()
-    {
-        return newSimpleAggregatedMemoryContext().newLocalMemoryContext();
-    }
-
-    @Test
     public void testBinaryMergeIteratorOverEmptyPage()
     {
         Page emptyPage = new Page(0, BIGINT.createFixedSizeBlockBuilder(0).build());
 
-        Iterator<Page> mergedPage = new MergeHashSort(newSimpleAggregatedMemoryContext()).merge(
+        WorkProcessor<Page> mergedPage = new MergeHashSort(newSimpleAggregatedMemoryContext()).merge(
                 ImmutableList.of(BIGINT),
                 ImmutableList.of(BIGINT),
-                ImmutableList.of(ImmutableList.of(emptyPage).iterator()));
+                ImmutableList.of(ImmutableList.of(emptyPage).iterator()).stream()
+                        .map(WorkProcessor::fromIterator)
+                        .collect(toImmutableList()),
+                new DriverYieldSignal());
 
-        assertTrue(mergedPage.hasNext());
-
-        Page actualPage = mergedPage.next();
-        assertEquals(actualPage.getPositionCount(), 0);
-
-        assertFalse(mergedPage.hasNext());
+        assertFinishes(mergedPage);
     }
 
     @Test
@@ -87,51 +49,72 @@ public class TestMergeHashSort
         Page emptyPage = new Page(0, BIGINT.createFixedSizeBlockBuilder(0).build());
         Page page = rowPagesBuilder(BIGINT).row(42).build().get(0);
 
-        Iterator<Page> mergedPage = new MergeHashSort(newSimpleAggregatedMemoryContext()).merge(
+        WorkProcessor<Page> mergedPage = new MergeHashSort(newSimpleAggregatedMemoryContext()).merge(
                 ImmutableList.of(BIGINT),
                 ImmutableList.of(BIGINT),
-                ImmutableList.of(ImmutableList.of(emptyPage, page).iterator()));
+                ImmutableList.of(ImmutableList.of(emptyPage, page).iterator()).stream()
+                        .map(WorkProcessor::fromIterator)
+                        .collect(toImmutableList()),
+                new DriverYieldSignal());
 
-        assertTrue(mergedPage.hasNext());
-
-        Page actualPage = mergedPage.next();
+        assertTrue(mergedPage.process());
+        Page actualPage = mergedPage.getResult();
         assertEquals(actualPage.getPositionCount(), 1);
         assertEquals(actualPage.getChannelCount(), 1);
         assertEquals(actualPage.getBlock(0).getLong(0, 0), 42);
 
-        assertFalse(mergedPage.hasNext());
+        assertFinishes(mergedPage);
     }
 
     @Test
-    public void testPageRewriteIterator()
+    public void testBinaryMergeIteratorOverPageWith()
     {
-        ImmutableList<Type> types = ImmutableList.of(BIGINT, BIGINT);
-        RowPagesBuilder pagesBuilder = rowPagesBuilder(types);
-        pagesBuilder.row(0, 42);
-        pagesBuilder.row(0, 43);
-        pagesBuilder.pageBreak();
-        pagesBuilder.row(0, 44);
-        pagesBuilder.row(1, 45);
-        pagesBuilder.pageBreak();
-        pagesBuilder.row(2, 46);
+        Page emptyPage = new Page(0, BIGINT.createFixedSizeBlockBuilder(0).build());
+        Page page = rowPagesBuilder(BIGINT).row(42).build().get(0);
 
-        Iterator<Page> rewriterIterator = new MergeHashSort.PageRewriteIterator(
-                new InterpretedHashGenerator(ImmutableList.of(BIGINT), new int[] {0}),
-                types,
-                new MergeHashSort.SingleChannelPagePositions(pagesBuilder.build().iterator(), aMemoryContext()),
-                aMemoryContext());
+        WorkProcessor<Page> mergedPage = new MergeHashSort(newSimpleAggregatedMemoryContext()).merge(
+                ImmutableList.of(BIGINT),
+                ImmutableList.of(BIGINT),
+                ImmutableList.of(ImmutableList.of(emptyPage, page).iterator()).stream()
+                        .map(WorkProcessor::fromIterator)
+                        .collect(toImmutableList()),
+                new DriverYieldSignal());
 
-        List<Page> pages = Lists.newArrayList(rewriterIterator);
-        assertEquals(pages.size(), 1);
+        assertTrue(mergedPage.process());
+        Page actualPage = mergedPage.getResult();
+        assertEquals(actualPage.getPositionCount(), 1);
+        assertEquals(actualPage.getChannelCount(), 1);
+        assertEquals(actualPage.getBlock(0).getLong(0, 0), 42);
 
-        List<Page> expectedPages = rowPagesBuilder(types)
-                .row(0, 42)
-                .row(0, 43)
-                .row(0, 44)
-                .row(1, 45)
-                .row(2, 46)
-                .build();
+        assertFinishes(mergedPage);
+    }
 
-        assertPageEquals(types, pages.get(0), expectedPages.get(0));
+    @Test
+    public void testBinaryMergeIteratorOverPageWithDifferentHashes()
+    {
+        Page page = rowPagesBuilder(BIGINT)
+                .row(42)
+                .row(42)
+                .row(52)
+                .row(60)
+                .build().get(0);
+
+        WorkProcessor<Page> mergedPages = new MergeHashSort(newSimpleAggregatedMemoryContext()).merge(
+                ImmutableList.of(BIGINT),
+                ImmutableList.of(BIGINT),
+                ImmutableList.of(ImmutableList.of(page).iterator()).stream()
+                        .map(WorkProcessor::fromIterator)
+                        .collect(toImmutableList()),
+                new DriverYieldSignal());
+
+        assertTrue(mergedPages.process());
+        Page resultPage = mergedPages.getResult();
+        assertEquals(resultPage.getPositionCount(), 4);
+        assertEquals(resultPage.getBlock(0).getLong(0, 0), 42);
+        assertEquals(resultPage.getBlock(0).getLong(1, 0), 42);
+        assertEquals(resultPage.getBlock(0).getLong(2, 0), 52);
+        assertEquals(resultPage.getBlock(0).getLong(3, 0), 60);
+
+        assertFinishes(mergedPages);
     }
 }

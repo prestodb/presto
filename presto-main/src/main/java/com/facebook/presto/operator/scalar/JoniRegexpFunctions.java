@@ -16,7 +16,6 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarFunction;
@@ -203,7 +202,7 @@ public final class JoniRegexpFunctions
     {
         Matcher matcher = pattern.matcher(source.getBytes());
         validateGroup(groupIndex, matcher.getEagerRegion());
-        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 32);
+        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, 32);
         int group = toIntExact(groupIndex);
 
         int nextStart = 0;
@@ -276,7 +275,7 @@ public final class JoniRegexpFunctions
     public static Block regexpSplit(@SqlType("varchar(x)") Slice source, @SqlType(JoniRegexpType.NAME) Regex pattern)
     {
         Matcher matcher = pattern.matcher(source.getBytes());
-        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 32);
+        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, 32);
 
         int lastEnd = 0;
         int nextStart = 0;

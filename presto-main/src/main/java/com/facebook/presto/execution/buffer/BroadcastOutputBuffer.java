@@ -18,6 +18,7 @@ import com.facebook.presto.OutputBuffers.OutputBufferId;
 import com.facebook.presto.execution.StateMachine;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.memory.context.LocalMemoryContext;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
@@ -105,7 +106,7 @@ public class BroadcastOutputBuffer
     @Override
     public boolean isOverutilized()
     {
-        return memoryManager.isFull();
+        return memoryManager.isOverutilized();
     }
 
     @Override
@@ -227,7 +228,7 @@ public class BroadcastOutputBuffer
         // drop the initial reference
         serializedPageReferences.forEach(SerializedPageReference::dereferencePage);
 
-        return memoryManager.getNotFullFuture();
+        return memoryManager.getBufferBlockedFuture();
     }
 
     @Override
@@ -245,6 +246,15 @@ public class BroadcastOutputBuffer
         checkArgument(maxSize.toBytes() > 0, "maxSize must be at least 1 byte");
 
         return getBuffer(outputBufferId).getPages(startingSequenceId, maxSize);
+    }
+
+    @Override
+    public void acknowledge(OutputBufferId bufferId, long sequenceId)
+    {
+        checkState(!Thread.holdsLock(this), "Can not acknowledge pages while holding a lock on this");
+        requireNonNull(bufferId, "bufferId is null");
+
+        getBuffer(bufferId).acknowledgePages(sequenceId);
     }
 
     @Override
@@ -294,6 +304,12 @@ public class BroadcastOutputBuffer
             memoryManager.setNoBlockOnFull();
             // DO NOT destroy buffers or set no more pages.  The coordinator manages the teardown of failed queries.
         }
+    }
+
+    @Override
+    public long getPeakMemoryUsage()
+    {
+        return memoryManager.getPeakMemoryUsage();
     }
 
     private synchronized ClientBuffer getBuffer(OutputBufferId id)
@@ -360,12 +376,18 @@ public class BroadcastOutputBuffer
 
     private void checkFlushComplete()
     {
-        if (state.get() != FLUSHING) {
+        if (state.get() != FLUSHING && state.get() != NO_MORE_BUFFERS) {
             return;
         }
 
         if (safeGetBuffersSnapshot().stream().allMatch(ClientBuffer::isDestroyed)) {
             destroy();
         }
+    }
+
+    @VisibleForTesting
+    OutputBufferMemoryManager getMemoryManager()
+    {
+        return memoryManager;
     }
 }

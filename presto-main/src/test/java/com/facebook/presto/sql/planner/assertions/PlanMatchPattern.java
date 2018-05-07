@@ -14,13 +14,14 @@
 package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.predicate.Domain;
+import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.iterative.GroupReference;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
@@ -74,6 +75,8 @@ import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.match;
 import static com.facebook.presto.sql.planner.assertions.StrictAssignedSymbolsMatcher.actualAssignments;
 import static com.facebook.presto.sql.planner.assertions.StrictSymbolsMatcher.actualOutputs;
+import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
+import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
 import static com.facebook.presto.sql.tree.SortItem.NullOrdering.FIRST;
 import static com.facebook.presto.sql.tree.SortItem.NullOrdering.UNDEFINED;
 import static com.facebook.presto.sql.tree.SortItem.Ordering.ASCENDING;
@@ -326,6 +329,18 @@ public final class PlanMatchPattern
                         expectedDistributionType));
     }
 
+    public static PlanMatchPattern spatialJoin(String expectedFilter, PlanMatchPattern left, PlanMatchPattern right)
+    {
+        return node(JoinNode.class, left, right).with(
+                new SpatialJoinMatcher(INNER, rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(expectedFilter, new ParsingOptions()))));
+    }
+
+    public static PlanMatchPattern spatialLeftJoin(String expectedFilter, PlanMatchPattern left, PlanMatchPattern right)
+    {
+        return node(JoinNode.class, left, right).with(
+                new SpatialJoinMatcher(LEFT, rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(expectedFilter, new ParsingOptions()))));
+    }
+
     public static PlanMatchPattern exchange(PlanMatchPattern... sources)
     {
         return node(ExchangeNode.class, sources);
@@ -464,10 +479,20 @@ public final class PlanMatchPattern
                 states.add(new PlanMatchingState(ImmutableList.of(this)));
             }
         }
-        if (node.getSources().size() == sourcePatterns.size() && matchers.stream().allMatch(it -> it.shapeMatches(node))) {
+        if (node instanceof GroupReference) {
+            if (sourcePatterns.isEmpty() && shapeMatchesMatchers(node)) {
+                states.add(new PlanMatchingState(ImmutableList.of()));
+            }
+        }
+        else if (node.getSources().size() == sourcePatterns.size() && shapeMatchesMatchers(node)) {
             states.add(new PlanMatchingState(sourcePatterns));
         }
         return states.build();
+    }
+
+    private boolean shapeMatchesMatchers(PlanNode node)
+    {
+        return matchers.stream().allMatch(it -> it.shapeMatches(node));
     }
 
     MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
@@ -557,9 +582,9 @@ public final class PlanMatchPattern
         return this;
     }
 
-    public PlanMatchPattern withStats(PlanNodeStatsEstimate stats)
+    public PlanMatchPattern withOutputRowCount(double expectedOutputRowCount)
     {
-        matchers.add(new PlanStatsMatcher(stats));
+        matchers.add(new StatsOutputRowCountMatcher(expectedOutputRowCount));
         return this;
     }
 

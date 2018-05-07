@@ -22,7 +22,6 @@ import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -52,7 +51,7 @@ public class TestEvaluateClassifierPredictions
                         parseTypeSignature(StandardTypes.VARCHAR), parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.BIGINT)));
         Accumulator accumulator = aggregation.bind(ImmutableList.of(0, 1), Optional.empty()).createAccumulator();
         accumulator.addInput(getPage());
-        BlockBuilder finalOut = accumulator.getFinalType().createBlockBuilder(new BlockBuilderStatus(), 1);
+        BlockBuilder finalOut = accumulator.getFinalType().createBlockBuilder(null, 1);
         accumulator.evaluateFinal(finalOut);
         Block block = finalOut.build();
 

@@ -63,7 +63,7 @@ public class SingleRowBlockWriter
     }
 
     @Override
-    protected Block getFieldBlock(int fieldIndex)
+    protected Block getRawFieldBlock(int fieldIndex)
     {
         return fieldBlockBuilders[fieldIndex];
     }
@@ -138,10 +138,20 @@ public class SingleRowBlockWriter
     }
 
     @Override
-    public BlockBuilder writeObject(Object value)
+    public BlockBuilder appendStructure(Block block)
     {
         checkFieldIndexToWrite();
-        fieldBlockBuilders[currentFieldIndexToWrite].writeObject(value);
+        fieldBlockBuilders[currentFieldIndexToWrite].appendStructure(block);
+        entryAdded();
+        return this;
+    }
+
+    @Override
+    public BlockBuilder appendStructureInternal(Block block, int position)
+    {
+        checkFieldIndexToWrite();
+        fieldBlockBuilders[currentFieldIndexToWrite].appendStructureInternal(block, position);
+        entryAdded();
         return this;
     }
 
@@ -186,7 +196,7 @@ public class SingleRowBlockWriter
     }
 
     @Override
-    public BlockEncoding getEncoding()
+    public String getEncodingName()
     {
         throw new UnsupportedOperationException();
     }
@@ -207,10 +217,10 @@ public class SingleRowBlockWriter
     public String toString()
     {
         if (!fieldBlockBuilderReturned) {
-            return format("RowBlock{SingleRowBlockWriter=%d, fieldBlockBuilderReturned=false, positionCount=%d}", fieldBlockBuilders.length, getPositionCount());
+            return format("SingleRowBlockWriter{numFields=%d, fieldBlockBuilderReturned=false, positionCount=%d}", fieldBlockBuilders.length, getPositionCount());
         }
         else {
-            return format("RowBlock{SingleRowBlockWriter=%d, fieldBlockBuilderReturned=true}", fieldBlockBuilders.length);
+            return format("SingleRowBlockWriter{numFields=%d, fieldBlockBuilderReturned=true}", fieldBlockBuilders.length);
         }
     }
 

@@ -59,6 +59,7 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static org.testng.Assert.assertEquals;
 
+@Test(singleThreaded = true)
 public class TestShardOrganizerUtil
 {
     private static final List<ColumnInfo> COLUMNS = ImmutableList.of(

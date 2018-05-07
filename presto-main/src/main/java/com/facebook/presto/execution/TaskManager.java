@@ -108,6 +108,11 @@ public interface TaskManager
     ListenableFuture<BufferResult> getTaskResults(TaskId taskId, OutputBufferId bufferId, long startingSequenceId, DataSize maxSize);
 
     /**
+     * Acknowledges previously received results.
+     */
+    void acknowledgeTaskResults(TaskId taskId, OutputBufferId bufferId, long sequenceId);
+
+    /**
      * Aborts a result buffer for a task.  If the task or buffer has not been
      * created yet, an uninitialized task is created and a the buffer is
      * aborted.

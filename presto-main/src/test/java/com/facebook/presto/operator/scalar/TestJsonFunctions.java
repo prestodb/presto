@@ -27,6 +27,31 @@ public class TestJsonFunctions
         extends AbstractTestFunctions
 {
     @Test
+    public void testIsJsonScalar()
+    {
+        assertFunction("IS_JSON_SCALAR(null)", BOOLEAN, null);
+
+        assertFunction("IS_JSON_SCALAR(JSON 'null')", BOOLEAN, true);
+        assertFunction("IS_JSON_SCALAR(JSON 'true')", BOOLEAN, true);
+        assertFunction("IS_JSON_SCALAR(JSON '1')", BOOLEAN, true);
+        assertFunction("IS_JSON_SCALAR(JSON '\"str\"')", BOOLEAN, true);
+        assertFunction("IS_JSON_SCALAR('null')", BOOLEAN, true);
+        assertFunction("IS_JSON_SCALAR('true')", BOOLEAN, true);
+        assertFunction("IS_JSON_SCALAR('1')", BOOLEAN, true);
+        assertFunction("IS_JSON_SCALAR('\"str\"')", BOOLEAN, true);
+
+        assertFunction("IS_JSON_SCALAR(JSON '[1, 2, 3]')", BOOLEAN, false);
+        assertFunction("IS_JSON_SCALAR(JSON '{\"a\": 1, \"b\": 2}')", BOOLEAN, false);
+        assertFunction("IS_JSON_SCALAR('[1, 2, 3]')", BOOLEAN, false);
+        assertFunction("IS_JSON_SCALAR('{\"a\": 1, \"b\": 2}')", BOOLEAN, false);
+
+        assertInvalidFunction("IS_JSON_SCALAR('')", INVALID_FUNCTION_ARGUMENT, "Invalid JSON value: ");
+        assertInvalidFunction("IS_JSON_SCALAR('[1')", INVALID_FUNCTION_ARGUMENT, "Invalid JSON value: [1");
+        assertInvalidFunction("IS_JSON_SCALAR('1 trailing')", INVALID_FUNCTION_ARGUMENT, "Invalid JSON value: 1 trailing");
+        assertInvalidFunction("IS_JSON_SCALAR('[1, 2] trailing')", INVALID_FUNCTION_ARGUMENT, "Invalid JSON value: [1, 2] trailing");
+    }
+
+    @Test
     public void testJsonArrayLength()
     {
         assertFunction("JSON_ARRAY_LENGTH('[]')", BIGINT, 0L);

@@ -21,6 +21,8 @@ import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.execution.executor.TaskExecutor;
+import com.facebook.presto.memory.DefaultQueryContext;
+import com.facebook.presto.memory.LegacyQueryContext;
 import com.facebook.presto.memory.LocalMemoryManager;
 import com.facebook.presto.memory.MemoryPoolAssignment;
 import com.facebook.presto.memory.MemoryPoolAssignmentsRequest;
@@ -32,7 +34,7 @@ import com.facebook.presto.spiller.LocalSpillManager;
 import com.facebook.presto.spiller.NodeSpillConfig;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
-import com.google.common.base.Preconditions;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -41,6 +43,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
+import io.airlift.stats.GcMonitor;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
@@ -64,6 +67,7 @@ import java.util.concurrent.TimeUnit;
 import static com.facebook.presto.SystemSessionProperties.resourceOvercommit;
 import static com.facebook.presto.spi.StandardErrorCode.ABANDONED_TASK;
 import static com.facebook.presto.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.notNull;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
@@ -111,7 +115,8 @@ public class SqlTaskManager
             TaskManagerConfig config,
             NodeMemoryConfig nodeMemoryConfig,
             LocalSpillManager localSpillManager,
-            NodeSpillConfig nodeSpillConfig)
+            NodeSpillConfig nodeSpillConfig,
+            GcMonitor gcMonitor)
     {
         requireNonNull(nodeInfo, "nodeInfo is null");
         requireNonNull(config, "config is null");
@@ -129,20 +134,12 @@ public class SqlTaskManager
         SqlTaskExecutionFactory sqlTaskExecutionFactory = new SqlTaskExecutionFactory(taskNotificationExecutor, taskExecutor, planner, queryMonitor, config);
 
         this.localMemoryManager = requireNonNull(localMemoryManager, "localMemoryManager is null");
-        DataSize maxQueryMemoryPerNode = nodeMemoryConfig.getMaxQueryMemoryPerNode();
-
+        DataSize maxQueryUserMemoryPerNode = nodeMemoryConfig.getMaxQueryMemoryPerNode();
+        DataSize maxQueryTotalMemoryPerNode = nodeMemoryConfig.getMaxQueryTotalMemoryPerNode();
         DataSize maxQuerySpillPerNode = nodeSpillConfig.getQueryMaxSpillPerNode();
 
         queryContexts = CacheBuilder.newBuilder().weakValues().build(CacheLoader.from(
-                queryId -> new QueryContext(
-                        queryId,
-                        maxQueryMemoryPerNode,
-                        localMemoryManager.getPool(LocalMemoryManager.GENERAL_POOL),
-                        localMemoryManager.getPool(LocalMemoryManager.SYSTEM_POOL),
-                        taskNotificationExecutor,
-                        driverYieldExecutor,
-                        maxQuerySpillPerNode,
-                        localSpillManager.getSpillSpaceTracker())));
+                queryId -> createQueryContext(queryId, localMemoryManager, nodeMemoryConfig, localSpillManager, gcMonitor, maxQueryUserMemoryPerNode, maxQueryTotalMemoryPerNode, maxQuerySpillPerNode)));
 
         tasks = CacheBuilder.newBuilder().build(CacheLoader.from(
                 taskId -> new SqlTask(
@@ -157,6 +154,41 @@ public class SqlTaskManager
                             return null;
                         },
                         maxBufferSize)));
+    }
+
+    private QueryContext createQueryContext(
+            QueryId queryId,
+            LocalMemoryManager localMemoryManager,
+            NodeMemoryConfig nodeMemoryConfig,
+            LocalSpillManager localSpillManager,
+            GcMonitor gcMonitor,
+            DataSize maxQueryUserMemoryPerNode,
+            DataSize maxQueryTotalMemoryPerNode,
+            DataSize maxQuerySpillPerNode)
+    {
+        if (nodeMemoryConfig.isLegacySystemPoolEnabled()) {
+            return new LegacyQueryContext(
+                    queryId,
+                    maxQueryUserMemoryPerNode,
+                    localMemoryManager.getPool(LocalMemoryManager.GENERAL_POOL),
+                    localMemoryManager.getPool(LocalMemoryManager.SYSTEM_POOL),
+                    gcMonitor,
+                    taskNotificationExecutor,
+                    driverYieldExecutor,
+                    maxQuerySpillPerNode,
+                    localSpillManager.getSpillSpaceTracker());
+        }
+
+        return new DefaultQueryContext(
+                queryId,
+                maxQueryUserMemoryPerNode,
+                maxQueryTotalMemoryPerNode,
+                localMemoryManager.getPool(LocalMemoryManager.GENERAL_POOL),
+                gcMonitor,
+                taskNotificationExecutor,
+                driverYieldExecutor,
+                maxQuerySpillPerNode,
+                localSpillManager.getSpillSpaceTracker());
     }
 
     @Override
@@ -326,10 +358,20 @@ public class SqlTaskManager
     {
         requireNonNull(taskId, "taskId is null");
         requireNonNull(bufferId, "bufferId is null");
-        Preconditions.checkArgument(startingSequenceId >= 0, "startingSequenceId is negative");
+        checkArgument(startingSequenceId >= 0, "startingSequenceId is negative");
         requireNonNull(maxSize, "maxSize is null");
 
         return tasks.getUnchecked(taskId).getTaskResults(bufferId, startingSequenceId, maxSize);
+    }
+
+    @Override
+    public void acknowledgeTaskResults(TaskId taskId, OutputBufferId bufferId, long sequenceId)
+    {
+        requireNonNull(taskId, "taskId is null");
+        requireNonNull(bufferId, "bufferId is null");
+        checkArgument(sequenceId >= 0, "sequenceId is negative");
+
+        tasks.getUnchecked(taskId).acknowledgeTaskResults(bufferId, sequenceId);
     }
 
     @Override
@@ -422,5 +464,12 @@ public class SqlTaskManager
     {
         requireNonNull(taskId, "taskId is null");
         tasks.getUnchecked(taskId).addStateChangeListener(stateChangeListener);
+    }
+
+    @VisibleForTesting
+    public QueryContext getQueryContext(QueryId queryId)
+
+    {
+        return queryContexts.getUnchecked(queryId);
     }
 }

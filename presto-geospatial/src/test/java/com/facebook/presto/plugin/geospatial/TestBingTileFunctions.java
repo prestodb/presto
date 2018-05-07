@@ -119,6 +119,8 @@ public class TestBingTileFunctions
         assertFunction("bing_tile_coordinates(bing_tile('213')).y", INTEGER, 5);
         assertFunction("bing_tile_coordinates(bing_tile('123030123010121')).x", INTEGER, 21845);
         assertFunction("bing_tile_coordinates(bing_tile('123030123010121')).y", INTEGER, 13506);
+
+        assertCachedInstanceHasBoundedRetainedSize("bing_tile_coordinates(bing_tile('213'))");
     }
 
     @Test
@@ -131,8 +133,8 @@ public class TestBingTileFunctions
     @Test
     public void testBingTilePolygon()
     {
-        assertFunction("ST_AsText(bing_tile_polygon(bing_tile('123030123010121')))", VARCHAR, "POLYGON ((59.996337890625 30.12612436422458, 59.996337890625 30.11662158281937, 60.00732421875 30.11662158281937, 60.00732421875 30.12612436422458, 59.996337890625 30.12612436422458))");
-        assertFunction("ST_AsText(ST_Centroid(bing_tile_polygon(bing_tile('123030123010121'))))", VARCHAR, "POINT (60.00183104425149 30.121372968273892)");
+        assertFunction("ST_AsText(bing_tile_polygon(bing_tile('123030123010121')))", VARCHAR, "POLYGON ((59.996337890625 30.11662158281937, 60.00732421875 30.11662158281937, 60.00732421875 30.12612436422458, 59.996337890625 30.12612436422458, 59.996337890625 30.11662158281937))");
+        assertFunction("ST_AsText(ST_Centroid(bing_tile_polygon(bing_tile('123030123010121'))))", VARCHAR, "POINT (60.0018310442288 30.121372968273892)");
 
         // Check bottom right corner of a stack of tiles at different zoom levels
         assertFunction("ST_AsText(apply(bing_tile_polygon(bing_tile(1, 1, 1)), g -> ST_Point(ST_XMax(g), ST_YMin(g))))", VARCHAR, "POINT (180 -85.05112877980659)");
@@ -207,14 +209,18 @@ public class TestBingTileFunctions
         assertInvalidFunction("geometry_to_bing_tiles(ST_Point(60, 30.12), 40)", "Zoom level must be <= 23");
 
         // Input rectangle too large
-        assertInvalidFunction("geometry_to_bing_tiles(ST_Envelope(ST_GeometryFromText('LINESTRING (0 0, 80 80)')), 16)", "The number of input tiles is too large (more than 1M) to compute a set of covering bing tiles.");
+        assertInvalidFunction("geometry_to_bing_tiles(ST_Envelope(ST_GeometryFromText('LINESTRING (0 0, 80 80)')), 16)", "The number of input tiles is too large (more than 1M) to compute a set of covering Bing tiles.");
         assertFunction("cardinality(geometry_to_bing_tiles(ST_Envelope(ST_GeometryFromText('LINESTRING (0 0, 80 80)')), 5))", BIGINT, 104L);
 
-        // Input polygon too large
+        // Input polygon too complex
         String filePath = this.getClass().getClassLoader().getResource("too_large_polygon.txt").getPath();
         String largeWkt = Files.lines(Paths.get(filePath)).findFirst().get();
-        assertInvalidFunction("geometry_to_bing_tiles(ST_GeometryFromText('" + largeWkt + "'), 16)", "The zoom level is too high or the geometry is too complex to compute a set of covering bing tiles. Please use a lower zoom level or convert the geometry to its bounding box using the ST_Envelope function.");
+        assertInvalidFunction("geometry_to_bing_tiles(ST_GeometryFromText('" + largeWkt + "'), 16)", "The zoom level is too high or the geometry is too complex to compute a set of covering Bing tiles. Please use a lower zoom level or convert the geometry to its bounding box using the ST_Envelope function.");
         assertFunction("cardinality(geometry_to_bing_tiles(ST_Envelope(ST_GeometryFromText('" + largeWkt + "')), 16))", BIGINT, 19939L);
+
+        // Zoom level is too high
+        assertInvalidFunction("geometry_to_bing_tiles(ST_GeometryFromText('POLYGON ((0 0, 0 20, 20 20, 0 0))'), 20)", "The zoom level is too high to compute a set of covering Bing tiles.");
+        assertFunction("cardinality(geometry_to_bing_tiles(ST_GeometryFromText('POLYGON ((0 0, 0 20, 20 20, 0 0))'), 14))", BIGINT, 428787L);
     }
 
     @Test
@@ -237,5 +243,20 @@ public class TestBingTileFunctions
 
         assertFunction("bing_tile(3, 5, 3) <> bing_tile(3, 5, 4)", BOOLEAN, true);
         assertFunction("bing_tile('213') <> bing_tile('2131')", BOOLEAN, true);
+    }
+
+    @Test
+    public void testDistinctFrom()
+    {
+        assertFunction("null IS DISTINCT FROM null", BOOLEAN, false);
+        assertFunction("bing_tile(3, 5, 3) IS DISTINCT FROM null", BOOLEAN, true);
+        assertFunction("null IS DISTINCT FROM bing_tile(3, 5, 3)", BOOLEAN, true);
+
+        assertFunction("bing_tile(3, 5, 3) IS DISTINCT FROM bing_tile(3, 5, 3)", BOOLEAN, false);
+        assertFunction("bing_tile('213') IS DISTINCT FROM bing_tile(3, 5, 3)", BOOLEAN, false);
+        assertFunction("bing_tile('213') IS DISTINCT FROM bing_tile('213')", BOOLEAN, false);
+
+        assertFunction("bing_tile(3, 5, 3) IS DISTINCT FROM bing_tile(3, 5, 4)", BOOLEAN, true);
+        assertFunction("bing_tile('213') IS DISTINCT FROM bing_tile('2131')", BOOLEAN, true);
     }
 }

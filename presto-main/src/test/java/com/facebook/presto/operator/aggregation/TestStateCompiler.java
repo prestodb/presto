@@ -27,7 +27,6 @@ import com.facebook.presto.operator.aggregation.state.StateCompiler;
 import com.facebook.presto.operator.aggregation.state.VarianceState;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.function.AccumulatorState;
 import com.facebook.presto.spi.function.AccumulatorStateFactory;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
@@ -46,7 +45,6 @@ import org.testng.annotations.Test;
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Field;
 import java.util.Map;
-import java.util.Optional;
 
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -75,7 +73,7 @@ public class TestStateCompiler
         state.setLong(2);
         state.setNull(false);
 
-        BlockBuilder builder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), 2);
+        BlockBuilder builder = BIGINT.createBlockBuilder(null, 2);
         serializer.serialize(state, builder);
         state.setNull(true);
         serializer.serialize(state, builder);
@@ -100,7 +98,7 @@ public class TestStateCompiler
 
         state.setLong(2);
 
-        BlockBuilder builder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), 1);
+        BlockBuilder builder = BIGINT.createBlockBuilder(null, 1);
         serializer.serialize(state, builder);
 
         Block block = builder.build();
@@ -127,7 +125,7 @@ public class TestStateCompiler
 
         state.setBoolean(true);
 
-        BlockBuilder builder = BOOLEAN.createBlockBuilder(new BlockBuilderStatus(), 1);
+        BlockBuilder builder = BOOLEAN.createBlockBuilder(null, 1);
         serializer.serialize(state, builder);
 
         Block block = builder.build();
@@ -145,7 +143,7 @@ public class TestStateCompiler
 
         state.setByte((byte) 3);
 
-        BlockBuilder builder = TINYINT.createBlockBuilder(new BlockBuilderStatus(), 1);
+        BlockBuilder builder = TINYINT.createBlockBuilder(null, 1);
         serializer.serialize(state, builder);
 
         Block block = builder.build();
@@ -162,14 +160,14 @@ public class TestStateCompiler
         SliceState deserializedState = factory.createSingleState();
 
         state.setSlice(null);
-        BlockBuilder nullBlockBuilder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 1);
+        BlockBuilder nullBlockBuilder = VARCHAR.createBlockBuilder(null, 1);
         serializer.serialize(state, nullBlockBuilder);
         Block nullBlock = nullBlockBuilder.build();
         serializer.deserialize(nullBlock, 0, deserializedState);
         assertEquals(deserializedState.getSlice(), state.getSlice());
 
         state.setSlice(utf8Slice("test"));
-        BlockBuilder builder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 1);
+        BlockBuilder builder = VARCHAR.createBlockBuilder(null, 1);
         serializer.serialize(state, builder);
         Block block = builder.build();
         serializer.deserialize(block, 0, deserializedState);
@@ -188,7 +186,7 @@ public class TestStateCompiler
         singleState.setCount(2);
         singleState.setM2(3);
 
-        BlockBuilder builder = new RowType(ImmutableList.of(BIGINT, DOUBLE, DOUBLE), Optional.empty()).createBlockBuilder(new BlockBuilderStatus(), 1);
+        BlockBuilder builder = RowType.anonymous(ImmutableList.of(BIGINT, DOUBLE, DOUBLE)).createBlockBuilder(null, 1);
         serializer.serialize(singleState, builder);
 
         Block block = builder.build();
@@ -222,8 +220,8 @@ public class TestStateCompiler
         singleState.setBlock(array);
         singleState.setAnotherBlock(mapBlockOf(BIGINT, VARCHAR, ImmutableMap.of(123L, "testBlock")));
 
-        BlockBuilder builder = new RowType(ImmutableList.of(BOOLEAN, TINYINT, DOUBLE, INTEGER, BIGINT, mapType, VARBINARY, arrayType, VARBINARY, VARBINARY), Optional.empty())
-                .createBlockBuilder(new BlockBuilderStatus(), 1);
+        BlockBuilder builder = RowType.anonymous(ImmutableList.of(BOOLEAN, TINYINT, DOUBLE, INTEGER, BIGINT, mapType, VARBINARY, arrayType, VARBINARY, VARBINARY))
+                .createBlockBuilder(null, 1);
         serializer.serialize(singleState, builder);
 
         Block block = builder.build();
@@ -322,7 +320,7 @@ public class TestStateCompiler
             Block array = createLongsBlock(45);
             retainedSize += array.getRetainedSizeInBytes();
             groupedState.setBlock(array);
-            BlockBuilder mapBlockBuilder = mapType(BIGINT, VARCHAR).createBlockBuilder(new BlockBuilderStatus(), 1);
+            BlockBuilder mapBlockBuilder = mapType(BIGINT, VARCHAR).createBlockBuilder(null, 1);
             BlockBuilder singleMapBlockWriter = mapBlockBuilder.beginBlockEntry();
             BIGINT.writeLong(singleMapBlockWriter, 123L);
             VARCHAR.writeSlice(singleMapBlockWriter, utf8Slice("testBlock"));
@@ -351,7 +349,7 @@ public class TestStateCompiler
             Block array = createLongsBlock(45);
             retainedSize += array.getRetainedSizeInBytes();
             groupedState.setBlock(array);
-            BlockBuilder mapBlockBuilder = mapType(BIGINT, VARCHAR).createBlockBuilder(new BlockBuilderStatus(), 1);
+            BlockBuilder mapBlockBuilder = mapType(BIGINT, VARCHAR).createBlockBuilder(null, 1);
             BlockBuilder singleMapBlockWriter = mapBlockBuilder.beginBlockEntry();
             BIGINT.writeLong(singleMapBlockWriter, 123L);
             VARCHAR.writeSlice(singleMapBlockWriter, utf8Slice("testBlock"));

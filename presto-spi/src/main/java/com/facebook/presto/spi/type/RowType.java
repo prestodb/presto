@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.spi.type.StandardTypes.ROW;
 import static java.util.Objects.requireNonNull;
@@ -35,38 +36,55 @@ import static java.util.Objects.requireNonNull;
 public class RowType
         extends AbstractType
 {
-    private final List<RowField> fields;
+    private final List<Field> fields;
     private final List<Type> fieldTypes;
 
-    public RowType(List<Type> fieldTypes, Optional<List<String>> fieldNames)
+    private RowType(List<Field> fields)
     {
-        super(toTypeSignature(fieldTypes, fieldNames), Block.class);
+        super(makeSignature(fields), Block.class);
 
-        List<RowField> fields = new ArrayList<>();
-        for (int i = 0; i < fieldTypes.size(); i++) {
-            int index = i;
-            fields.add(new RowField(fieldTypes.get(i), fieldNames.map((names) -> names.get(index))));
-        }
         this.fields = fields;
-        this.fieldTypes = fieldTypes;
+        this.fieldTypes = fields.stream()
+            .map(Field::getType)
+            .collect(Collectors.toList());
     }
 
-    private static TypeSignature toTypeSignature(List<Type> fieldTypes, Optional<List<String>> fieldNames)
+    public static RowType from(List<Field> fields)
     {
-        int size = fieldTypes.size();
+        return new RowType(fields);
+    }
+
+    public static RowType anonymous(List<Type> types)
+    {
+        List<Field> fields = types.stream()
+                .map(type -> new Field(Optional.empty(), type))
+                .collect(Collectors.toList());
+
+        return new RowType(fields);
+    }
+
+    public static Field field(String name, Type type)
+    {
+        return new Field(Optional.of(name), type);
+    }
+
+    public static Field field(Type type)
+    {
+        return new Field(Optional.empty(), type);
+    }
+
+    private static TypeSignature makeSignature(List<Field> fields)
+    {
+        int size = fields.size();
         if (size == 0) {
             throw new IllegalArgumentException("Row type must have at least 1 field");
         }
 
-        List<TypeSignature> elementTypeSignatures = new ArrayList<>();
-        List<String> literalParameters = new ArrayList<>();
-        for (int i = 0; i < size; i++) {
-            elementTypeSignatures.add(fieldTypes.get(i).getTypeSignature());
-            if (fieldNames.isPresent()) {
-                literalParameters.add(fieldNames.get().get(i));
-            }
-        }
-        return new TypeSignature(ROW, elementTypeSignatures, literalParameters);
+        List<TypeSignatureParameter> parameters = fields.stream()
+                .map(field -> TypeSignatureParameter.of(new NamedTypeSignature(field.getName(), field.getType().getTypeSignature())))
+                .collect(Collectors.toList());
+
+        return new TypeSignature(ROW, parameters);
     }
 
     @Override
@@ -87,7 +105,7 @@ public class RowType
         // Convert to standard sql name
         StringBuilder result = new StringBuilder();
         result.append(ROW).append('(');
-        for (RowField field : fields) {
+        for (Field field : fields) {
             String typeDisplayName = field.getType().getDisplayName();
             if (field.getName().isPresent()) {
                 result.append(field.getName().get()).append(' ').append(typeDisplayName);
@@ -126,8 +144,7 @@ public class RowType
             blockBuilder.appendNull();
         }
         else {
-            blockBuilder.writeObject(block.getObject(position, Block.class));
-            blockBuilder.closeEntry();
+            block.writePositionTo(position, blockBuilder);
         }
     }
 
@@ -140,7 +157,7 @@ public class RowType
     @Override
     public void writeObject(BlockBuilder blockBuilder, Object value)
     {
-        blockBuilder.writeObject(value).closeEntry();
+        blockBuilder.appendStructure((Block) value);
     }
 
     @Override
@@ -149,17 +166,17 @@ public class RowType
         return fieldTypes;
     }
 
-    public List<RowField> getFields()
+    public List<Field> getFields()
     {
         return fields;
     }
 
-    public static class RowField
+    public static class Field
     {
         private final Type type;
         private final Optional<String> name;
 
-        public RowField(Type type, Optional<String> name)
+        public Field(Optional<String> name, Type type)
         {
             this.type = requireNonNull(type, "type is null");
             this.name = requireNonNull(name, "name is null");

@@ -1,0 +1,17 @@
+{
+  "tables": [
+    {
+      "user": "user",
+      "privileges": [
+        "SELECT"
+      ]
+    }
+  ],
+  "schemas": [
+    {
+      "user": "user",
+      "owner": true
+    }
+  ]
+}
+

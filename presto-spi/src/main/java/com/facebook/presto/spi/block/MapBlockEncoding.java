@@ -14,45 +14,27 @@
 
 package com.facebook.presto.spi.block;
 
-import com.facebook.presto.spi.function.OperatorType;
+import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSerde;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 
-import java.lang.invoke.MethodHandle;
-
 import static com.facebook.presto.spi.block.AbstractMapBlock.HASH_MULTIPLIER;
-import static com.facebook.presto.spi.block.MethodHandleUtil.compose;
-import static com.facebook.presto.spi.block.MethodHandleUtil.nativeValueGetter;
 import static io.airlift.slice.Slices.wrappedIntArray;
 import static java.lang.String.format;
-import static java.util.Arrays.asList;
-import static java.util.Collections.singletonList;
-import static java.util.Objects.requireNonNull;
 
 public class MapBlockEncoding
         implements BlockEncoding
 {
-    public static final BlockEncodingFactory<MapBlockEncoding> FACTORY = new MapBlockEncodingFactory();
-    private static final String NAME = "MAP";
+    public static final String NAME = "MAP";
 
-    private final Type keyType;
-    private final MethodHandle keyNativeHashCode;
-    private final MethodHandle keyBlockNativeEquals;
-    private final BlockEncoding keyBlockEncoding;
-    private final BlockEncoding valueBlockEncoding;
+    private final TypeManager typeManager;
 
-    public MapBlockEncoding(Type keyType, MethodHandle keyBlockNativeEquals, MethodHandle keyNativeHashCode, BlockEncoding keyBlockEncoding, BlockEncoding valueBlockEncoding)
+    public MapBlockEncoding(TypeManager typeManager)
     {
-        this.keyType = requireNonNull(keyType, "keyType is null");
-        // keyNativeHashCode can only be null due to map block kill switch. deprecated.new-map-block
-        this.keyNativeHashCode = keyNativeHashCode;
-        // keyBlockNativeEquals can only be null due to map block kill switch. deprecated.new-map-block
-        this.keyBlockNativeEquals = keyBlockNativeEquals;
-        this.keyBlockEncoding = requireNonNull(keyBlockEncoding, "keyBlockEncoding is null");
-        this.valueBlockEncoding = requireNonNull(valueBlockEncoding, "valueBlockEncoding is null");
+        this.typeManager = typeManager;
     }
 
     @Override
@@ -62,7 +44,7 @@ public class MapBlockEncoding
     }
 
     @Override
-    public void writeBlock(SliceOutput sliceOutput, Block block)
+    public void writeBlock(BlockEncodingSerde blockEncodingSerde, SliceOutput sliceOutput, Block block)
     {
         AbstractMapBlock mapBlock = (AbstractMapBlock) block;
 
@@ -74,8 +56,11 @@ public class MapBlockEncoding
 
         int entriesStartOffset = offsets[offsetBase];
         int entriesEndOffset = offsets[offsetBase + positionCount];
-        keyBlockEncoding.writeBlock(sliceOutput, mapBlock.getKeys().getRegion(entriesStartOffset, entriesEndOffset - entriesStartOffset));
-        valueBlockEncoding.writeBlock(sliceOutput, mapBlock.getValues().getRegion(entriesStartOffset, entriesEndOffset - entriesStartOffset));
+
+        TypeSerde.writeType(sliceOutput, mapBlock.keyType);
+
+        blockEncodingSerde.writeBlock(sliceOutput, mapBlock.getRawKeyBlock().getRegion(entriesStartOffset, entriesEndOffset - entriesStartOffset));
+        blockEncodingSerde.writeBlock(sliceOutput, mapBlock.getRawValueBlock().getRegion(entriesStartOffset, entriesEndOffset - entriesStartOffset));
 
         sliceOutput.appendInt((entriesEndOffset - entriesStartOffset) * HASH_MULTIPLIER);
         sliceOutput.writeBytes(wrappedIntArray(hashTable, entriesStartOffset * HASH_MULTIPLIER, (entriesEndOffset - entriesStartOffset) * HASH_MULTIPLIER));
@@ -88,10 +73,12 @@ public class MapBlockEncoding
     }
 
     @Override
-    public Block readBlock(SliceInput sliceInput)
+    public Block readBlock(BlockEncodingSerde blockEncodingSerde, SliceInput sliceInput)
     {
-        Block keyBlock = keyBlockEncoding.readBlock(sliceInput);
-        Block valueBlock = valueBlockEncoding.readBlock(sliceInput);
+        Type keyType = TypeSerde.readType(typeManager, sliceInput);
+
+        Block keyBlock = blockEncodingSerde.readBlock(sliceInput);
+        Block valueBlock = blockEncodingSerde.readBlock(sliceInput);
 
         int[] hashTable = new int[sliceInput.readInt()];
         sliceInput.readBytes(wrappedIntArray(hashTable));
@@ -105,43 +92,6 @@ public class MapBlockEncoding
         int[] offsets = new int[positionCount + 1];
         sliceInput.readBytes(wrappedIntArray(offsets));
         boolean[] mapIsNull = EncoderUtil.decodeNullBits(sliceInput, positionCount);
-        return new MapBlock(0, positionCount, mapIsNull, offsets, keyBlock, valueBlock, hashTable, keyType, keyBlockNativeEquals, keyNativeHashCode);
-    }
-
-    @Override
-    public BlockEncodingFactory getFactory()
-    {
-        return FACTORY;
-    }
-
-    public static class MapBlockEncodingFactory
-            implements BlockEncodingFactory<MapBlockEncoding>
-    {
-        @Override
-        public String getName()
-        {
-            return NAME;
-        }
-
-        @Override
-        public MapBlockEncoding readEncoding(TypeManager typeManager, BlockEncodingSerde serde, SliceInput input)
-        {
-            Type keyType = TypeSerde.readType(typeManager, input);
-            MethodHandle keyNativeEquals = typeManager.resolveOperator(OperatorType.EQUAL, asList(keyType, keyType));
-            MethodHandle keyBlockNativeEquals = compose(keyNativeEquals, nativeValueGetter(keyType));
-            MethodHandle keyNativeHashCode = typeManager.resolveOperator(OperatorType.HASH_CODE, singletonList(keyType));
-
-            BlockEncoding keyBlockEncoding = serde.readBlockEncoding(input);
-            BlockEncoding valueBlockEncoding = serde.readBlockEncoding(input);
-            return new MapBlockEncoding(keyType, keyBlockNativeEquals, keyNativeHashCode, keyBlockEncoding, valueBlockEncoding);
-        }
-
-        @Override
-        public void writeEncoding(BlockEncodingSerde serde, SliceOutput output, MapBlockEncoding blockEncoding)
-        {
-            TypeSerde.writeType(output, blockEncoding.keyType);
-            serde.writeBlockEncoding(output, blockEncoding.keyBlockEncoding);
-            serde.writeBlockEncoding(output, blockEncoding.valueBlockEncoding);
-        }
+        return MapType.createMapBlockInternal(typeManager, keyType, 0, positionCount, mapIsNull, offsets, keyBlock, valueBlock, hashTable);
     }
 }

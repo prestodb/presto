@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.cli;
 
-import com.facebook.presto.client.ClientException;
 import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.client.StatementClient;
 import com.google.common.net.HostAndPort;
@@ -33,6 +32,8 @@ import static com.facebook.presto.client.OkHttpUtil.setupKerberos;
 import static com.facebook.presto.client.OkHttpUtil.setupSocksProxy;
 import static com.facebook.presto.client.OkHttpUtil.setupSsl;
 import static com.facebook.presto.client.OkHttpUtil.setupTimeouts;
+import static com.facebook.presto.client.OkHttpUtil.tokenAuth;
+import static com.facebook.presto.client.StatementClientFactory.newStatementClient;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -41,17 +42,20 @@ public class QueryRunner
         implements Closeable
 {
     private final AtomicReference<ClientSession> session;
+    private final boolean debug;
     private final OkHttpClient httpClient;
     private final Consumer<OkHttpClient.Builder> sslSetup;
 
     public QueryRunner(
             ClientSession session,
+            boolean debug,
             Optional<HostAndPort> socksProxy,
             Optional<HostAndPort> httpProxy,
             Optional<String> keystorePath,
             Optional<String> keystorePassword,
             Optional<String> truststorePath,
             Optional<String> truststorePassword,
+            Optional<String> accessToken,
             Optional<String> user,
             Optional<String> password,
             Optional<String> kerberosPrincipal,
@@ -59,25 +63,28 @@ public class QueryRunner
             Optional<String> kerberosConfigPath,
             Optional<String> kerberosKeytabPath,
             Optional<String> kerberosCredentialCachePath,
-            boolean kerberosUseCanonicalHostname,
-            boolean kerberosEnabled)
+            boolean kerberosUseCanonicalHostname)
     {
         this.session = new AtomicReference<>(requireNonNull(session, "session is null"));
+        this.debug = debug;
 
         this.sslSetup = builder -> setupSsl(builder, keystorePath, keystorePassword, truststorePath, truststorePassword);
 
         OkHttpClient.Builder builder = new OkHttpClient.Builder();
 
-        setupTimeouts(builder, 5, SECONDS);
+        setupTimeouts(builder, 30, SECONDS);
         setupCookieJar(builder);
         setupSocksProxy(builder, socksProxy);
         setupHttpProxy(builder, httpProxy);
         setupBasicAuth(builder, session, user, password);
+        setupTokenAuth(builder, session, accessToken);
 
-        if (kerberosEnabled) {
+        if (kerberosRemoteServiceName.isPresent()) {
+            checkArgument(session.getServer().getScheme().equalsIgnoreCase("https"),
+                    "Authentication using Kerberos requires HTTPS to be enabled");
             setupKerberos(
                     builder,
-                    kerberosRemoteServiceName.orElseThrow(() -> new ClientException("Kerberos remote service name must be set")),
+                    kerberosRemoteServiceName.get(),
                     kerberosUseCanonicalHostname,
                     kerberosPrincipal,
                     kerberosConfigPath.map(File::new),
@@ -98,9 +105,14 @@ public class QueryRunner
         this.session.set(requireNonNull(session, "session is null"));
     }
 
+    public boolean isDebug()
+    {
+        return debug;
+    }
+
     public Query startQuery(String query)
     {
-        return new Query(startInternalQuery(session.get(), query));
+        return new Query(startInternalQuery(session.get(), query), debug);
     }
 
     public StatementClient startInternalQuery(String query)
@@ -114,7 +126,7 @@ public class QueryRunner
         sslSetup.accept(builder);
         OkHttpClient client = builder.build();
 
-        return new StatementClient(client, session, query);
+        return newStatementClient(client, session, query);
     }
 
     @Override
@@ -134,6 +146,18 @@ public class QueryRunner
             checkArgument(session.getServer().getScheme().equalsIgnoreCase("https"),
                     "Authentication using username/password requires HTTPS to be enabled");
             clientBuilder.addInterceptor(basicAuth(user.get(), password.get()));
+        }
+    }
+
+    private static void setupTokenAuth(
+            OkHttpClient.Builder clientBuilder,
+            ClientSession session,
+            Optional<String> accessToken)
+    {
+        if (accessToken.isPresent()) {
+            checkArgument(session.getServer().getScheme().equalsIgnoreCase("https"),
+                    "Authentication using an access token requires HTTPS to be enabled");
+            clientBuilder.addInterceptor(tokenAuth(accessToken.get()));
         }
     }
 }

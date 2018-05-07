@@ -37,9 +37,11 @@ import static com.facebook.presto.tests.TestGroups.BASIC_SQL;
 import static io.prestodb.tempto.Requirements.compose;
 import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
 import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
+import static io.prestodb.tempto.fulfillment.table.TableRequirements.immutableTable;
 import static io.prestodb.tempto.fulfillment.table.TableRequirements.mutableTable;
 import static io.prestodb.tempto.fulfillment.table.hive.InlineDataSource.createResourceDataSource;
 import static io.prestodb.tempto.fulfillment.table.hive.InlineDataSource.createStringDataSource;
+import static io.prestodb.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
 import static io.prestodb.tempto.query.QueryExecutor.query;
 import static java.lang.Math.min;
 import static java.lang.String.format;
@@ -64,6 +66,7 @@ public class TestShowPartitions
     public Requirement getRequirements(Configuration configuration)
     {
         return compose(
+                immutableTable(NATION),
                 mutableTable(partitionedTableDefinition(), PARTITIONED_TABLE, MutableTableRequirement.State.CREATED),
                 mutableTable(partitionedTableWithVariablePartitionsDefinition(), PARTITIONED_TABLE_WITH_VARIABLE_PARTITIONS, MutableTableRequirement.State.CREATED));
     }
@@ -117,6 +120,13 @@ public class TestShowPartitions
     }
 
     @Test(groups = {BASIC_SQL})
+    public void testShowPartitionsFromUnpartitionedTable()
+    {
+        assertThat(() -> query("SHOW PARTITIONS FROM nation"))
+                .failsWithMessageMatching(".*Table does not have partition columns: hive.default.nation");
+    }
+
+    @Test(groups = {BASIC_SQL})
     public void testShowPartitionsFromHiveTableWithTooManyPartitions()
     {
         String tableName = tablesState.get(PARTITIONED_TABLE_WITH_VARIABLE_PARTITIONS).getNameInDatabase();
@@ -134,6 +144,9 @@ public class TestShowPartitions
 
         partitionListResult = query(format("SHOW PARTITIONS FROM %s WHERE part_col < -10", tableName));
         assertThat(partitionListResult).hasNoRows();
+
+        partitionListResult = query(format("SHOW PARTITIONS FROM %s ORDER BY part_col LIMIT 7", tableName));
+        assertThat(partitionListResult).containsExactly(row(0), row(1), row(2), row(3), row(4), row(5), row(6));
     }
 
     private void createPartitions(String tableName, int partitionsToCreate)

@@ -16,8 +16,14 @@ package com.facebook.presto.hive;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.VarcharType;
+import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category;
+import org.apache.hadoop.hive.serde2.typeinfo.ListTypeInfo;
+import org.apache.hadoop.hive.serde2.typeinfo.MapTypeInfo;
+import org.apache.hadoop.hive.serde2.typeinfo.StructTypeInfo;
 
 import javax.inject.Inject;
+
+import java.util.List;
 
 import static com.facebook.presto.hive.HiveType.HIVE_BYTE;
 import static com.facebook.presto.hive.HiveType.HIVE_DOUBLE;
@@ -25,6 +31,8 @@ import static com.facebook.presto.hive.HiveType.HIVE_FLOAT;
 import static com.facebook.presto.hive.HiveType.HIVE_INT;
 import static com.facebook.presto.hive.HiveType.HIVE_LONG;
 import static com.facebook.presto.hive.HiveType.HIVE_SHORT;
+import static com.facebook.presto.hive.HiveUtil.extractStructFieldTypes;
+import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
 public class HiveCoercionPolicy
@@ -62,6 +70,53 @@ public class HiveCoercionPolicy
             return toHiveType.equals(HIVE_DOUBLE);
         }
 
-        return false;
+        return canCoerceForList(fromHiveType, toHiveType) || canCoerceForMap(fromHiveType, toHiveType) || canCoerceForStruct(fromHiveType, toHiveType);
+    }
+
+    private boolean canCoerceForMap(HiveType fromHiveType, HiveType toHiveType)
+    {
+        if (!fromHiveType.getCategory().equals(Category.MAP) || !toHiveType.getCategory().equals(Category.MAP)) {
+            return false;
+        }
+        HiveType fromKeyType = HiveType.valueOf(((MapTypeInfo) fromHiveType.getTypeInfo()).getMapKeyTypeInfo().getTypeName());
+        HiveType fromValueType = HiveType.valueOf(((MapTypeInfo) fromHiveType.getTypeInfo()).getMapValueTypeInfo().getTypeName());
+        HiveType toKeyType = HiveType.valueOf(((MapTypeInfo) toHiveType.getTypeInfo()).getMapKeyTypeInfo().getTypeName());
+        HiveType toValueType = HiveType.valueOf(((MapTypeInfo) toHiveType.getTypeInfo()).getMapValueTypeInfo().getTypeName());
+        return (fromKeyType.equals(toKeyType) || canCoerce(fromKeyType, toKeyType)) &&
+                (fromValueType.equals(toValueType) || canCoerce(fromValueType, toValueType));
+    }
+
+    private boolean canCoerceForList(HiveType fromHiveType, HiveType toHiveType)
+    {
+        if (!fromHiveType.getCategory().equals(Category.LIST) || !toHiveType.getCategory().equals(Category.LIST)) {
+            return false;
+        }
+        HiveType fromElementType = HiveType.valueOf(((ListTypeInfo) fromHiveType.getTypeInfo()).getListElementTypeInfo().getTypeName());
+        HiveType toElementType = HiveType.valueOf(((ListTypeInfo) toHiveType.getTypeInfo()).getListElementTypeInfo().getTypeName());
+        return fromElementType.equals(toElementType) || canCoerce(fromElementType, toElementType);
+    }
+
+    private boolean canCoerceForStruct(HiveType fromHiveType, HiveType toHiveType)
+    {
+        if (!fromHiveType.getCategory().equals(Category.STRUCT) || !toHiveType.getCategory().equals(Category.STRUCT)) {
+            return false;
+        }
+        List<String> fromFieldNames = ((StructTypeInfo) fromHiveType.getTypeInfo()).getAllStructFieldNames();
+        List<String> toFieldNames = ((StructTypeInfo) toHiveType.getTypeInfo()).getAllStructFieldNames();
+        List<HiveType> fromFieldTypes = extractStructFieldTypes(fromHiveType);
+        List<HiveType> toFieldTypes = extractStructFieldTypes(toHiveType);
+        // Rule:
+        // * Fields may be added or dropped from the end.
+        // * For all other field indices, the corresponding fields must have
+        //   the same name, and the type must be coercible.
+        for (int i = 0; i < min(fromFieldTypes.size(), toFieldTypes.size()); i++) {
+            if (!fromFieldNames.get(i).equals(toFieldNames.get(i))) {
+                return false;
+            }
+            if (!fromFieldTypes.get(i).equals(toFieldTypes.get(i)) && !canCoerce(fromFieldTypes.get(i), toFieldTypes.get(i))) {
+                return false;
+            }
+        }
+        return true;
     }
 }

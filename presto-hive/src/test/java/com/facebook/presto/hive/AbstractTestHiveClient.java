@@ -35,6 +35,7 @@ import com.facebook.presto.hive.orc.OrcPageSource;
 import com.facebook.presto.hive.parquet.ParquetHiveRecordCursor;
 import com.facebook.presto.hive.parquet.ParquetPageSource;
 import com.facebook.presto.hive.rcfile.RcFilePageSource;
+import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
@@ -75,12 +76,13 @@ import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.NamedTypeSignature;
+import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.SqlVarbinary;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeSignatureParameter;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
@@ -109,6 +111,7 @@ import org.testng.annotations.Test;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -118,6 +121,8 @@ import java.util.Set;
 import java.util.TimeZone;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
+import java.util.stream.IntStream;
+import java.util.stream.LongStream;
 
 import static com.facebook.presto.hive.AbstractTestHiveClient.TransactionDeleteInsertTestTag.COMMIT;
 import static com.facebook.presto.hive.AbstractTestHiveClient.TransactionDeleteInsertTestTag.ROLLBACK_AFTER_APPEND_PAGE;
@@ -126,10 +131,13 @@ import static com.facebook.presto.hive.AbstractTestHiveClient.TransactionDeleteI
 import static com.facebook.presto.hive.AbstractTestHiveClient.TransactionDeleteInsertTestTag.ROLLBACK_AFTER_FINISH_INSERT;
 import static com.facebook.presto.hive.AbstractTestHiveClient.TransactionDeleteInsertTestTag.ROLLBACK_AFTER_SINK_FINISH;
 import static com.facebook.presto.hive.AbstractTestHiveClient.TransactionDeleteInsertTestTag.ROLLBACK_RIGHT_AWAY;
+import static com.facebook.presto.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static com.facebook.presto.hive.HiveColumnHandle.bucketColumnHandle;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static com.facebook.presto.hive.HiveMetadata.PRESTO_QUERY_ID_NAME;
 import static com.facebook.presto.hive.HiveMetadata.PRESTO_VERSION_NAME;
 import static com.facebook.presto.hive.HiveMetadata.convertToPredicate;
@@ -148,10 +156,13 @@ import static com.facebook.presto.hive.HiveTableProperties.PARTITIONED_BY_PROPER
 import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
+import static com.facebook.presto.hive.HiveTestUtils.arrayType;
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveDataStreamFactories;
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveFileWriterFactories;
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveRecordCursorProvider;
 import static com.facebook.presto.hive.HiveTestUtils.getTypes;
+import static com.facebook.presto.hive.HiveTestUtils.mapType;
+import static com.facebook.presto.hive.HiveTestUtils.rowType;
 import static com.facebook.presto.hive.HiveType.HIVE_INT;
 import static com.facebook.presto.hive.HiveType.HIVE_LONG;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
@@ -172,14 +183,12 @@ import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
-import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
-import static com.facebook.presto.spi.type.StandardTypes.MAP;
-import static com.facebook.presto.spi.type.StandardTypes.ROW;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.facebook.presto.testing.MaterializedResult.materializeSourceDataStream;
@@ -188,15 +197,18 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Lists.newArrayList;
 import static com.google.common.collect.Maps.uniqueIndex;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.collect.Sets.difference;
-import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.airlift.testing.Assertions.assertContains;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static java.lang.Float.floatToRawIntBits;
@@ -229,14 +241,12 @@ public abstract class AbstractTestHiveClient
 
     protected static final String TEST_SERVER_VERSION = "test_version";
 
-    private static final Type ARRAY_TYPE = TYPE_MANAGER.getParameterizedType(ARRAY, ImmutableList.of(TypeSignatureParameter.of(createUnboundedVarcharType().getTypeSignature())));
-    private static final Type MAP_TYPE = TYPE_MANAGER.getParameterizedType(MAP, ImmutableList.of(TypeSignatureParameter.of(createUnboundedVarcharType().getTypeSignature()), TypeSignatureParameter.of(BIGINT.getTypeSignature())));
-    private static final Type ROW_TYPE = TYPE_MANAGER.getParameterizedType(
-            ROW,
-            ImmutableList.of(
-                    TypeSignatureParameter.of(new NamedTypeSignature("f_string", createUnboundedVarcharType().getTypeSignature())),
-                    TypeSignatureParameter.of(new NamedTypeSignature("f_bigint", BIGINT.getTypeSignature())),
-                    TypeSignatureParameter.of(new NamedTypeSignature("f_boolean", BOOLEAN.getTypeSignature()))));
+    private static final Type ARRAY_TYPE = arrayType(createUnboundedVarcharType());
+    private static final Type MAP_TYPE = mapType(createUnboundedVarcharType(), BIGINT);
+    private static final Type ROW_TYPE = rowType(ImmutableList.of(
+            new NamedTypeSignature("f_string", createUnboundedVarcharType().getTypeSignature()),
+            new NamedTypeSignature("f_bigint", BIGINT.getTypeSignature()),
+            new NamedTypeSignature("f_boolean", BOOLEAN.getTypeSignature())));
 
     private static final List<ColumnMetadata> CREATE_TABLE_COLUMNS = ImmutableList.<ColumnMetadata>builder()
             .add(new ColumnMetadata("id", BIGINT))
@@ -253,53 +263,11 @@ public abstract class AbstractTestHiveClient
             .add(new ColumnMetadata("t_row", ROW_TYPE))
             .build();
 
-    private static final List<ColumnMetadata> MISMATCH_SCHEMA_TABLE_BEFORE = ImmutableList.<ColumnMetadata>builder()
-            .add(new ColumnMetadata("tinyint_to_smallint", TINYINT))
-            .add(new ColumnMetadata("tinyint_to_integer", TINYINT))
-            .add(new ColumnMetadata("tinyint_to_bigint", TINYINT))
-            .add(new ColumnMetadata("smallint_to_integer", SMALLINT))
-            .add(new ColumnMetadata("smallint_to_bigint", SMALLINT))
-            .add(new ColumnMetadata("integer_to_bigint", INTEGER))
-            .add(new ColumnMetadata("integer_to_varchar", INTEGER))
-            .add(new ColumnMetadata("varchar_to_integer", createUnboundedVarcharType()))
-            .add(new ColumnMetadata("float_to_double", REAL))
-            .add(new ColumnMetadata("ds", createUnboundedVarcharType()))
-            .build();
-
-    private static final List<ColumnMetadata> MISMATCH_SCHEMA_TABLE_AFTER = ImmutableList.<ColumnMetadata>builder()
-            .add(new ColumnMetadata("tinyint_to_smallint", SMALLINT))
-            .add(new ColumnMetadata("tinyint_to_integer", INTEGER))
-            .add(new ColumnMetadata("tinyint_to_bigint", BIGINT))
-            .add(new ColumnMetadata("smallint_to_integer", INTEGER))
-            .add(new ColumnMetadata("smallint_to_bigint", BIGINT))
-            .add(new ColumnMetadata("integer_to_bigint", BIGINT))
-            .add(new ColumnMetadata("integer_to_varchar", createUnboundedVarcharType()))
-            .add(new ColumnMetadata("varchar_to_integer", INTEGER))
-            .add(new ColumnMetadata("float_to_double", DOUBLE))
-            .add(new ColumnMetadata("ds", createUnboundedVarcharType()))
-            .build();
-
     private static final MaterializedResult CREATE_TABLE_DATA =
             MaterializedResult.resultBuilder(SESSION, BIGINT, createUnboundedVarcharType(), TINYINT, SMALLINT, INTEGER, BIGINT, REAL, DOUBLE, BOOLEAN, ARRAY_TYPE, MAP_TYPE, ROW_TYPE)
                     .row(1L, "hello", (byte) 45, (short) 345, 234, 123L, -754.1985f, 43.5, true, ImmutableList.of("apple", "banana"), ImmutableMap.of("one", 1L, "two", 2L), ImmutableList.of("true", 1L, true))
                     .row(2L, null, null, null, null, null, null, null, null, null, null, null)
                     .row(3L, "bye", (byte) 46, (short) 346, 345, 456L, 754.2008f, 98.1, false, ImmutableList.of("ape", "bear"), ImmutableMap.of("three", 3L, "four", 4L), ImmutableList.of("false", 0L, false))
-                    .build();
-
-    private static final MaterializedResult MISMATCH_SCHEMA_TABLE_DATA_BEFORE =
-            MaterializedResult.resultBuilder(SESSION, TINYINT, TINYINT, TINYINT, SMALLINT, SMALLINT, INTEGER, INTEGER, createUnboundedVarcharType(), REAL, createUnboundedVarcharType())
-                    .row((byte) -11, (byte) 12, (byte) -13, (short) 14, (short) 15, -16, 17, "2147483647", 18.0f, "2016-08-01")
-                    .row((byte) 21, (byte) -22, (byte) 23, (short) -24, (short) 25, 26, -27, "asdf", -28.0f, "2016-08-02")
-                    .row((byte) -31, (byte) -32, (byte) 33, (short) 34, (short) -35, 36, 37, "-923", 39.5f, "2016-08-03")
-                    .row(null, (byte) 42, (byte) 43, (short) 44, (short) -45, 46, 47, "2147483648", 49.5f, "2016-08-03")
-                    .build();
-
-    private static final MaterializedResult MISMATCH_SCHEMA_TABLE_DATA_AFTER =
-            MaterializedResult.resultBuilder(SESSION, SMALLINT, INTEGER, BIGINT, INTEGER, BIGINT, BIGINT, createUnboundedVarcharType(), INTEGER, DOUBLE, createUnboundedVarcharType())
-                    .row((short) -11, 12, -13L, 14, 15L, -16L, "17", 2147483647, 18.0, "2016-08-01")
-                    .row((short) 21, -22, 23L, -24, 25L, 26L, "-27", null, -28.0, "2016-08-02")
-                    .row((short) -31, -32, 33L, 34, -35L, 36L, "37", -923, 39.5, "2016-08-03")
-                    .row(null, 42, 43L, 44, -45L, 46L, "47", null, 49.5, "2016-08-03")
                     .build();
 
     private static final List<ColumnMetadata> CREATE_TABLE_COLUMNS_PARTITIONED = ImmutableList.<ColumnMetadata>builder()
@@ -323,9 +291,112 @@ public abstract class AbstractTestHiveClient
                     .row(6L, "bye", (byte) 46, (short) 346, 345, 456L, -754.2008f, 98.1, false, ImmutableList.of("ape", "bear"), ImmutableMap.of("three", 3L, "four", 4L), ImmutableList.of("false", 0L, false), "2015-07-04")
                     .build();
 
+    private static final List<ColumnMetadata> MISMATCH_SCHEMA_PRIMITIVE_COLUMN_BEFORE = ImmutableList.<ColumnMetadata>builder()
+            .add(new ColumnMetadata("tinyint_to_smallint", TINYINT))
+            .add(new ColumnMetadata("tinyint_to_integer", TINYINT))
+            .add(new ColumnMetadata("tinyint_to_bigint", TINYINT))
+            .add(new ColumnMetadata("smallint_to_integer", SMALLINT))
+            .add(new ColumnMetadata("smallint_to_bigint", SMALLINT))
+            .add(new ColumnMetadata("integer_to_bigint", INTEGER))
+            .add(new ColumnMetadata("integer_to_varchar", INTEGER))
+            .add(new ColumnMetadata("varchar_to_integer", createUnboundedVarcharType()))
+            .add(new ColumnMetadata("float_to_double", REAL))
+            .add(new ColumnMetadata("varchar_to_drop_in_row", createUnboundedVarcharType()))
+            .build();
+
+    private static final List<ColumnMetadata> MISMATCH_SCHEMA_TABLE_BEFORE = ImmutableList.<ColumnMetadata>builder()
+            .addAll(MISMATCH_SCHEMA_PRIMITIVE_COLUMN_BEFORE)
+            .add(new ColumnMetadata("struct_to_struct", toRowType(MISMATCH_SCHEMA_PRIMITIVE_COLUMN_BEFORE)))
+            .add(new ColumnMetadata("list_to_list", arrayType(toRowType(MISMATCH_SCHEMA_PRIMITIVE_COLUMN_BEFORE))))
+            .add(new ColumnMetadata("map_to_map", mapType(MISMATCH_SCHEMA_PRIMITIVE_COLUMN_BEFORE.get(1).getType(), toRowType(MISMATCH_SCHEMA_PRIMITIVE_COLUMN_BEFORE))))
+            .add(new ColumnMetadata("ds", createUnboundedVarcharType()))
+            .build();
+
+    private static RowType toRowType(List<ColumnMetadata> columns)
+    {
+        return rowType(columns.stream()
+                .map(col -> new NamedTypeSignature(format("f_%s", col.getName()), col.getType().getTypeSignature()))
+                .collect(toList()));
+    }
+
+    private static final MaterializedResult MISMATCH_SCHEMA_PRIMITIVE_FIELDS_DATA_BEFORE =
+            MaterializedResult.resultBuilder(SESSION, TINYINT, TINYINT, TINYINT, SMALLINT, SMALLINT, INTEGER, INTEGER, createUnboundedVarcharType(), REAL, createUnboundedVarcharType())
+                    .row((byte) -11, (byte) 12, (byte) -13, (short) 14, (short) 15, -16, 17, "2147483647", 18.0f, "2016-08-01")
+                    .row((byte) 21, (byte) -22, (byte) 23, (short) -24, (short) 25, 26, -27, "asdf", -28.0f, "2016-08-02")
+                    .row((byte) -31, (byte) -32, (byte) 33, (short) 34, (short) -35, 36, 37, "-923", 39.5f, "2016-08-03")
+                    .row(null, (byte) 42, (byte) 43, (short) 44, (short) -45, 46, 47, "2147483648", 49.5f, "2016-08-03")
+                    .build();
+
+    private static final MaterializedResult MISMATCH_SCHEMA_TABLE_DATA_BEFORE =
+            MaterializedResult.resultBuilder(SESSION, MISMATCH_SCHEMA_TABLE_BEFORE.stream().map(ColumnMetadata::getType).collect(toList()))
+                    .rows(MISMATCH_SCHEMA_PRIMITIVE_FIELDS_DATA_BEFORE.getMaterializedRows()
+                            .stream()
+                            .map(materializedRow -> {
+                                List<Object> result = materializedRow.getFields();
+                                List<Object> rowResult = materializedRow.getFields();
+                                result.add(rowResult);
+                                result.add(Arrays.asList(rowResult, null, rowResult));
+                                result.add(ImmutableMap.of(rowResult.get(1), rowResult));
+                                result.add(rowResult.get(9));
+                                return new MaterializedRow(materializedRow.getPrecision(), result);
+                            }).collect(toList()))
+                    .build();
+
+    private static final List<ColumnMetadata> MISMATCH_SCHEMA_PRIMITIVE_COLUMN_AFTER = ImmutableList.<ColumnMetadata>builder()
+            .add(new ColumnMetadata("tinyint_to_smallint", SMALLINT))
+            .add(new ColumnMetadata("tinyint_to_integer", INTEGER))
+            .add(new ColumnMetadata("tinyint_to_bigint", BIGINT))
+            .add(new ColumnMetadata("smallint_to_integer", INTEGER))
+            .add(new ColumnMetadata("smallint_to_bigint", BIGINT))
+            .add(new ColumnMetadata("integer_to_bigint", BIGINT))
+            .add(new ColumnMetadata("integer_to_varchar", createUnboundedVarcharType()))
+            .add(new ColumnMetadata("varchar_to_integer", INTEGER))
+            .add(new ColumnMetadata("float_to_double", DOUBLE))
+            .add(new ColumnMetadata("varchar_to_drop_in_row", createUnboundedVarcharType()))
+            .build();
+
+    private static final Type MISMATCH_SCHEMA_ROW_TYPE_APPEND = toRowType(ImmutableList.<ColumnMetadata>builder()
+            .addAll(MISMATCH_SCHEMA_PRIMITIVE_COLUMN_AFTER)
+            .add(new ColumnMetadata(format("%s_append", MISMATCH_SCHEMA_PRIMITIVE_COLUMN_AFTER.get(0).getName()), MISMATCH_SCHEMA_PRIMITIVE_COLUMN_AFTER.get(0).getType()))
+            .build());
+    private static final Type MISMATCH_SCHEMA_ROW_TYPE_DROP = toRowType(MISMATCH_SCHEMA_PRIMITIVE_COLUMN_AFTER.subList(0, MISMATCH_SCHEMA_PRIMITIVE_COLUMN_AFTER.size() - 1));
+
+    private static final List<ColumnMetadata> MISMATCH_SCHEMA_TABLE_AFTER = ImmutableList.<ColumnMetadata>builder()
+            .addAll(MISMATCH_SCHEMA_PRIMITIVE_COLUMN_AFTER)
+            .add(new ColumnMetadata("struct_to_struct", MISMATCH_SCHEMA_ROW_TYPE_APPEND))
+            .add(new ColumnMetadata("list_to_list", arrayType(MISMATCH_SCHEMA_ROW_TYPE_APPEND)))
+            .add(new ColumnMetadata("map_to_map", mapType(MISMATCH_SCHEMA_PRIMITIVE_COLUMN_AFTER.get(1).getType(), MISMATCH_SCHEMA_ROW_TYPE_DROP)))
+            .add(new ColumnMetadata("ds", createUnboundedVarcharType()))
+            .build();
+
+    private static final MaterializedResult MISMATCH_SCHEMA_PRIMITIVE_FIELDS_DATA_AFTER =
+            MaterializedResult.resultBuilder(SESSION, SMALLINT, INTEGER, BIGINT, INTEGER, BIGINT, BIGINT, createUnboundedVarcharType(), INTEGER, DOUBLE, createUnboundedVarcharType())
+                    .row((short) -11, 12, -13L, 14, 15L, -16L, "17", 2147483647, 18.0, "2016-08-01")
+                    .row((short) 21, -22, 23L, -24, 25L, 26L, "-27", null, -28.0, "2016-08-02")
+                    .row((short) -31, -32, 33L, 34, -35L, 36L, "37", -923, 39.5, "2016-08-03")
+                    .row(null, 42, 43L, 44, -45L, 46L, "47", null, 49.5, "2016-08-03")
+                    .build();
+
+    private static final MaterializedResult MISMATCH_SCHEMA_TABLE_DATA_AFTER =
+            MaterializedResult.resultBuilder(SESSION, MISMATCH_SCHEMA_TABLE_AFTER.stream().map(ColumnMetadata::getType).collect(toList()))
+                    .rows(MISMATCH_SCHEMA_PRIMITIVE_FIELDS_DATA_AFTER.getMaterializedRows()
+                            .stream()
+                            .map(materializedRow -> {
+                                List<Object> result = materializedRow.getFields();
+                                List<Object> appendFieldRowResult = materializedRow.getFields();
+                                appendFieldRowResult.add(null);
+                                List<Object> dropFieldRowResult = materializedRow.getFields().subList(0, materializedRow.getFields().size() - 1);
+                                result.add(appendFieldRowResult);
+                                result.add(Arrays.asList(appendFieldRowResult, null, appendFieldRowResult));
+                                result.add(ImmutableMap.of(result.get(1), dropFieldRowResult));
+                                result.add(result.get(9));
+                                return new MaterializedRow(materializedRow.getPrecision(), result);
+                            }).collect(toList()))
+                    .build();
+
     protected Set<HiveStorageFormat> createTableFormats = difference(ImmutableSet.copyOf(HiveStorageFormat.values()), ImmutableSet.of(AVRO));
 
-    private static final JoinCompiler JOIN_COMPILER = new JoinCompiler();
+    private static final JoinCompiler JOIN_COMPILER = new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig());
 
     protected String clientId;
     protected String database;
@@ -341,6 +412,8 @@ public abstract class AbstractTestHiveClient
     protected SchemaTableName tableBucketedDoubleFloat;
     protected SchemaTableName tablePartitionSchemaChange;
     protected SchemaTableName tablePartitionSchemaChangeNonCanonical;
+    protected SchemaTableName tableBucketEvolution;
+    protected SchemaTableName tableWithFooter;
 
     protected String invalidClientId;
     protected ConnectorTableHandle invalidTableHandle;
@@ -401,15 +474,18 @@ public abstract class AbstractTestHiveClient
         tableBucketedDoubleFloat = new SchemaTableName(database, "presto_test_bucketed_by_double_float");
         tablePartitionSchemaChange = new SchemaTableName(database, "presto_test_partition_schema_change");
         tablePartitionSchemaChangeNonCanonical = new SchemaTableName(database, "presto_test_partition_schema_change_non_canonical");
+        tableBucketEvolution = new SchemaTableName(database, "presto_test_bucket_evolution");
+        tableWithFooter = new SchemaTableName(database, "presto_test_table_with_footer");
 
         invalidClientId = "hive";
         invalidTableHandle = new HiveTableHandle(database, INVALID_TABLE);
         invalidTableLayoutHandle = new HiveTableLayoutHandle(
                 invalidTable,
                 ImmutableList.of(),
-                ImmutableList.of(new HivePartition(invalidTable, "unknown", ImmutableMap.of(), ImmutableList.of())),
+                ImmutableList.of(new HivePartition(invalidTable, "unknown", ImmutableMap.of())),
                 TupleDomain.all(),
                 TupleDomain.all(),
+                Optional.empty(),
                 Optional.empty());
 
         dsColumn = new HiveColumnHandle("ds", HIVE_STRING, parseTypeSignature(StandardTypes.VARCHAR), -1, PARTITION_KEY, Optional.empty());
@@ -426,37 +502,33 @@ public abstract class AbstractTestHiveClient
                                 .put(dsColumn, NullableValue.of(createUnboundedVarcharType(), utf8Slice("2012-12-29")))
                                 .put(fileFormatColumn, NullableValue.of(createUnboundedVarcharType(), utf8Slice("textfile")))
                                 .put(dummyColumn, NullableValue.of(INTEGER, 1L))
-                                .build(),
-                        ImmutableList.of()))
+                                .build()))
                 .add(new HivePartition(tablePartitionFormat,
                         "ds=2012-12-29/file_format=sequencefile/dummy=2",
                         ImmutableMap.<ColumnHandle, NullableValue>builder()
                                 .put(dsColumn, NullableValue.of(createUnboundedVarcharType(), utf8Slice("2012-12-29")))
                                 .put(fileFormatColumn, NullableValue.of(createUnboundedVarcharType(), utf8Slice("sequencefile")))
                                 .put(dummyColumn, NullableValue.of(INTEGER, 2L))
-                                .build(),
-                        ImmutableList.of()))
+                                .build()))
                 .add(new HivePartition(tablePartitionFormat,
                         "ds=2012-12-29/file_format=rctext/dummy=3",
                         ImmutableMap.<ColumnHandle, NullableValue>builder()
                                 .put(dsColumn, NullableValue.of(createUnboundedVarcharType(), utf8Slice("2012-12-29")))
                                 .put(fileFormatColumn, NullableValue.of(createUnboundedVarcharType(), utf8Slice("rctext")))
                                 .put(dummyColumn, NullableValue.of(INTEGER, 3L))
-                                .build(),
-                        ImmutableList.of()))
+                                .build()))
                 .add(new HivePartition(tablePartitionFormat,
                         "ds=2012-12-29/file_format=rcbinary/dummy=4",
                         ImmutableMap.<ColumnHandle, NullableValue>builder()
                                 .put(dsColumn, NullableValue.of(createUnboundedVarcharType(), utf8Slice("2012-12-29")))
                                 .put(fileFormatColumn, NullableValue.of(createUnboundedVarcharType(), utf8Slice("rcbinary")))
                                 .put(dummyColumn, NullableValue.of(INTEGER, 4L))
-                                .build(),
-                        ImmutableList.of()))
+                                .build()))
                 .build();
         partitionCount = partitions.size();
         tupleDomain = TupleDomain.fromFixedValues(ImmutableMap.of(dsColumn, NullableValue.of(createUnboundedVarcharType(), utf8Slice("2012-12-29"))));
         tableLayout = new ConnectorTableLayout(
-                new HiveTableLayoutHandle(tablePartitionFormat, partitionColumns, partitions, tupleDomain, tupleDomain, Optional.empty()),
+                new HiveTableLayoutHandle(tablePartitionFormat, partitionColumns, partitions, tupleDomain, tupleDomain, Optional.empty(), Optional.empty()),
                 Optional.empty(),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
                         dsColumn, Domain.create(ValueSet.ofRanges(Range.equal(createUnboundedVarcharType(), utf8Slice("2012-12-29"))), false),
@@ -482,8 +554,8 @@ public abstract class AbstractTestHiveClient
                                 fileFormatColumn, Domain.create(ValueSet.ofRanges(Range.equal(createUnboundedVarcharType(), utf8Slice("rcbinary"))), false),
                                 dummyColumn, Domain.create(ValueSet.ofRanges(Range.equal(INTEGER, 4L)), false)))))),
                 ImmutableList.of());
-        List<HivePartition> unpartitionedPartitions = ImmutableList.of(new HivePartition(tableUnpartitioned, ImmutableList.of()));
-        unpartitionedTableLayout = new ConnectorTableLayout(new HiveTableLayoutHandle(tableUnpartitioned, ImmutableList.of(), unpartitionedPartitions, TupleDomain.all(), TupleDomain.all(), Optional.empty()));
+        List<HivePartition> unpartitionedPartitions = ImmutableList.of(new HivePartition(tableUnpartitioned));
+        unpartitionedTableLayout = new ConnectorTableLayout(new HiveTableLayoutHandle(tableUnpartitioned, ImmutableList.of(), unpartitionedPartitions, TupleDomain.all(), TupleDomain.all(), Optional.empty(), Optional.empty()));
         timeZone = DateTimeZone.forTimeZone(TimeZone.getTimeZone(timeZoneId));
     }
 
@@ -528,7 +600,9 @@ public abstract class AbstractTestHiveClient
                 false,
                 true,
                 false,
+                true,
                 1000,
+                new HiveClientConfig().getMaxPartitionsPerScan(),
                 TYPE_MANAGER,
                 locationService,
                 new TableParameterCodec(),
@@ -542,7 +616,7 @@ public abstract class AbstractTestHiveClient
                 new NamenodeStats(),
                 hdfsEnvironment,
                 new HadoopDirectoryLister(),
-                newDirectExecutorService(),
+                directExecutor(),
                 new HiveCoercionPolicy(TYPE_MANAGER),
                 new CounterStat(),
                 100,
@@ -563,14 +637,14 @@ public abstract class AbstractTestHiveClient
                 partitionUpdateCodec,
                 new TestingNodeManager("fake-environment"),
                 new HiveEventClient(),
-                new HiveSessionProperties(hiveClientConfig),
+                new HiveSessionProperties(hiveClientConfig, new OrcFileWriterConfig()),
                 new HiveWriterStats());
         pageSourceProvider = new HivePageSourceProvider(hiveClientConfig, hdfsEnvironment, getDefaultHiveRecordCursorProvider(hiveClientConfig), getDefaultHiveDataStreamFactories(hiveClientConfig), TYPE_MANAGER);
     }
 
     protected ConnectorSession newSession()
     {
-        return new TestingConnectorSession(new HiveSessionProperties(new HiveClientConfig()).getSessionProperties());
+        return new TestingConnectorSession(new HiveSessionProperties(new HiveClientConfig(), new OrcFileWriterConfig()).getSessionProperties());
     }
 
     protected Transaction newTransaction()
@@ -850,14 +924,7 @@ public abstract class AbstractTestHiveClient
         // alter the table schema
         try (Transaction transaction = newTransaction()) {
             ConnectorSession session = newSession();
-            PrincipalPrivileges principalPrivileges = new PrincipalPrivileges(
-                    ImmutableMultimap.<String, HivePrivilegeInfo>builder()
-                            .put(session.getUser(), new HivePrivilegeInfo(HivePrivilege.SELECT, true))
-                            .put(session.getUser(), new HivePrivilegeInfo(HivePrivilege.INSERT, true))
-                            .put(session.getUser(), new HivePrivilegeInfo(HivePrivilege.UPDATE, true))
-                            .put(session.getUser(), new HivePrivilegeInfo(HivePrivilege.DELETE, true))
-                            .build(),
-                    ImmutableMultimap.of());
+            PrincipalPrivileges principalPrivileges = testingPrincipalPrivilege(session.getUser());
             Table oldTable = transaction.getMetastore(schemaName).getTable(schemaName, tableName).get();
             HiveTypeTranslator hiveTypeTranslator = new HiveTypeTranslator();
             List<Column> dataColumns = tableAfter.stream()
@@ -949,7 +1016,6 @@ public abstract class AbstractTestHiveClient
             assertEquals(actualPartition.getPartitionId(), expectedPartition.getPartitionId());
             assertEquals(actualPartition.getKeys(), expectedPartition.getKeys());
             assertEquals(actualPartition.getTableName(), expectedPartition.getTableName());
-            assertEquals(actualPartition.getBuckets(), expectedPartition.getBuckets());
         }
     }
 
@@ -1331,6 +1397,134 @@ public abstract class AbstractTestHiveClient
             MaterializedResult result = readTable(transaction, tableHandle, columnHandles, session, TupleDomain.fromFixedValues(bindings), OptionalInt.of(32), Optional.empty());
             assertEquals(result.getRowCount(), 100);
         }
+    }
+
+    @Test
+    public void testBucketedTableEvolution()
+            throws Exception
+    {
+        for (HiveStorageFormat storageFormat : createTableFormats) {
+            SchemaTableName temporaryBucketEvolutionTable = temporaryTable("bucket_evolution");
+            try {
+                doTestBucketedTableEvolution(storageFormat, temporaryBucketEvolutionTable);
+            }
+            finally {
+                dropTable(temporaryBucketEvolutionTable);
+            }
+        }
+    }
+
+    private void doTestBucketedTableEvolution(HiveStorageFormat storageFormat, SchemaTableName tableName)
+            throws Exception
+    {
+        int rowCount = 100;
+
+        //
+        // Produce a table with 8 buckets.
+        // The table has 3 partitions of 3 different bucket count (4, 8, 16).
+        createEmptyTable(
+                tableName,
+                storageFormat,
+                ImmutableList.of(
+                        new Column("id", HIVE_LONG, Optional.empty()),
+                        new Column("name", HIVE_STRING, Optional.empty())),
+                ImmutableList.of(new Column("pk", HIVE_STRING, Optional.empty())),
+                Optional.of(new HiveBucketProperty(ImmutableList.of("id"), 4)));
+        // write a 4-bucket partition
+        MaterializedResult.Builder bucket4Builder = MaterializedResult.resultBuilder(SESSION, BIGINT, VARCHAR, VARCHAR);
+        IntStream.range(0, rowCount).forEach(i -> bucket4Builder.row((long) i, String.valueOf(i), "four"));
+        insertData(tableName, bucket4Builder.build());
+        // write a 16-bucket partition
+        alterBucketProperty(tableName, Optional.of(new HiveBucketProperty(ImmutableList.of("id"), 16)));
+        MaterializedResult.Builder bucket16Builder = MaterializedResult.resultBuilder(SESSION, BIGINT, VARCHAR, VARCHAR);
+        IntStream.range(0, rowCount).forEach(i -> bucket16Builder.row((long) i, String.valueOf(i), "sixteen"));
+        insertData(tableName, bucket16Builder.build());
+        // write an 8-bucket partition
+        alterBucketProperty(tableName, Optional.of(new HiveBucketProperty(ImmutableList.of("id"), 8)));
+        MaterializedResult.Builder bucket8Builder = MaterializedResult.resultBuilder(SESSION, BIGINT, VARCHAR, VARCHAR);
+        IntStream.range(0, rowCount).forEach(i -> bucket8Builder.row((long) i, String.valueOf(i), "eight"));
+        insertData(tableName, bucket8Builder.build());
+
+        try (Transaction transaction = newTransaction()) {
+            ConnectorMetadata metadata = transaction.getMetadata();
+            ConnectorSession session = newSession();
+
+            ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
+
+            // read entire table
+            List<ColumnHandle> columnHandles = ImmutableList.<ColumnHandle>builder()
+                    .addAll(metadata.getColumnHandles(session, tableHandle).values())
+                    .build();
+            MaterializedResult result = readTable(
+                    transaction,
+                    tableHandle,
+                    columnHandles,
+                    session,
+                    TupleDomain.all(),
+                    OptionalInt.empty(),
+                    Optional.empty());
+            assertBucketTableEvolutionResult(result, columnHandles, ImmutableSet.of(0, 1, 2, 3, 4, 5, 6, 7), rowCount);
+
+            // read single bucket (table/logical bucket)
+            result = readTable(
+                    transaction,
+                    tableHandle,
+                    columnHandles,
+                    session,
+                    TupleDomain.fromFixedValues(ImmutableMap.of(bucketColumnHandle(), NullableValue.of(INTEGER, 6L))),
+                    OptionalInt.empty(),
+                    Optional.empty());
+            assertBucketTableEvolutionResult(result, columnHandles, ImmutableSet.of(6), rowCount);
+
+            // read single bucket, without selecting the bucketing column (i.e. id column)
+            columnHandles = ImmutableList.<ColumnHandle>builder()
+                    .addAll(metadata.getColumnHandles(session, tableHandle).values().stream()
+                            .filter(columnHandle -> !"id".equals(((HiveColumnHandle) columnHandle).getName()))
+                            .collect(toImmutableList()))
+                    .build();
+            result = readTable(
+                    transaction,
+                    tableHandle,
+                    columnHandles,
+                    session,
+                    TupleDomain.fromFixedValues(ImmutableMap.of(bucketColumnHandle(), NullableValue.of(INTEGER, 6L))),
+                    OptionalInt.empty(),
+                    Optional.empty());
+            assertBucketTableEvolutionResult(result, columnHandles, ImmutableSet.of(6), rowCount);
+        }
+    }
+
+    private static void assertBucketTableEvolutionResult(MaterializedResult result, List<ColumnHandle> columnHandles, Set<Integer> bucketIds, int rowCount)
+    {
+        // Assert that only elements in the specified bucket shows up, and each element shows up 3 times.
+        int bucketCount = 8;
+        Set<Long> expectedIds = LongStream.range(0, rowCount)
+                .filter(x -> bucketIds.contains(toIntExact(x % bucketCount)))
+                .boxed()
+                .collect(toImmutableSet());
+
+        // assert that content from all three buckets are the same
+        Map<String, Integer> columnIndex = indexColumns(columnHandles);
+        OptionalInt idColumnIndex = columnIndex.containsKey("id") ? OptionalInt.of(columnIndex.get("id")) : OptionalInt.empty();
+        int nameColumnIndex = columnIndex.get("name");
+        int bucketColumnIndex = columnIndex.get(BUCKET_COLUMN_NAME);
+        Map<Long, Integer> idCount = new HashMap<>();
+        for (MaterializedRow row : result.getMaterializedRows()) {
+            String name = (String) row.getField(nameColumnIndex);
+            int bucket = (int) row.getField(bucketColumnIndex);
+            idCount.compute(Long.parseLong(name), (key, oldValue) -> oldValue == null ? 1 : oldValue + 1);
+            assertEquals(bucket, Integer.parseInt(name) % bucketCount);
+            if (idColumnIndex.isPresent()) {
+                long id = (long) row.getField(idColumnIndex.getAsInt());
+                assertEquals(Integer.parseInt(name), id);
+            }
+        }
+        assertEquals(
+                (int) idCount.values().stream()
+                        .distinct()
+                        .collect(onlyElement()),
+                3);
+        assertEquals(idCount.keySet(), expectedIds);
     }
 
     private void assertTableIsBucketed(ConnectorTableHandle tableHandle)
@@ -1825,7 +2019,7 @@ public abstract class AbstractTestHiveClient
         ConnectorSession session = newSession();
         String schemaName = schemaTableName.getSchemaName();
         String tableName = schemaTableName.getTableName();
-        PrincipalPrivileges privileges = new PrincipalPrivileges(ImmutableMultimap.of(), ImmutableMultimap.of());
+        PrincipalPrivileges privileges = testingPrincipalPrivilege(session.getUser());
         Path targetPath;
         try {
             try (Transaction transaction = newTransaction()) {
@@ -2926,6 +3120,21 @@ public abstract class AbstractTestHiveClient
                     }
                 }
 
+                // STRUCT<s_string: STRING, s_double:DOUBLE>
+                index = columnIndex.get("t_struct");
+                if (index != null) {
+                    if ((rowNumber % 31) == 0) {
+                        assertNull(row.getField(index));
+                    }
+                    else {
+                        assertTrue(row.getField(index) instanceof List);
+                        List values = (List) row.getField(index);
+                        assertEquals(values.size(), 2);
+                        assertEquals(values.get(0), "test abc");
+                        assertEquals(values.get(1), 0.1);
+                    }
+                }
+
                 // MAP<INT, ARRAY<STRUCT<s_string: STRING, s_double:DOUBLE>>>
                 index = columnIndex.get("t_complex");
                 if (index != null) {
@@ -3154,7 +3363,7 @@ public abstract class AbstractTestHiveClient
                 else if (DATE.equals(column.getType())) {
                     assertInstanceOf(value, SqlDate.class);
                 }
-                else if (column.getType() instanceof ArrayType) {
+                else if (column.getType() instanceof ArrayType || column.getType() instanceof RowType) {
                     assertInstanceOf(value, List.class);
                 }
                 else if (column.getType() instanceof MapType) {
@@ -3238,7 +3447,13 @@ public abstract class AbstractTestHiveClient
                 .collect(toList());
     }
 
-    protected void createEmptyTable(SchemaTableName schemaTableName, HiveStorageFormat hiveStorageFormat, List<Column> columns, List<Column> partitionColumns)
+    private void createEmptyTable(SchemaTableName schemaTableName, HiveStorageFormat hiveStorageFormat, List<Column> columns, List<Column> partitionColumns)
+            throws Exception
+    {
+        createEmptyTable(schemaTableName, hiveStorageFormat, columns, partitionColumns, Optional.empty());
+    }
+
+    private void createEmptyTable(SchemaTableName schemaTableName, HiveStorageFormat hiveStorageFormat, List<Column> columns, List<Column> partitionColumns, Optional<HiveBucketProperty> bucketProperty)
             throws Exception
     {
         Path targetPath;
@@ -3268,16 +3483,10 @@ public abstract class AbstractTestHiveClient
             tableBuilder.getStorageBuilder()
                     .setLocation(targetPath.toString())
                     .setStorageFormat(StorageFormat.create(hiveStorageFormat.getSerDe(), hiveStorageFormat.getInputFormat(), hiveStorageFormat.getOutputFormat()))
+                    .setBucketProperty(bucketProperty)
                     .setSerdeParameters(ImmutableMap.of());
 
-            PrincipalPrivileges principalPrivileges = new PrincipalPrivileges(
-                    ImmutableMultimap.<String, HivePrivilegeInfo>builder()
-                            .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.SELECT, true))
-                            .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.INSERT, true))
-                            .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.UPDATE, true))
-                            .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.DELETE, true))
-                            .build(),
-                    ImmutableMultimap.of());
+            PrincipalPrivileges principalPrivileges = testingPrincipalPrivilege(tableOwner);
             transaction.getMetastore(schemaName).createTable(session, tableBuilder.build(), principalPrivileges, Optional.empty(), true);
 
             transaction.commit();
@@ -3286,6 +3495,38 @@ public abstract class AbstractTestHiveClient
         HdfsContext context = new HdfsContext(newSession(), schemaTableName.getSchemaName(), schemaTableName.getTableName());
         List<String> targetDirectoryList = listDirectory(context, targetPath);
         assertEquals(targetDirectoryList, ImmutableList.of());
+    }
+
+    private void alterBucketProperty(SchemaTableName schemaTableName, Optional<HiveBucketProperty> bucketProperty)
+    {
+        try (Transaction transaction = newTransaction()) {
+            ConnectorSession session = newSession();
+
+            String tableOwner = session.getUser();
+            String schemaName = schemaTableName.getSchemaName();
+            String tableName = schemaTableName.getTableName();
+
+            Optional<Table> table = transaction.getMetastore(schemaName).getTable(schemaName, tableName);
+            Table.Builder tableBuilder = Table.builder(table.get());
+            tableBuilder.getStorageBuilder().setBucketProperty(bucketProperty);
+            PrincipalPrivileges principalPrivileges = testingPrincipalPrivilege(tableOwner);
+            // hack: replaceView can be used as replaceTable despite its name
+            transaction.getMetastore(schemaName).replaceView(schemaName, tableName, tableBuilder.build(), principalPrivileges);
+
+            transaction.commit();
+        }
+    }
+
+    private PrincipalPrivileges testingPrincipalPrivilege(String tableOwner)
+    {
+        return new PrincipalPrivileges(
+                ImmutableMultimap.<String, HivePrivilegeInfo>builder()
+                        .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.SELECT, true))
+                        .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.INSERT, true))
+                        .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.UPDATE, true))
+                        .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.DELETE, true))
+                        .build(),
+                ImmutableMultimap.of());
     }
 
     private List<String> listDirectory(HdfsContext context, Path path)
@@ -3697,6 +3938,25 @@ public abstract class AbstractTestHiveClient
             // The file we added to trigger a conflict was cleaned up because it matches the query prefix.
             // Consider this the same as a network failure that caused the successful creation of file not reported to the caller.
             assertFalse(hdfsEnvironment.getFileSystem(context, path).exists(path));
+        }
+    }
+
+    @Test
+    public void testTableWithFooter()
+    {
+        try (Transaction transaction = newTransaction()) {
+            ConnectorSession session = newSession();
+            ConnectorMetadata metadata = transaction.getMetadata();
+
+            ConnectorTableHandle table = getTableHandle(metadata, tableWithFooter);
+            try {
+                metadata.getTableLayouts(session, table, new Constraint<>(TupleDomain.all(), bindings -> true), Optional.empty());
+                fail("expected exception");
+            }
+            catch (PrestoException e) {
+                assertEquals(e.getErrorCode(), HIVE_UNSUPPORTED_FORMAT.toErrorCode());
+                assertContains(e.getMessage(), "Table with 'skip.footer.line.count' is not supported");
+            }
         }
     }
 }

@@ -13,9 +13,11 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.gen.JoinCompiler;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 
@@ -85,12 +87,21 @@ public final class InternalAggregationFunction
 
     public AccumulatorFactory bind(List<Integer> inputChannels, Optional<Integer> maskChannel)
     {
-        return factory.bind(inputChannels, maskChannel, ImmutableList.of(), ImmutableList.of(), ImmutableList.of(), null);
+        return factory.bind(inputChannels, maskChannel, ImmutableList.of(), ImmutableList.of(), ImmutableList.of(), null, false, null, null);
     }
 
-    public AccumulatorFactory bind(List<Integer> inputChannels, Optional<Integer> maskChannel, List<Type> sourceTypes, List<Integer> orderByChannels, List<SortOrder> orderings, PagesIndex.Factory pagesIndexFactory)
+    public AccumulatorFactory bind(
+            List<Integer> inputChannels,
+            Optional<Integer> maskChannel,
+            List<Type> sourceTypes,
+            List<Integer> orderByChannels,
+            List<SortOrder> orderings,
+            PagesIndex.Factory pagesIndexFactory,
+            boolean distinct,
+            JoinCompiler joinCompiler,
+            Session session)
     {
-        return factory.bind(inputChannels, maskChannel, sourceTypes, orderByChannels, orderings, pagesIndexFactory);
+        return factory.bind(inputChannels, maskChannel, sourceTypes, orderByChannels, orderings, pagesIndexFactory, distinct, joinCompiler, session);
     }
 
     @VisibleForTesting

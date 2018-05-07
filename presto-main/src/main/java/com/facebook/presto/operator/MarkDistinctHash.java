@@ -17,7 +17,6 @@ import com.facebook.presto.Session;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.google.common.annotations.VisibleForTesting;
@@ -54,7 +53,7 @@ public class MarkDistinctHash
         return new TransformWork<>(
                 groupByHash.getGroupIds(page),
                 ids -> {
-                    BlockBuilder blockBuilder = BOOLEAN.createBlockBuilder(new BlockBuilderStatus(), ids.getPositionCount());
+                    BlockBuilder blockBuilder = BOOLEAN.createBlockBuilder(null, ids.getPositionCount());
                     for (int i = 0; i < ids.getPositionCount(); i++) {
                         if (ids.getGroupId(i) == nextDistinctId) {
                             BOOLEAN.writeBoolean(blockBuilder, true);

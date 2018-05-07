@@ -32,7 +32,7 @@ public final class ColumnarRow
         }
 
         if (!(block instanceof AbstractRowBlock)) {
-            throw new IllegalArgumentException("Invalid row block");
+            throw new IllegalArgumentException("Invalid row block: " + block.getClass().getName());
         }
 
         AbstractRowBlock rowBlock = (AbstractRowBlock) block;
@@ -42,7 +42,7 @@ public final class ColumnarRow
         int totalRowCount = rowBlock.getFieldBlockOffset(block.getPositionCount()) - firstRowPosition;
         Block[] fieldBlocks = new Block[rowBlock.numFields];
         for (int i = 0; i < fieldBlocks.length; i++) {
-            fieldBlocks[i] = rowBlock.getFieldBlocks()[i].getRegion(firstRowPosition, totalRowCount);
+            fieldBlocks[i] = rowBlock.getRawFieldBlocks()[i].getRegion(firstRowPosition, totalRowCount);
         }
 
         return new ColumnarRow(block, fieldBlocks);

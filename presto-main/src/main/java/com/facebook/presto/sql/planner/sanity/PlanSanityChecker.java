@@ -29,34 +29,42 @@ import java.util.Map;
  */
 public final class PlanSanityChecker
 {
-    private static final Multimap<Stage, Checker> CHECKERS = ImmutableListMultimap.<Stage, Checker>builder()
-            .putAll(
-                    Stage.INTERMEDIATE,
-                    new ValidateDependenciesChecker(),
-                    new NoDuplicatePlanNodeIdsChecker(),
-                    new TypeValidator(),
-                    new NoSubqueryExpressionLeftChecker(),
-                    new VerifyOnlyOneOutputNode())
-            .putAll(
-                    Stage.FINAL,
-                    new ValidateDependenciesChecker(),
-                    new NoDuplicatePlanNodeIdsChecker(),
-                    new TypeValidator(),
-                    new NoSubqueryExpressionLeftChecker(),
-                    new VerifyOnlyOneOutputNode(),
-                    new VerifyNoFilteredAggregations())
-            .build();
+    public static final PlanSanityChecker DISTRIBUTED_PLAN_SANITY_CHECKER = new PlanSanityChecker(false);
 
-    private PlanSanityChecker() {}
+    private final Multimap<Stage, Checker> checkers;
 
-    public static void validateFinalPlan(PlanNode planNode, Session session, Metadata metadata, SqlParser sqlParser, Map<Symbol, Type> types)
+    public PlanSanityChecker(boolean forceSingleNode)
     {
-        CHECKERS.get(Stage.FINAL).forEach(checker -> checker.validate(planNode, session, metadata, sqlParser, types));
+        checkers = ImmutableListMultimap.<Stage, Checker>builder()
+                .putAll(
+                        Stage.INTERMEDIATE,
+                        new ValidateDependenciesChecker(),
+                        new NoDuplicatePlanNodeIdsChecker(),
+                        new TypeValidator(),
+                        new NoSubqueryExpressionLeftChecker(),
+                        new NoIdentifierLeftChecker(),
+                        new VerifyOnlyOneOutputNode())
+                .putAll(
+                        Stage.FINAL,
+                        new ValidateDependenciesChecker(),
+                        new NoDuplicatePlanNodeIdsChecker(),
+                        new TypeValidator(),
+                        new NoSubqueryExpressionLeftChecker(),
+                        new NoIdentifierLeftChecker(),
+                        new VerifyOnlyOneOutputNode(),
+                        new VerifyNoFilteredAggregations(),
+                        new ValidateAggregationsWithDefaultValues(forceSingleNode))
+                .build();
     }
 
-    public static void validateIntermediatePlan(PlanNode planNode, Session session, Metadata metadata, SqlParser sqlParser, Map<Symbol, Type> types)
+    public void validateFinalPlan(PlanNode planNode, Session session, Metadata metadata, SqlParser sqlParser, Map<Symbol, Type> types)
     {
-        CHECKERS.get(Stage.INTERMEDIATE).forEach(checker -> checker.validate(planNode, session, metadata, sqlParser, types));
+        checkers.get(Stage.FINAL).forEach(checker -> checker.validate(planNode, session, metadata, sqlParser, types));
+    }
+
+    public void validateIntermediatePlan(PlanNode planNode, Session session, Metadata metadata, SqlParser sqlParser, Map<Symbol, Type> types)
+    {
+        checkers.get(Stage.INTERMEDIATE).forEach(checker -> checker.validate(planNode, session, metadata, sqlParser, types));
     }
 
     public interface Checker

@@ -32,10 +32,10 @@ public interface ConnectorPageSink
     }
 
     /**
-     * Get the total memory that needs to be reserved in the system memory pool.
+     * Get the total memory that needs to be reserved in the general memory pool.
      * This memory should include any buffers, etc. that are used for reading data.
      *
-     * @return the system memory used so far in table read
+     * @return the memory used so far in table read
      */
     default long getSystemMemoryUsage()
     {

@@ -105,7 +105,7 @@ public class PartitionedOutputBuffer
     @Override
     public boolean isOverutilized()
     {
-        return memoryManager.isFull();
+        return memoryManager.isOverutilized();
     }
 
     @Override
@@ -193,7 +193,7 @@ public class PartitionedOutputBuffer
         // drop the initial reference
         serializedPageReferences.forEach(SerializedPageReference::dereferencePage);
 
-        return memoryManager.getNotFullFuture();
+        return memoryManager.getBufferBlockedFuture();
     }
 
     @Override
@@ -203,6 +203,14 @@ public class PartitionedOutputBuffer
         checkArgument(maxSize.toBytes() > 0, "maxSize must be at least 1 byte");
 
         return partitions.get(outputBufferId.getId()).getPages(startingSequenceId, maxSize);
+    }
+
+    @Override
+    public void acknowledge(OutputBufferId outputBufferId, long sequenceId)
+    {
+        requireNonNull(outputBufferId, "bufferId is null");
+
+        partitions.get(outputBufferId.getId()).acknowledgePages(sequenceId);
     }
 
     @Override
@@ -247,9 +255,15 @@ public class PartitionedOutputBuffer
         }
     }
 
+    @Override
+    public long getPeakMemoryUsage()
+    {
+        return memoryManager.getPeakMemoryUsage();
+    }
+
     private void checkFlushComplete()
     {
-        if (state.get() != FLUSHING) {
+        if (state.get() != FLUSHING && state.get() != NO_MORE_BUFFERS) {
             return;
         }
 

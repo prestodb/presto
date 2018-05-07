@@ -193,10 +193,17 @@ public class LazyBlock
     }
 
     @Override
-    public BlockEncoding getEncoding()
+    public String getEncodingName()
     {
         assureLoaded();
-        return new LazyBlockEncoding(block.getEncoding());
+        return LazyBlockEncoding.NAME;
+    }
+
+    @Override
+    public Block getPositions(int[] positions, int offset, int length)
+    {
+        assureLoaded();
+        return block.getPositions(positions, offset, length);
     }
 
     @Override

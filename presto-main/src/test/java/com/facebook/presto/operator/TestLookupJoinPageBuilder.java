@@ -18,7 +18,6 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
@@ -38,7 +37,7 @@ public class TestLookupJoinPageBuilder
     public void testPageBuilder()
     {
         int entries = 10_000;
-        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), entries);
+        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, entries);
         for (int i = 0; i < entries; i++) {
             BIGINT.writeLong(blockBuilder, i);
         }
@@ -156,6 +155,26 @@ public class TestLookupJoinPageBuilder
         }
     }
 
+    @Test
+    public void testCrossJoinWithEmptyBuild()
+    {
+        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, 1);
+        BIGINT.writeLong(blockBuilder, 0);
+        Page page = new Page(blockBuilder.build());
+
+        // nothing on the build side so we don't append anything
+        LookupSource lookupSource = new TestLookupSource(ImmutableList.of(), page);
+        JoinProbe probe = (new JoinProbeFactory(new int[]{0}, ImmutableList.of(0), OptionalInt.empty())).createJoinProbe(page);
+        LookupJoinPageBuilder lookupJoinPageBuilder = new LookupJoinPageBuilder(ImmutableList.of(BIGINT));
+
+        // append the same row many times should also flush in the end
+        probe.advanceNextPosition();
+        for (int i = 0; i < 300_000; i++) {
+            lookupJoinPageBuilder.appendRow(probe, lookupSource, 0);
+        }
+        assertTrue(lookupJoinPageBuilder.isFull());
+    }
+
     private final class TestLookupSource
             implements LookupSource
     {
@@ -166,6 +185,12 @@ public class TestLookupJoinPageBuilder
         {
             this.types = types;
             this.page = page;
+        }
+
+        @Override
+        public boolean isEmpty()
+        {
+            throw new UnsupportedOperationException();
         }
 
         @Override

@@ -13,90 +13,21 @@
  */
 package com.facebook.presto.tests.tpch;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.tests.DistributedQueryRunner;
-import com.facebook.presto.tpch.TpchPlugin;
-import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 
-import java.util.Map;
-
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
-
 public final class TpchQueryRunner
 {
-    private static final int DEFAULT_WORKER_COUNT = 4;
-
     private TpchQueryRunner() {}
-
-    public static DistributedQueryRunner createQueryRunner()
-            throws Exception
-    {
-        return createQueryRunner(ImmutableMap.of());
-    }
-
-    public static DistributedQueryRunner createQueryRunner(Map<String, String> extraProperties)
-            throws Exception
-    {
-        return createQueryRunner(extraProperties, ImmutableMap.of());
-    }
-
-    public static DistributedQueryRunner createQueryRunner(Map<String, String> extraProperties, Map<String, String> coordinatorProperties)
-            throws Exception
-    {
-        return createQueryRunner(extraProperties, coordinatorProperties, DEFAULT_WORKER_COUNT);
-    }
-
-    public static DistributedQueryRunner createQueryRunner(Map<String, String> extraProperties, Map<String, String> coordinatorProperties, int nodeCount)
-            throws Exception
-    {
-        DistributedQueryRunner queryRunner = createQueryRunnerWithoutCatalogs(extraProperties, coordinatorProperties, nodeCount);
-        try {
-            queryRunner.createCatalog("tpch", "tpch");
-
-            return queryRunner;
-        }
-        catch (Exception e) {
-            queryRunner.close();
-            throw e;
-        }
-    }
-
-    public static DistributedQueryRunner createQueryRunnerWithoutCatalogs(Map<String, String> extraProperties, Map<String, String> coordinatorProperties)
-            throws Exception
-    {
-        return createQueryRunnerWithoutCatalogs(extraProperties, coordinatorProperties, DEFAULT_WORKER_COUNT);
-    }
-
-    public static DistributedQueryRunner createQueryRunnerWithoutCatalogs(Map<String, String> extraProperties, Map<String, String> coordinatorProperties, int nodeCount)
-            throws Exception
-    {
-        Session session = testSessionBuilder()
-                .setSource("test")
-                .setCatalog("tpch")
-                .setSchema("tiny")
-                .build();
-
-        DistributedQueryRunner queryRunner = new DistributedQueryRunner(session, nodeCount, extraProperties, coordinatorProperties, new SqlParserOptions());
-
-        try {
-            queryRunner.installPlugin(new TpchPlugin());
-
-            return queryRunner;
-        }
-        catch (Exception e) {
-            queryRunner.close();
-            throw e;
-        }
-    }
 
     public static void main(String[] args)
             throws Exception
     {
         Logging.initialize();
-        DistributedQueryRunner queryRunner = createQueryRunner(ImmutableMap.of("http-server.http.port", "8080"));
+        DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder()
+                .setSingleExtraProperty("http-server.http.port", "8080")
+                .build();
         Thread.sleep(10);
         Logger log = Logger.get(TpchQueryRunner.class);
         log.info("======== SERVER STARTED ========");

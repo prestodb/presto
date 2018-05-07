@@ -14,7 +14,6 @@
 package com.facebook.presto.server.protocol;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.client.ClientTypeSignature;
 import com.facebook.presto.client.Column;
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.client.QueryError;
@@ -38,9 +37,9 @@ import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.transaction.TransactionId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -151,7 +150,16 @@ class Query
             BlockEncodingSerde blockEncodingSerde)
     {
         Query result = new Query(sessionContext, query, queryManager, sessionPropertyManager, exchangeClient, dataProcessorExecutor, timeoutExecutor, blockEncodingSerde);
-        result.queryManager.addOutputInfoListener(result.queryId, result::setQueryOutputInfo);
+
+        result.queryManager.addOutputInfoListener(result.getQueryId(), result::setQueryOutputInfo);
+
+        result.queryManager.addStateChangeListener(result.getQueryId(), state -> {
+            if (state.isDone()) {
+                QueryInfo queryInfo = queryManager.getQueryInfo(result.getQueryId());
+                result.closeExchangeClientIfNecessary(queryInfo);
+            }
+        });
+
         return result;
     }
 
@@ -356,20 +364,12 @@ class Query
             }
         }
 
-        // close exchange client if the query has failed
-        if (queryInfo.getState().isDone()) {
-            if (queryInfo.getState() == QueryState.FAILED) {
-                exchangeClient.close();
-            }
-            else if (!queryInfo.getOutputStage().isPresent()) {
-                // For simple executions (e.g. drop table), there will never be an output stage,
-                // so close the exchange as soon as the query is done.
-                exchangeClient.close();
+        closeExchangeClientIfNecessary(queryInfo);
 
-                // Return a single value for clients that require a result.
-                columns = ImmutableList.of(new Column("result", "boolean", new ClientTypeSignature(StandardTypes.BOOLEAN, ImmutableList.of())));
-                data = ImmutableSet.of(ImmutableList.of(true));
-            }
+        // for queries with no output, return a fake result for clients that require it
+        if ((queryInfo.getState() == QueryState.FINISHED) && !queryInfo.getOutputStage().isPresent()) {
+            columns = ImmutableList.of(new Column("result", BooleanType.BOOLEAN));
+            data = ImmutableSet.of(ImmutableList.of(true));
         }
 
         // only return a next if the query is not done or there is more data to send (due to buffering)
@@ -418,6 +418,17 @@ class Query
         return queryResults;
     }
 
+    private synchronized void closeExchangeClientIfNecessary(QueryInfo queryInfo)
+    {
+        // Close the exchange client if the query has failed, or if the query
+        // is done and it does not have an output stage. The latter happens
+        // for data definition executions, as those do not have output.
+        if ((queryInfo.getState() == QueryState.FAILED) ||
+                (queryInfo.getState().isDone() && !queryInfo.getOutputStage().isPresent())) {
+            exchangeClient.close();
+        }
+    }
+
     private synchronized void setQueryOutputInfo(QueryExecution.QueryOutputInfo outputInfo)
     {
         // if first callback, set column names
@@ -428,10 +439,7 @@ class Query
 
             ImmutableList.Builder<Column> list = ImmutableList.builder();
             for (int i = 0; i < columnNames.size(); i++) {
-                String name = columnNames.get(i);
-                TypeSignature typeSignature = columnTypes.get(i).getTypeSignature();
-                String type = typeSignature.toString();
-                list.add(new Column(name, type, new ClientTypeSignature(typeSignature)));
+                list.add(new Column(columnNames.get(i), columnTypes.get(i)));
             }
             columns = list.build();
             types = outputInfo.getColumnTypes();

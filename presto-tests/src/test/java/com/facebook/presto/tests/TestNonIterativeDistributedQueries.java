@@ -13,8 +13,7 @@
  */
 package com.facebook.presto.tests;
 
-import com.facebook.presto.tests.tpch.TpchQueryRunner;
-import com.google.common.collect.ImmutableMap;
+import com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder;
 
 /**
  * Test that Presto works with {@link com.facebook.presto.sql.planner.iterative.IterativeOptimizer} disabled.
@@ -24,6 +23,6 @@ public class TestNonIterativeDistributedQueries
 {
     public TestNonIterativeDistributedQueries()
     {
-        super(() -> TpchQueryRunner.createQueryRunner(ImmutableMap.of("experimental.iterative-optimizer-enabled", "false")));
+        super(() -> TpchQueryRunnerBuilder.builder().setSingleExtraProperty("experimental.iterative-optimizer-enabled", "false").build());
     }
 }

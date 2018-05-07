@@ -119,6 +119,7 @@ public class IntArrayBlock
     {
         checkReadablePosition(position);
         blockBuilder.writeInt(values[position + arrayOffset]);
+        blockBuilder.closeEntry();
     }
 
     @Override
@@ -171,9 +172,9 @@ public class IntArrayBlock
     }
 
     @Override
-    public BlockEncoding getEncoding()
+    public String getEncodingName()
     {
-        return new IntArrayBlockEncoding();
+        return IntArrayBlockEncoding.NAME;
     }
 
     @Override

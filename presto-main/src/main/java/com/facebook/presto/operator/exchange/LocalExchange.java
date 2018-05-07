@@ -44,13 +44,11 @@ import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DI
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public class LocalExchange
 {
-    private static final DataSize DEFAULT_MAX_BUFFERED_BYTES = new DataSize(32, MEGABYTE);
     private final List<Type> types;
     private final Supplier<LocalExchanger> exchangerSupplier;
 
@@ -274,17 +272,6 @@ public class LocalExchange
         private final Map<Lifespan, LocalExchange> localExchangeMap = new HashMap<>();
         @GuardedBy("this")
         private final List<LocalExchangeSinkFactoryId> closedSinkFactories = new ArrayList<>();
-
-        public LocalExchangeFactory(
-                PartitioningHandle partitioning,
-                int defaultConcurrency,
-                List<Type> types,
-                List<Integer> partitionChannels,
-                Optional<Integer> partitionHashChannel,
-                PipelineExecutionStrategy exchangeSourcePipelineExecutionStrategy)
-        {
-            this(partitioning, defaultConcurrency, types, partitionChannels, partitionHashChannel, exchangeSourcePipelineExecutionStrategy, DEFAULT_MAX_BUFFERED_BYTES);
-        }
 
         public LocalExchangeFactory(
                 PartitioningHandle partitioning,

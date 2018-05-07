@@ -16,7 +16,6 @@ package com.facebook.presto.block;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
@@ -39,7 +38,7 @@ public class TestBlockBuilder
     @Test
     public void testMultipleValuesWithNull()
     {
-        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), 10);
+        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, 10);
         blockBuilder.appendNull();
         BIGINT.writeLong(blockBuilder, 42);
         blockBuilder.appendNull();
@@ -67,10 +66,9 @@ public class TestBlockBuilder
             BIGINT.writeLong(bigintBlockBuilder, i);
             VARCHAR.writeSlice(varcharBlockBuilder, Slices.utf8Slice("test" + i));
             Block longArrayBlock = new ArrayType(BIGINT)
-                    .createBlockBuilder(new BlockBuilderStatus(), 1)
-                    .writeObject(BIGINT.createBlockBuilder(new BlockBuilderStatus(), 2).writeLong(i).closeEntry().writeLong(i * 2).closeEntry().build())
-                    .closeEntry();
-            arrayBlockBuilder.writeObject(longArrayBlock).closeEntry();
+                    .createBlockBuilder(null, 1)
+                    .appendStructure(BIGINT.createBlockBuilder(null, 2).writeLong(i).closeEntry().writeLong(i * 2).closeEntry().build());
+            arrayBlockBuilder.appendStructure(longArrayBlock);
             pageBuilder.declarePosition();
         }
 

@@ -24,7 +24,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -70,6 +69,7 @@ import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.toGr
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Sets.newHashSet;
 import static java.lang.String.format;
@@ -127,7 +127,7 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            throw propagate(e);
         }
     }
 
@@ -151,7 +151,7 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            throw propagate(e);
         }
     }
 
@@ -191,7 +191,7 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            throw propagate(e);
         }
     }
 
@@ -204,8 +204,8 @@ public class ThriftHiveMetastore
                     .stopOnIllegalExceptions()
                     .run("getTable", stats.getGetTable().wrap(() -> {
                         try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
-                            org.apache.hadoop.hive.metastore.api.Table table = client.getTable(databaseName, tableName);
-                            if (table.getTableType().equals(TableType.VIRTUAL_VIEW.name()) && (!isPrestoView(table))) {
+                            Table table = client.getTable(databaseName, tableName);
+                            if (table.getTableType().equals(TableType.VIRTUAL_VIEW.name()) && !isPrestoView(table)) {
                                 throw new HiveViewNotSupportedException(new SchemaTableName(databaseName, tableName));
                             }
                             return Optional.of(table);
@@ -219,8 +219,13 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            throw propagate(e);
         }
+    }
+
+    private static boolean isPrestoView(Table table)
+    {
+        return "true".equals(table.getParameters().get(PRESTO_VIEW_FLAG));
     }
 
     @Override
@@ -243,7 +248,7 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            throw propagate(e);
         }
     }
 
@@ -272,7 +277,7 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            throw propagate(e);
         }
     }
 
@@ -297,7 +302,7 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            throw propagate(e);
         }
     }
 
@@ -322,7 +327,7 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            throw propagate(e);
         }
     }
 
@@ -347,7 +352,7 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            throw propagate(e);
         }
     }
 
@@ -372,7 +377,7 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            throw propagate(e);
         }
     }
 
@@ -400,7 +405,7 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            throw propagate(e);
         }
     }
 
@@ -425,12 +430,12 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            throw propagate(e);
         }
     }
 
     @Override
-    public void alterTable(String databaseName, String tableName, org.apache.hadoop.hive.metastore.api.Table table)
+    public void alterTable(String databaseName, String tableName, Table table)
     {
         try {
             retry()
@@ -454,13 +459,8 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            throw propagate(e);
         }
-    }
-
-    private boolean isPrestoView(org.apache.hadoop.hive.metastore.api.Table table)
-    {
-        return "true".equals(table.getParameters().get(PRESTO_VIEW_FLAG));
     }
 
     @Override
@@ -483,7 +483,7 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            throw propagate(e);
         }
     }
 
@@ -507,7 +507,7 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            throw propagate(e);
         }
     }
 
@@ -542,7 +542,7 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            throw propagate(e);
         }
     }
 
@@ -567,7 +567,7 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            throw propagate(e);
         }
     }
 
@@ -592,7 +592,7 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            throw propagate(e);
         }
     }
 
@@ -617,7 +617,7 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            throw propagate(e);
         }
     }
 
@@ -645,7 +645,7 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            throw propagate(e);
         }
     }
 
@@ -659,7 +659,7 @@ public class ThriftHiveMetastore
                         try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
                             List<Role> roles = client.listRoles(user, USER);
                             if (roles == null) {
-                                return ImmutableSet.<String>of();
+                                return ImmutableSet.of();
                             }
                             return ImmutableSet.copyOf(roles.stream()
                                     .map(Role::getRoleName)
@@ -671,7 +671,7 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            throw propagate(e);
         }
     }
 
@@ -715,7 +715,8 @@ public class ThriftHiveMetastore
                             Set<HivePrivilegeInfo> existingPrivileges = getTablePrivileges(hivePrincipal, databaseName, tableName);
 
                             Set<PrivilegeGrantInfo> privilegesToGrant = newHashSet(requestedPrivileges);
-                            for (Iterator<PrivilegeGrantInfo> iterator = privilegesToGrant.iterator(); iterator.hasNext(); ) {
+                            Iterator<PrivilegeGrantInfo> iterator = privilegesToGrant.iterator();
+                            while (iterator.hasNext()) {
                                 HivePrivilegeInfo requestedPrivilege = getOnlyElement(parsePrivilege(iterator.next()));
 
                                 for (HivePrivilegeInfo existingPrivilege : existingPrivileges) {
@@ -745,7 +746,7 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            throw propagate(e);
         }
     }
 
@@ -781,14 +782,11 @@ public class ThriftHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
-            if (e instanceof InterruptedException) {
-                Thread.currentThread().interrupt();
-            }
-            throw Throwables.propagate(e);
+            throw propagate(e);
         }
     }
 
-    private PrivilegeBag buildPrivilegeBag(
+    private static PrivilegeBag buildPrivilegeBag(
             String databaseName,
             String tableName,
             HivePrincipal hivePrincipal,
@@ -806,7 +804,7 @@ public class ThriftHiveMetastore
         return new PrivilegeBag(privilegeBagBuilder.build());
     }
 
-    private boolean containsAllPrivilege(Set<PrivilegeGrantInfo> requestedPrivileges)
+    private static boolean containsAllPrivilege(Set<PrivilegeGrantInfo> requestedPrivileges)
     {
         return requestedPrivileges.stream()
                 .anyMatch(privilege -> privilege.getPrivilege().equalsIgnoreCase("all"));
@@ -817,9 +815,7 @@ public class ThriftHiveMetastore
         if (hivePrincipal.getPrincipalType() == ROLE) {
             return getRolePrivileges(hivePrincipal, new HiveObjectRef(TABLE, databaseName, tableName, null, null));
         }
-        else {
-            return getUserPrivileges(hivePrincipal, new HiveObjectRef(TABLE, databaseName, tableName, null, null));
-        }
+        return getUserPrivileges(hivePrincipal, new HiveObjectRef(TABLE, databaseName, tableName, null, null));
     }
 
     private Set<HivePrivilegeInfo> getRolePrivileges(HivePrincipal hivePrincipal, HiveObjectRef hiveObjectRef)
@@ -895,11 +891,12 @@ public class ThriftHiveMetastore
                 .stopOn(PrestoException.class);
     }
 
-    private RuntimeException propagate(Throwable throwable)
+    private static RuntimeException propagate(Throwable throwable)
     {
         if (throwable instanceof InterruptedException) {
             Thread.currentThread().interrupt();
         }
-        throw Throwables.propagate(throwable);
+        throwIfUnchecked(throwable);
+        throw new RuntimeException(throwable);
     }
 }

@@ -42,7 +42,9 @@ import static com.facebook.presto.benchmark.driver.BenchmarkQueryResult.failResu
 import static com.facebook.presto.benchmark.driver.BenchmarkQueryResult.passResult;
 import static com.facebook.presto.client.OkHttpUtil.setupCookieJar;
 import static com.facebook.presto.client.OkHttpUtil.setupSocksProxy;
+import static com.facebook.presto.client.StatementClientFactory.newStatementClient;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
 import static io.airlift.http.client.Request.Builder.prepareGet;
@@ -198,21 +200,26 @@ public class BenchmarkQueryRunner
     private StatementStats execute(ClientSession session, String query, Consumer<QueryData> queryDataConsumer, Consumer<QueryError> queryErrorConsumer)
     {
         // start query
-        try (StatementClient client = new StatementClient(okHttpClient, session, query)) {
+        try (StatementClient client = newStatementClient(okHttpClient, session, query)) {
             // read query output
-            while (client.isValid() && client.advance()) {
+            while (client.isRunning()) {
                 queryDataConsumer.accept(client.currentData());
+
+                if (!client.advance()) {
+                    break;
+                }
             }
 
             // verify final state
-            if (client.isClosed()) {
+            if (client.isClientAborted()) {
                 throw new IllegalStateException("Query aborted by user");
             }
 
-            if (client.isGone()) {
+            if (client.isClientError()) {
                 throw new IllegalStateException("Query is gone (server restarted?)");
             }
 
+            verify(client.isFinished());
             QueryError resultsError = client.finalStatusInfo().getError();
             if (resultsError != null) {
                 queryErrorConsumer.accept(resultsError);

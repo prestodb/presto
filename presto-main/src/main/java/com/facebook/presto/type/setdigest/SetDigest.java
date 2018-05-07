@@ -14,7 +14,6 @@
 
 package com.facebook.presto.type.setdigest;
 
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import com.google.common.primitives.Shorts;
@@ -33,6 +32,7 @@ import it.unimi.dsi.fastutil.longs.LongSortedSet;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -120,7 +120,7 @@ public class SetDigest
             return output.slice();
         }
         catch (IOException e) {
-            throw Throwables.propagate(e);
+            throw new UncheckedIOException(e);
         }
     }
 

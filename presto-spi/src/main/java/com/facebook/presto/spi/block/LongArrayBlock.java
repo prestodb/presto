@@ -166,6 +166,7 @@ public class LongArrayBlock
     {
         checkReadablePosition(position);
         blockBuilder.writeLong(values[position + arrayOffset]);
+        blockBuilder.closeEntry();
     }
 
     @Override
@@ -218,9 +219,9 @@ public class LongArrayBlock
     }
 
     @Override
-    public BlockEncoding getEncoding()
+    public String getEncodingName()
     {
-        return new LongArrayBlockEncoding();
+        return LongArrayBlockEncoding.NAME;
     }
 
     @Override

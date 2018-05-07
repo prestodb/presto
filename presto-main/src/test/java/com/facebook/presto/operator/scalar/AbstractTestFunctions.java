@@ -39,7 +39,6 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.SystemSessionProperties.PARSE_DECIMAL_LITERALS_AS_DOUBLE;
 import static com.facebook.presto.metadata.FunctionRegistry.mangleOperatorName;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -55,7 +54,6 @@ public abstract class AbstractTestFunctions
     protected final Session session;
     private final FeaturesConfig config;
     protected FunctionAssertions functionAssertions;
-    protected FunctionAssertions decimalLiteralAsDecimal; // TODO remove when DECIMAL is default for literal
 
     protected AbstractTestFunctions()
     {
@@ -75,22 +73,19 @@ public abstract class AbstractTestFunctions
     protected AbstractTestFunctions(Session session, FeaturesConfig config)
     {
         this.session = requireNonNull(session, "session is null");
-        this.config = requireNonNull(config, "config is null");
+        this.config = requireNonNull(config, "config is null").setLegacyLogFunction(true);
     }
 
     @BeforeClass
     public final void initTestFunctions()
     {
         functionAssertions = new FunctionAssertions(session, config);
-        decimalLiteralAsDecimal = new FunctionAssertions(
-                Session.builder(session).setSystemProperty(PARSE_DECIMAL_LITERALS_AS_DOUBLE, "false").build(),
-                config);
     }
 
     @AfterClass(alwaysRun = true)
     public final void destroyTestFunctions()
     {
-        closeAllRuntimeException(functionAssertions, decimalLiteralAsDecimal);
+        closeAllRuntimeException(functionAssertions);
         functionAssertions = null;
     }
 
@@ -106,7 +101,7 @@ public abstract class AbstractTestFunctions
 
     protected void assertDecimalFunction(String statement, SqlDecimal expectedResult)
     {
-        decimalLiteralAsDecimal.assertFunction(
+        assertFunction(
                 statement,
                 createDecimalType(expectedResult.getPrecision(), expectedResult.getScale()),
                 expectedResult);

@@ -32,6 +32,12 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="plugin/password-authenticators">
+        <artifact id="${project.groupId}:presto-password-authenticators:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/jmx">
         <artifact id="${project.groupId}:presto-jmx:zip:${project.version}">
             <unpack />

@@ -13,24 +13,14 @@
  */
 package com.facebook.presto.spi.block;
 
-import com.facebook.presto.spi.type.TypeManager;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 
-import static java.util.Objects.requireNonNull;
-
 public class DictionaryBlockEncoding
         implements BlockEncoding
 {
-    public static final BlockEncodingFactory<DictionaryBlockEncoding> FACTORY = new DictionaryBlockEncodingFactory();
-    private static final String NAME = "DICTIONARY";
-    private final BlockEncoding dictionaryEncoding;
-
-    public DictionaryBlockEncoding(BlockEncoding dictionaryEncoding)
-    {
-        this.dictionaryEncoding = requireNonNull(dictionaryEncoding, "dictionaryEncoding is null");
-    }
+    public static final String NAME = "DICTIONARY";
 
     @Override
     public String getName()
@@ -39,7 +29,7 @@ public class DictionaryBlockEncoding
     }
 
     @Override
-    public void writeBlock(SliceOutput sliceOutput, Block block)
+    public void writeBlock(BlockEncodingSerde blockEncodingSerde, SliceOutput sliceOutput, Block block)
     {
         // The down casts here are safe because it is the block itself the provides this encoding implementation.
         DictionaryBlock dictionaryBlock = (DictionaryBlock) block;
@@ -52,7 +42,7 @@ public class DictionaryBlockEncoding
 
         // dictionary
         Block dictionary = dictionaryBlock.getDictionary();
-        dictionaryEncoding.writeBlock(sliceOutput, dictionary);
+        blockEncodingSerde.writeBlock(sliceOutput, dictionary);
 
         // ids
         sliceOutput.writeBytes(dictionaryBlock.getIds());
@@ -64,13 +54,13 @@ public class DictionaryBlockEncoding
     }
 
     @Override
-    public Block readBlock(SliceInput sliceInput)
+    public Block readBlock(BlockEncodingSerde blockEncodingSerde, SliceInput sliceInput)
     {
         // positionCount
         int positionCount = sliceInput.readInt();
 
         // dictionary
-        Block dictionaryBlock = dictionaryEncoding.readBlock(sliceInput);
+        Block dictionaryBlock = blockEncodingSerde.readBlock(sliceInput);
 
         // ids
         int[] ids = new int[positionCount];
@@ -85,39 +75,5 @@ public class DictionaryBlockEncoding
         // As a result, setting dictionaryIsCompacted to true is not appropriate here.
         // TODO: fix DictionaryBlock so that dictionaryIsCompacted can be set to true when the underlying block over-retains memory.
         return new DictionaryBlock(positionCount, dictionaryBlock, ids, false, new DictionaryId(mostSignificantBits, leastSignificantBits, sequenceId));
-    }
-
-    @Override
-    public BlockEncodingFactory getFactory()
-    {
-        return FACTORY;
-    }
-
-    public BlockEncoding getDictionaryEncoding()
-    {
-        return dictionaryEncoding;
-    }
-
-    public static class DictionaryBlockEncodingFactory
-            implements BlockEncodingFactory<DictionaryBlockEncoding>
-    {
-        @Override
-        public String getName()
-        {
-            return NAME;
-        }
-
-        @Override
-        public DictionaryBlockEncoding readEncoding(TypeManager manager, BlockEncodingSerde serde, SliceInput input)
-        {
-            BlockEncoding dictionaryEncoding = serde.readBlockEncoding(input);
-            return new DictionaryBlockEncoding(dictionaryEncoding);
-        }
-
-        @Override
-        public void writeEncoding(BlockEncodingSerde serde, SliceOutput output, DictionaryBlockEncoding blockEncoding)
-        {
-            serde.writeBlockEncoding(output, blockEncoding.getDictionaryEncoding());
-        }
     }
 }

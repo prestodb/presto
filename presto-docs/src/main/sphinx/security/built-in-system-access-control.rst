@@ -61,24 +61,27 @@ contents:
    access-control.name=file
    security.config-file=etc/rules.json
 
-The config file consists of a list of access control rules in JSON format. The
-rules are matched in the order specified in the file. All
-regular expressions default to ``.*`` if not specified.
+The config file is specified in JSON format.
 
-This plugin currently only supports catalog access control rules. If you want
-to limit access on a system level in any other way, you must implement a custom
-SystemAccessControl plugin (see :doc:`/develop/system-access-control`).
+* It contains the rules defining which catalog can be accessed by which user (see Catalog Rules below).
+* The principal rules specifying what principals can identify as what users (see Principal Rules below).
+
+This plugin currently only supports catalog access control rules and principal
+rules. If you want to limit access on a system level in any other way, you
+must implement a custom SystemAccessControl plugin
+(see :doc:`/develop/system-access-control`).
 
 Catalog Rules
 -------------
 
 These rules govern the catalogs particular users can access. The user is
-granted access to a catalog based on the first matching rule. If no rule
-matches, access is denied. Each rule is composed of the following fields:
+granted access to a catalog based on the first matching rule read from top to
+bottom. If no rule matches, access is denied. Each rule is composed of the
+following fields:
 
-* ``user`` (optional): regex to match against user name.
-* ``catalog`` (optional): regex to match against catalog name.
-* ``allowed`` (required): boolean indicating whether a user has access to the catalog
+* ``user`` (optional): regex to match against user name. Defaults to ``.*``.
+* ``catalog`` (optional): regex to match against catalog name. Defaults to ``.*``.
+* ``allow`` (required): boolean indicating whether a user has access to the catalog
 
 .. note::
 
@@ -109,3 +112,77 @@ catalog, and deny all other access, you can use the following rules:
       ]
     }
 
+Principal Rules
+---------------
+
+These rules serve to enforce a specific matching between a principal and a
+specified user name. The principal is granted authorization as a user based
+on the first matching rule read from top to bottom. If no rules are specified,
+no checks will be performed. If no rule matches, user authorization is denied.
+Each rule is composed of the following fields:
+
+* ``principal`` (required): regex to match and group against principal.
+* ``user`` (optional): regex to match against user name. If matched, it
+  will grant or deny the authorization based on the value of ``allow``.
+* ``principal_to_user`` (optional): replacement string to substitute against
+  principal. If the result of the substitution is same as the user name, it will
+  grant or deny the authorization based on the value of ``allow``.
+* ``allow`` (required): boolean indicating whether a principal can be authorized
+  as a user.
+
+.. note::
+
+    You would at least specify one criterion in a principal rule. If you specify
+    both criteria in a principal rule, it will return the desired conclusion when
+    either of criteria is satisfied.
+
+The following implements an exact matching of the full principal name for LDAP
+and Kerberos authentication:
+
+.. code-block:: json
+
+    {
+      "catalogs": [
+        {
+          "allow": true
+        }
+      ],
+      "principals": [
+        {
+          "principal": "(.*)",
+          "principal_to_user": "$1",
+          "allow": true
+        },
+        {
+          "principal": "([^/]+)/?.*@.*",
+          "principal_to_user": "$1",
+          "allow": true
+        }
+      ]
+    }
+
+If you want to allow users to use the extractly same name as their Kerberos principal
+name, and allow ``alice`` and ``bob`` to use a group principal named as
+``group@example.net``, you can use the following rules.
+
+.. code-block:: json
+
+    {
+      "catalogs": [
+        {
+          "allow": true
+        }
+      ],
+      "principals": [
+        {
+          "principal": "([^/]+)/?.*@example.net",
+          "principal_to_user": "$1",
+          "allow": true
+        },
+        {
+          "principal": "group@example.net",
+          "user": "alice|bob",
+          "allow": true
+        }
+      ]
+    }

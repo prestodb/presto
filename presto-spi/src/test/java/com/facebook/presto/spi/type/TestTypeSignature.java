@@ -78,34 +78,6 @@ public class TestTypeSignature
                 ImmutableSet.of("p1", "s1", "p2", "s2"),
                 rowSignature(namedParameter("a", decimal("p1", "s1")), namedParameter("b", decimal("p2", "s2"))));
         assertEquals(parseTypeSignature("row(a Int(p1))"), parseTypeSignature("row(a integer(p1))"));
-
-        // TODO: remove the following tests when the old style row type has been completely dropped
-        assertOldRowSignature(
-                "row<bigint,varchar>('a','b')",
-                rowSignature(namedParameter("a", signature("bigint")), namedParameter("b", varchar())));
-        assertOldRowSignature(
-                "row<bigint,array(bigint),row<bigint>('a')>('a','b','c')",
-                rowSignature(
-                        namedParameter("a", signature("bigint")),
-                        namedParameter("b", array(signature("bigint"))),
-                        namedParameter("c", rowSignature(namedParameter("a", signature("bigint"))))));
-        assertOldRowSignature(
-                "row<varchar(10),row<bigint>('a')>('a','b')",
-                rowSignature(
-                        namedParameter("a", varchar(10)),
-                        namedParameter("b", rowSignature(namedParameter("a", signature("bigint"))))));
-        assertOldRowSignature(
-                "array(row<bigint,double>('col0','col1'))",
-                array(rowSignature(namedParameter("col0", signature("bigint")), namedParameter("col1", signature("double")))));
-        assertEquals(parseTypeSignature("array(row<inT>('col'))"), parseTypeSignature("array(row<integer>('col'))"));
-        assertOldRowSignature(
-                "row<array(row<bigint,double>('col0','col1'))>('col0')",
-                rowSignature(namedParameter("col0", array(
-                        rowSignature(namedParameter("col0", signature("bigint")), namedParameter("col1", signature("double")))))));
-        assertOldRowSignature(
-                "row<decimal(p1,s1),decimal(p2,s2)>('a','b')",
-                ImmutableSet.of("p1", "s1", "p2", "s2"),
-                rowSignature(namedParameter("a", decimal("p1", "s1")), namedParameter("b", decimal("p2", "s2"))));
     }
 
     private TypeSignature varchar()
@@ -180,7 +152,7 @@ public class TestTypeSignature
         assertSignatureFail("x", ImmutableSet.of("x"));
 
         // ensure this is not treated as a row type
-        assertSignature("rowxxx<a>", "rowxxx", ImmutableList.of("a"));
+        assertSignature("rowxxx(a)", "rowxxx", ImmutableList.of("a"));
     }
 
     @Test
@@ -244,26 +216,6 @@ public class TestTypeSignature
             String expected)
     {
         assertSignature(typeName, base, parameters, expected);
-    }
-
-    // TODO: remove this when old style row type is removed
-    @Deprecated
-    private static void assertOldRowSignature(
-            String typeName,
-            Set<String> literalParameters,
-            TypeSignature expectedSignature)
-    {
-        TypeSignature signature = parseTypeSignature(typeName, literalParameters);
-        assertEquals(signature, expectedSignature);
-    }
-
-    // TODO: remove this when old style row type is removed
-    @Deprecated
-    private static void assertOldRowSignature(
-            String typeName,
-            TypeSignature expectedSignature)
-    {
-        assertOldRowSignature(typeName, ImmutableSet.of(), expectedSignature);
     }
 
     private static void assertSignature(

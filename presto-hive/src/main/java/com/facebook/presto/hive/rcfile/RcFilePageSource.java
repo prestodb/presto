@@ -22,7 +22,6 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.LazyBlock;
 import com.facebook.presto.spi.block.LazyBlockLoader;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
@@ -39,6 +38,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class RcFilePageSource
@@ -95,7 +95,7 @@ public class RcFilePageSource
             if (hiveColumnIndexes[columnIndex] >= rcFileReader.getColumnCount()) {
                 // this file may contain fewer fields than what's declared in the schema
                 // this happens when additional columns are added to the hive table after files have been created
-                BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), 1, NULL_ENTRY_SIZE);
+                BlockBuilder blockBuilder = type.createBlockBuilder(null, 1, NULL_ENTRY_SIZE);
                 blockBuilder.appendNull();
                 constantBlocks[columnIndex] = blockBuilder.build();
             }
@@ -156,11 +156,11 @@ public class RcFilePageSource
         }
         catch (RcFileCorruptionException e) {
             closeWithSuppression(e);
-            throw new PrestoException(HIVE_BAD_DATA, e);
+            throw new PrestoException(HIVE_BAD_DATA, format("Corrupted RC file: %s", rcFileReader.getId()), e);
         }
         catch (IOException | RuntimeException e) {
             closeWithSuppression(e);
-            throw new PrestoException(HIVE_CURSOR_ERROR, e);
+            throw new PrestoException(HIVE_CURSOR_ERROR, format("Failed to read RC file: %s", rcFileReader.getId()), e);
         }
     }
 
@@ -240,10 +240,10 @@ public class RcFilePageSource
                 lazyBlock.setBlock(block);
             }
             catch (RcFileCorruptionException e) {
-                throw new PrestoException(HIVE_BAD_DATA, e);
+                throw new PrestoException(HIVE_BAD_DATA, format("Corrupted RC file: %s", rcFileReader.getId()), e);
             }
-            catch (IOException e) {
-                throw new PrestoException(HIVE_CURSOR_ERROR, e);
+            catch (IOException | RuntimeException e) {
+                throw new PrestoException(HIVE_CURSOR_ERROR, format("Failed to read RC file: %s", rcFileReader.getId()), e);
             }
 
             loaded = true;

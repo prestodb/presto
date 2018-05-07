@@ -1,0 +1,62 @@
+ {
+    "rowCount" : 1.5E7,
+     "columns" : {
+        "ca_suite_number" : {
+             "distinctValuesCount" : 86.0,
+             "nullsCount" : 450380.000000
+        },
+        "ca_county" : {
+             "distinctValuesCount" : 1716.0,
+             "nullsCount" : 449296.000000
+        },
+        "ca_gmt_offset" : {
+             "distinctValuesCount" : 5.0,
+             "nullsCount" : 449744.000000,
+             "min" : -1000,
+             "max" : -500
+        },
+        "ca_zip" : {
+             "distinctValuesCount" : 10141.0,
+             "nullsCount" : 449965.000000
+        },
+        "ca_country" : {
+             "distinctValuesCount" : 1.0,
+             "nullsCount" : 449481.000000
+        },
+        "ca_street_name" : {
+             "distinctValuesCount" : 7488.0,
+             "nullsCount" : 449639.000000
+        },
+        "ca_address_id" : {
+             "distinctValuesCount" : 1.9889561E7,
+             "nullsCount" : 0.000000
+        },
+        "ca_city" : {
+             "distinctValuesCount" : 896.0,
+             "nullsCount" : 450422.000000
+        },
+        "ca_street_number" : {
+             "distinctValuesCount" : 822.0,
+             "nullsCount" : 450409.000000
+        },
+        "ca_location_type" : {
+             "distinctValuesCount" : 3.0,
+             "nullsCount" : 449205.000000
+        },
+        "ca_address_sk" : {
+             "distinctValuesCount" : 1.9889561E7,
+             "nullsCount" : 0.000000,
+             "min" : 1,
+             "max" : 15000000
+        },
+        "ca_state" : {
+             "distinctValuesCount" : 51.0,
+             "nullsCount" : 449069.000000
+        },
+        "ca_street_type" : {
+             "distinctValuesCount" : 23.0,
+             "nullsCount" : 449465.000000
+        },
+        "dummyColumn" : {}
+    }
+}

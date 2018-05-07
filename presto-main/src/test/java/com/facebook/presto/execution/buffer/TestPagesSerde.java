@@ -16,7 +16,6 @@ package com.facebook.presto.execution.buffer;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
@@ -40,7 +39,7 @@ public class TestPagesSerde
     public void testRoundTrip()
     {
         PagesSerde serde = new TestingPagesSerdeFactory().createPagesSerde();
-        BlockBuilder expectedBlockBuilder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 5);
+        BlockBuilder expectedBlockBuilder = VARCHAR.createBlockBuilder(null, 5);
         VARCHAR.writeString(expectedBlockBuilder, "alice");
         VARCHAR.writeString(expectedBlockBuilder, "bob");
         VARCHAR.writeString(expectedBlockBuilder, "charlie");
@@ -63,7 +62,7 @@ public class TestPagesSerde
     @Test
     public void testBigintSerializedSize()
     {
-        BlockBuilder builder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), 5);
+        BlockBuilder builder = BIGINT.createBlockBuilder(null, 5);
 
         // empty page
         Page page = new Page(builder.build());
@@ -86,7 +85,7 @@ public class TestPagesSerde
     @Test
     public void testVarcharSerializedSize()
     {
-        BlockBuilder builder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 5);
+        BlockBuilder builder = VARCHAR.createBlockBuilder(null, 5);
 
         // empty page
         Page page = new Page(builder.build());

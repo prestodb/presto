@@ -613,6 +613,10 @@ public final class SqlFormatter
                     builder.append(" LIKE ")
                             .append(formatStringLiteral(value)));
 
+            node.getEscape().ifPresent((value) ->
+                    builder.append(" ESCAPE ")
+                            .append(formatStringLiteral(value)));
+
             return null;
         }
 
@@ -627,6 +631,10 @@ public final class SqlFormatter
 
             node.getLikePattern().ifPresent(value ->
                     builder.append(" LIKE ")
+                            .append(formatStringLiteral(value)));
+
+            node.getEscape().ifPresent(value ->
+                    builder.append(" ESCAPE ")
                             .append(formatStringLiteral(value)));
 
             return null;
@@ -927,14 +935,15 @@ public final class SqlFormatter
         protected Void visitInsert(Insert node, Integer indent)
         {
             builder.append("INSERT INTO ")
-                    .append(node.getTarget())
-                    .append(" ");
+                    .append(node.getTarget());
 
             if (node.getColumns().isPresent()) {
-                builder.append("(")
+                builder.append(" (")
                         .append(Joiner.on(", ").join(node.getColumns().get()))
-                        .append(") ");
+                        .append(")");
             }
+
+            builder.append("\n");
 
             process(node.getQuery(), indent);
 

@@ -34,11 +34,11 @@ public class ColumnarArray
         }
 
         if (!(block instanceof AbstractArrayBlock)) {
-            throw new IllegalArgumentException("Invalid array block");
+            throw new IllegalArgumentException("Invalid array block: " + block.getClass().getName());
         }
 
         AbstractArrayBlock arrayBlock = (AbstractArrayBlock) block;
-        Block elementsBlock = arrayBlock.getValues();
+        Block elementsBlock = arrayBlock.getRawElementBlock();
 
         // trim elements to just visible region
         int elementsOffset = 0;
@@ -70,7 +70,8 @@ public class ColumnarArray
             int dictionaryId = dictionaryBlock.getId(position);
             int length = columnarArray.getLength(dictionaryId);
 
-            int startOffset = columnarArray.getOffset(dictionaryId);
+            // adjust to the element block start offset
+            int startOffset = columnarArray.getOffset(dictionaryId) - columnarArray.getOffset(0);
             for (int entryIndex = 0; entryIndex < length; entryIndex++) {
                 dictionaryIds[nextDictionaryIndex] = startOffset + entryIndex;
                 nextDictionaryIndex++;

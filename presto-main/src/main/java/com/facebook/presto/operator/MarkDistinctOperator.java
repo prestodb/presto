@@ -174,16 +174,13 @@ public class MarkDistinctOperator
         }
 
         // add the new boolean column to the page
-        Block[] sourceBlocks = inputPage.getBlocks();
-        Block[] outputBlocks = new Block[sourceBlocks.length + 1]; // +1 for the single boolean output channel
+        Page outputPage = inputPage.appendColumn(unfinishedWork.getResult());
 
-        System.arraycopy(sourceBlocks, 0, outputBlocks, 0, sourceBlocks.length);
-        outputBlocks[sourceBlocks.length] = unfinishedWork.getResult();
         unfinishedWork = null;
         inputPage = null;
 
         updateMemoryReservation();
-        return new Page(outputBlocks);
+        return outputPage;
     }
 
     private boolean hasUnfinishedInput()

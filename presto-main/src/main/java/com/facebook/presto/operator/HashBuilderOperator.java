@@ -197,7 +197,7 @@ public class HashBuilderOperator
         /**
          * No longer needed
          */
-        DISPOSED
+        CLOSED
     }
 
     private static final double INDEX_COMPACTION_ON_REVOCATION_TARGET = 0.8;
@@ -315,8 +315,8 @@ public class HashBuilderOperator
             case INPUT_UNSPILLED_AND_BUILT:
                 return spilledLookupSourceHandle.getDisposeRequested();
 
-            case DISPOSED:
-                return lookupSourceFactoryDestroyed;
+            case CLOSED:
+                return NOT_BLOCKED;
         }
         throw new IllegalStateException("Unhandled state: " + state);
     }
@@ -483,7 +483,7 @@ public class HashBuilderOperator
                 disposeUnspilledLookupSourceIfRequested();
                 return;
 
-            case DISPOSED:
+            case CLOSED:
                 // no-op
                 return;
         }
@@ -523,7 +523,7 @@ public class HashBuilderOperator
         localRevocableMemoryContext.setBytes(0);
         localUserMemoryContext.setBytes(index.getEstimatedSize().toBytes());
         lookupSourceSupplier = null;
-        state = State.DISPOSED;
+        close();
     }
 
     private void finishSpilledInput()
@@ -597,7 +597,7 @@ public class HashBuilderOperator
         index.clear();
         localUserMemoryContext.setBytes(index.getEstimatedSize().toBytes());
 
-        state = State.DISPOSED;
+        close();
     }
 
     private LookupSourceSupplier buildLookupSource()
@@ -618,7 +618,7 @@ public class HashBuilderOperator
             return true;
         }
 
-        return state == State.DISPOSED;
+        return state == State.CLOSED;
     }
 
     private SingleStreamSpiller getSpiller()
@@ -629,10 +629,13 @@ public class HashBuilderOperator
     @Override
     public void close()
     {
+        if (state == State.CLOSED) {
+            return;
+        }
         // close() can be called in any state, due for example to query failure, and must clean resource up unconditionally
 
         lookupSourceSupplier = null;
-        state = State.DISPOSED;
+        state = State.CLOSED;
         finishMemoryRevoke = finishMemoryRevoke.map(ifPresent -> () -> {});
 
         try (Closer closer = Closer.create()) {

@@ -15,7 +15,6 @@ package com.facebook.presto.block;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.ArrayType;
@@ -98,7 +97,7 @@ public final class BlockAssertions
 
     public static Block createStringsBlock(Iterable<String> values)
     {
-        BlockBuilder builder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 100);
+        BlockBuilder builder = VARCHAR.createBlockBuilder(null, 100);
 
         for (String value : values) {
             if (value == null) {
@@ -120,7 +119,7 @@ public final class BlockAssertions
 
     public static Block createSlicesBlock(Iterable<Slice> values)
     {
-        BlockBuilder builder = VARBINARY.createBlockBuilder(new BlockBuilderStatus(), 100);
+        BlockBuilder builder = VARBINARY.createBlockBuilder(null, 100);
 
         for (Slice value : values) {
             if (value == null) {
@@ -136,7 +135,7 @@ public final class BlockAssertions
 
     public static Block createStringSequenceBlock(int start, int end)
     {
-        BlockBuilder builder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 100);
+        BlockBuilder builder = VARCHAR.createBlockBuilder(null, 100);
 
         for (int i = start; i < end; i++) {
             VARCHAR.writeString(builder, String.valueOf(i));
@@ -150,7 +149,7 @@ public final class BlockAssertions
         checkArgument(length > 5, "block must have more than 5 entries");
 
         int dictionarySize = length / 5;
-        BlockBuilder builder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), dictionarySize);
+        BlockBuilder builder = VARCHAR.createBlockBuilder(null, dictionarySize);
         for (int i = start; i < start + dictionarySize; i++) {
             VARCHAR.writeString(builder, String.valueOf(i));
         }
@@ -164,7 +163,7 @@ public final class BlockAssertions
     public static Block createStringArraysBlock(Iterable<? extends Iterable<String>> values)
     {
         ArrayType arrayType = new ArrayType(VARCHAR);
-        BlockBuilder builder = arrayType.createBlockBuilder(new BlockBuilderStatus(), 100);
+        BlockBuilder builder = arrayType.createBlockBuilder(null, 100);
 
         for (Iterable<String> value : values) {
             if (value == null) {
@@ -192,7 +191,7 @@ public final class BlockAssertions
 
     public static Block createBooleansBlock(Iterable<Boolean> values)
     {
-        BlockBuilder builder = BOOLEAN.createBlockBuilder(new BlockBuilderStatus(), 100);
+        BlockBuilder builder = BOOLEAN.createBlockBuilder(null, 100);
 
         for (Boolean value : values) {
             if (value == null) {
@@ -216,7 +215,7 @@ public final class BlockAssertions
     public static Block createShortDecimalsBlock(Iterable<String> values)
     {
         DecimalType shortDecimalType = DecimalType.createDecimalType(1);
-        BlockBuilder builder = shortDecimalType.createBlockBuilder(new BlockBuilderStatus(), 100);
+        BlockBuilder builder = shortDecimalType.createBlockBuilder(null, 100);
 
         for (String value : values) {
             if (value == null) {
@@ -240,7 +239,7 @@ public final class BlockAssertions
     public static Block createLongDecimalsBlock(Iterable<String> values)
     {
         DecimalType longDecimalType = DecimalType.createDecimalType(MAX_SHORT_PRECISION + 1);
-        BlockBuilder builder = longDecimalType.createBlockBuilder(new BlockBuilderStatus(), 100);
+        BlockBuilder builder = longDecimalType.createBlockBuilder(null, 100);
 
         for (String value : values) {
             if (value == null) {
@@ -263,7 +262,7 @@ public final class BlockAssertions
 
     public static Block createIntsBlock(Iterable<Integer> values)
     {
-        BlockBuilder builder = INTEGER.createBlockBuilder(new BlockBuilderStatus(), 100);
+        BlockBuilder builder = INTEGER.createBlockBuilder(null, 100);
 
         for (Integer value : values) {
             if (value == null) {
@@ -285,7 +284,7 @@ public final class BlockAssertions
     // This method makes it easy to create blocks without having to add an L to every value
     public static Block createLongsBlock(int... values)
     {
-        BlockBuilder builder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), 100);
+        BlockBuilder builder = BIGINT.createBlockBuilder(null, 100);
 
         for (int value : values) {
             BIGINT.writeLong(builder, (long) value);
@@ -308,7 +307,7 @@ public final class BlockAssertions
 
     public static Block createTypedLongsBlock(Type type, Iterable<Long> values)
     {
-        BlockBuilder builder = type.createBlockBuilder(new BlockBuilderStatus(), 100);
+        BlockBuilder builder = type.createBlockBuilder(null, 100);
 
         for (Long value : values) {
             if (value == null) {
@@ -338,7 +337,7 @@ public final class BlockAssertions
         checkArgument(length > 5, "block must have more than 5 entries");
 
         int dictionarySize = length / 5;
-        BlockBuilder builder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), dictionarySize);
+        BlockBuilder builder = BIGINT.createBlockBuilder(null, dictionarySize);
         for (int i = start; i < start + dictionarySize; i++) {
             BIGINT.writeLong(builder, i);
         }
@@ -387,7 +386,7 @@ public final class BlockAssertions
 
     private static Block createBlockOfReals(Iterable<Float> values)
     {
-        BlockBuilder builder = REAL.createBlockBuilder(new BlockBuilderStatus(), 100);
+        BlockBuilder builder = REAL.createBlockBuilder(null, 100);
         for (Float value : values) {
             if (value == null) {
                 builder.appendNull();
@@ -419,7 +418,7 @@ public final class BlockAssertions
 
     public static Block createDoublesBlock(Iterable<Double> values)
     {
-        BlockBuilder builder = DOUBLE.createBlockBuilder(new BlockBuilderStatus(), 100);
+        BlockBuilder builder = DOUBLE.createBlockBuilder(null, 100);
 
         for (Double value : values) {
             if (value == null) {
@@ -447,7 +446,7 @@ public final class BlockAssertions
     public static Block createArrayBigintBlock(Iterable<? extends Iterable<Long>> values)
     {
         ArrayType arrayType = new ArrayType(BIGINT);
-        BlockBuilder builder = arrayType.createBlockBuilder(new BlockBuilderStatus(), 100);
+        BlockBuilder builder = arrayType.createBlockBuilder(null, 100);
 
         for (Iterable<Long> value : values) {
             if (value == null) {
@@ -509,14 +508,14 @@ public final class BlockAssertions
 
     public static RunLengthEncodedBlock createRLEBlock(double value, int positionCount)
     {
-        BlockBuilder blockBuilder = DOUBLE.createBlockBuilder(new BlockBuilderStatus(), 1);
+        BlockBuilder blockBuilder = DOUBLE.createBlockBuilder(null, 1);
         DOUBLE.writeDouble(blockBuilder, value);
         return new RunLengthEncodedBlock(blockBuilder.build(), positionCount);
     }
 
     public static RunLengthEncodedBlock createRLEBlock(long value, int positionCount)
     {
-        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), 1);
+        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, 1);
         BIGINT.writeLong(blockBuilder, value);
         return new RunLengthEncodedBlock(blockBuilder.build(), positionCount);
     }

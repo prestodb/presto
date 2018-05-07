@@ -20,7 +20,6 @@ import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -88,10 +87,10 @@ public class ArrayFlattenFunction
     public static Block flatten(Type type, Type arrayType, Block array)
     {
         if (array.getPositionCount() == 0) {
-            return type.createBlockBuilder(new BlockBuilderStatus(), 0).build();
+            return type.createBlockBuilder(null, 0).build();
         }
 
-        BlockBuilder builder = type.createBlockBuilder(new BlockBuilderStatus(), array.getPositionCount(), toIntExact(array.getSizeInBytes() / array.getPositionCount()));
+        BlockBuilder builder = type.createBlockBuilder(null, array.getPositionCount(), toIntExact(array.getSizeInBytes() / array.getPositionCount()));
         for (int i = 0; i < array.getPositionCount(); i++) {
             if (!array.isNull(i)) {
                 Block subArray = (Block) arrayType.getObject(array, i);

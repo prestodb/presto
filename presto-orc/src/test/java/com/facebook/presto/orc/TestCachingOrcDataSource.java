@@ -47,7 +47,7 @@ import static com.facebook.presto.orc.OrcRecordReader.LinearProbeRangeFinder.cre
 import static com.facebook.presto.orc.OrcRecordReader.wrapWithCacheIfTinyStripes;
 import static com.facebook.presto.orc.OrcTester.Format.ORC_12;
 import static com.facebook.presto.orc.OrcTester.HIVE_STORAGE_TIME_ZONE;
-import static com.facebook.presto.orc.OrcTester.writeOrcFileColumnOld;
+import static com.facebook.presto.orc.OrcTester.writeOrcFileColumnHive;
 import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
 import static com.facebook.presto.orc.metadata.CompressionKind.ZLIB;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -71,7 +71,7 @@ public class TestCachingOrcDataSource
         tempFile = new TempFile();
         Random random = new Random();
         Iterator<String> iterator = Stream.generate(() -> Long.toHexString(random.nextLong())).limit(POSITION_COUNT).iterator();
-        writeOrcFileColumnOld(
+        writeOrcFileColumnHive(
                 tempFile.getFile(),
                 ORC_12,
                 createOrcRecordWriter(tempFile.getFile(), ORC_12, ZLIB, javaStringObjectInspector),

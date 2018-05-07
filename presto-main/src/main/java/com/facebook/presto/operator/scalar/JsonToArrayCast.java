@@ -21,7 +21,6 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.StandardTypes;
@@ -96,7 +95,7 @@ public class JsonToArrayCast
             if (jsonParser.getCurrentToken() != START_ARRAY) {
                 throw new JsonCastException(format("Expected a json array, but got %s", jsonParser.getText()));
             }
-            BlockBuilder blockBuilder = arrayType.getElementType().createBlockBuilder(new BlockBuilderStatus(), 20);
+            BlockBuilder blockBuilder = arrayType.getElementType().createBlockBuilder(null, 20);
             while (jsonParser.nextToken() != JsonToken.END_ARRAY) {
                 elementAppender.append(jsonParser, blockBuilder);
             }

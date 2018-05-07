@@ -32,7 +32,10 @@ import static com.google.common.base.MoreObjects.firstNonNull;
 public class TpchConnectorFactory
         implements ConnectorFactory
 {
+    public static final String TPCH_COLUMN_NAMING_PROPERTY = "tpch.column-naming";
+
     private final int defaultSplitsPerNode;
+    private final boolean predicatePushdownEnabled;
 
     public TpchConnectorFactory()
     {
@@ -41,7 +44,13 @@ public class TpchConnectorFactory
 
     public TpchConnectorFactory(int defaultSplitsPerNode)
     {
+        this(defaultSplitsPerNode, true);
+    }
+
+    public TpchConnectorFactory(int defaultSplitsPerNode, boolean predicatePushdownEnabled)
+    {
         this.defaultSplitsPerNode = defaultSplitsPerNode;
+        this.predicatePushdownEnabled = predicatePushdownEnabled;
     }
 
     @Override
@@ -60,7 +69,7 @@ public class TpchConnectorFactory
     public Connector create(String connectorId, Map<String, String> properties, ConnectorContext context)
     {
         int splitsPerNode = getSplitsPerNode(properties);
-        ColumnNaming columnNaming = ColumnNaming.valueOf(properties.getOrDefault("tpch.column-naming", ColumnNaming.SIMPLIFIED.name()).toUpperCase());
+        ColumnNaming columnNaming = ColumnNaming.valueOf(properties.getOrDefault(TPCH_COLUMN_NAMING_PROPERTY, ColumnNaming.SIMPLIFIED.name()).toUpperCase());
         NodeManager nodeManager = context.getNodeManager();
 
         return new Connector()
@@ -74,7 +83,7 @@ public class TpchConnectorFactory
             @Override
             public ConnectorMetadata getMetadata(ConnectorTransactionHandle transaction)
             {
-                return new TpchMetadata(connectorId, columnNaming);
+                return new TpchMetadata(connectorId, columnNaming, predicatePushdownEnabled);
             }
 
             @Override

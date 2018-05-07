@@ -30,6 +30,7 @@ import com.facebook.presto.hive.metastore.thrift.ThriftHiveMetastore;
 import com.facebook.presto.hive.s3.HiveS3Config;
 import com.facebook.presto.hive.s3.PrestoS3ConfigurationUpdater;
 import com.facebook.presto.hive.s3.S3ConfigurationUpdater;
+import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
@@ -50,12 +51,12 @@ import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.facebook.presto.testing.TestingNodeManager;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
@@ -70,6 +71,8 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -212,21 +215,21 @@ public abstract class AbstractTestHiveClientS3
                 getDefaultHiveFileWriterFactories(config),
                 hdfsEnvironment,
                 metastoreClient,
-                new GroupByHashPageIndexerFactory(new JoinCompiler()),
+                new GroupByHashPageIndexerFactory(new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig())),
                 TYPE_MANAGER,
                 new HiveClientConfig(),
                 locationService,
                 partitionUpdateCodec,
                 new TestingNodeManager("fake-environment"),
                 new HiveEventClient(),
-                new HiveSessionProperties(config),
+                new HiveSessionProperties(config, new OrcFileWriterConfig()),
                 new HiveWriterStats());
         pageSourceProvider = new HivePageSourceProvider(config, hdfsEnvironment, getDefaultHiveRecordCursorProvider(config), getDefaultHiveDataStreamFactories(config), TYPE_MANAGER);
     }
 
     protected ConnectorSession newSession()
     {
-        return new TestingConnectorSession(new HiveSessionProperties(new HiveClientConfig()).getSessionProperties());
+        return new TestingConnectorSession(new HiveSessionProperties(new HiveClientConfig(), new OrcFileWriterConfig()).getSessionProperties());
     }
 
     protected Transaction newTransaction()
@@ -270,7 +273,7 @@ public abstract class AbstractTestHiveClientS3
     public void testGetFileStatus()
             throws Exception
     {
-        Path basePath = new Path("s3://presto-test-hive/");
+        Path basePath = new Path(format("s3://%s/", writableBucket));
         Path tablePath = new Path(basePath, "presto_test_s3");
         Path filePath = new Path(tablePath, "test1.csv");
         FileSystem fs = hdfsEnvironment.getFileSystem(TESTING_CONTEXT, basePath);
@@ -307,7 +310,7 @@ public abstract class AbstractTestHiveClientS3
         assertTrue(fs.exists(path));
 
         // rename foo.txt to foo.txt
-        assertTrue(fs.rename(path, path));
+        assertTrue(!fs.rename(path, path));
         assertTrue(fs.exists(path));
 
         // delete foo.txt
@@ -398,7 +401,7 @@ public abstract class AbstractTestHiveClientS3
             metastoreClient.updateTableLocation(
                     database,
                     tableName.getTableName(),
-                    locationService.writePathRoot(((HiveOutputTableHandle) outputHandle).getLocationHandle()).get().toString());
+                    locationService.targetPath(((HiveOutputTableHandle) outputHandle).getLocationHandle(), Optional.empty()).toString());
         }
 
         try (Transaction transaction = newTransaction()) {
@@ -515,8 +518,8 @@ public abstract class AbstractTestHiveClientS3
                     }
                 }
             }
-            catch (Exception e) {
-                throw Throwables.propagate(e);
+            catch (IOException e) {
+                throw new UncheckedIOException(e);
             }
             finally {
                 invalidateTable(databaseName, tableName);

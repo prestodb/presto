@@ -13,9 +13,6 @@
  */
 package com.facebook.presto.verifier;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
-
 public class QueryPair
 {
     private final String suite;
@@ -23,12 +20,7 @@ public class QueryPair
     private final Query test;
     private final Query control;
 
-    @JsonCreator
-    public QueryPair(
-            @JsonProperty("suite") String suite,
-            @JsonProperty("name") String name,
-            @JsonProperty("test") Query test,
-            @JsonProperty("control") Query control)
+    public QueryPair(String suite, String name, Query test, Query control)
     {
         this.suite = suite;
         this.name = name;
@@ -36,25 +28,21 @@ public class QueryPair
         this.control = control;
     }
 
-    @JsonProperty
     public String getSuite()
     {
         return suite;
     }
 
-    @JsonProperty
     public String getName()
     {
         return name;
     }
 
-    @JsonProperty
     public Query getTest()
     {
         return test;
     }
 
-    @JsonProperty
     public Query getControl()
     {
         return control;

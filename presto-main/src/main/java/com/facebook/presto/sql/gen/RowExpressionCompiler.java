@@ -143,8 +143,7 @@ public class RowExpressionCompiler
                     context.getScope(),
                     callSiteBinder,
                     cachedInstanceBinder,
-                    registry,
-                    preGeneratedExpressions);
+                    registry);
 
             return generator.generateExpression(call.getSignature(), generatorContext, call.getType(), call.getArguments());
         }
@@ -215,8 +214,7 @@ public class RowExpressionCompiler
                     context.getScope(),
                     callSiteBinder,
                     cachedInstanceBinder,
-                    registry,
-                    preGeneratedExpressions);
+                    registry);
 
             return generateLambda(
                     generatorContext,

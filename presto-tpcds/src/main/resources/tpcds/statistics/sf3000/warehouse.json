@@ -1,0 +1,68 @@
+ {
+    "rowCount" : 22.0,
+     "columns" : {
+        "w_suite_number" : {
+             "distinctValuesCount" : 19.0,
+             "nullsCount" : 1.000000
+        },
+        "w_street_name" : {
+             "distinctValuesCount" : 19.0,
+             "nullsCount" : 1.000000
+        },
+        "w_country" : {
+             "distinctValuesCount" : 1.0,
+             "nullsCount" : 0.000000
+        },
+        "w_warehouse_id" : {
+             "distinctValuesCount" : 18.0,
+             "nullsCount" : 0.000000
+        },
+        "w_warehouse_sq_ft" : {
+             "distinctValuesCount" : 29.0,
+             "nullsCount" : 1.000000,
+             "min" : 73065,
+             "max" : 977787
+        },
+        "w_city" : {
+             "distinctValuesCount" : 12.0,
+             "nullsCount" : 0.000000
+        },
+        "w_street_number" : {
+             "distinctValuesCount" : 15.0,
+             "nullsCount" : 1.000000
+        },
+        "w_county" : {
+             "distinctValuesCount" : 19.0,
+             "nullsCount" : 0.000000
+        },
+        "w_warehouse_name" : {
+             "distinctValuesCount" : 18.0,
+             "nullsCount" : 1.000000
+        },
+        "w_street_type" : {
+             "distinctValuesCount" : 16.0,
+             "nullsCount" : 1.000000
+        },
+        "w_state" : {
+             "distinctValuesCount" : 13.0,
+             "nullsCount" : 0.000000
+        },
+        "w_zip" : {
+             "distinctValuesCount" : 22.0,
+             "nullsCount" : 0.000000
+        },
+        "w_warehouse_sk" : {
+             "distinctValuesCount" : 18.0,
+             "nullsCount" : 0.000000,
+             "min" : 1,
+             "max" : 22
+        },
+        "w_gmt_offset" : {
+             "distinctValuesCount" : 3.0,
+             "nullsCount" : 1.000000,
+             "min" : -700,
+             "max" : -500
+        },
+        "dummyColumn" : {}
+    }
+}

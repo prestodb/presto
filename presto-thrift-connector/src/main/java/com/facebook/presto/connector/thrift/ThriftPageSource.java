@@ -17,24 +17,28 @@ import com.facebook.presto.connector.thrift.api.PrestoThriftId;
 import com.facebook.presto.connector.thrift.api.PrestoThriftNullableToken;
 import com.facebook.presto.connector.thrift.api.PrestoThriftPageResult;
 import com.facebook.presto.connector.thrift.api.PrestoThriftService;
-import com.facebook.presto.connector.thrift.clientproviders.PrestoThriftServiceProvider;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
+import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.drift.client.DriftClient;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static com.facebook.presto.connector.thrift.util.ThriftExceptions.catchingThriftException;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 public class ThriftPageSource
         implements ConnectorPageSource
@@ -53,7 +57,7 @@ public class ThriftPageSource
     private long completedBytes;
 
     public ThriftPageSource(
-            PrestoThriftServiceProvider clientProvider,
+            DriftClient<PrestoThriftService> client,
             ThriftConnectorSplit split,
             List<ColumnHandle> columns,
             ThriftConnectorStats stats,
@@ -82,12 +86,14 @@ public class ThriftPageSource
         this.splitId = split.getSplitId();
 
         // init client
-        requireNonNull(clientProvider, "clientProvider is null");
+        requireNonNull(client, "client is null");
         if (split.getAddresses().isEmpty()) {
-            this.client = clientProvider.anyHostClient();
+            this.client = client.get();
         }
         else {
-            this.client = clientProvider.selectedHostClient(split.getAddresses());
+            this.client = client.get(Optional.of(split.getAddresses().stream()
+                    .map(HostAddress::toString)
+                    .collect(joining(","))));
         }
     }
 
@@ -159,6 +165,7 @@ public class ThriftPageSource
                 columnNames,
                 maxBytesPerResponse,
                 new PrestoThriftNullableToken(nextToken));
+        rowsBatchFuture = catchingThriftException(rowsBatchFuture);
         rowsBatchFuture.addListener(() -> readTimeNanos.addAndGet(System.nanoTime() - start), directExecutor());
         return toCompletableFuture(nonCancellationPropagating(rowsBatchFuture));
     }
@@ -191,6 +198,5 @@ public class ThriftPageSource
         if (future != null) {
             future.cancel(true);
         }
-        client.close();
     }
 }

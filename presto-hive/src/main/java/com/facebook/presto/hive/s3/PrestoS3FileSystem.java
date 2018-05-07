@@ -394,7 +394,7 @@ public class PrestoS3FileSystem
         }
 
         if (keysEqual(src, dst)) {
-            return true;
+            return false;
         }
 
         if (srcDirectory) {

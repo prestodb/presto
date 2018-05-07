@@ -15,6 +15,8 @@ package com.facebook.presto.resourceGroups.db;
 
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
+import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
+import com.facebook.presto.spi.session.ResourceEstimates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
@@ -31,6 +33,7 @@ import static org.testng.Assert.assertEquals;
 public class TestDbSourceExactMatchSelector
 {
     private static final JsonCodec<ResourceGroupId> CODEC = JsonCodec.jsonCodec(ResourceGroupId.class);
+    private static final ResourceEstimates EMPTY_RESOURCE_ESTIMATES = new ResourceEstimates(Optional.empty(), Optional.empty(), Optional.empty());
     private H2ResourceGroupsDao dao;
 
     @BeforeClass
@@ -52,20 +55,20 @@ public class TestDbSourceExactMatchSelector
         DbSourceExactMatchSelector selector = new DbSourceExactMatchSelector("test", dao);
 
         assertEquals(
-                selector.match(new SelectionContext(true, "testuser", Optional.of("@test@test_pipeline"), ImmutableSet.of("tag"), 1, Optional.empty())),
+                selector.match(new SelectionCriteria(true, "testuser", Optional.of("@test@test_pipeline"), ImmutableSet.of("tag"), EMPTY_RESOURCE_ESTIMATES, Optional.empty())),
                 Optional.empty());
         assertEquals(
-                selector.match(new SelectionContext(true, "testuser", Optional.of("@test@test_pipeline"), ImmutableSet.of("tag"), 1, Optional.of(INSERT.name()))),
+                selector.match(new SelectionCriteria(true, "testuser", Optional.of("@test@test_pipeline"), ImmutableSet.of("tag"), EMPTY_RESOURCE_ESTIMATES, Optional.of(INSERT.name()))).map(SelectionContext::getResourceGroupId),
                 Optional.of(resourceGroupId1));
         assertEquals(
-                selector.match(new SelectionContext(true, "testuser", Optional.of("@test@test_pipeline"), ImmutableSet.of("tag"), 1, Optional.of(SELECT.name()))),
+                selector.match(new SelectionCriteria(true, "testuser", Optional.of("@test@test_pipeline"), ImmutableSet.of("tag"), EMPTY_RESOURCE_ESTIMATES, Optional.of(SELECT.name()))).map(SelectionContext::getResourceGroupId),
                 Optional.of(resourceGroupId2));
         assertEquals(
-                selector.match(new SelectionContext(true, "testuser", Optional.of("@test@test_pipeline"), ImmutableSet.of("tag"), 1, Optional.of(DELETE.name()))),
+                selector.match(new SelectionCriteria(true, "testuser", Optional.of("@test@test_pipeline"), ImmutableSet.of("tag"), EMPTY_RESOURCE_ESTIMATES, Optional.of(DELETE.name()))),
                 Optional.empty());
 
         assertEquals(
-                selector.match(new SelectionContext(true, "testuser", Optional.of("@test@test_new"), ImmutableSet.of(), 1, Optional.of(INSERT.name()))),
+                selector.match(new SelectionCriteria(true, "testuser", Optional.of("@test@test_new"), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, Optional.of(INSERT.name()))),
                 Optional.empty());
     }
 }

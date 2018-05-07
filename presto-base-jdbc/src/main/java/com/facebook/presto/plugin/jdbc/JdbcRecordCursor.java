@@ -13,9 +13,10 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
+import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Throwables;
 import com.google.common.base.VerifyException;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
@@ -27,9 +28,11 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
 
+import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public class JdbcRecordCursor
         implements RecordCursor
@@ -42,13 +45,16 @@ public class JdbcRecordCursor
     private final LongReadFunction[] longReadFunctions;
     private final SliceReadFunction[] sliceReadFunctions;
 
+    private final JdbcClient jdbcClient;
     private final Connection connection;
     private final PreparedStatement statement;
     private final ResultSet resultSet;
     private boolean closed;
 
-    public JdbcRecordCursor(JdbcClient jdbcClient, JdbcSplit split, List<JdbcColumnHandle> columnHandles)
+    public JdbcRecordCursor(JdbcClient jdbcClient, ConnectorSession session, JdbcSplit split, List<JdbcColumnHandle> columnHandles)
     {
+        this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
+
         this.columnHandles = columnHandles.toArray(new JdbcColumnHandle[0]);
 
         booleanReadFunctions = new BooleanReadFunction[columnHandles.size()];
@@ -57,7 +63,7 @@ public class JdbcRecordCursor
         sliceReadFunctions = new SliceReadFunction[columnHandles.size()];
 
         for (int i = 0; i < this.columnHandles.length; i++) {
-            ReadMapping readMapping = jdbcClient.toPrestoType(columnHandles.get(i).getJdbcTypeHandle())
+            ReadMapping readMapping = jdbcClient.toPrestoType(session, columnHandles.get(i).getJdbcTypeHandle())
                     .orElseThrow(() -> new VerifyException("Unsupported column type"));
             Class<?> javaType = readMapping.getType().getJavaType();
             ReadFunction readFunction = readMapping.getReadFunction();
@@ -116,11 +122,7 @@ public class JdbcRecordCursor
         }
 
         try {
-            boolean result = resultSet.next();
-            if (!result) {
-                close();
-            }
-            return result;
+            return resultSet.next();
         }
         catch (SQLException | RuntimeException e) {
             throw handleSqlException(e);
@@ -200,7 +202,7 @@ public class JdbcRecordCursor
         }
     }
 
-    @SuppressWarnings({"UnusedDeclaration", "EmptyTryBlock"})
+    @SuppressWarnings("UnusedDeclaration")
     @Override
     public void close()
     {
@@ -213,10 +215,10 @@ public class JdbcRecordCursor
         try (Connection connection = this.connection;
                 Statement statement = this.statement;
                 ResultSet resultSet = this.resultSet) {
-            // do nothing
+            jdbcClient.abortReadConnection(connection);
         }
         catch (SQLException e) {
-            throw new RuntimeException(e);
+            // ignore exception from close
         }
     }
 
@@ -231,6 +233,6 @@ public class JdbcRecordCursor
                 e.addSuppressed(closeException);
             }
         }
-        return Throwables.propagate(e);
+        return new PrestoException(JDBC_ERROR, e);
     }
 }

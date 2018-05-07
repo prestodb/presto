@@ -13,8 +13,11 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.RowPagesBuilder;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.OutputTableHandle;
+import com.facebook.presto.operator.TableWriterOperator.TableWriterInfo;
+import com.facebook.presto.operator.TableWriterOperator.TableWriterOperatorFactory;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorPageSink;
@@ -32,7 +35,9 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
@@ -43,9 +48,13 @@ import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertTrue;
 
 public class TestTableWriterOperator
 {
@@ -74,38 +83,38 @@ public class TestTableWriterOperator
         Operator operator = createTableWriterOperator(blockingPageSink);
 
         // initial state validation
-        assertEquals(operator.isBlocked().isDone(), true);
-        assertEquals(operator.isFinished(), false);
-        assertEquals(operator.needsInput(), true);
+        assertTrue(operator.isBlocked().isDone());
+        assertFalse(operator.isFinished());
+        assertTrue(operator.needsInput());
 
         // blockingPageSink that will return blocked future
         operator.addInput(rowPagesBuilder(BIGINT).row(42).build().get(0));
 
-        assertEquals(operator.isBlocked().isDone(), false);
-        assertEquals(operator.isFinished(), false);
-        assertEquals(operator.needsInput(), false);
-        assertEquals(operator.getOutput(), null);
+        assertFalse(operator.isBlocked().isDone());
+        assertFalse(operator.isFinished());
+        assertFalse(operator.needsInput());
+        assertNull(operator.getOutput());
 
         // complete previously blocked future
         blockingPageSink.complete();
 
-        assertEquals(operator.isBlocked().isDone(), true);
-        assertEquals(operator.isFinished(), false);
-        assertEquals(operator.needsInput(), true);
+        assertTrue(operator.isBlocked().isDone());
+        assertFalse(operator.isFinished());
+        assertTrue(operator.needsInput());
 
         // add second page
         operator.addInput(rowPagesBuilder(BIGINT).row(44).build().get(0));
 
-        assertEquals(operator.isBlocked().isDone(), false);
-        assertEquals(operator.isFinished(), false);
-        assertEquals(operator.needsInput(), false);
+        assertFalse(operator.isBlocked().isDone());
+        assertFalse(operator.isFinished());
+        assertFalse(operator.needsInput());
 
         // finish operator, state hasn't changed
         operator.finish();
 
-        assertEquals(operator.isBlocked().isDone(), false);
-        assertEquals(operator.isFinished(), false);
-        assertEquals(operator.needsInput(), false);
+        assertFalse(operator.isBlocked().isDone());
+        assertFalse(operator.isFinished());
+        assertFalse(operator.needsInput());
 
         // complete previously blocked future
         blockingPageSink.complete();
@@ -115,9 +124,9 @@ public class TestTableWriterOperator
                 operator.getOutput(),
                 rowPagesBuilder(TableWriterOperator.TYPES).row(2, null).build().get(0));
 
-        assertEquals(operator.isBlocked().isDone(), true);
-        assertEquals(operator.isFinished(), true);
-        assertEquals(operator.needsInput(), false);
+        assertTrue(operator.isBlocked().isDone());
+        assertTrue(operator.isFinished());
+        assertFalse(operator.needsInput());
     }
 
     @Test(expectedExceptions = IllegalStateException.class)
@@ -127,21 +136,48 @@ public class TestTableWriterOperator
 
         operator.addInput(rowPagesBuilder(BIGINT).row(42).build().get(0));
 
-        assertEquals(operator.isBlocked().isDone(), false);
-        assertEquals(operator.needsInput(), false);
+        assertFalse(operator.isBlocked().isDone());
+        assertFalse(operator.needsInput());
 
         operator.addInput(rowPagesBuilder(BIGINT).row(42).build().get(0));
     }
 
+    @Test
+    public void testTableWriterInfo()
+    {
+        PageSinkManager pageSinkManager = new PageSinkManager();
+        pageSinkManager.addConnectorPageSinkProvider(CONNECTOR_ID, new ConstantPageSinkProvider(new MemoryAccountingTestPageSink()));
+        TableWriterOperator tableWriterOperator = (TableWriterOperator) createTableWriterOperator(pageSinkManager);
+
+        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(BIGINT);
+        for (int i = 0; i < 100; i++) {
+            rowPagesBuilder.addSequencePage(100, 0);
+        }
+        List<Page> pages = rowPagesBuilder.build();
+
+        long peakMemoryUsage = 0;
+        for (int i = 0; i < pages.size(); i++) {
+            Page page = pages.get(i);
+            peakMemoryUsage += page.getRetainedSizeInBytes();
+            tableWriterOperator.addInput(page);
+            TableWriterInfo info = tableWriterOperator.getInfo();
+            assertEquals(info.getPageSinkPeakMemoryUsage(), peakMemoryUsage);
+        }
+    }
+
     private Operator createTableWriterOperator(BlockingPageSink blockingPageSink)
     {
-        PageSinkManager pageSinkProvider = new PageSinkManager();
-        pageSinkProvider.addConnectorPageSinkProvider(CONNECTOR_ID, new ConstantPageSinkProvider(blockingPageSink));
+        PageSinkManager pageSinkManager = new PageSinkManager();
+        pageSinkManager.addConnectorPageSinkProvider(CONNECTOR_ID, new ConstantPageSinkProvider(blockingPageSink));
+        return createTableWriterOperator(pageSinkManager);
+    }
 
-        TableWriterOperator.TableWriterOperatorFactory factory = new TableWriterOperator.TableWriterOperatorFactory(
+    private Operator createTableWriterOperator(PageSinkManager pageSinkManager)
+    {
+        TableWriterOperatorFactory factory = new TableWriterOperatorFactory(
                 0,
                 new PlanNodeId("test"),
-                pageSinkProvider,
+                pageSinkManager,
                 new TableWriterNode.CreateHandle(new OutputTableHandle(
                         CONNECTOR_ID,
                         new ConnectorTransactionHandle() {},
@@ -178,7 +214,7 @@ public class TestTableWriterOperator
         }
     }
 
-    private class BlockingPageSink
+    private static class BlockingPageSink
             implements ConnectorPageSink
     {
         private CompletableFuture<?> future = new CompletableFuture<>();
@@ -203,10 +239,42 @@ public class TestTableWriterOperator
         {
         }
 
-        public void complete()
+        void complete()
         {
             future.complete(null);
             finishFuture.complete(ImmutableList.of());
         }
+    }
+
+    private static class MemoryAccountingTestPageSink
+            implements ConnectorPageSink
+    {
+        private final List<Page> pages = new ArrayList<>();
+
+        @Override
+        public CompletableFuture<?> appendPage(Page page)
+        {
+            pages.add(page);
+            return NOT_BLOCKED;
+        }
+
+        @Override
+        public CompletableFuture<Collection<Slice>> finish()
+        {
+            return completedFuture(ImmutableList.of());
+        }
+
+        @Override
+        public long getSystemMemoryUsage()
+        {
+            long memoryUsage = 0;
+            for (Page page : pages) {
+                memoryUsage += page.getRetainedSizeInBytes();
+            }
+            return memoryUsage;
+        }
+
+        @Override
+        public void abort() {}
     }
 }

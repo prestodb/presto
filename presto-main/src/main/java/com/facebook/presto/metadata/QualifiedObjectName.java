@@ -80,6 +80,11 @@ public class QualifiedObjectName
         return new CatalogSchemaTableName(catalogName, schemaName, objectName);
     }
 
+    public QualifiedTablePrefix asQualifiedTablePrefix()
+    {
+        return new QualifiedTablePrefix(catalogName, schemaName, objectName);
+    }
+
     @Override
     public boolean equals(Object obj)
     {

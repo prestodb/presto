@@ -14,8 +14,11 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.RowPagesBuilder;
+import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.SortOrder;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.MaterializedResult;
@@ -33,6 +36,8 @@ import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.operator.GroupByHashYieldAssertion.createPagesWithDistinctHashKeys;
+import static com.facebook.presto.operator.GroupByHashYieldAssertion.finishOperatorWithYieldingGroupByHash;
 import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEquals;
 import static com.facebook.presto.operator.TopNRowNumberOperator.TopNRowNumberOperatorFactory;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -40,8 +45,10 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.testing.Assertions.assertGreaterThan;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
 public class TestTopNRowNumberOperator
@@ -59,7 +66,7 @@ public class TestTopNRowNumberOperator
         driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION)
                 .addPipelineContext(0, true, true)
                 .addDriverContext();
-        joinCompiler = new JoinCompiler();
+        joinCompiler = new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig());
     }
 
     @AfterMethod
@@ -75,8 +82,14 @@ public class TestTopNRowNumberOperator
         return new Object[][] {{true}, {false}};
     }
 
+    @DataProvider
+    public Object[][] partial()
+    {
+        return new Object[][] {{true}, {false}};
+    }
+
     @Test(dataProvider = "hashEnabledValues")
-    public void testTopNRowNumberPartitioned(boolean hashEnabled)
+    public void testPartitioned(boolean hashEnabled)
     {
         RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), BIGINT, DOUBLE);
         List<Page> input = rowPagesBuilder
@@ -124,8 +137,8 @@ public class TestTopNRowNumberOperator
         assertOperatorEquals(operatorFactory, driverContext, input, expected);
     }
 
-    @Test
-    public void testTopNRowNumberUnPartitioned()
+    @Test(dataProvider = "partial")
+    public void testUnPartitioned(boolean partial)
     {
         List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
                 .row(1L, 0.3)
@@ -153,17 +166,68 @@ public class TestTopNRowNumberOperator
                 Ints.asList(1),
                 ImmutableList.of(SortOrder.ASC_NULLS_LAST),
                 3,
+                partial,
+                Optional.empty(),
+                10,
+                joinCompiler);
+
+        MaterializedResult expected;
+        if (partial) {
+            expected = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT)
+                    .row(0.1, 3L)
+                    .row(0.2, 2L)
+                    .row(0.3, 1L)
+                    .build();
+        }
+        else {
+            expected = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT, BIGINT)
+                    .row(0.1, 3L, 1L)
+                    .row(0.2, 2L, 2L)
+                    .row(0.3, 1L, 3L)
+                    .build();
+        }
+
+        assertOperatorEquals(operatorFactory, driverContext, input, expected);
+    }
+
+    public void testMemoryReservationYield()
+    {
+        Type type = BIGINT;
+        List<Page> input = createPagesWithDistinctHashKeys(type, 6_000, 600);
+
+        OperatorFactory operatorFactory = new TopNRowNumberOperatorFactory(
+                0,
+                new PlanNodeId("test"),
+                ImmutableList.of(type),
+                ImmutableList.of(0),
+                ImmutableList.of(0),
+                ImmutableList.of(type),
+                Ints.asList(0),
+                ImmutableList.of(SortOrder.ASC_NULLS_LAST),
+                3,
                 false,
                 Optional.empty(),
                 10,
                 joinCompiler);
 
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT, BIGINT)
-                .row(0.1, 3L, 1L)
-                .row(0.2, 2L, 2L)
-                .row(0.3, 1L, 3L)
-                .build();
+        // get result with yield; pick a relatively small buffer for heaps
+        GroupByHashYieldAssertion.GroupByHashYieldResult result = finishOperatorWithYieldingGroupByHash(
+                input,
+                type,
+                operatorFactory,
+                operator -> ((TopNRowNumberOperator) operator).getCapacity(),
+                1_000_000);
+        assertGreaterThan(result.getYieldCount(), 3);
+        assertGreaterThan(result.getMaxReservedBytes(), 5L << 20);
 
-        assertOperatorEquals(operatorFactory, driverContext, input, expected);
+        int count = 0;
+        for (Page page : result.getOutput()) {
+            assertEquals(page.getChannelCount(), 2);
+            for (int i = 0; i < page.getPositionCount(); i++) {
+                assertEquals(page.getBlock(1).getByte(i, 0), 1);
+                count++;
+            }
+        }
+        assertEquals(count, 6_000 * 600);
     }
 }

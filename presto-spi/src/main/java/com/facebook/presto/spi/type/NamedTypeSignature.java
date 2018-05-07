@@ -17,25 +17,31 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import static java.lang.String.format;
 
 public class NamedTypeSignature
 {
-    private final String name;
+    private final Optional<String> name;
     private final TypeSignature typeSignature;
 
     @JsonCreator
     public NamedTypeSignature(
-            @JsonProperty("name") String name,
+            @JsonProperty("name") Optional<String> name,
             @JsonProperty("typeSignature") TypeSignature typeSignature)
     {
         this.name = name;
         this.typeSignature = typeSignature;
     }
 
+    public NamedTypeSignature(String name, TypeSignature typeSignature)
+    {
+        this(Optional.of(name), typeSignature);
+    }
+
     @JsonProperty
-    public String getName()
+    public Optional<String> getName()
     {
         return name;
     }
@@ -65,7 +71,10 @@ public class NamedTypeSignature
     @Override
     public String toString()
     {
-        return format("%s %s", name, typeSignature);
+        if (name.isPresent()) {
+            return format("%s %s", name.get(), typeSignature);
+        }
+        return typeSignature.toString();
     }
 
     @Override

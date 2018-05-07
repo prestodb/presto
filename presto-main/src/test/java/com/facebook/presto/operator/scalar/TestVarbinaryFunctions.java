@@ -14,7 +14,6 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.SqlVarbinary;
 import com.facebook.presto.type.VarbinaryOperators;
 import io.airlift.slice.Slice;
@@ -25,6 +24,8 @@ import java.util.Base64;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.io.BaseEncoding.base16;
@@ -201,6 +202,23 @@ public class TestVarbinaryFunctions
     }
 
     @Test
+    public void testFromIEEE754Binary32()
+    {
+        assertFunction("from_ieee754_32(from_hex('3F800000'))", REAL, 1.0f);
+        assertFunction("from_ieee754_32(to_ieee754_32(CAST(1.0 AS REAL)))", REAL, 1.0f);
+        assertFunction("from_ieee754_32(from_hex('4048F5C3'))", REAL, 3.14f);
+        assertFunction("from_ieee754_32(to_ieee754_32(CAST(3.14 AS REAL)))", REAL, 3.14f);
+        assertFunction("from_ieee754_32(to_ieee754_32(CAST(NAN() AS REAL)))", REAL, Float.NaN);
+        assertFunction("from_ieee754_32(to_ieee754_32(CAST(INFINITY() AS REAL)))", REAL, Float.POSITIVE_INFINITY);
+        assertFunction("from_ieee754_32(to_ieee754_32(CAST(-INFINITY() AS REAL)))", REAL, Float.NEGATIVE_INFINITY);
+        assertFunction("from_ieee754_32(to_ieee754_32(CAST(3.4028235E38 AS REAL)))", REAL, 3.4028235E38f);
+        assertFunction("from_ieee754_32(to_ieee754_32(CAST(-3.4028235E38 AS REAL)))", REAL, -3.4028235E38f);
+        assertFunction("from_ieee754_32(to_ieee754_32(CAST(1.4E-45 AS REAL)))", REAL, 1.4E-45f);
+        assertFunction("from_ieee754_32(to_ieee754_32(CAST(-1.4E-45 AS REAL)))", REAL, -1.4E-45f);
+        assertInvalidFunction("from_ieee754_32(from_hex('0000'))", "Input floating-point value must be exactly 4 bytes long");
+    }
+
+    @Test
     public void testToIEEE754Binary64()
     {
         assertFunction("to_ieee754_64(0.0)", VARBINARY, sqlVarbinaryHex("0000000000000000"));
@@ -213,6 +231,22 @@ public class TestVarbinaryFunctions
         assertFunction("to_ieee754_64(-1.7976931348623157E308)", VARBINARY, sqlVarbinaryHex("FFEFFFFFFFFFFFFF"));
         assertFunction("to_ieee754_64(4.9E-324)", VARBINARY, sqlVarbinaryHex("0000000000000001"));
         assertFunction("to_ieee754_64(-4.9E-324)", VARBINARY, sqlVarbinaryHex("8000000000000001"));
+    }
+
+    @Test
+    public void testFromIEEE754Binary64()
+    {
+        assertFunction("from_ieee754_64(from_hex('0000000000000000'))", DOUBLE, 0.0);
+        assertFunction("from_ieee754_64(from_hex('3FF0000000000000'))", DOUBLE, 1.0);
+        assertFunction("from_ieee754_64(to_ieee754_64(3.1415926))", DOUBLE, 3.1415926);
+        assertFunction("from_ieee754_64(to_ieee754_64(NAN()))", DOUBLE, Double.NaN);
+        assertFunction("from_ieee754_64(to_ieee754_64(INFINITY()))", DOUBLE, Double.POSITIVE_INFINITY);
+        assertFunction("from_ieee754_64(to_ieee754_64(-INFINITY()))", DOUBLE, Double.NEGATIVE_INFINITY);
+        assertFunction("from_ieee754_64(to_ieee754_64(1.7976931348623157E308))", DOUBLE, 1.7976931348623157E308);
+        assertFunction("from_ieee754_64(to_ieee754_64(-1.7976931348623157E308))", DOUBLE, -1.7976931348623157E308);
+        assertFunction("from_ieee754_64(to_ieee754_64(4.9E-324))", DOUBLE, 4.9E-324);
+        assertFunction("from_ieee754_64(to_ieee754_64(-4.9E-324))", DOUBLE, -4.9E-324);
+        assertInvalidFunction("from_ieee754_64(from_hex('00000000'))", "Input floating-point value must be exactly 8 bytes long");
     }
 
     @Test
@@ -255,7 +289,7 @@ public class TestVarbinaryFunctions
     {
         Slice data = Slices.wrappedBuffer(ALL_BYTES);
 
-        Block block = VARBINARY.createBlockBuilder(new BlockBuilderStatus(), 1, ALL_BYTES.length)
+        Block block = VARBINARY.createBlockBuilder(null, 1, ALL_BYTES.length)
                 .writeBytes(data, 0, data.length())
                 .closeEntry()
                 .build();
@@ -306,6 +340,40 @@ public class TestVarbinaryFunctions
         assertFunction("SUBSTRING(X'4FE15FF5' FROM 2 FOR 2)", VARBINARY, varbinary(0xE1, 0x5F));
         assertFunction("SUBSTRING(X'4FE15FF5' FROM 3)", VARBINARY, varbinary(0x5F, 0xF5));
         assertFunction("SUBSTRING(X'4FE15FF5' FROM -2)", VARBINARY, varbinary(0x5F, 0xF5));
+    }
+
+    @Test
+    public void testHmacMd5()
+    {
+        assertFunction("hmac_md5(CAST('' AS VARBINARY), CAST('key' AS VARBINARY))", VARBINARY, sqlVarbinaryHex("63530468A04E386459855DA0063B6596"));
+        assertFunction("hmac_md5(CAST('hashme' AS VARBINARY), CAST('key' AS VARBINARY))", VARBINARY, sqlVarbinaryHex("0A26EBEB0E7B65F528D96F7BC631BC8F"));
+    }
+
+    @Test
+    public void testHmacSHA1()
+    {
+        assertFunction("hmac_sha1(CAST('' AS VARBINARY), CAST('key' AS VARBINARY))", VARBINARY, sqlVarbinaryHex("F42BB0EEB018EBBD4597AE7213711EC60760843F"));
+        assertFunction("hmac_sha1(CAST('hashme' AS VARBINARY), CAST('key' AS VARBINARY))", VARBINARY, sqlVarbinaryHex("2E7C4C6AEFA7E69F106EEE3CE21944D0046D2F3D"));
+    }
+
+    @Test
+    public void testHmacSHA256()
+    {
+        assertFunction("hmac_sha256(CAST('' AS VARBINARY), CAST('key' AS VARBINARY))",
+                VARBINARY, sqlVarbinaryHex("5D5D139563C95B5967B9BD9A8C9B233A9DEDB45072794CD232DC1B74832607D0"));
+        assertFunction("hmac_sha256(CAST('hashme' AS VARBINARY), CAST('key' AS VARBINARY))",
+                VARBINARY, sqlVarbinaryHex("D3D72F9FACDE059DA3A4EB43A9ABDD4B35118E0FEF00E6D16FB04BB332AF0484"));
+    }
+
+    @Test
+    public void testHmacSHA512()
+    {
+        assertFunction("hmac_sha512(CAST('' AS VARBINARY), CAST('key' AS VARBINARY))",
+                VARBINARY, sqlVarbinaryHex("84FA5AA0279BBC473267D05A53EA03310A987CECC4C1535FF29B6D76B8F1444A" +
+                        "728DF3AADB89D4A9A6709E1998F373566E8F824A8CA93B1821F0B69BC2A2F65E"));
+        assertFunction("hmac_sha512(CAST('hashme' AS VARBINARY), CAST('key' AS VARBINARY))",
+                VARBINARY, sqlVarbinaryHex("FEFA712B67DED871E1ED987F8B20D6A69EB9FCC87974218B9A1A6D5202B54C18" +
+                        "ECDA4839A979DED22F07E0881CF40B762691992D120408F49D6212E112509D72"));
     }
 
     private static String encodeBase64(byte[] value)

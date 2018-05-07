@@ -48,13 +48,5 @@ public class TestPostgreSqlDistributedQueries
         postgreSqlServer.close();
     }
 
-    @Override
-    public void testLargeIn()
-    {
-        // the PostgreSQL query fails with "stack depth limit exceeded"
-        // TODO: fix QueryBuilder not to generate such a large query
-        // https://github.com/prestodb/presto/issues/5752
-    }
-
-    // PostgreSQL specific tests should normally go in TestPostgreSqlDistributedQueries
+    // PostgreSQL specific tests should normally go in TestPostgreSqlIntegrationSmokeTest
 }

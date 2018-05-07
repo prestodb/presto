@@ -207,6 +207,17 @@ public class LazyOutputBuffer
     }
 
     @Override
+    public void acknowledge(OutputBufferId bufferId, long token)
+    {
+        OutputBuffer outputBuffer;
+        synchronized (this) {
+            checkState(delegate != null, "delegate is null");
+            outputBuffer = delegate;
+        }
+        outputBuffer.acknowledge(bufferId, token);
+    }
+
+    @Override
     public void abort(OutputBufferId bufferId)
     {
         OutputBuffer outputBuffer;
@@ -299,6 +310,20 @@ public class LazyOutputBuffer
             outputBuffer = delegate;
         }
         outputBuffer.fail();
+    }
+
+    @Override
+    public long getPeakMemoryUsage()
+    {
+        OutputBuffer outputBuffer;
+        synchronized (this) {
+            outputBuffer = delegate;
+        }
+
+        if (outputBuffer != null) {
+            return outputBuffer.getPeakMemoryUsage();
+        }
+        return 0;
     }
 
     private static class PendingRead

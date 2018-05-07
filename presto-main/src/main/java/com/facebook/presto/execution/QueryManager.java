@@ -14,6 +14,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.execution.QueryExecution.QueryOutputInfo;
+import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.server.SessionContext;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
@@ -29,6 +30,8 @@ public interface QueryManager
     List<QueryInfo> getAllQueryInfo();
 
     void addOutputInfoListener(QueryId queryId, Consumer<QueryOutputInfo> listener);
+
+    void addStateChangeListener(QueryId queryId, StateChangeListener<QueryState> listener);
 
     ListenableFuture<QueryState> getStateChange(QueryId queryId, QueryState currentState);
 

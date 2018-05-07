@@ -79,6 +79,7 @@ public class TestCanonicalize
                         new IterativeOptimizer(
                                 new StatsRecorder(),
                                 getQueryRunner().getStatsCalculator(),
+                                getQueryRunner().getCostCalculator(),
                                 ImmutableSet.of(new RemoveRedundantIdentityProjections()))));
     }
 }

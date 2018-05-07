@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.spi.block;
 
-import com.facebook.presto.spi.type.TypeManager;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 
@@ -23,8 +22,7 @@ import static com.facebook.presto.spi.block.EncoderUtil.encodeNullsAsBits;
 public class ShortArrayBlockEncoding
         implements BlockEncoding
 {
-    public static final BlockEncodingFactory<ShortArrayBlockEncoding> FACTORY = new ShortArrayBlockEncodingFactory();
-    private static final String NAME = "SHORT_ARRAY";
+    public static final String NAME = "SHORT_ARRAY";
 
     @Override
     public String getName()
@@ -33,7 +31,7 @@ public class ShortArrayBlockEncoding
     }
 
     @Override
-    public void writeBlock(SliceOutput sliceOutput, Block block)
+    public void writeBlock(BlockEncodingSerde blockEncodingSerde, SliceOutput sliceOutput, Block block)
     {
         int positionCount = block.getPositionCount();
         sliceOutput.appendInt(positionCount);
@@ -48,7 +46,7 @@ public class ShortArrayBlockEncoding
     }
 
     @Override
-    public Block readBlock(SliceInput sliceInput)
+    public Block readBlock(BlockEncodingSerde blockEncodingSerde, SliceInput sliceInput)
     {
         int positionCount = sliceInput.readInt();
 
@@ -62,32 +60,5 @@ public class ShortArrayBlockEncoding
         }
 
         return new ShortArrayBlock(positionCount, valueIsNull, values);
-    }
-
-    @Override
-    public BlockEncodingFactory getFactory()
-    {
-        return FACTORY;
-    }
-
-    public static class ShortArrayBlockEncodingFactory
-            implements BlockEncodingFactory<ShortArrayBlockEncoding>
-    {
-        @Override
-        public String getName()
-        {
-            return NAME;
-        }
-
-        @Override
-        public ShortArrayBlockEncoding readEncoding(TypeManager manager, BlockEncodingSerde serde, SliceInput input)
-        {
-            return new ShortArrayBlockEncoding();
-        }
-
-        @Override
-        public void writeEncoding(BlockEncodingSerde serde, SliceOutput output, ShortArrayBlockEncoding blockEncoding)
-        {
-        }
     }
 }

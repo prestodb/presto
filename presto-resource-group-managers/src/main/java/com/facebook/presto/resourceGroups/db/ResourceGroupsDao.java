@@ -62,7 +62,7 @@ public interface ResourceGroupsDao
     @UseRowMapper(ResourceGroupSpecBuilder.Mapper.class)
     List<ResourceGroupSpecBuilder> getResourceGroups(@Bind("environment") String environment);
 
-    @SqlQuery("SELECT S.resource_group_id, S.priority, S.user_regex, S.source_regex, S.query_type, S.client_tags\n" +
+    @SqlQuery("SELECT S.resource_group_id, S.priority, S.user_regex, S.source_regex, S.query_type, S.client_tags, S.selector_resource_estimate\n" +
             "FROM selectors S\n" +
             "JOIN resource_groups R ON (S.resource_group_id = R.resource_group_id)\n" +
             "WHERE R.environment = :environment\n" +
@@ -77,25 +77,33 @@ public interface ResourceGroupsDao
             "  source_regex VARCHAR(512),\n" +
             "  query_type VARCHAR(512),\n" +
             "  client_tags VARCHAR(512),\n" +
+            "  selector_resource_estimate VARCHAR(1024),\n" +
             "  FOREIGN KEY (resource_group_id) REFERENCES resource_groups (resource_group_id)\n" +
             ")")
     void createSelectorsTable();
 
     @SqlUpdate("CREATE TABLE IF NOT EXISTS exact_match_source_selectors(\n" +
-            "  environment VARCHAR(128) NOT NULL,\n" +
+            "  environment VARCHAR(128),\n" +
             "  source VARCHAR(512) NOT NULL,\n" +
-            "  query_type VARCHAR(512) NOT NULL,\n" +
+            "  query_type VARCHAR(512),\n" +
             "  update_time DATETIME NOT NULL,\n" +
             "  resource_group_id VARCHAR(256) NOT NULL,\n" +
-            "  PRIMARY KEY (environment, source, query_type) \n" +
+            "  PRIMARY KEY (environment, source, query_type),\n" +
+            "  UNIQUE (source, environment, query_type, resource_group_id)\n" +
             ")")
     void createExactMatchSelectorsTable();
 
+    /**
+     * Returns the most specific exact-match selector for a given environment, source and query type.
+     * NULL values in the environment and query type fields signify wildcards.
+     */
     @SqlQuery("SELECT resource_group_id\n" +
             "FROM exact_match_source_selectors\n" +
-            "WHERE environment = :environment\n" +
-            "  AND source = :source\n" +
-            "  AND query_type = :query_type")
+            "WHERE source = :source\n" +
+            "  AND (environment = :environment OR environment IS NULL)\n" +
+            "  AND (query_type = :query_type OR query_type IS NULL)\n" +
+            "ORDER BY environment IS NULL, query_type IS NULL\n" +
+            "LIMIT 1")
     String getExactMatchResourceGroup(
             @Bind("environment") String environment,
             @Bind("source") String source,

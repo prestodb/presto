@@ -18,33 +18,35 @@ import com.esri.core.geometry.Geometry;
 import com.esri.core.geometry.MultiVertexGeometry;
 import com.esri.core.geometry.Point;
 import com.esri.core.geometry.Polygon;
-import com.esri.core.geometry.Polyline;
 import com.esri.core.geometry.ogc.OGCGeometry;
-import com.esri.core.geometry.ogc.OGCPoint;
-import com.esri.core.geometry.ogc.OGCPolygon;
+import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
+import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.StandardTypes;
-import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
 import java.util.HashSet;
 import java.util.Set;
 
-import static com.facebook.presto.geospatial.GeometryUtils.deserialize;
-import static com.facebook.presto.geospatial.GeometryUtils.serialize;
+import static com.esri.core.geometry.GeometryEngine.contains;
+import static com.esri.core.geometry.GeometryEngine.disjoint;
+import static com.facebook.presto.geospatial.serde.GeometrySerde.deserialize;
+import static com.facebook.presto.geospatial.serde.GeometrySerde.serialize;
 import static com.facebook.presto.plugin.geospatial.BingTile.MAX_ZOOM_LEVEL;
 import static com.facebook.presto.plugin.geospatial.GeometryType.GEOMETRY_TYPE_NAME;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
+import static java.lang.Math.multiplyExact;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 
@@ -96,16 +98,33 @@ public class BingTileFunctions
 
     @Description("Given a Bing tile, returns XY coordinates of the tile")
     @ScalarFunction("bing_tile_coordinates")
-    @SqlType("row(x integer,y integer)")
-    public static Block bingTileCoordinates(@SqlType(BingTileType.NAME) long input)
+    public static final class BingTileCoordinatesFunction
     {
-        BingTile tile = BingTile.decode(input);
+        private static final RowType BING_TILE_COORDINATES_ROW_TYPE = RowType.anonymous(ImmutableList.of(INTEGER, INTEGER));
 
-        BlockBuilder tileBlockBuilder = INTEGER.createBlockBuilder(new BlockBuilderStatus(), 2);
-        INTEGER.writeLong(tileBlockBuilder, tile.getX());
-        INTEGER.writeLong(tileBlockBuilder, tile.getY());
+        private final PageBuilder pageBuilder;
 
-        return tileBlockBuilder.build();
+        public BingTileCoordinatesFunction()
+        {
+            pageBuilder = new PageBuilder(ImmutableList.of(BING_TILE_COORDINATES_ROW_TYPE));
+        }
+
+        @SqlType("row(x integer,y integer)")
+        public Block bingTileCoordinates(@SqlType(BingTileType.NAME) long input)
+        {
+            if (pageBuilder.isFull()) {
+                pageBuilder.reset();
+            }
+            BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(0);
+            BingTile tile = BingTile.decode(input);
+            BlockBuilder tileBlockBuilder = blockBuilder.beginBlockEntry();
+            INTEGER.writeLong(tileBlockBuilder, tile.getX());
+            INTEGER.writeLong(tileBlockBuilder, tile.getY());
+            blockBuilder.closeEntry();
+            pageBuilder.declarePosition();
+
+            return BING_TILE_COORDINATES_ROW_TYPE.getObject(blockBuilder, blockBuilder.getPositionCount() - 1);
+        }
     }
 
     @Description("Given a Bing tile, returns zoom level of the tile")
@@ -147,7 +166,7 @@ public class BingTileFunctions
     {
         BingTile tile = BingTile.decode(input);
 
-        return serialize(tileToPolygon(tile));
+        return serialize(tileToEnvelope(tile));
     }
 
     @Description("Given a geometry and a zoom level, returns the minimum set of Bing tiles that fully covers that geometry")
@@ -159,11 +178,13 @@ public class BingTileFunctions
 
         int zoomLevel = toIntExact(zoomLevelInput);
 
-        OGCGeometry geometry = deserialize(input);
-        checkCondition(!geometry.isEmpty(), "Input geometry must not be empty");
+        OGCGeometry ogcGeometry = deserialize(input);
+        checkCondition(!ogcGeometry.isEmpty(), "Input geometry must not be empty");
+
+        Geometry geometry = ogcGeometry.getEsriGeometry();
 
         Envelope envelope = new Envelope();
-        geometry.getEsriGeometry().queryEnvelope(envelope);
+        geometry.queryEnvelope(envelope);
 
         checkLatitude(envelope.getYMin(), LATITUDE_SPAN_OUT_OF_RANGE);
         checkLatitude(envelope.getYMax(), LATITUDE_SPAN_OUT_OF_RANGE);
@@ -176,11 +197,11 @@ public class BingTileFunctions
         BingTile rightLowerTile = getTileCoveringLowerRightCorner(envelope, zoomLevel);
 
         // XY coordinates start at (0,0) in the left upper corner and increase left to right and top to bottom
-        int tileCount = toIntExact((rightLowerTile.getX() - leftUpperTile.getX() + 1) * (rightLowerTile.getY() - leftUpperTile.getY() + 1));
+        long tileCount = (long) (rightLowerTile.getX() - leftUpperTile.getX() + 1) * (rightLowerTile.getY() - leftUpperTile.getY() + 1);
 
         checkGeometryToBingTilesLimits(geometry, pointOrRectangle, tileCount);
 
-        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, tileCount);
+        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, toIntExact(tileCount));
         if (pointOrRectangle || zoomLevel <= OPTIMIZED_TILING_MIN_ZOOM_LEVEL) {
             // Collect tiles covering the bounding box and check each tile for intersection with the geometry.
             // Skip intersection check if geometry is a point or rectangle. In these cases, by definition,
@@ -188,7 +209,7 @@ public class BingTileFunctions
             for (int x = leftUpperTile.getX(); x <= rightLowerTile.getX(); x++) {
                 for (int y = leftUpperTile.getY(); y <= rightLowerTile.getY(); y++) {
                     BingTile tile = BingTile.fromCoordinates(x, y, zoomLevel);
-                    if (pointOrRectangle || !tileToPolygon(tile).disjoint(geometry)) {
+                    if (pointOrRectangle || !disjoint(tileToEnvelope(tile), geometry, null)) {
                         BIGINT.writeLong(blockBuilder, tile.encode());
                     }
                 }
@@ -234,14 +255,22 @@ public class BingTileFunctions
         return tile;
     }
 
-    private static void checkGeometryToBingTilesLimits(OGCGeometry geometry, boolean pointOrRectangle, int tileCount)
+    private static void checkGeometryToBingTilesLimits(Geometry geometry, boolean pointOrRectangle, long tileCount)
     {
         if (pointOrRectangle) {
-            checkCondition(tileCount <= 1_000_000, "The number of input tiles is too large (more than 1M) to compute a set of covering bing tiles.");
+            checkCondition(tileCount <= 1_000_000, "The number of input tiles is too large (more than 1M) to compute a set of covering Bing tiles.");
         }
         else {
-            long complexity = ((long) tileCount) * getPointCount(geometry.getEsriGeometry());
-            checkCondition(complexity <= 25_000_000, "The zoom level is too high or the geometry is too complex to compute a set of covering bing tiles. " +
+            checkCondition((int) tileCount == tileCount, "The zoom level is too high to compute a set of covering Bing tiles.");
+            long complexity = 0;
+            try {
+                complexity = multiplyExact(tileCount, getPointCount(geometry));
+            }
+            catch (ArithmeticException e) {
+                checkCondition(false, "The zoom level is too high or the geometry is too complex to compute a set of covering Bing tiles. " +
+                        "Please use a lower zoom level or convert the geometry to its bounding box using the ST_Envelope function.");
+            }
+            checkCondition(complexity <= 25_000_000, "The zoom level is too high or the geometry is too complex to compute a set of covering Bing tiles. " +
                     "Please use a lower zoom level or convert the geometry to its bounding box using the ST_Envelope function.");
         }
     }
@@ -275,23 +304,23 @@ public class BingTileFunctions
      * BlockBuilder.
      */
     private static void writeTilesToBlockBuilder(
-            OGCGeometry geometry,
+            Geometry geometry,
             int zoomLevel,
             BingTile tile,
             BlockBuilder blockBuilder)
     {
         int tileZoomLevel = tile.getZoomLevel();
-        checkArgument(tile.getZoomLevel() <= zoomLevel);
+        checkArgument(tileZoomLevel <= zoomLevel);
 
-        OGCGeometry polygon = tileToPolygon(tile);
+        Envelope tileEnvelope = tileToEnvelope(tile);
         if (tileZoomLevel == zoomLevel) {
-            if (!geometry.disjoint(polygon)) {
+            if (!disjoint(tileEnvelope, geometry, null)) {
                 BIGINT.writeLong(blockBuilder, tile.encode());
             }
             return;
         }
 
-        if (geometry.contains(polygon)) {
+        if (contains(geometry, tileEnvelope, null)) {
             int subTileCount = 1 << (zoomLevel - tileZoomLevel);
             int minX = subTileCount * tile.getX();
             int minY = subTileCount * tile.getY();
@@ -303,14 +332,14 @@ public class BingTileFunctions
             return;
         }
 
-        if (geometry.disjoint(polygon)) {
+        if (disjoint(tileEnvelope, geometry, null)) {
             return;
         }
 
         int minX = 2 * tile.getX();
         int minY = 2 * tile.getY();
         int nextZoomLevel = tileZoomLevel + 1;
-        Verify.verify(nextZoomLevel <= MAX_ZOOM_LEVEL);
+        verify(nextZoomLevel <= MAX_ZOOM_LEVEL);
         for (int x = minX; x < minX + 2; x++) {
             for (int y = minY; y < minY + 2; y++) {
                 writeTilesToBlockBuilder(
@@ -333,7 +362,7 @@ public class BingTileFunctions
 
     private static Point tileXYToLatitudeLongitude(int tileX, int tileY, int zoomLevel)
     {
-        int mapSize = mapSize(zoomLevel);
+        long mapSize = mapSize(zoomLevel);
         double x = (clip(tileX * TILE_PIXELS, 0, mapSize) / mapSize) - 0.5;
         double y = 0.5 - (clip(tileY * TILE_PIXELS, 0, mapSize) / mapSize);
 
@@ -348,49 +377,38 @@ public class BingTileFunctions
         double sinLatitude = Math.sin(latitude * Math.PI / 180);
         double y = 0.5 - Math.log((1 + sinLatitude) / (1 - sinLatitude)) / (4 * Math.PI);
 
-        int mapSize = mapSize(zoomLevel);
+        long mapSize = mapSize(zoomLevel);
         int tileX = (int) clip(x * mapSize, 0, mapSize - 1);
         int tileY = (int) clip(y * mapSize, 0, mapSize - 1);
         return BingTile.fromCoordinates(tileX / TILE_PIXELS, tileY / TILE_PIXELS, zoomLevel);
     }
 
-    private static OGCGeometry tileToPolygon(BingTile tile)
+    private static Envelope tileToEnvelope(BingTile tile)
     {
         Point upperLeftCorner = tileXYToLatitudeLongitude(tile.getX(), tile.getY(), tile.getZoomLevel());
         Point lowerRightCorner = tileXYToLatitudeLongitude(tile.getX() + 1, tile.getY() + 1, tile.getZoomLevel());
-
-        Polyline boundary = new Polyline();
-        boundary.startPath(upperLeftCorner);
-        boundary.lineTo(lowerRightCorner.getX(), upperLeftCorner.getY());
-        boundary.lineTo(lowerRightCorner);
-        boundary.lineTo(upperLeftCorner.getX(), lowerRightCorner.getY());
-
-        Polygon polygon = new Polygon();
-        polygon.add(boundary, false);
-
-        return OGCGeometry.createFromEsriGeometry(polygon, null);
+        return new Envelope(upperLeftCorner.getX(), lowerRightCorner.getY(), lowerRightCorner.getX(), upperLeftCorner.getY());
     }
 
     /**
      * @return true if the geometry is a point or a rectangle
      */
-    private static boolean isPointOrRectangle(OGCGeometry geometry, Envelope envelope)
+    private static boolean isPointOrRectangle(Geometry geometry, Envelope envelope)
     {
-        if (geometry instanceof OGCPoint) {
+        if (geometry instanceof Point) {
             return true;
         }
 
-        if (!(geometry instanceof OGCPolygon)) {
+        if (!(geometry instanceof Polygon)) {
             return false;
         }
 
-        OGCPolygon polygon = (OGCPolygon) geometry;
-        if (polygon.numInteriorRing() > 0) {
+        Polygon polygon = (Polygon) geometry;
+        if (polygon.getPathCount() > 1) {
             return false;
         }
 
-        MultiVertexGeometry multiVertexGeometry = (MultiVertexGeometry) polygon.getEsriGeometry();
-        if (multiVertexGeometry.getPointCount() != 4) {
+        if (polygon.getPointCount() != 4) {
             return false;
         }
 
@@ -401,7 +419,7 @@ public class BingTileFunctions
         corners.add(new Point(envelope.getXMax(), envelope.getYMax()));
 
         for (int i = 0; i < 4; i++) {
-            Point point = multiVertexGeometry.getPoint(i);
+            Point point = polygon.getPoint(i);
             if (!corners.contains(point)) {
                 return false;
             }
@@ -449,8 +467,8 @@ public class BingTileFunctions
         return Math.min(Math.max(n, minValue), maxValue);
     }
 
-    private static int mapSize(int zoomLevel)
+    private static long mapSize(int zoomLevel)
     {
-        return 256 << zoomLevel;
+        return 256L << zoomLevel;
     }
 }

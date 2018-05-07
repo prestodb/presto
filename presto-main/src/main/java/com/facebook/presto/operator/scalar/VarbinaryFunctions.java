@@ -30,6 +30,7 @@ import java.util.Base64;
 import java.util.zip.CRC32;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.util.Failures.checkCondition;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 
 public final class VarbinaryFunctions
@@ -170,6 +171,15 @@ public final class VarbinaryFunctions
         return slice;
     }
 
+    @Description("decode the 32-bit big-endian binary in IEEE 754 single-precision floating-point format")
+    @ScalarFunction("from_ieee754_32")
+    @SqlType(StandardTypes.REAL)
+    public static long fromIEEE754Binary32(@SqlType(StandardTypes.VARBINARY) Slice slice)
+    {
+        checkCondition(slice.length() == Integer.BYTES, INVALID_FUNCTION_ARGUMENT, "Input floating-point value must be exactly 4 bytes long");
+        return Integer.reverseBytes(slice.getInt(0));
+    }
+
     @Description("encode value as a big endian varbinary according to IEEE 754 double-precision floating-point format")
     @ScalarFunction("to_ieee754_64")
     @SqlType(StandardTypes.VARBINARY)
@@ -178,6 +188,15 @@ public final class VarbinaryFunctions
         Slice slice = Slices.allocate(Double.BYTES);
         slice.setLong(0, Long.reverseBytes(Double.doubleToLongBits(value)));
         return slice;
+    }
+
+    @Description("decode the 64-bit big-endian binary in IEEE 754 double-precision floating-point format")
+    @ScalarFunction("from_ieee754_64")
+    @SqlType(StandardTypes.DOUBLE)
+    public static double fromIEEE754Binary64(@SqlType(StandardTypes.VARBINARY) Slice slice)
+    {
+        checkCondition(slice.length() == Double.BYTES, INVALID_FUNCTION_ARGUMENT, "Input floating-point value must be exactly 8 bytes long");
+        return Double.longBitsToDouble(Long.reverseBytes(slice.getLong(0)));
     }
 
     @Description("compute md5 hash")

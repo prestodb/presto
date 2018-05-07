@@ -14,12 +14,15 @@
 package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.block.BlockAssertions;
+import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.PagesHashStrategy;
 import com.facebook.presto.operator.SimplePagesHashStrategy;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.JoinCompiler.PagesHashStrategyFactory;
 import com.facebook.presto.type.TypeUtils;
 import com.google.common.collect.ImmutableList;
@@ -45,7 +48,9 @@ import static org.testng.Assert.assertTrue;
 
 public class TestJoinCompiler
 {
-    private static final JoinCompiler joinCompiler = new JoinCompiler();
+    private static final JoinCompiler joinCompiler = new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig());
+    private static final FunctionRegistry functionRegistry = MetadataManager.createTestMetadataManager().getFunctionRegistry();
+    private static final boolean groupByUsesEqualTo = new FeaturesConfig().isGroupByUsesEqualTo();
 
     @DataProvider(name = "hashEnabledValues")
     public static Object[][] hashEnabledValuesProvider()
@@ -136,7 +141,7 @@ public class TestJoinCompiler
     public void testMultiChannel(boolean hashEnabled)
     {
         // compile a single channel hash strategy
-        JoinCompiler joinCompiler = new JoinCompiler();
+        JoinCompiler joinCompiler = new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig());
         List<Type> types = ImmutableList.of(VARCHAR, VARCHAR, BIGINT, DOUBLE, BOOLEAN, VARCHAR);
         List<Type> joinTypes = ImmutableList.of(VARCHAR, BIGINT, DOUBLE, BOOLEAN);
         List<Type> outputTypes = ImmutableList.of(VARCHAR, BIGINT, DOUBLE, BOOLEAN, VARCHAR);
@@ -188,7 +193,7 @@ public class TestJoinCompiler
         PagesHashStrategyFactory pagesHashStrategyFactory = joinCompiler.compilePagesHashStrategyFactory(types, joinChannels, Optional.of(outputChannels));
         PagesHashStrategy hashStrategy = pagesHashStrategyFactory.createPagesHashStrategy(channels, hashChannel);
         // todo add tests for filter function
-        PagesHashStrategy expectedHashStrategy = new SimplePagesHashStrategy(types, outputChannels, channels, joinChannels, hashChannel, Optional.empty());
+        PagesHashStrategy expectedHashStrategy = new SimplePagesHashStrategy(types, outputChannels, channels, joinChannels, hashChannel, Optional.empty(), functionRegistry, groupByUsesEqualTo);
 
         // verify channel count
         assertEquals(hashStrategy.getChannelCount(), outputChannels.size());

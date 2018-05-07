@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.HiveBucketing.HiveBucketFilter;
+import com.facebook.presto.hive.HiveColumnHandle.ColumnType;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.StorageFormat;
@@ -25,6 +27,7 @@ import com.facebook.presto.testing.TestingConnectorSession;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import org.apache.hadoop.conf.Configuration;
@@ -48,13 +51,14 @@ import java.util.Optional;
 import java.util.concurrent.Executor;
 
 import static com.facebook.presto.hive.BackgroundHiveSplitLoader.BucketSplitInfo.createBucketSplitInfo;
-import static com.facebook.presto.hive.HiveBucketing.HiveBucket;
 import static com.facebook.presto.hive.HiveColumnHandle.pathColumnHandle;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.hive.HiveType.HIVE_INT;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.hive.HiveUtil.getRegularColumnHandles;
+import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static com.facebook.presto.spi.predicate.TupleDomain.withColumnDomains;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -89,6 +93,8 @@ public class TestBackgroundHiveSplitLoader
 
     private static final List<Column> PARTITION_COLUMNS = ImmutableList.of(
             new Column("partitionColumn", HIVE_INT, Optional.empty()));
+    private static final List<HiveColumnHandle> BUCKET_COLUMN_HANDLES = ImmutableList.of(
+            new HiveColumnHandle("col1", HIVE_INT, INTEGER.getTypeSignature(), 0, ColumnType.REGULAR, Optional.empty()));
 
     private static final Optional<HiveBucketProperty> BUCKET_PROPERTY = Optional.of(
             new HiveBucketProperty(ImmutableList.of("col1"), BUCKET_COUNT));
@@ -132,11 +138,9 @@ public class TestBackgroundHiveSplitLoader
         BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
                 TEST_FILES,
                 RETURNED_PATH_DOMAIN,
-                ImmutableList.of(
-                        new HiveBucket(0, BUCKET_COUNT),
-                        new HiveBucket(1, BUCKET_COUNT)),
+                Optional.of(new HiveBucketFilter(ImmutableSet.of(0, 1))),
                 PARTITIONED_TABLE,
-                Optional.empty());
+                Optional.of(new HiveBucketHandle(BUCKET_COLUMN_HANDLES, BUCKET_COUNT)));
 
         HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader, RETURNED_PATH_DOMAIN);
         backgroundHiveSplitLoader.start(hiveSplitSource);
@@ -152,7 +156,7 @@ public class TestBackgroundHiveSplitLoader
         BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
                 TEST_FILES,
                 RETURNED_PATH_DOMAIN,
-                ImmutableList.of(),
+                Optional.empty(),
                 PARTITIONED_TABLE,
                 Optional.of(
                         new HiveBucketHandle(
@@ -208,7 +212,8 @@ public class TestBackgroundHiveSplitLoader
     {
         ImmutableList.Builder<HiveSplit> splits = ImmutableList.builder();
         while (!source.isFinished()) {
-            source.getNextBatch(100).get().stream()
+            source.getNextBatch(NOT_PARTITIONED, 100).get()
+                    .getSplits().stream()
                     .map(HiveSplit.class::cast)
                     .forEach(splits::add);
         }
@@ -222,7 +227,7 @@ public class TestBackgroundHiveSplitLoader
         return backgroundHiveSplitLoader(
                 files,
                 tupleDomain,
-                ImmutableList.of(),
+                Optional.empty(),
                 SIMPLE_TABLE,
                 Optional.empty());
     }
@@ -230,25 +235,25 @@ public class TestBackgroundHiveSplitLoader
     private static BackgroundHiveSplitLoader backgroundHiveSplitLoader(
             List<LocatedFileStatus> files,
             TupleDomain<HiveColumnHandle> compactEffectivePredicate,
-            List<HiveBucket> hiveBuckets,
+            Optional<HiveBucketFilter> hiveBucketFilter,
             Table table,
             Optional<HiveBucketHandle> bucketHandle)
     {
         List<HivePartitionMetadata> hivePartitionMetadatas =
                 ImmutableList.of(
                         new HivePartitionMetadata(
-                                new HivePartition(new SchemaTableName("testSchema", "table_name"), ImmutableList.of()),
+                                new HivePartition(new SchemaTableName("testSchema", "table_name")),
                                 Optional.empty(),
                                 ImmutableMap.of()));
 
         ConnectorSession connectorSession = new TestingConnectorSession(
-                new HiveSessionProperties(new HiveClientConfig().setMaxSplitSize(new DataSize(1.0, GIGABYTE))).getSessionProperties());
+                new HiveSessionProperties(new HiveClientConfig().setMaxSplitSize(new DataSize(1.0, GIGABYTE)), new OrcFileWriterConfig()).getSessionProperties());
 
         return new BackgroundHiveSplitLoader(
                 table,
                 hivePartitionMetadatas,
                 compactEffectivePredicate,
-                createBucketSplitInfo(bucketHandle, hiveBuckets),
+                createBucketSplitInfo(bucketHandle, hiveBucketFilter),
                 connectorSession,
                 new TestingHdfsEnvironment(),
                 new NamenodeStats(),
@@ -261,13 +266,13 @@ public class TestBackgroundHiveSplitLoader
     private static BackgroundHiveSplitLoader backgroundHiveSplitLoaderOfflinePartitions()
     {
         ConnectorSession connectorSession = new TestingConnectorSession(
-                new HiveSessionProperties(new HiveClientConfig().setMaxSplitSize(new DataSize(1.0, GIGABYTE))).getSessionProperties());
+                new HiveSessionProperties(new HiveClientConfig().setMaxSplitSize(new DataSize(1.0, GIGABYTE)), new OrcFileWriterConfig()).getSessionProperties());
 
         return new BackgroundHiveSplitLoader(
                 SIMPLE_TABLE,
                 createPartitionMetadataWithOfflinePartitions(),
                 TupleDomain.all(),
-                createBucketSplitInfo(Optional.empty(), ImmutableList.of()),
+                createBucketSplitInfo(Optional.empty(), Optional.empty()),
                 connectorSession,
                 new TestingHdfsEnvironment(),
                 new NamenodeStats(),
@@ -293,7 +298,7 @@ public class TestBackgroundHiveSplitLoader
                 switch (position) {
                     case 0:
                         return new HivePartitionMetadata(
-                                new HivePartition(new SchemaTableName("testSchema", "table_name"), ImmutableList.of()),
+                                new HivePartition(new SchemaTableName("testSchema", "table_name")),
                                 Optional.empty(),
                                 ImmutableMap.of());
                     case 1:

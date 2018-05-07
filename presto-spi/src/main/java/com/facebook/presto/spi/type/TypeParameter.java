@@ -53,18 +53,12 @@ public class TypeParameter
         switch (parameter.getKind()) {
             case TYPE: {
                 Type type = typeManager.getType(parameter.getTypeSignature());
-                if (type == null) {
-                    return null;
-                }
                 return of(type);
             }
             case LONG:
                 return of(parameter.getLongLiteral());
             case NAMED_TYPE: {
                 Type type = typeManager.getType(parameter.getNamedTypeSignature().getTypeSignature());
-                if (type == null) {
-                    return null;
-                }
                 return of(new NamedType(
                         parameter.getNamedTypeSignature().getName(),
                         type));

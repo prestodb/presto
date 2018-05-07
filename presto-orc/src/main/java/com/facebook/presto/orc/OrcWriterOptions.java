@@ -17,56 +17,75 @@ import io.airlift.units.DataSize;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Objects.requireNonNull;
 
 public class OrcWriterOptions
 {
+    private static final DataSize DEFAULT_STRIPE_MIN_SIZE = new DataSize(32, MEGABYTE);
     private static final DataSize DEFAULT_STRIPE_MAX_SIZE = new DataSize(64, MEGABYTE);
-    private static final int DEFAULT_STRIPE_MIN_ROW_COUNT = 100_000;
     private static final int DEFAULT_STRIPE_MAX_ROW_COUNT = 10_000_000;
     private static final int DEFAULT_ROW_GROUP_MAX_ROW_COUNT = 10_000;
     private static final DataSize DEFAULT_DICTIONARY_MAX_MEMORY = new DataSize(16, MEGABYTE);
+    public static final DataSize DEFAULT_MAX_STRING_STATISTICS_LIMIT = new DataSize(64, BYTE);
+    private static final DataSize DEFAULT_MAX_COMPRESSION_BUFFER_SIZE = new DataSize(256, KILOBYTE);
 
+    private final DataSize stripeMinSize;
     private final DataSize stripeMaxSize;
-    private final int stripeMinRowCount;
     private final int stripeMaxRowCount;
     private final int rowGroupMaxRowCount;
     private final DataSize dictionaryMaxMemory;
+    private final DataSize maxStringStatisticsLimit;
+    private final DataSize maxCompressionBufferSize;
 
     public OrcWriterOptions()
     {
         this(
+                DEFAULT_STRIPE_MIN_SIZE,
                 DEFAULT_STRIPE_MAX_SIZE,
-                DEFAULT_STRIPE_MIN_ROW_COUNT,
                 DEFAULT_STRIPE_MAX_ROW_COUNT,
                 DEFAULT_ROW_GROUP_MAX_ROW_COUNT,
-                DEFAULT_DICTIONARY_MAX_MEMORY);
+                DEFAULT_DICTIONARY_MAX_MEMORY,
+                DEFAULT_MAX_STRING_STATISTICS_LIMIT,
+                DEFAULT_MAX_COMPRESSION_BUFFER_SIZE);
     }
 
-    private OrcWriterOptions(DataSize stripeMaxSize, int stripeMinRowCount, int stripeMaxRowCount, int rowGroupMaxRowCount, DataSize dictionaryMaxMemory)
+    private OrcWriterOptions(
+            DataSize stripeMinSize,
+            DataSize stripeMaxSize,
+            int stripeMaxRowCount,
+            int rowGroupMaxRowCount,
+            DataSize dictionaryMaxMemory,
+            DataSize maxStringStatisticsLimit,
+            DataSize maxCompressionBufferSize)
     {
+        requireNonNull(stripeMinSize, "stripeMinSize is null");
         requireNonNull(stripeMaxSize, "stripeMaxSize is null");
-        checkArgument(stripeMinRowCount >= 1, "stripeMinRowCount must be at least 1");
         checkArgument(stripeMaxRowCount >= 1, "stripeMaxRowCount must be at least 1");
         checkArgument(rowGroupMaxRowCount >= 1, "rowGroupMaxRowCount must be at least 1");
         requireNonNull(dictionaryMaxMemory, "dictionaryMaxMemory is null");
+        requireNonNull(maxStringStatisticsLimit, "maxStringStatisticsLimit is null");
+        requireNonNull(maxCompressionBufferSize, "maxCompressionBufferSize is null");
 
+        this.stripeMinSize = stripeMinSize;
         this.stripeMaxSize = stripeMaxSize;
-        this.stripeMinRowCount = stripeMinRowCount;
         this.stripeMaxRowCount = stripeMaxRowCount;
         this.rowGroupMaxRowCount = rowGroupMaxRowCount;
         this.dictionaryMaxMemory = dictionaryMaxMemory;
+        this.maxStringStatisticsLimit = maxStringStatisticsLimit;
+        this.maxCompressionBufferSize = maxCompressionBufferSize;
+    }
+
+    public DataSize getStripeMinSize()
+    {
+        return stripeMinSize;
     }
 
     public DataSize getStripeMaxSize()
     {
         return stripeMaxSize;
-    }
-
-    public int getStripeMinRowCount()
-    {
-        return stripeMinRowCount;
     }
 
     public int getStripeMaxRowCount()
@@ -84,40 +103,62 @@ public class OrcWriterOptions
         return dictionaryMaxMemory;
     }
 
-    public OrcWriterOptions withStripeMaxSize(DataSize stripeMaxSize)
+    public DataSize getMaxStringStatisticsLimit()
     {
-        return new OrcWriterOptions(stripeMaxSize, stripeMinRowCount, stripeMaxRowCount, rowGroupMaxRowCount, dictionaryMaxMemory);
+        return maxStringStatisticsLimit;
     }
 
-    public OrcWriterOptions withStripeMinRowCount(int stripeMinRowCount)
+    public DataSize getMaxCompressionBufferSize()
     {
-        return new OrcWriterOptions(stripeMaxSize, stripeMinRowCount, stripeMaxRowCount, rowGroupMaxRowCount, dictionaryMaxMemory);
+        return maxCompressionBufferSize;
+    }
+
+    public OrcWriterOptions withStripeMinSize(DataSize stripeMinSize)
+    {
+        return new OrcWriterOptions(stripeMinSize, stripeMaxSize, stripeMaxRowCount, rowGroupMaxRowCount, dictionaryMaxMemory, maxStringStatisticsLimit, maxCompressionBufferSize);
+    }
+
+    public OrcWriterOptions withStripeMaxSize(DataSize stripeMaxSize)
+    {
+        return new OrcWriterOptions(stripeMinSize, stripeMaxSize, stripeMaxRowCount, rowGroupMaxRowCount, dictionaryMaxMemory, maxStringStatisticsLimit, maxCompressionBufferSize);
     }
 
     public OrcWriterOptions withStripeMaxRowCount(int stripeMaxRowCount)
     {
-        return new OrcWriterOptions(stripeMaxSize, stripeMinRowCount, stripeMaxRowCount, rowGroupMaxRowCount, dictionaryMaxMemory);
+        return new OrcWriterOptions(stripeMinSize, stripeMaxSize, stripeMaxRowCount, rowGroupMaxRowCount, dictionaryMaxMemory, maxStringStatisticsLimit, maxCompressionBufferSize);
     }
 
     public OrcWriterOptions withRowGroupMaxRowCount(int rowGroupMaxRowCount)
     {
-        return new OrcWriterOptions(stripeMaxSize, stripeMinRowCount, stripeMaxRowCount, rowGroupMaxRowCount, dictionaryMaxMemory);
+        return new OrcWriterOptions(stripeMinSize, stripeMaxSize, stripeMaxRowCount, rowGroupMaxRowCount, dictionaryMaxMemory, maxStringStatisticsLimit, maxCompressionBufferSize);
     }
 
     public OrcWriterOptions withDictionaryMaxMemory(DataSize dictionaryMaxMemory)
     {
-        return new OrcWriterOptions(stripeMaxSize, stripeMinRowCount, stripeMaxRowCount, rowGroupMaxRowCount, dictionaryMaxMemory);
+        return new OrcWriterOptions(stripeMinSize, stripeMaxSize, stripeMaxRowCount, rowGroupMaxRowCount, dictionaryMaxMemory, maxStringStatisticsLimit, maxCompressionBufferSize);
+    }
+
+    public OrcWriterOptions withMaxStringStatisticsLimit(DataSize maxStringStatisticsLimit)
+    {
+        return new OrcWriterOptions(stripeMinSize, stripeMaxSize, stripeMaxRowCount, rowGroupMaxRowCount, dictionaryMaxMemory, maxStringStatisticsLimit, maxCompressionBufferSize);
+    }
+
+    public OrcWriterOptions withMaxCompressionBufferSize(DataSize maxCompressionBufferSize)
+    {
+        return new OrcWriterOptions(stripeMinSize, stripeMaxSize, stripeMaxRowCount, rowGroupMaxRowCount, dictionaryMaxMemory, maxStringStatisticsLimit, maxCompressionBufferSize);
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
+                .add("stripeMinSize", stripeMinSize)
                 .add("stripeMaxSize", stripeMaxSize)
-                .add("stripeMinRowCount", stripeMinRowCount)
                 .add("stripeMaxRowCount", stripeMaxRowCount)
                 .add("rowGroupMaxRowCount", rowGroupMaxRowCount)
                 .add("dictionaryMaxMemory", dictionaryMaxMemory)
+                .add("maxStringStatisticsLimit", maxStringStatisticsLimit)
+                .add("maxCompressionBufferSize", maxCompressionBufferSize)
                 .toString();
     }
 }

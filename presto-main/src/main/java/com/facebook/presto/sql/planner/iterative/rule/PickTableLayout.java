@@ -23,6 +23,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.sql.planner.DomainTranslator;
+import com.facebook.presto.sql.planner.LiteralEncoder;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.FilterNode;
@@ -60,10 +61,12 @@ import static java.util.Objects.requireNonNull;
 public class PickTableLayout
 {
     private final Metadata metadata;
+    private final DomainTranslator domainTranslator;
 
     public PickTableLayout(Metadata metadata)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.domainTranslator = new DomainTranslator(new LiteralEncoder(metadata.getBlockEncodingSerde()));
     }
 
     public Set<Rule<?>> rules()
@@ -76,22 +79,24 @@ public class PickTableLayout
 
     public PickTableLayoutForPredicate pickTableLayoutForPredicate()
     {
-        return new PickTableLayoutForPredicate(metadata);
+        return new PickTableLayoutForPredicate(metadata, domainTranslator);
     }
 
     public PickTableLayoutWithoutPredicate pickTableLayoutWithoutPredicate()
     {
-        return new PickTableLayoutWithoutPredicate(metadata);
+        return new PickTableLayoutWithoutPredicate(metadata, domainTranslator);
     }
 
     private static final class PickTableLayoutForPredicate
             implements Rule<FilterNode>
     {
         private final Metadata metadata;
+        private final DomainTranslator domainTranslator;
 
-        private PickTableLayoutForPredicate(Metadata metadata)
+        private PickTableLayoutForPredicate(Metadata metadata, DomainTranslator domainTranslator)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
+            this.domainTranslator = requireNonNull(domainTranslator, "domainTranslator is null");
         }
 
         private static final Capture<TableScanNode> TABLE_SCAN = newCapture();
@@ -116,7 +121,7 @@ public class PickTableLayout
         {
             TableScanNode tableScan = captures.get(TABLE_SCAN);
 
-            PlanNode rewritten = planTableScan(tableScan, filterNode.getPredicate(), context, metadata);
+            PlanNode rewritten = planTableScan(tableScan, filterNode.getPredicate(), context, metadata, domainTranslator);
 
             if (arePlansSame(filterNode, tableScan, rewritten)) {
                 return Result.empty();
@@ -149,10 +154,12 @@ public class PickTableLayout
             implements Rule<TableScanNode>
     {
         private final Metadata metadata;
+        private final DomainTranslator domainTranslator;
 
-        private PickTableLayoutWithoutPredicate(Metadata metadata)
+        private PickTableLayoutWithoutPredicate(Metadata metadata, DomainTranslator domainTranslator)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
+            this.domainTranslator = requireNonNull(domainTranslator, "domainTranslator is null");
         }
 
         private static final Pattern<TableScanNode> PATTERN = tableScan();
@@ -176,11 +183,11 @@ public class PickTableLayout
                 return Result.empty();
             }
 
-            return Result.ofPlanNode(planTableScan(tableScanNode, TRUE_LITERAL, context, metadata));
+            return Result.ofPlanNode(planTableScan(tableScanNode, TRUE_LITERAL, context, metadata, domainTranslator));
         }
     }
 
-    private static PlanNode planTableScan(TableScanNode node, Expression predicate, Rule.Context context, Metadata metadata)
+    private static PlanNode planTableScan(TableScanNode node, Expression predicate, Rule.Context context, Metadata metadata, DomainTranslator domainTranslator)
     {
         Expression deterministicPredicate = filterDeterministicConjuncts(predicate);
         DomainTranslator.ExtractionResult decomposedPredicate = DomainTranslator.fromPredicate(
@@ -220,7 +227,7 @@ public class PickTableLayout
         Expression resultingPredicate = combineConjuncts(
                 decomposedPredicate.getRemainingExpression(),
                 filterNonDeterministicConjuncts(predicate),
-                DomainTranslator.toPredicate(layout.getUnenforcedConstraint().transform(assignments::get)));
+                domainTranslator.toPredicate(layout.getUnenforcedConstraint().transform(assignments::get)));
 
         if (!TRUE_LITERAL.equals(resultingPredicate)) {
             return new FilterNode(context.getIdAllocator().getNextId(), result, resultingPredicate);

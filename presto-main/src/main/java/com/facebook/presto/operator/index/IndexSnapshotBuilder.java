@@ -132,13 +132,12 @@ public class IndexSnapshotBuilder
         PageBuilder missingKeysPageBuilder = new PageBuilder(missingKeysIndex.getTypes());
         UnloadedIndexKeyRecordCursor indexKeysRecordCursor = indexKeysRecordSet.cursor();
         while (indexKeysRecordCursor.advanceNextPosition()) {
-            Block[] blocks = indexKeysRecordCursor.getBlocks();
             Page page = indexKeysRecordCursor.getPage();
             int position = indexKeysRecordCursor.getPosition();
             if (lookupSource.getJoinPosition(position, page, page) < 0) {
                 missingKeysPageBuilder.declarePosition();
-                for (int i = 0; i < blocks.length; i++) {
-                    Block block = blocks[i];
+                for (int i = 0; i < page.getChannelCount(); i++) {
+                    Block block = page.getBlock(i);
                     Type type = indexKeysRecordCursor.getType(i);
                     type.appendTo(block, position, missingKeysPageBuilder.getBlockBuilder(i));
                 }

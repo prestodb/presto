@@ -71,6 +71,7 @@ import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.CreateName;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.InsertReference;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
+import static com.facebook.presto.sql.planner.sanity.PlanSanityChecker.DISTRIBUTED_PLAN_SANITY_CHECKER;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
@@ -87,6 +88,7 @@ public class LogicalPlanner
 
     private final Session session;
     private final List<PlanOptimizer> planOptimizers;
+    private final PlanSanityChecker planSanityChecker;
     private final SymbolAllocator symbolAllocator = new SymbolAllocator();
     private final Metadata metadata;
     private final SqlParser sqlParser;
@@ -97,14 +99,26 @@ public class LogicalPlanner
             Metadata metadata,
             SqlParser sqlParser)
     {
+        this(session, planOptimizers, DISTRIBUTED_PLAN_SANITY_CHECKER, idAllocator, metadata, sqlParser);
+    }
+
+    public LogicalPlanner(Session session,
+            List<PlanOptimizer> planOptimizers,
+            PlanSanityChecker planSanityChecker,
+            PlanNodeIdAllocator idAllocator,
+            Metadata metadata,
+            SqlParser sqlParser)
+    {
         requireNonNull(session, "session is null");
         requireNonNull(planOptimizers, "planOptimizers is null");
+        requireNonNull(planSanityChecker, "planSanityChecker is null");
         requireNonNull(idAllocator, "idAllocator is null");
         requireNonNull(metadata, "metadata is null");
         requireNonNull(sqlParser, "sqlParser is null");
 
         this.session = session;
         this.planOptimizers = planOptimizers;
+        this.planSanityChecker = planSanityChecker;
         this.idAllocator = idAllocator;
         this.metadata = metadata;
         this.sqlParser = sqlParser;
@@ -119,7 +133,7 @@ public class LogicalPlanner
     {
         PlanNode root = planStatement(analysis, analysis.getStatement());
 
-        PlanSanityChecker.validateIntermediatePlan(root, session, metadata, sqlParser, symbolAllocator.getTypes());
+        planSanityChecker.validateIntermediatePlan(root, session, metadata, sqlParser, symbolAllocator.getTypes());
 
         if (stage.ordinal() >= Stage.OPTIMIZED.ordinal()) {
             for (PlanOptimizer optimizer : planOptimizers) {
@@ -130,7 +144,7 @@ public class LogicalPlanner
 
         if (stage.ordinal() >= Stage.OPTIMIZED_AND_VALIDATED.ordinal()) {
             // make sure we produce a valid plan after optimizations run. This is mainly to catch programming errors
-            PlanSanityChecker.validateFinalPlan(root, session, metadata, sqlParser, symbolAllocator.getTypes());
+            planSanityChecker.validateFinalPlan(root, session, metadata, sqlParser, symbolAllocator.getTypes());
         }
 
         return new Plan(root, symbolAllocator.getTypes());
@@ -234,7 +248,8 @@ public class LogicalPlanner
             Symbol output = symbolAllocator.newSymbol(column.getName(), column.getType());
             int index = insert.getColumns().indexOf(columns.get(column.getName()));
             if (index < 0) {
-                assignments.put(output, new NullLiteral());
+                Expression cast = new Cast(new NullLiteral(), column.getType().getTypeSignature().toString());
+                assignments.put(output, cast);
             }
             else {
                 Symbol input = plan.getSymbol(index);

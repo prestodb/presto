@@ -23,13 +23,13 @@ import com.facebook.presto.operator.aggregation.groupByAggregations.GroupByAggre
 import com.facebook.presto.operator.aggregation.histogram.HistogramGroupImplementation;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.TimeZoneKey;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -39,6 +39,7 @@ import org.testng.annotations.Test;
 import org.testng.internal.collections.Ints;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -56,7 +57,6 @@ import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.operator.OperatorAssertion.toRow;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static com.facebook.presto.operator.aggregation.histogram.Histogram.NAME;
-import static com.facebook.presto.operator.aggregation.histogram.HistogramGroupImplementation.LEGACY;
 import static com.facebook.presto.operator.aggregation.histogram.HistogramGroupImplementation.NEW;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -80,11 +80,7 @@ public class TestHistogram
     public void testSimpleHistograms()
     {
         MapType mapType = mapType(VARCHAR, BIGINT);
-        InternalAggregationFunction aggregationFunction = getMetadata().getFunctionRegistry().getAggregateFunctionImplementation(
-                new Signature(NAME,
-                        AGGREGATE,
-                        mapType.getTypeSignature(),
-                        parseTypeSignature(StandardTypes.VARCHAR)));
+        InternalAggregationFunction aggregationFunction = getAggregation(mapType.getTypeSignature(), parseTypeSignature(StandardTypes.VARCHAR));
         assertAggregation(
                 aggregationFunction,
                 ImmutableMap.of("a", 1L, "b", 1L, "c", 1L),
@@ -126,47 +122,30 @@ public class TestHistogram
 
     @Test
     public void testSharedGroupBy()
-            throws Exception
     {
         MapType mapType = mapType(VARCHAR, BIGINT);
-        InternalAggregationFunction aggregationFunction = getMetadata(NEW).getFunctionRegistry().getAggregateFunctionImplementation(
-                new Signature(NAME,
-                        AGGREGATE,
-                        mapType.getTypeSignature(),
-                        parseTypeSignature(StandardTypes.VARCHAR)));
+        InternalAggregationFunction aggregationFunction = getAggregation(mapType.getTypeSignature(), parseTypeSignature(StandardTypes.VARCHAR));
         assertAggregation(
                 aggregationFunction,
                 ImmutableMap.of("a", 1L, "b", 1L, "c", 1L),
                 createStringsBlock("a", "b", "c"));
 
         mapType = mapType(BIGINT, BIGINT);
-        aggregationFunction = getMetadata(NEW).getFunctionRegistry().getAggregateFunctionImplementation(
-                new Signature(NAME,
-                        AGGREGATE,
-                        mapType.getTypeSignature(),
-                        parseTypeSignature(StandardTypes.BIGINT)));
+        aggregationFunction = getAggregation(mapType.getTypeSignature(), parseTypeSignature(StandardTypes.BIGINT));
         assertAggregation(
                 aggregationFunction,
                 ImmutableMap.of(100L, 1L, 200L, 1L, 300L, 1L),
                 createLongsBlock(100L, 200L, 300L));
 
         mapType = mapType(DOUBLE, BIGINT);
-        aggregationFunction = getMetadata(NEW).getFunctionRegistry().getAggregateFunctionImplementation(
-                new Signature(NAME,
-                        AGGREGATE,
-                        mapType.getTypeSignature(),
-                        parseTypeSignature(StandardTypes.DOUBLE)));
+        aggregationFunction = getAggregation(mapType.getTypeSignature(), parseTypeSignature(StandardTypes.DOUBLE));
         assertAggregation(
                 aggregationFunction,
                 ImmutableMap.of(0.1, 1L, 0.3, 1L, 0.2, 1L),
                 createDoublesBlock(0.1, 0.3, 0.2));
 
         mapType = mapType(BOOLEAN, BIGINT);
-        aggregationFunction = getMetadata(NEW).getFunctionRegistry().getAggregateFunctionImplementation(
-                new Signature(NAME,
-                        AGGREGATE,
-                        mapType.getTypeSignature(),
-                        parseTypeSignature(StandardTypes.BOOLEAN)));
+        aggregationFunction = getAggregation(mapType.getTypeSignature(), parseTypeSignature(StandardTypes.BOOLEAN));
         assertAggregation(
                 aggregationFunction,
                 ImmutableMap.of(true, 1L, false, 1L),
@@ -177,11 +156,7 @@ public class TestHistogram
     public void testDuplicateKeysValues()
     {
         MapType mapType = mapType(VARCHAR, BIGINT);
-        InternalAggregationFunction aggregationFunction = getMetadata().getFunctionRegistry().getAggregateFunctionImplementation(
-                new Signature(NAME,
-                        AGGREGATE,
-                        mapType.getTypeSignature(),
-                        parseTypeSignature(StandardTypes.VARCHAR)));
+        InternalAggregationFunction aggregationFunction = getAggregation(mapType.getTypeSignature(), parseTypeSignature(StandardTypes.VARCHAR));
         assertAggregation(
                 aggregationFunction,
                 ImmutableMap.of("a", 2L, "b", 1L),
@@ -205,11 +180,7 @@ public class TestHistogram
     public void testWithNulls()
     {
         MapType mapType = mapType(BIGINT, BIGINT);
-        InternalAggregationFunction aggregationFunction = getMetadata().getFunctionRegistry().getAggregateFunctionImplementation(
-                new Signature(NAME,
-                        AGGREGATE,
-                        mapType.getTypeSignature(),
-                        parseTypeSignature(StandardTypes.BIGINT)));
+        InternalAggregationFunction aggregationFunction = getAggregation(mapType.getTypeSignature(), parseTypeSignature(StandardTypes.BIGINT));
         assertAggregation(
                 aggregationFunction,
                 ImmutableMap.of(1L, 1L, 2L, 1L),
@@ -232,12 +203,7 @@ public class TestHistogram
     {
         ArrayType arrayType = new ArrayType(VARCHAR);
         MapType mapType = mapType(arrayType, BIGINT);
-        InternalAggregationFunction aggregationFunction = getMetadata().getFunctionRegistry().getAggregateFunctionImplementation(
-                new Signature(NAME,
-                        AGGREGATE,
-                        mapType.getTypeSignature(),
-                        arrayType.getTypeSignature()));
-
+        InternalAggregationFunction aggregationFunction = getAggregation(mapType.getTypeSignature(), arrayType.getTypeSignature());
         assertAggregation(
                 aggregationFunction,
                 ImmutableMap.of(ImmutableList.of("a", "b", "c"), 1L, ImmutableList.of("d", "e", "f"), 1L, ImmutableList.of("c", "b", "a"), 1L),
@@ -249,13 +215,9 @@ public class TestHistogram
     {
         MapType innerMapType = mapType(VARCHAR, VARCHAR);
         MapType mapType = mapType(innerMapType, BIGINT);
-        InternalAggregationFunction aggregationFunction = getMetadata().getFunctionRegistry().getAggregateFunctionImplementation(
-                new Signature(NAME,
-                        AGGREGATE,
-                        mapType.getTypeSignature(),
-                        innerMapType.getTypeSignature()));
+        InternalAggregationFunction aggregationFunction = getAggregation(mapType.getTypeSignature(), innerMapType.getTypeSignature());
 
-        BlockBuilder builder = innerMapType.createBlockBuilder(new BlockBuilderStatus(), 3);
+        BlockBuilder builder = innerMapType.createBlockBuilder(null, 3);
         innerMapType.writeObject(builder, mapBlockOf(VARCHAR, VARCHAR, ImmutableMap.of("a", "b")));
         innerMapType.writeObject(builder, mapBlockOf(VARCHAR, VARCHAR, ImmutableMap.of("c", "d")));
         innerMapType.writeObject(builder, mapBlockOf(VARCHAR, VARCHAR, ImmutableMap.of("e", "f")));
@@ -269,15 +231,12 @@ public class TestHistogram
     @Test
     public void testRowHistograms()
     {
-        RowType innerRowType = new RowType(ImmutableList.of(BIGINT, DOUBLE), Optional.of(ImmutableList.of("f1", "f2")));
+        RowType innerRowType = RowType.from(ImmutableList.of(
+                RowType.field("f1", BIGINT),
+                RowType.field("f2", DOUBLE)));
         MapType mapType = mapType(innerRowType, BIGINT);
-        InternalAggregationFunction aggregationFunction = getMetadata().getFunctionRegistry().getAggregateFunctionImplementation(
-                new Signature(NAME,
-                        AGGREGATE,
-                        mapType.getTypeSignature(),
-                        innerRowType.getTypeSignature()));
-
-        BlockBuilder builder = innerRowType.createBlockBuilder(new BlockBuilderStatus(), 3);
+        InternalAggregationFunction aggregationFunction = getAggregation(mapType.getTypeSignature(), innerRowType.getTypeSignature());
+        BlockBuilder builder = innerRowType.createBlockBuilder(null, 3);
         innerRowType.writeObject(builder, toRow(ImmutableList.of(BIGINT, DOUBLE), 1L, 1.0));
         innerRowType.writeObject(builder, toRow(ImmutableList.of(BIGINT, DOUBLE), 2L, 2.0));
         innerRowType.writeObject(builder, toRow(ImmutableList.of(BIGINT, DOUBLE), 3L, 3.0));
@@ -292,11 +251,7 @@ public class TestHistogram
     public void testLargerHistograms()
     {
         MapType mapType = mapType(VARCHAR, BIGINT);
-        InternalAggregationFunction aggregationFunction = getMetadata().getFunctionRegistry().getAggregateFunctionImplementation(
-                new Signature(NAME,
-                        AGGREGATE,
-                        mapType.getTypeSignature(),
-                        parseTypeSignature(StandardTypes.VARCHAR)));
+        InternalAggregationFunction aggregationFunction = getAggregation(mapType.getTypeSignature(), parseTypeSignature(StandardTypes.VARCHAR));
         assertAggregation(
                 aggregationFunction,
                 ImmutableMap.of("a", 25L, "b", 10L, "c", 12L, "d", 1L, "e", 2L),
@@ -305,12 +260,11 @@ public class TestHistogram
 
     @Test
     public void testEmptyHistogramOutputsNull()
-            throws Exception
     {
-        InternalAggregationFunction function = getInternalAggregationFunctionVarChar(NEW);
+        InternalAggregationFunction function = getInternalDefaultVarCharAggregationn();
         GroupedAccumulator groupedAccumulator = function.bind(Ints.asList(new int[] {}), Optional.empty())
                 .createGroupedAccumulator();
-        BlockBuilder blockBuilder = groupedAccumulator.getFinalType().createBlockBuilder(new BlockBuilderStatus(), 1000);
+        BlockBuilder blockBuilder = groupedAccumulator.getFinalType().createBlockBuilder(null, 1000);
 
         groupedAccumulator.evaluateFinal(0, blockBuilder);
         assertTrue(blockBuilder.isNull(0));
@@ -318,33 +272,30 @@ public class TestHistogram
 
     @Test
     public void testSharedGroupByWithOverlappingValuesRunner()
-            throws Exception
     {
-//        InternalAggregationFunction classicFunction = getInternalAggregationFunctionVarChar(LEGACY);
-        InternalAggregationFunction singleInstanceFunction = getInternalAggregationFunctionVarChar(NEW);
+        InternalAggregationFunction classicFunction = getInternalDefaultVarCharAggregationn();
+        InternalAggregationFunction singleInstanceFunction = getInternalDefaultVarCharAggregationn();
 
-//        testSharedGroupByWithOverlappingValuesRunner(classicFunction);
+        testSharedGroupByWithOverlappingValuesRunner(classicFunction);
         testSharedGroupByWithOverlappingValuesRunner(singleInstanceFunction);
     }
 
     @Test
     public void testSharedGroupByWithDistinctValuesPerGroup()
-            throws Exception
     {
         // test that two groups don't affect one another
-        InternalAggregationFunction classicFunction = getInternalAggregationFunctionVarChar(LEGACY);
-        InternalAggregationFunction singleInstanceFunction = getInternalAggregationFunctionVarChar(NEW);
+        InternalAggregationFunction classicFunction = getInternalDefaultVarCharAggregationn();
+        InternalAggregationFunction singleInstanceFunction = getInternalDefaultVarCharAggregationn();
         testSharedGroupByWithDistinctValuesPerGroupRunner(classicFunction);
         testSharedGroupByWithDistinctValuesPerGroupRunner(singleInstanceFunction);
     }
 
     @Test
     public void testSharedGroupByWithOverlappingValuesPerGroup()
-            throws Exception
     {
         // test that two groups don't affect one another
-        InternalAggregationFunction classicFunction = getInternalAggregationFunctionVarChar(LEGACY);
-        InternalAggregationFunction singleInstanceFunction = getInternalAggregationFunctionVarChar(NEW);
+        InternalAggregationFunction classicFunction = getInternalDefaultVarCharAggregationn();
+        InternalAggregationFunction singleInstanceFunction = getInternalDefaultVarCharAggregationn();
         testSharedGroupByWithOverlappingValuesPerGroupRunner(classicFunction);
         testSharedGroupByWithOverlappingValuesPerGroupRunner(singleInstanceFunction);
     }
@@ -353,8 +304,8 @@ public class TestHistogram
     public void testSharedGroupByWithManyGroups()
     {
         // uses a large enough data set to induce rehashing and test correctness
-        InternalAggregationFunction classicFunction = getInternalAggregationFunctionVarChar(LEGACY);
-        InternalAggregationFunction singleInstanceFunction = getInternalAggregationFunctionVarChar(NEW);
+        InternalAggregationFunction classicFunction = getInternalDefaultVarCharAggregationn();
+        InternalAggregationFunction singleInstanceFunction = getInternalDefaultVarCharAggregationn();
 
         // this is to validate the test as there have been test-bugs that looked like code bugs--if both fail, likely a test bug
         testManyValuesInducingRehash(classicFunction);
@@ -471,16 +422,22 @@ public class TestHistogram
         test1.runPagesOnAccumulatorWithAssertion(0L, test1.createGroupedAccumulator(), aggregationTestOutput1);
     }
 
-    private InternalAggregationFunction getInternalAggregationFunctionVarChar(HistogramGroupImplementation groupMode)
+    private InternalAggregationFunction getInternalDefaultVarCharAggregationn()
     {
-        MapType mapType = mapType(VARCHAR, BIGINT);
-        MetadataManager metadata = getMetadata(groupMode);
+        TypeSignature returnType = mapType(VARCHAR, BIGINT).getTypeSignature();
+        TypeSignature argumentType = parseTypeSignature(StandardTypes.VARCHAR);
 
-        return metadata.getFunctionRegistry().getAggregateFunctionImplementation(
-                new Signature(NAME,
-                        AGGREGATE,
-                        mapType.getTypeSignature(),
-                        parseTypeSignature(StandardTypes.VARCHAR)));
+        return getAggregation(returnType, argumentType);
+    }
+
+    private InternalAggregationFunction getAggregation(TypeSignature returnType, TypeSignature... arguments)
+    {
+        MetadataManager metadata = getMetadata(NEW);
+        Signature signature = new Signature(NAME,
+                AGGREGATE,
+                returnType,
+                Arrays.asList(arguments));
+        return metadata.getFunctionRegistry().getAggregateFunctionImplementation(signature);
     }
 
     public MetadataManager getMetadata()

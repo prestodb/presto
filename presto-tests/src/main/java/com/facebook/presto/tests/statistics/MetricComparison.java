@@ -13,9 +13,7 @@
  */
 package com.facebook.presto.tests.statistics;
 
-import com.facebook.presto.sql.planner.plan.PlanNode;
-
-import java.util.Optional;
+import java.util.OptionalDouble;
 
 import static com.facebook.presto.tests.statistics.MetricComparison.Result.DIFFER;
 import static com.facebook.presto.tests.statistics.MetricComparison.Result.MATCH;
@@ -26,17 +24,15 @@ import static java.util.Objects.requireNonNull;
 
 public class MetricComparison
 {
-    private final PlanNode planNode;
     private final Metric metric;
-    private final Optional<Double> estimatedCost;
-    private final Optional<Double> executionCost;
+    private final OptionalDouble estimatedValue;
+    private final OptionalDouble actualValue;
 
-    public MetricComparison(PlanNode planNode, Metric metric, Optional<Double> estimatedCost, Optional<Double> executionCost)
+    public MetricComparison(Metric metric, OptionalDouble estimatedValue, OptionalDouble actualValue)
     {
-        this.planNode = planNode;
         this.metric = metric;
-        this.estimatedCost = estimatedCost;
-        this.executionCost = executionCost;
+        this.estimatedValue = estimatedValue;
+        this.actualValue = actualValue;
     }
 
     public Metric getMetric()
@@ -44,34 +40,35 @@ public class MetricComparison
         return metric;
     }
 
-    public PlanNode getPlanNode()
-    {
-        return planNode;
-    }
-
     @Override
     public String toString()
     {
-        return format("Metric [%s] - estimated: [%s], real: [%s] - plan node: [%s]",
-                metric, print(estimatedCost), print(executionCost), planNode);
+        return format("Metric [%s] - estimated: [%s], real: [%s]",
+                metric, print(estimatedValue), print(actualValue));
     }
 
     public Result result(MetricComparisonStrategy metricComparisonStrategy)
     {
         requireNonNull(metricComparisonStrategy, "metricComparisonStrategy is null");
 
-        if (!estimatedCost.isPresent()) {
+        if (!estimatedValue.isPresent() && !actualValue.isPresent()) {
+            return MATCH;
+        }
+        if (!estimatedValue.isPresent()) {
             return NO_ESTIMATE;
         }
-        if (!executionCost.isPresent()) {
+        if (!actualValue.isPresent()) {
             return NO_BASELINE;
         }
-        return metricComparisonStrategy.matches(executionCost.get(), estimatedCost.get()) ? MATCH : DIFFER;
+        return metricComparisonStrategy.matches(actualValue.getAsDouble(), estimatedValue.getAsDouble()) ? MATCH : DIFFER;
     }
 
-    private String print(Optional<Double> cost)
+    private String print(OptionalDouble value)
     {
-        return cost.map(Object::toString).orElse("UNKNOWN");
+        if (!value.isPresent()) {
+            return "UNKNOWN";
+        }
+        return String.valueOf(value.getAsDouble());
     }
 
     public enum Result

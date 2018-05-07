@@ -41,5 +41,8 @@ public interface ConnectorSession
     @Deprecated
     boolean isLegacyTimestamp();
 
+    @Deprecated
+    boolean isLegacyRoundNBigint();
+
     <T> T getProperty(String name, Class<T> type);
 }

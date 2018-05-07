@@ -180,6 +180,7 @@ public class ShortArrayBlockBuilder
     {
         checkReadablePosition(position);
         blockBuilder.writeShort(values[position]);
+        blockBuilder.closeEntry();
     }
 
     @Override
@@ -227,9 +228,9 @@ public class ShortArrayBlockBuilder
     }
 
     @Override
-    public BlockEncoding getEncoding()
+    public String getEncodingName()
     {
-        return new ShortArrayBlockEncoding();
+        return ShortArrayBlockEncoding.NAME;
     }
 
     @Override

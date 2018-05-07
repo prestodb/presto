@@ -25,16 +25,21 @@ import com.facebook.presto.spi.type.VarbinaryType;
 import com.facebook.presto.spi.type.VarcharType;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.Optional;
 import java.util.function.Function;
 
 import static com.facebook.presto.spi.type.CharType.createCharType;
+import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.google.common.base.Strings.padEnd;
 import static com.google.common.io.BaseEncoding.base16;
 import static java.lang.String.format;
+import static java.math.RoundingMode.UNNECESSARY;
 import static java.util.Optional.empty;
+import static java.util.function.Function.identity;
 
 public class DataType<T>
 {
@@ -127,14 +132,23 @@ public class DataType<T>
         return dataType("varbinary", VarbinaryType.VARBINARY, DataType::binaryLiteral, Function.identity());
     }
 
-    public static DataType<BigDecimal> decimalType(int precision, int scale)
+    public static DataType<BigDecimal> decimalDataType(int precision, int scale)
     {
         String databaseType = format("decimal(%s, %s)", precision, scale);
         return dataType(
                 databaseType,
                 createDecimalType(precision, scale),
                 bigDecimal -> format("CAST('%s' AS %s)", bigDecimal, databaseType),
-                bigDecimal -> bigDecimal);
+                bigDecimal -> bigDecimal.setScale(scale, UNNECESSARY));
+    }
+
+    public static DataType<LocalDate> dateDataType()
+    {
+        return dataType(
+                "DATE",
+                DATE,
+                DateTimeFormatter.ofPattern("'DATE '''yyyy-MM-dd''")::format,
+                identity());
     }
 
     private static String quote(String value)

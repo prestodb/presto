@@ -220,6 +220,12 @@ public class OrderByOperator
         return page;
     }
 
+    @Override
+    public void close()
+    {
+        pageIndex.clear();
+    }
+
     private static List<Type> toTypes(List<? extends Type> sourceTypes, List<Integer> outputChannels)
     {
         ImmutableList.Builder<Type> types = ImmutableList.builder();

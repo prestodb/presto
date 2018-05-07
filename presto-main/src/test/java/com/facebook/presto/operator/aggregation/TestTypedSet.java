@@ -16,7 +16,6 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
@@ -82,7 +81,7 @@ public class TestTypedSet
     @Test
     public void testGetElementPositionRandom()
     {
-        BlockBuilder keys = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 5);
+        BlockBuilder keys = VARCHAR.createBlockBuilder(null, 5);
         VARCHAR.writeSlice(keys, utf8Slice("hello"));
         VARCHAR.writeSlice(keys, utf8Slice("bye"));
         VARCHAR.writeSlice(keys, utf8Slice("abc"));
@@ -92,7 +91,7 @@ public class TestTypedSet
             set.add(keys, i);
         }
 
-        BlockBuilder values = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 5);
+        BlockBuilder values = VARCHAR.createBlockBuilder(null, 5);
         VARCHAR.writeSlice(values, utf8Slice("bye"));
         VARCHAR.writeSlice(values, utf8Slice("abc"));
         VARCHAR.writeSlice(values, utf8Slice("hello"));

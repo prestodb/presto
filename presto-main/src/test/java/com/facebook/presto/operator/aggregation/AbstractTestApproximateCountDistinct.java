@@ -17,7 +17,6 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -166,7 +165,7 @@ public abstract class AbstractTestApproximateCountDistinct
      */
     private static Block createBlock(Type type, List<Object> values)
     {
-        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), values.size());
+        BlockBuilder blockBuilder = type.createBlockBuilder(null, values.size());
 
         for (Object value : values) {
             Class<?> javaType = type.getJavaType();

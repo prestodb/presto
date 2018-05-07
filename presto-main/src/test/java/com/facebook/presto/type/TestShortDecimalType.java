@@ -15,7 +15,6 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.SqlDecimal;
 
@@ -33,7 +32,7 @@ public class TestShortDecimalType
 
     public static Block createTestBlock()
     {
-        BlockBuilder blockBuilder = SHORT_DECIMAL_TYPE.createBlockBuilder(new BlockBuilderStatus(), 15);
+        BlockBuilder blockBuilder = SHORT_DECIMAL_TYPE.createBlockBuilder(null, 15);
         SHORT_DECIMAL_TYPE.writeLong(blockBuilder, -1234);
         SHORT_DECIMAL_TYPE.writeLong(blockBuilder, -1234);
         SHORT_DECIMAL_TYPE.writeLong(blockBuilder, -1234);

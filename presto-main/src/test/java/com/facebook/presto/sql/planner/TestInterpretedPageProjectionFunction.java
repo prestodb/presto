@@ -22,7 +22,6 @@ import com.facebook.presto.operator.project.InterpretedPageProjection;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
@@ -273,7 +272,7 @@ public class TestInterpretedPageProjectionFunction
 
     private static Block createBlock(Type type, Object[] values)
     {
-        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), values.length);
+        BlockBuilder blockBuilder = type.createBlockBuilder(null, values.length);
         for (Object value : values) {
             writeNativeValue(type, blockBuilder, value);
         }

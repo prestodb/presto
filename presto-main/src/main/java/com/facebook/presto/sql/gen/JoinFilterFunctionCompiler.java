@@ -18,6 +18,7 @@ import com.facebook.presto.operator.InternalJoinFilterFunction;
 import com.facebook.presto.operator.JoinFilterFunction;
 import com.facebook.presto.operator.StandardJoinFilterFunction;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
 import com.facebook.presto.sql.relational.CallExpression;
@@ -64,6 +65,7 @@ import static io.airlift.bytecode.Access.a;
 import static io.airlift.bytecode.Parameter.arg;
 import static io.airlift.bytecode.ParameterizedType.type;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
+import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -135,14 +137,13 @@ public class JoinFilterFunctionCompiler
         PreGeneratedExpressions preGeneratedExpressions = generateMethodsForLambdaAndTry(classDefinition, callSiteBinder, cachedInstanceBinder, leftBlocksSize, filter);
         generateFilterMethod(classDefinition, callSiteBinder, cachedInstanceBinder, preGeneratedExpressions, filter, leftBlocksSize, sessionField);
 
-        generateConstructor(classDefinition, sessionField, cachedInstanceBinder, preGeneratedExpressions);
+        generateConstructor(classDefinition, sessionField, cachedInstanceBinder);
     }
 
     private static void generateConstructor(
             ClassDefinition classDefinition,
             FieldDefinition sessionField,
-            CachedInstanceBinder cachedInstanceBinder,
-            PreGeneratedExpressions preGeneratedExpressions)
+            CachedInstanceBinder cachedInstanceBinder)
     {
         Parameter sessionParameter = arg("session", ConnectorSession.class);
         MethodDefinition constructorDefinition = classDefinition.declareConstructor(a(PUBLIC), sessionParameter);
@@ -168,11 +169,11 @@ public class JoinFilterFunctionCompiler
             int leftBlocksSize,
             FieldDefinition sessionField)
     {
-        // int leftPosition, Block[] leftBlocks, int rightPosition, Block[] rightBlocks
+        // int leftPosition, Page leftPage, int rightPosition, Page rightPage
         Parameter leftPosition = arg("leftPosition", int.class);
-        Parameter leftBlocks = arg("leftBlocks", Block[].class);
+        Parameter leftPage = arg("leftPage", Page.class);
         Parameter rightPosition = arg("rightPosition", int.class);
-        Parameter rightBlocks = arg("rightBlocks", Block[].class);
+        Parameter rightPage = arg("rightPage", Page.class);
 
         MethodDefinition method = classDefinition.declareMethod(
                 a(PUBLIC),
@@ -180,9 +181,9 @@ public class JoinFilterFunctionCompiler
                 type(boolean.class),
                 ImmutableList.<Parameter>builder()
                         .add(leftPosition)
-                        .add(leftBlocks)
+                        .add(leftPage)
                         .add(rightPosition)
-                        .add(rightBlocks)
+                        .add(rightPage)
                         .build());
 
         method.comment("filter: %s", filter.toString());
@@ -195,7 +196,7 @@ public class JoinFilterFunctionCompiler
         RowExpressionCompiler compiler = new RowExpressionCompiler(
                 callSiteBinder,
                 cachedInstanceBinder,
-                fieldReferenceCompiler(callSiteBinder, leftPosition, leftBlocks, rightPosition, rightBlocks, leftBlocksSize),
+                fieldReferenceCompiler(callSiteBinder, leftPosition, leftPage, rightPosition, rightPage, leftBlocksSize),
                 metadata.getFunctionRegistry(),
                 preGeneratedExpressions);
 
@@ -262,13 +263,18 @@ public class JoinFilterFunctionCompiler
     private static RowExpressionVisitor<BytecodeNode, Scope> fieldReferenceCompiler(
             final CallSiteBinder callSiteBinder,
             final Variable leftPosition,
-            final Variable leftBlocks,
+            final Variable leftPage,
             final Variable rightPosition,
-            final Variable rightBlocks,
+            final Variable rightPage,
             final int leftBlocksSize)
     {
         return new InputReferenceCompiler(
-                (scope, field) -> field < leftBlocksSize ? leftBlocks.getElement(field) : rightBlocks.getElement(field - leftBlocksSize),
+                (scope, field) -> {
+                    if (field < leftBlocksSize) {
+                        return leftPage.invoke("getBlock", Block.class, constantInt(field));
+                    }
+                    return rightPage.invoke("getBlock", Block.class, constantInt(field - leftBlocksSize));
+                },
                 (scope, field) -> field < leftBlocksSize ? leftPosition : rightPosition,
                 callSiteBinder);
     }

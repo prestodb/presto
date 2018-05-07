@@ -30,6 +30,7 @@ public class TestJavaVersion
         assertEquals(JavaVersion.parse("1.8.0_20"), new JavaVersion(8, 0, OptionalInt.of(20)));
         assertEquals(JavaVersion.parse("1.8.1_25"), new JavaVersion(8, 1, OptionalInt.of(25)));
         assertEquals(JavaVersion.parse("1.8.0_60-ea"), new JavaVersion(8, 0, OptionalInt.of(60)));
+        assertEquals(JavaVersion.parse("1.8.0_111-internal"), new JavaVersion(8, 0, OptionalInt.of(111)));
     }
 
     @Test

@@ -14,7 +14,10 @@
 package com.facebook.presto.sql.planner.iterative.rule.test;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.cost.CachingCostProvider;
 import com.facebook.presto.cost.CachingStatsProvider;
+import com.facebook.presto.cost.CostCalculator;
+import com.facebook.presto.cost.CostProvider;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.matching.Match;
@@ -31,7 +34,6 @@ import com.facebook.presto.sql.planner.iterative.Memo;
 import com.facebook.presto.sql.planner.iterative.PlanNodeMatcher;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.planPrinter.PlanPrinter;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableSet;
 
@@ -40,7 +42,9 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.cost.PlanNodeCostEstimate.UNKNOWN_COST;
 import static com.facebook.presto.sql.planner.assertions.PlanAssert.assertPlan;
+import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.textLogicalPlan;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -50,6 +54,7 @@ public class RuleAssert
 {
     private final Metadata metadata;
     private final StatsCalculator statsCalculator;
+    private final CostCalculator costCalculator;
     private Session session;
     private final Rule<?> rule;
 
@@ -60,10 +65,11 @@ public class RuleAssert
     private final TransactionManager transactionManager;
     private final AccessControl accessControl;
 
-    public RuleAssert(Metadata metadata, StatsCalculator statsCalculator, Session session, Rule rule, TransactionManager transactionManager, AccessControl accessControl)
+    public RuleAssert(Metadata metadata, StatsCalculator statsCalculator, CostCalculator costCalculator, Session session, Rule rule, TransactionManager transactionManager, AccessControl accessControl)
     {
         this.metadata = metadata;
         this.statsCalculator = statsCalculator;
+        this.costCalculator = costCalculator;
         this.session = session;
         this.rule = rule;
         this.transactionManager = transactionManager;
@@ -101,7 +107,7 @@ public class RuleAssert
             fail(String.format(
                     "Expected %s to not fire for:\n%s",
                     rule.getClass().getName(),
-                    inTransaction(session -> PlanPrinter.textLogicalPlan(plan, ruleApplication.types, metadata, statsCalculator, session, 2))));
+                    inTransaction(session -> textLogicalPlan(plan, ruleApplication.types, metadata.getFunctionRegistry(), ruleApplication.statsProvider, node -> UNKNOWN_COST, session, 2))));
         }
     }
 
@@ -137,7 +143,7 @@ public class RuleAssert
         }
 
         inTransaction(session -> {
-            assertPlan(session, metadata, statsCalculator, new Plan(actual, types), ruleApplication.lookup, pattern);
+            assertPlan(session, metadata, ruleApplication.statsProvider, new Plan(actual, types), ruleApplication.lookup, pattern);
             return null;
         });
     }
@@ -150,7 +156,7 @@ public class RuleAssert
 
         PlanNode memoRoot = memo.getNode(memo.getRootGroup());
 
-        return inTransaction(session -> applyRule(rule, memoRoot, ruleContext(statsCalculator, symbolAllocator, memo, lookup, session)));
+        return inTransaction(session -> applyRule(rule, memoRoot, ruleContext(statsCalculator, costCalculator, symbolAllocator, memo, lookup, session)));
     }
 
     private static <T> RuleApplication applyRule(Rule<T> rule, PlanNode planNode, Rule.Context context)
@@ -166,12 +172,12 @@ public class RuleAssert
             result = rule.apply(match.value(), match.captures(), context);
         }
 
-        return new RuleApplication(context.getLookup(), context.getSymbolAllocator().getTypes(), result);
+        return new RuleApplication(context.getLookup(), context.getStatsProvider(), context.getSymbolAllocator().getTypes(), result);
     }
 
     private String formatPlan(PlanNode plan, Map<Symbol, Type> types)
     {
-        return inTransaction(session -> PlanPrinter.textLogicalPlan(plan, types, metadata, statsCalculator, session, 2));
+        return inTransaction(session -> textLogicalPlan(plan, types, metadata.getFunctionRegistry(), statsCalculator, costCalculator, session, 2));
     }
 
     private <T> T inTransaction(Function<Session, T> transactionSessionConsumer)
@@ -185,9 +191,10 @@ public class RuleAssert
                 });
     }
 
-    private Rule.Context ruleContext(StatsCalculator statsCalculator, SymbolAllocator symbolAllocator, Memo memo, Lookup lookup, Session session)
+    private Rule.Context ruleContext(StatsCalculator statsCalculator, CostCalculator costCalculator, SymbolAllocator symbolAllocator, Memo memo, Lookup lookup, Session session)
     {
         StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, Optional.of(memo), lookup, session, symbolAllocator::getTypes);
+        CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.of(memo), lookup, session, symbolAllocator::getTypes);
 
         return new Rule.Context()
         {
@@ -220,18 +227,26 @@ public class RuleAssert
             {
                 return statsProvider;
             }
+
+            @Override
+            public CostProvider getCostProvider()
+            {
+                return costProvider;
+            }
         };
     }
 
     private static class RuleApplication
     {
         private final Lookup lookup;
+        private final StatsProvider statsProvider;
         private final Map<Symbol, Type> types;
         private final Rule.Result result;
 
-        public RuleApplication(Lookup lookup, Map<Symbol, Type> types, Rule.Result result)
+        public RuleApplication(Lookup lookup, StatsProvider statsProvider, Map<Symbol, Type> types, Rule.Result result)
         {
             this.lookup = requireNonNull(lookup, "lookup is null");
+            this.statsProvider = requireNonNull(statsProvider, "statsProvider is null");
             this.types = requireNonNull(types, "types is null");
             this.result = requireNonNull(result, "result is null");
         }

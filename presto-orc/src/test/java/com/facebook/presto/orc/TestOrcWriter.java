@@ -21,10 +21,8 @@ import com.facebook.presto.orc.stream.OrcInputStream;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.slice.OutputStreamSliceOutput;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
@@ -55,15 +53,15 @@ public class TestOrcWriter
     {
         TempFile tempFile = new TempFile();
         OrcWriter writer = new OrcWriter(
-                new OutputStreamSliceOutput(new FileOutputStream(tempFile.getFile())),
+                new FileOutputStream(tempFile.getFile()),
                 ImmutableList.of("test1", "test2", "test3", "test4", "test5"),
                 ImmutableList.of(VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR),
                 ORC,
                 NONE,
                 new OrcWriterOptions()
+                        .withStripeMinSize(new DataSize(0, MEGABYTE))
                         .withStripeMaxSize(new DataSize(32, MEGABYTE))
                         .withStripeMaxRowCount(ORC_STRIPE_SIZE)
-                        .withStripeMinRowCount(ORC_STRIPE_SIZE)
                         .withRowGroupMaxRowCount(ORC_ROW_GROUP_SIZE)
                         .withDictionaryMaxMemory(new DataSize(32, MEGABYTE)),
                 ImmutableMap.of(),
@@ -75,7 +73,7 @@ public class TestOrcWriter
         String[] data = new String[]{"a", "bbbbb", "ccc", "dd", "eeee"};
         Block[] blocks = new Block[data.length];
         int entries = 65536;
-        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), entries);
+        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, entries);
         for (int i = 0; i < data.length; i++) {
             byte[] bytes = data[i].getBytes();
             for (int j = 0; j < entries; j++) {
@@ -85,7 +83,7 @@ public class TestOrcWriter
                 blockBuilder.closeEntry();
             }
             blocks[i] = blockBuilder.build();
-            blockBuilder = blockBuilder.newBlockBuilderLike(new BlockBuilderStatus());
+            blockBuilder = blockBuilder.newBlockBuilderLike(null);
         }
 
         writer.write(new Page(blocks));

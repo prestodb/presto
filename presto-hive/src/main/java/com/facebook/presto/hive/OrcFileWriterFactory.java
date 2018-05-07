@@ -51,7 +51,9 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITE_VALIDATION_FAILED;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxBufferSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxMergeDistance;
+import static com.facebook.presto.hive.HiveSessionProperties.getOrcOptimizedWriterMaxStripeSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcStreamBufferSize;
+import static com.facebook.presto.hive.HiveSessionProperties.getOrcStringStatisticsLimit;
 import static com.facebook.presto.hive.HiveType.toHiveTypes;
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
@@ -71,6 +73,7 @@ public class OrcFileWriterFactory
     private final FileFormatDataSourceStats readStats;
     private final OrcWriterStats stats = new OrcWriterStats();
     private final OrcWriterOptions orcWriterOptions;
+    private final double orcWriterValidationPercentage;
 
     @Inject
     public OrcFileWriterFactory(
@@ -87,7 +90,8 @@ public class OrcFileWriterFactory
                 nodeVersion,
                 requireNonNull(hiveClientConfig, "hiveClientConfig is null").getDateTimeZone(),
                 readStats,
-                requireNonNull(config, "config is null").toOrcWriterOptions());
+                requireNonNull(config, "config is null").toOrcWriterOptions(),
+                hiveClientConfig.getOrcWriterValidationPercentage());
     }
 
     public OrcFileWriterFactory(
@@ -96,7 +100,8 @@ public class OrcFileWriterFactory
             NodeVersion nodeVersion,
             DateTimeZone hiveStorageTimeZone,
             FileFormatDataSourceStats readStats,
-            OrcWriterOptions orcWriterOptions)
+            OrcWriterOptions orcWriterOptions,
+            double orcWriterValidationPercentage)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -104,6 +109,7 @@ public class OrcFileWriterFactory
         this.hiveStorageTimeZone = requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
         this.readStats = requireNonNull(readStats, "stats is null");
         this.orcWriterOptions = requireNonNull(orcWriterOptions, "orcWriterOptions is null");
+        this.orcWriterValidationPercentage = orcWriterValidationPercentage;
     }
 
     @Managed
@@ -155,7 +161,7 @@ public class OrcFileWriterFactory
             OutputStream outputStream = fileSystem.create(path);
 
             Optional<Supplier<OrcDataSource>> validationInputFactory = Optional.empty();
-            if (HiveSessionProperties.isOrcOptimizedWriterValidate(session)) {
+            if (HiveSessionProperties.isOrcOptimizedWriterValidate(session, orcWriterValidationPercentage)) {
                 validationInputFactory = Optional.of(() -> {
                     try {
                         return new HdfsOrcDataSource(
@@ -186,7 +192,9 @@ public class OrcFileWriterFactory
                     fileColumnNames,
                     fileColumnTypes,
                     compression,
-                    orcWriterOptions,
+                    orcWriterOptions
+                            .withStripeMaxSize(getOrcOptimizedWriterMaxStripeSize(session))
+                            .withMaxStringStatisticsLimit(getOrcStringStatisticsLimit(session)),
                     fileInputColumnIndexes,
                     ImmutableMap.<String, String>builder()
                             .put(HiveMetadata.PRESTO_VERSION_NAME, nodeVersion.toString())

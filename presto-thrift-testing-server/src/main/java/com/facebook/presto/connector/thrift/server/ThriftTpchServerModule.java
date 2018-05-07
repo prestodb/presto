@@ -17,7 +17,7 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 
-import static com.facebook.swift.service.guice.ThriftServiceExporter.thriftServerBinder;
+import static io.airlift.drift.server.guice.DriftServerBinder.driftServerBinder;
 
 public class ThriftTpchServerModule
         implements Module
@@ -26,6 +26,6 @@ public class ThriftTpchServerModule
     public void configure(Binder binder)
     {
         binder.bind(ThriftIndexedTpchService.class).in(Scopes.SINGLETON);
-        thriftServerBinder(binder).exportThriftService(ThriftIndexedTpchService.class);
+        driftServerBinder(binder).bindService(ThriftIndexedTpchService.class);
     }
 }

@@ -14,11 +14,12 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.RowPagesBuilder;
+import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.MaterializedResult;
@@ -31,7 +32,6 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
@@ -62,7 +62,7 @@ public class TestRowNumberOperator
 {
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
-    private JoinCompiler joinCompiler = new JoinCompiler();
+    private JoinCompiler joinCompiler = new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig());
 
     @BeforeClass
     public void setUp()
@@ -153,7 +153,7 @@ public class TestRowNumberOperator
     @Test(dataProvider = "dataType")
     public void testMemoryReservationYield(Type type)
     {
-        List<Page> input = createPagesWithDistinctHashKeys(type, 5_000, 500);
+        List<Page> input = createPagesWithDistinctHashKeys(type, 6_000, 600);
 
         OperatorFactory operatorFactory = new RowNumberOperator.RowNumberOperatorFactory(
                 0,
@@ -168,7 +168,7 @@ public class TestRowNumberOperator
                 joinCompiler);
 
         // get result with yield; pick a relatively small buffer for partitionRowCount's memory usage
-        GroupByHashYieldAssertion.GroupByHashYieldResult result = finishOperatorWithYieldingGroupByHash(input, type, operatorFactory, operator -> ((RowNumberOperator) operator).getCapacity(), 170_000);
+        GroupByHashYieldAssertion.GroupByHashYieldResult result = finishOperatorWithYieldingGroupByHash(input, type, operatorFactory, operator -> ((RowNumberOperator) operator).getCapacity(), 1_400_000);
         assertGreaterThan(result.getYieldCount(), 5);
         assertGreaterThan(result.getMaxReservedBytes(), 20L << 20);
 
@@ -180,7 +180,7 @@ public class TestRowNumberOperator
                 count++;
             }
         }
-        assertEquals(count, 5_000 * 500);
+        assertEquals(count, 6_000 * 600);
     }
 
     @Test(dataProvider = "hashEnabledValues")
@@ -377,7 +377,7 @@ public class TestRowNumberOperator
 
     private static Block getRowNumberColumn(List<Page> pages)
     {
-        BlockBuilder builder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), pages.size() * 100);
+        BlockBuilder builder = BIGINT.createBlockBuilder(null, pages.size() * 100);
         for (Page page : pages) {
             int rowNumberChannel = page.getChannelCount() - 1;
             for (int i = 0; i < page.getPositionCount(); i++) {
@@ -391,8 +391,11 @@ public class TestRowNumberOperator
     {
         return input.stream()
                 .map(page -> {
-                    Block[] blocks = Arrays.copyOf(page.getBlocks(), page.getChannelCount() - 1);
-                    return new Page(blocks);
+                    Block[] blocks = new Block[page.getChannelCount() - 1];
+                    for (int i = 0; i < page.getChannelCount() - 1; i++) {
+                        blocks[i] = page.getBlock(i);
+                    }
+                    return new Page(page.getPositionCount(), blocks);
                 })
                 .collect(toImmutableList());
     }

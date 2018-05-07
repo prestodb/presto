@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
@@ -28,6 +29,11 @@ import java.util.Set;
 
 public interface JdbcClient
 {
+    default boolean schemaExists(String schema)
+    {
+        return getSchemaNames().contains(schema);
+    }
+
     Set<String> getSchemaNames();
 
     List<SchemaTableName> getTableNames(@Nullable String schema);
@@ -35,14 +41,20 @@ public interface JdbcClient
     @Nullable
     JdbcTableHandle getTableHandle(SchemaTableName schemaTableName);
 
-    List<JdbcColumnHandle> getColumns(JdbcTableHandle tableHandle);
+    List<JdbcColumnHandle> getColumns(ConnectorSession session, JdbcTableHandle tableHandle);
 
-    Optional<ReadMapping> toPrestoType(JdbcTypeHandle typeHandle);
+    Optional<ReadMapping> toPrestoType(ConnectorSession session, JdbcTypeHandle typeHandle);
 
     ConnectorSplitSource getSplits(JdbcTableLayoutHandle layoutHandle);
 
     Connection getConnection(JdbcSplit split)
             throws SQLException;
+
+    default void abortReadConnection(Connection connection)
+            throws SQLException
+    {
+        // most drivers do not need this
+    }
 
     PreparedStatement buildSql(Connection connection, JdbcSplit split, List<JdbcColumnHandle> columnHandles)
             throws SQLException;

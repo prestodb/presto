@@ -16,8 +16,7 @@ package com.facebook.presto.execution.resourceGroups;
 import com.facebook.presto.execution.MockQueryExecution;
 import com.facebook.presto.execution.resourceGroups.InternalResourceGroup.RootInternalResourceGroup;
 import com.facebook.presto.server.QueryStateInfo;
-import com.facebook.presto.server.ResourceGroupStateInfo;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupInfo;
+import com.facebook.presto.server.ResourceGroupInfo;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -28,6 +27,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
@@ -53,6 +53,7 @@ import static java.util.Collections.reverse;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestResourceGroups
 {
@@ -386,7 +387,7 @@ public class TestResourceGroups
     }
 
     @Test(timeOut = 10_000)
-    public void testWeightedSharesScheduling()
+    public void testWeightedFairScheduling()
     {
         RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor());
         root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
@@ -429,7 +430,7 @@ public class TestResourceGroups
     }
 
     @Test(timeOut = 10_000)
-    public void testWeightedSharesSchedulingEqualWeights()
+    public void testWeightedFairSchedulingEqualWeights()
     {
         RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor());
         root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
@@ -488,7 +489,7 @@ public class TestResourceGroups
     }
 
     @Test(timeOut = 10_000)
-    public void testWeightedSharesNoStarvation()
+    public void testWeightedFairSchedulingNoStarvation()
     {
         RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor());
         root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
@@ -524,12 +525,8 @@ public class TestResourceGroups
             group2Queries = fillGroupTo(group2, group2Queries, 4);
         }
 
-        // group 1 should run approximately 1/2 the number of queries of group 2
-        BinomialDistribution binomial = new BinomialDistribution(2000, 1.0 / 3.0);
-        int lowerBound = binomial.inverseCumulativeProbability(0.000001);
-        int upperBound = binomial.inverseCumulativeProbability(0.999999);
-
-        assertBetweenInclusive(group1Ran, lowerBound, upperBound);
+        assertEquals(group1Ran, 1000);
+        assertEquals(group1Ran, 1000);
     }
 
     @Test
@@ -581,15 +578,15 @@ public class TestResourceGroups
         queries.addAll(fillGroupTo(rootBY, ImmutableSet.of(), 10, true));
 
         ResourceGroupInfo info = root.getInfo();
-        assertEquals(info.getNumAggregatedRunningQueries(), 0);
-        assertEquals(info.getNumAggregatedQueuedQueries(), 40);
+        assertEquals(info.getNumRunningQueries(), 0);
+        assertEquals(info.getNumQueuedQueries(), 40);
 
         // root.maxRunningQueries = 4, root.a.maxRunningQueries = 2, root.b.maxRunningQueries = 2. Will have 4 queries running and 36 left queued.
         root.setHardConcurrencyLimit(4);
         root.processQueuedQueries();
         info = root.getInfo();
-        assertEquals(info.getNumAggregatedRunningQueries(), 4);
-        assertEquals(info.getNumAggregatedQueuedQueries(), 36);
+        assertEquals(info.getNumRunningQueries(), 4);
+        assertEquals(info.getNumQueuedQueries(), 36);
 
         // Complete running queries
         Iterator<MockQueryExecution> iterator = queries.iterator();
@@ -604,22 +601,22 @@ public class TestResourceGroups
         // 4 more queries start running, 32 left queued.
         root.processQueuedQueries();
         info = root.getInfo();
-        assertEquals(info.getNumAggregatedRunningQueries(), 4);
-        assertEquals(info.getNumAggregatedQueuedQueries(), 32);
+        assertEquals(info.getNumRunningQueries(), 4);
+        assertEquals(info.getNumQueuedQueries(), 32);
 
         // root.maxRunningQueries = 10, root.a.maxRunningQueries = 2, root.b.maxRunningQueries = 2. Still only have 4 running queries and 32 left queued.
         root.setHardConcurrencyLimit(10);
         root.processQueuedQueries();
         info = root.getInfo();
-        assertEquals(info.getNumAggregatedRunningQueries(), 4);
-        assertEquals(info.getNumAggregatedQueuedQueries(), 32);
+        assertEquals(info.getNumRunningQueries(), 4);
+        assertEquals(info.getNumQueuedQueries(), 32);
 
         // root.maxRunningQueries = 10, root.a.maxRunningQueries = 2, root.b.maxRunningQueries = 10. Will have 10 running queries and 26 left queued.
         rootB.setHardConcurrencyLimit(10);
         root.processQueuedQueries();
         info = root.getInfo();
-        assertEquals(info.getNumAggregatedRunningQueries(), 10);
-        assertEquals(info.getNumAggregatedQueuedQueries(), 26);
+        assertEquals(info.getNumRunningQueries(), 10);
+        assertEquals(info.getNumQueuedQueries(), 26);
     }
 
     @Test
@@ -657,40 +654,42 @@ public class TestResourceGroups
         queries.addAll(fillGroupTo(rootAY, ImmutableSet.of(), 5, false));
         queries.addAll(fillGroupTo(rootB, ImmutableSet.of(), 10, true));
 
-        ResourceGroupStateInfo stateInfo = root.getStateInfo();
-        assertEquals(stateInfo.getId(), root.getId());
-        assertEquals(stateInfo.getState(), CAN_RUN);
-        assertEquals(stateInfo.getSoftMemoryLimit(), root.getSoftMemoryLimit());
-        assertEquals(stateInfo.getMemoryUsage(), new DataSize(0, BYTE));
-        assertEquals(stateInfo.getSubGroups().size(), 2);
-        assertEquals(stateInfo.getSubGroups().get(0).getId(), rootA.getId());
-        assertEquals(stateInfo.getSubGroups().get(0).getState(), CAN_QUEUE);
-        assertEquals(stateInfo.getSubGroups().get(0).getSoftMemoryLimit(), rootA.getSoftMemoryLimit());
-        assertEquals(stateInfo.getSubGroups().get(0).getRunningTimeLimit(), rootA.getRunningTimeLimit());
-        assertEquals(stateInfo.getSubGroups().get(0).getQueuedTimeLimit(), rootA.getQueuedTimeLimit());
-        assertEquals(stateInfo.getSubGroups().get(0).getHardConcurrencyLimit(), rootA.getHardConcurrencyLimit());
-        assertEquals(stateInfo.getSubGroups().get(0).getMaxQueuedQueries(), rootA.getMaxQueuedQueries());
-        assertEquals(stateInfo.getSubGroups().get(0).getNumEligibleSubGroups(), 2);
-        assertEquals(stateInfo.getSubGroups().get(0).getNumAggregatedRunningQueries(), 0);
-        assertEquals(stateInfo.getSubGroups().get(0).getNumAggregatedQueuedQueries(), 10);
-        assertEquals(stateInfo.getSubGroups().get(1).getId(), rootB.getId());
-        assertEquals(stateInfo.getSubGroups().get(1).getState(), CAN_QUEUE);
-        assertEquals(stateInfo.getSubGroups().get(1).getSoftMemoryLimit(), rootB.getSoftMemoryLimit());
-        assertEquals(stateInfo.getSubGroups().get(1).getRunningTimeLimit(), rootA.getRunningTimeLimit());
-        assertEquals(stateInfo.getSubGroups().get(1).getQueuedTimeLimit(), rootA.getQueuedTimeLimit());
-        assertEquals(stateInfo.getSubGroups().get(1).getHardConcurrencyLimit(), rootB.getHardConcurrencyLimit());
-        assertEquals(stateInfo.getSubGroups().get(1).getMaxQueuedQueries(), rootB.getMaxQueuedQueries());
-        assertEquals(stateInfo.getSubGroups().get(1).getNumEligibleSubGroups(), 0);
-        assertEquals(stateInfo.getSubGroups().get(1).getNumAggregatedRunningQueries(), 1);
-        assertEquals(stateInfo.getSubGroups().get(1).getNumAggregatedQueuedQueries(), 9);
-        assertEquals(stateInfo.getSoftConcurrencyLimit(), root.getSoftConcurrencyLimit());
-        assertEquals(stateInfo.getHardConcurrencyLimit(), root.getHardConcurrencyLimit());
-        assertEquals(stateInfo.getRunningTimeLimit(), new Duration(Long.MAX_VALUE, MILLISECONDS));
-        assertEquals(stateInfo.getMaxQueuedQueries(), root.getMaxQueuedQueries());
-        assertEquals(stateInfo.getQueuedTimeLimit(), new Duration(Long.MAX_VALUE, MILLISECONDS));
-        assertEquals(stateInfo.getNumQueuedQueries(), 19);
-        assertEquals(stateInfo.getRunningQueries().size(), 1);
-        QueryStateInfo queryInfo = stateInfo.getRunningQueries().get(0);
+        ResourceGroupInfo rootInfo = root.getFullInfo();
+        assertEquals(rootInfo.getId(), root.getId());
+        assertEquals(rootInfo.getState(), CAN_RUN);
+        assertEquals(rootInfo.getSoftMemoryLimit(), root.getSoftMemoryLimit());
+        assertEquals(rootInfo.getMemoryUsage(), new DataSize(0, BYTE));
+        assertEquals(rootInfo.getSubGroups().size(), 2);
+        assertGroupInfoEquals(rootInfo.getSubGroups().get(0), rootA.getInfo());
+        assertEquals(rootInfo.getSubGroups().get(0).getId(), rootA.getId());
+        assertEquals(rootInfo.getSubGroups().get(0).getState(), CAN_QUEUE);
+        assertEquals(rootInfo.getSubGroups().get(0).getSoftMemoryLimit(), rootA.getSoftMemoryLimit());
+        assertEquals(rootInfo.getSubGroups().get(0).getRunningTimeLimit(), rootA.getRunningTimeLimit());
+        assertEquals(rootInfo.getSubGroups().get(0).getQueuedTimeLimit(), rootA.getQueuedTimeLimit());
+        assertEquals(rootInfo.getSubGroups().get(0).getHardConcurrencyLimit(), rootA.getHardConcurrencyLimit());
+        assertEquals(rootInfo.getSubGroups().get(0).getMaxQueuedQueries(), rootA.getMaxQueuedQueries());
+        assertEquals(rootInfo.getSubGroups().get(0).getNumEligibleSubGroups(), 2);
+        assertEquals(rootInfo.getSubGroups().get(0).getNumRunningQueries(), 0);
+        assertEquals(rootInfo.getSubGroups().get(0).getNumQueuedQueries(), 10);
+        assertGroupInfoEquals(rootInfo.getSubGroups().get(1), rootB.getInfo());
+        assertEquals(rootInfo.getSubGroups().get(1).getId(), rootB.getId());
+        assertEquals(rootInfo.getSubGroups().get(1).getState(), CAN_QUEUE);
+        assertEquals(rootInfo.getSubGroups().get(1).getSoftMemoryLimit(), rootB.getSoftMemoryLimit());
+        assertEquals(rootInfo.getSubGroups().get(1).getRunningTimeLimit(), rootA.getRunningTimeLimit());
+        assertEquals(rootInfo.getSubGroups().get(1).getQueuedTimeLimit(), rootA.getQueuedTimeLimit());
+        assertEquals(rootInfo.getSubGroups().get(1).getHardConcurrencyLimit(), rootB.getHardConcurrencyLimit());
+        assertEquals(rootInfo.getSubGroups().get(1).getMaxQueuedQueries(), rootB.getMaxQueuedQueries());
+        assertEquals(rootInfo.getSubGroups().get(1).getNumEligibleSubGroups(), 0);
+        assertEquals(rootInfo.getSubGroups().get(1).getNumRunningQueries(), 1);
+        assertEquals(rootInfo.getSubGroups().get(1).getNumQueuedQueries(), 9);
+        assertEquals(rootInfo.getSoftConcurrencyLimit(), root.getSoftConcurrencyLimit());
+        assertEquals(rootInfo.getHardConcurrencyLimit(), root.getHardConcurrencyLimit());
+        assertEquals(rootInfo.getRunningTimeLimit(), new Duration(Long.MAX_VALUE, MILLISECONDS));
+        assertEquals(rootInfo.getMaxQueuedQueries(), root.getMaxQueuedQueries());
+        assertEquals(rootInfo.getQueuedTimeLimit(), new Duration(Long.MAX_VALUE, MILLISECONDS));
+        assertEquals(rootInfo.getNumQueuedQueries(), 19);
+        assertEquals(rootInfo.getRunningQueries().size(), 1);
+        QueryStateInfo queryInfo = rootInfo.getRunningQueries().get(0);
         assertEquals(queryInfo.getResourceGroupId(), Optional.of(rootB.getId()));
     }
 
@@ -787,5 +786,23 @@ public class TestResourceGroups
             group.run(query);
         }
         return queries;
+    }
+
+    private static void assertGroupInfoEquals(ResourceGroupInfo actual, ResourceGroupInfo expected)
+    {
+        assertTrue(actual.getSchedulingWeight() == expected.getSchedulingWeight() &&
+                actual.getSoftConcurrencyLimit() == expected.getSoftConcurrencyLimit() &&
+                actual.getHardConcurrencyLimit() == expected.getHardConcurrencyLimit() &&
+                actual.getMaxQueuedQueries() == expected.getMaxQueuedQueries() &&
+                actual.getNumQueuedQueries() == expected.getNumQueuedQueries() &&
+                actual.getNumRunningQueries() == expected.getNumRunningQueries() &&
+                actual.getNumEligibleSubGroups() == expected.getNumEligibleSubGroups() &&
+                Objects.equals(actual.getId(), expected.getId()) &&
+                actual.getState() == expected.getState() &&
+                actual.getSchedulingPolicy() == expected.getSchedulingPolicy() &&
+                Objects.equals(actual.getSoftMemoryLimit(), expected.getSoftMemoryLimit()) &&
+                Objects.equals(actual.getRunningTimeLimit(), expected.getRunningTimeLimit()) &&
+                Objects.equals(actual.getQueuedTimeLimit(), expected.getQueuedTimeLimit()) &&
+                Objects.equals(actual.getMemoryUsage(), expected.getMemoryUsage()));
     }
 }

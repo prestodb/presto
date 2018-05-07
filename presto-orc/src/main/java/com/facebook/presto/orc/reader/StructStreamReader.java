@@ -19,7 +19,6 @@ import com.facebook.presto.orc.stream.BooleanInputStream;
 import com.facebook.presto.orc.stream.InputStreamSource;
 import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.RowBlock;
 import com.facebook.presto.spi.type.Type;
 import org.joda.time.DateTimeZone;
@@ -113,24 +112,13 @@ public class StructStreamReader
             }
             else {
                 for (int i = 0; i < typeParameters.size(); i++) {
-                    blocks[i] = typeParameters.get(i).createBlockBuilder(new BlockBuilderStatus(), 0).build();
+                    blocks[i] = typeParameters.get(i).createBlockBuilder(null, 0).build();
                 }
             }
         }
 
-        // Build offsets for row block (null valued have no positions)
-        int[] offsets = new int[nextBatchSize + 1];
-        for (int i = 1; i < offsets.length; i++) {
-            if (nullVector[i - 1]) {
-                offsets[i] = offsets[i - 1];
-            }
-            else {
-                offsets[i] = offsets[i - 1] + 1;
-            }
-        }
-
         // Struct is represented as a row block
-        RowBlock rowBlock = new RowBlock(0, nextBatchSize, nullVector, offsets, blocks);
+        Block rowBlock = RowBlock.fromFieldBlocks(nullVector, blocks);
 
         readOffset = 0;
         nextBatchSize = 0;

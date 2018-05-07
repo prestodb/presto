@@ -5,7 +5,7 @@
     <parent>
         <artifactId>presto-root</artifactId>
         <groupId>com.facebook.presto</groupId>
-        <version>0.194-SNAPSHOT</version>
+        <version>0.201-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-tests</artifactId>
@@ -159,6 +159,11 @@
         </dependency>
 
         <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
             <scope>runtime</scope>
@@ -184,6 +189,20 @@
             <type>test-jar</type>
             <scope>test</scope>
         </dependency>
+
+        <!-- for benchmarks -->
+        <dependency>
+            <groupId>org.openjdk.jmh</groupId>
+            <artifactId>jmh-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.openjdk.jmh</groupId>
+            <artifactId>jmh-generator-annprocess</artifactId>
+            <scope>test</scope>
+        </dependency>
+
     </dependencies>
 
     <build>
@@ -196,8 +215,7 @@
                     <excludes>
                         <exclude>**/TestDistributedQueriesNoHashGeneration.java</exclude>
                         <exclude>**/TestLocalQueries.java</exclude>
-                        <exclude>**/TestLocalQueriesIndexed.java</exclude>
-                        <exclude>**/TestLocalBinarySpilledQueries.java</exclude>
+                        <exclude>**/TestNonIterativeDistributedQueries.java</exclude>
                     </excludes>
                 </configuration>
             </plugin>
@@ -232,8 +250,7 @@
                             <includes>
                                 <include>**/TestDistributedQueriesNoHashGeneration.java</include>
                                 <include>**/TestLocalQueries.java</include>
-                                <include>**/TestLocalQueriesIndexed.java</include>
-                                <include>**/TestLocalBinarySpilledQueries.java</include>
+                                <include>**/TestNonIterativeDistributedQueries.java</include>
                             </includes>
                         </configuration>
                     </plugin>

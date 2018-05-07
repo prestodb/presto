@@ -14,24 +14,13 @@
 
 package com.facebook.presto.spi.block;
 
-import com.facebook.presto.spi.type.TypeManager;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
-
-import static java.util.Objects.requireNonNull;
 
 public class SingleRowBlockEncoding
         implements BlockEncoding
 {
-    public static final BlockEncodingFactory<SingleRowBlockEncoding> FACTORY = new SingleRowBlockEncodingFactory();
-    private static final String NAME = "ROW_ELEMENT";
-
-    private final BlockEncoding[] fieldBlockEncodings;
-
-    public SingleRowBlockEncoding(BlockEncoding[] fieldBlockEncodings)
-    {
-        this.fieldBlockEncodings = requireNonNull(fieldBlockEncodings, "fieldBlockEncodings is null");
-    }
+    public static final String NAME = "ROW_ELEMENT";
 
     @Override
     public String getName()
@@ -40,58 +29,25 @@ public class SingleRowBlockEncoding
     }
 
     @Override
-    public void writeBlock(SliceOutput sliceOutput, Block block)
+    public void writeBlock(BlockEncodingSerde blockEncodingSerde, SliceOutput sliceOutput, Block block)
     {
         SingleRowBlock singleRowBlock = (SingleRowBlock) block;
+        int numFields = singleRowBlock.getNumFields();
         int rowIndex = singleRowBlock.getRowIndex();
-        for (int i = 0; i < fieldBlockEncodings.length; i++) {
-            fieldBlockEncodings[i].writeBlock(sliceOutput, singleRowBlock.getFieldBlock(i).getRegion(rowIndex, 1));
+        sliceOutput.appendInt(numFields);
+        for (int i = 0; i < numFields; i++) {
+            blockEncodingSerde.writeBlock(sliceOutput, singleRowBlock.getRawFieldBlock(i).getRegion(rowIndex, 1));
         }
     }
 
     @Override
-    public Block readBlock(SliceInput sliceInput)
+    public Block readBlock(BlockEncodingSerde blockEncodingSerde, SliceInput sliceInput)
     {
-        Block[] fieldBlocks = new Block[fieldBlockEncodings.length];
+        int numFields = sliceInput.readInt();
+        Block[] fieldBlocks = new Block[numFields];
         for (int i = 0; i < fieldBlocks.length; i++) {
-            fieldBlocks[i] = fieldBlockEncodings[i].readBlock(sliceInput);
+            fieldBlocks[i] = blockEncodingSerde.readBlock(sliceInput);
         }
         return new SingleRowBlock(0, fieldBlocks);
-    }
-
-    @Override
-    public BlockEncodingFactory getFactory()
-    {
-        return FACTORY;
-    }
-
-    public static class SingleRowBlockEncodingFactory
-            implements BlockEncodingFactory<SingleRowBlockEncoding>
-    {
-        @Override
-        public String getName()
-        {
-            return NAME;
-        }
-
-        @Override
-        public SingleRowBlockEncoding readEncoding(TypeManager typeManager, BlockEncodingSerde serde, SliceInput input)
-        {
-            int numFields = input.readInt();
-            BlockEncoding[] fieldBlockEncodings = new BlockEncoding[numFields];
-            for (int i = 0; i < numFields; i++) {
-                fieldBlockEncodings[i] = serde.readBlockEncoding(input);
-            }
-            return new SingleRowBlockEncoding(fieldBlockEncodings);
-        }
-
-        @Override
-        public void writeEncoding(BlockEncodingSerde serde, SliceOutput output, SingleRowBlockEncoding blockEncoding)
-        {
-            output.appendInt(blockEncoding.fieldBlockEncodings.length);
-            for (BlockEncoding fieldBlockEncoding : blockEncoding.fieldBlockEncodings) {
-                serde.writeBlockEncoding(output, fieldBlockEncoding);
-            }
-        }
     }
 }

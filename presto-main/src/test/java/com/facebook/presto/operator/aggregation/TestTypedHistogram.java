@@ -17,7 +17,6 @@ import com.facebook.presto.operator.aggregation.histogram.SingleTypedHistogram;
 import com.facebook.presto.operator.aggregation.histogram.TypedHistogram;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.MapType;
 import org.testng.annotations.Test;
 
@@ -33,7 +32,7 @@ public class TestTypedHistogram
     @Test
     public void testMassive()
     {
-        BlockBuilder inputBlockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), 5000);
+        BlockBuilder inputBlockBuilder = BIGINT.createBlockBuilder(null, 5000);
 
         TypedHistogram typedHistogram = new SingleTypedHistogram(BIGINT, 1000);
         IntStream.range(1, 2000)
@@ -46,7 +45,7 @@ public class TestTypedHistogram
         }
 
         MapType mapType = mapType(BIGINT, BIGINT);
-        BlockBuilder out = mapType.createBlockBuilder(new BlockBuilderStatus(), 1);
+        BlockBuilder out = mapType.createBlockBuilder(null, 1);
         typedHistogram.serialize(out);
         Block outputBlock = mapType.getObject(out, 0);
         for (int i = 0; i < outputBlock.getPositionCount(); i += 2) {

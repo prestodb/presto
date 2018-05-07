@@ -31,6 +31,7 @@ import org.apache.thrift.protocol.TBinaryProtocol;
 import org.apache.thrift.protocol.TProtocol;
 import org.apache.thrift.transport.TTransport;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -242,5 +243,12 @@ public class ThriftHiveMetastoreClient
             throws TException
     {
         return client.revoke_privileges(privilegeBag);
+    }
+
+    @Override
+    public void setUGI(String userName)
+            throws TException
+    {
+        client.set_ugi(userName, new ArrayList<>());
     }
 }

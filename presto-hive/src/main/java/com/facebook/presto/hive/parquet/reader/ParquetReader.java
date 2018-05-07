@@ -175,7 +175,7 @@ public class ParquetReader
         for (int i = 1; i < offsets.length; i++) {
             offsets[i] = offsets[i - 1] + elementOffsets.getInt(i - 1);
         }
-        return new ArrayBlock(batchSize, new boolean[batchSize], offsets, block);
+        return ArrayBlock.fromElementBlock(batchSize, new boolean[batchSize], offsets, block);
     }
 
     public Block readMap(Type type, List<String> path)
@@ -227,17 +227,15 @@ public class ParquetReader
         for (int i = 0; i < parameters.size(); i++) {
             NamedTypeSignature namedTypeSignature = parameters.get(i).getNamedTypeSignature();
             Type fieldType = typeManager.getType(namedTypeSignature.getTypeSignature());
-            String name = namedTypeSignature.getName();
+            String name = namedTypeSignature.getName().get();
             blocks[i] = readBlock(name, fieldType, path, new IntArrayList());
         }
 
-        int blockSize = blocks[0].getPositionCount();
-        int[] offsets = new int[blockSize + 1];
-        for (int i = 1; i < offsets.length; i++) {
+        int positionCount = blocks[0].getPositionCount();
+        for (int i = 0; i < positionCount; i++) {
             elementOffsets.add(parameters.size());
-            offsets[i] = i;
         }
-        return new RowBlock(0, blockSize, new boolean[blockSize], offsets, blocks);
+        return RowBlock.fromFieldBlocks(new boolean[positionCount], blocks);
     }
 
     public Block readPrimitive(ColumnDescriptor columnDescriptor, Type type)

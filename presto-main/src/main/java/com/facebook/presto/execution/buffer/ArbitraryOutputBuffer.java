@@ -230,7 +230,7 @@ public class ArbitraryOutputBuffer
             clientBuffer.loadPagesIfNecessary(masterBuffer);
         }
 
-        return memoryManager.getNotFullFuture();
+        return memoryManager.getBufferBlockedFuture();
     }
 
     @Override
@@ -248,6 +248,15 @@ public class ArbitraryOutputBuffer
         checkArgument(maxSize.toBytes() > 0, "maxSize must be at least 1 byte");
 
         return getBuffer(bufferId).getPages(startingSequenceId, maxSize, Optional.of(masterBuffer));
+    }
+
+    @Override
+    public void acknowledge(OutputBufferId bufferId, long sequenceId)
+    {
+        checkState(!Thread.holdsLock(this), "Can not acknowledge pages while holding a lock on this");
+        requireNonNull(bufferId, "bufferId is null");
+
+        getBuffer(bufferId).acknowledgePages(sequenceId);
     }
 
     @Override
@@ -304,6 +313,12 @@ public class ArbitraryOutputBuffer
             memoryManager.setNoBlockOnFull();
             // DO NOT destroy buffers or set no more pages.  The coordinator manages the teardown of failed queries.
         }
+    }
+
+    @Override
+    public long getPeakMemoryUsage()
+    {
+        return memoryManager.getPeakMemoryUsage();
     }
 
     private synchronized ClientBuffer getBuffer(OutputBufferId id)

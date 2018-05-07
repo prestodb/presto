@@ -14,14 +14,15 @@
 package com.facebook.presto.cli;
 
 import com.facebook.presto.client.ClientSession;
-import com.facebook.presto.client.ClientTypeSignature;
 import com.facebook.presto.client.Column;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementStats;
+import com.facebook.presto.spi.type.BigintType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
+import io.airlift.units.Duration;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import org.testng.annotations.AfterMethod;
@@ -80,7 +81,7 @@ public class TestQueryRunner
                 .addHeader(CONTENT_TYPE, "application/json")
                 .setBody(createResults()));
 
-        QueryRunner queryRunner = new QueryRunner(
+        QueryRunner queryRunner = createQueryRunner(
                 new ClientSession(
                         server.url("/").uri(),
                         "user",
@@ -93,24 +94,9 @@ public class TestQueryRunner
                         Locale.ENGLISH,
                         ImmutableMap.of(),
                         ImmutableMap.of(),
+                        ImmutableMap.of(),
                         null,
-                        false,
-                        new io.airlift.units.Duration(2, MINUTES)),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                false,
-                false);
+                        new Duration(2, MINUTES)));
         try (Query query = queryRunner.startQuery("first query will introduce a cookie")) {
             query.renderOutput(new PrintStream(nullOutputStream()), CSV, false);
         }
@@ -129,7 +115,7 @@ public class TestQueryRunner
                 server.url("/query.html?20160128_214710_00012_rk68b").uri(),
                 null,
                 null,
-                ImmutableList.of(new Column("_col0", "bigint", new ClientTypeSignature("bigint", ImmutableList.of()))),
+                ImmutableList.of(new Column("_col0", BigintType.BIGINT)),
                 ImmutableList.of(ImmutableList.of(123)),
                 StatementStats.builder().setState("FINISHED").build(),
                 //new StatementStats("FINISHED", false, true, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null),
@@ -137,5 +123,27 @@ public class TestQueryRunner
                 null,
                 null);
         return QUERY_RESULTS_CODEC.toJson(queryResults);
+    }
+
+    static QueryRunner createQueryRunner(ClientSession clientSession)
+    {
+        return new QueryRunner(
+                clientSession,
+                false,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                false);
     }
 }

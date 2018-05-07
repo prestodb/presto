@@ -27,6 +27,7 @@ import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeField;
 import org.joda.time.Days;
+import org.joda.time.LocalDate;
 import org.joda.time.chrono.ISOChronology;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
@@ -86,9 +87,8 @@ public final class DateTimeFunctions
 
         // It is ok for this method to use the Object interfaces because it is constant folded during
         // plan optimization
-        DateTime currentDateTime = new DateTime(session.getStartTime(), chronology).withTimeAtStartOfDay();
-        DateTime baseDateTime = new DateTime(1970, 1, 1, 0, 0, chronology).withTimeAtStartOfDay();
-        return Days.daysBetween(baseDateTime, currentDateTime).getDays();
+        LocalDate currentDate = new DateTime(session.getStartTime(), chronology).toLocalDate();
+        return Days.daysBetween(new LocalDate(1970, 1, 1), currentDate).getDays();
     }
 
     @Description("current time with time zone")

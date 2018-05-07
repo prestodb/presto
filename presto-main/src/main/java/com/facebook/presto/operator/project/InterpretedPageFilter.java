@@ -97,6 +97,6 @@ public class InterpretedPageFilter
 
     private boolean filter(Page page, int position)
     {
-        return TRUE.equals(evaluator.evaluate(position, page.getBlocks()));
+        return TRUE.equals(evaluator.evaluate(position, page));
     }
 }

@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.spi.block;
 
-import com.facebook.presto.spi.type.TypeManager;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
@@ -26,8 +25,7 @@ import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 public class VariableWidthBlockEncoding
         implements BlockEncoding
 {
-    public static final BlockEncodingFactory<VariableWidthBlockEncoding> FACTORY = new VariableWidthBlockEncodingFactory();
-    private static final String NAME = "VARIABLE_WIDTH";
+    public static final String NAME = "VARIABLE_WIDTH";
 
     @Override
     public String getName()
@@ -36,7 +34,7 @@ public class VariableWidthBlockEncoding
     }
 
     @Override
-    public void writeBlock(SliceOutput sliceOutput, Block block)
+    public void writeBlock(BlockEncodingSerde blockEncodingSerde, SliceOutput sliceOutput, Block block)
     {
         // The down casts here are safe because it is the block itself the provides this encoding implementation.
         AbstractVariableWidthBlock variableWidthBlock = (AbstractVariableWidthBlock) block;
@@ -60,7 +58,7 @@ public class VariableWidthBlockEncoding
     }
 
     @Override
-    public Block readBlock(SliceInput sliceInput)
+    public Block readBlock(BlockEncodingSerde blockEncodingSerde, SliceInput sliceInput)
     {
         int positionCount = sliceInput.readInt();
 
@@ -73,32 +71,5 @@ public class VariableWidthBlockEncoding
         Slice slice = sliceInput.readSlice(blockSize);
 
         return new VariableWidthBlock(positionCount, slice, offsets, valueIsNull);
-    }
-
-    @Override
-    public BlockEncodingFactory getFactory()
-    {
-        return FACTORY;
-    }
-
-    public static class VariableWidthBlockEncodingFactory
-            implements BlockEncodingFactory<VariableWidthBlockEncoding>
-    {
-        @Override
-        public String getName()
-        {
-            return NAME;
-        }
-
-        @Override
-        public VariableWidthBlockEncoding readEncoding(TypeManager manager, BlockEncodingSerde serde, SliceInput input)
-        {
-            return new VariableWidthBlockEncoding();
-        }
-
-        @Override
-        public void writeEncoding(BlockEncodingSerde serde, SliceOutput output, VariableWidthBlockEncoding blockEncoding)
-        {
-        }
     }
 }

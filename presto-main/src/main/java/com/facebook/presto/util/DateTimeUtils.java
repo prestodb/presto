@@ -123,7 +123,7 @@ public final class DateTimeUtils
             DateTime dateTime = TIMESTAMP_WITH_TIME_ZONE_FORMATTER.parseDateTime(value);
             return packDateTimeWithZone(dateTime);
         }
-        catch (Exception e) {
+        catch (RuntimeException e) {
             return TIMESTAMP_WITHOUT_TIME_ZONE_FORMATTER.withChronology(getChronology(timeZoneKey)).parseMillis(value);
         }
     }
@@ -159,7 +159,8 @@ public final class DateTimeUtils
                 return true;
             }
             catch (Exception e) {
-                TIMESTAMP_WITHOUT_TIME_ZONE_FORMATTER.parseMillis(value);
+                // `.withZoneUTC()` makes `timestampHasTimeZone` return value independent of JVM zone
+                TIMESTAMP_WITHOUT_TIME_ZONE_FORMATTER.withZoneUTC().parseMillis(value);
                 return false;
             }
         }

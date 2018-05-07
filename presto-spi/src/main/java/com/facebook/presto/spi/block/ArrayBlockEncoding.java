@@ -13,23 +13,16 @@
  */
 package com.facebook.presto.spi.block;
 
-import com.facebook.presto.spi.type.TypeManager;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 
+import static com.facebook.presto.spi.block.ArrayBlock.createArrayBlockInternal;
+
 public class ArrayBlockEncoding
         implements BlockEncoding
 {
-    public static final BlockEncodingFactory<ArrayBlockEncoding> FACTORY = new ArrayBlockEncodingFactory();
-    private static final String NAME = "ARRAY";
-
-    private final BlockEncoding valueBlockEncoding;
-
-    public ArrayBlockEncoding(BlockEncoding valueBlockEncoding)
-    {
-        this.valueBlockEncoding = valueBlockEncoding;
-    }
+    public static final String NAME = "ARRAY";
 
     @Override
     public String getName()
@@ -38,7 +31,7 @@ public class ArrayBlockEncoding
     }
 
     @Override
-    public void writeBlock(SliceOutput sliceOutput, Block block)
+    public void writeBlock(BlockEncodingSerde blockEncodingSerde, SliceOutput sliceOutput, Block block)
     {
         AbstractArrayBlock arrayBlock = (AbstractArrayBlock) block;
 
@@ -49,8 +42,8 @@ public class ArrayBlockEncoding
 
         int valuesStartOffset = offsets[offsetBase];
         int valuesEndOffset = offsets[offsetBase + positionCount];
-        Block values = arrayBlock.getValues().getRegion(valuesStartOffset, valuesEndOffset - valuesStartOffset);
-        valueBlockEncoding.writeBlock(sliceOutput, values);
+        Block values = arrayBlock.getRawElementBlock().getRegion(valuesStartOffset, valuesEndOffset - valuesStartOffset);
+        blockEncodingSerde.writeBlock(sliceOutput, values);
 
         sliceOutput.appendInt(positionCount);
         for (int position = 0; position < positionCount + 1; position++) {
@@ -60,43 +53,14 @@ public class ArrayBlockEncoding
     }
 
     @Override
-    public Block readBlock(SliceInput sliceInput)
+    public Block readBlock(BlockEncodingSerde blockEncodingSerde, SliceInput sliceInput)
     {
-        Block values = valueBlockEncoding.readBlock(sliceInput);
+        Block values = blockEncodingSerde.readBlock(sliceInput);
 
         int positionCount = sliceInput.readInt();
         int[] offsets = new int[positionCount + 1];
         sliceInput.readBytes(Slices.wrappedIntArray(offsets));
         boolean[] valueIsNull = EncoderUtil.decodeNullBits(sliceInput, positionCount);
-        return new ArrayBlock(positionCount, valueIsNull, offsets, values);
-    }
-
-    @Override
-    public BlockEncodingFactory getFactory()
-    {
-        return FACTORY;
-    }
-
-    public static class ArrayBlockEncodingFactory
-            implements BlockEncodingFactory<ArrayBlockEncoding>
-    {
-        @Override
-        public String getName()
-        {
-            return NAME;
-        }
-
-        @Override
-        public ArrayBlockEncoding readEncoding(TypeManager manager, BlockEncodingSerde serde, SliceInput input)
-        {
-            BlockEncoding valueBlockEncoding = serde.readBlockEncoding(input);
-            return new ArrayBlockEncoding(valueBlockEncoding);
-        }
-
-        @Override
-        public void writeEncoding(BlockEncodingSerde serde, SliceOutput output, ArrayBlockEncoding blockEncoding)
-        {
-            serde.writeBlockEncoding(output, blockEncoding.valueBlockEncoding);
-        }
+        return createArrayBlockInternal(0, positionCount, valueIsNull, offsets, values);
     }
 }

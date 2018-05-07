@@ -20,8 +20,6 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
-import static java.util.Objects.requireNonNull;
-
 /**
  * original way of doing group-by: one histogram per group-by-id
  */
@@ -62,21 +60,6 @@ public class LegacyHistogramGroupState
         }
 
         return typedHistogram;
-    }
-
-    @Override
-    public void set(TypedHistogram value)
-    {
-        requireNonNull(value, "value is null");
-
-        TypedHistogram previous = get();
-
-        if (previous != null) {
-            size -= previous.getEstimatedSize();
-        }
-
-        typedHistograms.set(getGroupId(), value);
-        size += value.getEstimatedSize();
     }
 
     @Override

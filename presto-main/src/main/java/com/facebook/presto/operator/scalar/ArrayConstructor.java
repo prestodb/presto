@@ -63,7 +63,6 @@ import static io.airlift.bytecode.ParameterizedType.type;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantNull;
 import static io.airlift.bytecode.expression.BytecodeExpressions.equal;
-import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
 import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Collections.nCopies;
 
@@ -164,7 +163,7 @@ public final class ArrayConstructor
         CallSiteBinder binder = new CallSiteBinder();
 
         BytecodeExpression createBlockBuilder = blockBuilderVariable.set(
-                constantType(binder, elementType).invoke("createBlockBuilder", BlockBuilder.class, newInstance(BlockBuilderStatus.class), constantInt(stackTypes.size())));
+                constantType(binder, elementType).invoke("createBlockBuilder", BlockBuilder.class, constantNull(BlockBuilderStatus.class), constantInt(stackTypes.size())));
         body.append(createBlockBuilder);
 
         for (int i = 0; i < stackTypes.size(); i++) {

@@ -310,6 +310,9 @@ public final class DoubleOperators
         if (leftNull) {
             return false;
         }
+        if (Double.isNaN(left) && Double.isNaN(right)) {
+            return false;
+        }
         return notEqual(left, right);
     }
 }

@@ -15,7 +15,6 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.SessionRepresentation;
 import com.facebook.presto.client.FailureInfo;
-import com.facebook.presto.execution.PlanFlattener.FlattenedPlan;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.ErrorType;
 import com.facebook.presto.spi.QueryId;
@@ -67,7 +66,6 @@ public class QueryInfo
     private final ErrorCode errorCode;
     private final Set<Input> inputs;
     private final Optional<Output> output;
-    private final Optional<FlattenedPlan> plan;
     private final boolean completeInfo;
     private final Optional<String> resourceGroupName;
 
@@ -96,7 +94,6 @@ public class QueryInfo
             @JsonProperty("errorCode") ErrorCode errorCode,
             @JsonProperty("inputs") Set<Input> inputs,
             @JsonProperty("output") Optional<Output> output,
-            @JsonProperty("flattenedPlan") Optional<FlattenedPlan> plan,
             @JsonProperty("completeInfo") boolean completeInfo,
             @JsonProperty("resourceGroupName") Optional<String> resourceGroupName)
     {
@@ -117,7 +114,6 @@ public class QueryInfo
         requireNonNull(outputStage, "outputStage is null");
         requireNonNull(inputs, "inputs is null");
         requireNonNull(output, "output is null");
-        requireNonNull(plan, "plan is null");
         requireNonNull(resourceGroupName, "resourceGroupName is null");
 
         this.queryId = queryId;
@@ -144,7 +140,6 @@ public class QueryInfo
         this.errorCode = errorCode;
         this.inputs = ImmutableSet.copyOf(inputs);
         this.output = output;
-        this.plan = plan;
         this.completeInfo = completeInfo;
         this.resourceGroupName = resourceGroupName;
     }
@@ -301,12 +296,6 @@ public class QueryInfo
     public Optional<Output> getOutput()
     {
         return output;
-    }
-
-    @JsonProperty
-    public Optional<FlattenedPlan> getPlan()
-    {
-        return plan;
     }
 
     @JsonProperty

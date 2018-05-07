@@ -89,7 +89,7 @@ public class TestHiveClientConfig
                 .setRcfileOptimizedWriterEnabled(true)
                 .setRcfileWriterValidate(false)
                 .setOrcOptimizedWriterEnabled(false)
-                .setOrcWriterValidate(true)
+                .setOrcWriterValidationPercentage(1.0)
                 .setHiveMetastoreAuthenticationType(HiveMetastoreAuthenticationType.NONE)
                 .setHdfsAuthenticationType(HdfsAuthenticationType.NONE)
                 .setHdfsImpersonationEnabled(false)
@@ -98,7 +98,8 @@ public class TestHiveClientConfig
                 .setBucketWritingEnabled(true)
                 .setFileSystemMaxCacheSize(1000)
                 .setTableStatisticsEnabled(true)
-                .setWritesToNonManagedTablesEnabled(false));
+                .setWritesToNonManagedTablesEnabled(false)
+                .setCreatesOfNonManagedTablesEnabled(true));
     }
 
     @Test
@@ -157,7 +158,7 @@ public class TestHiveClientConfig
                 .put("hive.rcfile-optimized-writer.enabled", "false")
                 .put("hive.rcfile.writer.validate", "true")
                 .put("hive.orc.optimized-writer.enabled", "true")
-                .put("hive.orc.writer.validate", "false")
+                .put("hive.orc.writer.validation-percentage", "0.16")
                 .put("hive.metastore.authentication.type", "KERBEROS")
                 .put("hive.hdfs.authentication.type", "KERBEROS")
                 .put("hive.hdfs.impersonation.enabled", "true")
@@ -167,6 +168,7 @@ public class TestHiveClientConfig
                 .put("hive.fs.cache.max-size", "1010")
                 .put("hive.table-statistics-enabled", "false")
                 .put("hive.non-managed-table-writes-enabled", "true")
+                .put("hive.non-managed-table-creates-enabled", "false")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -222,7 +224,7 @@ public class TestHiveClientConfig
                 .setRcfileOptimizedWriterEnabled(false)
                 .setRcfileWriterValidate(true)
                 .setOrcOptimizedWriterEnabled(true)
-                .setOrcWriterValidate(false)
+                .setOrcWriterValidationPercentage(0.16)
                 .setHiveMetastoreAuthenticationType(HiveMetastoreAuthenticationType.KERBEROS)
                 .setHdfsAuthenticationType(HdfsAuthenticationType.KERBEROS)
                 .setHdfsImpersonationEnabled(true)
@@ -231,7 +233,8 @@ public class TestHiveClientConfig
                 .setBucketWritingEnabled(false)
                 .setFileSystemMaxCacheSize(1010)
                 .setTableStatisticsEnabled(false)
-                .setWritesToNonManagedTablesEnabled(true);
+                .setWritesToNonManagedTablesEnabled(true)
+                .setCreatesOfNonManagedTablesEnabled(false);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

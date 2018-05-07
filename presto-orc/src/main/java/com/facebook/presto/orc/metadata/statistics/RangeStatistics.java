@@ -18,4 +18,6 @@ public interface RangeStatistics<T>
     T getMin();
 
     T getMax();
+
+    long getRetainedSizeInBytes();
 }

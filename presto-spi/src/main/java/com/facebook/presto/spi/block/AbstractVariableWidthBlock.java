@@ -30,9 +30,9 @@ public abstract class AbstractVariableWidthBlock
     protected abstract boolean isEntryNull(int position);
 
     @Override
-    public BlockEncoding getEncoding()
+    public String getEncodingName()
     {
-        return new VariableWidthBlockEncoding();
+        return VariableWidthBlockEncoding.NAME;
     }
 
     @Override
@@ -124,6 +124,7 @@ public abstract class AbstractVariableWidthBlock
     public void writePositionTo(int position, BlockBuilder blockBuilder)
     {
         writeBytesTo(position, 0, getSliceLength(position), blockBuilder);
+        blockBuilder.closeEntry();
     }
 
     @Override

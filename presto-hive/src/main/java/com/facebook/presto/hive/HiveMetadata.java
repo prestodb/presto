@@ -40,13 +40,18 @@ import com.facebook.presto.spi.ConnectorTablePartitioning;
 import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.DiscretePredicates;
+import com.facebook.presto.spi.InMemoryRecordSet;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.StandardErrorCode;
+import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.ViewNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
@@ -79,6 +84,7 @@ import org.joda.time.DateTimeZone;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -88,16 +94,18 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static com.facebook.presto.hive.HiveBucketing.getHiveBucketHandle;
 import static com.facebook.presto.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
-import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.HIDDEN;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.SYNTHESIZED;
 import static com.facebook.presto.hive.HiveColumnHandle.PATH_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveColumnHandle.updateRowIdHandle;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_COLUMN_ORDER_MISMATCH;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CONCURRENT_MODIFICATION_DETECTED;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_EXCEEDED_PARTITION_LIMIT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TIMEZONE_MISMATCH;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
@@ -127,6 +135,7 @@ import static com.facebook.presto.hive.HiveUtil.PRESTO_VIEW_FLAG;
 import static com.facebook.presto.hive.HiveUtil.columnExtraInfo;
 import static com.facebook.presto.hive.HiveUtil.decodeViewData;
 import static com.facebook.presto.hive.HiveUtil.encodeViewData;
+import static com.facebook.presto.hive.HiveUtil.getPartitionKeyColumnHandles;
 import static com.facebook.presto.hive.HiveUtil.hiveColumnHandles;
 import static com.facebook.presto.hive.HiveUtil.schemaTableName;
 import static com.facebook.presto.hive.HiveUtil.toPartitionValues;
@@ -152,12 +161,15 @@ import static com.facebook.presto.spi.predicate.TupleDomain.withColumnDomains;
 import static com.facebook.presto.spi.statistics.TableStatistics.EMPTY_STATISTICS;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.concat;
+import static com.google.common.collect.Streams.stream;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
@@ -174,6 +186,8 @@ public class HiveMetadata
     private static final String ORC_BLOOM_FILTER_COLUMNS_KEY = "orc.bloom.filter.columns";
     private static final String ORC_BLOOM_FILTER_FPP_KEY = "orc.bloom.filter.fpp";
 
+    private static final String PARTITIONS_TABLE_SUFFIX = "$partitions";
+
     private final boolean allowCorruptWritesForTesting;
     private final SemiTransactionalHiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
@@ -185,9 +199,11 @@ public class HiveMetadata
     private final JsonCodec<PartitionUpdate> partitionUpdateCodec;
     private final boolean bucketWritingEnabled;
     private final boolean writesToNonManagedTablesEnabled;
+    private final boolean createsOfNonManagedTablesEnabled;
     private final TypeTranslator typeTranslator;
     private final String prestoVersion;
     private final HiveStatisticsProvider hiveStatisticsProvider;
+    private final int maxPartitions;
 
     public HiveMetadata(
             SemiTransactionalHiveMetastore metastore,
@@ -197,13 +213,15 @@ public class HiveMetadata
             boolean allowCorruptWritesForTesting,
             boolean bucketWritingEnabled,
             boolean writesToNonManagedTablesEnabled,
+            boolean createsOfNonManagedTablesEnabled,
             TypeManager typeManager,
             LocationService locationService,
             TableParameterCodec tableParameterCodec,
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
             TypeTranslator typeTranslator,
             String prestoVersion,
-            HiveStatisticsProvider hiveStatisticsProvider)
+            HiveStatisticsProvider hiveStatisticsProvider,
+            int maxPartitions)
     {
         this.allowCorruptWritesForTesting = allowCorruptWritesForTesting;
 
@@ -217,9 +235,12 @@ public class HiveMetadata
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
         this.bucketWritingEnabled = bucketWritingEnabled;
         this.writesToNonManagedTablesEnabled = writesToNonManagedTablesEnabled;
+        this.createsOfNonManagedTablesEnabled = createsOfNonManagedTablesEnabled;
         this.typeTranslator = requireNonNull(typeTranslator, "typeTranslator is null");
         this.prestoVersion = requireNonNull(prestoVersion, "prestoVersion is null");
         this.hiveStatisticsProvider = requireNonNull(hiveStatisticsProvider, "hiveStatisticsProvider is null");
+        checkArgument(maxPartitions >= 1, "maxPartitions must be at least 1");
+        this.maxPartitions = maxPartitions;
     }
 
     public SemiTransactionalHiveMetastore getMetastore()
@@ -241,8 +262,96 @@ public class HiveMetadata
         if (!table.isPresent()) {
             return null;
         }
+
+        if (isPartitionsSystemTable(tableName)) {
+            // We must not allow $partitions table due to how permissions are checked in PartitionsAwareAccessControl.checkCanSelectFromTable()
+            throw new PrestoException(StandardErrorCode.NOT_SUPPORTED, format("Unexpected table %s present in Hive metastore", tableName));
+        }
+
         verifyOnline(tableName, Optional.empty(), getProtectMode(table.get()), table.get().getParameters());
         return new HiveTableHandle(tableName.getSchemaName(), tableName.getTableName());
+    }
+
+    @Override
+    public Optional<SystemTable> getSystemTable(ConnectorSession session, SchemaTableName tableName)
+    {
+        if (isPartitionsSystemTable(tableName)) {
+            return getPartitionsSystemTable(session, tableName);
+        }
+        return Optional.empty();
+    }
+
+    private Optional<SystemTable> getPartitionsSystemTable(ConnectorSession session, SchemaTableName tableName)
+    {
+        SchemaTableName sourceTableName = getSourceTableNameForPartitionsTable(tableName);
+        HiveTableHandle sourceTableHandle = getTableHandle(session, sourceTableName);
+
+        if (sourceTableHandle == null) {
+            return Optional.empty();
+        }
+
+        List<HiveColumnHandle> partitionColumns = getPartitionColumns(sourceTableName);
+        if (partitionColumns.isEmpty()) {
+            return Optional.empty();
+        }
+
+        List<Type> partitionColumnTypes = partitionColumns.stream()
+                .map(HiveColumnHandle::getTypeSignature)
+                .map(typeManager::getType)
+                .collect(toImmutableList());
+
+        List<ColumnMetadata> partitionSystemTableColumns = partitionColumns.stream()
+                .map(column -> new ColumnMetadata(
+                        column.getName(),
+                        typeManager.getType(column.getTypeSignature()),
+                        column.getComment().orElse(null),
+                        column.isHidden()))
+                .collect(toImmutableList());
+
+        Map<Integer, HiveColumnHandle> fieldIdToColumnHandle =
+                IntStream.range(0, partitionColumns.size())
+                        .boxed()
+                        .collect(toImmutableMap(identity(), partitionColumns::get));
+
+        SystemTable partitionsSystemTable = new SystemTable()
+        {
+            @Override
+            public Distribution getDistribution()
+            {
+                return Distribution.SINGLE_COORDINATOR;
+            }
+
+            @Override
+            public ConnectorTableMetadata getTableMetadata()
+            {
+                return new ConnectorTableMetadata(tableName, partitionSystemTableColumns);
+            }
+
+            @Override
+            public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
+            {
+                TupleDomain<ColumnHandle> targetTupleDomain = constraint.transform(fieldIdToColumnHandle::get);
+                Predicate<Map<ColumnHandle, NullableValue>> targetPredicate = convertToPredicate(targetTupleDomain);
+                Constraint<ColumnHandle> targetConstraint = new Constraint<>(targetTupleDomain, targetPredicate);
+                Iterable<List<Object>> records = () ->
+                        stream(partitionManager.getPartitions(metastore, sourceTableHandle, targetConstraint).getPartitions())
+                                .map(hivePartition ->
+                                        (List<Object>) IntStream.range(0, partitionColumns.size())
+                                                .mapToObj(fieldIdToColumnHandle::get)
+                                                .map(columnHandle -> hivePartition.getKeys().get(columnHandle).getValue())
+                                                .collect(toList()))
+                                .iterator();
+
+                return new InMemoryRecordSet(partitionColumnTypes, records).cursor();
+            }
+        };
+        return Optional.of(partitionsSystemTable);
+    }
+
+    private List<HiveColumnHandle> getPartitionColumns(SchemaTableName tableName)
+    {
+        Table sourceTable = metastore.getTable(tableName.getSchemaName(), tableName.getTableName()).get();
+        return getPartitionKeyColumnHandles(sourceTable);
     }
 
     @Override
@@ -319,9 +428,11 @@ public class HiveMetadata
     {
         HiveTableLayoutHandle tableLayoutHandle = (HiveTableLayoutHandle) layoutHandle;
         if (tableLayoutHandle.getPartitions().isPresent()) {
-            return Optional.of(new HiveInputInfo(tableLayoutHandle.getPartitions().get().stream()
-                    .map(HivePartition::getPartitionId)
-                    .collect(Collectors.toList())));
+            return Optional.of(new HiveInputInfo(
+                    tableLayoutHandle.getPartitions().get().stream()
+                            .map(HivePartition::getPartitionId)
+                            .collect(Collectors.toList()),
+                    false));
         }
 
         return Optional.empty();
@@ -388,12 +499,37 @@ public class HiveMetadata
         if (!isStatisticsEnabled(session)) {
             return EMPTY_STATISTICS;
         }
-        List<HivePartition> hivePartitions = partitionManager.getPartitions(metastore, tableHandle, constraint).getPartitions();
+        List<HivePartition> hivePartitions = getPartitionsAsList(tableHandle, constraint);
         Map<String, ColumnHandle> tableColumns = getColumnHandles(session, tableHandle)
                 .entrySet().stream()
                 .filter(entry -> !((HiveColumnHandle) entry.getValue()).isHidden())
                 .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
         return hiveStatisticsProvider.getTableStatistics(session, tableHandle, hivePartitions, tableColumns);
+    }
+
+    private List<HivePartition> getPartitionsAsList(ConnectorTableHandle tableHandle, Constraint<ColumnHandle> constraint)
+    {
+        HivePartitionResult partitions = partitionManager.getPartitions(metastore, tableHandle, constraint);
+        return getPartitionsAsList(partitions);
+    }
+
+    private List<HivePartition> getPartitionsAsList(HivePartitionResult partitions)
+    {
+        ImmutableList.Builder<HivePartition> partitionList = ImmutableList.builder();
+        int count = 0;
+        Iterator<HivePartition> iterator = partitions.getPartitions();
+        while (iterator.hasNext()) {
+            HivePartition partition = iterator.next();
+            if (count == maxPartitions) {
+                throw new PrestoException(HIVE_EXCEEDED_PARTITION_LIMIT, format(
+                        "Query over table '%s' can potentially read more than %s partitions",
+                        partition.getTableName(),
+                        maxPartitions));
+            }
+            partitionList.add(partition);
+            count++;
+        }
+        return partitionList.build();
     }
 
     private List<SchemaTableName> listTables(ConnectorSession session, SchemaTablePrefix prefix)
@@ -479,6 +615,10 @@ public class HiveMetadata
         boolean external;
         String externalLocation = getExternalLocation(tableMetadata.getProperties());
         if (externalLocation != null) {
+            if (!createsOfNonManagedTablesEnabled) {
+                throw new PrestoException(NOT_SUPPORTED, "Cannot create non-managed Hive table");
+            }
+
             external = true;
             targetPath = getExternalPath(new HdfsContext(session, schemaName, tableName), externalLocation);
         }
@@ -1168,10 +1308,11 @@ public class HiveMetadata
                         new HiveTableLayoutHandle(
                                 handle.getSchemaTableName(),
                                 ImmutableList.copyOf(hivePartitionResult.getPartitionColumns()),
-                                hivePartitionResult.getPartitions(),
+                                getPartitionsAsList(hivePartitionResult),
                                 hivePartitionResult.getCompactEffectivePredicate(),
                                 hivePartitionResult.getEnforcedConstraint(),
-                                hivePartitionResult.getBucketHandle())),
+                                hivePartitionResult.getBucketHandle(),
+                                hivePartitionResult.getBucketFilter())),
                 hivePartitionResult.getUnenforcedConstraint()));
     }
 
@@ -1226,7 +1367,7 @@ public class HiveMetadata
         return withColumnDomains(
                 partitionColumns.stream()
                         .collect(Collectors.toMap(
-                                Function.identity(),
+                                identity(),
                                 column -> buildColumnDomain(column, partitions))));
     }
 
@@ -1435,7 +1576,7 @@ public class HiveMetadata
                 columnType = PARTITION_KEY;
             }
             else if (column.isHidden()) {
-                columnType = HIDDEN;
+                columnType = SYNTHESIZED;
             }
             else {
                 columnType = REGULAR;
@@ -1498,5 +1639,18 @@ public class HiveMetadata
     public void commit()
     {
         metastore.commit();
+    }
+
+    public static boolean isPartitionsSystemTable(SchemaTableName tableName)
+    {
+        return tableName.getTableName().endsWith(PARTITIONS_TABLE_SUFFIX) && tableName.getTableName().length() > PARTITIONS_TABLE_SUFFIX.length();
+    }
+
+    public static SchemaTableName getSourceTableNameForPartitionsTable(SchemaTableName tableName)
+    {
+        checkArgument(isPartitionsSystemTable(tableName), "not a partitions table name");
+        return new SchemaTableName(
+                tableName.getSchemaName(),
+                tableName.getTableName().substring(0, tableName.getTableName().length() - PARTITIONS_TABLE_SUFFIX.length()));
     }
 }

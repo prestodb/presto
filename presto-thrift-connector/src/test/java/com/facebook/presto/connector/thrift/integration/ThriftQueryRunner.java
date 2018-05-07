@@ -15,14 +15,12 @@ package com.facebook.presto.connector.thrift.integration;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.connector.thrift.ThriftPlugin;
-import com.facebook.presto.connector.thrift.location.HostList;
 import com.facebook.presto.connector.thrift.server.ThriftIndexedTpchService;
 import com.facebook.presto.connector.thrift.server.ThriftTpchService;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.server.testing.TestingPrestoServer;
-import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.testing.MaterializedResult;
@@ -30,12 +28,18 @@ import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.TestingAccessControlManager;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.transaction.TransactionManager;
-import com.facebook.swift.codec.ThriftCodecManager;
-import com.facebook.swift.service.ThriftServer;
-import com.facebook.swift.service.ThriftServiceProcessor;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import io.airlift.drift.codec.ThriftCodecManager;
+import io.airlift.drift.server.DriftServer;
+import io.airlift.drift.server.DriftService;
+import io.airlift.drift.server.stats.NullMethodInvocationStatsFactory;
+import io.airlift.drift.transport.netty.server.DriftNettyServerConfig;
+import io.airlift.drift.transport.netty.server.DriftNettyServerTransport;
+import io.airlift.drift.transport.netty.server.DriftNettyServerTransportFactory;
 import io.airlift.log.Logger;
+import io.airlift.log.Logging;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -43,30 +47,32 @@ import java.util.Map;
 import java.util.concurrent.locks.Lock;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.testing.Closeables.closeQuietly;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 public final class ThriftQueryRunner
 {
+    public static final ThriftCodecManager CODEC_MANAGER = new ThriftCodecManager();
+
     private ThriftQueryRunner() {}
 
-    public static QueryRunner createThriftQueryRunner(int thriftServers, int workers, boolean enableIndexJoin)
+    public static QueryRunner createThriftQueryRunner(int thriftServers, int nodeCount, boolean enableIndexJoin, Map<String, String> properties)
             throws Exception
     {
-        List<ThriftServer> servers = null;
+        List<DriftServer> servers = null;
         DistributedQueryRunner runner = null;
         try {
             servers = startThriftServers(thriftServers, enableIndexJoin);
-            runner = createThriftQueryRunnerInternal(servers, workers);
+            runner = createThriftQueryRunnerInternal(servers, nodeCount, properties);
             return new ThriftQueryRunnerWithServers(runner, servers);
         }
         catch (Throwable t) {
             closeQuietly(runner);
             // runner might be null, so closing servers explicitly
             if (servers != null) {
-                for (ThriftServer server : servers) {
-                    closeQuietly(server);
+                for (DriftServer server : servers) {
+                    server.shutdown();
                 }
             }
             throw t;
@@ -76,44 +82,63 @@ public final class ThriftQueryRunner
     public static void main(String[] args)
             throws Exception
     {
-        ThriftQueryRunnerWithServers queryRunner = (ThriftQueryRunnerWithServers) createThriftQueryRunner(3, 3, true);
+        Logging.initialize();
+        Map<String, String> properties = ImmutableMap.of("http-server.http.port", "8080");
+        ThriftQueryRunnerWithServers queryRunner = (ThriftQueryRunnerWithServers) createThriftQueryRunner(3, 3, true, properties);
         Thread.sleep(10);
         Logger log = Logger.get(ThriftQueryRunner.class);
         log.info("======== SERVER STARTED ========");
         log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
     }
 
-    private static List<ThriftServer> startThriftServers(int thriftServers, boolean enableIndexJoin)
+    private static List<DriftServer> startThriftServers(int thriftServers, boolean enableIndexJoin)
     {
-        List<ThriftServer> servers = new ArrayList<>(thriftServers);
+        List<DriftServer> servers = new ArrayList<>(thriftServers);
         for (int i = 0; i < thriftServers; i++) {
             ThriftTpchService service = enableIndexJoin ? new ThriftIndexedTpchService() : new ThriftTpchService();
-            ThriftServiceProcessor processor = new ThriftServiceProcessor(new ThriftCodecManager(), ImmutableList.of(), service);
-            servers.add(new ThriftServer(processor).start());
+            DriftServer server = new DriftServer(
+                    new DriftNettyServerTransportFactory(new DriftNettyServerConfig()),
+                    CODEC_MANAGER,
+                    new NullMethodInvocationStatsFactory(),
+                    ImmutableSet.of(new DriftService(service)),
+                    ImmutableSet.of());
+            server.start();
+            servers.add(server);
         }
         return servers;
     }
 
-    private static DistributedQueryRunner createThriftQueryRunnerInternal(List<ThriftServer> servers, int workers)
+    private static DistributedQueryRunner createThriftQueryRunnerInternal(List<DriftServer> servers, int nodeCount, Map<String, String> properties)
             throws Exception
     {
-        List<HostAddress> addresses = servers.stream()
-                .map(server -> HostAddress.fromParts("localhost", server.getPort()))
-                .collect(toImmutableList());
-        HostList hosts = HostList.fromList(addresses);
+        String addresses = servers.stream()
+                .map(server -> "localhost:" + driftServerPort(server))
+                .collect(joining(","));
 
         Session defaultSession = testSessionBuilder()
                 .setCatalog("thrift")
                 .setSchema("tiny")
                 .build();
-        DistributedQueryRunner queryRunner = new DistributedQueryRunner(defaultSession, workers);
+
+        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(defaultSession)
+                .setNodeCount(nodeCount)
+                .setExtraProperties(properties)
+                .build();
+
         queryRunner.installPlugin(new ThriftPlugin());
-        Map<String, String> connectorProperties = ImmutableMap.of(
-                "static-location.hosts", hosts.stringValue(),
-                "PrestoThriftService.thrift.client.connect-timeout", "30s",
-                "presto-thrift.lookup-requests-concurrency", "2");
+        Map<String, String> connectorProperties = ImmutableMap.<String, String>builder()
+                .put("presto.thrift.client.addresses", addresses)
+                .put("presto.thrift.client.connect-timeout", "30s")
+                .put("presto-thrift.lookup-requests-concurrency", "2")
+                .build();
         queryRunner.createCatalog("thrift", "presto-thrift", connectorProperties);
+
         return queryRunner;
+    }
+
+    private static int driftServerPort(DriftServer server)
+    {
+        return ((DriftNettyServerTransport) server.getServerTransport()).getPort();
     }
 
     /**
@@ -123,9 +148,9 @@ public final class ThriftQueryRunner
             implements QueryRunner
     {
         private DistributedQueryRunner source;
-        private List<ThriftServer> thriftServers;
+        private List<DriftServer> thriftServers;
 
-        private ThriftQueryRunnerWithServers(DistributedQueryRunner source, List<ThriftServer> thriftServers)
+        private ThriftQueryRunnerWithServers(DistributedQueryRunner source, List<DriftServer> thriftServers)
         {
             this.source = requireNonNull(source, "source is null");
             this.thriftServers = ImmutableList.copyOf(requireNonNull(thriftServers, "thriftServers is null"));
@@ -144,8 +169,8 @@ public final class ThriftQueryRunner
                 source = null;
             }
             if (thriftServers != null) {
-                for (ThriftServer server : thriftServers) {
-                    closeQuietly(server);
+                for (DriftServer server : thriftServers) {
+                    server.shutdown();
                 }
                 thriftServers = null;
             }

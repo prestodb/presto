@@ -23,6 +23,10 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
+import static java.lang.String.format;
+
 public class StatsRecorder
 {
     private final Map<Class<?>, RuleStats> stats = new HashMap<>();
@@ -30,6 +34,7 @@ public class StatsRecorder
     public void registerAll(Collection<Rule<?>> rules)
     {
         for (Rule<?> rule : rules) {
+            checkArgument(!rule.getClass().isAnonymousClass());
             stats.put(rule.getClass(), new RuleStats());
         }
     }
@@ -47,11 +52,17 @@ public class StatsRecorder
     void export(MBeanExporter exporter)
     {
         for (Map.Entry<Class<?>, RuleStats> entry : stats.entrySet()) {
+            verify(!entry.getKey().getSimpleName().isEmpty());
             String name = ObjectNames.builder(IterativeOptimizer.class)
                     .withProperty("rule", entry.getKey().getSimpleName())
                     .build();
 
-            exporter.export(name, entry.getValue());
+            try {
+                exporter.export(name, entry.getValue());
+            }
+            catch (RuntimeException e) {
+                throw new RuntimeException(format("Failed to export MBean with name '%s'", name), e);
+            }
         }
     }
 

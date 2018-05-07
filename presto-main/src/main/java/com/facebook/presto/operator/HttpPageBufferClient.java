@@ -72,6 +72,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
+import static io.airlift.http.client.HttpStatus.familyForStatusCode;
 import static io.airlift.http.client.Request.Builder.prepareDelete;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.http.client.ResponseHandlerUtils.propagate;
@@ -80,7 +81,6 @@ import static io.airlift.http.client.StatusResponseHandler.createStatusResponseH
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -111,6 +111,7 @@ public final class HttpPageBufferClient
 
     private final HttpClient httpClient;
     private final DataSize maxResponseSize;
+    private final boolean acknowledgePages;
     private final URI location;
     private final ClientCallback clientCallback;
     private final ScheduledExecutorService scheduler;
@@ -146,21 +147,21 @@ public final class HttpPageBufferClient
     public HttpPageBufferClient(
             HttpClient httpClient,
             DataSize maxResponseSize,
-            Duration minErrorDuration,
             Duration maxErrorDuration,
+            boolean acknowledgePages,
             URI location,
             ClientCallback clientCallback,
             ScheduledExecutorService scheduler,
             Executor pageBufferClientCallbackExecutor)
     {
-        this(httpClient, maxResponseSize, minErrorDuration, maxErrorDuration, location, clientCallback, scheduler, Ticker.systemTicker(), pageBufferClientCallbackExecutor);
+        this(httpClient, maxResponseSize, maxErrorDuration, acknowledgePages, location, clientCallback, scheduler, Ticker.systemTicker(), pageBufferClientCallbackExecutor);
     }
 
     public HttpPageBufferClient(
             HttpClient httpClient,
             DataSize maxResponseSize,
-            Duration minErrorDuration,
             Duration maxErrorDuration,
+            boolean acknowledgePages,
             URI location,
             ClientCallback clientCallback,
             ScheduledExecutorService scheduler,
@@ -169,22 +170,14 @@ public final class HttpPageBufferClient
     {
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.maxResponseSize = requireNonNull(maxResponseSize, "maxResponseSize is null");
+        this.acknowledgePages = acknowledgePages;
         this.location = requireNonNull(location, "location is null");
         this.clientCallback = requireNonNull(clientCallback, "clientCallback is null");
         this.scheduler = requireNonNull(scheduler, "scheduler is null");
         this.pageBufferClientCallbackExecutor = requireNonNull(pageBufferClientCallbackExecutor, "pageBufferClientCallbackExecutor is null");
-        requireNonNull(minErrorDuration, "minErrorDuration is null");
         requireNonNull(maxErrorDuration, "maxErrorDuration is null");
         requireNonNull(ticker, "ticker is null");
-        this.backoff = new Backoff(
-                minErrorDuration,
-                maxErrorDuration,
-                ticker,
-                new Duration(0, MILLISECONDS),
-                new Duration(50, MILLISECONDS),
-                new Duration(100, MILLISECONDS),
-                new Duration(200, MILLISECONDS),
-                new Duration(500, MILLISECONDS));
+        this.backoff = new Backoff(maxErrorDuration, ticker);
     }
 
     public synchronized PageBufferClientStatus getStatus()
@@ -322,6 +315,7 @@ public final class HttpPageBufferClient
 
                 List<SerializedPage> pages;
                 try {
+                    boolean shouldAcknowledge = false;
                     synchronized (HttpPageBufferClient.this) {
                         if (taskInstanceId == null) {
                             taskInstanceId = result.getTaskInstanceId();
@@ -335,10 +329,36 @@ public final class HttpPageBufferClient
                         if (result.getToken() == token) {
                             pages = result.getPages();
                             token = result.getNextToken();
+                            shouldAcknowledge = pages.size() > 0;
                         }
                         else {
                             pages = ImmutableList.of();
                         }
+                    }
+
+                    if (shouldAcknowledge && acknowledgePages) {
+                        // Acknowledge token without handling the response.
+                        // The next request will also make sure the token is acknowledged.
+                        // This is to fast release the pages on the buffer side.
+                        URI uri = HttpUriBuilder.uriBuilderFrom(location).appendPath(String.valueOf(result.getNextToken())).appendPath("acknowledge").build();
+                        httpClient.executeAsync(prepareGet().setUri(uri).build(), new ResponseHandler<Void, RuntimeException>()
+                        {
+                            @Override
+                            public Void handleException(Request request, Exception exception)
+                            {
+                                log.debug(exception, "Acknowledge request failed: %s", uri);
+                                return null;
+                            }
+
+                            @Override
+                            public Void handle(Request request, Response response)
+                            {
+                                if (familyForStatusCode(response.getStatusCode()) != HttpStatus.Family.SUCCESSFUL) {
+                                    log.debug("Unexpected acknowledge response code: %s", response.getStatusCode());
+                                }
+                                return null;
+                            }
+                        });
                     }
                 }
                 catch (PrestoException e) {
@@ -382,11 +402,12 @@ public final class HttpPageBufferClient
 
                 t = rewriteException(t);
                 if (!(t instanceof PrestoException) && backoff.failure()) {
-                    String message = format("%s (%s - %s failures, time since last success %s)",
+                    String message = format("%s (%s - %s failures, failure duration %s, total failed request time %s)",
                             WORKER_NODE_ERROR,
                             uri,
                             backoff.getFailureCount(),
-                            backoff.getTimeSinceLastSuccess().convertTo(SECONDS));
+                            backoff.getFailureDuration().convertTo(SECONDS),
+                            backoff.getFailureRequestTimeTotal().convertTo(SECONDS));
                     t = new PageTransportTimeoutException(fromUri(uri), message, t);
                 }
                 handleFailure(t, resultFuture);
@@ -423,10 +444,11 @@ public final class HttpPageBufferClient
 
                 log.error("Request to delete %s failed %s", location, t);
                 if (!(t instanceof PrestoException) && backoff.failure()) {
-                    String message = format("Error closing remote buffer (%s - %s failures, time since last success %s)",
+                    String message = format("Error closing remote buffer (%s - %s failures, failure duration %s, total failed request time %s)",
                             location,
                             backoff.getFailureCount(),
-                            backoff.getTimeSinceLastSuccess().convertTo(SECONDS));
+                            backoff.getFailureDuration().convertTo(SECONDS),
+                            backoff.getFailureRequestTimeTotal().convertTo(SECONDS));
                     t = new PrestoException(REMOTE_BUFFER_CLOSE_FAILED, message, t);
                 }
                 handleFailure(t, resultFuture);

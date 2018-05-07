@@ -15,7 +15,6 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableMap;
 
@@ -36,7 +35,7 @@ public class TestSmallintVarcharMapType
 
     public static Block createTestBlock(Type mapType)
     {
-        BlockBuilder blockBuilder = mapType.createBlockBuilder(new BlockBuilderStatus(), 2);
+        BlockBuilder blockBuilder = mapType.createBlockBuilder(null, 2);
         mapType.writeObject(blockBuilder, mapBlockOf(SMALLINT, VARCHAR, ImmutableMap.of(1, "hi")));
         mapType.writeObject(blockBuilder, mapBlockOf(SMALLINT, VARCHAR, ImmutableMap.of(1, "2", 2, "hello")));
         return blockBuilder.build();

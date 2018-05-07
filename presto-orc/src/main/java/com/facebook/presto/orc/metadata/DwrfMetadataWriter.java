@@ -192,11 +192,15 @@ public class DwrfMetadataWriter
         }
 
         if (columnStatistics.getStringStatistics() != null) {
-            builder.setStringStatistics(DwrfProto.StringStatistics.newBuilder()
-                    .setMinimumBytes(ByteString.copyFrom(columnStatistics.getStringStatistics().getMin().getBytes()))
-                    .setMaximumBytes(ByteString.copyFrom(columnStatistics.getStringStatistics().getMax().getBytes()))
-                    .setSum(columnStatistics.getStringStatistics().getSum())
-                    .build());
+            DwrfProto.StringStatistics.Builder statisticsBuilder = DwrfProto.StringStatistics.newBuilder();
+            if (columnStatistics.getStringStatistics().getMin() != null) {
+                statisticsBuilder.setMinimumBytes(ByteString.copyFrom(columnStatistics.getStringStatistics().getMin().getBytes()));
+            }
+            if (columnStatistics.getStringStatistics().getMax() != null) {
+                statisticsBuilder.setMaximumBytes(ByteString.copyFrom(columnStatistics.getStringStatistics().getMax().getBytes()));
+            }
+            statisticsBuilder.setSum(columnStatistics.getStringStatistics().getSum());
+            builder.setStringStatistics(statisticsBuilder.build());
         }
 
         return builder.build();
@@ -288,12 +292,6 @@ public class DwrfMetadataWriter
         return writeProtobufObject(output, rowIndexProtobuf);
     }
 
-    @Override
-    public MetadataReader getMetadataReader()
-    {
-        return new DwrfMetadataReader();
-    }
-
     private static RowIndexEntry toRowGroupIndex(RowGroupIndex rowGroupIndex)
     {
         return RowIndexEntry.newBuilder()
@@ -313,6 +311,8 @@ public class DwrfMetadataWriter
                 return DwrfProto.CompressionKind.ZLIB;
             case SNAPPY:
                 return DwrfProto.CompressionKind.SNAPPY;
+            case LZ4:
+                return DwrfProto.CompressionKind.LZ4;
         }
         throw new IllegalArgumentException("Unsupported compression kind: " + compressionKind);
     }

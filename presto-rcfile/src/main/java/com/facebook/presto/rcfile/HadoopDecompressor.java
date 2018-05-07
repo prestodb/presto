@@ -39,14 +39,14 @@ public class HadoopDecompressor
 
     @Override
     public void decompress(Slice compressed, Slice uncompressed)
-            throws IOException
+            throws RcFileCorruptionException
     {
         checkState(!destroyed, "Codec has been destroyed");
         decompressor.reset();
         try (CompressionInputStream decompressorStream = codec.createInputStream(compressed.getInput(), decompressor)) {
             uncompressed.setBytes(0, decompressorStream, uncompressed.length());
         }
-        catch (IndexOutOfBoundsException e) {
+        catch (IndexOutOfBoundsException | IOException e) {
             throw new RcFileCorruptionException(e, "Compressed stream is truncated");
         }
     }

@@ -14,19 +14,20 @@
 package com.facebook.presto.spi.type;
 
 import java.util.Objects;
+import java.util.Optional;
 
 public class NamedType
 {
-    private final String name;
+    private final Optional<String> name;
     private final Type type;
 
-    public NamedType(String name, Type type)
+    public NamedType(Optional<String> name, Type type)
     {
         this.name = name;
         this.type = type;
     }
 
-    public String getName()
+    public Optional<String> getName()
     {
         return name;
     }

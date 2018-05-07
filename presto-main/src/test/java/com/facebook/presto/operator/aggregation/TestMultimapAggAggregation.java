@@ -28,7 +28,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
@@ -102,7 +101,9 @@ public class TestMultimapAggAggregation
     @Test
     public void testDoubleRowMap()
     {
-        RowType innerRowType = new RowType(ImmutableList.of(BIGINT, DOUBLE), Optional.of(ImmutableList.of("f1", "f2")));
+        RowType innerRowType = RowType.from(ImmutableList.of(
+                RowType.field("f1", BIGINT),
+                RowType.field("f2", DOUBLE)));
         testMultimapAgg(DOUBLE, ImmutableList.of(1.0, 2.0, 3.0), innerRowType, ImmutableList.of(ImmutableList.of(1L, 1.0), ImmutableList.of(2L, 2.0), ImmutableList.of(3L, 3.0)));
     }
 
@@ -127,6 +128,6 @@ public class TestMultimapAggAggregation
             builder.row(expectedKeys.get(i), expectedValues.get(i));
         }
 
-        assertAggregation(aggFunc, map.isEmpty() ? null : map, builder.build().getBlocks());
+        assertAggregation(aggFunc, map.isEmpty() ? null : map, builder.build());
     }
 }

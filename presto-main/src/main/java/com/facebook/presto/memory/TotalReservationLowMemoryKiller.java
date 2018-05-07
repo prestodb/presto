@@ -30,7 +30,7 @@ public class TotalReservationLowMemoryKiller
         QueryId biggestQuery = null;
         long maxMemory = 0;
         for (QueryMemoryInfo query : queries) {
-            long bytesUsed = query.getUserMemoryReservation();
+            long bytesUsed = query.getMemoryReservation();
             if (bytesUsed > maxMemory && GENERAL_POOL.equals(query.getMemoryPoolId())) {
                 biggestQuery = query.getQueryId();
                 maxMemory = bytesUsed;

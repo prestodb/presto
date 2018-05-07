@@ -19,7 +19,6 @@ import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.SqlOperator;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -63,8 +62,8 @@ public class RowHashCodeOperator
     @UsedByGeneratedCode
     public static long hash(Type rowType, Block block)
     {
-        BlockBuilder blockBuilder = rowType.createBlockBuilder(new BlockBuilderStatus(), 1);
-        blockBuilder.writeObject(block).closeEntry();
+        BlockBuilder blockBuilder = rowType.createBlockBuilder(null, 1);
+        blockBuilder.appendStructure(block);
         return rowType.hash(blockBuilder.build(), 0);
     }
 }

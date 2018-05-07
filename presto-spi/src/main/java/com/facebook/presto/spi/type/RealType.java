@@ -20,6 +20,7 @@ import com.facebook.presto.spi.block.BlockBuilder;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static java.lang.Float.floatToIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
@@ -52,6 +53,13 @@ public final class RealType
         // direct equality is correct here
         // noinspection FloatingPointEquality
         return leftValue == rightValue;
+    }
+
+    @Override
+    public long hash(Block block, int position)
+    {
+        // convert to canonical NaN if necessary
+        return hash(floatToIntBits(intBitsToFloat(block.getInt(position, 0))));
     }
 
     @Override

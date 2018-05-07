@@ -26,7 +26,6 @@ import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.RelationId;
 import com.facebook.presto.sql.analyzer.RelationType;
 import com.facebook.presto.sql.analyzer.Scope;
-import com.facebook.presto.sql.analyzer.SemanticExceptions;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.Assignments;
@@ -34,7 +33,6 @@ import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
-import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
@@ -77,17 +75,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.sql.NodeUtils.getSortItemsFromOrderBy;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Streams.stream;
 import static java.util.Objects.requireNonNull;
 
@@ -542,8 +537,6 @@ class QueryPlanner
 
         // 2.d. Rewrite aggregates
         ImmutableMap.Builder<Symbol, Aggregation> aggregationsBuilder = ImmutableMap.builder();
-        // Map from aggregate function arguments to marker symbols, so that we can reuse the markers, if two aggregates have the same argument
-        Map<Set<Expression>, Symbol> argumentMarkers = new HashMap<>();
         boolean needPostProjectionCoercion = false;
         for (FunctionCall aggregate : analysis.getAggregates(node)) {
             Expression parametersReplaced = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis.getParameters(), analysis), aggregate);
@@ -559,46 +552,9 @@ class QueryPlanner
             }
             aggregationTranslations.put(parametersReplaced, newSymbol);
 
-            Optional<Symbol> marker = Optional.empty();
-            if (aggregate.isDistinct()) {
-                Set<Expression> args = ImmutableSet.copyOf(aggregate.getArguments());
-                marker = Optional.ofNullable(argumentMarkers.get(args));
-                Symbol aggregateSymbol = aggregationTranslations.get(aggregate);
-                if (!marker.isPresent()) {
-                    if (args.size() == 1) {
-                        marker = Optional.of(symbolAllocator.newSymbol(getOnlyElement(args), BOOLEAN, "distinct"));
-                    }
-                    else {
-                        marker = Optional.of(symbolAllocator.newSymbol(aggregateSymbol.getName(), BOOLEAN, "distinct"));
-                    }
-                    argumentMarkers.put(args, marker.get());
-                }
-            }
-
-            aggregationsBuilder.put(newSymbol, new Aggregation((FunctionCall) rewritten, analysis.getFunctionSignature(aggregate), marker));
+            aggregationsBuilder.put(newSymbol, new Aggregation((FunctionCall) rewritten, analysis.getFunctionSignature(aggregate), Optional.empty()));
         }
         Map<Symbol, Aggregation> aggregations = aggregationsBuilder.build();
-
-        // 2.e. Mark distinct rows for each aggregate that has DISTINCT
-        for (Map.Entry<Set<Expression>, Symbol> entry : argumentMarkers.entrySet()) {
-            ImmutableList.Builder<Symbol> builder = ImmutableList.builder();
-            builder.addAll(groupingSymbols.stream()
-                    .flatMap(Collection::stream)
-                    .distinct()
-                    .collect(Collectors.toList()));
-            groupIdSymbol.ifPresent(builder::add);
-
-            for (Expression expression : entry.getKey()) {
-                builder.add(argumentTranslations.get(expression));
-            }
-            subPlan = subPlan.withNewRoot(
-                    new MarkDistinctNode(
-                            idAllocator.getNextId(),
-                            subPlan.getRoot(),
-                            entry.getValue(),
-                            builder.build(),
-                            Optional.empty()));
-        }
 
         AggregationNode aggregationNode = new AggregationNode(
                 idAllocator.getNextId(),
@@ -608,14 +564,6 @@ class QueryPlanner
                 AggregationNode.Step.SINGLE,
                 Optional.empty(),
                 groupIdSymbol);
-
-        if (aggregationNode.hasEmptyGroupingSet() && aggregationNode.hasNonEmptyGroupingSet() && aggregationNode.hasOrderings()) {
-            // Having both empty grouping set and non-empty grouping set will require partial aggregation.
-            // Since aggregation with ORDER BY does not support partial aggregation, we can not allow queries to have both.
-            throw SemanticExceptions.notSupportedException(
-                    node,
-                    "ORDER BY in aggregate function with at least one empty grouping set and at least one non-empty grouping set");
-        }
 
         subPlan = new PlanBuilder(aggregationTranslations, aggregationNode, analysis.getParameters());
 

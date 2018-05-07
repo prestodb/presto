@@ -101,13 +101,16 @@ import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toMap;
 
-class PropertyDerivations
+public class PropertyDerivations
 {
     private PropertyDerivations() {}
 
-    public static ActualProperties deriveProperties(PlanNode node, ActualProperties inputProperties, Metadata metadata, Session session, Map<Symbol, Type> types, SqlParser parser)
+    public static ActualProperties derivePropertiesRecursively(PlanNode node, Metadata metadata, Session session, Map<Symbol, Type> types, SqlParser parser)
     {
-        return deriveProperties(node, ImmutableList.of(inputProperties), metadata, session, types, parser);
+        List<ActualProperties> inputProperties = node.getSources().stream()
+                .map(source -> derivePropertiesRecursively(source, metadata, session, types, parser))
+                .collect(toImmutableList());
+        return deriveProperties(node, inputProperties, metadata, session, types, parser);
     }
 
     public static ActualProperties deriveProperties(PlanNode node, List<ActualProperties> inputProperties, Metadata metadata, Session session, Map<Symbol, Type> types, SqlParser parser)
@@ -124,11 +127,6 @@ class PropertyDerivations
                 .collect(Collectors.toSet());
 
         verify(node.getOutputSymbols().containsAll(localPropertyColumns), "Node-level local properties contain columns not present in node's output");
-
-        // TODO: ideally this logic would be somehow moved to PlanSanityChecker
-        verify(node instanceof SemiJoinNode || inputProperties.stream().noneMatch(ActualProperties::isNullsAndAnyReplicated) || output.isNullsAndAnyReplicated(),
-                "SemiJoinNode is the only node that can strip null replication");
-
         return output;
     }
 
@@ -469,14 +467,24 @@ class PropertyDerivations
                     .collect(toMap(Map.Entry::getKey, Map.Entry::getValue));
 
             // Local exchanges are only created in AddLocalExchanges, at the end of optimization, and
-            // local exchanges do not produce global properties as represented by ActualProperties.
+            // local exchanges do not produce all global properties as represented by ActualProperties.
             // This is acceptable because AddLocalExchanges does not use global properties and is only
             // interested in the local properties.
+            // However, for the purpose of validation, some global properties (single-node vs distributed)
+            // are computed for local exchanges.
             // TODO: implement full properties for local exchanges
             if (node.getScope() == LOCAL) {
-                return ActualProperties.builder()
-                        .constants(constants)
-                        .build();
+                ActualProperties.Builder builder = ActualProperties.builder();
+                builder.constants(constants);
+
+                if (inputProperties.stream().anyMatch(ActualProperties::isCoordinatorOnly)) {
+                    builder.global(coordinatorSingleStreamPartition());
+                }
+                else if (inputProperties.stream().anyMatch(ActualProperties::isSingleNode)) {
+                    builder.global(coordinatorSingleStreamPartition());
+                }
+
+                return builder.build();
             }
 
             switch (node.getType()) {

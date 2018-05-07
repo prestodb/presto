@@ -15,7 +15,6 @@ package com.facebook.presto.plugin.geospatial;
 
 import com.esri.core.geometry.ogc.OGCGeometry;
 import com.esri.core.geometry.ogc.OGCPoint;
-import com.facebook.presto.geospatial.GeometryUtils;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -35,11 +34,11 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.List;
 import java.util.concurrent.TimeUnit;
+
+import static com.facebook.presto.geospatial.serde.GeometrySerde.deserialize;
+import static com.facebook.presto.geospatial.serde.GeometrySerde.deserializeEnvelope;
+import static com.facebook.presto.plugin.geospatial.GeometryBenchmarkUtils.loadPolygon;
 
 @State(Scope.Thread)
 @Fork(2)
@@ -70,13 +69,13 @@ public class BenchmarkSTContains
     @Benchmark
     public Object deserializeSimpleGeometry(BenchmarkData data)
     {
-        return GeometryUtils.deserialize(data.simpleGeometry);
+        return deserialize(data.simpleGeometry);
     }
 
     @Benchmark
     public Object deserializeEnvelopeSimpleGeometry(BenchmarkData data)
     {
-        return GeometryUtils.deserializeEnvelope(data.simpleGeometry);
+        return deserializeEnvelope(data.simpleGeometry);
     }
 
     @Benchmark
@@ -116,15 +115,15 @@ public class BenchmarkSTContains
     }
 
     @Benchmark
-    public Object deserialize(BenchmarkData data)
+    public Object benchmarkDeserialize(BenchmarkData data)
     {
-        return GeometryUtils.deserialize(data.geometry);
+        return deserialize(data.geometry);
     }
 
     @Benchmark
-    public Object deserializeEnvelope(BenchmarkData data)
+    public Object benchmarkDeserializeEnvelope(BenchmarkData data)
     {
-        return GeometryUtils.deserializeEnvelope(data.geometry);
+        return deserializeEnvelope(data.geometry);
     }
 
     @State(Scope.Thread)
@@ -144,21 +143,16 @@ public class BenchmarkSTContains
         public void setup()
                 throws IOException
         {
-            Path filePath = Paths.get(this.getClass().getClassLoader().getResource("large_polygon.txt").getPath());
-            List<String> lines = Files.readAllLines(filePath);
-            String line = lines.get(0);
-            String[] parts = line.split("\\|");
-            String wkt = parts[0];
-            geometry = GeoFunctions.stGeometryFromText(Slices.utf8Slice(wkt));
+            geometry = GeoFunctions.stGeometryFromText(Slices.utf8Slice(loadPolygon("large_polygon.txt")));
             simpleGeometry = GeoFunctions.stGeometryFromText(Slices.utf8Slice("POLYGON ((16.5 54, 16.5 54.1, 16.8 54.1, 16.8 54))"));
             innerPoint = GeoFunctions.stPoint(16.6, 54.0167);
             outerPointInEnvelope = GeoFunctions.stPoint(16.6667, 54.05);
             outerPointNotInEnvelope = GeoFunctions.stPoint(16.6333, 54.2);
 
-            ogcGeometry = GeometryUtils.deserialize(geometry);
-            innerOgcPoint = (OGCPoint) GeometryUtils.deserialize(innerPoint);
-            outerOgcPointInEnvelope = (OGCPoint) GeometryUtils.deserialize(outerPointInEnvelope);
-            outerOgcPointNotInEnvelope = (OGCPoint) GeometryUtils.deserialize(outerPointNotInEnvelope);
+            ogcGeometry = deserialize(geometry);
+            innerOgcPoint = (OGCPoint) deserialize(innerPoint);
+            outerOgcPointInEnvelope = (OGCPoint) deserialize(outerPointInEnvelope);
+            outerOgcPointNotInEnvelope = (OGCPoint) deserialize(outerPointNotInEnvelope);
         }
     }
 

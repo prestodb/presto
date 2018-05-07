@@ -15,7 +15,6 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.SqlDecimal;
 import com.google.common.collect.ImmutableList;
@@ -33,7 +32,7 @@ public class TestLongDecimalMinAggregation
     @Override
     public Block[] getSequenceBlocks(int start, int length)
     {
-        BlockBuilder blockBuilder = LONG_DECIMAL.createBlockBuilder(new BlockBuilderStatus(), length);
+        BlockBuilder blockBuilder = LONG_DECIMAL.createBlockBuilder(null, length);
         for (int i = start; i < start + length; i++) {
             writeBigDecimal(LONG_DECIMAL, blockBuilder, BigDecimal.valueOf(i));
         }

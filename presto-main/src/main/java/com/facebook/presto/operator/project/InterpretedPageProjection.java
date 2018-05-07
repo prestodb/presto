@@ -21,7 +21,6 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DeterminismEvaluator;
@@ -72,7 +71,7 @@ public class InterpretedPageProjection
         Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypesFromInput(session, metadata, sqlParser, parameterTypes.build(), rewritten, emptyList());
         this.evaluator = ExpressionInterpreter.expressionInterpreter(rewritten, metadata, session, expressionTypes);
 
-        blockBuilder = evaluator.getType().createBlockBuilder(new BlockBuilderStatus(), 1);
+        blockBuilder = evaluator.getType().createBlockBuilder(null, 1);
     }
 
     @Override
@@ -103,7 +102,7 @@ public class InterpretedPageProjection
             implements Work<Block>
     {
         private final DriverYieldSignal yieldSignal;
-        private final Block[] blocks;
+        private final Page page;
         private final SelectedPositions selectedPositions;
 
         private int nextIndexOrPosition;
@@ -112,7 +111,7 @@ public class InterpretedPageProjection
         public InterpretedPageProjectionWork(DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
         {
             this.yieldSignal = requireNonNull(yieldSignal, "yieldSignal is null");
-            this.blocks = requireNonNull(page, "page is null").getBlocks();
+            this.page = requireNonNull(page, "page is null");
             this.selectedPositions = requireNonNull(selectedPositions, "selectedPositions is null");
             this.nextIndexOrPosition = selectedPositions.getOffset();
         }
@@ -125,7 +124,7 @@ public class InterpretedPageProjection
             if (selectedPositions.isList()) {
                 int[] positions = selectedPositions.getPositions();
                 while (nextIndexOrPosition < length) {
-                    writeNativeValue(evaluator.getType(), blockBuilder, evaluator.evaluate(positions[nextIndexOrPosition], blocks));
+                    writeNativeValue(evaluator.getType(), blockBuilder, evaluator.evaluate(positions[nextIndexOrPosition], page));
                     nextIndexOrPosition++;
                     if (yieldSignal.isSet()) {
                         return false;
@@ -134,7 +133,7 @@ public class InterpretedPageProjection
             }
             else {
                 while (nextIndexOrPosition < length) {
-                    writeNativeValue(evaluator.getType(), blockBuilder, evaluator.evaluate(nextIndexOrPosition, blocks));
+                    writeNativeValue(evaluator.getType(), blockBuilder, evaluator.evaluate(nextIndexOrPosition, page));
                     nextIndexOrPosition++;
                     if (yieldSignal.isSet()) {
                         return false;
@@ -143,7 +142,7 @@ public class InterpretedPageProjection
             }
 
             result = blockBuilder.build();
-            blockBuilder = blockBuilder.newBlockBuilderLike(new BlockBuilderStatus());
+            blockBuilder = blockBuilder.newBlockBuilderLike(null);
             return true;
         }
 

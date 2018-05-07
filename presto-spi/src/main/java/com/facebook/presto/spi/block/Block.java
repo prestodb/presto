@@ -110,7 +110,7 @@ public interface Block
     }
 
     /**
-     * Appends the value at {@code position} to {@code blockBuilder}.
+     * Appends the value at {@code position} to {@code blockBuilder} and close the entry.
      */
     void writePositionTo(int position, BlockBuilder blockBuilder);
 
@@ -192,7 +192,7 @@ public interface Block
     /**
      * Get the encoding for this block.
      */
-    BlockEncoding getEncoding();
+    String getEncodingName();
 
     /**
      * Create a new block from the current block by keeping the same elements

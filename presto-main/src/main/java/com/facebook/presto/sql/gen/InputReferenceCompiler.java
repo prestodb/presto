@@ -50,16 +50,9 @@ class InputReferenceCompiler
         this.callSiteBinder = requireNonNull(callSiteBinder, "callSiteBinder is null");
     }
 
-    @Override
-    public BytecodeNode visitInputReference(InputReferenceExpression node, Scope scope)
+    public static BytecodeNode generateInputReference(CallSiteBinder callSiteBinder, Scope scope, Type type, BytecodeExpression block, BytecodeExpression position)
     {
-        int field = node.getField();
-        Type type = node.getType();
-
-        BytecodeExpression block = blockResolver.apply(scope, field);
-        BytecodeExpression position = positionResolver.apply(scope, field);
         Variable wasNullVariable = scope.getVariable("wasNull");
-
         Class<?> javaType = type.getJavaType();
         if (!javaType.isPrimitive() && javaType != Slice.class) {
             javaType = Object.class;
@@ -76,6 +69,18 @@ class InputReferenceCompiler
         ifStatement.ifFalse(constantType(callSiteBinder, type).invoke(methodName, javaType, block, position));
 
         return ifStatement;
+    }
+
+    @Override
+    public BytecodeNode visitInputReference(InputReferenceExpression node, Scope scope)
+    {
+        int field = node.getField();
+        Type type = node.getType();
+
+        BytecodeExpression block = blockResolver.apply(scope, field);
+        BytecodeExpression position = positionResolver.apply(scope, field);
+
+        return generateInputReference(callSiteBinder, scope, type, block, position);
     }
 
     @Override

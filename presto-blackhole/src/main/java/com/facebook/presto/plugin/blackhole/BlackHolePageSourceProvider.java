@@ -20,7 +20,6 @@ import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.type.FixedWidthType;
@@ -115,10 +114,10 @@ public final class BlackHolePageSourceProvider
 
         BlockBuilder builder;
         if (type instanceof FixedWidthType) {
-            builder = type.createBlockBuilder(new BlockBuilderStatus(), rowsCount);
+            builder = type.createBlockBuilder(null, rowsCount);
         }
         else {
-            builder = type.createBlockBuilder(new BlockBuilderStatus(), rowsCount, slice.length());
+            builder = type.createBlockBuilder(null, rowsCount, slice.length());
         }
 
         for (int i = 0; i < rowsCount; i++) {

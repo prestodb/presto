@@ -180,6 +180,7 @@ public class IntArrayBlockBuilder
     {
         checkReadablePosition(position);
         blockBuilder.writeInt(values[position]);
+        blockBuilder.closeEntry();
     }
 
     @Override
@@ -227,9 +228,9 @@ public class IntArrayBlockBuilder
     }
 
     @Override
-    public BlockEncoding getEncoding()
+    public String getEncodingName()
     {
-        return new IntArrayBlockEncoding();
+        return IntArrayBlockEncoding.NAME;
     }
 
     @Override

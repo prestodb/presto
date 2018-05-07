@@ -14,14 +14,15 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.RowPagesBuilder;
+import com.facebook.presto.memory.DefaultQueryContext;
 import com.facebook.presto.memory.MemoryPool;
-import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spiller.SpillSpaceTracker;
 import com.google.common.collect.ImmutableList;
+import io.airlift.stats.TestingGcMonitor;
 import io.airlift.units.DataSize;
 
 import java.util.LinkedList;
@@ -72,17 +73,18 @@ public final class GroupByHashYieldAssertion
      */
     public static GroupByHashYieldResult finishOperatorWithYieldingGroupByHash(List<Page> input, Type hashKeyType, OperatorFactory operatorFactory, Function<Operator, Integer> getHashCapacity, long additionalMemoryInBytes)
     {
-        assertLessThan(additionalMemoryInBytes, 1L << 20, "additionalMemoryInBytes should be a relatively small number");
+        assertLessThan(additionalMemoryInBytes, 1L << 21, "additionalMemoryInBytes should be a relatively small number");
         List<Page> result = new LinkedList<>();
 
         // mock an adjustable memory pool
         QueryId queryId = new QueryId("test_query");
         MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE));
-        QueryContext queryContext = new QueryContext(
+        DefaultQueryContext queryContext = new DefaultQueryContext(
                 queryId,
                 new DataSize(512, MEGABYTE),
+                new DataSize(1024, MEGABYTE),
                 memoryPool,
-                new MemoryPool(new MemoryPoolId("test-system"), new DataSize(512, MEGABYTE)),
+                new TestingGcMonitor(),
                 EXECUTOR,
                 SCHEDULED_EXECUTOR,
                 new DataSize(512, MEGABYTE),
@@ -100,7 +102,7 @@ public final class GroupByHashYieldAssertion
             // unblocked
             assertTrue(operator.needsInput());
 
-            // saturate the pool with a tiny memory left for partitionRowCount (not GroupByHash)
+            // saturate the pool with a tiny memory left
             long reservedMemoryInBytes = memoryPool.getFreeBytes() - additionalMemoryInBytes;
             memoryPool.reserve(queryId, reservedMemoryInBytes);
 
@@ -118,14 +120,13 @@ public final class GroupByHashYieldAssertion
 
             long newMemoryUsage = operator.getOperatorContext().getDriverContext().getMemoryUsage();
 
-            // We are below the 1MB GUARANTEED_MEMORY limit (also need some buffer for aggregator).
-            // For such cases, the operator is blocked by memory
-            if (newMemoryUsage < (1 << 20) + additionalMemoryInBytes) {
-                // assert non-blocking
-                assertTrue(operator.needsInput());
-                assertTrue(operator.getOperatorContext().isWaitingForMemory().isDone());
+            // Skip if the memory usage is not large enough since we cannot distinguish
+            // between rehash and memory used by aggregator
+            if (newMemoryUsage < new DataSize(4, MEGABYTE).toBytes()) {
                 // free the pool for the next iteration
                 memoryPool.free(queryId, reservedMemoryInBytes);
+                // this required in case input is blocked
+                operator.getOutput();
                 continue;
             }
 
