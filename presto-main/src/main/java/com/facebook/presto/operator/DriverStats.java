@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.execution.Lifespan;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Preconditions;
@@ -35,6 +36,8 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 @Immutable
 public class DriverStats
 {
+    private final Lifespan lifespan;
+
     private final DateTime createTime;
     private final DateTime startTime;
     private final DateTime endTime;
@@ -69,6 +72,8 @@ public class DriverStats
 
     public DriverStats()
     {
+        this.lifespan = null;
+
         this.createTime = DateTime.now();
         this.startTime = null;
         this.endTime = null;
@@ -103,6 +108,8 @@ public class DriverStats
 
     @JsonCreator
     public DriverStats(
+            @JsonProperty("lifespan") Lifespan lifespan,
+
             @JsonProperty("createTime") DateTime createTime,
             @JsonProperty("startTime") DateTime startTime,
             @JsonProperty("endTime") DateTime endTime,
@@ -134,6 +141,8 @@ public class DriverStats
 
             @JsonProperty("operatorStats") List<OperatorStats> operatorStats)
     {
+        this.lifespan = lifespan;
+
         this.createTime = requireNonNull(createTime, "createTime is null");
         this.startTime = startTime;
         this.endTime = endTime;
@@ -167,6 +176,12 @@ public class DriverStats
         this.physicalWrittenDataSize = requireNonNull(physicalWrittenDataSize, "writtenDataSize is null");
 
         this.operatorStats = ImmutableList.copyOf(requireNonNull(operatorStats, "operatorStats is null"));
+    }
+
+    @JsonProperty
+    public Lifespan getLifespan()
+    {
+        return lifespan;
     }
 
     @JsonProperty

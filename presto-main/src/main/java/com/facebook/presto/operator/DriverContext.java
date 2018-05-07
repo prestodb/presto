@@ -388,6 +388,7 @@ public class DriverContext
         }
 
         return new DriverStats(
+                lifespan,
                 createdTime,
                 executionStartTime.get(),
                 executionEndTime.get(),
