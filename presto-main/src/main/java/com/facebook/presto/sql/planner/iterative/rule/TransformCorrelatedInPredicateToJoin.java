@@ -17,6 +17,7 @@ import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.sql.planner.DynamicFilterSource;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
@@ -238,7 +239,8 @@ public class TransformCorrelatedInPredicateToJoin
                 Optional.of(joinExpression),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                DynamicFilterSource.of());
     }
 
     private static AggregationNode.Aggregation countWithFilter(Expression condition)

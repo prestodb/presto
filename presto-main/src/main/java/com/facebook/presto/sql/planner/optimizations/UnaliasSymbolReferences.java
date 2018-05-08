@@ -18,6 +18,7 @@ import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.DeterminismEvaluator;
+import com.facebook.presto.sql.planner.DynamicFilterSource;
 import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
@@ -87,6 +88,7 @@ import java.util.Set;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
@@ -474,6 +476,12 @@ public class UnaliasSymbolReferences
             Optional<Symbol> canonicalLeftHashSymbol = canonicalize(node.getLeftHashSymbol());
             Optional<Symbol> canonicalRightHashSymbol = canonicalize(node.getRightHashSymbol());
 
+            Assignments canonicalAssignments = new Assignments(
+                    node.getDynamicFilterSource().getDynamicFilterAssignments()
+                            .entrySet()
+                            .stream()
+                            .collect(toImmutableMap(Map.Entry::getKey, entry -> canonicalize(entry.getValue()))));
+
             if (node.getType().equals(INNER)) {
                 canonicalCriteria.stream()
                         .filter(clause -> types.get(clause.getLeft()).equals(types.get(clause.getRight())))
@@ -481,7 +489,18 @@ public class UnaliasSymbolReferences
                         .forEach(clause -> map(clause.getRight(), clause.getLeft()));
             }
 
-            return new JoinNode(node.getId(), node.getType(), left, right, canonicalCriteria, canonicalizeAndDistinct(node.getOutputSymbols()), canonicalFilter, canonicalLeftHashSymbol, canonicalRightHashSymbol, node.getDistributionType());
+            return new JoinNode(
+                    node.getId(),
+                    node.getType(),
+                    left,
+                    right,
+                    canonicalCriteria,
+                    canonicalizeAndDistinct(node.getOutputSymbols()),
+                    canonicalFilter,
+                    canonicalLeftHashSymbol,
+                    canonicalRightHashSymbol,
+                    node.getDistributionType(),
+                    new DynamicFilterSource(node.getDynamicFilterSource().getDynamicSourceId(), canonicalAssignments));
         }
 
         @Override

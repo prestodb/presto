@@ -41,6 +41,7 @@ import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DecimalLiteral;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
+import com.facebook.presto.sql.tree.DynamicFilterExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -342,6 +343,24 @@ public final class SqlToRowExpressionTranslator
         protected RowExpression visitSymbolReference(SymbolReference node, Void context)
         {
             return new VariableReferenceExpression(node.getName(), getType(node));
+        }
+
+        @Override
+        protected RowExpression visitDynamicFilterExpression(DynamicFilterExpression node, Void context)
+        {
+            // Hack!
+            // In order to make PushDown work for DynamicFilters, we have to make DynamicFilterExpression comparable in context of ExpressionEquivalence
+            // To avoid implementing DynamicFilterExpression RowExpression we model DynamicFilterExpression as ComparisionExpression,
+            // which for ExpressionEquivalence will work well enough.
+            /*RowExpression left = process(node.getProbeExpression(), context);
+            RowExpression right = constant(node.getDynamicFilterSymbol(), getType(node.getProbeExpression()));
+
+            return call(
+                    comparisonExpressionSignature(node.getType(), left.getType(), right.getType()),
+                    BOOLEAN,
+                    left,
+                    right);*/
+            return constant(true, BOOLEAN);
         }
 
         @Override

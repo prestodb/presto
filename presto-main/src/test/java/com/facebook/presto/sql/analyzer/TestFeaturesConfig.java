@@ -93,7 +93,8 @@ public class TestFeaturesConfig
                 .setUseMarkDistinct(true)
                 .setPreferPartialAggregation(true)
                 .setHistogramGroupImplementation(HistogramGroupImplementation.NEW)
-                .setArrayAggGroupImplementation(ArrayAggGroupImplementation.NEW));
+                .setArrayAggGroupImplementation(ArrayAggGroupImplementation.NEW)
+                .setDynamicFilteringEnabled(false));
     }
 
     @Test
@@ -152,6 +153,7 @@ public class TestFeaturesConfig
                 .put("arrayagg.implementation", "LEGACY")
                 .put("optimizer.use-mark-distinct", "false")
                 .put("optimizer.prefer-partial-aggregation", "false")
+                .put("experimental.dynamic-partition-pruning-enabled", "true")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -206,7 +208,8 @@ public class TestFeaturesConfig
                 .setUseMarkDistinct(false)
                 .setPreferPartialAggregation(false)
                 .setHistogramGroupImplementation(HistogramGroupImplementation.LEGACY)
-                .setArrayAggGroupImplementation(ArrayAggGroupImplementation.LEGACY);
+                .setArrayAggGroupImplementation(ArrayAggGroupImplementation.LEGACY)
+                .setDynamicFilteringEnabled(true);
         assertFullMapping(properties, expected);
     }
 

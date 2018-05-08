@@ -17,6 +17,7 @@ import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.DynamicFilterSource;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanFragment;
@@ -199,7 +200,8 @@ public class TestPhasedExecutionSchedule
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.of(REPLICATED));
+                Optional.of(REPLICATED),
+                DynamicFilterSource.of());
 
         return createFragment(join);
     }
@@ -221,7 +223,8 @@ public class TestPhasedExecutionSchedule
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.of(PARTITIONED));
+                Optional.of(PARTITIONED),
+                DynamicFilterSource.of());
 
         return createFragment(planNode);
     }

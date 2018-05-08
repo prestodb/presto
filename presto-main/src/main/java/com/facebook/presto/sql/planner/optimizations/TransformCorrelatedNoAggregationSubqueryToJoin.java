@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.DynamicFilterSource;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
@@ -107,7 +108,8 @@ public class TransformCorrelatedNoAggregationSubqueryToJoin
                     source.get().getCorrelatedPredicates(),
                     Optional.empty(),
                     Optional.empty(),
-                    Optional.empty());
+                    Optional.empty(),
+                    DynamicFilterSource.of());
         }
     }
 }

@@ -103,6 +103,8 @@ import com.facebook.presto.spiller.SpillerFactory;
 import com.facebook.presto.split.MappedRecordSet;
 import com.facebook.presto.split.PageSinkManager;
 import com.facebook.presto.split.PageSourceProvider;
+import com.facebook.presto.sql.DynamicFilterUtils;
+import com.facebook.presto.sql.DynamicFilterUtils.ExtractDynamicFiltersResult;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler;
@@ -153,6 +155,7 @@ import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.ComparisonExpressionType;
+import com.facebook.presto.sql.tree.DynamicFilterExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -1125,9 +1128,19 @@ public class LocalExecutionPlanner
             }
             Map<Symbol, Integer> outputMappings = outputMappingsBuilder.build();
 
+            Optional<ExtractDynamicFiltersResult> extractDynamicFilterResult = filterExpression.map(DynamicFilterUtils::extractDynamicFilters);
+            Optional<Expression> staticFilters = extractDynamicFilterResult.map(ExtractDynamicFiltersResult::getStaticFilters);
+
+            // TODO: Process dynamic filters
+            Optional<Set<DynamicFilterExpression>> dynamicFilters = extractDynamicFilterResult.map(ExtractDynamicFiltersResult::getDynamicFilters);
+
+            if (dynamicFilters.isPresent() && !dynamicFilters.get().isEmpty()) {
+                log.debug("[TableScan] Dynamic filters: %s", dynamicFilters);
+            }
+
             // compiler uses inputs instead of symbols, so rewrite the expressions first
             SymbolToInputRewriter symbolToInputRewriter = new SymbolToInputRewriter(sourceLayout);
-            Optional<Expression> rewrittenFilter = filterExpression.map(symbolToInputRewriter::rewrite);
+            Optional<Expression> rewrittenFilter = staticFilters.map(symbolToInputRewriter::rewrite);
 
             List<Expression> rewrittenProjections = new ArrayList<>();
             for (Symbol symbol : outputSymbols) {
@@ -1515,6 +1528,13 @@ public class LocalExecutionPlanner
             }
 
             List<JoinNode.EquiJoinClause> clauses = node.getCriteria();
+            Assignments dynamicFilters = node.getDynamicFilterSource().getDynamicFilterAssignments();
+
+            // TODO handle pruning based on dynamic filters from joins above
+            if (!dynamicFilters.getMap().isEmpty()) {
+                log.debug("[Join] Dynamic filters: %s", dynamicFilters.getMap());
+            }
+
             List<Symbol> leftSymbols = Lists.transform(clauses, JoinNode.EquiJoinClause::getLeft);
             List<Symbol> rightSymbols = Lists.transform(clauses, JoinNode.EquiJoinClause::getRight);
 

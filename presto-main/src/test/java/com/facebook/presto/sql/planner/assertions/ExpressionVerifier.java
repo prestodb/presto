@@ -22,6 +22,7 @@ import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DecimalLiteral;
 import com.facebook.presto.sql.tree.DoubleLiteral;
+import com.facebook.presto.sql.tree.DynamicFilterExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
@@ -314,6 +315,12 @@ final class ExpressionVerifier
             return false;
         }
         return symbolAliases.get(((SymbolReference) expected).getName()).equals(actual);
+    }
+
+    @Override
+    protected Boolean visitDynamicFilterExpression(DynamicFilterExpression node, Node expected)
+    {
+        return expected instanceof DynamicFilterExpression;
     }
 
     @Override

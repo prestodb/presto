@@ -92,6 +92,7 @@ public final class SystemSessionProperties
     public static final String FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_ROW_COUNT = "filter_and_project_min_output_page_row_count";
     public static final String USE_MARK_DISTINCT = "use_mark_distinct";
     public static final String PREFER_PARTITIAL_AGGREGATION = "prefer_partial_aggregation";
+    public static final String DYNAMIC_FILTERING = "dynamic_filtering";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -418,6 +419,11 @@ public final class SystemSessionProperties
                         PREFER_PARTITIAL_AGGREGATION,
                         "Prefer splitting aggregations into partial and final stages",
                         featuresConfig.isPreferPartialAggregation(),
+                        false),
+                booleanSessionProperty(
+                        DYNAMIC_FILTERING,
+                        "Enable dynamic filtering",
+                        featuresConfig.isDynamicFilteringEnabled(),
                         false));
     }
 
@@ -703,5 +709,10 @@ public final class SystemSessionProperties
                     format("%s must be a power of 2: %s", property, intValue));
         }
         return intValue;
+    }
+
+    public static boolean isDynamicFilteringEnabled(Session session)
+    {
+        return session.getSystemProperty(DYNAMIC_FILTERING, Boolean.class);
     }
 }

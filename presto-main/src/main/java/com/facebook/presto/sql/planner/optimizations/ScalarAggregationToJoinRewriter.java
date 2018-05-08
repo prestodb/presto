@@ -17,6 +17,7 @@ import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.sql.planner.DynamicFilterSource;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
@@ -120,7 +121,8 @@ public class ScalarAggregationToJoinRewriter
                 joinExpression,
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                DynamicFilterSource.of());
 
         Optional<AggregationNode> aggregationNode = createAggregationNode(
                 scalarAggregation,

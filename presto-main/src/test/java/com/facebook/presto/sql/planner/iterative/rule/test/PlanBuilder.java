@@ -27,6 +27,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.DynamicFilterSource;
 import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
@@ -561,7 +562,8 @@ public class PlanBuilder
                         .build(),
                 filter,
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                DynamicFilterSource.of());
     }
 
     public JoinNode join(JoinNode.Type type, PlanNode left, PlanNode right, List<JoinNode.EquiJoinClause> criteria, List<Symbol> outputSymbols, Optional<Expression> filter)
@@ -579,7 +581,7 @@ public class PlanBuilder
             Optional<Symbol> leftHashSymbol,
             Optional<Symbol> rightHashSymbol)
     {
-        return join(type, left, right, criteria, outputSymbols, filter, leftHashSymbol, rightHashSymbol, Optional.empty());
+        return join(type, left, right, criteria, outputSymbols, filter, leftHashSymbol, rightHashSymbol, Optional.empty(), DynamicFilterSource.of());
     }
 
     public JoinNode join(
@@ -591,9 +593,24 @@ public class PlanBuilder
             Optional<Expression> filter,
             Optional<Symbol> leftHashSymbol,
             Optional<Symbol> rightHashSymbol,
-            Optional<JoinNode.DistributionType> distributionType)
+            DynamicFilterSource dynamicFilterSource)
     {
-        return new JoinNode(idAllocator.getNextId(), type, left, right, criteria, outputSymbols, filter, leftHashSymbol, rightHashSymbol, distributionType);
+        return join(type, left, right, criteria, outputSymbols, filter, leftHashSymbol, rightHashSymbol, Optional.empty(), dynamicFilterSource);
+    }
+
+    public JoinNode join(
+            JoinNode.Type type,
+            PlanNode left,
+            PlanNode right,
+            List<JoinNode.EquiJoinClause> criteria,
+            List<Symbol> outputSymbols,
+            Optional<Expression> filter,
+            Optional<Symbol> leftHashSymbol,
+            Optional<Symbol> rightHashSymbol,
+            Optional<JoinNode.DistributionType> distributionType,
+            DynamicFilterSource dynamicFilterSource)
+    {
+        return new JoinNode(idAllocator.getNextId(), type, left, right, criteria, outputSymbols, filter, leftHashSymbol, rightHashSymbol, distributionType, dynamicFilterSource);
     }
 
     public PlanNode indexJoin(IndexJoinNode.Type type, TableScanNode probe, TableScanNode index)

@@ -106,6 +106,7 @@ public class FeaturesConfig
     private boolean preferPartialAggregation = true;
 
     private Duration iterativeOptimizerTimeout = new Duration(3, MINUTES); // by default let optimizer wait a long time in case it retrieves some data from ConnectorMetadata
+    private boolean dynamicFilteringEnabled;
 
     private DataSize filterAndProjectMinOutputPageSize = new DataSize(25, KILOBYTE);
     private int filterAndProjectMinOutputPageRowCount = 256;
@@ -622,6 +623,18 @@ public class FeaturesConfig
     public FeaturesConfig setSpillMaxUsedSpaceThreshold(double spillMaxUsedSpaceThreshold)
     {
         this.spillMaxUsedSpaceThreshold = spillMaxUsedSpaceThreshold;
+        return this;
+    }
+
+    public boolean isDynamicFilteringEnabled()
+    {
+        return dynamicFilteringEnabled;
+    }
+
+    @Config("experimental.dynamic-partition-pruning-enabled")
+    public FeaturesConfig setDynamicFilteringEnabled(boolean value)
+    {
+        this.dynamicFilteringEnabled = value;
         return this;
     }
 

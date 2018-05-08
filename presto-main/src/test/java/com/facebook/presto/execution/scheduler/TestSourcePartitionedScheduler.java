@@ -39,6 +39,7 @@ import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.split.ConnectorAwareSplitSource;
 import com.facebook.presto.split.SplitSource;
+import com.facebook.presto.sql.planner.DynamicFilterSource;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanFragment;
@@ -451,7 +452,8 @@ public class TestSourcePartitionedScheduler
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
-                        Optional.of(JoinNode.DistributionType.PARTITIONED)),
+                        Optional.of(JoinNode.DistributionType.PARTITIONED),
+                        DynamicFilterSource.of()),
                 ImmutableMap.of(symbol, VARCHAR),
                 SOURCE_DISTRIBUTION,
                 ImmutableList.of(tableScanNodeId),

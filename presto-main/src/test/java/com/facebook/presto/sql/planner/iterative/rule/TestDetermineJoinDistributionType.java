@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.sql.planner.DynamicFilterSource;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.JoinNode.DistributionType;
@@ -172,7 +173,7 @@ public class TestDetermineJoinDistributionType
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty(),
-                                Optional.of(REPLICATED)))
+                                Optional.of(REPLICATED), DynamicFilterSource.of()))
                 .doesNotFire();
     }
 }
