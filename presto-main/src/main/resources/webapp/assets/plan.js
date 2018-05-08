@@ -166,7 +166,7 @@ let LivePlan = React.createClass({
             }.bind(this));
     },
     handleStageClick: function(stageCssId) {
-        window.open("/stage.html?" + stageCssId,'_blank');
+        window.open("stage.html?" + stageCssId,'_blank');
     },
     componentDidMount: function() {
         this.refreshLoop();
@@ -299,7 +299,7 @@ let LivePlan = React.createClass({
                                         &nbsp;
                                         <a href={ "stage.html?" + query.queryId } className="btn btn-info navbar-btn">Stage Performance</a>
                                         &nbsp;
-                                        <a href={ "/timeline.html?" + query.queryId } className="btn btn-info navbar-btn" target="_blank">Splits</a>
+                                        <a href={ "timeline.html?" + query.queryId } className="btn btn-info navbar-btn" target="_blank">Splits</a>
                                         &nbsp;
                                         <a href={ "/v1/query/" + query.queryId + "?pretty" } className="btn btn-info navbar-btn" target="_blank">JSON</a>
                                     </td>
