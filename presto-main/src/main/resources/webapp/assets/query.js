@@ -75,7 +75,7 @@ let TaskList = React.createClass({
                             </a>
                         </Td>
                         <Td column="host" value={ getHostname(task.taskStatus.self) }>
-                            <a href={ "/worker.html?" + task.taskStatus.nodeId } className="font-light" target="_blank">
+                            <a href={ "worker.html?" + task.taskStatus.nodeId } className="font-light" target="_blank">
                                 { showPortNumbers ? getHostAndPort(task.taskStatus.self) : getHostname(task.taskStatus.self) }
                             </a>
                         </Td>
@@ -987,7 +987,7 @@ let QueryDetail = React.createClass({
                                         &nbsp;
                                         <a href={ "stage.html?" + query.queryId } className="btn btn-info navbar-btn">Stage Performance</a>
                                         &nbsp;
-                                        <a href={ "/timeline.html?" + query.queryId } className="btn btn-info navbar-btn" target="_blank">Splits</a>
+                                        <a href={ "timeline.html?" + query.queryId } className="btn btn-info navbar-btn" target="_blank">Splits</a>
                                         &nbsp;
                                         <a href={ "/v1/query/" + query.queryId + "?pretty" } className="btn btn-info navbar-btn" target="_blank">JSON</a>
                                     </td>

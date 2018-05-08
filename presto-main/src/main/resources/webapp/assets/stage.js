@@ -672,7 +672,7 @@ let StagePerformance = React.createClass({
                                     &nbsp;
                                     <a href={ "stage.html?" + query.queryId } className="btn btn-info navbar-btn nav-disabled">Stage Performance</a>
                                     &nbsp;
-                                    <a href={ "/timeline.html?" + query.queryId } className="btn btn-info navbar-btn" target="_blank">Splits</a>
+                                    <a href={ "timeline.html?" + query.queryId } className="btn btn-info navbar-btn" target="_blank">Splits</a>
                                     &nbsp;
                                     <a href={ "/v1/query/" + query.queryId + "?pretty" } className="btn btn-info navbar-btn" target="_blank">JSON</a>
                                 </td>

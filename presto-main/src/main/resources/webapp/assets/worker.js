@@ -130,7 +130,7 @@ let WorkerStatus = React.createClass({
                 <td>
                     <div className="row query-memory-list-header">
                         <div className="col-xs-7">
-                            <a href={"/query.html?" + query} target="_blank">
+                            <a href={"query.html?" + query} target="_blank">
                                 { query }
                             </a>
                         </div>
