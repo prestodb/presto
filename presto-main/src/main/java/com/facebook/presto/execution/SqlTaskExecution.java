@@ -30,7 +30,6 @@ import com.facebook.presto.operator.PipelineExecutionStrategy;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -142,7 +141,6 @@ public class SqlTaskExecution
 
     private final Status status;
 
-    @VisibleForTesting
     static SqlTaskExecution createSqlTaskExecution(
             TaskStateMachine taskStateMachine,
             TaskContext taskContext,
