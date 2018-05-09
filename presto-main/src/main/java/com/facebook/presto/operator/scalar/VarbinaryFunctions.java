@@ -255,6 +255,20 @@ public final class VarbinaryFunctions
         return hash;
     }
 
+    @ScalarFunction(value = "$xxhash64", hidden = true)
+    @SqlType(StandardTypes.BIGINT)
+    public static long xxhash64Internal(@SqlType(StandardTypes.VARBINARY) Slice slice)
+    {
+        return XxHash64.hash(slice);
+    }
+
+    @ScalarFunction(value = "$xxhash64", hidden = true)
+    @SqlType(StandardTypes.BIGINT)
+    public static long xxhash64Internal(@SqlType(StandardTypes.BIGINT) long value)
+    {
+        return XxHash64.hash(value);
+    }
+
     @Description("decode hex encoded binary data")
     @ScalarFunction("from_hex")
     @SqlType(StandardTypes.VARBINARY)

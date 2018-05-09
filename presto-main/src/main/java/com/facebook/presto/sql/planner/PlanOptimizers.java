@@ -33,6 +33,7 @@ import com.facebook.presto.sql.planner.iterative.rule.DetermineJoinDistributionT
 import com.facebook.presto.sql.planner.iterative.rule.EliminateCrossJoins;
 import com.facebook.presto.sql.planner.iterative.rule.EvaluateZeroLimit;
 import com.facebook.presto.sql.planner.iterative.rule.EvaluateZeroSample;
+import com.facebook.presto.sql.planner.iterative.rule.FuseHashFunctions;
 import com.facebook.presto.sql.planner.iterative.rule.GatherAndMergeWindows;
 import com.facebook.presto.sql.planner.iterative.rule.ImplementBernoulliSampleAsFilter;
 import com.facebook.presto.sql.planner.iterative.rule.ImplementFilteredAggregations;
@@ -216,7 +217,10 @@ public class PlanOptimizers
                 stats,
                 statsCalculator,
                 estimatedExchangesCostCalculator,
-                new SimplifyExpressions(metadata, sqlParser).rules());
+                ImmutableSet.<Rule<?>>builder()
+                        .addAll(new SimplifyExpressions(metadata, sqlParser).rules())
+                        .addAll(new FuseHashFunctions().rules())
+                        .build());
 
         builder.add(
                 // Clean up all the sugar in expressions, e.g. AtTimeZone, must be run before all the other optimizers
