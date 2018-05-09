@@ -30,6 +30,7 @@ import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
+import static java.lang.String.format;
 
 public class TestGeoFunctions
         extends AbstractTestFunctions
@@ -125,6 +126,69 @@ public class TestGeoFunctions
         assertFunction("ST_AsText(ST_Centroid(ST_GeometryFromText('POLYGON ((1 1, 5 1, 3 4))')))", VARCHAR, "POINT (3 2)");
         assertFunction("ST_AsText(ST_Centroid(ST_GeometryFromText('MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1)), ((2 4, 2 6, 6 6, 6 4)))')))", VARCHAR, "POINT (3.3333333333333335 4)");
         assertFunction("ST_AsText(ST_Centroid(ST_GeometryFromText('POLYGON ((0 0, 0 5, 5 5, 5 0, 0 0), (1 1, 1 2, 2 2, 2 1, 1 1))')))", VARCHAR, "POINT (2.5416666666666665 2.5416666666666665)");
+    }
+
+    @Test
+    public void testSTConvexHull()
+    {
+        // test empty geometry
+        assertConvexHull("POINT EMPTY", "POINT EMPTY");
+        assertConvexHull("MULTIPOINT EMPTY", "MULTIPOINT EMPTY");
+        assertConvexHull("LINESTRING EMPTY", "LINESTRING EMPTY");
+        assertConvexHull("MULTILINESTRING EMPTY", "MULTILINESTRING EMPTY");
+        assertConvexHull("POLYGON EMPTY", "POLYGON EMPTY");
+        assertConvexHull("MULTIPOLYGON EMPTY", "MULTIPOLYGON EMPTY");
+        assertConvexHullInvalidFunction("GEOMETRYCOLLECTION EMPTY", "ST_ConvexHull only applies to POINT or MULTI_POINT or LINE_STRING or MULTI_LINE_STRING or POLYGON or MULTI_POLYGON. Input type is: GEOMETRY_COLLECTION");
+        assertConvexHullInvalidFunction("GEOMETRYCOLLECTION (POINT (1 1), POINT EMPTY)", "ST_ConvexHull only applies to POINT or MULTI_POINT or LINE_STRING or MULTI_LINE_STRING or POLYGON or MULTI_POLYGON. Input type is: GEOMETRY_COLLECTION");
+        assertConvexHullInvalidFunction("GEOMETRYCOLLECTION (GEOMETRYCOLLECTION (POINT (1 1), GEOMETRYCOLLECTION (POINT (1 5), POINT (4 5), GEOMETRYCOLLECTION (POINT (3 4), POINT EMPTY))))", "ST_ConvexHull only applies to POINT or MULTI_POINT or LINE_STRING or MULTI_LINE_STRING or POLYGON or MULTI_POLYGON. Input type is: GEOMETRY_COLLECTION");
+
+        // test single geometry
+        assertConvexHull("POINT (1 1)", "POINT (1 1)");
+        assertConvexHull("LINESTRING (1 1, 1 9, 2 2)", "POLYGON ((1 1, 2 2, 1 9, 1 1))");
+
+        // convex single geometry
+        assertConvexHull("LINESTRING (1 1, 1 9, 2 2, 1 1)", "POLYGON ((1 1, 2 2, 1 9, 1 1))");
+        assertConvexHull("POLYGON ((0 0, 0 3, 2 4, 4 2, 3 0, 0 0))", "POLYGON ((0 0, 3 0, 4 2, 2 4, 0 3, 0 0))");
+
+        // non-convex geometry
+        assertConvexHull("LINESTRING (1 1, 1 9, 2 2, 1 1, 4 0)", "POLYGON ((1 1, 4 0, 1 9, 1 1))");
+        assertConvexHull("POLYGON ((0 0, 0 3, 4 4, 1 1, 3 0))", "POLYGON ((0 0, 3 0, 4 4, 0 3, 0 0))");
+
+        // all points are on the same line
+        assertConvexHull("LINESTRING (20 20, 30 30)", "LINESTRING (20 20, 30 30)");
+        assertConvexHull("MULTILINESTRING ((0 0, 3 3), (1 1, 2 2), (2 2, 4 4), (5 5, 8 8))", "LINESTRING (0 0, 8 8)");
+        assertConvexHull("MULTIPOINT (0 1, 1 2, 2 3, 3 4, 4 5, 5 6)", "LINESTRING (0 1, 5 6)");
+        assertConvexHullInvalidFunction("GEOMETRYCOLLECTION (POINT (0 0), LINESTRING (1 1, 4 4, 2 2), POINT (10 10), POLYGON ((5 5, 7 7)), POINT (2 2), LINESTRING (6 6, 9 9), POLYGON ((1 1)))", "ST_ConvexHull only applies to POINT or MULTI_POINT or LINE_STRING or MULTI_LINE_STRING or POLYGON or MULTI_POLYGON. Input type is: GEOMETRY_COLLECTION");
+        assertConvexHullInvalidFunction("GEOMETRYCOLLECTION (GEOMETRYCOLLECTION (POINT (2 2), POINT (1 1)), POINT (3 3))", "ST_ConvexHull only applies to POINT or MULTI_POINT or LINE_STRING or MULTI_LINE_STRING or POLYGON or MULTI_POLYGON. Input type is: GEOMETRY_COLLECTION");
+
+        // not all points are on the same line
+        assertConvexHull("MULTILINESTRING ((1 1, 5 1, 6 6), (2 4, 4 0), (2 -4, 4 4), (3 -2, 4 -3))", "POLYGON ((1 1, 2 -4, 4 -3, 5 1, 6 6, 2 4, 1 1))");
+        assertConvexHull("MULTIPOINT (0 2, 1 0, 3 0, 4 0, 4 2, 2 2, 2 4)", "POLYGON ((0 2, 1 0, 4 0, 4 2, 2 4, 0 2))");
+        assertConvexHull("MULTIPOLYGON (((0 3, 2 0, 3 6), (2 1, 2 3, 5 3, 5 1), (1 7, 2 4, 4 2, 5 6, 3 8)))", "POLYGON ((0 3, 2 0, 5 1, 5 6, 3 8, 1 7, 0 3))");
+        assertConvexHullInvalidFunction("GEOMETRYCOLLECTION (POINT (2 3), LINESTRING (2 8, 7 10), POINT (8 10), POLYGON ((4 4, 4 8, 9 8, 6 6, 6 4, 8 3, 6 1)), POINT (4 2), LINESTRING (3 6, 5 5), POLYGON ((7 5, 7 6, 8 6, 8 5)))", "ST_ConvexHull only applies to POINT or MULTI_POINT or LINE_STRING or MULTI_LINE_STRING or POLYGON or MULTI_POLYGON. Input type is: GEOMETRY_COLLECTION");
+        assertConvexHullInvalidFunction("GEOMETRYCOLLECTION (GEOMETRYCOLLECTION (POINT (2 3), LINESTRING (2 8, 7 10), GEOMETRYCOLLECTION (POINT (8 10))), POLYGON ((4 4, 4 8, 9 8, 6 6, 6 4, 8 3, 6 1)), POINT (4 2), LINESTRING (3 6, 5 5), POLYGON ((7 5, 7 6, 8 6, 8 5)))", "ST_ConvexHull only applies to POINT or MULTI_POINT or LINE_STRING or MULTI_LINE_STRING or POLYGON or MULTI_POLYGON. Input type is: GEOMETRY_COLLECTION");
+
+        // single-element multi-geometries and geometry collections
+        assertConvexHull("MULTILINESTRING ((1 1, 5 1, 6 6))", "POLYGON ((1 1, 5 1, 6 6, 1 1))");
+        assertConvexHull("MULTILINESTRING ((1 1, 5 1, 1 4, 5 4))", "POLYGON ((1 1, 5 1, 5 4, 1 4, 1 1))");
+        assertConvexHull("MULTIPOINT (0 2)", "POINT (0 2)");
+        assertConvexHull("MULTIPOLYGON (((0 3, 2 0, 3 6)))", "POLYGON ((0 3, 2 0, 3 6, 0 3))");
+        assertConvexHull("MULTIPOLYGON (((0 0, 4 0, 4 4, 0 4, 2 2)))", "POLYGON ((0 0, 4 0, 4 4, 0 4, 0 0))");
+        assertConvexHullInvalidFunction("GEOMETRYCOLLECTION (POINT (2 3))", "ST_ConvexHull only applies to POINT or MULTI_POINT or LINE_STRING or MULTI_LINE_STRING or POLYGON or MULTI_POLYGON. Input type is: GEOMETRY_COLLECTION");
+        assertConvexHullInvalidFunction("GEOMETRYCOLLECTION (LINESTRING (1 1, 5 1, 6 6))", "ST_ConvexHull only applies to POINT or MULTI_POINT or LINE_STRING or MULTI_LINE_STRING or POLYGON or MULTI_POLYGON. Input type is: GEOMETRY_COLLECTION");
+        assertConvexHullInvalidFunction("GEOMETRYCOLLECTION (LINESTRING (1 1, 5 1, 1 4, 5 4))", "ST_ConvexHull only applies to POINT or MULTI_POINT or LINE_STRING or MULTI_LINE_STRING or POLYGON or MULTI_POLYGON. Input type is: GEOMETRY_COLLECTION");
+        assertConvexHullInvalidFunction("GEOMETRYCOLLECTION (POLYGON ((0 3, 2 0, 3 6)))", "ST_ConvexHull only applies to POINT or MULTI_POINT or LINE_STRING or MULTI_LINE_STRING or POLYGON or MULTI_POLYGON. Input type is: GEOMETRY_COLLECTION");
+        assertConvexHullInvalidFunction("GEOMETRYCOLLECTION (POLYGON ((0 0, 4 0, 4 4, 0 4, 2 2)))", "ST_ConvexHull only applies to POINT or MULTI_POINT or LINE_STRING or MULTI_LINE_STRING or POLYGON or MULTI_POLYGON. Input type is: GEOMETRY_COLLECTION");
+    }
+
+    private void assertConvexHull(String inputWKT, String expectWKT)
+    {
+        assertFunction(format("ST_AsText(ST_ConvexHull(ST_GeometryFromText('%s')))", inputWKT), VARCHAR, expectWKT);
+    }
+
+    private void assertConvexHullInvalidFunction(String inputWKT, String errorMessage)
+    {
+        assertInvalidFunction(format("ST_ConvexHull(ST_GeometryFromText('%s'))", inputWKT), errorMessage);
     }
 
     @Test
@@ -712,7 +776,7 @@ public class TestGeoFunctions
         assertFunction("ST_GeometryType(ST_GeometryFromText('MULTIPOINT (1 1, 2 2)'))", VARCHAR, "ST_MultiPoint");
         assertFunction("ST_GeometryType(ST_GeometryFromText('MULTILINESTRING ((1 1, 2 2), (3 3, 4 4))'))", VARCHAR, "ST_MultiLineString");
         assertFunction("ST_GeometryType(ST_GeometryFromText('MULTIPOLYGON (((1 1, 1 4, 4 4, 4 1)), ((1 1, 1 4, 4 4, 4 1)))'))", VARCHAR, "ST_MultiPolygon");
-        assertFunction("ST_GeometryType(ST_GeometryFromText('GEOMETRYCOLLECTION(POINT(4 6),LINESTRING(4 6,7 10))'))", VARCHAR, "ST_GeomCollection");
+        assertFunction("ST_GeometryType(ST_GeometryFromText('GEOMETRYCOLLECTION(POINT(4 6),LINESTRING(4 6, 7 10))'))", VARCHAR, "ST_GeomCollection");
         assertFunction("ST_GeometryType(ST_Envelope(ST_GeometryFromText('LINESTRING (1 1, 2 2)')))", VARCHAR, "ST_Polygon");
     }
 }
