@@ -949,6 +949,14 @@ public class TestAnalyzer
         assertFails(MISMATCHED_SET_COLUMN_TYPES, "SELECT 1, 2 UNION SELECT 1");
         assertFails(MISMATCHED_SET_COLUMN_TYPES, "SELECT 'a' UNION SELECT 'b', 'c'");
         assertFails(MISMATCHED_SET_COLUMN_TYPES, "TABLE t2 UNION SELECT 'a'");
+        assertFails(
+                TYPE_MISMATCH,
+                ".* column 1 in UNION query has incompatible types.*",
+                "SELECT 123, 'foo' UNION ALL SELECT 'bar', 999");
+        assertFails(
+                TYPE_MISMATCH,
+                ".* column 2 in UNION query has incompatible types.*",
+                "SELECT 123, 123 UNION ALL SELECT 999, 'bar'");
     }
 
     @Test
