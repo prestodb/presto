@@ -124,6 +124,86 @@ public class TestBingTileFunctions
     }
 
     @Test
+    public void testBingTilesAround()
+    {
+        assertFunction("transform(bing_tiles_around(30.12, 60, 1), x -> bing_tile_quadkey(x))",
+                new ArrayType(VARCHAR), ImmutableList.of("0", "3", "1", "2"));
+        assertFunction("transform(bing_tiles_around(30.12, 60, 15), x -> bing_tile_quadkey(x))",
+                new ArrayType(VARCHAR), ImmutableList.of(
+                        "123030123010112",
+                        "123030123010103",
+                        "123030123010130",
+                        "123030123010102",
+                        "123030123010121",
+                        "123030123010132",
+                        "123030123010120",
+                        "123030123010123",
+                        "123030123010122"));
+        assertFunction("transform(bing_tiles_around(30.12, 60, 23), x -> bing_tile_quadkey(x))",
+                new ArrayType(VARCHAR), ImmutableList.of(
+                        "12303012301012121210132",
+                        "12303012301012121210123",
+                        "12303012301012121210310",
+                        "12303012301012121210302",
+                        "12303012301012121210122",
+                        "12303012301012121210301",
+                        "12303012301012121210312",
+                        "12303012301012121210300",
+                        "12303012301012121210303"));
+    }
+
+    @Test
+    public void testBingTilesAroundCorner()
+    {
+        //Different zoom Level
+        assertFunction("transform(bing_tiles_around(-85.05112878, -180, 1), x -> bing_tile_quadkey(x))",
+                new ArrayType(VARCHAR), ImmutableList.of("0", "3", "1", "2"));
+        assertFunction("transform(bing_tiles_around(-85.05112878, -180, 3), x -> bing_tile_quadkey(x))",
+                new ArrayType(VARCHAR), ImmutableList.of("222", "220", "223", "221"));
+        assertFunction("transform(bing_tiles_around(-85.05112878, -180, 15), x -> bing_tile_quadkey(x))",
+                new ArrayType(VARCHAR), ImmutableList.of("222222222222222", "222222222222221", "222222222222220", "222222222222223"));
+
+        //Different Corners
+        //Starting Corner 0,3
+        assertFunction("transform(bing_tiles_around(-85.05112878, -180, 2), x -> bing_tile_quadkey(x))",
+                new ArrayType(VARCHAR), ImmutableList.of("21", "22", "20", "23"));
+        assertFunction("transform(bing_tiles_around(-85.05112878, 180, 2), x -> bing_tile_quadkey(x))",
+                new ArrayType(VARCHAR), ImmutableList.of("32", "30", "33", "31"));
+        assertFunction("transform(bing_tiles_around(85.05112878, -180, 2), x -> bing_tile_quadkey(x))",
+                new ArrayType(VARCHAR), ImmutableList.of("02", "00", "03", "01"));
+        assertFunction("transform(bing_tiles_around(85.05112878, 180, 2), x -> bing_tile_quadkey(x))",
+                new ArrayType(VARCHAR), ImmutableList.of("12", "10", "13", "11"));
+    }
+
+    @Test
+    public void testBingTilesAroundEdge()
+    {
+        //Different zoom Level
+        assertFunction("transform(bing_tiles_around(-85.05112878, 0, 1), x -> bing_tile_quadkey(x))",
+                new ArrayType(VARCHAR), ImmutableList.of("0", "3", "1", "2"));
+        assertFunction("transform(bing_tiles_around(-85.05112878, 0, 3), x -> bing_tile_quadkey(x))",
+                new ArrayType(VARCHAR), ImmutableList.of("320", "323", "321", "233", "231", "322"));
+        assertFunction("transform(bing_tiles_around(-85.05112878, 0, 15), x -> bing_tile_quadkey(x))",
+                new ArrayType(VARCHAR), ImmutableList.of("322222222222220",
+                        "322222222222223",
+                        "322222222222221",
+                        "233333333333333",
+                        "233333333333331",
+                        "322222222222222"));
+
+        //Different Edges
+        //Starting Edge 2,3
+        assertFunction("transform(bing_tiles_around(-85.05112878, 0, 2), x -> bing_tile_quadkey(x))",
+                new ArrayType(VARCHAR), ImmutableList.of("21", "32", "30", "33", "31", "23"));
+        assertFunction("transform(bing_tiles_around(85.05112878, 0, 2), x -> bing_tile_quadkey(x))",
+                new ArrayType(VARCHAR), ImmutableList.of("03", "01", "12", "10", "13", "11"));
+        assertFunction("transform(bing_tiles_around(0, 180, 2), x -> bing_tile_quadkey(x))",
+                new ArrayType(VARCHAR), ImmutableList.of("32", "30", "33", "12", "31", "13"));
+        assertFunction("transform(bing_tiles_around(0, -180, 2), x -> bing_tile_quadkey(x))",
+                new ArrayType(VARCHAR), ImmutableList.of("02", "21", "03", "22", "20", "23"));
+    }
+
+    @Test
     public void testBingTileZoomLevel()
     {
         assertFunction("bing_tile_zoom_level(bing_tile('213'))", TINYINT, (byte) 3);
