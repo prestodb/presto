@@ -126,7 +126,6 @@ public class LookupOuterOperator
     private final OperatorContext operatorContext;
     private final ListenableFuture<OuterPositionIterator> outerPositionsFuture;
 
-    private final List<Type> types;
     private final List<Type> probeOutputTypes;
     private final Runnable onClose;
 
@@ -145,7 +144,7 @@ public class LookupOuterOperator
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.outerPositionsFuture = requireNonNull(outerPositionsFuture, "outerPositionsFuture is null");
 
-        this.types = ImmutableList.<Type>builder()
+        List<Type> types = ImmutableList.<Type>builder()
                 .addAll(requireNonNull(probeOutputTypes, "probeOutputTypes is null"))
                 .addAll(requireNonNull(buildOutputTypes, "buildOutputTypes is null"))
                 .build();
@@ -158,12 +157,6 @@ public class LookupOuterOperator
     public OperatorContext getOperatorContext()
     {
         return operatorContext;
-    }
-
-    @Override
-    public List<Type> getTypes()
-    {
-        return types;
     }
 
     @Override

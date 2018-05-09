@@ -14,11 +14,8 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-
-import java.util.List;
 
 public interface Operator
         extends AutoCloseable
@@ -26,11 +23,6 @@ public interface Operator
     ListenableFuture<?> NOT_BLOCKED = Futures.immediateFuture(null);
 
     OperatorContext getOperatorContext();
-
-    /**
-     * Gets the column types of pages produced by this operator.
-     */
-    List<Type> getTypes();
 
     /**
      * Returns a future that will be completed when the operator becomes

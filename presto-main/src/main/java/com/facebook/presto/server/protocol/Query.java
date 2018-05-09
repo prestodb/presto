@@ -72,6 +72,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import static com.facebook.presto.SystemSessionProperties.isExchangeCompressionEnabled;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.util.Failures.toFailure;
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.airlift.concurrent.MoreFutures.addTimeout;
@@ -595,7 +596,7 @@ class Query
             log.warn("Failed query %s has no error code", queryInfo.getQueryId());
         }
         return new QueryError(
-                failure.getMessage(),
+                firstNonNull(failure.getMessage(), "Internal error"),
                 null,
                 errorCode.getCode(),
                 errorCode.getName(),

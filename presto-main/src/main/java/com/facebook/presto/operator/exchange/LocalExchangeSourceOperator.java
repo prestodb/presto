@@ -98,12 +98,6 @@ public class LocalExchangeSourceOperator
     }
 
     @Override
-    public List<Type> getTypes()
-    {
-        return source.getTypes();
-    }
-
-    @Override
     public void finish()
     {
         source.finish();

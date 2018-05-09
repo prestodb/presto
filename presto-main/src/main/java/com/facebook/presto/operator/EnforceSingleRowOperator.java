@@ -57,7 +57,7 @@ public class EnforceSingleRowOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, EnforceSingleRowOperator.class.getSimpleName());
-            return new EnforceSingleRowOperator(operatorContext, types);
+            return new EnforceSingleRowOperator(operatorContext);
         }
 
         @Override
@@ -76,26 +76,18 @@ public class EnforceSingleRowOperator
     private static final Page SINGLE_NULL_VALUE_PAGE = new Page(1, new FixedWidthBlock(0, 1, EMPTY_SLICE, Slices.wrappedBooleanArray(true)));
 
     private final OperatorContext operatorContext;
-    private final List<Type> types;
     private boolean finishing;
     private Page page;
 
-    public EnforceSingleRowOperator(OperatorContext operatorContext, List<Type> types)
+    public EnforceSingleRowOperator(OperatorContext operatorContext)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
     }
 
     @Override
     public OperatorContext getOperatorContext()
     {
         return operatorContext;
-    }
-
-    @Override
-    public List<Type> getTypes()
-    {
-        return types;
     }
 
     @Override

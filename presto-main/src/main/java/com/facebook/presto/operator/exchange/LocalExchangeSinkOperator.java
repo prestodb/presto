@@ -122,12 +122,6 @@ public class LocalExchangeSinkOperator
     }
 
     @Override
-    public List<Type> getTypes()
-    {
-        return sink.getTypes();
-    }
-
-    @Override
     public void finish()
     {
         sink.finish();

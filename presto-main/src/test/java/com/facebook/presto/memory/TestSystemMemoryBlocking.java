@@ -14,23 +14,18 @@
 package com.facebook.presto.memory;
 
 import com.facebook.presto.ScheduledSplit;
-import com.facebook.presto.Session;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.DriverContext;
-import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.TableScanOperator;
 import com.facebook.presto.operator.TaskContext;
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.split.PageSourceProvider;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.PageConsumerOperator;
@@ -101,30 +96,22 @@ public class TestSystemMemoryBlocking
         final List<Type> types = ImmutableList.of(VARCHAR);
         TableScanOperator source = new TableScanOperator(driverContext.addOperatorContext(1, new PlanNodeId("test"), "values"),
                 sourceId,
-                new PageSourceProvider()
-                {
-                    @Override
-                    public ConnectorPageSource createPageSource(Session session, Split split, List<ColumnHandle> columns)
-                    {
-                        return new FixedPageSource(rowPagesBuilder(types)
-                                .addSequencePage(10, 1)
-                                .addSequencePage(10, 1)
-                                .addSequencePage(10, 1)
-                                .addSequencePage(10, 1)
-                                .addSequencePage(10, 1)
-                                .build());
-                    }
-                },
-                types,
+                (session, split, columns) -> new FixedPageSource(rowPagesBuilder(types)
+                        .addSequencePage(10, 1)
+                        .addSequencePage(10, 1)
+                        .addSequencePage(10, 1)
+                        .addSequencePage(10, 1)
+                        .addSequencePage(10, 1)
+                        .build()),
                 ImmutableList.of());
-        PageConsumerOperator sink = createSinkOperator(source);
+        PageConsumerOperator sink = createSinkOperator(types);
         Driver driver = Driver.createDriver(driverContext, source, sink);
         assertSame(driver.getDriverContext(), driverContext);
         assertFalse(driver.isFinished());
         Split testSplit = new Split(new ConnectorId("test"), TestingTransactionHandle.create(), new TestSplit());
         driver.updateSource(new TaskSource(sourceId, ImmutableSet.of(new ScheduledSplit(0, sourceId, testSplit)), true));
 
-        ListenableFuture blocked = driver.processFor(new Duration(1, NANOSECONDS));
+        ListenableFuture<?> blocked = driver.processFor(new Duration(1, NANOSECONDS));
 
         // the driver shouldn't block in the first call as it will be able to move a page between source and the sink operator
         // but the operator should be blocked
@@ -150,10 +137,10 @@ public class TestSystemMemoryBlocking
         assertTrue(blocked.isDone());
     }
 
-    private PageConsumerOperator createSinkOperator(Operator source)
+    private PageConsumerOperator createSinkOperator(List<Type> types)
     {
         // materialize the output to catch some type errors
-        MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(driverContext.getSession(), source.getTypes());
+        MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(driverContext.getSession(), types);
         return new PageConsumerOperator(driverContext.addOperatorContext(2, new PlanNodeId("test"), "sink"), resultBuilder::page, Function.identity());
     }
 

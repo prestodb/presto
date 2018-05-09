@@ -72,42 +72,28 @@ import com.facebook.presto.metadata.QualifiedTablePrefix;
 import com.facebook.presto.metadata.SchemaPropertyManager;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.metadata.Split;
-import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableLayoutHandle;
-import com.facebook.presto.metadata.TableLayoutResult;
 import com.facebook.presto.metadata.TablePropertyManager;
 import com.facebook.presto.metadata.ViewDefinition;
 import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.DriverFactory;
-import com.facebook.presto.operator.FilterAndProjectOperator;
 import com.facebook.presto.operator.LookupJoinOperators;
-import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorContext;
-import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.OutputFactory;
-import com.facebook.presto.operator.PageSourceOperator;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.PipelineExecutionStrategy;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
-import com.facebook.presto.operator.project.InterpretedPageProjection;
-import com.facebook.presto.operator.project.PageProcessor;
-import com.facebook.presto.operator.project.PageProjection;
 import com.facebook.presto.server.NoOpSessionSupplier;
 import com.facebook.presto.server.PluginManager;
 import com.facebook.presto.server.PluginManagerConfig;
 import com.facebook.presto.server.ServerMainModule;
 import com.facebook.presto.server.security.PasswordAuthenticatorManager;
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.connector.ConnectorFactory;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spiller.FileSingleStreamSpillerFactory;
 import com.facebook.presto.spiller.GenericPartitioningSpillerFactory;
 import com.facebook.presto.spiller.GenericSpillerFactory;
@@ -137,8 +123,6 @@ import com.facebook.presto.sql.planner.PlanFragmenter;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.PlanOptimizers;
 import com.facebook.presto.sql.planner.SubPlan;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.optimizations.HashGenerationOptimizer;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -161,7 +145,6 @@ import com.facebook.presto.sql.tree.Rollback;
 import com.facebook.presto.sql.tree.SetSession;
 import com.facebook.presto.sql.tree.StartTransaction;
 import com.facebook.presto.sql.tree.Statement;
-import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.testing.PageConsumerOperator.PageConsumerOutputFactory;
 import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.transaction.TransactionManagerConfig;
@@ -170,7 +153,6 @@ import com.facebook.presto.util.FinalizerService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.io.Closer;
 import io.airlift.node.NodeInfo;
 import io.airlift.units.Duration;
@@ -194,15 +176,12 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Function;
 
-import static com.facebook.presto.SystemSessionProperties.getFilterAndProjectMinOutputPageRowCount;
-import static com.facebook.presto.SystemSessionProperties.getFilterAndProjectMinOutputPageSize;
 import static com.facebook.presto.execution.SqlQueryManager.unwrapExecuteStatement;
 import static com.facebook.presto.execution.SqlQueryManager.validateParameters;
 import static com.facebook.presto.operator.PipelineExecutionStrategy.GROUPED_EXECUTION;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.GROUPED_SCHEDULING;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.ParsingUtil.createParsingOptions;
 import static com.facebook.presto.sql.testing.TreeAssertions.assertFormattedSql;
 import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
@@ -477,6 +456,11 @@ public class LocalQueryRunner
         return transactionManager;
     }
 
+    public SqlParser getSqlParser()
+    {
+        return sqlParser;
+    }
+
     @Override
     public Metadata getMetadata()
     {
@@ -487,6 +471,16 @@ public class LocalQueryRunner
     public NodePartitioningManager getNodePartitioningManager()
     {
         return nodePartitioningManager;
+    }
+
+    public PageSourceManager getPageSourceManager()
+    {
+        return pageSourceManager;
+    }
+
+    public SplitManager getSplitManager()
+    {
+        return splitManager;
     }
 
     @Override
@@ -847,116 +841,6 @@ public class LocalQueryRunner
 
         Analysis analysis = analyzer.analyze(statement);
         return logicalPlanner.plan(analysis, stage);
-    }
-
-    public OperatorFactory createTableScanOperator(
-            Session session,
-            int operatorId,
-            PlanNodeId planNodeId,
-            String tableName,
-            String... columnNames)
-    {
-        checkArgument(session.getCatalog().isPresent(), "catalog not set");
-        checkArgument(session.getSchema().isPresent(), "schema not set");
-
-        // look up the table
-        QualifiedObjectName qualifiedTableName = new QualifiedObjectName(session.getCatalog().get(), session.getSchema().get(), tableName);
-        TableHandle tableHandle = metadata.getTableHandle(session, qualifiedTableName).orElse(null);
-        checkArgument(tableHandle != null, "Table %s does not exist", qualifiedTableName);
-
-        // lookup the columns
-        Map<String, ColumnHandle> allColumnHandles = metadata.getColumnHandles(session, tableHandle);
-        ImmutableList.Builder<ColumnHandle> columnHandlesBuilder = ImmutableList.builder();
-        ImmutableList.Builder<Type> columnTypesBuilder = ImmutableList.builder();
-        for (String columnName : columnNames) {
-            ColumnHandle columnHandle = allColumnHandles.get(columnName);
-            checkArgument(columnHandle != null, "Table %s does not have a column %s", tableName, columnName);
-            columnHandlesBuilder.add(columnHandle);
-            ColumnMetadata columnMetadata = metadata.getColumnMetadata(session, tableHandle, columnHandle);
-            columnTypesBuilder.add(columnMetadata.getType());
-        }
-        List<ColumnHandle> columnHandles = columnHandlesBuilder.build();
-        List<Type> columnTypes = columnTypesBuilder.build();
-
-        // get the split for this table
-        List<TableLayoutResult> layouts = metadata.getLayouts(session, tableHandle, Constraint.alwaysTrue(), Optional.empty());
-        Split split = getLocalQuerySplit(session, layouts.get(0).getLayout().getHandle());
-
-        return new OperatorFactory()
-        {
-            @Override
-            public List<Type> getTypes()
-            {
-                return columnTypes;
-            }
-
-            @Override
-            public Operator createOperator(DriverContext driverContext)
-            {
-                OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, "BenchmarkSource");
-                ConnectorPageSource pageSource = pageSourceManager.createPageSource(session, split, columnHandles);
-                return new PageSourceOperator(pageSource, columnTypes, operatorContext);
-            }
-
-            @Override
-            public void noMoreOperators()
-            {
-            }
-
-            @Override
-            public OperatorFactory duplicate()
-            {
-                throw new UnsupportedOperationException();
-            }
-        };
-    }
-
-    public OperatorFactory createHashProjectOperator(Session session, int operatorId, PlanNodeId planNodeId, List<Type> columnTypes)
-    {
-        ImmutableMap.Builder<Symbol, Type> symbolTypes = ImmutableMap.builder();
-        ImmutableMap.Builder<Symbol, Integer> symbolToInputMapping = ImmutableMap.builder();
-        ImmutableList.Builder<PageProjection> projections = ImmutableList.builder();
-        for (int channel = 0; channel < columnTypes.size(); channel++) {
-            Symbol symbol = new Symbol("h" + channel);
-            symbolTypes.put(symbol, columnTypes.get(channel));
-            symbolToInputMapping.put(symbol, channel);
-            projections.add(new InterpretedPageProjection(
-                    new SymbolReference(symbol.getName()),
-                    ImmutableMap.of(symbol, columnTypes.get(channel)),
-                    ImmutableMap.of(symbol, channel),
-                    metadata,
-                    sqlParser,
-                    defaultSession));
-        }
-
-        Optional<Expression> hashExpression = HashGenerationOptimizer.getHashExpression(ImmutableList.copyOf(symbolTypes.build().keySet()));
-        verify(hashExpression.isPresent());
-        projections.add(new InterpretedPageProjection(
-                hashExpression.get(),
-                symbolTypes.build(),
-                symbolToInputMapping.build(),
-                metadata,
-                sqlParser,
-                defaultSession));
-
-        return new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
-                operatorId,
-                planNodeId,
-                () -> new PageProcessor(Optional.empty(), projections.build()),
-                ImmutableList.copyOf(Iterables.concat(columnTypes, ImmutableList.of(BIGINT))),
-                getFilterAndProjectMinOutputPageSize(session),
-                getFilterAndProjectMinOutputPageRowCount(session));
-    }
-
-    private Split getLocalQuerySplit(Session session, TableLayoutHandle handle)
-    {
-        SplitSource splitSource = splitManager.getSplits(session, handle, UNGROUPED_SCHEDULING);
-        List<Split> splits = new ArrayList<>();
-        while (!splitSource.isFinished()) {
-            splits.addAll(getNextBatch(splitSource));
-        }
-        checkArgument(splits.size() == 1, "Expected only one split for a local query, but got %s splits", splits.size());
-        return splits.get(0);
     }
 
     private static List<Split> getNextBatch(SplitSource splitSource)

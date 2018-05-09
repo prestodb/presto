@@ -856,12 +856,6 @@ public class TestSqlTaskExecution
             }
 
             @Override
-            public List<Type> getTypes()
-            {
-                return ImmutableList.of(VARCHAR);
-            }
-
-            @Override
             public void close()
             {
                 finish();
@@ -1006,12 +1000,6 @@ public class TestSqlTaskExecution
             public OperatorContext getOperatorContext()
             {
                 return operatorContext;
-            }
-
-            @Override
-            public List<Type> getTypes()
-            {
-                return ImmutableList.of(VARCHAR);
             }
 
             @Override
@@ -1160,12 +1148,6 @@ public class TestSqlTaskExecution
             public OperatorContext getOperatorContext()
             {
                 return operatorContext;
-            }
-
-            @Override
-            public List<Type> getTypes()
-            {
-                return ImmutableList.of(VARCHAR);
             }
 
             @Override

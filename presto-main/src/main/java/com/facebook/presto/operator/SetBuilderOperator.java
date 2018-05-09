@@ -170,12 +170,6 @@ public class SetBuilderOperator
     }
 
     @Override
-    public List<Type> getTypes()
-    {
-        return ImmutableList.of();
-    }
-
-    @Override
     public void finish()
     {
         if (finished) {

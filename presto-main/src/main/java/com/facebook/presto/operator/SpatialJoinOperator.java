@@ -175,12 +175,6 @@ public class SpatialJoinOperator
     }
 
     @Override
-    public List<Type> getTypes()
-    {
-        return outputTypes;
-    }
-
-    @Override
     public boolean needsInput()
     {
         return !finished && pagesSpatialIndexFuture.isDone() && !pageBuilder.isFull() && probe == null;

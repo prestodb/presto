@@ -117,12 +117,6 @@ public class TaskOutputOperator
     }
 
     @Override
-    public List<Type> getTypes()
-    {
-        return ImmutableList.of();
-    }
-
-    @Override
     public void finish()
     {
         finished = true;

@@ -107,12 +107,6 @@ public class TableFinishOperator
     }
 
     @Override
-    public List<Type> getTypes()
-    {
-        return TYPES;
-    }
-
-    @Override
     public void finish()
     {
         if (state == State.RUNNING) {
@@ -160,7 +154,7 @@ public class TableFinishOperator
 
         outputMetadata = tableFinisher.finishTable(fragmentBuilder.build());
 
-        PageBuilder page = new PageBuilder(getTypes());
+        PageBuilder page = new PageBuilder(TYPES);
         page.declarePosition();
         BIGINT.writeLong(page.getBlockBuilder(0), rowCount);
         return page.build();

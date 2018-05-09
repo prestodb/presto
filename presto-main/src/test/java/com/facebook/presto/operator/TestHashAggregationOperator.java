@@ -64,7 +64,6 @@ import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEqual
 import static com.facebook.presto.operator.OperatorAssertion.dropChannel;
 import static com.facebook.presto.operator.OperatorAssertion.toMaterializedResult;
 import static com.facebook.presto.operator.OperatorAssertion.toPages;
-import static com.facebook.presto.operator.OperatorAssertion.without;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -552,13 +551,9 @@ public class TestHashAggregationOperator
             MaterializedResult actual;
             if (hashEnabled) {
                 // Drop the hashChannel for all pages
-                List<Page> actualPages = dropChannel(outputPages, ImmutableList.of(1));
-                List<Type> expectedTypes = without(operator.getTypes(), ImmutableList.of(1));
-                actual = toMaterializedResult(operator.getOperatorContext().getSession(), expectedTypes, actualPages);
+                outputPages = dropChannel(outputPages, ImmutableList.of(1));
             }
-            else {
-                actual = toMaterializedResult(operator.getOperatorContext().getSession(), operator.getTypes(), outputPages);
-            }
+            actual = toMaterializedResult(operator.getOperatorContext().getSession(), expected.getTypes(), outputPages);
 
             assertEquals(actual.getTypes(), expected.getTypes());
             assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
@@ -568,7 +563,6 @@ public class TestHashAggregationOperator
     @Test
     public void testMergeWithMemorySpill()
     {
-        List<Integer> hashChannels = Ints.asList(0);
         RowPagesBuilder rowPagesBuilder = rowPagesBuilder(BIGINT);
 
         int smallPagesSpillThresholdSize = 150000;
@@ -582,7 +576,7 @@ public class TestHashAggregationOperator
                 0,
                 new PlanNodeId("test"),
                 ImmutableList.of(BIGINT),
-                hashChannels,
+                ImmutableList.of(0),
                 ImmutableList.of(),
                 Step.SINGLE,
                 false,
@@ -599,12 +593,12 @@ public class TestHashAggregationOperator
 
         DriverContext driverContext = createDriverContext(smallPagesSpillThresholdSize);
 
-        MaterializedResult.Builder resultBuilder = resultBuilder(driverContext.getSession(), BIGINT);
+        MaterializedResult.Builder resultBuilder = resultBuilder(driverContext.getSession(), BIGINT, BIGINT);
         for (int i = 0; i < smallPagesSpillThresholdSize + 10; ++i) {
             resultBuilder.row((long) i, (long) i);
         }
 
-        assertOperatorEqualsIgnoreOrder(operatorFactory, driverContext, input, resultBuilder.build(), false, Optional.of(hashChannels.size()));
+        assertOperatorEqualsIgnoreOrder(operatorFactory, driverContext, input, resultBuilder.build());
     }
 
     @Test
