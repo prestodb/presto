@@ -2249,6 +2249,7 @@ public abstract class AbstractTestHiveClient
         try {
             doCreateEmptyTable(tableName, ORC, CREATE_TABLE_COLUMNS);
 
+            ExtendedHiveMetastore metastoreClient = getMetastoreClient(tableName.getSchemaName());
             metastoreClient.updateTableParameters(tableName.getSchemaName(), tableName.getTableName(), parameters -> {
                 Map<String, String> updated = new HashMap<>(parameters);
                 updated.put("test_key", "test_value");
@@ -2274,6 +2275,7 @@ public abstract class AbstractTestHiveClient
             insertData(tableName, CREATE_TABLE_PARTITIONED_DATA);
             ImmutableList<String> partitionValues = ImmutableList.of("2015-07-01");
 
+            ExtendedHiveMetastore metastoreClient = getMetastoreClient(tableName.getSchemaName());
             metastoreClient.updatePartitionParameters(tableName.getSchemaName(), tableName.getTableName(), partitionValues, parameters -> {
                 Map<String, String> updated = new HashMap<>(parameters);
                 updated.put("test_key", "test_value");
@@ -2964,6 +2966,7 @@ public abstract class AbstractTestHiveClient
 
     private void eraseStatistics(SchemaTableName schemaTableName)
     {
+        ExtendedHiveMetastore metastoreClient = getMetastoreClient(schemaTableName.getSchemaName());
         metastoreClient.updateTableParameters(schemaTableName.getSchemaName(), schemaTableName.getTableName(), AbstractTestHiveClient::eraseStatistics);
         Table table = metastoreClient.getTable(schemaTableName.getSchemaName(), schemaTableName.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(schemaTableName));
