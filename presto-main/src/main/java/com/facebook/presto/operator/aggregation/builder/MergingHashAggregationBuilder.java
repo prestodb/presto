@@ -118,7 +118,7 @@ public class MergingHashAggregationBuilder
                 }
 
                 reset = true;
-                return ProcessorState.ofResult(hashAggregationBuilder.buildResult());
+                return ProcessorState.ofResult(hashAggregationBuilder.buildResult(), !inputFinished);
             }
         });
     }
