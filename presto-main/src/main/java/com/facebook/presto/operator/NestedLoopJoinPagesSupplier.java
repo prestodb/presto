@@ -25,15 +25,18 @@ import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static java.util.Objects.requireNonNull;
 
 public final class NestedLoopJoinPagesSupplier
+        implements NestedLoopJoinPagesBridge
 {
     private final SettableFuture<NestedLoopJoinPages> pagesFuture = SettableFuture.create();
     private final AtomicInteger referenceCount = new AtomicInteger(0);
 
+    @Override
     public ListenableFuture<NestedLoopJoinPages> getPagesFuture()
     {
         return transformAsync(pagesFuture, Futures::immediateFuture);
     }
 
+    @Override
     public void setPages(NestedLoopJoinPages nestedLoopJoinPages)
     {
         requireNonNull(nestedLoopJoinPages, "nestedLoopJoinPages is null");
@@ -41,16 +44,18 @@ public final class NestedLoopJoinPagesSupplier
         checkState(wasSet, "pagesFuture already set");
     }
 
+    @Override
     public void retain()
     {
         referenceCount.incrementAndGet();
     }
 
+    @Override
     public void release()
     {
         if (referenceCount.decrementAndGet() == 0) {
             // We own the shared pageSource, so we need to free their memory
-            addSuccessCallback(pagesFuture, result -> result.freeMemory());
+            addSuccessCallback(pagesFuture, NestedLoopJoinPages::freeMemory);
         }
     }
 }

@@ -62,9 +62,9 @@ public class TestNestedLoopBuildOperator
         NestedLoopBuildOperatorFactory nestedLoopBuildOperatorFactory = new NestedLoopBuildOperatorFactory(3, new PlanNodeId("test"));
         DriverContext driverContext = taskContext.addPipelineContext(0, true, true).addDriverContext();
         NestedLoopBuildOperator nestedLoopBuildOperator = (NestedLoopBuildOperator) nestedLoopBuildOperatorFactory.createOperator(driverContext);
-        NestedLoopJoinPagesSupplier nestedLoopJoinPagesSupplier = nestedLoopBuildOperatorFactory.getNestedLoopJoinPagesSupplier();
+        NestedLoopJoinPagesBridge nestedLoopJoinPagesBridge = nestedLoopBuildOperatorFactory.getNestedLoopJoinPagesBridge();
 
-        assertFalse(nestedLoopJoinPagesSupplier.getPagesFuture().isDone());
+        assertFalse(nestedLoopJoinPagesBridge.getPagesFuture().isDone());
 
         // build pages
         Page buildPage1 = new Page(3, createLongSequenceBlock(11, 14));
@@ -76,8 +76,8 @@ public class TestNestedLoopBuildOperator
         nestedLoopBuildOperator.addInput(buildPage2);
         nestedLoopBuildOperator.finish();
 
-        assertTrue(nestedLoopJoinPagesSupplier.getPagesFuture().isDone());
-        List<Page> buildPages = nestedLoopJoinPagesSupplier.getPagesFuture().get().getPages();
+        assertTrue(nestedLoopJoinPagesBridge.getPagesFuture().isDone());
+        List<Page> buildPages = nestedLoopJoinPagesBridge.getPagesFuture().get().getPages();
 
         assertEquals(buildPages.get(0), buildPage1);
         assertEquals(buildPages.get(1), buildPage2);
@@ -92,9 +92,9 @@ public class TestNestedLoopBuildOperator
         NestedLoopBuildOperatorFactory nestedLoopBuildOperatorFactory = new NestedLoopBuildOperatorFactory(3, new PlanNodeId("test"));
         DriverContext driverContext = taskContext.addPipelineContext(0, true, true).addDriverContext();
         NestedLoopBuildOperator nestedLoopBuildOperator = (NestedLoopBuildOperator) nestedLoopBuildOperatorFactory.createOperator(driverContext);
-        NestedLoopJoinPagesSupplier nestedLoopJoinPagesSupplier = nestedLoopBuildOperatorFactory.getNestedLoopJoinPagesSupplier();
+        NestedLoopJoinPagesBridge nestedLoopJoinPagesBridge = nestedLoopBuildOperatorFactory.getNestedLoopJoinPagesBridge();
 
-        assertFalse(nestedLoopJoinPagesSupplier.getPagesFuture().isDone());
+        assertFalse(nestedLoopJoinPagesBridge.getPagesFuture().isDone());
 
         // build pages
         Page buildPage1 = new Page(3);
@@ -106,8 +106,8 @@ public class TestNestedLoopBuildOperator
         nestedLoopBuildOperator.addInput(buildPage2);
         nestedLoopBuildOperator.finish();
 
-        assertTrue(nestedLoopJoinPagesSupplier.getPagesFuture().isDone());
-        List<Page> buildPages = nestedLoopJoinPagesSupplier.getPagesFuture().get().getPages();
+        assertTrue(nestedLoopJoinPagesBridge.getPagesFuture().isDone());
+        List<Page> buildPages = nestedLoopJoinPagesBridge.getPagesFuture().get().getPages();
 
         assertEquals(buildPages.get(0), buildPage1);
         assertEquals(buildPages.get(1), buildPage2);

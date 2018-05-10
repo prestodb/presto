@@ -47,7 +47,7 @@ import com.facebook.presto.operator.LookupOuterOperator.LookupOuterOperatorFacto
 import com.facebook.presto.operator.LookupSourceFactory;
 import com.facebook.presto.operator.MarkDistinctOperator.MarkDistinctOperatorFactory;
 import com.facebook.presto.operator.MetadataDeleteOperator.MetadataDeleteOperatorFactory;
-import com.facebook.presto.operator.NestedLoopJoinPagesSupplier;
+import com.facebook.presto.operator.NestedLoopJoinPagesBridge;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.OrderByOperator.OrderByOperatorFactory;
 import com.facebook.presto.operator.OutputFactory;
@@ -1665,7 +1665,7 @@ public class LocalExecutionPlanner
                     buildContext.getDriverInstanceCount(),
                     buildSource.getPipelineExecutionStrategy());
 
-            NestedLoopJoinPagesSupplier nestedLoopJoinPagesSupplier = nestedLoopBuildOperatorFactory.getNestedLoopJoinPagesSupplier();
+            NestedLoopJoinPagesBridge nestedLoopJoinPagesBridge = nestedLoopBuildOperatorFactory.getNestedLoopJoinPagesBridge();
             ImmutableMap.Builder<Symbol, Integer> outputMappings = ImmutableMap.builder();
             outputMappings.putAll(probeSource.getLayout());
 
@@ -1676,7 +1676,7 @@ public class LocalExecutionPlanner
                 outputMappings.put(entry.getKey(), offset + entry.getValue());
             }
 
-            OperatorFactory operatorFactory = new NestedLoopJoinOperatorFactory(context.getNextOperatorId(), node.getId(), nestedLoopJoinPagesSupplier, probeSource.getTypes());
+            OperatorFactory operatorFactory = new NestedLoopJoinOperatorFactory(context.getNextOperatorId(), node.getId(), nestedLoopJoinPagesBridge, probeSource.getTypes());
             PhysicalOperation operation = new PhysicalOperation(operatorFactory, outputMappings.build(), context, probeSource);
             return operation;
         }

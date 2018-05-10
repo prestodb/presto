@@ -28,7 +28,7 @@ public class NestedLoopBuildOperator
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;
-        private final NestedLoopJoinPagesSupplier nestedLoopJoinPagesSupplier;
+        private final NestedLoopJoinPagesBridge nestedLoopJoinPagesBridge;
 
         private boolean closed;
 
@@ -36,13 +36,13 @@ public class NestedLoopBuildOperator
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
-            nestedLoopJoinPagesSupplier = new NestedLoopJoinPagesSupplier();
-            nestedLoopJoinPagesSupplier.retain();
+            nestedLoopJoinPagesBridge = new NestedLoopJoinPagesSupplier();
+            nestedLoopJoinPagesBridge.retain();
         }
 
-        public NestedLoopJoinPagesSupplier getNestedLoopJoinPagesSupplier()
+        public NestedLoopJoinPagesBridge getNestedLoopJoinPagesBridge()
         {
-            return nestedLoopJoinPagesSupplier;
+            return nestedLoopJoinPagesBridge;
         }
 
         @Override
@@ -50,7 +50,7 @@ public class NestedLoopBuildOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, NestedLoopBuildOperator.class.getSimpleName());
-            return new NestedLoopBuildOperator(operatorContext, nestedLoopJoinPagesSupplier);
+            return new NestedLoopBuildOperator(operatorContext, nestedLoopJoinPagesBridge);
         }
 
         @Override
@@ -60,7 +60,7 @@ public class NestedLoopBuildOperator
                 return;
             }
             closed = true;
-            nestedLoopJoinPagesSupplier.release();
+            nestedLoopJoinPagesBridge.release();
         }
 
         @Override
@@ -71,15 +71,15 @@ public class NestedLoopBuildOperator
     }
 
     private final OperatorContext operatorContext;
-    private final NestedLoopJoinPagesSupplier nestedLoopJoinPagesSupplier;
+    private final NestedLoopJoinPagesBridge nestedLoopJoinPagesBridge;
     private final NestedLoopJoinPagesBuilder nestedLoopJoinPagesBuilder;
     private final LocalMemoryContext localUserMemoryContext;
     private boolean finished;
 
-    public NestedLoopBuildOperator(OperatorContext operatorContext, NestedLoopJoinPagesSupplier nestedLoopJoinPagesSupplier)
+    public NestedLoopBuildOperator(OperatorContext operatorContext, NestedLoopJoinPagesBridge nestedLoopJoinPagesBridge)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.nestedLoopJoinPagesSupplier = requireNonNull(nestedLoopJoinPagesSupplier, "nestedLoopJoinPagesSupplier is null");
+        this.nestedLoopJoinPagesBridge = requireNonNull(nestedLoopJoinPagesBridge, "nestedLoopJoinPagesBridge is null");
         this.nestedLoopJoinPagesBuilder = new NestedLoopJoinPagesBuilder(operatorContext);
         this.localUserMemoryContext = operatorContext.localUserMemoryContext();
     }
@@ -98,7 +98,7 @@ public class NestedLoopBuildOperator
         }
 
         // The NestedLoopJoinPages will take over our memory reservation, so after this point ours will be zero.
-        nestedLoopJoinPagesSupplier.setPages(nestedLoopJoinPagesBuilder.build());
+        nestedLoopJoinPagesBridge.setPages(nestedLoopJoinPagesBuilder.build());
 
         finished = true;
     }

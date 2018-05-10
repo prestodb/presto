@@ -41,16 +41,16 @@ public class NestedLoopJoinOperator
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;
-        private final NestedLoopJoinPagesSupplier nestedLoopJoinPagesSupplier;
+        private final NestedLoopJoinPagesBridge nestedLoopJoinPagesBridge;
         private final List<Type> probeTypes;
         private boolean closed;
 
-        public NestedLoopJoinOperatorFactory(int operatorId, PlanNodeId planNodeId, NestedLoopJoinPagesSupplier nestedLoopJoinPagesSupplier, List<Type> probeTypes)
+        public NestedLoopJoinOperatorFactory(int operatorId, PlanNodeId planNodeId, NestedLoopJoinPagesBridge nestedLoopJoinPagesBridge, List<Type> probeTypes)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
-            this.nestedLoopJoinPagesSupplier = nestedLoopJoinPagesSupplier;
-            this.nestedLoopJoinPagesSupplier.retain();
+            this.nestedLoopJoinPagesBridge = nestedLoopJoinPagesBridge;
+            this.nestedLoopJoinPagesBridge.retain();
             this.probeTypes = probeTypes;
         }
 
@@ -59,7 +59,7 @@ public class NestedLoopJoinOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, NestedLoopJoinOperator.class.getSimpleName());
-            return new NestedLoopJoinOperator(operatorContext, nestedLoopJoinPagesSupplier);
+            return new NestedLoopJoinOperator(operatorContext, nestedLoopJoinPagesBridge);
         }
 
         @Override
@@ -69,17 +69,17 @@ public class NestedLoopJoinOperator
                 return;
             }
             closed = true;
-            nestedLoopJoinPagesSupplier.release();
+            nestedLoopJoinPagesBridge.release();
         }
 
         @Override
         public OperatorFactory duplicate()
         {
-            return new NestedLoopJoinOperatorFactory(operatorId, planNodeId, nestedLoopJoinPagesSupplier, probeTypes);
+            return new NestedLoopJoinOperatorFactory(operatorId, planNodeId, nestedLoopJoinPagesBridge, probeTypes);
         }
     }
 
-    private final NestedLoopJoinPagesSupplier buildPagesSupplier;
+    private final NestedLoopJoinPagesBridge buildPagesSupplier;
     private final ListenableFuture<NestedLoopJoinPages> nestedLoopJoinPagesFuture;
 
     private final OperatorContext operatorContext;
@@ -91,7 +91,7 @@ public class NestedLoopJoinOperator
     private boolean finishing;
     private boolean closed;
 
-    public NestedLoopJoinOperator(OperatorContext operatorContext, NestedLoopJoinPagesSupplier buildPagesSupplier)
+    public NestedLoopJoinOperator(OperatorContext operatorContext, NestedLoopJoinPagesBridge buildPagesSupplier)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.buildPagesSupplier = requireNonNull(buildPagesSupplier, "buildPagesSupplier is null");
