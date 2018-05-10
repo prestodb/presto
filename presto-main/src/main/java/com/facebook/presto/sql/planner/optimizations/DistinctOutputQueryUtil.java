@@ -23,7 +23,6 @@ import com.facebook.presto.sql.planner.plan.IntersectNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
-import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 
@@ -108,12 +107,6 @@ public final class DistinctOutputQueryUtil
         public Boolean visitIntersect(IntersectNode node, Void context)
         {
             return true;
-        }
-
-        @Override
-        public Boolean visitProject(ProjectNode node, Void context)
-        {
-            return node.isIdentity() && lookupFunction.apply(node.getSource()).accept(this, null);
         }
 
         @Override

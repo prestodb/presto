@@ -17,6 +17,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
+import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -24,6 +25,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
@@ -134,6 +136,31 @@ public class TestPushAggregationThroughOuterJoin
                                 Optional.empty()))
                         .addAggregation(new Symbol("AVG"), PlanBuilder.expression("avg(COL2)"), ImmutableList.of(DOUBLE))
                         .addGroupingSet(new Symbol("COL1"))))
+                .doesNotFire();
+
+        // https://github.com/prestodb/presto/issues/10592
+        tester().assertThat(new PushAggregationThroughOuterJoin())
+                .on(p -> p.aggregation(ab -> ab
+                        .source(
+                                p.join(
+                                        JoinNode.Type.LEFT,
+                                        p.project(Assignments.builder()
+                                                        .putIdentity(p.symbol("COL1", BIGINT))
+                                                        .build(),
+                                                p.aggregation(builder ->
+                                                        builder.addGroupingSet(p.symbol("COL1"), p.symbol("unused"))
+                                                                .source(
+                                                                        p.values(
+                                                                                ImmutableList.of(p.symbol("COL1"), p.symbol("unused")),
+                                                                                ImmutableList.of(expressions("10", "1"), expressions("10", "2")))))),
+                                        p.values(p.symbol("COL2")),
+                                        ImmutableList.of(new JoinNode.EquiJoinClause(p.symbol("COL1"), p.symbol("COL2"))),
+                                        ImmutableList.of(p.symbol("COL1"), p.symbol("COL2")),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        Optional.empty()))
+                        .addAggregation(p.symbol("AVG", DOUBLE), PlanBuilder.expression("avg(COL2)"), ImmutableList.of(DOUBLE))
+                        .addGroupingSet(p.symbol("COL1"))))
                 .doesNotFire();
     }
 
