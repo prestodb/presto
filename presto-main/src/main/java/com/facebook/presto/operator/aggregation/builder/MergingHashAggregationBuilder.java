@@ -98,13 +98,13 @@ public class MergingHashAggregationBuilder
                     reset = false;
                 }
 
-                boolean finished = !inputPageOptional.isPresent();
-                if (finished && memorySize == 0) {
+                boolean inputFinished = !inputPageOptional.isPresent();
+                if (inputFinished && memorySize == 0) {
                     // no more pages and aggregation builder is empty
                     return ProcessorState.finished();
                 }
 
-                if (!finished) {
+                if (!inputFinished) {
                     Page inputPage = inputPageOptional.get();
                     boolean done = hashAggregationBuilder.processPage(inputPage).process();
                     // TODO: this class does not yield wrt memory limit; enable it
