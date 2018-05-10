@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.spi.ErrorCode;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -21,9 +23,12 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static io.airlift.testing.Assertions.assertContains;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.fail;
 
 public class TestHiveTypeTranslator
 {
@@ -68,11 +73,32 @@ public class TestHiveTypeTranslator
         for (Map.Entry<String, HiveType> entry : typeTranslationMap.entrySet()) {
             assertTypeTranslation(entry.getKey(), entry.getValue());
         }
+
+        assertInvalidTypeTranslation("row(integer,varbinary)", NOT_SUPPORTED.toErrorCode(), "Anonymous row type is not supported in Hive. Please give each field a name: row(integer,varbinary)");
     }
 
     private void assertTypeTranslation(String typeName, HiveType hiveType)
     {
         Type type = TYPE_MANAGER.getType(parseTypeSignature(typeName));
         assertEquals(HiveType.toHiveType(typeTranslator, type), hiveType);
+    }
+
+    private void assertInvalidTypeTranslation(String typeName, ErrorCode errorCode, String message)
+    {
+        Type type = TYPE_MANAGER.getType(parseTypeSignature(typeName));
+        try {
+            HiveType.toHiveType(typeTranslator, type);
+            fail("expected exception");
+        }
+        catch (PrestoException e) {
+            try {
+                assertEquals(e.getErrorCode(), errorCode);
+                assertContains(e.getMessage(), message);
+            }
+            catch (Throwable failure) {
+                failure.addSuppressed(e);
+                throw failure;
+            }
+        }
     }
 }
