@@ -127,10 +127,11 @@ public class TestHashAggregationOperator
     public static Object[][] hashEnabledAndMemoryLimitForMergeValuesProvider()
     {
         return new Object[][] {
-                {true, 8, Integer.MAX_VALUE},
-                {false, 0, 0},
-                {false, 8, 0},
-                {false, 8, Integer.MAX_VALUE}};
+                {true, true, 8, Integer.MAX_VALUE},
+                {false, false, 0, 0},
+                {false, true, 0, 0},
+                {false, true, 8, 0},
+                {false, true, 8, Integer.MAX_VALUE}};
     }
 
     @DataProvider
@@ -148,7 +149,7 @@ public class TestHashAggregationOperator
     }
 
     @Test(dataProvider = "hashEnabledAndMemoryLimitForMergeValues")
-    public void testHashAggregation(boolean hashEnabled, long memoryLimitForMerge, long memoryLimitForMergeWithMemory)
+    public void testHashAggregation(boolean hashEnabled, boolean spillEnabled, long memoryLimitForMerge, long memoryLimitForMergeWithMemory)
     {
         MetadataManager metadata = MetadataManager.createTestMetadataManager();
         InternalAggregationFunction countVarcharColumn = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
@@ -165,7 +166,6 @@ public class TestHashAggregationOperator
                 .addSequencePage(10, 100, 0, 300, 0, 500)
                 .build();
 
-        boolean spillEnabled = memoryLimitForMerge > 0;
         HashAggregationOperatorFactory operatorFactory = new HashAggregationOperatorFactory(
                 0,
                 new PlanNodeId("test"),
@@ -210,7 +210,7 @@ public class TestHashAggregationOperator
     }
 
     @Test(dataProvider = "hashEnabledAndMemoryLimitForMergeValues")
-    public void testHashAggregationWithGlobals(boolean hashEnabled, long memoryLimitForMerge, long memoryLimitForMergeWithMemory)
+    public void testHashAggregationWithGlobals(boolean hashEnabled, boolean spillEnabled, long memoryLimitForMerge, long memoryLimitForMergeWithMemory)
     {
         MetadataManager metadata = MetadataManager.createTestMetadataManager();
         InternalAggregationFunction countVarcharColumn = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
@@ -244,7 +244,7 @@ public class TestHashAggregationOperator
                 groupIdChannel,
                 100_000,
                 new DataSize(16, MEGABYTE),
-                memoryLimitForMerge > 0,
+                spillEnabled,
                 succinctBytes(memoryLimitForMerge),
                 succinctBytes(memoryLimitForMergeWithMemory),
                 spillerFactory,
@@ -260,7 +260,7 @@ public class TestHashAggregationOperator
     }
 
     @Test(dataProvider = "hashEnabledAndMemoryLimitForMergeValues")
-    public void testHashAggregationMemoryReservation(boolean hashEnabled, long memoryLimitForMerge, long memoryLimitForMergeWithMemory)
+    public void testHashAggregationMemoryReservation(boolean hashEnabled, boolean spillEnabled, long memoryLimitForMerge, long memoryLimitForMergeWithMemory)
     {
         MetadataManager metadata = MetadataManager.createTestMetadataManager();
         InternalAggregationFunction arrayAggColumn = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
@@ -291,7 +291,7 @@ public class TestHashAggregationOperator
                 Optional.empty(),
                 100_000,
                 new DataSize(16, MEGABYTE),
-                memoryLimitForMerge > 0,
+                spillEnabled,
                 succinctBytes(memoryLimitForMerge),
                 succinctBytes(memoryLimitForMergeWithMemory),
                 spillerFactory,
@@ -342,7 +342,7 @@ public class TestHashAggregationOperator
     }
 
     @Test(dataProvider = "hashEnabledAndMemoryLimitForMergeValues")
-    public void testHashBuilderResize(boolean hashEnabled, long memoryLimitForMerge, long memoryLimitForMergeWithMemory)
+    public void testHashBuilderResize(boolean hashEnabled, boolean spillEnabled, long memoryLimitForMerge, long memoryLimitForMergeWithMemory)
     {
         BlockBuilder builder = VARCHAR.createBlockBuilder(null, 1, MAX_BLOCK_SIZE_IN_BYTES);
         VARCHAR.writeSlice(builder, Slices.allocate(200_000)); // this must be larger than MAX_BLOCK_SIZE_IN_BYTES, 64K
@@ -371,7 +371,7 @@ public class TestHashAggregationOperator
                 Optional.empty(),
                 100_000,
                 new DataSize(16, MEGABYTE),
-                memoryLimitForMerge > 0,
+                spillEnabled,
                 succinctBytes(memoryLimitForMerge),
                 succinctBytes(memoryLimitForMergeWithMemory),
                 spillerFactory,
