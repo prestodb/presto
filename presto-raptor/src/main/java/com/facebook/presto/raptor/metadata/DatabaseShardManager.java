@@ -694,6 +694,8 @@ public class DatabaseShardManager
         Iterator<String> nodeIterator = cyclingShuffledIterator(nodeIds);
 
         ImmutableMap.Builder<Integer, String> assignments = ImmutableMap.builder();
+        PrestoException limiterException = null;
+        Set<String> offlineNodes = new HashSet<>();
 
         for (BucketNode bucketNode : getBuckets(distributionId)) {
             int bucket = bucketNode.getBucketNumber();
@@ -703,7 +705,18 @@ public class DatabaseShardManager
                 if (nanosSince(startTime).compareTo(startupGracePeriod) < 0) {
                     throw new PrestoException(SERVER_STARTING_UP, "Cannot reassign buckets while server is starting");
                 }
-                assignmentLimiter.checkAssignFrom(nodeId);
+
+                try {
+                    if (offlineNodes.add(nodeId)) {
+                        assignmentLimiter.checkAssignFrom(nodeId);
+                    }
+                }
+                catch (PrestoException e) {
+                    if (limiterException == null) {
+                        limiterException = e;
+                    }
+                    continue;
+                }
 
                 String oldNodeId = nodeId;
                 // TODO: use smarter system to choose replacement node
@@ -713,6 +726,10 @@ public class DatabaseShardManager
             }
 
             assignments.put(bucket, nodeId);
+        }
+
+        if (limiterException != null) {
+            throw limiterException;
         }
 
         return assignments.build();
