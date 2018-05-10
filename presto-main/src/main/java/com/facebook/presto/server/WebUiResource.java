@@ -21,13 +21,13 @@ import static javax.ws.rs.core.Response.Status.MOVED_PERMANENTLY;
 import static javax.ws.rs.core.UriBuilder.fromPath;
 
 @Path("/")
-public class WebAppResource
+public class WebUiResource
 {
     @GET
     public Response redirectIndexHtml()
     {
         return Response.status(MOVED_PERMANENTLY)
-                .location(fromPath("/ui/index.html").build())
+                .location(fromPath("/ui/").build())
                 .build();
     }
 }

@@ -381,7 +381,7 @@ class Query
 
         URI queryHtmlUri = uriInfo.getRequestUriBuilder()
                 .scheme(scheme)
-                .replacePath("query.html")
+                .replacePath("ui/query.html")
                 .replaceQuery(queryId.toString())
                 .build();
 
