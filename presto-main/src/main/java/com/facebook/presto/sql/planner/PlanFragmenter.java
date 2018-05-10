@@ -436,7 +436,7 @@ public class PlanFragmenter
                     //   It's not particularly helpful to do grouped execution on the right side
                     //   because the benefit is likely cancelled out due to required buffering for hash build.
                     //   In theory, it could still be helpful (e.g. when the underlying aggregation's intermediate group state maybe larger than aggregation output).
-                    //   However, this is not currently implemented. LookupSourceFactoryManager need to support such a lifecycle.
+                    //   However, this is not currently implemented. JoinBridgeDataManager need to support such a lifecycle.
                     // !right.currentNodeCapable:
                     //   The build/right side needs to buffer fully for this JOIN, but the probe/left side will still stream through.
                     //   As a result, there is no reason to change currentNodeCapable or subTreeUseful to false.

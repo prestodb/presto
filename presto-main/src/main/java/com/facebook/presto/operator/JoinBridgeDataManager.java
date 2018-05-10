@@ -16,11 +16,14 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
 
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.BiFunction;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -29,41 +32,59 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.Objects.requireNonNull;
 
-public class LookupSourceFactoryManager
+public class JoinBridgeDataManager<T>
 {
-    private final List<Type> outputTypes;
-
-    private final InternalLookupSourceFactoryManager internalLookupSourceFactoryManager;
-
-    public LookupSourceFactoryManager(
+    public static JoinBridgeDataManager<LookupSourceFactory> lookup(
             PipelineExecutionStrategy probeExecutionStrategy,
             PipelineExecutionStrategy lookupSourceExecutionStrategy,
             Function<Lifespan, LookupSourceFactory> lookupSourceFactoryProvider,
-            List<Type> outputTypes)
+            List<Type> buildOutputTypes)
     {
-        requireNonNull(probeExecutionStrategy, "probeExecutionStrategy is null");
-        requireNonNull(lookupSourceExecutionStrategy, "lookupSourceExecutionStrategy is null");
-        requireNonNull(lookupSourceFactoryProvider, "lookupSourceFactoryProvider is null");
-
-        this.internalLookupSourceFactoryManager = internalLookupSourceFactoryManager(probeExecutionStrategy, lookupSourceExecutionStrategy, lookupSourceFactoryProvider);
-        this.outputTypes = requireNonNull(outputTypes, "outputTypes is null");
+        return new JoinBridgeDataManager<>(
+                probeExecutionStrategy,
+                lookupSourceExecutionStrategy,
+                lookupSourceFactoryProvider,
+                buildOutputTypes,
+                SharedLookupSourceFactory::new,
+                LookupSourceFactory::destroy);
     }
 
-    public static LookupSourceFactoryManager allAtOnce(PartitionedLookupSourceFactory factory)
+    @VisibleForTesting
+    public static JoinBridgeDataManager<LookupSourceFactory> lookupAllAtOnce(LookupSourceFactory factory)
     {
-        return new LookupSourceFactoryManager(
+        return lookup(
                 UNGROUPED_EXECUTION,
                 UNGROUPED_EXECUTION,
                 ignored -> factory,
                 factory.getOutputTypes());
     }
 
-    public List<Type> getBuildOutputTypes()
+    private final List<Type> buildOutputTypes;
+
+    private final InternalLookupSourceFactoryManager<T> internalLookupSourceFactoryManager;
+
+    private JoinBridgeDataManager(
+            PipelineExecutionStrategy probeExecutionStrategy,
+            PipelineExecutionStrategy lookupSourceExecutionStrategy,
+            Function<Lifespan, T> lookupSourceFactoryProvider,
+            List<Type> buildOutputTypes,
+            BiFunction<T, Runnable, T> sharedWrapper,
+            Consumer<T> destroy)
     {
-        return outputTypes;
+        requireNonNull(probeExecutionStrategy, "probeExecutionStrategy is null");
+        requireNonNull(lookupSourceExecutionStrategy, "lookupSourceExecutionStrategy is null");
+        requireNonNull(lookupSourceFactoryProvider, "lookupSourceFactoryProvider is null");
+
+        this.internalLookupSourceFactoryManager = internalLookupSourceFactoryManager(probeExecutionStrategy, lookupSourceExecutionStrategy, lookupSourceFactoryProvider, sharedWrapper, destroy);
+        this.buildOutputTypes = requireNonNull(buildOutputTypes, "buildOutputTypes is null");
     }
 
-    public LookupSourceFactory forLifespan(Lifespan lifespan)
+    public List<Type> getBuildOutputTypes()
+    {
+        return buildOutputTypes;
+    }
+
+    public T forLifespan(Lifespan lifespan)
     {
         return internalLookupSourceFactoryManager.get(lifespan);
     }
@@ -73,16 +94,18 @@ public class LookupSourceFactoryManager
         internalLookupSourceFactoryManager.noMoreLookupSourceFactory();
     }
 
-    private static InternalLookupSourceFactoryManager internalLookupSourceFactoryManager(
+    private static <T> InternalLookupSourceFactoryManager<T> internalLookupSourceFactoryManager(
             PipelineExecutionStrategy probeExecutionStrategy,
             PipelineExecutionStrategy lookupSourceExecutionStrategy,
-            Function<Lifespan, LookupSourceFactory> lookupSourceFactoryProvider)
+            Function<Lifespan, T> lookupSourceFactoryProvider,
+            BiFunction<T, Runnable, T> sharedWrapper,
+            Consumer<T> destroy)
     {
         switch (probeExecutionStrategy) {
             case UNGROUPED_EXECUTION:
                 switch (lookupSourceExecutionStrategy) {
                     case UNGROUPED_EXECUTION:
-                        return new TaskWideInternalLookupSourceFactoryManager(lookupSourceFactoryProvider);
+                        return new TaskWideInternalLookupSourceFactoryManager<>(lookupSourceFactoryProvider);
                     case GROUPED_EXECUTION:
                         throw new UnsupportedOperationException("Invalid combination. Lookup source should not be grouped if probe is not going to take advantage of it.");
                     default:
@@ -91,9 +114,9 @@ public class LookupSourceFactoryManager
             case GROUPED_EXECUTION:
                 switch (lookupSourceExecutionStrategy) {
                     case UNGROUPED_EXECUTION:
-                        return new SharedInternalLookupSourceFactoryManager(lookupSourceFactoryProvider);
+                        return new SharedInternalLookupSourceFactoryManager<>(lookupSourceFactoryProvider, sharedWrapper, destroy);
                     case GROUPED_EXECUTION:
-                        return new OneToOneInternalLookupSourceFactoryManager(lookupSourceFactoryProvider);
+                        return new OneToOneInternalLookupSourceFactoryManager<>(lookupSourceFactoryProvider);
                     default:
                         throw new IllegalArgumentException("Unknown lookupSourceExecutionStrategy: " + lookupSourceExecutionStrategy);
                 }
@@ -102,9 +125,9 @@ public class LookupSourceFactoryManager
         }
     }
 
-    private interface InternalLookupSourceFactoryManager
+    private interface InternalLookupSourceFactoryManager<T>
     {
-        LookupSourceFactory get(Lifespan lifespan);
+        T get(Lifespan lifespan);
 
         default void noMoreLookupSourceFactory()
         {
@@ -113,18 +136,18 @@ public class LookupSourceFactoryManager
     }
 
     // 1 probe, 1 lookup source
-    private static class TaskWideInternalLookupSourceFactoryManager
-            implements InternalLookupSourceFactoryManager
+    private static class TaskWideInternalLookupSourceFactoryManager<T>
+            implements InternalLookupSourceFactoryManager<T>
     {
-        private final Supplier<LookupSourceFactory> supplier;
+        private final Supplier<T> supplier;
 
-        public TaskWideInternalLookupSourceFactoryManager(Function<Lifespan, LookupSourceFactory> lookupSourceFactoryProvider)
+        public TaskWideInternalLookupSourceFactoryManager(Function<Lifespan, T> lookupSourceFactoryProvider)
         {
             supplier = Suppliers.memoize(() -> lookupSourceFactoryProvider.apply(Lifespan.taskWide()));
         }
 
         @Override
-        public LookupSourceFactory get(Lifespan lifespan)
+        public T get(Lifespan lifespan)
         {
             checkArgument(Lifespan.taskWide().equals(lifespan));
             return supplier.get();
@@ -132,19 +155,19 @@ public class LookupSourceFactoryManager
     }
 
     // N probe, N lookup source; one-to-one mapping, bijective
-    private static class OneToOneInternalLookupSourceFactoryManager
-            implements InternalLookupSourceFactoryManager
+    private static class OneToOneInternalLookupSourceFactoryManager<T>
+            implements InternalLookupSourceFactoryManager<T>
     {
-        private final Map<Lifespan, LookupSourceFactory> map = new ConcurrentHashMap<>();
-        private final Function<Lifespan, LookupSourceFactory> lookupSourceFactoryProvider;
+        private final Map<Lifespan, T> map = new ConcurrentHashMap<>();
+        private final Function<Lifespan, T> lookupSourceFactoryProvider;
 
-        public OneToOneInternalLookupSourceFactoryManager(Function<Lifespan, LookupSourceFactory> lookupSourceFactoryProvider)
+        public OneToOneInternalLookupSourceFactoryManager(Function<Lifespan, T> lookupSourceFactoryProvider)
         {
             this.lookupSourceFactoryProvider = lookupSourceFactoryProvider;
         }
 
         @Override
-        public LookupSourceFactory get(Lifespan lifespan)
+        public T get(Lifespan lifespan)
         {
             checkArgument(!Lifespan.taskWide().equals(lifespan));
             return map.computeIfAbsent(lifespan, lookupSourceFactoryProvider);
@@ -152,22 +175,24 @@ public class LookupSourceFactoryManager
     }
 
     // N probe, 1 lookup source
-    private static class SharedInternalLookupSourceFactoryManager
-            implements InternalLookupSourceFactoryManager
+    private static class SharedInternalLookupSourceFactoryManager<T>
+            implements InternalLookupSourceFactoryManager<T>
     {
-        private final LookupSourceFactory taskWideLookupSourceFactory;
-        private final Map<Lifespan, LookupSourceFactory> map = new ConcurrentHashMap<>();
+        private final T taskWideLookupSourceFactory;
+        private final BiFunction<T, Runnable, T> sharedWrapper;
+        private final Map<Lifespan, T> map = new ConcurrentHashMap<>();
         private final ReferenceCount referenceCount;
 
-        public SharedInternalLookupSourceFactoryManager(Function<Lifespan, LookupSourceFactory> lookupSourceFactoryProvider)
+        public SharedInternalLookupSourceFactoryManager(Function<Lifespan, T> lookupSourceFactoryProvider, BiFunction<T, Runnable, T> sharedWrapper, Consumer<T> destroy)
         {
-            taskWideLookupSourceFactory = lookupSourceFactoryProvider.apply(Lifespan.taskWide());
-            referenceCount = new ReferenceCount(1);
-            referenceCount.getFreeFuture().addListener(taskWideLookupSourceFactory::destroy, directExecutor());
+            this.taskWideLookupSourceFactory = lookupSourceFactoryProvider.apply(Lifespan.taskWide());
+            this.referenceCount = new ReferenceCount(1);
+            this.sharedWrapper = requireNonNull(sharedWrapper, "sharedWrapper is null");
+            referenceCount.getFreeFuture().addListener(() -> destroy.accept(taskWideLookupSourceFactory), directExecutor());
         }
 
         @Override
-        public LookupSourceFactory get(Lifespan lifespan)
+        public T get(Lifespan lifespan)
         {
             if (Lifespan.taskWide().equals(lifespan)) {
                 // build
@@ -176,7 +201,7 @@ public class LookupSourceFactoryManager
             // probe
             return map.computeIfAbsent(lifespan, ignored -> {
                 referenceCount.retain();
-                return new SharedLookupSourceFactory(taskWideLookupSourceFactory, referenceCount::release);
+                return sharedWrapper.apply(taskWideLookupSourceFactory, referenceCount::release);
             });
         }
 

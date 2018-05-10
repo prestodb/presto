@@ -58,7 +58,7 @@ public class LookupJoinOperatorFactory
     public LookupJoinOperatorFactory(
             int operatorId,
             PlanNodeId planNodeId,
-            LookupSourceFactoryManager lookupSourceFactoryManager,
+            JoinBridgeDataManager<LookupSourceFactory> lookupSourceFactoryManager,
             List<Type> probeTypes,
             List<Type> probeOutputTypes,
             List<Type> buildOutputTypes,
@@ -184,14 +184,14 @@ public class LookupJoinOperatorFactory
     {
         private final JoinType joinType;
         private final FreezeOnReadCounter factoryCount;
-        private final LookupSourceFactoryManager lookupSourceFactoryManager;
+        private final JoinBridgeDataManager<LookupSourceFactory> lookupSourceFactoryManager;
 
         private final Map<Lifespan, PerLifespanData> dataByLifespan;
         private final ReferenceCount probeFactoryReferenceCount;
 
         private boolean closed;
 
-        public PerLifespanDataManager(JoinType joinType, LookupSourceFactoryManager lookupSourceFactoryManager)
+        public PerLifespanDataManager(JoinType joinType, JoinBridgeDataManager<LookupSourceFactory> lookupSourceFactoryManager)
         {
             this.joinType = joinType;
             this.lookupSourceFactoryManager = lookupSourceFactoryManager;
