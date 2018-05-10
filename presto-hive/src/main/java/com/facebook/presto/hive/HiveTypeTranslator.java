@@ -20,11 +20,13 @@ import com.facebook.presto.spi.type.NamedTypeSignature;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.facebook.presto.spi.type.VarcharType;
-import com.google.common.collect.ImmutableList;
 import org.apache.hadoop.hive.common.type.HiveChar;
 import org.apache.hadoop.hive.common.type.HiveVarchar;
 import org.apache.hadoop.hive.serde2.typeinfo.DecimalTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
+
+import java.util.ArrayList;
+import java.util.List;
 
 import static com.facebook.presto.hive.HiveType.HIVE_BINARY;
 import static com.facebook.presto.hive.HiveType.HIVE_BOOLEAN;
@@ -132,16 +134,16 @@ public class HiveTypeTranslator
             return getMapTypeInfo(keyType, valueType);
         }
         if (isRowType(type)) {
-            ImmutableList.Builder<String> fieldNames = ImmutableList.builder();
+            List<String> fieldNames = new ArrayList<>();
             for (TypeSignatureParameter parameter : type.getTypeSignature().getParameters()) {
                 if (!parameter.isNamedTypeSignature()) {
                     throw new IllegalArgumentException(format("Expected all parameters to be named type, but got %s", parameter));
                 }
                 NamedTypeSignature namedTypeSignature = parameter.getNamedTypeSignature();
-                fieldNames.add(namedTypeSignature.getName().get());
+                fieldNames.add(namedTypeSignature.getName().orElse(null));
             }
             return getStructTypeInfo(
-                    fieldNames.build(),
+                    fieldNames,
                     type.getTypeParameters().stream()
                             .map(this::translate)
                             .collect(toList()));

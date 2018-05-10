@@ -55,6 +55,7 @@ public class TestHiveTypeTranslator
                 .put("array(timestamp)", HiveType.valueOf("array<timestamp>"))
                 .put("map(boolean,varbinary)", HiveType.valueOf("map<boolean,binary>"))
                 .put("row(col0 integer,col1 varbinary)", HiveType.valueOf("struct<col0:int,col1:binary>"))
+                .put("row(integer)", HiveType.valueOf("struct<null:int>"))
                 .build();
 
         typeTranslationMap = new HashMap<>();
