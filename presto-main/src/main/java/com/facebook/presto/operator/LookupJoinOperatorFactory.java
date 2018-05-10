@@ -82,7 +82,7 @@ public class LookupJoinOperatorFactory
                     joinBridgeManager::getOuterPositionsFuture,
                     probeOutputTypes,
                     buildOutputTypes,
-                    joinBridgeManager::getLookupSourceFactoryUsersCount));
+                    joinBridgeManager::getJoinBridgeUsersCount));
         }
         this.totalOperatorsCount = requireNonNull(totalOperatorsCount, "totalOperatorsCount is null");
 
@@ -127,7 +127,7 @@ public class LookupJoinOperatorFactory
     public Operator createOperator(DriverContext driverContext)
     {
         checkState(!closed, "Factory is already closed");
-        LookupSourceFactory lookupSourceFactory = joinBridgeManager.getLookupSourceFactory(driverContext.getLifespan());
+        LookupSourceFactory lookupSourceFactory = joinBridgeManager.getJoinBridge(driverContext.getLifespan());
         ReferenceCount probeReferenceCount = joinBridgeManager.getProbeReferenceCount(driverContext.getLifespan());
 
         OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, LookupJoinOperator.class.getSimpleName());

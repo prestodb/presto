@@ -61,7 +61,7 @@ public class JoinBridgeDataManager<T>
 
     private final List<Type> buildOutputTypes;
 
-    private final InternalLookupSourceFactoryManager<T> internalLookupSourceFactoryManager;
+    private final InternalJoinBridgeDataManager<T> internalJoinBridgeDataManager;
 
     private JoinBridgeDataManager(
             PipelineExecutionStrategy probeExecutionStrategy,
@@ -73,9 +73,9 @@ public class JoinBridgeDataManager<T>
     {
         requireNonNull(probeExecutionStrategy, "probeExecutionStrategy is null");
         requireNonNull(lookupSourceExecutionStrategy, "lookupSourceExecutionStrategy is null");
-        requireNonNull(lookupSourceFactoryProvider, "lookupSourceFactoryProvider is null");
+        requireNonNull(lookupSourceFactoryProvider, "joinBridgeProvider is null");
 
-        this.internalLookupSourceFactoryManager = internalLookupSourceFactoryManager(probeExecutionStrategy, lookupSourceExecutionStrategy, lookupSourceFactoryProvider, sharedWrapper, destroy);
+        this.internalJoinBridgeDataManager = internalJoinBridgeDataManager(probeExecutionStrategy, lookupSourceExecutionStrategy, lookupSourceFactoryProvider, sharedWrapper, destroy);
         this.buildOutputTypes = requireNonNull(buildOutputTypes, "buildOutputTypes is null");
     }
 
@@ -86,15 +86,15 @@ public class JoinBridgeDataManager<T>
 
     public T forLifespan(Lifespan lifespan)
     {
-        return internalLookupSourceFactoryManager.get(lifespan);
+        return internalJoinBridgeDataManager.get(lifespan);
     }
 
-    public void noMoreLookupSourceFactory()
+    public void noMoreJoinBridge()
     {
-        internalLookupSourceFactoryManager.noMoreLookupSourceFactory();
+        internalJoinBridgeDataManager.noMoreLookupSourceFactory();
     }
 
-    private static <T> InternalLookupSourceFactoryManager<T> internalLookupSourceFactoryManager(
+    private static <T> InternalJoinBridgeDataManager<T> internalJoinBridgeDataManager(
             PipelineExecutionStrategy probeExecutionStrategy,
             PipelineExecutionStrategy lookupSourceExecutionStrategy,
             Function<Lifespan, T> lookupSourceFactoryProvider,
@@ -105,7 +105,7 @@ public class JoinBridgeDataManager<T>
             case UNGROUPED_EXECUTION:
                 switch (lookupSourceExecutionStrategy) {
                     case UNGROUPED_EXECUTION:
-                        return new TaskWideInternalLookupSourceFactoryManager<>(lookupSourceFactoryProvider);
+                        return new TaskWideInternalJoinBridgeDataManager<>(lookupSourceFactoryProvider);
                     case GROUPED_EXECUTION:
                         throw new UnsupportedOperationException("Invalid combination. Lookup source should not be grouped if probe is not going to take advantage of it.");
                     default:
@@ -114,9 +114,9 @@ public class JoinBridgeDataManager<T>
             case GROUPED_EXECUTION:
                 switch (lookupSourceExecutionStrategy) {
                     case UNGROUPED_EXECUTION:
-                        return new SharedInternalLookupSourceFactoryManager<>(lookupSourceFactoryProvider, sharedWrapper, destroy);
+                        return new SharedInternalJoinBridgeDataManager<>(lookupSourceFactoryProvider, sharedWrapper, destroy);
                     case GROUPED_EXECUTION:
-                        return new OneToOneInternalLookupSourceFactoryManager<>(lookupSourceFactoryProvider);
+                        return new OneToOneInternalJoinBridgeDataManager<>(lookupSourceFactoryProvider);
                     default:
                         throw new IllegalArgumentException("Unknown lookupSourceExecutionStrategy: " + lookupSourceExecutionStrategy);
                 }
@@ -125,7 +125,7 @@ public class JoinBridgeDataManager<T>
         }
     }
 
-    private interface InternalLookupSourceFactoryManager<T>
+    private interface InternalJoinBridgeDataManager<T>
     {
         T get(Lifespan lifespan);
 
@@ -136,12 +136,12 @@ public class JoinBridgeDataManager<T>
     }
 
     // 1 probe, 1 lookup source
-    private static class TaskWideInternalLookupSourceFactoryManager<T>
-            implements InternalLookupSourceFactoryManager<T>
+    private static class TaskWideInternalJoinBridgeDataManager<T>
+            implements InternalJoinBridgeDataManager<T>
     {
         private final Supplier<T> supplier;
 
-        public TaskWideInternalLookupSourceFactoryManager(Function<Lifespan, T> lookupSourceFactoryProvider)
+        public TaskWideInternalJoinBridgeDataManager(Function<Lifespan, T> lookupSourceFactoryProvider)
         {
             supplier = Suppliers.memoize(() -> lookupSourceFactoryProvider.apply(Lifespan.taskWide()));
         }
@@ -155,40 +155,40 @@ public class JoinBridgeDataManager<T>
     }
 
     // N probe, N lookup source; one-to-one mapping, bijective
-    private static class OneToOneInternalLookupSourceFactoryManager<T>
-            implements InternalLookupSourceFactoryManager<T>
+    private static class OneToOneInternalJoinBridgeDataManager<T>
+            implements InternalJoinBridgeDataManager<T>
     {
         private final Map<Lifespan, T> map = new ConcurrentHashMap<>();
-        private final Function<Lifespan, T> lookupSourceFactoryProvider;
+        private final Function<Lifespan, T> joinBridgeProvider;
 
-        public OneToOneInternalLookupSourceFactoryManager(Function<Lifespan, T> lookupSourceFactoryProvider)
+        public OneToOneInternalJoinBridgeDataManager(Function<Lifespan, T> joinBridgeProvider)
         {
-            this.lookupSourceFactoryProvider = lookupSourceFactoryProvider;
+            this.joinBridgeProvider = joinBridgeProvider;
         }
 
         @Override
         public T get(Lifespan lifespan)
         {
             checkArgument(!Lifespan.taskWide().equals(lifespan));
-            return map.computeIfAbsent(lifespan, lookupSourceFactoryProvider);
+            return map.computeIfAbsent(lifespan, joinBridgeProvider);
         }
     }
 
     // N probe, 1 lookup source
-    private static class SharedInternalLookupSourceFactoryManager<T>
-            implements InternalLookupSourceFactoryManager<T>
+    private static class SharedInternalJoinBridgeDataManager<T>
+            implements InternalJoinBridgeDataManager<T>
     {
-        private final T taskWideLookupSourceFactory;
+        private final T taskWideJoinBridge;
         private final BiFunction<T, Runnable, T> sharedWrapper;
         private final Map<Lifespan, T> map = new ConcurrentHashMap<>();
         private final ReferenceCount referenceCount;
 
-        public SharedInternalLookupSourceFactoryManager(Function<Lifespan, T> lookupSourceFactoryProvider, BiFunction<T, Runnable, T> sharedWrapper, Consumer<T> destroy)
+        public SharedInternalJoinBridgeDataManager(Function<Lifespan, T> lookupSourceFactoryProvider, BiFunction<T, Runnable, T> sharedWrapper, Consumer<T> destroy)
         {
-            this.taskWideLookupSourceFactory = lookupSourceFactoryProvider.apply(Lifespan.taskWide());
+            this.taskWideJoinBridge = lookupSourceFactoryProvider.apply(Lifespan.taskWide());
             this.referenceCount = new ReferenceCount(1);
             this.sharedWrapper = requireNonNull(sharedWrapper, "sharedWrapper is null");
-            referenceCount.getFreeFuture().addListener(() -> destroy.accept(taskWideLookupSourceFactory), directExecutor());
+            referenceCount.getFreeFuture().addListener(() -> destroy.accept(taskWideJoinBridge), directExecutor());
         }
 
         @Override
@@ -196,12 +196,12 @@ public class JoinBridgeDataManager<T>
         {
             if (Lifespan.taskWide().equals(lifespan)) {
                 // build
-                return taskWideLookupSourceFactory;
+                return taskWideJoinBridge;
             }
             // probe
             return map.computeIfAbsent(lifespan, ignored -> {
                 referenceCount.retain();
-                return sharedWrapper.apply(taskWideLookupSourceFactory, referenceCount::release);
+                return sharedWrapper.apply(taskWideJoinBridge, referenceCount::release);
             });
         }
 

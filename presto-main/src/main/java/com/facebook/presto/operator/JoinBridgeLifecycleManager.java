@@ -20,6 +20,8 @@ import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
 import static com.facebook.presto.operator.LookupJoinOperators.JoinType.INNER;
 import static com.facebook.presto.operator.LookupJoinOperators.JoinType.PROBE_OUTER;
@@ -28,21 +30,49 @@ import static com.google.common.util.concurrent.Futures.transform;
 import static com.google.common.util.concurrent.Futures.transformAsync;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
-public class JoinBridgeLifecycleManager
+public class JoinBridgeLifecycleManager<T>
 {
+    public static JoinBridgeLifecycleManager<LookupSourceFactory> lookup(
+            JoinType joinType,
+            JoinBridgeDataManager<LookupSourceFactory> lookupSourceFactoryManager)
+    {
+        return new JoinBridgeLifecycleManager<>(
+                joinType,
+                lookupSourceFactoryManager,
+                LookupSourceFactory::destroy,
+                lookupSourceFactory -> transform(
+                        lookupSourceFactory.createLookupSourceProvider(),
+                        lookupSourceProvider -> {
+                            // Close the lookupSourceProvider we just created.
+                            // The only reason we created it is to wait until lookup source is ready.
+                            lookupSourceProvider.close();
+                            return lookupSourceFactory.getOuterPositionIterator();
+                        },
+                        directExecutor()));
+    }
+
     private final JoinType joinType;
     private final FreezeOnReadCounter factoryCount;
-    private final JoinBridgeDataManager<LookupSourceFactory> lookupSourceFactoryManager;
+    private final JoinBridgeDataManager<T> joinBridgeDataManager;
+    private final Consumer<T> destroy;
+    private final Function<T, ListenableFuture<OuterPositionIterator>> outerPositionIteratorFutureFunction;
 
-    private final Map<Lifespan, PerLifespanData> dataByLifespan;
+    private final Map<Lifespan, PerLifespanData<T>> dataByLifespan;
     private final ReferenceCount probeFactoryReferenceCount;
 
     private boolean closed;
 
-    public JoinBridgeLifecycleManager(JoinType joinType, JoinBridgeDataManager<LookupSourceFactory> lookupSourceFactoryManager)
+    public JoinBridgeLifecycleManager(
+            JoinType joinType,
+            JoinBridgeDataManager<T> joinBridgeDataManager,
+            Consumer<T> destroy,
+            Function<T, ListenableFuture<OuterPositionIterator>> outerPositionIteratorFutureFunction)
     {
         this.joinType = joinType;
-        this.lookupSourceFactoryManager = lookupSourceFactoryManager;
+        this.joinBridgeDataManager = joinBridgeDataManager;
+        this.destroy = destroy;
+        this.outerPositionIteratorFutureFunction = outerPositionIteratorFutureFunction;
+
         this.dataByLifespan = new ConcurrentHashMap<>();
 
         this.factoryCount = new FreezeOnReadCounter();
@@ -50,24 +80,29 @@ public class JoinBridgeLifecycleManager
 
         // Each LookupJoinOperatorFactory count as 1 probe, until noMoreOperators() is called.
         this.probeFactoryReferenceCount = new ReferenceCount(1);
-        this.probeFactoryReferenceCount.getFreeFuture().addListener(lookupSourceFactoryManager::noMoreLookupSourceFactory, directExecutor());
+        this.probeFactoryReferenceCount.getFreeFuture().addListener(joinBridgeDataManager::noMoreJoinBridge, directExecutor());
     }
 
-    private JoinBridgeLifecycleManager(JoinBridgeLifecycleManager other)
+    private JoinBridgeLifecycleManager(JoinBridgeLifecycleManager<T> other)
     {
         joinType = other.joinType;
         factoryCount = other.factoryCount;
-        lookupSourceFactoryManager = other.lookupSourceFactoryManager;
+        joinBridgeDataManager = other.joinBridgeDataManager;
+        destroy = other.destroy;
+        outerPositionIteratorFutureFunction = other.outerPositionIteratorFutureFunction;
         dataByLifespan = other.dataByLifespan;
         probeFactoryReferenceCount = other.probeFactoryReferenceCount;
+
+        // closed is intentionally not copied.
+        closed = false;
 
         factoryCount.increment();
         probeFactoryReferenceCount.retain();
     }
 
-    public JoinBridgeLifecycleManager duplicate()
+    public JoinBridgeLifecycleManager<T> duplicate()
     {
-        return new JoinBridgeLifecycleManager(this);
+        return new JoinBridgeLifecycleManager<>(this);
     }
 
     public void noMoreLifespan()
@@ -77,9 +112,9 @@ public class JoinBridgeLifecycleManager
         probeFactoryReferenceCount.release();
     }
 
-    public LookupSourceFactory getLookupSourceFactory(Lifespan lifespan)
+    public T getJoinBridge(Lifespan lifespan)
     {
-        return data(lifespan).getLookupSourceFactory();
+        return data(lifespan).getJoinBridge();
     }
 
     public ReferenceCount getProbeReferenceCount(Lifespan lifespan)
@@ -87,9 +122,9 @@ public class JoinBridgeLifecycleManager
         return data(lifespan).getProbeReferenceCount();
     }
 
-    public ReferenceCount getLookupSourceFactoryUsersCount(Lifespan lifespan)
+    public ReferenceCount getJoinBridgeUsersCount(Lifespan lifespan)
     {
-        return data(lifespan).getLookupSourceFactoryUsersCount();
+        return data(lifespan).getJoinBridgeUsersCount();
     }
 
     public ListenableFuture<OuterPositionIterator> getOuterPositionsFuture(Lifespan lifespan)
@@ -97,65 +132,69 @@ public class JoinBridgeLifecycleManager
         return data(lifespan).getOuterPositionsFuture();
     }
 
-    private PerLifespanData data(Lifespan lifespan)
+    private PerLifespanData<T> data(Lifespan lifespan)
     {
         return dataByLifespan.computeIfAbsent(
                 lifespan,
                 id -> {
                     checkState(!closed);
-                    return new PerLifespanData(joinType, factoryCount.get(), lookupSourceFactoryManager.forLifespan(id));
+                    return new PerLifespanData<>(
+                            joinType,
+                            factoryCount.get(),
+                            joinBridgeDataManager.forLifespan(id),
+                            destroy,
+                            outerPositionIteratorFutureFunction);
                 });
     }
 
-    public static class PerLifespanData
+    public static class PerLifespanData<T>
     {
-        private final LookupSourceFactory lookupSourceFactory;
+        private final T joinBridge;
         private final ReferenceCount probeReferenceCount;
-        private final ReferenceCount lookupSourceFactoryUsersCount;
+        private final ReferenceCount joinBridgeUsersCount;
         private final ListenableFuture<OuterPositionIterator> outerPositionsFuture;
 
-        public PerLifespanData(JoinType joinType, int factoryCount, LookupSourceFactory lookupSourceFactory)
+        /**
+         * @param outerPositionIteratorFutureFunction The function returns a Future that will present OuterPositionIterator when ready.
+         *   The function is invoked once probe has finished. However, the build might not have finished at the time of invocation.
+         */
+        public PerLifespanData(JoinType joinType, int factoryCount, T joinBridge, Consumer<T> destroy, Function<T, ListenableFuture<OuterPositionIterator>> outerPositionIteratorFutureFunction)
         {
-            this.lookupSourceFactory = lookupSourceFactory;
+            this.joinBridge = joinBridge;
 
-            // When all probe and build-outer operators finish, destroy the lookup source (freeing the memory)
-            // * Whole probe side (operator and operatorFactory) is counted as 1 lookup source factory user
-            // * Each LookupOuterOperatorFactory count as 1 lookup source factory user, until noMoreOperators(LifeSpan) is called.
+            // When all probe and lookup-outer operators finish, destroy the join bridge (freeing the memory)
+            // * Whole probe side (operator and operatorFactory) is counted as 1 join bridge user
+            // * Each LookupOuterOperatorFactory count as 1 join bridge user, until noMoreOperators(LifeSpan) is called.
             //   * There is at most 1 LookupOuterOperatorFactory
-            // * Each LookupOuterOperator count as 1 lookup source factory user, until close() is called.
-            lookupSourceFactoryUsersCount = new ReferenceCount(1);
-            lookupSourceFactoryUsersCount.getFreeFuture().addListener(lookupSourceFactory::destroy, directExecutor());
+            // * Each LookupOuterOperator count as 1 join bridge user, until close() is called.
+            joinBridgeUsersCount = new ReferenceCount(1);
+            joinBridgeUsersCount.getFreeFuture().addListener(() -> destroy.accept(joinBridge), directExecutor());
 
             // * Each LookupJoinOperatorFactory count as 1 probe, until noMoreOperators(LifeSpan) is called.
             // * Each LookupJoinOperator count as 1 probe, until close() is called.
             probeReferenceCount = new ReferenceCount(factoryCount);
-            probeReferenceCount.getFreeFuture().addListener(lookupSourceFactoryUsersCount::release, directExecutor());
+            probeReferenceCount.getFreeFuture().addListener(joinBridgeUsersCount::release, directExecutor());
 
             if (joinType == INNER || joinType == PROBE_OUTER) {
                 outerPositionsFuture = null;
             }
             else {
-                // increment the user count by 1 to account for the build-outer factory
-                lookupSourceFactoryUsersCount.retain();
+                // increment the user count by 1 to account for the lookup-outer factory
+                joinBridgeUsersCount.retain();
 
                 // Set the outer position future to start the outer operator:
                 // 1. when all probe operators finish, and
                 // 2. when lookup source is ready
-                ListenableFuture<LookupSourceProvider> lookupSourceProviderAfterProbeFinished = transformAsync(
+                outerPositionsFuture = transformAsync(
                         probeReferenceCount.getFreeFuture(),
-                        ignored -> lookupSourceFactory.createLookupSourceProvider());
-                outerPositionsFuture = transform(lookupSourceProviderAfterProbeFinished, lookupSourceProvider -> {
-                    // Close the lookupSourceProvider we just created.
-                    // The only reason we created it is to wait until lookup source is ready.
-                    lookupSourceProvider.close();
-                    return lookupSourceFactory.getOuterPositionIterator();
-                });
+                        ignored -> outerPositionIteratorFutureFunction.apply(joinBridge),
+                        directExecutor());
             }
         }
 
-        public LookupSourceFactory getLookupSourceFactory()
+        public T getJoinBridge()
         {
-            return lookupSourceFactory;
+            return joinBridge;
         }
 
         public ReferenceCount getProbeReferenceCount()
@@ -163,9 +202,9 @@ public class JoinBridgeLifecycleManager
             return probeReferenceCount;
         }
 
-        public ReferenceCount getLookupSourceFactoryUsersCount()
+        public ReferenceCount getJoinBridgeUsersCount()
         {
-            return lookupSourceFactoryUsersCount;
+            return joinBridgeUsersCount;
         }
 
         public ListenableFuture<OuterPositionIterator> getOuterPositionsFuture()
