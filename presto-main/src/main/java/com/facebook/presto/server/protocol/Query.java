@@ -183,8 +183,8 @@ class Query
 
         this.queryManager = queryManager;
 
-        QueryInfo queryInfo = queryManager.createQuery(sessionContext, query);
-        queryId = queryInfo.getQueryId();
+        queryId = queryManager.createQueryId();
+        QueryInfo queryInfo = queryManager.createQuery(queryId, sessionContext, query);
         session = queryInfo.getSession().toSession(sessionPropertyManager);
         this.exchangeClient = exchangeClient;
         this.resultsProcessorExecutor = resultsProcessorExecutor;

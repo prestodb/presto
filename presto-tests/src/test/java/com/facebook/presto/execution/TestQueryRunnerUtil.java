@@ -31,7 +31,8 @@ public final class TestQueryRunnerUtil
 
     public static QueryId createQuery(DistributedQueryRunner queryRunner, Session session, String sql)
     {
-        return queryRunner.getCoordinator().getQueryManager().createQuery(new TestingSessionContext(session), sql).getQueryId();
+        QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
+        return queryManager.createQuery(queryManager.createQueryId(), new TestingSessionContext(session), sql).getQueryId();
     }
 
     public static void cancelQuery(DistributedQueryRunner queryRunner, QueryId queryId)
