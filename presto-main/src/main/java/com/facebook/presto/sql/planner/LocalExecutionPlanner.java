@@ -48,6 +48,7 @@ import com.facebook.presto.operator.LookupSourceFactory;
 import com.facebook.presto.operator.MarkDistinctOperator.MarkDistinctOperatorFactory;
 import com.facebook.presto.operator.MetadataDeleteOperator.MetadataDeleteOperatorFactory;
 import com.facebook.presto.operator.NestedLoopJoinPagesBridge;
+import com.facebook.presto.operator.NestedLoopJoinPagesSupplier;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.OrderByOperator.OrderByOperatorFactory;
 import com.facebook.presto.operator.OutputFactory;
@@ -1650,9 +1651,19 @@ public class LocalExecutionPlanner
             LocalExecutionPlanContext buildContext = context.createSubContext();
             PhysicalOperation buildSource = node.getRight().accept(this, buildContext);
 
-            checkState(buildSource.getPipelineExecutionStrategy() == probeSource.getPipelineExecutionStrategy(), "build and probe have different pipelineExecutionStrategy");
+            checkState(
+                    buildSource.getPipelineExecutionStrategy() == UNGROUPED_EXECUTION,
+                    "Build source of a nested loop join is expected to be GROUPED_EXECUTION.");
 
-            NestedLoopBuildOperatorFactory nestedLoopBuildOperatorFactory = new NestedLoopBuildOperatorFactory(buildContext.getNextOperatorId(), node.getId());
+            JoinBridgeDataManager<NestedLoopJoinPagesBridge> nestedLoopJoinPagesSupplierManager = JoinBridgeDataManager.nestedLoop(
+                    probeSource.getPipelineExecutionStrategy(),
+                    buildSource.getPipelineExecutionStrategy(),
+                    lifespan -> new NestedLoopJoinPagesSupplier(),
+                    buildSource.getTypes());
+            NestedLoopBuildOperatorFactory nestedLoopBuildOperatorFactory = new NestedLoopBuildOperatorFactory(
+                    buildContext.getNextOperatorId(),
+                    node.getId(),
+                    nestedLoopJoinPagesSupplierManager);
 
             checkArgument(buildContext.getDriverInstanceCount().orElse(1) == 1, "Expected local execution to not be parallel");
             context.addDriverFactory(
@@ -1665,7 +1676,6 @@ public class LocalExecutionPlanner
                     buildContext.getDriverInstanceCount(),
                     buildSource.getPipelineExecutionStrategy());
 
-            NestedLoopJoinPagesBridge nestedLoopJoinPagesBridge = nestedLoopBuildOperatorFactory.getNestedLoopJoinPagesBridge();
             ImmutableMap.Builder<Symbol, Integer> outputMappings = ImmutableMap.builder();
             outputMappings.putAll(probeSource.getLayout());
 
@@ -1676,9 +1686,8 @@ public class LocalExecutionPlanner
                 outputMappings.put(entry.getKey(), offset + entry.getValue());
             }
 
-            OperatorFactory operatorFactory = new NestedLoopJoinOperatorFactory(context.getNextOperatorId(), node.getId(), nestedLoopJoinPagesBridge, probeSource.getTypes());
-            PhysicalOperation operation = new PhysicalOperation(operatorFactory, outputMappings.build(), context, probeSource);
-            return operation;
+            OperatorFactory operatorFactory = new NestedLoopJoinOperatorFactory(context.getNextOperatorId(), node.getId(), nestedLoopJoinPagesSupplierManager);
+            return new PhysicalOperation(operatorFactory, outputMappings.build(), context, probeSource);
         }
 
         private PhysicalOperation createSpatialLookupJoin(

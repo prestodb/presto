@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -41,25 +41,44 @@ public class NestedLoopJoinOperator
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;
-        private final NestedLoopJoinPagesBridge nestedLoopJoinPagesBridge;
-        private final List<Type> probeTypes;
+        private final JoinBridgeLifecycleManager<NestedLoopJoinPagesBridge> joinBridgeManager;
         private boolean closed;
 
-        public NestedLoopJoinOperatorFactory(int operatorId, PlanNodeId planNodeId, NestedLoopJoinPagesBridge nestedLoopJoinPagesBridge, List<Type> probeTypes)
+        public NestedLoopJoinOperatorFactory(int operatorId, PlanNodeId planNodeId, JoinBridgeDataManager<NestedLoopJoinPagesBridge> nestedLoopJoinPagesSupplierManager)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
-            this.nestedLoopJoinPagesBridge = nestedLoopJoinPagesBridge;
-            this.nestedLoopJoinPagesBridge.retain();
-            this.probeTypes = probeTypes;
+            this.joinBridgeManager = JoinBridgeLifecycleManager.nestedLoop(LookupJoinOperators.JoinType.INNER, nestedLoopJoinPagesSupplierManager);
+        }
+
+        private NestedLoopJoinOperatorFactory(NestedLoopJoinOperatorFactory other)
+        {
+            requireNonNull(other, "other is null");
+            this.operatorId = other.operatorId;
+            this.planNodeId = other.planNodeId;
+
+            // joinBridgeManager must be duplicated here.
+            // Otherwise, reference counting and lifecycle management will be wrong.
+            this.joinBridgeManager = other.joinBridgeManager.duplicate();
+
+            // closed is intentionally not copied
+            closed = false;
         }
 
         @Override
         public Operator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
+            NestedLoopJoinPagesBridge nestedLoopJoinPagesBridge = joinBridgeManager.getJoinBridge(driverContext.getLifespan());
+            ReferenceCount probeReferenceCount = joinBridgeManager.getProbeReferenceCount(driverContext.getLifespan());
+
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, NestedLoopJoinOperator.class.getSimpleName());
-            return new NestedLoopJoinOperator(operatorContext, nestedLoopJoinPagesBridge);
+
+            probeReferenceCount.retain();
+            return new NestedLoopJoinOperator(
+                    operatorContext,
+                    nestedLoopJoinPagesBridge,
+                    probeReferenceCount::release);
         }
 
         @Override
@@ -69,20 +88,26 @@ public class NestedLoopJoinOperator
                 return;
             }
             closed = true;
-            nestedLoopJoinPagesBridge.release();
+            joinBridgeManager.noMoreLifespan();
+        }
+
+        @Override
+        public void noMoreOperators(Lifespan lifespan)
+        {
+            joinBridgeManager.getProbeReferenceCount(lifespan).release();
         }
 
         @Override
         public OperatorFactory duplicate()
         {
-            return new NestedLoopJoinOperatorFactory(operatorId, planNodeId, nestedLoopJoinPagesBridge, probeTypes);
+            return new NestedLoopJoinOperatorFactory(this);
         }
     }
 
-    private final NestedLoopJoinPagesBridge buildPagesSupplier;
     private final ListenableFuture<NestedLoopJoinPages> nestedLoopJoinPagesFuture;
 
     private final OperatorContext operatorContext;
+    private final Runnable afterClose;
 
     private List<Page> buildPages;
     private Page probePage;
@@ -91,12 +116,11 @@ public class NestedLoopJoinOperator
     private boolean finishing;
     private boolean closed;
 
-    public NestedLoopJoinOperator(OperatorContext operatorContext, NestedLoopJoinPagesBridge buildPagesSupplier)
+    public NestedLoopJoinOperator(OperatorContext operatorContext, NestedLoopJoinPagesBridge buildPagesSupplier, Runnable afterClose)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.buildPagesSupplier = requireNonNull(buildPagesSupplier, "buildPagesSupplier is null");
         this.nestedLoopJoinPagesFuture = buildPagesSupplier.getPagesFuture();
-        buildPagesSupplier.retain();
+        this.afterClose = requireNonNull(afterClose, "afterClose is null");
     }
 
     @Override
@@ -189,7 +213,8 @@ public class NestedLoopJoinOperator
             return;
         }
         closed = true;
-        buildPagesSupplier.release();
+        // `afterClose` must be run last.
+        afterClose.run();
     }
 
     /**

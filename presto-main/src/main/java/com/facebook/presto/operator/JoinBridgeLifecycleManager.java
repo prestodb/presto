@@ -25,6 +25,7 @@ import java.util.function.Function;
 
 import static com.facebook.presto.operator.LookupJoinOperators.JoinType.INNER;
 import static com.facebook.presto.operator.LookupJoinOperators.JoinType.PROBE_OUTER;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.transform;
 import static com.google.common.util.concurrent.Futures.transformAsync;
@@ -49,6 +50,20 @@ public class JoinBridgeLifecycleManager<T>
                             return lookupSourceFactory.getOuterPositionIterator();
                         },
                         directExecutor()));
+    }
+
+    public static JoinBridgeLifecycleManager<NestedLoopJoinPagesBridge> nestedLoop(
+            JoinType joinType,
+            JoinBridgeDataManager<NestedLoopJoinPagesBridge> nestedLoopJoinPagesSupplierManager)
+    {
+        checkArgument(joinType == INNER);
+        return new JoinBridgeLifecycleManager<>(
+                joinType,
+                nestedLoopJoinPagesSupplierManager,
+                NestedLoopJoinPagesBridge::destroy,
+                joinBridge -> {
+                    throw new UnsupportedOperationException();
+                });
     }
 
     private final JoinType joinType;

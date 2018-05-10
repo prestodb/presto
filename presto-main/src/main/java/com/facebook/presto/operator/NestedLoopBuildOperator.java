@@ -16,6 +16,10 @@ package com.facebook.presto.operator;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.google.common.util.concurrent.ListenableFuture;
+
+import java.util.Optional;
+import java.util.concurrent.Future;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -28,21 +32,15 @@ public class NestedLoopBuildOperator
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;
-        private final NestedLoopJoinPagesBridge nestedLoopJoinPagesBridge;
+        private final JoinBridgeDataManager<NestedLoopJoinPagesBridge> nestedLoopJoinPagesBridgeManager;
 
         private boolean closed;
 
-        public NestedLoopBuildOperatorFactory(int operatorId, PlanNodeId planNodeId)
+        public NestedLoopBuildOperatorFactory(int operatorId, PlanNodeId planNodeId, JoinBridgeDataManager<NestedLoopJoinPagesBridge> nestedLoopJoinPagesBridgeManager)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
-            nestedLoopJoinPagesBridge = new NestedLoopJoinPagesSupplier();
-            nestedLoopJoinPagesBridge.retain();
-        }
-
-        public NestedLoopJoinPagesBridge getNestedLoopJoinPagesBridge()
-        {
-            return nestedLoopJoinPagesBridge;
+            this.nestedLoopJoinPagesBridgeManager = requireNonNull(nestedLoopJoinPagesBridgeManager, "nestedLoopJoinPagesBridgeManager is null");
         }
 
         @Override
@@ -50,7 +48,7 @@ public class NestedLoopBuildOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, NestedLoopBuildOperator.class.getSimpleName());
-            return new NestedLoopBuildOperator(operatorContext, nestedLoopJoinPagesBridge);
+            return new NestedLoopBuildOperator(operatorContext, nestedLoopJoinPagesBridgeManager.forLifespan(driverContext.getLifespan()));
         }
 
         @Override
@@ -60,13 +58,12 @@ public class NestedLoopBuildOperator
                 return;
             }
             closed = true;
-            nestedLoopJoinPagesBridge.release();
         }
 
         @Override
         public OperatorFactory duplicate()
         {
-            return new NestedLoopBuildOperatorFactory(operatorId, planNodeId);
+            return new NestedLoopBuildOperatorFactory(operatorId, planNodeId, nestedLoopJoinPagesBridgeManager);
         }
     }
 
@@ -74,7 +71,11 @@ public class NestedLoopBuildOperator
     private final NestedLoopJoinPagesBridge nestedLoopJoinPagesBridge;
     private final NestedLoopJoinPagesBuilder nestedLoopJoinPagesBuilder;
     private final LocalMemoryContext localUserMemoryContext;
-    private boolean finished;
+
+    // Initially, probeDoneWithPages is not present.
+    // Once finish is called, probeDoneWithPages will be set to a future that completes when the pages are no longer needed by the probe side.
+    // When the pages are no longer needed, the isFinished method on this operator will return true.
+    private Optional<ListenableFuture<?>> probeDoneWithPages = Optional.empty();
 
     public NestedLoopBuildOperator(OperatorContext operatorContext, NestedLoopJoinPagesBridge nestedLoopJoinPagesBridge)
     {
@@ -93,26 +94,31 @@ public class NestedLoopBuildOperator
     @Override
     public void finish()
     {
-        if (finished) {
+        if (probeDoneWithPages.isPresent()) {
             return;
         }
 
-        // The NestedLoopJoinPages will take over our memory reservation, so after this point ours will be zero.
-        nestedLoopJoinPagesBridge.setPages(nestedLoopJoinPagesBuilder.build());
-
-        finished = true;
+        // nestedLoopJoinPagesBuilder and the built NestedLoopJoinPages will mostly share the same objects.
+        // Extra allocation is minimal during build call. As a result, memory accounting is not updated here.
+        probeDoneWithPages = Optional.of(nestedLoopJoinPagesBridge.setPages(nestedLoopJoinPagesBuilder.build()));
     }
 
     @Override
     public boolean isFinished()
     {
-        return finished;
+        return probeDoneWithPages.map(Future::isDone).orElse(false);
+    }
+
+    @Override
+    public ListenableFuture<?> isBlocked()
+    {
+        return probeDoneWithPages.orElse(NOT_BLOCKED);
     }
 
     @Override
     public boolean needsInput()
     {
-        return !finished;
+        return !probeDoneWithPages.isPresent();
     }
 
     @Override

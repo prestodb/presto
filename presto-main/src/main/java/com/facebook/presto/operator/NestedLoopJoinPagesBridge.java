@@ -19,9 +19,7 @@ public interface NestedLoopJoinPagesBridge
 {
     ListenableFuture<NestedLoopJoinPages> getPagesFuture();
 
-    void setPages(NestedLoopJoinPages nestedLoopJoinPages);
+    ListenableFuture<?> setPages(NestedLoopJoinPages nestedLoopJoinPages);
 
-    void retain();
-
-    void release();
+    void destroy();
 }

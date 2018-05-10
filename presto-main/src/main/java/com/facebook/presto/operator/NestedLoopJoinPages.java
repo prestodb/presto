@@ -13,35 +13,26 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.spi.Page;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 
-import javax.annotation.concurrent.GuardedBy;
-
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public final class NestedLoopJoinPages
 {
-    private final LocalMemoryContext transferredBytesMemoryContext;
     private final ImmutableList<Page> pages;
-    @GuardedBy("this")
-    private boolean freed;
+    private final DataSize estimatedSize;
 
     NestedLoopJoinPages(List<Page> pages, DataSize estimatedSize, OperatorContext operatorContext)
     {
         requireNonNull(pages, "pages is null");
         requireNonNull(operatorContext, "operatorContext is null");
+        requireNonNull(estimatedSize, "estimatedSize is null");
         this.pages = ImmutableList.copyOf(pages);
-        this.transferredBytesMemoryContext = operatorContext.getDriverContext()
-                .getPipelineContext()
-                .getTaskContext()
-                .createNewTransferredBytesMemoryContext();
-        operatorContext.transferMemoryToTaskContext(estimatedSize.toBytes(), transferredBytesMemoryContext);
+        this.estimatedSize = estimatedSize;
     }
 
     public List<Page> getPages()
@@ -49,10 +40,8 @@ public final class NestedLoopJoinPages
         return pages;
     }
 
-    synchronized void freeMemory()
+    public DataSize getEstimatedSize()
     {
-        checkState(!freed, "Memory already freed");
-        freed = true;
-        transferredBytesMemoryContext.close();
+        return estimatedSize;
     }
 }

@@ -13,40 +13,46 @@
  */
 package com.facebook.presto.operator;
 
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.SettableFuture;
 
-import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.util.concurrent.Futures.transformAsync;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import javax.annotation.concurrent.ThreadSafe;
+
+import java.util.concurrent.atomic.AtomicBoolean;
+
 import static java.util.Objects.requireNonNull;
 
-public final class NestedLoopJoinPagesSupplier
+@ThreadSafe
+public final class SharedNestedLoopJoinPagesBridge
         implements NestedLoopJoinPagesBridge
 {
-    private final SettableFuture<NestedLoopJoinPages> pagesFuture = SettableFuture.create();
-    private final SettableFuture<?> pagesNoLongerNeeded = SettableFuture.create();
+    private final NestedLoopJoinPagesBridge delegate;
+    private final Runnable onDestroy;
+
+    private final AtomicBoolean destroyed = new AtomicBoolean(false);
+
+    public SharedNestedLoopJoinPagesBridge(NestedLoopJoinPagesBridge delegate, Runnable onDestroy)
+    {
+        this.delegate = requireNonNull(delegate, "delegate is null");
+        this.onDestroy = requireNonNull(onDestroy, "onDestroy is null");
+    }
 
     @Override
     public ListenableFuture<NestedLoopJoinPages> getPagesFuture()
     {
-        return transformAsync(pagesFuture, Futures::immediateFuture, directExecutor());
+        return delegate.getPagesFuture();
     }
 
     @Override
     public ListenableFuture<?> setPages(NestedLoopJoinPages nestedLoopJoinPages)
     {
-        requireNonNull(nestedLoopJoinPages, "nestedLoopJoinPages is null");
-        boolean wasSet = pagesFuture.set(nestedLoopJoinPages);
-        checkState(wasSet, "pagesFuture already set");
-        return pagesNoLongerNeeded;
+        return delegate.setPages(nestedLoopJoinPages);
     }
 
     @Override
     public void destroy()
     {
-        // Let the NestedLoopBuildOperator declare that it's finished.
-        pagesNoLongerNeeded.set(null);
+        if (destroyed.compareAndSet(false, true)) {
+            onDestroy.run();
+        }
     }
 }

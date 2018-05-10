@@ -49,6 +49,25 @@ public class JoinBridgeDataManager<T>
                 LookupSourceFactory::destroy);
     }
 
+    public static JoinBridgeDataManager<NestedLoopJoinPagesBridge> nestedLoop(
+            PipelineExecutionStrategy probeExecutionStrategy,
+            PipelineExecutionStrategy buildExecutionStrategy,
+            Function<Lifespan, NestedLoopJoinPagesBridge> nestedLoopJoinPagesSupplierProvider,
+            List<Type> buildOutputTypes)
+    {
+        // Build side of nested loop join is always ungrouped today.
+        // If we want to change this in the future, this code will likely work, but needs to be tested.
+        checkArgument(buildExecutionStrategy == PipelineExecutionStrategy.UNGROUPED_EXECUTION, "Grouped execution for nested loop build is not supported");
+
+        return new JoinBridgeDataManager<>(
+                probeExecutionStrategy,
+                buildExecutionStrategy,
+                nestedLoopJoinPagesSupplierProvider,
+                buildOutputTypes,
+                SharedNestedLoopJoinPagesBridge::new,
+                NestedLoopJoinPagesBridge::destroy);
+    }
+
     @VisibleForTesting
     public static JoinBridgeDataManager<LookupSourceFactory> lookupAllAtOnce(LookupSourceFactory factory)
     {

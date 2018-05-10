@@ -116,6 +116,8 @@ public class LookupJoinOperatorFactory
         totalOperatorsCount = other.totalOperatorsCount;
         probeHashGenerator = other.probeHashGenerator;
         partitioningSpillerFactory = other.partitioningSpillerFactory;
+        // closed is intentionally not copied
+        closed = false;
     }
 
     public int getOperatorId()
