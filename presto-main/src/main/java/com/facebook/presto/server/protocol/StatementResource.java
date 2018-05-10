@@ -120,12 +120,11 @@ public class StatementResource
 
     @POST
     @Produces(MediaType.APPLICATION_JSON)
-    public void createQuery(
+    public Response createQuery(
             String statement,
             @HeaderParam(X_FORWARDED_PROTO) String proto,
             @Context HttpServletRequest servletRequest,
-            @Context UriInfo uriInfo,
-            @Suspended AsyncResponse asyncResponse)
+            @Context UriInfo uriInfo)
     {
         if (isNullOrEmpty(statement)) {
             throw new WebApplicationException(Response
@@ -152,7 +151,8 @@ public class StatementResource
                 blockEncodingSerde);
         queries.put(query.getQueryId(), query);
 
-        asyncQueryResults(query, OptionalLong.empty(), new Duration(1, MILLISECONDS), uriInfo, proto, asyncResponse);
+        QueryResults queryResults = query.getNextResult(OptionalLong.empty(), uriInfo, proto);
+        return toResponse(query, queryResults);
     }
 
     @GET

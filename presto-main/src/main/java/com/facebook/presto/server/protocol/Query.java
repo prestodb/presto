@@ -46,6 +46,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.util.concurrent.AbstractFuture;
+import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
@@ -76,6 +78,7 @@ import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static io.airlift.concurrent.MoreFutures.addTimeout;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -102,7 +105,7 @@ class Query
 
     private final AtomicLong resultId = new AtomicLong();
 
-    private final ListenableFuture<?> submissionFuture;
+    private final QuerySubmissionFuture submissionFuture;
     private final SessionPropertyManager sessionPropertyManager;
     private final BlockEncodingSerde blockEncodingSerde;
 
@@ -198,7 +201,7 @@ class Query
         this.sessionPropertyManager = sessionPropertyManager;
 
         queryId = queryManager.createQueryId();
-        submissionFuture = queryManager.createQuery(queryId, sessionContext, query);
+        submissionFuture = new QuerySubmissionFuture(queryId, query, sessionContext, queryManager);
         this.exchangeClient = exchangeClient;
         this.resultsProcessorExecutor = resultsProcessorExecutor;
         this.timeoutExecutor = timeoutExecutor;
@@ -295,6 +298,9 @@ class Query
 
     private synchronized ListenableFuture<?> getFutureStateChange()
     {
+        // ensure the query has been submitted
+        submissionFuture.submitQuery();
+
         // if query query submission has not finished, wait for it to finish
         if (!submissionFuture.isDone()) {
             return submissionFuture;
@@ -337,7 +343,7 @@ class Query
         return Optional.empty();
     }
 
-    private synchronized QueryResults getNextResult(OptionalLong token, UriInfo uriInfo, String scheme)
+    public synchronized QueryResults getNextResult(OptionalLong token, UriInfo uriInfo, String scheme)
     {
         // check if the result for the token have already been created
         if (token.isPresent()) {
@@ -677,5 +683,54 @@ class Query
                 errorCode.getType().toString(),
                 failure.getErrorLocation(),
                 failure);
+    }
+
+    private static class QuerySubmissionFuture
+            extends AbstractFuture<QueryInfo>
+    {
+        private final QueryId queryId;
+        private final String query;
+        private final SessionContext sessionContext;
+        private final QueryManager queryManager;
+
+        @GuardedBy("this")
+        private ListenableFuture<?> querySubmissionFuture;
+
+        public QuerySubmissionFuture(QueryId queryId, String query, SessionContext sessionContext, QueryManager queryManager)
+        {
+            this.queryId = requireNonNull(queryId, "queryId is null");
+            this.query = requireNonNull(query, "query is null");
+            this.sessionContext = requireNonNull(sessionContext, "sessionContext is null");
+            this.queryManager = requireNonNull(queryManager, "queryManager is null");
+        }
+
+        private synchronized void submitQuery()
+        {
+            if (querySubmissionFuture != null) {
+                return;
+            }
+
+            querySubmissionFuture = queryManager.createQuery(queryId, sessionContext, this.query);
+            Futures.addCallback(querySubmissionFuture, new FutureCallback<Object>() {
+                @Override
+                public void onSuccess(Object result)
+                {
+                    set(null);
+                }
+
+                @Override
+                public void onFailure(Throwable t)
+                {
+                    setException(t);
+                }
+            }, directExecutor());
+        }
+
+        @Override
+        public boolean cancel(boolean mayInterruptIfRunning)
+        {
+            // query submission can not be canceled
+            return false;
+        }
     }
 }
