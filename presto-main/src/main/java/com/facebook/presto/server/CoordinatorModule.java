@@ -144,8 +144,8 @@ public class CoordinatorModule
         // query execution visualizer
         jaxrsBinder(binder).bind(QueryExecutionResource.class);
 
-        // main webapp entry point
-        jaxrsBinder(binder).bind(WebAppResource.class);
+        // resource for serving static content
+        jaxrsBinder(binder).bind(WebUiResource.class);
 
         // query manager
         jaxrsBinder(binder).bind(QueryResource.class);
