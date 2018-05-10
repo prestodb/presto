@@ -47,6 +47,9 @@ class PurgeQueriesRunnable
             // registered between fetching the live queries and inspecting the queryIds set.
             for (QueryId queryId : ImmutableSet.copyOf(queries.keySet())) {
                 Query query = queries.get(queryId);
+                if (!query.isSubmissionFinished()) {
+                    continue;
+                }
                 Optional<QueryState> state = queryManager.getQueryState(queryId);
 
                 // free up resources if the query completed

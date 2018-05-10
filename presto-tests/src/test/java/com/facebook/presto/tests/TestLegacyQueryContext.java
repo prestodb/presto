@@ -54,10 +54,13 @@ public class TestLegacyQueryContext
             throws Exception
     {
         QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
-        QueryId queryId = queryManager.createQuery(
-                queryManager.createQueryId(), 
+
+        QueryId queryId = queryManager.createQueryId();
+        queryManager.createQuery(
+                queryId,
                 new TestingSessionContext(TEST_SESSION),
-                "SELECT * FROM lineitem").getQueryId();
+                "SELECT * FROM lineitem")
+                .get();
 
         waitForQueryState(queryRunner, queryId, RUNNING);
 

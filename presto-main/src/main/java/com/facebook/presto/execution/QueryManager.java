@@ -47,7 +47,7 @@ public interface QueryManager
 
     QueryId createQueryId();
 
-    QueryInfo createQuery(QueryId queryId, SessionContext sessionContext, String query);
+    ListenableFuture<?> createQuery(QueryId queryId, SessionContext sessionContext, String query);
 
     void failQuery(QueryId queryId, Throwable cause);
 

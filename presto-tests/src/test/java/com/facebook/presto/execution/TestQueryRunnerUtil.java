@@ -23,6 +23,7 @@ import java.util.Set;
 
 import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public final class TestQueryRunnerUtil
@@ -32,7 +33,9 @@ public final class TestQueryRunnerUtil
     public static QueryId createQuery(DistributedQueryRunner queryRunner, Session session, String sql)
     {
         QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
-        return queryManager.createQuery(queryManager.createQueryId(), new TestingSessionContext(session), sql).getQueryId();
+        QueryId queryId = queryManager.createQueryId();
+        getFutureValue(queryManager.createQuery(queryId, new TestingSessionContext(session), sql));
+        return queryId;
     }
 
     public static void cancelQuery(DistributedQueryRunner queryRunner, QueryId queryId)

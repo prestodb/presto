@@ -46,6 +46,7 @@ import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.util.StatementUtils;
 import com.google.common.collect.Ordering;
+import com.google.common.util.concurrent.AbstractFuture;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.log.Logger;
@@ -363,12 +364,28 @@ public class SqlQueryManager
     }
 
     @Override
-    public QueryInfo createQuery(QueryId queryId, SessionContext sessionContext, String query)
+    public ListenableFuture<?> createQuery(QueryId queryId, SessionContext sessionContext, String query)
+    {
+        QueryCreationFuture queryCreationFuture = new QueryCreationFuture();
+        queryExecutor.submit(() -> {
+            try {
+                createQueryInternal(queryId, sessionContext, query);
+                queryCreationFuture.set(null);
+            }
+            catch (Throwable e) {
+                queryCreationFuture.setException(e);
+            }
+        });
+        return queryCreationFuture;
+    }
+
+    private void createQueryInternal(QueryId queryId, SessionContext sessionContext, String query)
     {
         requireNonNull(queryId, "queryId is null");
         requireNonNull(sessionContext, "sessionFactory is null");
         requireNonNull(query, "query is null");
         checkArgument(!query.isEmpty(), "query must not be empty string");
+        checkArgument(!queries.containsKey(queryId), "query %s already exists", queryId);
 
         Session session = null;
         SelectionContext<?> selectionContext;
@@ -444,11 +461,10 @@ public class SqlQueryManager
                     metadata,
                     e);
 
-            QueryInfo queryInfo = null;
             try {
-                queries.put(queryId, execution);
+                queries.putIfAbsent(queryId, execution);
 
-                queryInfo = execution.getQueryInfo();
+                QueryInfo queryInfo = execution.getQueryInfo();
                 queryMonitor.queryCreatedEvent(queryInfo);
                 queryMonitor.queryCompletedEvent(queryInfo);
                 stats.queryQueued();
@@ -461,7 +477,7 @@ public class SqlQueryManager
                 expirationQueue.add(execution);
             }
 
-            return queryInfo;
+            return;
         }
 
         QueryInfo queryInfo = queryExecution.getQueryInfo();
@@ -481,12 +497,13 @@ public class SqlQueryManager
 
         addStatsListeners(queryExecution);
 
-        queries.put(queryId, queryExecution);
+        if (queries.putIfAbsent(queryId, queryExecution) != null) {
+            // query already created, so just exit
+            return;
+        }
 
         // start the query in the background
         resourceGroupManager.submit(statement, queryExecution, selectionContext, queryExecutor);
-
-        return queryInfo;
     }
 
     private Optional<String> getQueryType(String query)
@@ -737,5 +754,28 @@ public class SqlQueryManager
     {
         requireNonNull(queryId, "queryId is null");
         return Optional.ofNullable(queries.get(queryId));
+    }
+
+    private static class QueryCreationFuture
+            extends AbstractFuture<QueryInfo>
+    {
+        @Override
+        protected boolean set(QueryInfo value)
+        {
+            return super.set(value);
+        }
+
+        @Override
+        protected boolean setException(Throwable throwable)
+        {
+            return super.setException(throwable);
+        }
+
+        @Override
+        public boolean cancel(boolean mayInterruptIfRunning)
+        {
+            // query submission can not be canceled
+            return false;
+        }
     }
 }
