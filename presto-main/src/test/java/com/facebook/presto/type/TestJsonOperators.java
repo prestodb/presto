@@ -337,6 +337,35 @@ public class TestJsonOperators
     }
 
     @Test
+    public void testEquals()
+    {
+        assertFunction("json_parse('{ \"a\": \"1.1\" , \"b\": \"2.3\" , \"c\": { \"d\": \"314E-2\" }}') = json_parse('{ \"a\": \"1.1\" , \"b\": \"2.3\" , \"c\" : { \"d\" : \"314E-2\" }}')", BOOLEAN, true);
+        assertFunction("JSON '[1,2,3]' = JSON '[1,2,3]'", BOOLEAN, true);
+        assertFunction("JSON '{\"a\":1, \"b\":2}' = JSON '{\"b\":2, \"a\":1}'", BOOLEAN, true);
+        assertFunction("JSON '{\"a\":1, \"b\":2}' = CAST(MAP(ARRAY['b','a'], ARRAY[2,1]) AS JSON)", BOOLEAN, true);
+        assertFunction("JSON 'null' = JSON 'null'", BOOLEAN, true);
+        assertFunction("JSON 'true' = JSON 'true'", BOOLEAN, true);
+        assertFunction("JSON '{\"x\":\"y\"}' = JSON '{\"x\":\"y\"}'", BOOLEAN, true);
+        assertFunction("JSON '[1,2,3]' = JSON '[2,3,1]'", BOOLEAN, false);
+        assertFunction("JSON '{\"p_1\": 1, \"p_2\":\"v_2\", \"p_3\":null, \"p_4\":true, \"p_5\": {\"p_1\":1}}' = " +
+                "JSON '{\"p_2\":\"v_2\", \"p_4\":true, \"p_1\": 1, \"p_3\":null, \"p_5\": {\"p_1\":1}}'", BOOLEAN, true);
+    }
+
+    @Test
+    public void testNotEquals()
+    {
+        assertFunction("JSON '{ \"a\": 1 , \"b\": 2 , \"c\": { \"d\": 3 }}' != JSON '{ \"a\": 1 , \"b\": 2 , \"c\" : { \"d\" : 4 }}'", BOOLEAN, true);
+        assertFunction("JSON '[1,2,3]' != JSON '[1,2,3]'", BOOLEAN, false);
+        assertFunction("JSON '{\"a\":1, \"b\":2}' != JSON '{\"b\":2, \"a\":1}'", BOOLEAN, false);
+        assertFunction("JSON 'null' != JSON 'null'", BOOLEAN, false);
+        assertFunction("JSON 'true' != JSON 'true'", BOOLEAN, false);
+        assertFunction("JSON '{\"x\":\"y\"}' != JSON '{\"x\":\"y\"}'", BOOLEAN, false);
+        assertFunction("JSON '[1,2,3]' != JSON '[2,3,1]'", BOOLEAN, true);
+        assertFunction("JSON '{\"p_1\": 1, \"p_2\":\"v_2\", \"p_3\":null, \"p_4\":true, \"p_5\": {\"p_1\":1}}' != " +
+                "JSON '{\"p_2\":\"v_2\", \"p_4\":true, \"p_1\": 1, \"p_3\":null, \"p_5\": {\"p_1\":1}}'", BOOLEAN, false);
+    }
+
+    @Test
     public void testCastFromVarchar()
     {
         assertFunction("cast(cast (null as varchar) as JSON)", JSON, null);
