@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.HdfsEnvironment.HdfsContext;
 import com.facebook.presto.hive.LocationService.WriteInfo;
+import com.facebook.presto.hive.PartitionUpdate.UpdateMode;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.HivePageSinkMetadataProvider;
 import com.facebook.presto.hive.metastore.Partition;
@@ -74,6 +75,8 @@ import static com.facebook.presto.hive.HiveSessionProperties.getWriterSortBuffer
 import static com.facebook.presto.hive.HiveType.toHiveTypes;
 import static com.facebook.presto.hive.HiveWriteUtils.getField;
 import static com.facebook.presto.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY;
+import static com.facebook.presto.hive.PartitionUpdate.UpdateMode.APPEND;
+import static com.facebook.presto.hive.PartitionUpdate.UpdateMode.NEW;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
 import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static com.facebook.presto.hive.util.ConfigurationUtils.toJobConf;
@@ -278,7 +281,7 @@ public class HiveWriterFactory
             partition = pageSinkMetadataProvider.getPartition(partitionValues);
         }
 
-        boolean isNew;
+        UpdateMode updateMode;
         Properties schema;
         WriteInfo writeInfo;
         StorageFormat outputStorageFormat;
@@ -286,7 +289,7 @@ public class HiveWriterFactory
             if (table == null) {
                 // Write to: a new partition in a new partitioned table,
                 //           or a new unpartitioned table.
-                isNew = true;
+                updateMode = NEW;
                 schema = new Properties();
                 schema.setProperty(META_TABLE_COLUMNS, dataColumns.stream()
                         .map(DataColumn::getName)
@@ -324,7 +327,7 @@ public class HiveWriterFactory
                 //           or an existing unpartitioned table
                 if (partitionName.isPresent()) {
                     // a new partition in an existing partitioned table
-                    isNew = true;
+                    updateMode = NEW;
                     writeInfo = locationService.getPartitionWriteInfo(locationHandle, partition, partitionName.get());
                 }
                 else {
@@ -334,7 +337,7 @@ public class HiveWriterFactory
                     if (immutablePartitions) {
                         throw new PrestoException(HIVE_PARTITION_READ_ONLY, "Unpartitioned Hive tables are immutable");
                     }
-                    isNew = false;
+                    updateMode = APPEND;
                     writeInfo = locationService.getTableWriteInfo(locationHandle);
                 }
 
@@ -358,7 +361,7 @@ public class HiveWriterFactory
             if (immutablePartitions) {
                 throw new PrestoException(HIVE_PARTITION_READ_ONLY, "Cannot insert into an existing partition of Hive table: " + partitionName.get());
             }
-            isNew = false;
+            updateMode = APPEND;
 
             // Check the column types in partition schema match the column types in table schema
             List<Column> tableColumns = table.getDataColumns();
@@ -498,7 +501,7 @@ public class HiveWriterFactory
         return new HiveWriter(
                 hiveFileWriter,
                 partitionName,
-                isNew,
+                updateMode,
                 fileNameWithExtension,
                 writeInfo.getWritePath().toString(),
                 writeInfo.getTargetPath().toString(),
