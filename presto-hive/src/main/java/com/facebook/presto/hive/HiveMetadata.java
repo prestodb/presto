@@ -148,6 +148,8 @@ import static com.facebook.presto.hive.HiveUtil.toPartitionValues;
 import static com.facebook.presto.hive.HiveWriteUtils.checkTableIsWritable;
 import static com.facebook.presto.hive.HiveWriteUtils.initializeSerializer;
 import static com.facebook.presto.hive.HiveWriteUtils.isWritableType;
+import static com.facebook.presto.hive.PartitionUpdate.UpdateMode.APPEND;
+import static com.facebook.presto.hive.PartitionUpdate.UpdateMode.NEW;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.toHivePrivilege;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getProtectMode;
@@ -929,7 +931,7 @@ public class HiveMetadata
                     partitionUpdate);
             partitionUpdatesForMissingBucketsBuilder.add(new PartitionUpdate(
                     partitionUpdate.getName(),
-                    partitionUpdate.isNew(),
+                    partitionUpdate.getUpdateMode(),
                     partitionUpdate.getWritePath(),
                     partitionUpdate.getTargetPath(),
                     fileNamesForMissingBuckets,
@@ -1089,7 +1091,7 @@ public class HiveMetadata
                         partitionUpdate.getFileNames(),
                         partitionUpdate.getStatistics());
             }
-            else if (!partitionUpdate.isNew()) {
+            else if (partitionUpdate.getUpdateMode() == APPEND) {
                 // insert into existing partition
                 metastore.finishInsertIntoExistingPartition(
                         session,
@@ -1100,13 +1102,16 @@ public class HiveMetadata
                         partitionUpdate.getFileNames(),
                         partitionUpdate.getStatistics());
             }
-            else {
+            else if (partitionUpdate.getUpdateMode() == NEW) {
                 // insert into new partition
                 Partition partition = buildPartitionObject(session, table.get(), partitionUpdate);
                 if (!partition.getStorage().getStorageFormat().getInputFormat().equals(handle.getPartitionStorageFormat().getInputFormat()) && isRespectTableFormat(session)) {
                     throw new PrestoException(HIVE_CONCURRENT_MODIFICATION_DETECTED, "Partition format changed during insert");
                 }
                 metastore.addPartition(session, handle.getSchemaName(), handle.getTableName(), partition, partitionUpdate.getWritePath());
+            }
+            else {
+                throw new IllegalArgumentException(format("Unsupported update mode: %s", partitionUpdate.getUpdateMode()));
             }
         }
 

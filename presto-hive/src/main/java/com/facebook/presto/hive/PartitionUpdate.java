@@ -31,7 +31,7 @@ import static java.util.Objects.requireNonNull;
 public class PartitionUpdate
 {
     private final String name;
-    private final boolean isNew;
+    private final UpdateMode updateMode;
     private final Path writePath;
     private final Path targetPath;
     private final List<String> fileNames;
@@ -41,7 +41,7 @@ public class PartitionUpdate
 
     public PartitionUpdate(
             @JsonProperty("name") String name,
-            @JsonProperty("new") boolean isNew,
+            @JsonProperty("updateMode") UpdateMode updateMode,
             @JsonProperty("writePath") String writePath,
             @JsonProperty("targetPath") String targetPath,
             @JsonProperty("fileNames") List<String> fileNames,
@@ -51,7 +51,7 @@ public class PartitionUpdate
     {
         this(
                 name,
-                isNew,
+                updateMode,
                 new Path(requireNonNull(writePath, "writePath is null")),
                 new Path(requireNonNull(targetPath, "targetPath is null")),
                 fileNames,
@@ -62,7 +62,7 @@ public class PartitionUpdate
 
     public PartitionUpdate(
             String name,
-            boolean isNew,
+            UpdateMode updateMode,
             Path writePath,
             Path targetPath,
             List<String> fileNames,
@@ -71,7 +71,7 @@ public class PartitionUpdate
             long onDiskDataSizeInBytes)
     {
         this.name = requireNonNull(name, "name is null");
-        this.isNew = isNew;
+        this.updateMode = requireNonNull(updateMode, "updateMode is null");
         this.writePath = requireNonNull(writePath, "writePath is null");
         this.targetPath = requireNonNull(targetPath, "targetPath is null");
         this.fileNames = ImmutableList.copyOf(requireNonNull(fileNames, "fileNames is null"));
@@ -90,9 +90,9 @@ public class PartitionUpdate
     }
 
     @JsonProperty
-    public boolean isNew()
+    public UpdateMode getUpdateMode()
     {
-        return isNew;
+        return updateMode;
     }
 
     public Path getWritePath()
@@ -146,7 +146,7 @@ public class PartitionUpdate
     {
         return toStringHelper(this)
                 .add("name", name)
-                .add("isNew", isNew)
+                .add("updateMode", updateMode)
                 .add("writePath", writePath)
                 .add("targetPath", targetPath)
                 .add("fileNames", fileNames)
@@ -174,7 +174,7 @@ public class PartitionUpdate
             for (PartitionUpdate partition : partitionGroup) {
                 // verify partitions have the same new flag, write path and target path
                 // this shouldn't happen but could if another user added a partition during the write
-                if (partition.isNew() != firstPartition.isNew() ||
+                if (partition.getUpdateMode() != firstPartition.getUpdateMode() ||
                         !partition.getWritePath().equals(firstPartition.getWritePath()) ||
                         !partition.getTargetPath().equals(firstPartition.getTargetPath())) {
                     throw new PrestoException(HIVE_CONCURRENT_MODIFICATION_DETECTED, format("Partition %s was added or modified during INSERT", firstPartition.getName()));
@@ -186,7 +186,7 @@ public class PartitionUpdate
             }
 
             partitionUpdates.add(new PartitionUpdate(firstPartition.getName(),
-                    firstPartition.isNew(),
+                    firstPartition.getUpdateMode(),
                     firstPartition.getWritePath(),
                     firstPartition.getTargetPath(),
                     allFileNames.build(),
@@ -195,5 +195,11 @@ public class PartitionUpdate
                     totalOnDiskDataSizeInBytes));
         }
         return partitionUpdates.build();
+    }
+
+    public enum UpdateMode
+    {
+        NEW,
+        APPEND,
     }
 }
