@@ -232,9 +232,41 @@ public class TestHiveSplitSource
         }
     }
 
+    @Test
+    public void testEmptyBucket()
+    {
+        final HiveSplitSource hiveSplitSource = HiveSplitSource.bucketed(
+                SESSION,
+                "database",
+                "table",
+                TupleDomain.all(),
+                10,
+                10,
+                new DataSize(1, MEGABYTE),
+                new TestingHiveSplitLoader(),
+                Executors.newFixedThreadPool(5),
+                new CounterStat());
+        hiveSplitSource.addToQueue(new TestSplit(0, OptionalInt.of(2)));
+        hiveSplitSource.noMoreSplits();
+        assertEquals(getSplits(hiveSplitSource, OptionalInt.of(0), 10).size(), 0);
+        assertEquals(getSplits(hiveSplitSource, OptionalInt.of(1), 10).size(), 0);
+        assertEquals(getSplits(hiveSplitSource, OptionalInt.of(2), 10).size(), 1);
+        assertEquals(getSplits(hiveSplitSource, OptionalInt.of(3), 10).size(), 0);
+    }
+
     private static List<ConnectorSplit> getSplits(ConnectorSplitSource source, int maxSize)
     {
-        return getFutureValue(source.getNextBatch(NOT_PARTITIONED, maxSize)).getSplits();
+        return getSplits(source, OptionalInt.empty(), maxSize);
+    }
+
+    private static List<ConnectorSplit> getSplits(ConnectorSplitSource source, OptionalInt bucketNumber, int maxSize)
+    {
+        if (bucketNumber.isPresent()) {
+            return getFutureValue(source.getNextBatch(new HivePartitionHandle(bucketNumber.getAsInt()), maxSize)).getSplits();
+        }
+        else {
+            return getFutureValue(source.getNextBatch(NOT_PARTITIONED, maxSize)).getSplits();
+        }
     }
 
     private static class TestingHiveSplitLoader
@@ -256,6 +288,11 @@ public class TestHiveSplitSource
     {
         private TestSplit(int id)
         {
+            this(id, OptionalInt.empty());
+        }
+
+        private TestSplit(int id, OptionalInt bucketNumber)
+        {
             super(
                     "partition-name",
                     "path",
@@ -265,7 +302,7 @@ public class TestHiveSplitSource
                     properties("id", String.valueOf(id)),
                     ImmutableList.of(),
                     ImmutableList.of(new InternalHiveBlock(0, 100, ImmutableList.of())),
-                    OptionalInt.empty(),
+                    bucketNumber,
                     true,
                     false,
                     ImmutableMap.of(),

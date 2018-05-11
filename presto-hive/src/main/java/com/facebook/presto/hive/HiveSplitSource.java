@@ -197,6 +197,7 @@ class HiveSplitSource
                 new PerBucket()
                 {
                     private final Map<Integer, AsyncQueue<InternalHiveSplit>> queues = new ConcurrentHashMap<>();
+                    private final AtomicBoolean finished = new AtomicBoolean();
 
                     @Override
                     public ListenableFuture<?> offer(OptionalInt bucketNumber, InternalHiveSplit connectorSplit)
@@ -217,7 +218,9 @@ class HiveSplitSource
                     @Override
                     public void finish()
                     {
-                        queues.values().forEach(AsyncQueue::finish);
+                        if (finished.compareAndSet(false, true)) {
+                            queues.values().forEach(AsyncQueue::finish);
+                        }
                     }
 
                     @Override
@@ -229,12 +232,17 @@ class HiveSplitSource
                     public AsyncQueue<InternalHiveSplit> queueFor(OptionalInt bucketNumber)
                     {
                         checkArgument(bucketNumber.isPresent());
-                        return queues.computeIfAbsent(bucketNumber.getAsInt(), ignored -> {
-                            if (stateReference.get().getKind() != INITIAL) {
-                                throw new IllegalStateException();
-                            }
+                        AtomicBoolean isNew = new AtomicBoolean();
+                        AsyncQueue<InternalHiveSplit> queue = queues.computeIfAbsent(bucketNumber.getAsInt(), ignored -> {
+                            isNew.set(true);
                             return new AsyncQueue<>(estimatedOutstandingSplitsPerBucket, executor);
                         });
+                        if (isNew.get() && finished.get()) {
+                            // Check `finished` and invoke `queue.finish` after the `queue` is added to the map.
+                            // Otherwise, `queue.finish` may not be invoked if `finished` is set while the lambda above is being evaluated.
+                            queue.finish();
+                        }
+                        return queue;
                     }
                 },
                 maxInitialSplits,
