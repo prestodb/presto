@@ -21,6 +21,7 @@ import java.util.Optional;
 import java.util.function.Consumer;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
 
 public class HiveWriter
 {
@@ -36,7 +37,8 @@ public class HiveWriter
     private long rowCount;
     private long inputSizeInBytes;
 
-    public HiveWriter(HiveFileWriter fileWriter,
+    public HiveWriter(
+            HiveFileWriter fileWriter,
             Optional<String> partitionName,
             UpdateMode updateMode,
             String fileName,
@@ -45,14 +47,14 @@ public class HiveWriter
             Consumer<HiveWriter> onCommit,
             HiveWriterStats hiveWriterStats)
     {
-        this.fileWriter = fileWriter;
-        this.partitionName = partitionName;
-        this.updateMode = updateMode;
-        this.fileName = fileName;
-        this.writePath = writePath;
-        this.targetPath = targetPath;
-        this.onCommit = onCommit;
-        this.hiveWriterStats = hiveWriterStats;
+        this.fileWriter = requireNonNull(fileWriter, "fileWriter is null");
+        this.partitionName = requireNonNull(partitionName, "partitionName is null");
+        this.updateMode = requireNonNull(updateMode, "updateMode is null");
+        this.fileName = requireNonNull(fileName, "fileName is null");
+        this.writePath = requireNonNull(writePath, "writePath is null");
+        this.targetPath = requireNonNull(targetPath, "targetPath is null");
+        this.onCommit = requireNonNull(onCommit, "onCommit is null");
+        this.hiveWriterStats = requireNonNull(hiveWriterStats, "hiveWriterStats is null");
     }
 
     public long getWrittenBytes()
