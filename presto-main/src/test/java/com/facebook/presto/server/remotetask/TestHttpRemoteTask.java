@@ -32,7 +32,6 @@ import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.PrestoNode;
 import com.facebook.presto.metadata.Split;
-import com.facebook.presto.server.HttpRemoteTaskFactory;
 import com.facebook.presto.server.TaskUpdateRequest;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.type.Type;
