@@ -69,6 +69,16 @@ public class TestIpAddressOperators
     }
 
     @Test
+    public void testDistinctFrom()
+    {
+        assertFunction("IPADDRESS '2001:0db8:0000:0000:0000:ff00:0042:8329' IS DISTINCT FROM IPADDRESS '2001:db8::ff00:42:8329'", BOOLEAN, false);
+        assertFunction("CAST(NULL AS IPADDRESS) IS DISTINCT FROM CAST(NULL AS IPADDRESS)", BOOLEAN, false);
+        assertFunction("IPADDRESS '2001:0db8:0000:0000:0000:ff00:0042:8329' IS DISTINCT FROM IPADDRESS '2001:db8::ff00:42:8328'", BOOLEAN, true);
+        assertFunction("IPADDRESS '2001:0db8:0000:0000:0000:ff00:0042:8329' IS DISTINCT FROM CAST(NULL AS IPADDRESS)", BOOLEAN, true);
+        assertFunction("CAST(NULL AS IPADDRESS) IS DISTINCT FROM IPADDRESS '2001:db8::ff00:42:8328'", BOOLEAN, true);
+    }
+
+    @Test
     public void testNotEquals()
     {
         assertFunction("IPADDRESS '2001:0db8:0000:0000:0000:ff00:0042:8329' != IPADDRESS '1.2.3.4'", BOOLEAN, true);
