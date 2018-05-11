@@ -34,11 +34,13 @@ public class ThriftPageSourceProvider
     private final DriftClient<PrestoThriftService> client;
     private final long maxBytesPerResponse;
     private final ThriftConnectorStats stats;
+    private final ThriftSessionProperties sessionProperties;
 
     @Inject
-    public ThriftPageSourceProvider(DriftClient<PrestoThriftService> client, ThriftConnectorStats stats, ThriftConnectorConfig config)
+    public ThriftPageSourceProvider(DriftClient<PrestoThriftService> client, ThriftConnectorStats stats, ThriftConnectorConfig config, ThriftSessionProperties sessionProperties)
     {
         this.client = requireNonNull(client, "client is null");
+        this.sessionProperties = requireNonNull(sessionProperties, "sessionProperties is null");
         this.maxBytesPerResponse = requireNonNull(config, "config is null").getMaxResponseSize().toBytes();
         this.stats = requireNonNull(stats, "stats is null");
     }
@@ -50,6 +52,6 @@ public class ThriftPageSourceProvider
             ConnectorSplit split,
             List<ColumnHandle> columns)
     {
-        return new ThriftPageSource(client, (ThriftConnectorSplit) split, columns, stats, maxBytesPerResponse);
+        return new ThriftPageSource(client, sessionProperties.toHeader(session), (ThriftConnectorSplit) split, columns, stats, maxBytesPerResponse);
     }
 }

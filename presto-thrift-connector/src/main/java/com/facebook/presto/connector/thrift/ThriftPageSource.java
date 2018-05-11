@@ -27,6 +27,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.drift.client.DriftClient;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
@@ -58,6 +59,7 @@ public class ThriftPageSource
 
     public ThriftPageSource(
             DriftClient<PrestoThriftService> client,
+            Map<String, String> thriftHeaders,
             ThriftConnectorSplit split,
             List<ColumnHandle> columns,
             ThriftConnectorStats stats,
@@ -72,6 +74,7 @@ public class ThriftPageSource
             columnNames.add(thriftColumnHandle.getColumnName());
             columnTypes.add(thriftColumnHandle.getColumnType());
         }
+        requireNonNull(thriftHeaders, "thriftHeaders is null");
         this.columnNames = columnNames.build();
         this.columnTypes = columnTypes.build();
         this.stats = requireNonNull(stats, "stats is null");
@@ -88,12 +91,13 @@ public class ThriftPageSource
         // init client
         requireNonNull(client, "client is null");
         if (split.getAddresses().isEmpty()) {
-            this.client = client.get();
+            this.client = client.get(thriftHeaders);
         }
         else {
-            this.client = client.get(Optional.of(split.getAddresses().stream()
+            String hosts = split.getAddresses().stream()
                     .map(HostAddress::toString)
-                    .collect(joining(","))));
+                    .collect(joining(","));
+            this.client = client.get(Optional.of(hosts), thriftHeaders);
         }
     }
 
