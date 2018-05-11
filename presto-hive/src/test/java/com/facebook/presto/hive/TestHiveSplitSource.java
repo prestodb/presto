@@ -13,10 +13,8 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.InternalHiveSplit.InternalHiveBlock;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
-import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.ImmutableList;
@@ -196,7 +194,7 @@ public class TestHiveSplitSource
         }
     }
 
-    @Test(enabled = false)
+    @Test
     public void testOutstandingSplitSize()
     {
         DataSize maxOutstandingSplitsSize = new DataSize(1, MEGABYTE);
@@ -211,36 +209,22 @@ public class TestHiveSplitSource
                 new TestingHiveSplitLoader(),
                 Executors.newFixedThreadPool(5),
                 new CounterStat());
-        InternalHiveSplit testSplit = new InternalHiveSplit(
-                "partition-name",
-                "path",
-                0,
-                100,
-                100,
-                new Properties(),
-                ImmutableList.of(new HivePartitionKey("pk_col", "pk_value")),
-                ImmutableList.of(new InternalHiveBlock(0, 100, ImmutableList.of(HostAddress.fromString("localhost")))),
-                OptionalInt.empty(),
-                true,
-                false,
-                ImmutableMap.of(),
-                Optional.empty());
-        int testSplitSizeInBytes = testSplit.getEstimatedSizeInBytes();
+        int testSplitSizeInBytes = new TestSplit(0).getEstimatedSizeInBytes();
 
         int maxSplitCount = toIntExact(maxOutstandingSplitsSize.toBytes()) / testSplitSizeInBytes;
         for (int i = 0; i < maxSplitCount; i++) {
-            hiveSplitSource.addToQueue(testSplit);
+            hiveSplitSource.addToQueue(new TestSplit(i));
             assertEquals(hiveSplitSource.getBufferedInternalSplitCount(), i + 1);
         }
 
         assertEquals(getSplits(hiveSplitSource, maxSplitCount).size(), maxSplitCount);
 
         for (int i = 0; i < maxSplitCount; i++) {
-            hiveSplitSource.addToQueue(testSplit);
+            hiveSplitSource.addToQueue(new TestSplit(i));
             assertEquals(hiveSplitSource.getBufferedInternalSplitCount(), i + 1);
         }
         try {
-            hiveSplitSource.addToQueue(testSplit);
+            hiveSplitSource.addToQueue(new TestSplit(0));
             fail("expect failure");
         }
         catch (PrestoException e) {
