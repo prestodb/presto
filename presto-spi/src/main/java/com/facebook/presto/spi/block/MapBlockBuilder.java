@@ -193,10 +193,6 @@ public class MapBlockBuilder
         int aggregatedEntryCount = offsets[positionCount];
         int entryCount = aggregatedEntryCount - previousAggregatedEntryCount;
         buildHashTable(keyBlockBuilder, previousAggregatedEntryCount, entryCount, keyBlockHashCode, hashTables, previousAggregatedEntryCount * HASH_MULTIPLIER, entryCount * HASH_MULTIPLIER);
-        if (blockBuilderStatus != null) {
-            blockBuilderStatus.addBytes(entryCount * HASH_MULTIPLIER * Integer.BYTES);
-        }
-
         return this;
     }
 
@@ -210,18 +206,12 @@ public class MapBlockBuilder
         currentEntryOpened = false;
 
         ensureHashTableSize();
-        int previousAggregatedEntryCount = offsets[positionCount - 1];
-        int aggregatedEntryCount = offsets[positionCount];
-        int entryCount = aggregatedEntryCount - previousAggregatedEntryCount;
 
         // Directly copy instead of building hashtable
         int hashTableOffset = offsets[positionCount - 1] * HASH_MULTIPLIER;
         int hashTableSize = (offsets[positionCount] - offsets[positionCount - 1]) * HASH_MULTIPLIER;
         for (int i = 0; i < hashTableSize; i++) {
             hashTables[hashTableOffset + i] = providedHashTable[providedHashTableOffset + i];
-        }
-        if (blockBuilderStatus != null) {
-            blockBuilderStatus.addBytes(entryCount * HASH_MULTIPLIER * Integer.BYTES);
         }
 
         return this;
@@ -254,6 +244,7 @@ public class MapBlockBuilder
 
         if (blockBuilderStatus != null) {
             blockBuilderStatus.addBytes(Integer.BYTES + Byte.BYTES);
+            blockBuilderStatus.addBytes((offsets[positionCount] - offsets[positionCount - 1]) * HASH_MULTIPLIER * Integer.BYTES);
         }
     }
 
