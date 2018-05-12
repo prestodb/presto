@@ -104,6 +104,7 @@ public class FeaturesConfig
     private boolean parseDecimalLiteralsAsDouble;
     private boolean useMarkDistinct = true;
     private boolean preferPartialAggregation = true;
+    private boolean memoryAwareExecution;
 
     private Duration iterativeOptimizerTimeout = new Duration(3, MINUTES); // by default let optimizer wait a long time in case it retrieves some data from ConnectorMetadata
 
@@ -756,6 +757,19 @@ public class FeaturesConfig
     public FeaturesConfig setArrayAggGroupImplementation(ArrayAggGroupImplementation groupByMode)
     {
         this.arrayAggGroupImplementation = groupByMode;
+        return this;
+    }
+
+    @NotNull
+    public boolean isMemoryAwareExecution()
+    {
+        return memoryAwareExecution;
+    }
+
+    @Config("experimental.memory-aware-execution")
+    public FeaturesConfig setMemoryAwareExecution(boolean memoryAwareExecution)
+    {
+        this.memoryAwareExecution = memoryAwareExecution;
         return this;
     }
 }

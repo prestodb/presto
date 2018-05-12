@@ -70,6 +70,7 @@ import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.execution.QueryState.STARTING;
 import static com.facebook.presto.execution.QueryState.TERMINAL_QUERY_STATES;
+import static com.facebook.presto.execution.QueryState.WAITING_FOR_RESOURCES;
 import static com.facebook.presto.execution.StageInfo.getAllStages;
 import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
@@ -127,6 +128,9 @@ public class QueryStateMachine
 
     private final AtomicReference<Long> totalPlanningStartNanos = new AtomicReference<>();
     private final AtomicReference<Duration> totalPlanningTime = new AtomicReference<>();
+
+    private final AtomicReference<Long> waitingStartNanos = new AtomicReference<>();
+    private final AtomicReference<Duration> waitingTime = new AtomicReference<>();
 
     private final StateMachine<QueryState> queryState;
 
@@ -422,6 +426,7 @@ public class QueryStateMachine
 
                 elapsedTime.convertToMostSuccinctTimeUnit(),
                 queuedTime.get(),
+                waitingTime.get(),
                 analysisTime.get(),
                 distributedPlanningTime.get(),
                 totalPlanningTime.get(),
@@ -615,11 +620,20 @@ public class QueryStateMachine
         return queryState.get().isDone();
     }
 
-    public boolean transitionToPlanning()
+    public boolean transitionToWaitingForResources()
     {
         queuedTime.compareAndSet(null, nanosSince(createNanos).convertToMostSuccinctTimeUnit());
+        waitingStartNanos.compareAndSet(null, tickerNanos());
+        return queryState.compareAndSet(QUEUED, WAITING_FOR_RESOURCES);
+    }
+
+    public boolean transitionToPlanning()
+    {
+        waitingStartNanos.compareAndSet(null, tickerNanos());
+        queuedTime.compareAndSet(null, nanosSince(createNanos).convertToMostSuccinctTimeUnit());
+        waitingTime.compareAndSet(null, nanosSince(waitingStartNanos.get()).convertToMostSuccinctTimeUnit());
         totalPlanningStartNanos.compareAndSet(null, tickerNanos());
-        return queryState.compareAndSet(QUEUED, PLANNING);
+        return queryState.setIf(PLANNING, currentState -> currentState == QUEUED || currentState == WAITING_FOR_RESOURCES);
     }
 
     public boolean transitionToStarting()
@@ -871,6 +885,7 @@ public class QueryStateMachine
                 queryStats.getEndTime(),
                 queryStats.getElapsedTime(),
                 queryStats.getQueuedTime(),
+                queryStats.getWaitingTime(),
                 queryStats.getAnalysisTime(),
                 queryStats.getDistributedPlanningTime(),
                 queryStats.getTotalPlanningTime(),
