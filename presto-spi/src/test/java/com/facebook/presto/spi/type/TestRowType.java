@@ -38,6 +38,7 @@ public class TestRowType
                         DOUBLE,
                         methodHandle(TestRowType.class, "throwUnsupportedOperation"),
                         methodHandle(TestRowType.class, "throwUnsupportedOperation"),
+                        methodHandle(TestRowType.class, "throwUnsupportedOperation"),
                         methodHandle(TestRowType.class, "throwUnsupportedOperation"))));
 
         RowType row = RowType.from(fields);
@@ -56,6 +57,7 @@ public class TestRowType
                 new MapType(
                         BOOLEAN,
                         DOUBLE,
+                        methodHandle(TestRowType.class, "throwUnsupportedOperation"),
                         methodHandle(TestRowType.class, "throwUnsupportedOperation"),
                         methodHandle(TestRowType.class, "throwUnsupportedOperation"),
                         methodHandle(TestRowType.class, "throwUnsupportedOperation")));

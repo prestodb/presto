@@ -31,12 +31,14 @@ public class TestMapType
                 createVarcharType(42),
                 MethodHandleUtil.methodHandle(TestMapType.class, "throwUnsupportedOperation"),
                 MethodHandleUtil.methodHandle(TestMapType.class, "throwUnsupportedOperation"),
+                MethodHandleUtil.methodHandle(TestMapType.class, "throwUnsupportedOperation"),
                 MethodHandleUtil.methodHandle(TestMapType.class, "throwUnsupportedOperation"));
         assertEquals(mapType.getDisplayName(), "map(bigint, varchar(42))");
 
         mapType = new MapType(
                 BIGINT,
                 VARCHAR,
+                MethodHandleUtil.methodHandle(TestMapType.class, "throwUnsupportedOperation"),
                 MethodHandleUtil.methodHandle(TestMapType.class, "throwUnsupportedOperation"),
                 MethodHandleUtil.methodHandle(TestMapType.class, "throwUnsupportedOperation"),
                 MethodHandleUtil.methodHandle(TestMapType.class, "throwUnsupportedOperation"));

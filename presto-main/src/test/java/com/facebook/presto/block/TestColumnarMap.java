@@ -24,6 +24,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
+import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodType;
 import java.util.Arrays;
 
@@ -35,6 +36,8 @@ import static com.facebook.presto.block.ColumnarTestUtils.createTestDictionaryEx
 import static com.facebook.presto.block.ColumnarTestUtils.createTestRleBlock;
 import static com.facebook.presto.block.ColumnarTestUtils.createTestRleExpectedValues;
 import static com.facebook.presto.spi.block.ColumnarMap.toColumnarMap;
+import static com.facebook.presto.spi.block.MethodHandleUtil.compose;
+import static com.facebook.presto.spi.block.MethodHandleUtil.nativeValueGetter;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -172,10 +175,15 @@ public class TestColumnarMap
 
     private static BlockBuilder createMapBuilder(int expectedEntries)
     {
+        MethodHandle varcharNativeEquals = MethodHandleUtil.methodHandle(Slice.class, "equals", Object.class).asType(MethodType.methodType(boolean.class, Slice.class, Slice.class));
+        MethodHandle varcharBlockNativeEquals = compose(varcharNativeEquals, nativeValueGetter(VARCHAR));
+        MethodHandle varcharBlockEquals = compose(varcharNativeEquals, nativeValueGetter(VARCHAR), nativeValueGetter(VARCHAR));
+
         return new MapBlockBuilder(
                 VARCHAR,
                 VARCHAR,
-                MethodHandleUtil.methodHandle(Slice.class, "equals", Object.class).asType(MethodType.methodType(boolean.class, Slice.class, Slice.class)),
+                varcharBlockNativeEquals,
+                varcharBlockEquals,
                 MethodHandleUtil.methodHandle(Slice.class, "hashCode").asType(MethodType.methodType(long.class, Slice.class)),
                 MethodHandleUtil.methodHandle(TestColumnarMap.class, "blockVarcharHashCode", Block.class, int.class),
                 null,

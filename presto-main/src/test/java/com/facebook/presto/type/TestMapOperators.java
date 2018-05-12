@@ -110,6 +110,10 @@ public class TestMapOperators
                 100.0));
 
         assertInvalidFunction("MAP(ARRAY [1], ARRAY [2, 4])", "Key and value arrays must be the same length");
+        assertInvalidFunction("MAP(ARRAY [1, 2, 3, 2], ARRAY [4, 5, 6, 7])", "Duplicate keys (2) are not allowed");
+        assertInvalidFunction(
+                "MAP(ARRAY [ARRAY [1, 2], ARRAY [1, 3], ARRAY [1, 2]], ARRAY [1, 2, 3])",
+                "Duplicate keys ([1, 2]) are not allowed");
 
         assertCachedInstanceHasBoundedRetainedSize("MAP(ARRAY ['1','3'], ARRAY [2,4])");
     }

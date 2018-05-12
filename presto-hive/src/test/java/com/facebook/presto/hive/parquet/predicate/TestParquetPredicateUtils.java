@@ -160,6 +160,7 @@ public class TestParquetPredicateUtils
                 INTEGER,
                 methodHandle(TestParquetPredicateUtils.class, "throwUnsupportedOperationException"),
                 methodHandle(TestParquetPredicateUtils.class, "throwUnsupportedOperationException"),
+                methodHandle(TestParquetPredicateUtils.class, "throwUnsupportedOperationException"),
                 methodHandle(TestParquetPredicateUtils.class, "throwUnsupportedOperationException"));
 
         TupleDomain<HiveColumnHandle> domain = withColumnDomains(ImmutableMap.of(columnHandle, Domain.notNull(mapType)));
