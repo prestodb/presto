@@ -45,8 +45,15 @@ public class MapType
     private final MethodHandle keyNativeHashCode;
     private final MethodHandle keyBlockHashCode;
     private final MethodHandle keyBlockNativeEquals;
+    private final MethodHandle keyBlockEquals;
 
-    public MapType(Type keyType, Type valueType, MethodHandle keyBlockNativeEquals, MethodHandle keyNativeHashCode, MethodHandle keyBlockHashCode)
+    public MapType(
+            Type keyType,
+            Type valueType,
+            MethodHandle keyBlockNativeEquals,
+            MethodHandle keyBlockEquals,
+            MethodHandle keyNativeHashCode,
+            MethodHandle keyBlockHashCode)
     {
         super(new TypeSignature(StandardTypes.MAP,
                         TypeSignatureParameter.of(keyType.getTypeSignature()),
@@ -63,12 +70,21 @@ public class MapType
         this.keyBlockNativeEquals = keyBlockNativeEquals;
         this.keyNativeHashCode = keyNativeHashCode;
         this.keyBlockHashCode = keyBlockHashCode;
+        this.keyBlockEquals = keyBlockEquals;
     }
 
     @Override
     public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
     {
-        return new MapBlockBuilder(keyType, valueType, keyBlockNativeEquals, keyNativeHashCode, keyBlockHashCode, blockBuilderStatus, expectedEntries);
+        return new MapBlockBuilder(
+                keyType,
+                valueType,
+                keyBlockNativeEquals,
+                keyBlockEquals,
+                keyNativeHashCode,
+                keyBlockHashCode,
+                blockBuilderStatus,
+                expectedEntries);
     }
 
     @Override
