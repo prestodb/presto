@@ -419,22 +419,7 @@ public class MapBlockBuilder
     static void buildHashTable(Block keyBlock, int keyOffset, int keyCount, MethodHandle keyBlockHashCode, int[] outputHashTable, int hashTableOffset, int hashTableSize)
     {
         for (int i = 0; i < keyCount; i++) {
-            if (keyBlock.isNull(keyOffset + i)) {
-                throw new IllegalArgumentException("map keys cannot be null");
-            }
-
-            long hashCode;
-            try {
-                hashCode = (long) keyBlockHashCode.invokeExact(keyBlock, keyOffset + i);
-            }
-            catch (Throwable throwable) {
-                if (throwable instanceof RuntimeException) {
-                    throw (RuntimeException) throwable;
-                }
-                throw new RuntimeException(throwable);
-            }
-
-            int hash = (int) Math.floorMod(hashCode, hashTableSize);
+            int hash = getHashPosition(keyBlock, keyOffset + i, keyBlockHashCode, hashTableSize);
             while (true) {
                 if (outputHashTable[hashTableOffset + hash] == -1) {
                     outputHashTable[hashTableOffset + hash] = i;
@@ -463,22 +448,7 @@ public class MapBlockBuilder
             throws DuplicateMapKeyException
     {
         for (int i = 0; i < keyCount; i++) {
-            if (keyBlock.isNull(keyOffset + i)) {
-                throw new IllegalArgumentException("map keys cannot be null");
-            }
-
-            long hashCode;
-            try {
-                hashCode = (long) keyBlockHashCode.invokeExact(keyBlock, keyOffset + i);
-            }
-            catch (Throwable throwable) {
-                if (throwable instanceof RuntimeException) {
-                    throw (RuntimeException) throwable;
-                }
-                throw new RuntimeException(throwable);
-            }
-
-            int hash = (int) Math.floorMod(hashCode, hashTableSize);
+            int hash = getHashPosition(keyBlock, keyOffset + i, keyBlockHashCode, hashTableSize);
             while (true) {
                 if (outputHashTable[hashTableOffset + hash] == -1) {
                     outputHashTable[hashTableOffset + hash] = i;
@@ -506,5 +476,25 @@ public class MapBlockBuilder
                 }
             }
         }
+    }
+
+    private static int getHashPosition(Block keyBlock, int position, MethodHandle keyBlockHashCode, int hashTableSize)
+    {
+        if (keyBlock.isNull(position)) {
+            throw new IllegalArgumentException("map keys cannot be null");
+        }
+
+        long hashCode;
+        try {
+            hashCode = (long) keyBlockHashCode.invokeExact(keyBlock, position);
+        }
+        catch (RuntimeException e) {
+            throw e;
+        }
+        catch (Throwable throwable) {
+            throw new RuntimeException(throwable);
+        }
+
+        return (int) Math.floorMod(hashCode, hashTableSize);
     }
 }
