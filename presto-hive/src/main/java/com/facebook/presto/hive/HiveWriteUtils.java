@@ -434,11 +434,6 @@ public final class HiveWriteUtils
             throw new HiveReadOnlyException(tableName, partitionName);
         }
 
-        // verify sorting
-        if (storage.isSorted()) {
-            throw new PrestoException(NOT_SUPPORTED, format("Inserting into bucketed sorted tables is not supported. %s", tablePartitionDescription));
-        }
-
         // verify skew info
         if (storage.isSkewed()) {
             throw new PrestoException(NOT_SUPPORTED, format("Inserting into bucketed tables with skew is not supported. %s", tablePartitionDescription));

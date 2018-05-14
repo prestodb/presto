@@ -24,10 +24,12 @@ import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.airlift.units.MaxDataSize;
 import io.airlift.units.MinDataSize;
 import io.airlift.units.MinDuration;
 import org.joda.time.DateTimeZone;
 
+import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
@@ -58,6 +60,7 @@ public class HiveClientConfig
     private int splitLoaderConcurrency = 4;
     private DataSize maxInitialSplitSize;
     private int domainCompactionThreshold = 100;
+    private DataSize writerSortBufferSize = new DataSize(64, MEGABYTE);
     private boolean forceLocalScheduling;
     private boolean recursiveDirWalkerEnabled;
 
@@ -87,6 +90,7 @@ public class HiveClientConfig
     private boolean respectTableFormat = true;
     private boolean immutablePartitions;
     private int maxPartitionsPerWriter = 100;
+    private int maxSortFilesPerBucket = 100;
     private int writeValidationThreads = 16;
 
     private List<String> resourceConfigFiles;
@@ -121,6 +125,7 @@ public class HiveClientConfig
 
     private boolean bucketExecutionEnabled = true;
     private boolean bucketWritingEnabled = true;
+    private boolean sortedWritingEnabled = true;
 
     private int fileSystemMaxCacheSize = 1000;
 
@@ -180,6 +185,20 @@ public class HiveClientConfig
     public HiveClientConfig setDomainCompactionThreshold(int domainCompactionThreshold)
     {
         this.domainCompactionThreshold = domainCompactionThreshold;
+        return this;
+    }
+
+    @MinDataSize("1MB")
+    @MaxDataSize("1GB")
+    public DataSize getWriterSortBufferSize()
+    {
+        return writerSortBufferSize;
+    }
+
+    @Config("hive.writer-sort-buffer-size")
+    public HiveClientConfig setWriterSortBufferSize(DataSize writerSortBufferSize)
+    {
+        this.writerSortBufferSize = writerSortBufferSize;
         return this;
     }
 
@@ -576,6 +595,21 @@ public class HiveClientConfig
         return this;
     }
 
+    @Min(1)
+    @Max(1000)
+    public int getMaxSortFilesPerBucket()
+    {
+        return maxSortFilesPerBucket;
+    }
+
+    @Config("hive.max-sort-files-per-bucket")
+    @ConfigDescription("Maximum number of writer temporary files per sorted bucket")
+    public HiveClientConfig setMaxSortFilesPerBucket(int maxSortFilesPerBucket)
+    {
+        this.maxSortFilesPerBucket = maxSortFilesPerBucket;
+        return this;
+    }
+
     public int getWriteValidationThreads()
     {
         return writeValidationThreads;
@@ -956,6 +990,19 @@ public class HiveClientConfig
     public HiveClientConfig setBucketWritingEnabled(boolean bucketWritingEnabled)
     {
         this.bucketWritingEnabled = bucketWritingEnabled;
+        return this;
+    }
+
+    public boolean isSortedWritingEnabled()
+    {
+        return sortedWritingEnabled;
+    }
+
+    @Config("hive.sorted-writing")
+    @ConfigDescription("Enable writing to bucketed sorted tables")
+    public HiveClientConfig setSortedWritingEnabled(boolean sortedWritingEnabled)
+    {
+        this.sortedWritingEnabled = sortedWritingEnabled;
         return this;
     }
 

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.metastore.SortingColumn;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.type.TypeManager;
@@ -26,6 +27,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.hive.metastore.SortingColumn.Order.ASCENDING;
+import static com.facebook.presto.hive.metastore.SortingColumn.Order.DESCENDING;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static com.facebook.presto.spi.session.PropertyMetadata.doubleSessionProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerSessionProperty;
@@ -43,6 +46,7 @@ public class HiveTableProperties
     public static final String PARTITIONED_BY_PROPERTY = "partitioned_by";
     public static final String BUCKETED_BY_PROPERTY = "bucketed_by";
     public static final String BUCKET_COUNT_PROPERTY = "bucket_count";
+    public static final String SORTED_BY_PROPERTY = "sorted_by";
     public static final String ORC_BLOOM_FILTER_COLUMNS = "orc_bloom_filter_columns";
     public static final String ORC_BLOOM_FILTER_FPP = "orc_bloom_filter_fpp";
 
@@ -89,6 +93,21 @@ public class HiveTableProperties
                                 .collect(Collectors.toList())),
                         value -> value),
                 new PropertyMetadata<>(
+                        SORTED_BY_PROPERTY,
+                        "Bucket sorting columns",
+                        typeManager.getType(parseTypeSignature("array(varchar)")),
+                        List.class,
+                        ImmutableList.of(),
+                        false,
+                        value -> ((Collection<?>) value).stream()
+                                .map(String.class::cast)
+                                .map(HiveTableProperties::sortingColumnFromString)
+                                .collect(toImmutableList()),
+                        value -> ((Collection<?>) value).stream()
+                                .map(SortingColumn.class::cast)
+                                .map(HiveTableProperties::sortingColumnToString)
+                                .collect(toImmutableList())),
+                new PropertyMetadata<>(
                         ORC_BLOOM_FILTER_COLUMNS,
                         "ORC Bloom filter index columns",
                         typeManager.getType(parseTypeSignature("array(varchar)")),
@@ -132,8 +151,12 @@ public class HiveTableProperties
     public static Optional<HiveBucketProperty> getBucketProperty(Map<String, Object> tableProperties)
     {
         List<String> bucketedBy = getBucketedBy(tableProperties);
+        List<SortingColumn> sortedBy = getSortedBy(tableProperties);
         int bucketCount = (Integer) tableProperties.get(BUCKET_COUNT_PROPERTY);
         if ((bucketedBy.isEmpty()) && (bucketCount == 0)) {
+            if (!sortedBy.isEmpty()) {
+                throw new PrestoException(INVALID_TABLE_PROPERTY, format("%s may be specified only when %s is specified", SORTED_BY_PROPERTY, BUCKETED_BY_PROPERTY));
+            }
             return Optional.empty();
         }
         if (bucketCount < 0) {
@@ -142,7 +165,7 @@ public class HiveTableProperties
         if (bucketedBy.isEmpty() || bucketCount == 0) {
             throw new PrestoException(INVALID_TABLE_PROPERTY, format("%s and %s must be specified together", BUCKETED_BY_PROPERTY, BUCKET_COUNT_PROPERTY));
         }
-        return Optional.of(new HiveBucketProperty(bucketedBy, bucketCount));
+        return Optional.of(new HiveBucketProperty(bucketedBy, bucketCount, sortedBy));
     }
 
     @SuppressWarnings("unchecked")
@@ -151,6 +174,13 @@ public class HiveTableProperties
         return (List<String>) tableProperties.get(BUCKETED_BY_PROPERTY);
     }
 
+    @SuppressWarnings("unchecked")
+    private static List<SortingColumn> getSortedBy(Map<String, Object> tableProperties)
+    {
+        return (List<SortingColumn>) tableProperties.get(SORTED_BY_PROPERTY);
+    }
+
+    @SuppressWarnings("unchecked")
     public static List<String> getOrcBloomFilterColumns(Map<String, Object> tableProperties)
     {
         return (List<String>) tableProperties.get(ORC_BLOOM_FILTER_COLUMNS);
@@ -159,5 +189,24 @@ public class HiveTableProperties
     public static Double getOrcBloomFilterFpp(Map<String, Object> tableProperties)
     {
         return (Double) tableProperties.get(ORC_BLOOM_FILTER_FPP);
+    }
+
+    private static SortingColumn sortingColumnFromString(String name)
+    {
+        SortingColumn.Order order = ASCENDING;
+        String lower = name.toUpperCase(ENGLISH);
+        if (lower.endsWith(" ASC")) {
+            name = name.substring(0, name.length() - 4).trim();
+        }
+        else if (lower.endsWith(" DESC")) {
+            name = name.substring(0, name.length() - 5).trim();
+            order = DESCENDING;
+        }
+        return new SortingColumn(name, order);
+    }
+
+    private static String sortingColumnToString(SortingColumn column)
+    {
+        return column.getColumnName() + ((column.getOrder() == DESCENDING) ? " DESC" : "");
     }
 }

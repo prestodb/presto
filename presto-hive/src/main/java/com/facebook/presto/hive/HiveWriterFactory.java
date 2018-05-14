@@ -18,12 +18,15 @@ import com.facebook.presto.hive.LocationService.WriteInfo;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.HivePageSinkMetadataProvider;
 import com.facebook.presto.hive.metastore.Partition;
+import com.facebook.presto.hive.metastore.SortingColumn;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -35,6 +38,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import io.airlift.event.client.EventClient;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.common.FileUtils;
 import org.apache.hadoop.hive.conf.HiveConf;
@@ -46,6 +50,8 @@ import org.apache.hive.common.util.ReflectionUtil;
 
 import java.io.IOException;
 import java.security.Principal;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -62,7 +68,9 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_READ_ONLY;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PATH_ALREADY_EXISTS;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
 import static com.facebook.presto.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
+import static com.facebook.presto.hive.HiveSessionProperties.getWriterSortBufferSize;
 import static com.facebook.presto.hive.HiveType.toHiveTypes;
 import static com.facebook.presto.hive.HiveWriteUtils.getField;
 import static com.facebook.presto.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY;
@@ -71,6 +79,7 @@ import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFo
 import static com.facebook.presto.hive.util.ConfigurationUtils.toJobConf;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.io.BaseEncoding.base16;
 import static java.lang.Math.min;
@@ -109,13 +118,16 @@ public class HiveWriterFactory
     private final HivePageSinkMetadataProvider pageSinkMetadataProvider;
     private final TypeManager typeManager;
     private final HdfsEnvironment hdfsEnvironment;
+    private final PageSorter pageSorter;
     private final JobConf conf;
 
     private final Table table;
+    private final int maxSortFilesPerBucket;
     private final boolean immutablePartitions;
 
     private final ConnectorSession session;
     private final OptionalInt bucketCount;
+    private final List<SortingColumn> sortedBy;
 
     private final NodeManager nodeManager;
     private final EventClient eventClient;
@@ -132,12 +144,15 @@ public class HiveWriterFactory
             HiveStorageFormat tableStorageFormat,
             HiveStorageFormat partitionStorageFormat,
             OptionalInt bucketCount,
+            List<SortingColumn> sortedBy,
             LocationHandle locationHandle,
             LocationService locationService,
             String filePrefix,
             HivePageSinkMetadataProvider pageSinkMetadataProvider,
             TypeManager typeManager,
             HdfsEnvironment hdfsEnvironment,
+            PageSorter pageSorter,
+            int maxSortFilesPerBucket,
             boolean immutablePartitions,
             ConnectorSession session,
             NodeManager nodeManager,
@@ -160,6 +175,8 @@ public class HiveWriterFactory
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
 
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.pageSorter = requireNonNull(pageSorter, "pageSorter is null");
+        this.maxSortFilesPerBucket = maxSortFilesPerBucket;
         this.immutablePartitions = immutablePartitions;
 
         // divide input columns into partition and data columns
@@ -201,6 +218,8 @@ public class HiveWriterFactory
         if (bucketCount.isPresent()) {
             checkArgument(bucketCount.getAsInt() < MAX_BUCKET_COUNT, "bucketCount must be smaller than " + MAX_BUCKET_COUNT);
         }
+
+        this.sortedBy = ImmutableList.copyOf(requireNonNull(sortedBy, "sortedBy is null"));
 
         this.session = requireNonNull(session, "session is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
@@ -434,6 +453,47 @@ public class HiveWriterFactory
                     size.orElse(null),
                     hiveWriter.getRowCount()));
         };
+
+        if (!sortedBy.isEmpty()) {
+            FileSystem fileSystem;
+            try {
+                fileSystem = hdfsEnvironment.getFileSystem(session.getUser(), path, conf);
+            }
+            catch (IOException e) {
+                throw new PrestoException(HIVE_WRITER_OPEN_ERROR, e);
+            }
+
+            List<Type> types = dataColumns.stream()
+                    .map(column -> column.getHiveType().getType(typeManager))
+                    .collect(toImmutableList());
+
+            Map<String, Integer> columnIndexes = new HashMap<>();
+            for (int i = 0; i < dataColumns.size(); i++) {
+                columnIndexes.put(dataColumns.get(i).getName(), i);
+            }
+
+            List<Integer> sortFields = new ArrayList<>();
+            List<SortOrder> sortOrders = new ArrayList<>();
+            for (SortingColumn column : sortedBy) {
+                Integer index = columnIndexes.get(column.getColumnName());
+                if (index == null) {
+                    throw new PrestoException(HIVE_INVALID_METADATA, format("Sorting column '%s' does exist in table '%s.%s'", column.getColumnName(), schemaName, tableName));
+                }
+                sortFields.add(index);
+                sortOrders.add(column.getOrder().getSortOrder());
+            }
+
+            hiveFileWriter = new SortingFileWriter(
+                    fileSystem,
+                    new Path(path.getParent(), ".tmp-sort." + path.getName()),
+                    hiveFileWriter,
+                    getWriterSortBufferSize(session),
+                    maxSortFilesPerBucket,
+                    types,
+                    sortFields,
+                    sortOrders,
+                    pageSorter);
+        }
 
         return new HiveWriter(
                 hiveFileWriter,
