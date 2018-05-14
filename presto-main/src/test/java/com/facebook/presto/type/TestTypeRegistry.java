@@ -27,6 +27,14 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.spi.function.OperatorType.EQUAL;
+import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN;
+import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
+import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
+import static com.facebook.presto.spi.function.OperatorType.IS_DISTINCT_FROM;
+import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
+import static com.facebook.presto.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
+import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.CharType.createCharType;
 import static com.facebook.presto.spi.type.DateType.DATE;
@@ -246,6 +254,25 @@ public class TestTypeRegistry
                     assertTrue(functionRegistry.canResolveOperator(OperatorType.CAST, resultType, ImmutableList.of(sourceType)),
                             format("'%s' -> '%s' coercion exists but there is no cast operator", sourceType, resultType));
                 }
+            }
+        }
+    }
+
+    @Test
+    public void testOperatorsImplemented()
+    {
+        for (Type type : typeRegistry.getTypes()) {
+            if (type.isComparable()) {
+                functionRegistry.resolveOperator(EQUAL, ImmutableList.of(type, type));
+                functionRegistry.resolveOperator(NOT_EQUAL, ImmutableList.of(type, type));
+                functionRegistry.resolveOperator(IS_DISTINCT_FROM, ImmutableList.of(type, type));
+                functionRegistry.resolveOperator(HASH_CODE, ImmutableList.of(type));
+            }
+            if (type.isOrderable()) {
+                functionRegistry.resolveOperator(LESS_THAN, ImmutableList.of(type, type));
+                functionRegistry.resolveOperator(LESS_THAN_OR_EQUAL, ImmutableList.of(type, type));
+                functionRegistry.resolveOperator(GREATER_THAN_OR_EQUAL, ImmutableList.of(type, type));
+                functionRegistry.resolveOperator(GREATER_THAN, ImmutableList.of(type, type));
             }
         }
     }
