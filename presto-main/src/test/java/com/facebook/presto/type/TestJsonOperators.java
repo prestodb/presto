@@ -366,6 +366,16 @@ public class TestJsonOperators
     }
 
     @Test
+    public void testIsDistinctFrom()
+    {
+        assertFunction("JSON 'null' IS DISTINCT FROM JSON 'null'", BOOLEAN, false);
+        assertFunction("JSON '{ \"a\": 1 , \"b\": 2 , \"c\": { \"d\": 3 }}' IS DISTINCT FROM JSON '{ \"a\": 1 , \"b\": 2 , \"c\" : { \"d\" : 4 }}'", BOOLEAN, true);
+        assertFunction("JSON '{ \"a\": 1 , \"b\": 2 , \"c\": { \"d\": 3 }}' IS DISTINCT FROM JSON '{ \"b\": 2 , \"a\": 1 , \"c\": { \"d\": 3 }}'", BOOLEAN, false);
+        assertFunction("JSON '{ \"a\": 1 , \"b\": 2 , \"c\": { \"d\": 3 }}' IS DISTINCT FROM JSON 'null'", BOOLEAN, true);
+        assertFunction("JSON 'null' IS DISTINCT FROM JSON '{ \"a\": 1 , \"b\": 2 , \"c\" : { \"d\" : 4 }}'", BOOLEAN, true);
+    }
+
+    @Test
     public void testCastFromVarchar()
     {
         assertFunction("cast(cast (null as varchar) as JSON)", JSON, null);
