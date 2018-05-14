@@ -26,6 +26,7 @@ import io.airlift.stats.GcMonitor;
 import io.airlift.stats.TestingGcMonitor;
 import io.airlift.units.DataSize;
 
+import java.util.OptionalInt;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -69,7 +70,8 @@ public final class TestingTaskContext
                 taskStateMachine,
                 session,
                 true,
-                true);
+                true,
+                OptionalInt.empty());
     }
 
     public static Builder builder(Executor notificationExecutor, ScheduledExecutorService yieldExecutor, Session session)

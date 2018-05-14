@@ -130,7 +130,8 @@ public class TaskResource
                 taskId,
                 taskUpdateRequest.getFragment(),
                 taskUpdateRequest.getSources(),
-                taskUpdateRequest.getOutputIds());
+                taskUpdateRequest.getOutputIds(),
+                taskUpdateRequest.getTotalPartitions());
 
         if (shouldSummarize(uriInfo)) {
             taskInfo = taskInfo.summarize();

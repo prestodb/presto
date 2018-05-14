@@ -20,6 +20,7 @@ import com.facebook.presto.operator.TaskContext;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
+import java.util.OptionalInt;
 
 /**
  * This interface and the LegacyQueryContext implementation are written to ease the removal of the system memory pool.
@@ -38,7 +39,7 @@ public interface QueryContext
 
     TaskContext getTaskContextByTaskId(TaskId taskId);
 
-    TaskContext addTaskContext(TaskStateMachine taskStateMachine, Session session, boolean verboseStats, boolean cpuTimerEnabled);
+    TaskContext addTaskContext(TaskStateMachine taskStateMachine, Session session, boolean verboseStats, boolean cpuTimerEnabled, OptionalInt totalPartitions);
 
     MemoryPool getMemoryPool();
 
