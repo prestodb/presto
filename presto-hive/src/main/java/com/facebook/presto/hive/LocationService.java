@@ -38,8 +38,8 @@ public interface LocationService
     WriteInfo getTableWriteInfo(LocationHandle locationHandle);
 
     /**
-     * Returns {@code WriteInfo} for existing partition partition if {@code partition} is present,
-     * otherwise, returns {@code WriteInfo} for the new partition.
+     * If {@code partition} is present, returns {@code WriteInfo} for appending existing partition;
+     * otherwise, returns {@code WriteInfo} for writing new partition or overwriting existing partition.
      */
     WriteInfo getPartitionWriteInfo(LocationHandle locationHandle, Optional<Partition> partition, String partitionName);
 

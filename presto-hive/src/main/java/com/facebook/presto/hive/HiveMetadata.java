@@ -150,6 +150,7 @@ import static com.facebook.presto.hive.HiveWriteUtils.initializeSerializer;
 import static com.facebook.presto.hive.HiveWriteUtils.isWritableType;
 import static com.facebook.presto.hive.PartitionUpdate.UpdateMode.APPEND;
 import static com.facebook.presto.hive.PartitionUpdate.UpdateMode.NEW;
+import static com.facebook.presto.hive.PartitionUpdate.UpdateMode.OVERWRITE;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.toHivePrivilege;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getProtectMode;
@@ -1102,11 +1103,15 @@ public class HiveMetadata
                         partitionUpdate.getFileNames(),
                         partitionUpdate.getStatistics());
             }
-            else if (partitionUpdate.getUpdateMode() == NEW) {
-                // insert into new partition
+            else if (partitionUpdate.getUpdateMode() == NEW || partitionUpdate.getUpdateMode() == OVERWRITE) {
+                // insert into new partition or overwrite existing partition
                 Partition partition = buildPartitionObject(session, table.get(), partitionUpdate);
                 if (!partition.getStorage().getStorageFormat().getInputFormat().equals(handle.getPartitionStorageFormat().getInputFormat()) && isRespectTableFormat(session)) {
                     throw new PrestoException(HIVE_CONCURRENT_MODIFICATION_DETECTED, "Partition format changed during insert");
+                }
+
+                if (partitionUpdate.getUpdateMode() == OVERWRITE) {
+                    metastore.dropPartition(session, handle.getSchemaName(), handle.getTableName(), partition.getValues());
                 }
                 metastore.addPartition(session, handle.getSchemaName(), handle.getTableName(), partition, partitionUpdate.getWritePath());
             }

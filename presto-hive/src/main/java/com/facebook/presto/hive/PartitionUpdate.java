@@ -201,5 +201,6 @@ public class PartitionUpdate
     {
         NEW,
         APPEND,
+        OVERWRITE,
     }
 }
