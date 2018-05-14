@@ -129,6 +129,7 @@ import static com.google.common.base.Predicates.instanceOf;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ExpressionInterpreter
@@ -169,9 +170,9 @@ public class ExpressionInterpreter
 
         Type actualType = analyzer.getExpressionTypes().get(NodeRef.of(expression));
         if (!metadata.getTypeManager().canCoerce(actualType, expectedType)) {
-            throw new SemanticException(SemanticErrorCode.TYPE_MISMATCH, expression, String.format("Cannot cast type %s to %s",
-                    expectedType.getTypeSignature(),
-                    actualType.getTypeSignature()));
+            throw new SemanticException(SemanticErrorCode.TYPE_MISMATCH, expression, format("Cannot cast type %s to %s",
+                    actualType.getTypeSignature(),
+                    expectedType.getTypeSignature()));
         }
 
         Map<NodeRef<Expression>, Type> coercions = ImmutableMap.<NodeRef<Expression>, Type>builder()
