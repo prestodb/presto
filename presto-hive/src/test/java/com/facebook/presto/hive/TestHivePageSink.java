@@ -55,6 +55,7 @@ import java.util.stream.Stream;
 
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveCompressionCodec.NONE;
+import static com.facebook.presto.hive.HiveTestUtils.PAGE_SORTER;
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveTestUtils.createTestHdfsEnvironment;
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveDataStreamFactories;
@@ -253,6 +254,7 @@ public class TestHivePageSink
         HivePageSinkProvider provider = new HivePageSinkProvider(
                 getDefaultHiveFileWriterFactories(config),
                 hdfsEnvironment,
+                PAGE_SORTER,
                 metastore,
                 new GroupByHashPageIndexerFactory(new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig())),
                 TYPE_MANAGER,

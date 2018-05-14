@@ -105,6 +105,7 @@ public class HiveConnectorFactory
                         binder.bind(NodeManager.class).toInstance(context.getNodeManager());
                         binder.bind(TypeManager.class).toInstance(context.getTypeManager());
                         binder.bind(PageIndexerFactory.class).toInstance(context.getPageIndexerFactory());
+                        binder.bind(PageSorter.class).toInstance(context.getPageSorter());
                     });
 
             Injector injector = app

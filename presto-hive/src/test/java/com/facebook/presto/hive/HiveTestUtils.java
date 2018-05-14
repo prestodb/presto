@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.PagesIndexPageSorter;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.orc.DwrfPageSourceFactory;
@@ -24,8 +25,10 @@ import com.facebook.presto.hive.s3.HiveS3Config;
 import com.facebook.presto.hive.s3.PrestoS3ConfigurationUpdater;
 import com.facebook.presto.hive.s3.S3ConfigurationUpdater;
 import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.NamedTypeSignature;
@@ -61,6 +64,8 @@ public final class HiveTestUtils
     }
 
     public static final HdfsEnvironment HDFS_ENVIRONMENT = createTestHdfsEnvironment(new HiveClientConfig());
+
+    public static final PageSorter PAGE_SORTER = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
 
     public static Set<HivePageSourceFactory> getDefaultHiveDataStreamFactories(HiveClientConfig hiveClientConfig)
     {

@@ -21,10 +21,13 @@ import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.PrincipalType;
+import com.facebook.presto.hive.metastore.SortingColumn;
+import com.facebook.presto.hive.metastore.SortingColumn.Order;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.PrestoException;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.ArrayList;
@@ -34,6 +37,7 @@ import java.util.Optional;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Strings.nullToEmpty;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -95,13 +99,20 @@ public final class GlueToPrestoConverter
             if (isNullOrEmpty(sd.getBucketColumns())) {
                 throw new PrestoException(HIVE_INVALID_METADATA, "Table/partition metadata has 'numBuckets' set, but 'bucketCols' is not set");
             }
-            bucketProperty = Optional.of(new HiveBucketProperty(sd.getBucketColumns(), sd.getNumberOfBuckets()));
+            List<SortingColumn> sortedBy = ImmutableList.of();
+            if (!isNullOrEmpty(sd.getSortColumns())) {
+                sortedBy = sd.getSortColumns().stream()
+                        .map(column -> new SortingColumn(
+                                column.getColumn(),
+                                Order.fromMetastoreApiOrder(column.getSortOrder(), "unknown")))
+                        .collect(toImmutableList());
+            }
+            bucketProperty = Optional.of(new HiveBucketProperty(sd.getBucketColumns(), sd.getNumberOfBuckets(), sortedBy));
         }
 
         storageBuilder.setStorageFormat(StorageFormat.createNullable(serdeInfo.getSerializationLibrary(), sd.getInputFormat(), sd.getOutputFormat()))
                 .setLocation(nullToEmpty(sd.getLocation()))
                 .setBucketProperty(bucketProperty)
-                .setSorted(!isNullOrEmpty(sd.getSortColumns()))
                 .setSkewed(sd.getSkewedInfo() != null && !isNullOrEmpty(sd.getSkewedInfo().getSkewedColumnNames()))
                 .setSerdeParameters(firstNonNull(serdeInfo.getParameters(), ImmutableMap.of()))
                 .build();

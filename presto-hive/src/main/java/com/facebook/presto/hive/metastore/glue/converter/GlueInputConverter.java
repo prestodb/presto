@@ -68,8 +68,8 @@ public final class GlueInputConverter
 
     private static StorageDescriptor convertStorage(Storage storage, List<Column> columns)
     {
-        if (storage.isSorted() || storage.isSkewed()) {
-            throw new IllegalArgumentException("Writing to sorted and/or skewed table/partition is not supported");
+        if (storage.isSkewed()) {
+            throw new IllegalArgumentException("Writing to skewed table/partition is not supported");
         }
         SerDeInfo serdeInfo = new SerDeInfo()
                 .withSerializationLibrary(storage.getStorageFormat().getSerDeNullable())

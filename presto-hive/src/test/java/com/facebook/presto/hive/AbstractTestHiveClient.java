@@ -26,6 +26,7 @@ import com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.PrincipalPrivileges;
 import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
+import com.facebook.presto.hive.metastore.SortingColumn;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.hive.metastore.thrift.BridgingHiveMetastore;
@@ -54,6 +55,7 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.DiscretePredicates;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordPageSource;
@@ -61,6 +63,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.ViewNotFoundException;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
@@ -98,6 +101,7 @@ import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.stats.CounterStat;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
@@ -122,6 +126,7 @@ import java.util.Set;
 import java.util.TimeZone;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.IntStream;
 import java.util.stream.LongStream;
 
@@ -155,7 +160,9 @@ import static com.facebook.presto.hive.HiveStorageFormat.TEXTFILE;
 import static com.facebook.presto.hive.HiveTableProperties.BUCKETED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
+import static com.facebook.presto.hive.HiveTableProperties.SORTED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
+import static com.facebook.presto.hive.HiveTestUtils.PAGE_SORTER;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveTestUtils.arrayType;
@@ -207,6 +214,7 @@ import static com.google.common.collect.Lists.newArrayList;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.collect.Sets.difference;
+import static com.google.common.hash.Hashing.sha256;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -214,7 +222,10 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.testing.Assertions.assertContains;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static io.airlift.testing.Assertions.assertGreaterThan;
+import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static io.airlift.testing.Assertions.assertInstanceOf;
+import static io.airlift.testing.Assertions.assertLessThanOrEqual;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
@@ -638,6 +649,7 @@ public abstract class AbstractTestHiveClient
         pageSinkProvider = new HivePageSinkProvider(
                 getDefaultHiveFileWriterFactories(hiveClientConfig),
                 hdfsEnvironment,
+                PAGE_SORTER,
                 metastoreClient,
                 new GroupByHashPageIndexerFactory(JOIN_COMPILER),
                 TYPE_MANAGER,
@@ -1438,18 +1450,18 @@ public abstract class AbstractTestHiveClient
                         new Column("id", HIVE_LONG, Optional.empty()),
                         new Column("name", HIVE_STRING, Optional.empty())),
                 ImmutableList.of(new Column("pk", HIVE_STRING, Optional.empty())),
-                Optional.of(new HiveBucketProperty(ImmutableList.of("id"), 4)));
+                Optional.of(new HiveBucketProperty(ImmutableList.of("id"), 4, ImmutableList.of())));
         // write a 4-bucket partition
         MaterializedResult.Builder bucket4Builder = MaterializedResult.resultBuilder(SESSION, BIGINT, VARCHAR, VARCHAR);
         IntStream.range(0, rowCount).forEach(i -> bucket4Builder.row((long) i, String.valueOf(i), "four"));
         insertData(tableName, bucket4Builder.build());
         // write a 16-bucket partition
-        alterBucketProperty(tableName, Optional.of(new HiveBucketProperty(ImmutableList.of("id"), 16)));
+        alterBucketProperty(tableName, Optional.of(new HiveBucketProperty(ImmutableList.of("id"), 16, ImmutableList.of())));
         MaterializedResult.Builder bucket16Builder = MaterializedResult.resultBuilder(SESSION, BIGINT, VARCHAR, VARCHAR);
         IntStream.range(0, rowCount).forEach(i -> bucket16Builder.row((long) i, String.valueOf(i), "sixteen"));
         insertData(tableName, bucket16Builder.build());
         // write an 8-bucket partition
-        alterBucketProperty(tableName, Optional.of(new HiveBucketProperty(ImmutableList.of("id"), 8)));
+        alterBucketProperty(tableName, Optional.of(new HiveBucketProperty(ImmutableList.of("id"), 8, ImmutableList.of())));
         MaterializedResult.Builder bucket8Builder = MaterializedResult.resultBuilder(SESSION, BIGINT, VARCHAR, VARCHAR);
         IntStream.range(0, rowCount).forEach(i -> bucket8Builder.row((long) i, String.valueOf(i), "eight"));
         insertData(tableName, bucket8Builder.build());
@@ -2101,6 +2113,141 @@ public abstract class AbstractTestHiveClient
                         .setStorageFormat(fromHiveStorageFormat(ORC))
                         .setSerdeParameters(ImmutableMap.of()))
                 .build();
+    }
+
+    @Test
+    public void testBucketSortedTables()
+            throws Exception
+    {
+        SchemaTableName table = temporaryTable("create_sorted");
+        try {
+            doTestBucketSortedTables(table);
+        }
+        finally {
+            dropTable(table);
+        }
+    }
+
+    private void doTestBucketSortedTables(SchemaTableName table)
+            throws IOException
+    {
+        int bucketCount = 3;
+
+        try (Transaction transaction = newTransaction()) {
+            HiveClientConfig hiveConfig = new HiveClientConfig()
+                    .setSortedWritingEnabled(true)
+                    .setWriterSortBufferSize(new DataSize(1, MEGABYTE));
+            ConnectorSession session = new TestingConnectorSession(new HiveSessionProperties(hiveConfig, new OrcFileWriterConfig()).getSessionProperties());
+            ConnectorMetadata metadata = transaction.getMetadata();
+
+            // begin creating the table
+            ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(
+                    table,
+                    ImmutableList.<ColumnMetadata>builder()
+                            .add(new ColumnMetadata("id", VARCHAR))
+                            .add(new ColumnMetadata("value_asc", VARCHAR))
+                            .add(new ColumnMetadata("value_desc", BIGINT))
+                            .add(new ColumnMetadata("ds", VARCHAR))
+                            .build(),
+                    ImmutableMap.<String, Object>builder()
+                            .put(STORAGE_FORMAT_PROPERTY, RCBINARY)
+                            .put(PARTITIONED_BY_PROPERTY, ImmutableList.of("ds"))
+                            .put(BUCKETED_BY_PROPERTY, ImmutableList.of("id"))
+                            .put(BUCKET_COUNT_PROPERTY, bucketCount)
+                            .put(SORTED_BY_PROPERTY, ImmutableList.builder()
+                                    .add(new SortingColumn("value_asc", SortingColumn.Order.ASCENDING))
+                                    .add(new SortingColumn("value_desc", SortingColumn.Order.DESCENDING))
+                                    .build())
+                            .build());
+
+            ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(session, tableMetadata, Optional.empty());
+
+            // write the data
+            ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, outputHandle);
+            List<Type> types = tableMetadata.getColumns().stream()
+                    .map(ColumnMetadata::getType)
+                    .collect(toList());
+            ThreadLocalRandom random = ThreadLocalRandom.current();
+            for (int i = 0; i < 200; i++) {
+                MaterializedResult.Builder builder = MaterializedResult.resultBuilder(session, types);
+                for (int j = 0; j < 1000; j++) {
+                    builder.row(
+                            sha256().hashLong(random.nextLong()).toString(),
+                            "test" + random.nextInt(100),
+                            random.nextLong(100_000),
+                            "2018-04-01");
+                }
+                sink.appendPage(builder.build().toPage());
+            }
+
+            // verify we have several temporary files per bucket
+            Path stagingPathRoot = getStagingPathRoot(outputHandle);
+            HdfsContext context = new HdfsContext(session, table.getSchemaName(), table.getTableName());
+            assertThat(listAllDataFiles(context, stagingPathRoot))
+                    .filteredOn(file -> file.contains(".tmp-sort."))
+                    .size().isGreaterThanOrEqualTo(bucketCount * 3);
+
+            // finish the write
+            Collection<Slice> fragments = getFutureValue(sink.finish());
+
+            // verify there are no temporary files
+            for (String file : listAllDataFiles(context, stagingPathRoot)) {
+                assertThat(file).doesNotStartWith(".tmp-sort.");
+            }
+
+            // finish creating table
+            metadata.finishCreateTable(session, outputHandle, fragments);
+
+            transaction.commit();
+        }
+
+        // verify that bucket files are sorted
+        try (Transaction transaction = newTransaction()) {
+            ConnectorMetadata metadata = transaction.getMetadata();
+            ConnectorSession session = newSession();
+
+            ConnectorTableHandle tableHandle = getTableHandle(metadata, table);
+            List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(session, tableHandle).values());
+
+            List<ConnectorSplit> splits = getAllSplits(tableHandle, TupleDomain.all());
+            assertThat(splits).hasSize(bucketCount);
+
+            for (ConnectorSplit split : splits) {
+                try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(transaction.getTransactionHandle(), session, split, columnHandles)) {
+                    String lastValueAsc = null;
+                    long lastValueDesc = -1;
+
+                    while (!pageSource.isFinished()) {
+                        Page page = pageSource.getNextPage();
+                        if (page == null) {
+                            continue;
+                        }
+                        for (int i = 0; i < page.getPositionCount(); i++) {
+                            Block blockAsc = page.getBlock(1);
+                            Block blockDesc = page.getBlock(2);
+                            assertFalse(blockAsc.isNull(i));
+                            assertFalse(blockDesc.isNull(i));
+
+                            String valueAsc = VARCHAR.getSlice(blockAsc, i).toStringUtf8();
+                            if (lastValueAsc != null) {
+                                assertGreaterThanOrEqual(valueAsc, lastValueAsc);
+                                if (valueAsc.equals(lastValueAsc)) {
+                                    long valueDesc = BIGINT.getLong(blockDesc, i);
+                                    if (lastValueDesc != -1) {
+                                        assertLessThanOrEqual(valueDesc, lastValueDesc);
+                                    }
+                                    lastValueDesc = valueDesc;
+                                }
+                                else {
+                                    lastValueDesc = -1;
+                                }
+                            }
+                            lastValueAsc = valueAsc;
+                        }
+                    }
+                }
+            }
+        }
     }
 
     @Test
@@ -3672,6 +3819,7 @@ public abstract class AbstractTestHiveClient
                 .put(PARTITIONED_BY_PROPERTY, ImmutableList.copyOf(parititonedBy))
                 .put(BUCKETED_BY_PROPERTY, ImmutableList.of())
                 .put(BUCKET_COUNT_PROPERTY, 0)
+                .put(SORTED_BY_PROPERTY, ImmutableList.of())
                 .build();
     }
 

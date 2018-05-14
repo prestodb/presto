@@ -1712,10 +1712,13 @@ public class TestHiveIntegrationSmokeTest
                         "   c5 double COMMENT 'comment test5'\n)\n" +
                         "COMMENT 'test'\n" +
                         "WITH (\n" +
+                        "   bucket_count = 5,\n" +
+                        "   bucketed_by = ARRAY['c1','c 2'],\n" +
                         "   format = 'ORC',\n" +
                         "   orc_bloom_filter_columns = ARRAY['c1','c2'],\n" +
                         "   orc_bloom_filter_fpp = 7E-1,\n" +
-                        "   partitioned_by = ARRAY['c4','c5']\n" +
+                        "   partitioned_by = ARRAY['c4','c5'],\n" +
+                        "   sorted_by = ARRAY['c1','c 2 DESC']\n" +
                         ")",
                 getSession().getCatalog().get(),
                 getSession().getSchema().get(),
