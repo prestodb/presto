@@ -31,6 +31,7 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalInt;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
@@ -251,7 +252,7 @@ public class DefaultQueryContext
     }
 
     @Override
-    public TaskContext addTaskContext(TaskStateMachine taskStateMachine, Session session, boolean verboseStats, boolean cpuTimerEnabled)
+    public TaskContext addTaskContext(TaskStateMachine taskStateMachine, Session session, boolean verboseStats, boolean cpuTimerEnabled, OptionalInt totalPartitions)
     {
         TaskContext taskContext = TaskContext.createTaskContext(
                 this,
@@ -262,7 +263,8 @@ public class DefaultQueryContext
                 session,
                 queryMemoryContext.newMemoryTrackingContext(),
                 verboseStats,
-                cpuTimerEnabled);
+                cpuTimerEnabled,
+                totalPartitions);
         taskContexts.put(taskStateMachine.getTaskId(), taskContext);
         return taskContext;
     }

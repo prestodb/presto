@@ -155,8 +155,9 @@ public class FixedSourcePartitionedScheduler
         // schedule a task on every node in the distribution
         List<RemoteTask> newTasks = ImmutableList.of();
         if (!scheduledTasks) {
+            OptionalInt totalPartitions = OptionalInt.of(partitioning.getPartitionToNode().size());
             newTasks = partitioning.getPartitionToNode().entrySet().stream()
-                    .map(entry -> stage.scheduleTask(entry.getValue(), entry.getKey()))
+                    .map(entry -> stage.scheduleTask(entry.getValue(), entry.getKey(), totalPartitions))
                     .collect(toImmutableList());
             scheduledTasks = true;
         }

@@ -37,6 +37,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.util.OptionalInt;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Consumer;
@@ -110,7 +111,8 @@ public class TestMemoryTracking
                 new TaskStateMachine(new TaskId("query", 0, 0), notificationExecutor),
                 testSessionBuilder().build(),
                 true,
-                true);
+                true,
+                OptionalInt.empty());
         pipelineContext = taskContext.addPipelineContext(0, true, true);
         driverContext = pipelineContext.addDriverContext();
         operatorContext = driverContext.addOperatorContext(1, new PlanNodeId("a"), "test-operator");

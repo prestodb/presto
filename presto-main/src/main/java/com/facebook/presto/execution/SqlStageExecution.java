@@ -46,6 +46,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
@@ -306,12 +307,12 @@ public final class SqlStageExecution
                 .collect(toImmutableList());
     }
 
-    public synchronized RemoteTask scheduleTask(Node node, int partition)
+    public synchronized RemoteTask scheduleTask(Node node, int partition, OptionalInt totalPartitions)
     {
         requireNonNull(node, "node is null");
 
         checkState(!splitsScheduled.get(), "scheduleTask can not be called once splits have been scheduled");
-        return scheduleTask(node, new TaskId(stateMachine.getStageId(), partition), ImmutableMultimap.of());
+        return scheduleTask(node, new TaskId(stateMachine.getStageId(), partition), ImmutableMultimap.of(), totalPartitions);
     }
 
     public synchronized Set<RemoteTask> scheduleSplits(Node node, Multimap<PlanNodeId, Split> splits, Multimap<PlanNodeId, Lifespan> noMoreSplitsNotification)
@@ -330,7 +331,7 @@ public final class SqlStageExecution
             // The output buffer depends on the task id starting from 0 and being sequential, since each
             // task is assigned a private buffer based on task id.
             TaskId taskId = new TaskId(stateMachine.getStageId(), nextTaskId.getAndIncrement());
-            task = scheduleTask(node, taskId, splits);
+            task = scheduleTask(node, taskId, splits, OptionalInt.empty());
             newTasks.add(task);
         }
         else {
@@ -349,7 +350,7 @@ public final class SqlStageExecution
         return newTasks.build();
     }
 
-    private synchronized RemoteTask scheduleTask(Node node, TaskId taskId, Multimap<PlanNodeId, Split> sourceSplits)
+    private synchronized RemoteTask scheduleTask(Node node, TaskId taskId, Multimap<PlanNodeId, Split> sourceSplits, OptionalInt totalPartitions)
     {
         checkArgument(!allTasks.contains(taskId), "A task with id %s already exists", taskId);
 
@@ -372,6 +373,7 @@ public final class SqlStageExecution
                 node,
                 stateMachine.getFragment(),
                 initialSplits.build(),
+                totalPartitions,
                 outputBuffers,
                 nodeTaskMap.createPartitionedSplitCountTracker(node, taskId),
                 summarizeTaskInfo);

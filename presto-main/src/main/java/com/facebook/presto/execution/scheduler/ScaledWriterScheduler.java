@@ -24,10 +24,10 @@ import io.airlift.units.DataSize;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.BiFunction;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.execution.scheduler.ScheduleResult.BlockedReason.WRITER_SCALING;
@@ -39,7 +39,12 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 public class ScaledWriterScheduler
         implements StageScheduler
 {
-    private final BiFunction<Node, Integer, RemoteTask> taskScheduler;
+    private interface TaskScheduler
+    {
+        RemoteTask scheduleTask(Node node, int partition, OptionalInt totalPartitions);
+    }
+
+    private final TaskScheduler taskScheduler;
     private final Supplier<Collection<TaskStatus>> sourceTasksProvider;
     private final Supplier<Collection<TaskStatus>> writerTasksProvider;
     private final NodeSelector nodeSelector;
@@ -120,7 +125,7 @@ public class ScaledWriterScheduler
 
         ImmutableList.Builder<RemoteTask> tasks = ImmutableList.builder();
         for (Node node : nodes) {
-            tasks.add(taskScheduler.apply(node, scheduledNodes.size()));
+            tasks.add(taskScheduler.scheduleTask(node, scheduledNodes.size(), OptionalInt.empty()));
             scheduledNodes.add(node);
         }
 
