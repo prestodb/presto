@@ -24,15 +24,21 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
+import static com.facebook.presto.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.APPEND;
+import static com.facebook.presto.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.ERROR;
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanSessionProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringSessionProperty;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
+import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 
 public final class HiveSessionProperties
 {
     private static final String BUCKET_EXECUTION_ENABLED = "bucket_execution_enabled";
     private static final String FORCE_LOCAL_SCHEDULING = "force_local_scheduling";
+    private static final String INSERT_EXISTING_PARTITIONS_BEHAVIOR = "insert_existing_partitions_behavior";
     private static final String ORC_BLOOM_FILTERS_ENABLED = "orc_bloom_filters_enabled";
     private static final String ORC_MAX_MERGE_DISTANCE = "orc_max_merge_distance";
     private static final String ORC_MAX_BUFFER_SIZE = "orc_max_buffer_size";
@@ -59,6 +65,24 @@ public final class HiveSessionProperties
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
+    public enum InsertExistingPartitionsBehavior
+    {
+        ERROR,
+        APPEND,
+        OVERWRITE,
+        /**/;
+
+        public static InsertExistingPartitionsBehavior valueOf(String value, boolean immutablePartition)
+        {
+            InsertExistingPartitionsBehavior enumValue = valueOf(value.toUpperCase(ENGLISH));
+            if (immutablePartition) {
+                checkArgument(enumValue != APPEND, format("Presto is configured to treat Hive partitions as immutable. %s is not allowed to be set to %s", INSERT_EXISTING_PARTITIONS_BEHAVIOR, APPEND));
+            }
+
+            return enumValue;
+        }
+    }
+
     @Inject
     public HiveSessionProperties(HiveClientConfig hiveClientConfig, OrcFileWriterConfig orcFileWriterConfig)
     {
@@ -73,6 +97,15 @@ public final class HiveSessionProperties
                         "Only schedule splits on workers colocated with data node",
                         hiveClientConfig.isForceLocalScheduling(),
                         false),
+                new PropertyMetadata<>(
+                        INSERT_EXISTING_PARTITIONS_BEHAVIOR,
+                        "Behavior on insert existing partitions; this session property doesn't control behavior on insert existing unpartitioned table",
+                        VARCHAR,
+                        InsertExistingPartitionsBehavior.class,
+                        hiveClientConfig.isImmutablePartitions() ? ERROR : APPEND,
+                        false,
+                        value -> InsertExistingPartitionsBehavior.valueOf((String) value, hiveClientConfig.isImmutablePartitions()),
+                        InsertExistingPartitionsBehavior::toString),
                 booleanSessionProperty(
                         ORC_BLOOM_FILTERS_ENABLED,
                         "ORC: Enable bloom filters for predicate pushdown",
@@ -203,6 +236,11 @@ public final class HiveSessionProperties
     public static boolean isForceLocalScheduling(ConnectorSession session)
     {
         return session.getProperty(FORCE_LOCAL_SCHEDULING, Boolean.class);
+    }
+
+    public static InsertExistingPartitionsBehavior getInsertExistingPartitionsBehavior(ConnectorSession session)
+    {
+        return session.getProperty(INSERT_EXISTING_PARTITIONS_BEHAVIOR, InsertExistingPartitionsBehavior.class);
     }
 
     public static boolean isParquetOptimizedReaderEnabled(ConnectorSession session)
