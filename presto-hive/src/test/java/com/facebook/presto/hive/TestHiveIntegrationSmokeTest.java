@@ -89,6 +89,7 @@ import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
@@ -1661,18 +1662,18 @@ public class TestHiveIntegrationSmokeTest
 
             assertEquals(computeActual("SELECT count(DISTINCT \"$path\") FROM scale_writers_small").getOnlyValue(), 1L);
 
-            // large table that will scale writers to all machines
+            // large table that will scale writers to multiple machines
             assertUpdate(
                     Session.builder(getSession())
                             .setSystemProperty("scale_writers", "true")
-                            .setSystemProperty("writer_min_size", "4MB")
+                            .setSystemProperty("writer_min_size", "1MB")
                             .build(),
-                    "CREATE TABLE scale_writers_large WITH (format = 'RCBINARY') AS SELECT * FROM tpch.sf2.orders",
-                    (long) computeActual("SELECT count(*) FROM tpch.sf2.orders").getOnlyValue());
+                    "CREATE TABLE scale_writers_large WITH (format = 'RCBINARY') AS SELECT * FROM tpch.sf1.orders",
+                    (long) computeActual("SELECT count(*) FROM tpch.sf1.orders").getOnlyValue());
 
-            assertEquals(
-                    computeActual("SELECT count(DISTINCT \"$path\") FROM scale_writers_large"),
-                    computeActual("SELECT count(*) FROM system.runtime.nodes"));
+            long files = (long) computeScalar("SELECT count(DISTINCT \"$path\") FROM scale_writers_large");
+            long workers = (long) computeScalar("SELECT count(*) FROM system.runtime.nodes");
+            assertThat(files).isBetween(2L, workers);
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS scale_writers_large");
