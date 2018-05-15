@@ -618,7 +618,6 @@ public abstract class AbstractTestHiveClient
                 10,
                 true,
                 false,
-                true,
                 false,
                 true,
                 1000,

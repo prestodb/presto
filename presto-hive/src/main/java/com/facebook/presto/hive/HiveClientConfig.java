@@ -42,6 +42,7 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 @DefunctConfig({
         "hive.file-system-cache-ttl",
         "hive.max-global-split-iterator-threads",
+        "hive.bucket-writing",
         "hive.optimized-reader.enabled"})
 public class HiveClientConfig
 {
@@ -124,7 +125,6 @@ public class HiveClientConfig
     private boolean skipDeletionForAlter;
 
     private boolean bucketExecutionEnabled = true;
-    private boolean bucketWritingEnabled = true;
     private boolean sortedWritingEnabled = true;
 
     private int fileSystemMaxCacheSize = 1000;
@@ -977,19 +977,6 @@ public class HiveClientConfig
     public HiveClientConfig setBucketExecutionEnabled(boolean bucketExecutionEnabled)
     {
         this.bucketExecutionEnabled = bucketExecutionEnabled;
-        return this;
-    }
-
-    public boolean isBucketWritingEnabled()
-    {
-        return bucketWritingEnabled;
-    }
-
-    @Config("hive.bucket-writing")
-    @ConfigDescription("Enable writing to bucketed tables")
-    public HiveClientConfig setBucketWritingEnabled(boolean bucketWritingEnabled)
-    {
-        this.bucketWritingEnabled = bucketWritingEnabled;
         return this;
     }
 
