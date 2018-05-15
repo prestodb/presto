@@ -101,7 +101,6 @@ public class TestHiveClientConfig
                 .setHdfsImpersonationEnabled(false)
                 .setSkipDeletionForAlter(false)
                 .setBucketExecutionEnabled(true)
-                .setBucketWritingEnabled(true)
                 .setFileSystemMaxCacheSize(1000)
                 .setTableStatisticsEnabled(true)
                 .setWritesToNonManagedTablesEnabled(false)
