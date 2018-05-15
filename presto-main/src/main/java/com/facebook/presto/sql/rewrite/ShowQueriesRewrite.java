@@ -517,8 +517,7 @@ final class ShowQueriesRewrite
             }
 
             // add bogus row so we can support empty sessions
-            StringLiteral empty = new StringLiteral("");
-            rows.add(row(empty, empty, empty, empty, empty, FALSE_LITERAL));
+            rows.add(row(new StringLiteral(""), new StringLiteral(""), new StringLiteral(""), new StringLiteral(""), new StringLiteral(""), FALSE_LITERAL));
 
             return simpleQuery(
                     selectList(
