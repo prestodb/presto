@@ -26,11 +26,10 @@ import static javax.ws.rs.core.UriBuilder.fromPath;
 public class WebUiResource
 {
     @GET
-    @Path("/{path: .*}")
-    public Response redirect(@Context UriInfo uriInfo)
+    public Response redirectIndexHtml(@Context UriInfo uriInfo)
     {
         return Response.status(MOVED_PERMANENTLY)
-                .location(fromPath("ui").path(uriInfo.getPath()).build())
+                .location(fromPath("/ui/").build())
                 .build();
     }
 }
