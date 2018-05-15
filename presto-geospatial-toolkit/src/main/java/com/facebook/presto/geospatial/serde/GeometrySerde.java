@@ -35,6 +35,7 @@ import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
+import io.airlift.slice.SliceOutput;
 
 import javax.annotation.Nullable;
 
@@ -69,11 +70,16 @@ public class GeometrySerde
         verify(!envelope.isEmpty());
         DynamicSliceOutput output = new DynamicSliceOutput(100);
         output.appendByte(GeometrySerializationType.ENVELOPE.code());
+        writeEnvelope(envelope, output);
+        return output.slice();
+    }
+
+    public static void writeEnvelope(Envelope envelope, SliceOutput output)
+    {
         output.appendDouble(envelope.getXMin());
         output.appendDouble(envelope.getYMin());
         output.appendDouble(envelope.getXMax());
         output.appendDouble(envelope.getYMax());
-        return output.slice();
     }
 
     public static GeometryType getGeometryType(Slice shape)
@@ -351,7 +357,7 @@ public class GeometrySerde
         return new Envelope(x, y, x, y);
     }
 
-    private static Envelope readEnvelope(SliceInput input)
+    public static Envelope readEnvelope(SliceInput input)
     {
         verify(input.available() > 0);
         double xMin = input.readDouble();
