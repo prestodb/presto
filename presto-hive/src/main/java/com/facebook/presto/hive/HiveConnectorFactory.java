@@ -20,6 +20,9 @@ import com.facebook.presto.hive.s3.HiveS3Module;
 import com.facebook.presto.hive.security.HiveSecurityModule;
 import com.facebook.presto.hive.security.PartitionsAwareAccessControl;
 import com.facebook.presto.spi.ConnectorHandleResolver;
+import com.facebook.presto.spi.NodeManager;
+import com.facebook.presto.spi.PageIndexerFactory;
+import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
@@ -33,6 +36,7 @@ import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeConnectorPag
 import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeConnectorSplitManager;
 import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeNodePartitioningProvider;
+import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
@@ -89,11 +93,7 @@ public class HiveConnectorFactory
                     new EventModule(),
                     new MBeanModule(),
                     new JsonModule(),
-                    new HiveClientModule(
-                            connectorId,
-                            context.getTypeManager(),
-                            context.getPageIndexerFactory(),
-                            context.getNodeManager()),
+                    new HiveClientModule(connectorId),
                     new HiveS3Module(connectorId),
                     new HiveMetastoreModule(connectorId, Optional.ofNullable(metastore)),
                     new HiveSecurityModule(),
@@ -102,6 +102,9 @@ public class HiveConnectorFactory
                         MBeanServer platformMBeanServer = ManagementFactory.getPlatformMBeanServer();
                         binder.bind(MBeanServer.class).toInstance(new RebindSafeMBeanServer(platformMBeanServer));
                         binder.bind(NodeVersion.class).toInstance(new NodeVersion(context.getNodeManager().getCurrentNode().getVersion()));
+                        binder.bind(NodeManager.class).toInstance(context.getNodeManager());
+                        binder.bind(TypeManager.class).toInstance(context.getTypeManager());
+                        binder.bind(PageIndexerFactory.class).toInstance(context.getPageIndexerFactory());
                     });
 
             Injector injector = app
