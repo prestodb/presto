@@ -106,7 +106,8 @@ public class AuthenticationFilter
         response.sendError(SC_UNAUTHORIZED, Joiner.on(" | ").join(messages));
     }
 
-    private static boolean isSecureRequest(HttpServletRequest request) {
+    private static boolean isSecureRequest(HttpServletRequest request)
+    {
         String forwardedProto = request.getHeader(X_FORWARDED_PROTO);
         return request.isSecure() || (forwardedProto != null && forwardedProto.equals("https"));
     }
