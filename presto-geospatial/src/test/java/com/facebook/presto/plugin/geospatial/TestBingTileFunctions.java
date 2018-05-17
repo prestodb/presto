@@ -35,6 +35,7 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 
 public class TestBingTileFunctions
@@ -297,15 +298,15 @@ public class TestBingTileFunctions
     public void testGeometryToBingTiles()
             throws Exception
     {
-        assertFunction("transform(geometry_to_bing_tiles(ST_Point(60, 30.12), 10), x -> bing_tile_quadkey(x))", new ArrayType(VARCHAR), ImmutableList.of("1230301230"));
-        assertFunction("transform(geometry_to_bing_tiles(ST_Point(60, 30.12), 15), x -> bing_tile_quadkey(x))", new ArrayType(VARCHAR), ImmutableList.of("123030123010121"));
-        assertFunction("transform(geometry_to_bing_tiles(ST_Point(60, 30.12), 16), x -> bing_tile_quadkey(x))", new ArrayType(VARCHAR), ImmutableList.of("1230301230101212"));
+        assertGeometryToBingTiles("POINT (60 30.12)", 10, ImmutableList.of("1230301230"));
+        assertGeometryToBingTiles("POINT (60 30.12)", 15, ImmutableList.of("123030123010121"));
+        assertGeometryToBingTiles("POINT (60 30.12)", 16, ImmutableList.of("1230301230101212"));
 
-        assertFunction("transform(geometry_to_bing_tiles(ST_GeometryFromText('POLYGON ((0 0, 0 10, 10 10, 10 0))'), 6), x -> bing_tile_quadkey(x))", new ArrayType(VARCHAR), ImmutableList.of("122220", "122222", "122221", "122223"));
-        assertFunction("transform(geometry_to_bing_tiles(ST_GeometryFromText('POLYGON ((0 0, 0 10, 10 10))'), 6), x -> bing_tile_quadkey(x))", new ArrayType(VARCHAR), ImmutableList.of("122220", "122222", "122221"));
+        assertGeometryToBingTiles("POLYGON ((0 0, 0 10, 10 10, 10 0))", 6, ImmutableList.of("122220", "122222", "122221", "122223"));
+        assertGeometryToBingTiles("POLYGON ((0 0, 0 10, 10 10))", 6, ImmutableList.of("122220", "122222", "122221"));
 
-        assertFunction("transform(geometry_to_bing_tiles(ST_GeometryFromText('POLYGON ((10 10, -10 10, -20 -15, 10 10))'), 3), x -> bing_tile_quadkey(x))", new ArrayType(VARCHAR), ImmutableList.of("033", "211", "122"));
-        assertFunction("transform(geometry_to_bing_tiles(ST_GeometryFromText('POLYGON ((10 10, -10 10, -20 -15, 10 10))'), 6), x -> bing_tile_quadkey(x))", new ArrayType(VARCHAR), ImmutableList.of("211102", "211120", "033321", "033323", "211101", "211103", "211121", "033330", "033332", "211110", "211112", "033331", "033333", "211111", "122220", "122222", "122221"));
+        assertGeometryToBingTiles("POLYGON ((10 10, -10 10, -20 -15, 10 10))", 3, ImmutableList.of("033", "211", "122"));
+        assertGeometryToBingTiles("POLYGON ((10 10, -10 10, -20 -15, 10 10))", 6, ImmutableList.of("211102", "211120", "033321", "033323", "211101", "211103", "211121", "033330", "033332", "211110", "211112", "033331", "033333", "211111", "122220", "122222", "122221"));
 
         assertFunction("transform(geometry_to_bing_tiles(bing_tile_polygon(bing_tile('1230301230')), 10), x -> bing_tile_quadkey(x))", new ArrayType(VARCHAR), ImmutableList.of("1230301230"));
         assertFunction("transform(geometry_to_bing_tiles(bing_tile_polygon(bing_tile('1230301230')), 11), x -> bing_tile_quadkey(x))", new ArrayType(VARCHAR), ImmutableList.of("12303012300", "12303012302", "12303012301", "12303012303"));
@@ -336,6 +337,11 @@ public class TestBingTileFunctions
         // Zoom level is too high
         assertInvalidFunction("geometry_to_bing_tiles(ST_GeometryFromText('POLYGON ((0 0, 0 20, 20 20, 0 0))'), 20)", "The zoom level is too high to compute a set of covering Bing tiles.");
         assertFunction("cardinality(geometry_to_bing_tiles(ST_GeometryFromText('POLYGON ((0 0, 0 20, 20 20, 0 0))'), 14))", BIGINT, 428787L);
+    }
+
+    private void assertGeometryToBingTiles(String wkt, int zoomLevel, List<String> expectedQuadKeys)
+    {
+        assertFunction(format("transform(geometry_to_bing_tiles(ST_GeometryFromText('%s'), %s), x -> bing_tile_quadkey(x))", wkt, zoomLevel), new ArrayType(VARCHAR), expectedQuadKeys);
     }
 
     @Test
