@@ -66,6 +66,7 @@ import static com.facebook.presto.geospatial.GeometryType.MULTI_POINT;
 import static com.facebook.presto.geospatial.GeometryType.MULTI_POLYGON;
 import static com.facebook.presto.geospatial.GeometryType.POINT;
 import static com.facebook.presto.geospatial.GeometryType.POLYGON;
+import static com.facebook.presto.geospatial.GeometryUtils.getPointCount;
 import static com.facebook.presto.geospatial.serde.GeometrySerde.deserialize;
 import static com.facebook.presto.geospatial.serde.GeometrySerde.deserializeEnvelope;
 import static com.facebook.presto.geospatial.serde.GeometrySerde.deserializeType;
@@ -507,14 +508,7 @@ public final class GeoFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long stNumPoints(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
     {
-        OGCGeometry geometry = deserialize(input);
-        if (geometry.getEsriGeometry().isEmpty()) {
-            return 0;
-        }
-        else if (GeometryType.getForEsriGeometryType(geometry.geometryType()) == GeometryType.POINT) {
-            return 1;
-        }
-        return ((MultiVertexGeometry) geometry.getEsriGeometry()).getPointCount();
+        return getPointCount(deserialize(input));
     }
 
     @SqlNullable
