@@ -375,7 +375,9 @@ public class HiveWriterFactory
                     HiveType partitionType = existingPartitionColumns.get(i).getType();
                     if (!tableType.equals(partitionType)) {
                         throw new PrestoException(HIVE_PARTITION_SCHEMA_MISMATCH, format("" +
-                                        "There is a mismatch between the table and partition schemas. " +
+                                        "You are trying to write into an existing partition in a table. " +
+                                        "The table schema has changed since the creation of the partition. " +
+                                        "Inserting rows into such partition is not supported. " +
                                         "The column '%s' in table '%s' is declared as type '%s', " +
                                         "but partition '%s' declared column '%s' as type '%s'.",
                                 tableColumns.get(i).getName(),
