@@ -470,13 +470,23 @@ public abstract class AbstractTestType
         return blockBuilder.build();
     }
 
+    /**
+     * @param value value, represented in native container type
+     * @return a value that is greater than input, represented in native container type
+     */
     protected abstract Object getGreaterValue(Object value);
 
+    /**
+     * @return a non-null value, represented in native container type
+     */
     protected Object getNonNullValue()
     {
         return getNonNullValueForType(type);
     }
 
+    /**
+     * @return a non-null value, represented in native container type
+     */
     private static Object getNonNullValueForType(Type type)
     {
         if (type.getJavaType() == boolean.class) {
