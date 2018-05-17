@@ -14,8 +14,6 @@
 package com.facebook.presto.plugin.geospatial;
 
 import com.esri.core.geometry.Envelope;
-import com.esri.core.geometry.Geometry;
-import com.esri.core.geometry.MultiVertexGeometry;
 import com.esri.core.geometry.Point;
 import com.esri.core.geometry.ogc.OGCGeometry;
 import com.facebook.presto.spi.PageBuilder;
@@ -32,6 +30,10 @@ import io.airlift.slice.Slice;
 
 import static com.esri.core.geometry.GeometryEngine.contains;
 import static com.esri.core.geometry.GeometryEngine.disjoint;
+import static com.facebook.presto.geospatial.GeometryUtils.contains;
+import static com.facebook.presto.geospatial.GeometryUtils.disjoint;
+import static com.facebook.presto.geospatial.GeometryUtils.getEnvelope;
+import static com.facebook.presto.geospatial.GeometryUtils.getPointCount;
 import static com.facebook.presto.geospatial.GeometryUtils.isPointOrRectangle;
 import static com.facebook.presto.geospatial.serde.GeometrySerde.deserialize;
 import static com.facebook.presto.geospatial.serde.GeometrySerde.serialize;
@@ -209,17 +211,14 @@ public class BingTileFunctions
         OGCGeometry ogcGeometry = deserialize(input);
         checkCondition(!ogcGeometry.isEmpty(), "Input geometry must not be empty");
 
-        Geometry geometry = ogcGeometry.getEsriGeometry();
-
-        Envelope envelope = new Envelope();
-        geometry.queryEnvelope(envelope);
+        Envelope envelope = getEnvelope(ogcGeometry);
 
         checkLatitude(envelope.getYMin(), LATITUDE_SPAN_OUT_OF_RANGE);
         checkLatitude(envelope.getYMax(), LATITUDE_SPAN_OUT_OF_RANGE);
         checkLongitude(envelope.getXMin(), LONGITUDE_SPAN_OUT_OF_RANGE);
         checkLongitude(envelope.getXMax(), LONGITUDE_SPAN_OUT_OF_RANGE);
 
-        boolean pointOrRectangle = isPointOrRectangle(geometry, envelope);
+        boolean pointOrRectangle = isPointOrRectangle(ogcGeometry, envelope);
 
         BingTile leftUpperTile = latitudeLongitudeToTile(envelope.getYMax(), envelope.getXMin(), zoomLevel);
         BingTile rightLowerTile = getTileCoveringLowerRightCorner(envelope, zoomLevel);
@@ -227,7 +226,7 @@ public class BingTileFunctions
         // XY coordinates start at (0,0) in the left upper corner and increase left to right and top to bottom
         long tileCount = (long) (rightLowerTile.getX() - leftUpperTile.getX() + 1) * (rightLowerTile.getY() - leftUpperTile.getY() + 1);
 
-        checkGeometryToBingTilesLimits(geometry, pointOrRectangle, tileCount);
+        checkGeometryToBingTilesLimits(ogcGeometry, pointOrRectangle, tileCount);
 
         BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, toIntExact(tileCount));
         if (pointOrRectangle || zoomLevel <= OPTIMIZED_TILING_MIN_ZOOM_LEVEL) {
@@ -237,7 +236,7 @@ public class BingTileFunctions
             for (int x = leftUpperTile.getX(); x <= rightLowerTile.getX(); x++) {
                 for (int y = leftUpperTile.getY(); y <= rightLowerTile.getY(); y++) {
                     BingTile tile = BingTile.fromCoordinates(x, y, zoomLevel);
-                    if (pointOrRectangle || !disjoint(tileToEnvelope(tile), geometry, null)) {
+                    if (pointOrRectangle || !disjoint(tileToEnvelope(tile), ogcGeometry)) {
                         BIGINT.writeLong(blockBuilder, tile.encode());
                     }
                 }
@@ -253,7 +252,7 @@ public class BingTileFunctions
             // tile covered by the geometry.
             BingTile[] tiles = getTilesInBetween(leftUpperTile, rightLowerTile, OPTIMIZED_TILING_MIN_ZOOM_LEVEL);
             for (BingTile tile : tiles) {
-                appendIntersectingSubtiles(geometry, zoomLevel, tile, blockBuilder);
+                appendIntersectingSubtiles(ogcGeometry, zoomLevel, tile, blockBuilder);
             }
         }
 
@@ -283,7 +282,7 @@ public class BingTileFunctions
         return tile;
     }
 
-    private static void checkGeometryToBingTilesLimits(Geometry geometry, boolean pointOrRectangle, long tileCount)
+    private static void checkGeometryToBingTilesLimits(OGCGeometry ogcGeometry, boolean pointOrRectangle, long tileCount)
     {
         if (pointOrRectangle) {
             checkCondition(tileCount <= 1_000_000, "The number of input tiles is too large (more than 1M) to compute a set of covering Bing tiles.");
@@ -292,7 +291,7 @@ public class BingTileFunctions
             checkCondition((int) tileCount == tileCount, "The zoom level is too high to compute a set of covering Bing tiles.");
             long complexity = 0;
             try {
-                complexity = multiplyExact(tileCount, getPointCount(geometry));
+                complexity = multiplyExact(tileCount, getPointCount(ogcGeometry));
             }
             catch (ArithmeticException e) {
                 checkCondition(false, "The zoom level is too high or the geometry is too complex to compute a set of covering Bing tiles. " +
@@ -332,7 +331,7 @@ public class BingTileFunctions
      * BlockBuilder.
      */
     private static void appendIntersectingSubtiles(
-            Geometry geometry,
+            OGCGeometry ogcGeometry,
             int zoomLevel,
             BingTile tile,
             BlockBuilder blockBuilder)
@@ -342,13 +341,13 @@ public class BingTileFunctions
 
         Envelope tileEnvelope = tileToEnvelope(tile);
         if (tileZoomLevel == zoomLevel) {
-            if (!disjoint(tileEnvelope, geometry, null)) {
+            if (!disjoint(tileEnvelope, ogcGeometry)) {
                 BIGINT.writeLong(blockBuilder, tile.encode());
             }
             return;
         }
 
-        if (contains(geometry, tileEnvelope, null)) {
+        if (contains(ogcGeometry, tileEnvelope)) {
             int subTileCount = 1 << (zoomLevel - tileZoomLevel);
             int minX = subTileCount * tile.getX();
             int minY = subTileCount * tile.getY();
@@ -360,7 +359,7 @@ public class BingTileFunctions
             return;
         }
 
-        if (disjoint(tileEnvelope, geometry, null)) {
+        if (disjoint(tileEnvelope, ogcGeometry)) {
             return;
         }
 
@@ -371,21 +370,12 @@ public class BingTileFunctions
         for (int x = minX; x < minX + 2; x++) {
             for (int y = minY; y < minY + 2; y++) {
                 appendIntersectingSubtiles(
-                        geometry,
+                        ogcGeometry,
                         zoomLevel,
                         BingTile.fromCoordinates(x, y, nextZoomLevel),
                         blockBuilder);
             }
         }
-    }
-
-    private static int getPointCount(Geometry geometry)
-    {
-        if (geometry instanceof Point) {
-            return 1;
-        }
-
-        return ((MultiVertexGeometry) geometry).getPointCount();
     }
 
     private static Point tileXYToLatitudeLongitude(int tileX, int tileY, int zoomLevel)
