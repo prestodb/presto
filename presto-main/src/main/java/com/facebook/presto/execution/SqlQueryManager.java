@@ -113,7 +113,7 @@ public class SqlQueryManager
 
     private final ExecutorService queryExecutor;
     private final ThreadPoolExecutorMBean queryExecutorMBean;
-    private final ResourceGroupManager resourceGroupManager;
+    private final ResourceGroupManager<?> resourceGroupManager;
     private final ClusterMemoryManager memoryManager;
 
     private final boolean isIncludeCoordinator;
@@ -157,7 +157,7 @@ public class SqlQueryManager
             NodeSchedulerConfig nodeSchedulerConfig,
             QueryManagerConfig queryManagerConfig,
             QueryMonitor queryMonitor,
-            ResourceGroupManager resourceGroupManager,
+            ResourceGroupManager<?> resourceGroupManager,
             ClusterMemoryManager memoryManager,
             LocationFactory locationFactory,
             TransactionManager transactionManager,
@@ -359,6 +359,11 @@ public class SqlQueryManager
     @Override
     public QueryInfo createQuery(SessionContext sessionContext, String query)
     {
+        return createQueryInternal(resourceGroupManager, sessionContext, query);
+    }
+
+    private <C> QueryInfo createQueryInternal(ResourceGroupManager<C> resourceGroupManager, SessionContext sessionContext, String query)
+    {
         requireNonNull(sessionContext, "sessionFactory is null");
         requireNonNull(query, "query is null");
         checkArgument(!query.isEmpty(), "query must not be empty string");
@@ -366,7 +371,7 @@ public class SqlQueryManager
         QueryId queryId = queryIdGenerator.createNextQueryId();
 
         Session session = null;
-        SelectionContext<?> selectionContext;
+        SelectionContext<C> selectionContext;
         QueryExecution queryExecution;
         Statement statement;
         try {

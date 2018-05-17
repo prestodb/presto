@@ -75,7 +75,7 @@ public class PluginManager
 
     private final ConnectorManager connectorManager;
     private final Metadata metadata;
-    private final ResourceGroupManager resourceGroupManager;
+    private final ResourceGroupManager<?> resourceGroupManager;
     private final AccessControlManager accessControlManager;
     private final PasswordAuthenticatorManager passwordAuthenticatorManager;
     private final EventListenerManager eventListenerManager;
@@ -94,7 +94,7 @@ public class PluginManager
             PluginManagerConfig config,
             ConnectorManager connectorManager,
             Metadata metadata,
-            ResourceGroupManager resourceGroupManager,
+            ResourceGroupManager<?> resourceGroupManager,
             AccessControlManager accessControlManager,
             PasswordAuthenticatorManager passwordAuthenticatorManager,
             EventListenerManager eventListenerManager,

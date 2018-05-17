@@ -111,7 +111,7 @@ public class TestingPrestoServer
     private final StatsCalculator statsCalculator;
     private final TestingAccessControlManager accessControl;
     private final ProcedureTester procedureTester;
-    private final Optional<InternalResourceGroupManager> resourceGroupManager;
+    private final Optional<InternalResourceGroupManager<?>> resourceGroupManager;
     private final SplitManager splitManager;
     private final NodePartitioningManager nodePartitioningManager;
     private final ClusterMemoryManager clusterMemoryManager;
@@ -390,7 +390,7 @@ public class TestingPrestoServer
         return splitManager;
     }
 
-    public Optional<InternalResourceGroupManager> getResourceGroupManager()
+    public Optional<InternalResourceGroupManager<?>> getResourceGroupManager()
     {
         return resourceGroupManager;
     }
