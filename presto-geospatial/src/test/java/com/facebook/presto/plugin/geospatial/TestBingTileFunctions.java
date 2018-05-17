@@ -308,6 +308,12 @@ public class TestBingTileFunctions
         assertGeometryToBingTiles("POLYGON ((10 10, -10 10, -20 -15, 10 10))", 3, ImmutableList.of("033", "211", "122"));
         assertGeometryToBingTiles("POLYGON ((10 10, -10 10, -20 -15, 10 10))", 6, ImmutableList.of("211102", "211120", "033321", "033323", "211101", "211103", "211121", "033330", "033332", "211110", "211112", "033331", "033333", "211111", "122220", "122222", "122221"));
 
+        assertGeometryToBingTiles("GEOMETRYCOLLECTION (POINT (60 30.12))", 10, ImmutableList.of("1230301230"));
+        assertGeometryToBingTiles("GEOMETRYCOLLECTION (POINT (60 30.12))", 15, ImmutableList.of("123030123010121"));
+        assertGeometryToBingTiles("GEOMETRYCOLLECTION (POLYGON ((10 10, -10 10, -20 -15, 10 10)))", 3, ImmutableList.of("033", "211", "122"));
+        assertGeometryToBingTiles("GEOMETRYCOLLECTION (POINT (60 30.12), POLYGON ((10 10, -10 10, -20 -15, 10 10)))", 3, ImmutableList.of("033", "211", "122", "123"));
+        assertGeometryToBingTiles("GEOMETRYCOLLECTION (POINT (60 30.12), LINESTRING (61 31, 61.01 31.01))", 15, ImmutableList.of("123030123010121", "123030112310200", "123030112310202", "123030112310201"));
+
         assertFunction("transform(geometry_to_bing_tiles(bing_tile_polygon(bing_tile('1230301230')), 10), x -> bing_tile_quadkey(x))", new ArrayType(VARCHAR), ImmutableList.of("1230301230"));
         assertFunction("transform(geometry_to_bing_tiles(bing_tile_polygon(bing_tile('1230301230')), 11), x -> bing_tile_quadkey(x))", new ArrayType(VARCHAR), ImmutableList.of("12303012300", "12303012302", "12303012301", "12303012303"));
 
