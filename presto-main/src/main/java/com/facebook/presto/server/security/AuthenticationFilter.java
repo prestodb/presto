@@ -37,6 +37,7 @@ import java.util.Set;
 import static com.google.common.io.ByteStreams.copy;
 import static com.google.common.io.ByteStreams.nullOutputStream;
 import static com.google.common.net.HttpHeaders.WWW_AUTHENTICATE;
+import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;
 import static java.util.Objects.requireNonNull;
 import static javax.servlet.http.HttpServletResponse.SC_UNAUTHORIZED;
 
@@ -65,7 +66,7 @@ public class AuthenticationFilter
         HttpServletResponse response = (HttpServletResponse) servletResponse;
 
         // skip authentication if non-secure or not configured
-        if (!request.isSecure() || authenticators.isEmpty()) {
+        if (!isSecureRequest(request) || authenticators.isEmpty()) {
             nextFilter.doFilter(request, response);
             return;
         }
@@ -103,6 +104,12 @@ public class AuthenticationFilter
             messages.add("Unauthorized");
         }
         response.sendError(SC_UNAUTHORIZED, Joiner.on(" | ").join(messages));
+    }
+
+    private static boolean isSecureRequest(HttpServletRequest request)
+    {
+        String forwardedProto = request.getHeader(X_FORWARDED_PROTO);
+        return request.isSecure() || (forwardedProto != null && forwardedProto.equals("https"));
     }
 
     private static ServletRequest withPrincipal(HttpServletRequest request, Principal principal)
