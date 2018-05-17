@@ -15,19 +15,21 @@ package com.facebook.presto.server;
 
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
+import javax.ws.rs.core.Context;
 import javax.ws.rs.core.Response;
+import javax.ws.rs.core.UriInfo;
 
 import static javax.ws.rs.core.Response.Status.MOVED_PERMANENTLY;
 import static javax.ws.rs.core.UriBuilder.fromPath;
 
 @Path("/")
-public class WebAppResource
+public class WebUiResource
 {
     @GET
-    public Response redirectIndexHtml()
+    public Response redirectIndexHtml(@Context UriInfo uriInfo)
     {
         return Response.status(MOVED_PERMANENTLY)
-                .location(fromPath("/ui/index.html").build())
+                .location(fromPath("/ui/").build())
                 .build();
     }
 }

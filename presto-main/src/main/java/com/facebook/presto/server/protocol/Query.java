@@ -398,7 +398,7 @@ class Query
         // first time through, self is null
         QueryResults queryResults = new QueryResults(
                 queryId.toString(),
-                uriInfo.getRequestUriBuilder().replaceQuery(queryId.toString()).replacePath("query.html").build(),
+                uriInfo.getRequestUriBuilder().replaceQuery(queryId.toString()).replacePath("/ui/query.html").build(),
                 findCancelableLeafStage(queryInfo),
                 nextResultsUri,
                 columns,
