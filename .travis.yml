@@ -58,6 +58,15 @@ before_script:
       export ARTIFACTS_UPLOAD_PATH=${ARTIFACTS_UPLOAD_PATH_PR}
     fi
 
+# *** WARNING ***
+#
+# A single script block must include exactly ONE command.
+# Travis runs a script block without the `-e` flag. Any failures in the middle are simply ignored.
+#
+# Specifying the `-e` flag manually is not recommended.
+# It will stop the execution after the very first failure.
+# Travis runs the remaining blocks even if one of the scripts returns a non zero status.
+# Non zero status is propagated at the end of the build.
 script:
   - |
     if [[ -v MAVEN_CHECKS ]]; then
@@ -132,17 +141,20 @@ script:
   - |
     if [[ -v HIVE_TESTS ]]; then
       presto-hive-hadoop2/bin/run_hive_tests.sh
-      if [[ -v HIVE_TESTS_AWS_ACCESS_KEY_ID ]]; then
-        env AWS_ACCESS_KEY_ID=$HIVE_TESTS_AWS_ACCESS_KEY_ID \
+    fi
+  - |
+    if [[ -v HIVE_TESTS && -v HIVE_TESTS_AWS_ACCESS_KEY_ID ]]; then
+      env AWS_ACCESS_KEY_ID=$HIVE_TESTS_AWS_ACCESS_KEY_ID \
         AWS_SECRET_ACCESS_KEY=$HIVE_TESTS_AWS_SECRET_ACCESS_KEY \
         S3_BUCKET_ENDPOINT=$S3_TESTS_BUCKET_ENDPOINT \
         S3_BUCKET=$S3_TESTS_BUCKET \
         presto-hive-hadoop2/bin/run_hive_s3_tests.sh
-
-        env AWS_ACCESS_KEY_ID=$HIVE_TESTS_AWS_ACCESS_KEY_ID \
+    fi
+  - |
+    if [[ -v HIVE_TESTS && -v HIVE_TESTS_AWS_ACCESS_KEY_ID ]]; then
+      env AWS_ACCESS_KEY_ID=$HIVE_TESTS_AWS_ACCESS_KEY_ID \
         AWS_SECRET_ACCESS_KEY=$HIVE_TESTS_AWS_SECRET_ACCESS_KEY \
         ./mvnw -pl presto-hive test -P test-hive-glue
-      fi
     fi
 
 before_cache:
