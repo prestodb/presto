@@ -20,9 +20,12 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.spi.block.DictionaryId.randomDictionaryId;
@@ -290,11 +293,16 @@ public class Page
 
     private void updateRetainedSize()
     {
-        long retainedSizeInBytes = INSTANCE_SIZE + sizeOf(blocks);
+        AtomicLong retainedSizeInBytes = new AtomicLong(INSTANCE_SIZE + sizeOf(blocks));
+        Set<Object> referenceSet = Collections.newSetFromMap(new IdentityHashMap<>());
         for (Block block : blocks) {
-            retainedSizeInBytes += block.getRetainedSizeInBytes();
+            block.retainedBytesForEachPart((object, size) -> {
+                if (referenceSet.add(object)) {
+                    retainedSizeInBytes.addAndGet(size);
+                }
+            });
         }
-        this.retainedSizeInBytes.set(retainedSizeInBytes);
+        this.retainedSizeInBytes.set(retainedSizeInBytes.longValue());
     }
 
     private static class DictionaryBlockIndexes
