@@ -404,13 +404,21 @@ public class TestGeoFunctions
     @Test
     public void testSTNumPoints()
     {
-        assertNumPoints("POLYGON ((0 0, 8 0, 0 8, 0 0), (1 1, 1 5, 5 1, 1 1))", 6);
-        assertNumPoints("MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1)), ((2 4, 2 6, 6 6, 6 4)))", 8);
-        assertNumPoints("LINESTRING (8 4, 5 7)", 2);
-        assertNumPoints("MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))", 4);
+        assertNumPoints("POINT EMPTY", 0);
+        assertNumPoints("MULTIPOINT EMPTY", 0);
+        assertNumPoints("LINESTRING EMPTY", 0);
+        assertNumPoints("MULTILINESTRING EMPTY", 0);
+        assertNumPoints("POLYGON EMPTY", 0);
+        assertNumPoints("MULTIPOLYGON EMPTY", 0);
+        assertNumPoints("GEOMETRYCOLLECTION EMPTY", 0);
+
         assertNumPoints("POINT (1 2)", 1);
         assertNumPoints("MULTIPOINT (1 2, 2 4, 3 6, 4 8)", 4);
-        assertNumPoints("LINESTRING EMPTY", 0);
+        assertNumPoints("LINESTRING (8 4, 5 7)", 2);
+        assertNumPoints("MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))", 4);
+        assertNumPoints("POLYGON ((0 0, 8 0, 0 8, 0 0), (1 1, 1 5, 5 1, 1 1))", 6);
+        assertNumPoints("MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1)), ((2 4, 2 6, 6 6, 6 4)))", 8);
+        assertNumPoints("GEOMETRYCOLLECTION (POINT (1 2), LINESTRING (8 4, 5 7), POLYGON EMPTY)", 3);
     }
 
     private void assertNumPoints(String wkt, int expectedPoints)
