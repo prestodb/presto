@@ -131,10 +131,21 @@ public class TimestampColumnWriter
                 // zero, because many systems, like Presto, only record millisecond or microsecond precision
                 // timestamps. To optimize storage, if the value has more than two trailing zeros, the trailing
                 // decimal zero digits are removed, and the last three bits are used to record how many zeros
-                // were removed (minus one).
+                // were removed (minus one):
+                //   # Trailing 0s   Last 3 Bits   Example nanos       Example encoding
+                //         0            0b000        123456789     (123456789 << 3) | 0b000
+                //         1            0b000        123456780     (123456780 << 3) | 0b000
+                //         2            0b001        123456700       (1234567 << 3) | 0b001
+                //         3            0b010        123456000        (123456 << 3) | 0b010
+                //         4            0b011        123450000         (12345 << 3) | 0b011
+                //         5            0b100        123400000          (1234 << 3) | 0b100
+                //         6            0b101        123000000           (123 << 3) | 0b101
+                //         7            0b110        120000000            (12 << 3) | 0b110
+                //         8            0b111        100000000             (1 << 3) | 0b111
                 //
-                // Thus 1,000,000 nanoseconds would be serialized as '1' with `5` in
-                // the last three bytes: 0b0000_1110.
+                // In Presto, we only have millisecond precision.
+                // Therefore, we always use the encoding for 6 trailing zeros (except when input is zero).
+                // For simplicity, we don't dynamically use 6, 7, 8 depending on the circumstance.
                 long encodedNanos = millis == 0 ? 0 : (millis << 3) | MILLIS_TO_NANOS_TRAILING_ZEROS;
 
                 secondsStream.writeLong(seconds);
