@@ -31,6 +31,7 @@ import java.util.Set;
 
 import static com.facebook.presto.security.FileBasedSystemAccessControl.Factory.CONFIG_FILE_NAME;
 import static com.facebook.presto.spi.security.Privilege.SELECT;
+import static com.facebook.presto.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 import static com.facebook.presto.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -185,6 +186,12 @@ public class TestFileBasedSystemAccessControl
         assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
             accessControlManager.checkCanCreateView(transactionId, bob, aliceView);
         }));
+    }
+
+    @Test
+    public void testEverythingImplemented()
+    {
+        assertAllMethodsOverridden(SystemAccessControl.class, FileBasedSystemAccessControl.class);
     }
 
     private AccessControlManager newAccessControlManager(TransactionManager transactionManager, String resourceName)

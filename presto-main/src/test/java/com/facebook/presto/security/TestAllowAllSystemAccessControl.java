@@ -11,18 +11,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive.security;
+package com.facebook.presto.security;
 
-import com.facebook.presto.spi.connector.ConnectorAccessControl;
+import com.facebook.presto.spi.security.SystemAccessControl;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 
-public class TestPartitionsAwareAccessControl
+public class TestAllowAllSystemAccessControl
 {
     @Test
-    public void testEverythingDelegated()
+    public void testEverythingImplemented()
     {
-        assertAllMethodsOverridden(ConnectorAccessControl.class, PartitionsAwareAccessControl.class);
+        assertAllMethodsOverridden(SystemAccessControl.class, AllowAllSystemAccessControl.class);
     }
 }
