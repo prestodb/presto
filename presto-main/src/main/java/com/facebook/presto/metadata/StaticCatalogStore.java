@@ -40,6 +40,7 @@ public class StaticCatalogStore
     private final File catalogConfigurationDir;
     private final Set<String> disabledCatalogs;
     private final AtomicBoolean catalogsLoading = new AtomicBoolean();
+    private final AtomicBoolean catalogsLoaded = new AtomicBoolean();
 
     @Inject
     public StaticCatalogStore(ConnectorManager connectorManager, StaticCatalogStoreConfig config)
@@ -56,6 +57,11 @@ public class StaticCatalogStore
         this.disabledCatalogs = ImmutableSet.copyOf(disabledCatalogs);
     }
 
+    public boolean areCatalogsLoaded()
+    {
+        return catalogsLoaded.get();
+    }
+
     public void loadCatalogs()
             throws Exception
     {
@@ -68,6 +74,8 @@ public class StaticCatalogStore
                 loadCatalog(file);
             }
         }
+
+        catalogsLoaded.set(true);
     }
 
     private void loadCatalog(File file)
