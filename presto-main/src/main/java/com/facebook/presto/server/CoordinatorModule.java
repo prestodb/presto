@@ -131,6 +131,7 @@ public class CoordinatorModule
     protected void setup(Binder binder)
     {
         httpServerBinder(binder).bindResource("/ui", "webapp").withWelcomeFile("index.html");
+        httpServerBinder(binder).bindResource("/tableau", "webapp/tableau");
 
         // presto coordinator announcement
         discoveryBinder(binder).bindHttpAnnouncement("presto-coordinator");
