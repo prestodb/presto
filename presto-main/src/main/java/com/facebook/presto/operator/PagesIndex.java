@@ -561,10 +561,12 @@ public class PagesIndex
     // TODO: This is similar to what OrderByOperator does, look into reusing this logic in OrderByOperator as well.
     public Iterator<Page> getSortedPages()
     {
-        return new AbstractIterator<Page>() {
+        return new AbstractIterator<Page>()
+        {
             private int currentPosition;
             private PageBuilder pageBuilder = new PageBuilder(types);
             private int[] outputChannels = new int[types.size()];
+
             {
                 Arrays.setAll(outputChannels, IntUnaryOperator.identity());
             }
