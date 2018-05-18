@@ -35,8 +35,10 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.ColumnarMap;
 import com.facebook.presto.spi.block.ColumnarRow;
+import com.facebook.presto.spi.type.AbstractLongType;
 import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.collect.ImmutableList;
@@ -493,6 +495,16 @@ public class OrcWriteValidation
                     hash = 31 * hash + hashPositionSkipNullMapKeys(elementType, row, i);
                 }
                 return hash;
+            }
+
+            if (type.getTypeSignature().getBase().equals(StandardTypes.TIMESTAMP)) {
+                // A flaw in ORC encoding makes it impossible to represent timestamp
+                // between 1969-12-31 23:59:59.000, exclusive, and 1970-01-01 00:00:00.000, exclusive.
+                // Therefore, such data won't round trip. The data read back is expected to be 1 second later than the original value.
+                long mills = TIMESTAMP.getLong(block, position);
+                if (mills > -1000 && mills < 0) {
+                    return AbstractLongType.hash(mills + 1000);
+                }
             }
 
             return type.hash(block, position);
