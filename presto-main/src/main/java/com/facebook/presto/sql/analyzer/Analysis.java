@@ -613,14 +613,8 @@ public class Analysis
 
     public void addTableColumnReferences(Multimap<QualifiedObjectName, String> tableColumnMap)
     {
-        tableColumnMap.asMap().forEach((key, value) -> {
-            if (tableColumnReferences.containsKey(key)) {
-                tableColumnReferences.get(key).addAll(value);
-            }
-            else {
-                tableColumnReferences.put(key, new HashSet<>(value));
-            }
-        });
+        tableColumnMap.asMap()
+                .forEach((key, value) -> tableColumnReferences.computeIfAbsent(key, k -> new HashSet<>()).addAll(value));
     }
 
     public void addEmptyColumnReferencesForTable(QualifiedObjectName table)
