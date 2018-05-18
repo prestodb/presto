@@ -17,7 +17,6 @@ import com.esri.core.geometry.Envelope;
 import com.esri.core.geometry.Geometry;
 import com.esri.core.geometry.MultiVertexGeometry;
 import com.esri.core.geometry.Point;
-import com.esri.core.geometry.Polygon;
 import com.esri.core.geometry.ogc.OGCGeometry;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.PrestoException;
@@ -31,11 +30,9 @@ import com.facebook.presto.spi.type.StandardTypes;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
-import java.util.HashSet;
-import java.util.Set;
-
 import static com.esri.core.geometry.GeometryEngine.contains;
 import static com.esri.core.geometry.GeometryEngine.disjoint;
+import static com.facebook.presto.geospatial.GeometryUtils.isPointOrRectangle;
 import static com.facebook.presto.geospatial.serde.GeometrySerde.deserialize;
 import static com.facebook.presto.geospatial.serde.GeometrySerde.serialize;
 import static com.facebook.presto.plugin.geospatial.BingTile.MAX_ZOOM_LEVEL;
@@ -454,44 +451,6 @@ public class BingTileFunctions
         Point upperLeftCorner = tileXYToLatitudeLongitude(tile.getX(), tile.getY(), tile.getZoomLevel());
         Point lowerRightCorner = tileXYToLatitudeLongitude(tile.getX() + 1, tile.getY() + 1, tile.getZoomLevel());
         return new Envelope(upperLeftCorner.getX(), lowerRightCorner.getY(), lowerRightCorner.getX(), upperLeftCorner.getY());
-    }
-
-    /**
-     * @return true if the geometry is a point or a rectangle
-     */
-    private static boolean isPointOrRectangle(Geometry geometry, Envelope envelope)
-    {
-        if (geometry instanceof Point) {
-            return true;
-        }
-
-        if (!(geometry instanceof Polygon)) {
-            return false;
-        }
-
-        Polygon polygon = (Polygon) geometry;
-        if (polygon.getPathCount() > 1) {
-            return false;
-        }
-
-        if (polygon.getPointCount() != 4) {
-            return false;
-        }
-
-        Set<Point> corners = new HashSet<>();
-        corners.add(new Point(envelope.getXMin(), envelope.getYMin()));
-        corners.add(new Point(envelope.getXMin(), envelope.getYMax()));
-        corners.add(new Point(envelope.getXMax(), envelope.getYMin()));
-        corners.add(new Point(envelope.getXMax(), envelope.getYMax()));
-
-        for (int i = 0; i < 4; i++) {
-            Point point = polygon.getPoint(i);
-            if (!corners.contains(point)) {
-                return false;
-            }
-        }
-
-        return true;
     }
 
     private static void checkZoomLevel(long zoomLevel)
