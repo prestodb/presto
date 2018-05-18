@@ -90,7 +90,7 @@ public final class HiveSessionProperties
                         false),
                 dataSizeSessionProperty(
                         ORC_MAX_READ_BLOCK_SIZE,
-                        "ORC: Maximum size of a block to read",
+                        "ORC: Soft max size of Presto blocks produced by ORC reader",
                         hiveClientConfig.getOrcMaxReadBlockSize(),
                         false),
                 booleanSessionProperty(
