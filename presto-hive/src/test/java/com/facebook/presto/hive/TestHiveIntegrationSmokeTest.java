@@ -548,6 +548,16 @@ public class TestHiveIntegrationSmokeTest
                 "WITH (partitioned_by = ARRAY['dragonfruit'])");
     }
 
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Unsupported partition type: .*")
+    public void testCreateTableUnsupportedPartitionType()
+    {
+        assertUpdate("" +
+                "CREATE TABLE test_create_table_unsupported_partition_type " +
+                "WITH (partitioned_by = ARRAY['a']) " +
+                "AS " +
+                "SELECT 123 x, ARRAY ['foo'] a");
+    }
+
     @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Unsupported Hive type: varchar\\(65536\\)\\. Supported VARCHAR types: VARCHAR\\(<=65535\\), VARCHAR\\.")
     public void testCreateTableNonSupportedVarcharColumn()
     {

@@ -1569,6 +1569,23 @@ public class HiveMetadata
         if (!allColumns.subList(allColumns.size() - partitionedBy.size(), allColumns.size()).equals(partitionedBy)) {
             throw new PrestoException(HIVE_COLUMN_ORDER_MISMATCH, "Partition keys must be the last columns in the table and in the same order as the table properties: " + partitionedBy);
         }
+
+        List<Type> allColumnTypes = tableMetadata.getColumns().stream()
+                .map(ColumnMetadata::getType)
+                .collect(toList());
+
+        for (int i = 0; i < allColumnTypes.size(); i++) {
+            Type partitionType = allColumnTypes.get(i);
+
+            try {
+                //provide dummy/irrelevant values except for the type, see if parsePartitionValue will throw an exception
+                HiveUtil.parsePartitionValue("dummy", null, partitionType, DateTimeZone.UTC);
+            }
+            catch (PrestoException notSupported) {
+                //catch the exception to throw a separate one with a better message format
+                throw new PrestoException(NOT_SUPPORTED, format("Unsupported partition type: [%s]", partitionType));
+            }
+        }
     }
 
     private static List<HiveColumnHandle> getColumnHandles(ConnectorTableMetadata tableMetadata, Set<String> partitionColumnNames, TypeTranslator typeTranslator)
