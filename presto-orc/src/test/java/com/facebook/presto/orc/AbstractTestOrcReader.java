@@ -100,6 +100,16 @@ public abstract class AbstractTestOrcReader
     }
 
     @Test
+    public void testNegativeLongSequence()
+            throws Exception
+    {
+        // A flaw in ORC encoding makes it impossible to represent timestamp
+        // between 1969-12-31 23:59:59.000, exclusive, and 1970-01-01 00:00:00.000, exclusive.
+        // Therefore, such data won't round trip and are skipped from test.
+        testRoundTripNumeric(intsBetween(-31_234, -999));
+    }
+
+    @Test
     public void testLongSequenceWithHoles()
             throws Exception
     {
@@ -471,6 +481,6 @@ public abstract class AbstractTestOrcReader
 
     private static ContiguousSet<Integer> intsBetween(int lowerInclusive, int upperExclusive)
     {
-        return ContiguousSet.create(Range.openClosed(lowerInclusive, upperExclusive), DiscreteDomain.integers());
+        return ContiguousSet.create(Range.closedOpen(lowerInclusive, upperExclusive), DiscreteDomain.integers());
     }
 }
