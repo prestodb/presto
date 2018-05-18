@@ -17,6 +17,7 @@ import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Expression;
@@ -79,7 +80,9 @@ public class Analysis
 
     private final Map<NodeRef<Node>, Scope> scopes = new LinkedHashMap<>();
     private final Map<NodeRef<Expression>, FieldId> columnReferences = new LinkedHashMap<>();
-    private final Map<QualifiedObjectName, Set<String>> tableColumnReferences = new LinkedHashMap<>();
+
+    // a map of users to the columns per table that they access
+    private final Map<Identity, Map<QualifiedObjectName, Set<String>>> tableColumnReferences = new LinkedHashMap<>();
 
     private final Map<NodeRef<QuerySpecification>, List<FunctionCall>> aggregates = new LinkedHashMap<>();
     private final Map<NodeRef<OrderBy>, List<Expression>> orderByAggregates = new LinkedHashMap<>();
@@ -611,20 +614,22 @@ public class Analysis
         return joinUsing.get(NodeRef.of(node));
     }
 
-    public void addTableColumnReferences(Multimap<QualifiedObjectName, String> tableColumnMap)
+    public void addTableColumnReferences(Identity identity, Multimap<QualifiedObjectName, String> tableColumnMap)
     {
+        Map<QualifiedObjectName, Set<String>> references = tableColumnReferences.putIfAbsent(identity, new LinkedHashMap<>());
         tableColumnMap.asMap()
-                .forEach((key, value) -> tableColumnReferences.computeIfAbsent(key, k -> new HashSet<>()).addAll(value));
+                .forEach((key, value) -> references.computeIfAbsent(key, k -> new HashSet<>()).addAll(value));
     }
 
-    public void addEmptyColumnReferencesForTable(QualifiedObjectName table)
+    public void addEmptyColumnReferencesForTable(Identity identity, QualifiedObjectName table)
     {
-        this.tableColumnReferences.putIfAbsent(table, new HashSet<>());
+        tableColumnReferences.putIfAbsent(identity, new LinkedHashMap<>());
+        tableColumnReferences.get(identity).putIfAbsent(table, new HashSet<>());
     }
 
-    public Map<QualifiedObjectName, Set<String>> getTableColumnReferences()
+    public Map<QualifiedObjectName, Set<String>> getTableColumnReferences(Identity identity)
     {
-        return tableColumnReferences;
+        return tableColumnReferences.getOrDefault(identity, ImmutableMap.of());
     }
 
     @Immutable
