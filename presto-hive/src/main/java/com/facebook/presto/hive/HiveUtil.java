@@ -29,6 +29,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
+import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import io.airlift.compress.lzo.LzoCodec;
 import io.airlift.compress.lzo.LzopCodec;
@@ -110,6 +111,7 @@ import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -395,8 +397,33 @@ public final class HiveUtil
         return bytes.length == 2 && bytes[0] == '\\' && bytes[1] == 'N';
     }
 
+    public static void verifyPartitionTypeSupported(String partitionName, Type type)
+    {
+        if (!isValidPartitionType(type)) {
+            throw new PrestoException(NOT_SUPPORTED, format("Unsupported type [%s] for partition: %s", type, partitionName));
+        }
+    }
+
+    private static boolean isValidPartitionType(Type type)
+    {
+        return type instanceof DecimalType ||
+                BOOLEAN.equals(type) ||
+                TINYINT.equals(type) ||
+                SMALLINT.equals(type) ||
+                INTEGER.equals(type) ||
+                BIGINT.equals(type) ||
+                REAL.equals(type) ||
+                DOUBLE.equals(type) ||
+                DATE.equals(type) ||
+                TIMESTAMP.equals(type) ||
+                isVarcharType(type) ||
+                isCharType(type);
+    }
+
     public static NullableValue parsePartitionValue(String partitionName, String value, Type type, DateTimeZone timeZone)
     {
+        verifyPartitionTypeSupported(partitionName, type);
+
         boolean isNull = HIVE_DEFAULT_DYNAMIC_PARTITION.equals(value);
 
         if (type instanceof DecimalType) {
@@ -502,7 +529,7 @@ public final class HiveUtil
             return NullableValue.of(DOUBLE, doublePartitionKey(value, partitionName));
         }
 
-        if (type instanceof VarcharType) {
+        if (isVarcharType(type)) {
             if (isNull) {
                 return NullableValue.asNull(type);
             }
@@ -516,7 +543,7 @@ public final class HiveUtil
             return NullableValue.of(type, charPartitionKey(value, partitionName, type));
         }
 
-        throw new PrestoException(NOT_SUPPORTED, format("Unsupported Type [%s] for partition: %s", type, partitionName));
+        throw new VerifyException(format("Unhandled type [%s] for partition: %s", type, partitionName));
     }
 
     public static boolean isPrestoView(Table table)

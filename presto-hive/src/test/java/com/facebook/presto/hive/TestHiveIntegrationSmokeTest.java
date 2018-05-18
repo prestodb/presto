@@ -548,6 +548,25 @@ public class TestHiveIntegrationSmokeTest
                 "WITH (partitioned_by = ARRAY['dragonfruit'])");
     }
 
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Unsupported type .* for partition: .*")
+    public void testCreateTableUnsupportedPartitionType()
+    {
+        assertUpdate("" +
+                "CREATE TABLE test_create_table_unsupported_partition_type " +
+                "(foo bigint, bar ARRAY(varchar)) " +
+                "WITH (partitioned_by = ARRAY['bar'])");
+    }
+
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Unsupported type .* for partition: a")
+    public void testCreateTableUnsupportedPartitionTypeAs()
+    {
+        assertUpdate("" +
+                "CREATE TABLE test_create_table_unsupported_partition_type_as " +
+                "WITH (partitioned_by = ARRAY['a']) " +
+                "AS " +
+                "SELECT 123 x, ARRAY ['foo'] a");
+    }
+
     @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Unsupported Hive type: varchar\\(65536\\)\\. Supported VARCHAR types: VARCHAR\\(<=65535\\), VARCHAR\\.")
     public void testCreateTableNonSupportedVarcharColumn()
     {
@@ -1717,7 +1736,7 @@ public class TestHiveIntegrationSmokeTest
                         "   format = 'ORC',\n" +
                         "   orc_bloom_filter_columns = ARRAY['c1','c2'],\n" +
                         "   orc_bloom_filter_fpp = 7E-1,\n" +
-                        "   partitioned_by = ARRAY['c4','c5'],\n" +
+                        "   partitioned_by = ARRAY['c5'],\n" +
                         "   sorted_by = ARRAY['c1','c 2 DESC']\n" +
                         ")",
                 getSession().getCatalog().get(),
