@@ -18,11 +18,11 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 
-public class TestPartitionsAwareAccessControl
+public class TestSqlStandardAccessControl
 {
     @Test
-    public void testEverythingDelegated()
+    public void testEverythingImplemented()
     {
-        assertAllMethodsOverridden(ConnectorAccessControl.class, PartitionsAwareAccessControl.class);
+        assertAllMethodsOverridden(ConnectorAccessControl.class, SqlStandardAccessControl.class);
     }
 }
