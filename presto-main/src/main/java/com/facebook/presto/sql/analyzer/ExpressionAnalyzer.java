@@ -1559,7 +1559,7 @@ public class ExpressionAnalyzer
         analysis.addFunctionSignatures(resolvedFunctions);
         analysis.addColumnReferences(analyzer.getColumnReferences());
         analysis.addLambdaArgumentReferences(analyzer.getLambdaArgumentReferences());
-        analysis.addTableColumnReferences(analyzer.getTableColumnReferences());
+        analysis.addTableColumnReferences(session.getIdentity(), analyzer.getTableColumnReferences());
 
         return new ExpressionAnalysis(
                 expressionTypes,
