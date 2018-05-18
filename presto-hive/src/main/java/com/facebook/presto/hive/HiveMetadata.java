@@ -145,6 +145,7 @@ import static com.facebook.presto.hive.HiveUtil.getPartitionKeyColumnHandles;
 import static com.facebook.presto.hive.HiveUtil.hiveColumnHandles;
 import static com.facebook.presto.hive.HiveUtil.schemaTableName;
 import static com.facebook.presto.hive.HiveUtil.toPartitionValues;
+import static com.facebook.presto.hive.HiveUtil.verifyPartitionTypeSupported;
 import static com.facebook.presto.hive.HiveWriteUtils.checkTableIsWritable;
 import static com.facebook.presto.hive.HiveWriteUtils.initializeSerializer;
 import static com.facebook.presto.hive.HiveWriteUtils.isWritableType;
@@ -609,6 +610,13 @@ public class HiveMetadata
 
         hiveStorageFormat.validateColumns(columnHandles);
 
+        Map<String, HiveColumnHandle> columnHandlesByName = Maps.uniqueIndex(columnHandles, HiveColumnHandle::getName);
+        List<Column> partitionColumns = partitionedBy.stream()
+                .map(columnHandlesByName::get)
+                .map(column -> new Column(column.getName(), column.getHiveType(), column.getComment()))
+                .collect(toList());
+        checkPartitionTypesSupported(partitionColumns);
+
         Path targetPath;
         boolean external;
         String externalLocation = getExternalLocation(tableMetadata.getProperties());
@@ -678,6 +686,14 @@ public class HiveMetadata
         }
         catch (IllegalArgumentException | IOException e) {
             throw new PrestoException(INVALID_TABLE_PROPERTY, "External location is not a valid file system URI", e);
+        }
+    }
+
+    private void checkPartitionTypesSupported(List<Column> partitionColumns)
+    {
+        for (Column partitionColumn : partitionColumns) {
+            Type partitionType = typeManager.getType(partitionColumn.getType().getTypeSignature());
+            verifyPartitionTypeSupported(partitionColumn.getName(), partitionType);
         }
     }
 
@@ -826,6 +842,13 @@ public class HiveMetadata
         // unpartitioned tables ignore the partition storage format
         HiveStorageFormat actualStorageFormat = partitionedBy.isEmpty() ? tableStorageFormat : partitionStorageFormat;
         actualStorageFormat.validateColumns(columnHandles);
+
+        Map<String, HiveColumnHandle> columnHandlesByName = Maps.uniqueIndex(columnHandles, HiveColumnHandle::getName);
+        List<Column> partitionColumns = partitionedBy.stream()
+                .map(columnHandlesByName::get)
+                .map(column -> new Column(column.getName(), column.getHiveType(), column.getComment()))
+                .collect(toList());
+        checkPartitionTypesSupported(partitionColumns);
 
         LocationHandle locationHandle = locationService.forNewTable(metastore, session, schemaName, tableName);
         HiveOutputTableHandle result = new HiveOutputTableHandle(
