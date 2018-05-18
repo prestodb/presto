@@ -690,7 +690,7 @@ class StatementAnalyzer
                     .build();
 
             // check column access permissions for each table
-            analysis.getTableColumnReferences().asMap()
+            analysis.getTableColumnReferences()
                     .forEach((tableName, columns) ->
                             accessControl.checkCanSelectFromColumns(session.getRequiredTransactionId(),
                                     session.getIdentity(),
@@ -787,6 +787,7 @@ class StatementAnalyzer
             }
 
             QualifiedObjectName name = createQualifiedObjectName(session, table, table.getName());
+            analysis.addEmptyColumnReferencesForTable(name);
 
             Optional<ViewDefinition> optionalView = metadata.getView(session, name);
             if (optionalView.isPresent()) {

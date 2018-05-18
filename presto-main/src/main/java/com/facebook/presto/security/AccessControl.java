@@ -229,7 +229,8 @@ public interface AccessControl
     void checkCanSetCatalogSessionProperty(TransactionId transactionId, Identity identity, String catalogName, String propertyName);
 
     /**
-     * Check if identity is allowed to select from the specified columns.
+     * Check if identity is allowed to select from the specified columns.  The column set can be empty.
+     * If this is implemented, checkCanSelectFromTable and checkCanSelectFromView can be pass-through.
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
