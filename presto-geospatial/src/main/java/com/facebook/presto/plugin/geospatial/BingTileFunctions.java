@@ -63,6 +63,7 @@ public class BingTileFunctions
     private static final double MIN_LONGITUDE = -180;
     private static final double MAX_LONGITUDE = 180;
     private static final int OPTIMIZED_TILING_MIN_ZOOM_LEVEL = 10;
+    private static final Block EMPTY_TILE_ARRAY = BIGINT.createFixedSizeBlockBuilder(0).build();
 
     private static final String LATITUDE_OUT_OF_RANGE = "Latitude must be between " + MIN_LATITUDE + " and " + MAX_LATITUDE;
     private static final String LATITUDE_SPAN_OUT_OF_RANGE = String.format("Latitude span for the geometry must be in [%.2f, %.2f] range", MIN_LATITUDE, MAX_LATITUDE);
@@ -209,7 +210,9 @@ public class BingTileFunctions
         int zoomLevel = toIntExact(zoomLevelInput);
 
         OGCGeometry ogcGeometry = deserialize(input);
-        checkCondition(!ogcGeometry.isEmpty(), "Input geometry must not be empty");
+        if (ogcGeometry.isEmpty()) {
+            return EMPTY_TILE_ARRAY;
+        }
 
         Envelope envelope = getEnvelope(ogcGeometry);
 
