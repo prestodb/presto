@@ -20,14 +20,9 @@ import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
-import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
-import java.lang.reflect.Method;
-
-import static java.lang.String.format;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.fail;
+import static com.facebook.presto.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 
 public class TestClassLoaderSafeWrappers
 {
@@ -40,19 +35,5 @@ public class TestClassLoaderSafeWrappers
         assertAllMethodsOverridden(ConnectorPageSourceProvider.class, ClassLoaderSafeConnectorPageSourceProvider.class);
         assertAllMethodsOverridden(ConnectorSplitManager.class, ClassLoaderSafeConnectorSplitManager.class);
         assertAllMethodsOverridden(ConnectorNodePartitioningProvider.class, ClassLoaderSafeNodePartitioningProvider.class);
-    }
-
-    private static <I, C extends I> void assertAllMethodsOverridden(Class<I> iface, Class<C> clazz)
-    {
-        assertEquals(ImmutableSet.copyOf(clazz.getInterfaces()), ImmutableSet.of(iface));
-        for (Method method : iface.getMethods()) {
-            try {
-                Method override = clazz.getDeclaredMethod(method.getName(), method.getParameterTypes());
-                assertEquals(override.getReturnType(), method.getReturnType());
-            }
-            catch (NoSuchMethodException e) {
-                fail(format("%s does not override [%s]", clazz.getName(), method));
-            }
-        }
     }
 }
