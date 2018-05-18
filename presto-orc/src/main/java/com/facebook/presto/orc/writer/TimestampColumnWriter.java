@@ -125,8 +125,10 @@ public class TimestampColumnWriter
             if (!block.isNull(position)) {
                 long value = type.getLong(block, position);
 
+                // It is a flaw in ORC encoding that uses normal integer division to compute seconds,
+                // and floor modulus to compute nano seconds.
                 long seconds = (value / MILLIS_PER_SECOND) - baseTimestampInSeconds;
-                long millis = value % MILLIS_PER_SECOND;
+                long millis = Math.floorMod(value, MILLIS_PER_SECOND);
                 // The "sub-second" value (i.e., the nanos value) typically has a large number of trailing
                 // zero, because many systems, like Presto, only record millisecond or microsecond precision
                 // timestamps. To optimize storage, if the value has more than two trailing zeros, the trailing
