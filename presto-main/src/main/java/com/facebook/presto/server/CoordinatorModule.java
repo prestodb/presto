@@ -141,9 +141,6 @@ public class CoordinatorModule
         jsonCodecBinder(binder).bindJsonCodec(QueryResults.class);
         jaxrsBinder(binder).bind(StatementResource.class);
 
-        // query execution visualizer
-        jaxrsBinder(binder).bind(QueryExecutionResource.class);
-
         // resource for serving static content
         jaxrsBinder(binder).bind(WebUiResource.class);
 
