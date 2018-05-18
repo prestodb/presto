@@ -71,6 +71,7 @@ import static com.facebook.presto.spi.StandardErrorCode.TRANSACTION_CONFLICT;
 import static com.facebook.presto.spi.predicate.Range.greaterThan;
 import static com.facebook.presto.spi.predicate.Range.greaterThanOrEqual;
 import static com.facebook.presto.spi.predicate.Range.lessThan;
+import static com.facebook.presto.spi.predicate.Range.range;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
@@ -570,10 +571,27 @@ public class TestDatabaseShardManager
         shardAssertion(tableId).range(c6, lessThan(BOOLEAN, true)).expected(shards);
         shardAssertion(tableId).range(c6, lessThan(BOOLEAN, false)).expected(shard1, shard3);
 
-        // TODO: support multiple ranges
+        // Test multiple ranges
         shardAssertion(tableId)
                 .domain(c1, createDomain(lessThan(BIGINT, 0L), greaterThan(BIGINT, 25L)))
-                .expected(shards);
+                .expected();
+
+        shardAssertion(tableId)
+                .domain(c1, createDomain(range(BIGINT, 3L, true, 4L, true), range(BIGINT, 16L, true, 18L, true)))
+                .expected(shard2, shard3);
+
+        shardAssertion(tableId)
+                .domain(c5, createDomain(
+                        range(createVarcharType(10), utf8Slice("gum"), true, utf8Slice("happy"), true),
+                        range(createVarcharType(10), utf8Slice("pear"), true, utf8Slice("wall"), true)))
+                .expected(shard1, shard3);
+
+        shardAssertion(tableId)
+                .domain(c1, createDomain(range(BIGINT, 3L, true, 4L, true), range(BIGINT, 16L, true, 18L, true)))
+                .domain(c5, createDomain(
+                        range(createVarcharType(10), utf8Slice("gum"), true, utf8Slice("happy"), true),
+                        range(createVarcharType(10), utf8Slice("pear"), true, utf8Slice("wall"), true)))
+                .expected(shard3);
     }
 
     @Test
