@@ -256,7 +256,7 @@ public class BingTileFunctions
             // tile covered by the geometry.
             BingTile[] tiles = getTilesInBetween(leftUpperTile, rightLowerTile, OPTIMIZED_TILING_MIN_ZOOM_LEVEL);
             for (BingTile tile : tiles) {
-                writeTilesToBlockBuilder(geometry, zoomLevel, tile, blockBuilder);
+                appendIntersectingSubtiles(geometry, zoomLevel, tile, blockBuilder);
             }
         }
 
@@ -334,7 +334,7 @@ public class BingTileFunctions
      * specified geometry and a specified tile of the same or lower level. Adds tiles to provided
      * BlockBuilder.
      */
-    private static void writeTilesToBlockBuilder(
+    private static void appendIntersectingSubtiles(
             Geometry geometry,
             int zoomLevel,
             BingTile tile,
@@ -373,7 +373,7 @@ public class BingTileFunctions
         verify(nextZoomLevel <= MAX_ZOOM_LEVEL);
         for (int x = minX; x < minX + 2; x++) {
             for (int y = minY; y < minY + 2; y++) {
-                writeTilesToBlockBuilder(
+                appendIntersectingSubtiles(
                         geometry,
                         zoomLevel,
                         BingTile.fromCoordinates(x, y, nextZoomLevel),
