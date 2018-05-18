@@ -13,6 +13,14 @@
  */
 package com.facebook.presto.geospatial;
 
+import com.esri.core.geometry.Envelope;
+import com.esri.core.geometry.Geometry;
+import com.esri.core.geometry.Point;
+import com.esri.core.geometry.Polygon;
+
+import java.util.HashSet;
+import java.util.Set;
+
 public final class GeometryUtils
 {
     private GeometryUtils() {}
@@ -41,5 +49,40 @@ public final class GeometryUtils
     public static boolean isEsriNaN(double d)
     {
         return Double.isNaN(d) || Double.isNaN(translateFromAVNaN(d));
+    }
+
+    public static boolean isPointOrRectangle(Geometry geometry, Envelope envelope)
+    {
+        if (geometry instanceof Point) {
+            return true;
+        }
+
+        if (!(geometry instanceof Polygon)) {
+            return false;
+        }
+
+        Polygon polygon = (Polygon) geometry;
+        if (polygon.getPathCount() > 1) {
+            return false;
+        }
+
+        if (polygon.getPointCount() != 4) {
+            return false;
+        }
+
+        Set<Point> corners = new HashSet<>();
+        corners.add(new Point(envelope.getXMin(), envelope.getYMin()));
+        corners.add(new Point(envelope.getXMin(), envelope.getYMax()));
+        corners.add(new Point(envelope.getXMax(), envelope.getYMin()));
+        corners.add(new Point(envelope.getXMax(), envelope.getYMax()));
+
+        for (int i = 0; i < 4; i++) {
+            Point point = polygon.getPoint(i);
+            if (!corners.contains(point)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }
