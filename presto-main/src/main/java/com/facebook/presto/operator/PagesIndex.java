@@ -73,7 +73,6 @@ public class PagesIndex
         implements Swapper
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(PagesIndex.class).instanceSize();
-    private static final int IMMUTABLE_LIST_HEADER_SIZE = ClassLayout.parseClass(ImmutableList.class).headerSize();
     private static final Logger log = Logger.get(PagesIndex.class);
 
     private final OrderingCompiler orderingCompiler;
