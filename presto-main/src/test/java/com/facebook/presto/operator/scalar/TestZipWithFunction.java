@@ -76,9 +76,18 @@ public class TestZipWithFunction
     @Test
     public void testDifferentLength()
     {
-        assertInvalidFunction("zip_with(ARRAY[1], ARRAY['a', 'b'], (x, y) -> (y, x))", "Arrays must have the same length");
-        assertInvalidFunction("zip_with(ARRAY[NULL, 2], ARRAY['a'], (x, y) -> (y, x))", "Arrays must have the same length");
-        assertInvalidFunction("zip_with(ARRAY[1, NULL], ARRAY[NULL, 2, 1], (x, y) -> x + y)", "Arrays must have the same length");
+        assertFunction(
+                "zip_with(ARRAY[1], ARRAY['a', 'bc'], (x, y) -> (y, x))",
+                new ArrayType(RowType.anonymous(ImmutableList.of(createVarcharType(2), INTEGER))),
+                ImmutableList.of(ImmutableList.of("a", 1), asList("bc", null)));
+        assertFunction(
+                "zip_with(ARRAY[NULL, 2], ARRAY['a'], (x, y) -> (y, x))",
+                new ArrayType(RowType.anonymous(ImmutableList.of(createVarcharType(1), INTEGER))),
+                ImmutableList.of(asList("a", null), asList(null, 2)));
+        assertFunction(
+                "zip_with(ARRAY[NULL, NULL], ARRAY[NULL, 2, 1], (x, y) -> x + y)",
+                new ArrayType(INTEGER),
+                asList(null, null, null));
     }
 
     @Test
