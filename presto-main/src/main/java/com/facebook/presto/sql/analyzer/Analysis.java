@@ -38,7 +38,6 @@ import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.Table;
 import com.google.common.collect.ArrayListMultimap;
-import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ListMultimap;
@@ -50,6 +49,7 @@ import javax.annotation.concurrent.Immutable;
 import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.Deque;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -79,7 +79,7 @@ public class Analysis
 
     private final Map<NodeRef<Node>, Scope> scopes = new LinkedHashMap<>();
     private final Map<NodeRef<Expression>, FieldId> columnReferences = new LinkedHashMap<>();
-    private final Multimap<QualifiedObjectName, String> tableColumnReferences = HashMultimap.create();
+    private final Map<QualifiedObjectName, Set<String>> tableColumnReferences = new LinkedHashMap<>();
 
     private final Map<NodeRef<QuerySpecification>, List<FunctionCall>> aggregates = new LinkedHashMap<>();
     private final Map<NodeRef<OrderBy>, List<Expression>> orderByAggregates = new LinkedHashMap<>();
@@ -611,12 +611,18 @@ public class Analysis
         return joinUsing.get(NodeRef.of(node));
     }
 
-    public void addTableColumnMappings(Multimap<QualifiedObjectName, String> tableColumnMap)
+    public void addTableColumnReferences(Multimap<QualifiedObjectName, String> tableColumnMap)
     {
-        this.tableColumnReferences.putAll(tableColumnMap);
+        tableColumnMap.asMap()
+                .forEach((key, value) -> tableColumnReferences.computeIfAbsent(key, k -> new HashSet<>()).addAll(value));
     }
 
-    public Multimap<QualifiedObjectName, String> getTableColumnReferences()
+    public void addEmptyColumnReferencesForTable(QualifiedObjectName table)
+    {
+        this.tableColumnReferences.putIfAbsent(table, new HashSet<>());
+    }
+
+    public Map<QualifiedObjectName, Set<String>> getTableColumnReferences()
     {
         return tableColumnReferences;
     }

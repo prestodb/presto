@@ -334,6 +334,9 @@ public class TestingAccessControlManager
     @Override
     public void checkCanSelectFromColumns(TransactionId transactionId, Identity identity, QualifiedObjectName tableName, Set<String> columns)
     {
+        if (shouldDenyPrivilege(identity.getUser(), tableName.getObjectName(), SELECT_COLUMN)) {
+            denySelectColumns(tableName.toString(), columns);
+        }
         for (String column : columns) {
             if (shouldDenyPrivilege(identity.getUser(), column, SELECT_COLUMN)) {
                 denySelectColumns(tableName.toString(), columns);
