@@ -60,6 +60,7 @@ public class OrcReader
     private final ExceptionWrappingMetadataReader metadataReader;
     private final DataSize maxMergeDistance;
     private final DataSize maxReadSize;
+    private final DataSize tinyStripeThreshold;
     private final DataSize maxBlockSize;
     private final HiveWriterVersion hiveWriterVersion;
     private final int bufferSize;
@@ -71,21 +72,29 @@ public class OrcReader
     private final Optional<OrcWriteValidation> writeValidation;
 
     // This is based on the Apache Hive ORC code
-    public OrcReader(OrcDataSource orcDataSource, OrcEncoding orcEncoding, DataSize maxMergeDistance, DataSize maxReadSize, DataSize maxBlockSize)
+    public OrcReader(OrcDataSource orcDataSource, OrcEncoding orcEncoding, DataSize maxMergeDistance, DataSize maxReadSize, DataSize tinyStripeThreshold, DataSize maxBlockSize)
             throws IOException
     {
-        this(orcDataSource, orcEncoding, maxMergeDistance, maxReadSize, maxBlockSize, Optional.empty());
+        this(orcDataSource, orcEncoding, maxMergeDistance, maxReadSize, tinyStripeThreshold, maxBlockSize, Optional.empty());
     }
 
-    OrcReader(OrcDataSource orcDataSource, OrcEncoding orcEncoding, DataSize maxMergeDistance, DataSize maxReadSize, DataSize maxBlockSize, Optional<OrcWriteValidation> writeValidation)
+    OrcReader(
+            OrcDataSource orcDataSource,
+            OrcEncoding orcEncoding,
+            DataSize maxMergeDistance,
+            DataSize maxReadSize,
+            DataSize tinyStripeThreshold,
+            DataSize maxBlockSize,
+            Optional<OrcWriteValidation> writeValidation)
             throws IOException
     {
-        orcDataSource = wrapWithCacheIfTiny(requireNonNull(orcDataSource, "orcDataSource is null"), maxMergeDistance);
+        orcDataSource = wrapWithCacheIfTiny(orcDataSource, tinyStripeThreshold);
         this.orcDataSource = orcDataSource;
         requireNonNull(orcEncoding, "orcEncoding is null");
         this.metadataReader = new ExceptionWrappingMetadataReader(orcDataSource.getId(), orcEncoding.createMetadataReader());
         this.maxMergeDistance = requireNonNull(maxMergeDistance, "maxMergeDistance is null");
         this.maxReadSize = requireNonNull(maxReadSize, "maxReadSize is null");
+        this.tinyStripeThreshold = requireNonNull(tinyStripeThreshold, "tinyStripeThreshold is null");
         this.maxBlockSize = requireNonNull(maxBlockSize, "maxBlockSize is null");
 
         this.writeValidation = requireNonNull(writeValidation, "writeValidation is null");
@@ -238,7 +247,7 @@ public class OrcReader
                 hiveWriterVersion,
                 metadataReader,
                 maxMergeDistance,
-                maxReadSize,
+                tinyStripeThreshold,
                 maxBlockSize,
                 footer.getUserMetadata(),
                 systemMemoryUsage,
@@ -314,7 +323,7 @@ public class OrcReader
             readTypes.put(columnIndex, types.get(columnIndex));
         }
         try {
-            OrcReader orcReader = new OrcReader(input, orcEncoding, new DataSize(1, MEGABYTE), new DataSize(8, MEGABYTE), new DataSize(16, MEGABYTE), Optional.of(writeValidation));
+            OrcReader orcReader = new OrcReader(input, orcEncoding, new DataSize(1, MEGABYTE), new DataSize(8, MEGABYTE), new DataSize(8, MEGABYTE), new DataSize(16, MEGABYTE), Optional.of(writeValidation));
             try (OrcRecordReader orcRecordReader = orcReader.createRecordReader(readTypes.build(), OrcPredicate.TRUE, hiveStorageTimeZone, newSimpleAggregatedMemoryContext())) {
                 while (orcRecordReader.nextBatch() >= 0) {
                     // ignored

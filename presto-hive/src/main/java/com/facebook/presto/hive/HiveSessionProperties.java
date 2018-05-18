@@ -36,6 +36,7 @@ public final class HiveSessionProperties
     private static final String ORC_MAX_MERGE_DISTANCE = "orc_max_merge_distance";
     private static final String ORC_MAX_BUFFER_SIZE = "orc_max_buffer_size";
     private static final String ORC_STREAM_BUFFER_SIZE = "orc_stream_buffer_size";
+    private static final String ORC_TINY_STRIPE_THRESHOLD = "orc_tiny_stripe_threshold";
     private static final String ORC_MAX_READ_BLOCK_SIZE = "orc_max_read_block_size";
     private static final String ORC_LAZY_READ_SMALL_RANGES = "orc_lazy_read_small_ranges";
     private static final String ORC_STRING_STATISTICS_LIMIT = "orc_string_statistics_limit";
@@ -87,6 +88,11 @@ public final class HiveSessionProperties
                         ORC_STREAM_BUFFER_SIZE,
                         "ORC: Size of buffer for streaming reads",
                         hiveClientConfig.getOrcStreamBufferSize(),
+                        false),
+                dataSizeSessionProperty(
+                        ORC_TINY_STRIPE_THRESHOLD,
+                        "ORC: Threshold below which an ORC stripe or file will read in its entirety",
+                        hiveClientConfig.getOrcTinyStripeThreshold(),
                         false),
                 dataSizeSessionProperty(
                         ORC_MAX_READ_BLOCK_SIZE,
@@ -203,6 +209,11 @@ public final class HiveSessionProperties
     public static DataSize getOrcStreamBufferSize(ConnectorSession session)
     {
         return session.getProperty(ORC_STREAM_BUFFER_SIZE, DataSize.class);
+    }
+
+    public static DataSize getOrcTinyStripeThreshold(ConnectorSession session)
+    {
+        return session.getProperty(ORC_TINY_STRIPE_THRESHOLD, DataSize.class);
     }
 
     public static DataSize getOrcMaxReadBlockSize(ConnectorSession session)

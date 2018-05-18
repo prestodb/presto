@@ -36,6 +36,7 @@ public class RaptorSessionProperties
     private static final String READER_MAX_MERGE_DISTANCE = "reader_max_merge_distance";
     private static final String READER_MAX_READ_SIZE = "reader_max_read_size";
     private static final String READER_STREAM_BUFFER_SIZE = "reader_stream_buffer_size";
+    private static final String READER_TINY_STRIPE_THRESHOLD = "reader_tiny_stripe_threshold";
     private static final String READER_LAZY_READ_SMALL_RANGES = "reader_lazy_read_small_ranges";
     private static final String ONE_SPLIT_PER_BUCKET_THRESHOLD = "one_split_per_bucket_threshold";
 
@@ -64,6 +65,11 @@ public class RaptorSessionProperties
                         READER_STREAM_BUFFER_SIZE,
                         "Reader: Size of buffer for streaming reads",
                         config.getOrcStreamBufferSize(),
+                        false),
+                dataSizeSessionProperty(
+                        READER_TINY_STRIPE_THRESHOLD,
+                        "Reader: Threshold below which an ORC stripe or file will read in its entirety",
+                        config.getOrcTinyStripeThreshold(),
                         false),
                 booleanSessionProperty(
                         READER_LAZY_READ_SMALL_RANGES,
@@ -100,6 +106,11 @@ public class RaptorSessionProperties
     public static DataSize getReaderStreamBufferSize(ConnectorSession session)
     {
         return session.getProperty(READER_STREAM_BUFFER_SIZE, DataSize.class);
+    }
+
+    public static DataSize getReaderTinyStripeThreshold(ConnectorSession session)
+    {
+        return session.getProperty(READER_TINY_STRIPE_THRESHOLD, DataSize.class);
     }
 
     public static boolean isReaderLazyReadSmallRanges(ConnectorSession session)
