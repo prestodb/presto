@@ -3088,7 +3088,9 @@ public abstract class AbstractTestHiveClient
 
             for (String partitionName : partitionNames) {
                 HiveBasicStatistics statistics = getBasicStatisticsForPartition(transaction, tableName, dsColumn, partitionName);
-                assertStatisticsAreNotPresent(statistics);
+                assertThat(statistics.getRowCount()).isNotPresent();
+                assertThat(statistics.getInMemoryDataSizeInBytes()).isNotPresent();
+                // fileCount and rawSize statistics are computed on the fly by the metastore, thus cannot be erased
             }
         }
     }
@@ -3148,14 +3150,6 @@ public abstract class AbstractTestHiveClient
                 .stream()
                 .filter(entry -> !STATISTICS_PARAMETERS.contains(entry.getKey()))
                 .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
-    }
-
-    private static void assertStatisticsAreNotPresent(HiveBasicStatistics statistics)
-    {
-        assertThat(statistics.getRowCount()).isNotPresent();
-        assertThat(statistics.getFileCount()).isNotPresent();
-        assertThat(statistics.getOnDiskDataSizeInBytes()).isNotPresent();
-        assertThat(statistics.getInMemoryDataSizeInBytes()).isNotPresent();
     }
 
     /**
