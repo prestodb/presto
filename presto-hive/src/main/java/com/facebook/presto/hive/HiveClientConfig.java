@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.s3.S3FileSystemType;
+import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.net.HostAndPort;
@@ -107,7 +108,7 @@ public class HiveClientConfig
     private boolean orcLazyReadSmallRanges = true;
     private boolean orcOptimizedWriterEnabled;
     private double orcWriterValidationPercentage = 1.0;
-    private boolean orcWriterValidationLowMemory;
+    private OrcWriteValidationMode orcWriterValidationMode = OrcWriteValidationMode.BOTH;
 
     private boolean rcfileOptimizedWriterEnabled = true;
     private boolean rcfileWriterValidate;
@@ -800,16 +801,17 @@ public class HiveClientConfig
         return this;
     }
 
-    public boolean isOrcWriterValidationLowMemory()
+    @NotNull
+    public OrcWriteValidationMode getOrcWriterValidationMode()
     {
-        return orcWriterValidationLowMemory;
+        return orcWriterValidationMode;
     }
 
-    @Config("hive.orc.writer.validation-low-memory")
-    @ConfigDescription("Use minimal memory for ORC file validation")
-    public HiveClientConfig setOrcWriterValidationLowMemory(boolean orcWriterValidationLowMemory)
+    @Config("hive.orc.writer.validation-mode")
+    @ConfigDescription("Level of detail in ORC validation. Lower levels require more memory.")
+    public HiveClientConfig setOrcWriterValidationMode(OrcWriteValidationMode orcWriterValidationMode)
     {
-        this.orcWriterValidationLowMemory = orcWriterValidationLowMemory;
+        this.orcWriterValidationMode = orcWriterValidationMode;
         return this;
     }
 

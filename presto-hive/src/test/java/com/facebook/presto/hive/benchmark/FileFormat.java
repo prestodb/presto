@@ -70,6 +70,7 @@ import static com.facebook.presto.hive.HiveType.toHiveType;
 import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
+import static com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode.BOTH;
 import static java.util.stream.Collectors.joining;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMNS;
@@ -510,7 +511,7 @@ public enum FileFormat
                     ImmutableMap.of(),
                     hiveStorageTimeZone,
                     false,
-                    true,
+                    BOTH,
                     new OrcWriterStats());
         }
 
@@ -547,7 +548,7 @@ public enum FileFormat
                     ImmutableMap.of(),
                     hiveStorageTimeZone,
                     false,
-                    true,
+                    BOTH,
                     new OrcWriterStats());
         }
 

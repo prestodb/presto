@@ -110,6 +110,7 @@ import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimp
 import static com.facebook.presto.orc.OrcTester.Format.DWRF;
 import static com.facebook.presto.orc.OrcTester.Format.ORC_11;
 import static com.facebook.presto.orc.OrcTester.Format.ORC_12;
+import static com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode.BOTH;
 import static com.facebook.presto.orc.TestingOrcPredicate.createOrcPredicate;
 import static com.facebook.presto.orc.metadata.CompressionKind.LZ4;
 import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
@@ -634,7 +635,7 @@ public class OrcTester
                 ImmutableMap.of(),
                 HIVE_STORAGE_TIME_ZONE,
                 true,
-                true,
+                BOTH,
                 stats);
 
         BlockBuilder blockBuilder = type.createBlockBuilder(null, 1024);

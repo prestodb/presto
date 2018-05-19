@@ -14,6 +14,7 @@
 package com.facebook.presto.orc;
 
 import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationBuilder;
+import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode;
 import com.facebook.presto.orc.OrcWriterStats.FlushReason;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.CompressedMetadataWriter;
@@ -113,7 +114,7 @@ public class OrcWriter
     private boolean closed;
 
     @Nullable
-    private OrcWriteValidation.OrcWriteValidationBuilder validationBuilder;
+    private final OrcWriteValidation.OrcWriteValidationBuilder validationBuilder;
 
     public OrcWriter(
             OutputStream outputStream,
@@ -125,10 +126,10 @@ public class OrcWriter
             Map<String, String> userMetadata,
             DateTimeZone hiveStorageTimeZone,
             boolean validate,
-            boolean validateLowMemory,
+            OrcWriteValidationMode validationMode,
             OrcWriterStats stats)
     {
-        this.validationBuilder = validate ? new OrcWriteValidation.OrcWriteValidationBuilder(validateLowMemory, types).setStringStatisticsLimitInBytes(toIntExact(options.getMaxStringStatisticsLimit().toBytes())) : null;
+        this.validationBuilder = validate ? new OrcWriteValidation.OrcWriteValidationBuilder(validationMode, types).setStringStatisticsLimitInBytes(toIntExact(options.getMaxStringStatisticsLimit().toBytes())) : null;
 
         this.output = new OutputStreamSliceOutput(requireNonNull(outputStream, "outputStream is null"));
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));

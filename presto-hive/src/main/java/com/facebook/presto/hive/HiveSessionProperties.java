@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.google.common.collect.ImmutableList;
@@ -42,7 +43,7 @@ public final class HiveSessionProperties
     private static final String ORC_STRING_STATISTICS_LIMIT = "orc_string_statistics_limit";
     private static final String ORC_OPTIMIZED_WRITER_ENABLED = "orc_optimized_writer_enabled";
     private static final String ORC_OPTIMIZED_WRITER_VALIDATE = "orc_optimized_writer_validate";
-    private static final String ORC_OPTIMIZED_WRITER_VALIDATE_LOW_MEMORY = "orc_optimized_writer_validate_low_memory";
+    private static final String ORC_OPTIMIZED_WRITER_VALIDATE_MODE = "orc_optimized_writer_validate_mode";
     private static final String ORC_OPTIMIZED_WRITER_MAX_STRIPE_SIZE = "orc_optimized_writer_max_stripe_size";
     private static final String HIVE_STORAGE_FORMAT = "hive_storage_format";
     private static final String RESPECT_TABLE_FORMAT = "respect_table_format";
@@ -120,10 +121,10 @@ public final class HiveSessionProperties
                         "Experimental: ORC: Force all validation for files",
                         hiveClientConfig.getOrcWriterValidationPercentage() > 0.0,
                         false),
-                booleanSessionProperty(
-                        ORC_OPTIMIZED_WRITER_VALIDATE_LOW_MEMORY,
-                        "Experimental: ORC: Use minimal memory for validation",
-                        hiveClientConfig.isOrcWriterValidationLowMemory(),
+                stringSessionProperty(
+                        ORC_OPTIMIZED_WRITER_VALIDATE_MODE,
+                        "Experimental: ORC: Level of detail in ORC validation",
+                        hiveClientConfig.getOrcWriterValidationMode().toString(),
                         false),
                 dataSizeSessionProperty(
                         ORC_OPTIMIZED_WRITER_MAX_STRIPE_SIZE,
@@ -261,9 +262,9 @@ public final class HiveSessionProperties
         return ThreadLocalRandom.current().nextDouble() < orcWriterValidationPercentage;
     }
 
-    public static boolean isOrcOptimizedWriterValidateLowMemory(ConnectorSession session)
+    public static OrcWriteValidationMode getOrcOptimizedWriterValidateMode(ConnectorSession session)
     {
-        return session.getProperty(ORC_OPTIMIZED_WRITER_VALIDATE_LOW_MEMORY, Boolean.class);
+        return OrcWriteValidationMode.valueOf(session.getProperty(ORC_OPTIMIZED_WRITER_VALIDATE_MODE, String.class).toUpperCase(ENGLISH));
     }
 
     public static DataSize getOrcOptimizedWriterMaxStripeSize(ConnectorSession session)

@@ -16,6 +16,7 @@ package com.facebook.presto.hive;
 import com.facebook.presto.hive.HiveClientConfig.HdfsAuthenticationType;
 import com.facebook.presto.hive.HiveClientConfig.HiveMetastoreAuthenticationType;
 import com.facebook.presto.hive.s3.S3FileSystemType;
+import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
@@ -91,7 +92,7 @@ public class TestHiveClientConfig
                 .setRcfileWriterValidate(false)
                 .setOrcOptimizedWriterEnabled(false)
                 .setOrcWriterValidationPercentage(1.0)
-                .setOrcWriterValidationLowMemory(false)
+                .setOrcWriterValidationMode(OrcWriteValidationMode.BOTH)
                 .setHiveMetastoreAuthenticationType(HiveMetastoreAuthenticationType.NONE)
                 .setHdfsAuthenticationType(HdfsAuthenticationType.NONE)
                 .setHdfsImpersonationEnabled(false)
@@ -162,7 +163,7 @@ public class TestHiveClientConfig
                 .put("hive.rcfile.writer.validate", "true")
                 .put("hive.orc.optimized-writer.enabled", "true")
                 .put("hive.orc.writer.validation-percentage", "0.16")
-                .put("hive.orc.writer.validation-low-memory", "true")
+                .put("hive.orc.writer.validation-mode", "DETAILED")
                 .put("hive.metastore.authentication.type", "KERBEROS")
                 .put("hive.hdfs.authentication.type", "KERBEROS")
                 .put("hive.hdfs.impersonation.enabled", "true")
@@ -230,7 +231,7 @@ public class TestHiveClientConfig
                 .setRcfileWriterValidate(true)
                 .setOrcOptimizedWriterEnabled(true)
                 .setOrcWriterValidationPercentage(0.16)
-                .setOrcWriterValidationLowMemory(true)
+                .setOrcWriterValidationMode(OrcWriteValidationMode.DETAILED)
                 .setHiveMetastoreAuthenticationType(HiveMetastoreAuthenticationType.KERBEROS)
                 .setHdfsAuthenticationType(HdfsAuthenticationType.KERBEROS)
                 .setHdfsImpersonationEnabled(true)

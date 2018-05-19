@@ -52,9 +52,9 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITE_VALIDATION_FAILE
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxBufferSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxMergeDistance;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcOptimizedWriterMaxStripeSize;
+import static com.facebook.presto.hive.HiveSessionProperties.getOrcOptimizedWriterValidateMode;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcStreamBufferSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcStringStatisticsLimit;
-import static com.facebook.presto.hive.HiveSessionProperties.isOrcOptimizedWriterValidateLowMemory;
 import static com.facebook.presto.hive.HiveType.toHiveTypes;
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
@@ -203,7 +203,7 @@ public class OrcFileWriterFactory
                             .build(),
                     hiveStorageTimeZone,
                     validationInputFactory,
-                    isOrcOptimizedWriterValidateLowMemory(session),
+                    getOrcOptimizedWriterValidateMode(session),
                     stats));
         }
         catch (IOException e) {

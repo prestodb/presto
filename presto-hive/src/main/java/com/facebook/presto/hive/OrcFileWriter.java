@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcEncoding;
+import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode;
 import com.facebook.presto.orc.OrcWriter;
 import com.facebook.presto.orc.OrcWriterOptions;
 import com.facebook.presto.orc.OrcWriterStats;
@@ -70,7 +71,7 @@ public class OrcFileWriter
             Map<String, String> metadata,
             DateTimeZone hiveStorageTimeZone,
             Optional<Supplier<OrcDataSource>> validationInputFactory,
-            boolean validationLowMemory,
+            OrcWriteValidationMode validationMode,
             OrcWriterStats stats)
     {
         this.outputStream = new CountingOutputStream(outputStream);
@@ -85,7 +86,7 @@ public class OrcFileWriter
                 metadata,
                 hiveStorageTimeZone,
                 validationInputFactory.isPresent(),
-                validationLowMemory,
+                validationMode,
                 stats);
         this.rollbackAction = requireNonNull(rollbackAction, "rollbackAction is null");
 
