@@ -117,6 +117,10 @@ public class TestOrderedAggregation
         assertions.assertFails(
                 "SELECT x, array_agg(DISTINCT y ORDER BY z + y DESC) FROM (VALUES (1, 2, 2), (2, 2, 3), (2, 4, 5), (3, 4, 4), (3, 2, 1), (1, 1, 1)) t(x, y, z) GROUP BY x",
                 ".* For aggregate function with DISTINCT, ORDER BY expressions must appear in arguments");
+
+        assertions.assertQuery(
+                "SELECT multimap_agg(x, y ORDER BY z) FROM (VALUES (1, 2, 2), (1, 5, 5), (2, 1, 5), (3, 4, 4), (2, 5, 1), (1, 1, 1)) t(x, y, z)",
+                "VALUES map_from_entries(ARRAY[row(1, ARRAY[1, 2, 5]), row(2, ARRAY[5, 1]), row(3, ARRAY[4])])");
     }
 
     @Test
