@@ -48,6 +48,7 @@ import com.google.common.collect.Iterables;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -753,6 +754,8 @@ public class OrcWriteValidation
 
     private static class RowGroupStatistics
     {
+        private static final int INSTANCE_SIZE = ClassLayout.parseClass(RowGroupStatistics.class).instanceSize();
+
         private final boolean lowMemoryMode;
         private final SortedMap<Integer, ColumnStatistics> columnStatistics;
         private final long hash;
@@ -802,7 +805,10 @@ public class OrcWriteValidation
 
     public static class OrcWriteValidationBuilder
     {
+        private static final int INSTANCE_SIZE = ClassLayout.parseClass(OrcWriteValidationBuilder.class).instanceSize();
+
         private final boolean lowMemoryMode;
+        
         private List<Integer> version;
         private CompressionKind compression;
         private int rowGroupMaxRowCount;
@@ -814,11 +820,17 @@ public class OrcWriteValidation
         private final Map<Long, List<RowGroupStatistics>> rowGroupStatisticsByStripe = new HashMap<>();
         private final Map<Long, StripeStatistics> stripeStatistics = new HashMap<>();
         private List<ColumnStatistics> fileStatistics;
+        private long retainedSize = INSTANCE_SIZE;
 
         public OrcWriteValidationBuilder(boolean lowMemoryMode, List<Type> types)
         {
             this.lowMemoryMode = lowMemoryMode;
             this.checksum = new WriteChecksumBuilder(types);
+        }
+
+        public long getRetainedSize()
+        {
+            return retainedSize;
         }
 
         public OrcWriteValidationBuilder setVersion(List<Integer> version)
@@ -869,7 +881,13 @@ public class OrcWriteValidation
 
         public void addRowGroupStatistics(Map<Integer, ColumnStatistics> columnStatistics)
         {
-            currentRowGroupStatistics.add(new RowGroupStatistics(lowMemoryMode, columnStatistics));
+            RowGroupStatistics rowGroupStatistics = new RowGroupStatistics(lowMemoryMode, columnStatistics);
+            currentRowGroupStatistics.add(rowGroupStatistics);
+
+            retainedSize += RowGroupStatistics.INSTANCE_SIZE;
+            for (ColumnStatistics statistics : rowGroupStatistics.getColumnStatistics().values()) {
+                retainedSize += Integer.BYTES + statistics.getRetainedSizeInBytes();
+            }
         }
 
         public void addStripeStatistics(long stripStartOffset, StripeStatistics columnStatistics)

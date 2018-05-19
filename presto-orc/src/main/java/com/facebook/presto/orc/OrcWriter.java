@@ -75,8 +75,6 @@ public class OrcWriter
         implements Closeable
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(OrcWriter.class).instanceSize();
-    // some data in ORC validation is shared with ORC writer; while some are not; track the size of validator in this class
-    private static final int VALIDATOR_INSTANCE_SIZE = ClassLayout.parseClass(OrcWriteValidationBuilder.class).instanceSize();
 
     static final String PRESTO_ORC_WRITER_VERSION_METADATA_KEY = "presto.writer.version";
     static final String PRESTO_ORC_WRITER_VERSION;
@@ -111,7 +109,6 @@ public class OrcWriter
     private int bufferedBytes;
     private long columnWritersRetainedBytes;
     private long closedStripesRetainedBytes;
-    private long validatorRetainedBytes;
     private long previouslyRecordedSizeInBytes;
     private boolean closed;
 
@@ -198,8 +195,6 @@ public class OrcWriter
             recordValidation(validation -> validation.addMetadataProperty(entry.getKey(), utf8Slice(entry.getValue())));
         }
 
-        this.validatorRetainedBytes = validationBuilder == null ? 0 : VALIDATOR_INSTANCE_SIZE;
-
         this.previouslyRecordedSizeInBytes = getRetainedBytes();
         stats.updateSizeInBytes(previouslyRecordedSizeInBytes);
     }
@@ -211,7 +206,7 @@ public class OrcWriter
 
     public long getRetainedBytes()
     {
-        return INSTANCE_SIZE + columnWritersRetainedBytes + closedStripesRetainedBytes + validatorRetainedBytes;
+        return INSTANCE_SIZE + columnWritersRetainedBytes + closedStripesRetainedBytes + (validationBuilder == null ? 0 : validationBuilder.getRetainedSize());
     }
 
     public void write(Page page)
@@ -296,13 +291,6 @@ public class OrcWriter
         Map<Integer, ColumnStatistics> columnStatistics = new HashMap<>();
         columnWriters.forEach(columnWriter -> columnStatistics.putAll(columnWriter.finishRowGroup()));
         recordValidation(validation -> validation.addRowGroupStatistics(columnStatistics));
-        if (validationBuilder != null) {
-            // validator holds row group stats but ORC writer does not
-            for (Map.Entry<Integer, ColumnStatistics> statistics : columnStatistics.entrySet()) {
-                checkState(statistics.getValue() != null);
-                validatorRetainedBytes += Integer.BYTES + statistics.getValue().getRetainedSizeInBytes();
-            }
-        }
         rowGroupRowCount = 0;
     }
 
