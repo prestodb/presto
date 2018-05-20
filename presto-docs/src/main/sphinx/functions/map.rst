@@ -42,6 +42,12 @@ Map Functions
 
         SELECT map_from_entries(ARRAY[(1, 'x'), (2, 'y')]); -- {1 -> 'x', 2 -> 'y'}
 
+.. function:: multimap_from_entries(array<row<K,V>>) -> map<K,array<V>>
+
+    Returns a multimap created from the given array of entries. Each key can be associated with multiple values. ::
+
+        SELECT multimap_from_entries(ARRAY[(1, 'x'), (2, 'y'), (1, 'z')]); -- {1 -> ['x', 'z'], 2 -> ['y']}
+
 .. function:: map_entries(map<K,V>) -> array<row<K,V>>
 
     Returns an array of all entries in the given map. ::

@@ -62,6 +62,7 @@ import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
+import static java.util.Collections.singletonList;
 
 public class TestMapOperators
         extends AbstractTestFunctions
@@ -858,6 +859,42 @@ public class TestMapOperators
         assertInvalidFunction("map_from_entries(ARRAY[(null, 1), (null, 2)])", "map key cannot be null");
 
         assertCachedInstanceHasBoundedRetainedSize("map_from_entries(ARRAY[('a', 1.0), ('b', 2.0), ('c', 3.0), ('d', 4.0), ('e', 5.0), ('f', 6.0)])");
+    }
+
+    @Test
+    public void testMultimapFromEntries()
+    {
+        assertFunction("multimap_from_entries(null)", mapType(UNKNOWN, new ArrayType(UNKNOWN)), null);
+        assertFunction("multimap_from_entries(ARRAY[])", mapType(UNKNOWN, new ArrayType(UNKNOWN)), ImmutableMap.of());
+        assertFunction("multimap_from_entries(CAST(ARRAY[] AS ARRAY(ROW(DOUBLE, BIGINT))))", mapType(DOUBLE, new ArrayType(BIGINT)), ImmutableMap.of());
+
+        assertFunction(
+                "multimap_from_entries(ARRAY[(1, 3), (2, 4), (1, 6), (1, 8), (2, 10)])",
+                mapType(INTEGER, new ArrayType(INTEGER)),
+                ImmutableMap.of(
+                        1, ImmutableList.of(3, 6, 8),
+                        2, ImmutableList.of(4, 10)));
+        assertFunction(
+                "multimap_from_entries(ARRAY[(1, 'x'), (2, 'y'), (1, 'a'), (3, 'b'), (2, 'c'), (3, null)])",
+                mapType(INTEGER, new ArrayType(createVarcharType(1))),
+                ImmutableMap.of(
+                        1, ImmutableList.of("x", "a"),
+                        2, ImmutableList.of("y", "c"),
+                        3, asList("b", null)));
+        assertFunction(
+                "multimap_from_entries(ARRAY[('x', 1.0E0), ('y', 2.0E0), ('z', null), ('x', 1.5E0), ('y', 2.5E0)])",
+                mapType(createVarcharType(1), new ArrayType(DOUBLE)),
+                ImmutableMap.of(
+                        "x", ImmutableList.of(1.0, 1.5),
+                        "y", ImmutableList.of(2.0, 2.5),
+                        "z", singletonList(null)));
+
+        // invalid invocation
+        assertInvalidFunction("multimap_from_entries(ARRAY[(null, 1), (null, 2)])", "map key cannot be null");
+        assertInvalidFunction("multimap_from_entries(ARRAY[null])", "map entry cannot be null");
+        assertInvalidFunction("multimap_from_entries(ARRAY[(1, 2), null])", "map entry cannot be null");
+
+        assertCachedInstanceHasBoundedRetainedSize("multimap_from_entries(ARRAY[('a', 1.0), ('b', 2.0), ('a', 3.0), ('c', 4.0), ('b', 5.0), ('c', 6.0)])");
     }
 
     @Test
