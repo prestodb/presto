@@ -105,6 +105,7 @@ import com.facebook.presto.operator.scalar.MapSubscriptOperator;
 import com.facebook.presto.operator.scalar.MapValues;
 import com.facebook.presto.operator.scalar.MathFunctions;
 import com.facebook.presto.operator.scalar.MathFunctions.LegacyLogFunction;
+import com.facebook.presto.operator.scalar.MultimapFromEntriesFunction;
 import com.facebook.presto.operator.scalar.Re2JRegexpFunctions;
 import com.facebook.presto.operator.scalar.Re2JRegexpReplaceLambdaFunction;
 import com.facebook.presto.operator.scalar.RepeatFunction;
@@ -532,6 +533,7 @@ public class FunctionRegistry
                 .scalar(MapEqualOperator.class)
                 .scalar(MapEntriesFunction.class)
                 .scalar(MapFromEntriesFunction.class)
+                .scalar(MultimapFromEntriesFunction.class)
                 .scalar(MapNotEqualOperator.class)
                 .scalar(MapKeys.class)
                 .scalar(MapValues.class)
