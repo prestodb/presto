@@ -26,13 +26,13 @@ public class DuplicateMapKeyException
 
     public DuplicateMapKeyException(Block block, int position)
     {
-        super("Duplicate keys are not allowed");
+        super("Duplicate map keys are not allowed");
         this.block = block;
         this.position = position;
     }
 
     public String getDetailedMessage(Type keyType, ConnectorSession session)
     {
-        return format("Duplicate keys (%s) are not allowed", keyType.getObjectValue(session, block, position));
+        return format("Duplicate map keys (%s) are not allowed", keyType.getObjectValue(session, block, position));
     }
 }
