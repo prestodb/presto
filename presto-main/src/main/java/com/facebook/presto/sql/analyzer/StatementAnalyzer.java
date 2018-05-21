@@ -140,7 +140,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.SystemSessionProperties.LEGACY_ORDER_BY;
 import static com.facebook.presto.SystemSessionProperties.getMaxGroupingSets;
 import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.metadata.FunctionKind.WINDOW;
@@ -946,10 +945,6 @@ class StatementAnalyzer
         @Override
         protected Scope visitQuerySpecification(QuerySpecification node, Optional<Scope> scope)
         {
-            if (SystemSessionProperties.isLegacyOrderByEnabled(session)) {
-                return legacyVisitQuerySpecification(node, scope);
-            }
-
             // TODO: extract candidate names from SELECT, WHERE, HAVING, GROUP BY and ORDER BY expressions
             // to pass down to analyzeFrom
 
@@ -991,42 +986,6 @@ class StatementAnalyzer
                 List<FunctionCall> orderByAggregations = extractAggregateFunctions(orderByExpressions, metadata.getFunctionRegistry());
                 computeAndAssignOrderByScopeWithAggregation(node.getOrderBy().get(), sourceScope, outputScope, orderByAggregations, groupByExpressions, orderByGroupingOperations);
             }
-
-            return outputScope;
-        }
-
-        private Scope legacyVisitQuerySpecification(QuerySpecification node, Optional<Scope> scope)
-        {
-            // TODO: extract candidate names from SELECT, WHERE, HAVING, GROUP BY and ORDER BY expressions
-            // to pass down to analyzeFrom
-
-            Scope sourceScope = analyzeFrom(node, scope);
-
-            node.getWhere().ifPresent(where -> analyzeWhere(node, sourceScope, where));
-
-            List<Expression> outputExpressions = analyzeSelect(node, sourceScope);
-            List<List<Expression>> groupByExpressions = analyzeGroupBy(node, sourceScope, outputExpressions);
-
-            Scope outputScope = computeAndAssignOutputScope(node, scope, sourceScope);
-
-            List<Expression> orderByExpressions = emptyList();
-            if (node.getOrderBy().isPresent()) {
-                Scope orderByScope = computeAndAssignOrderByScope(node.getOrderBy().get(), sourceScope, outputScope);
-                orderByExpressions = legacyAnalyzeOrderBy(node, sourceScope, orderByScope, outputExpressions);
-            }
-
-            analysis.setOrderByExpressions(node, orderByExpressions);
-
-            analyzeHaving(node, sourceScope);
-
-            List<Expression> expressions = new ArrayList<>();
-            expressions.addAll(outputExpressions);
-            expressions.addAll(orderByExpressions);
-            node.getHaving().ifPresent(expressions::add);
-
-            analyzeGroupingOperations(node, expressions, emptyList());
-            analyzeAggregations(node, sourceScope, Optional.empty(), groupByExpressions, expressions, emptyList());
-            analysis.setWindowFunctions(node, analyzeWindowFunctions(node, expressions));
 
             return outputScope;
         }
@@ -2018,7 +1977,6 @@ class StatementAnalyzer
                         .setUserAgent(session.getUserAgent().orElse(null))
                         .setClientInfo(session.getClientInfo().orElse(null))
                         .setStartTime(session.getStartTime())
-                        .setSystemProperty(LEGACY_ORDER_BY, session.getSystemProperty(LEGACY_ORDER_BY, Boolean.class).toString())
                         .build();
 
                 StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, viewAccessControl, viewSession);
