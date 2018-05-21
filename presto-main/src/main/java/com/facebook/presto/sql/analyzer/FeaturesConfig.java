@@ -45,7 +45,8 @@ import static java.util.concurrent.TimeUnit.MINUTES;
         "experimental.resource-groups-enabled",
         "experimental-syntax-enabled",
         "analyzer.experimental-syntax-enabled",
-        "optimizer.processing-optimization"})
+        "optimizer.processing-optimization",
+        "deprecated.legacy-order-by"})
 public class FeaturesConfig
 {
     @VisibleForTesting
@@ -222,18 +223,6 @@ public class FeaturesConfig
     public boolean isLegacyLogFunction()
     {
         return legacyLogFunction;
-    }
-
-    @Config("deprecated.legacy-order-by")
-    public FeaturesConfig setLegacyOrderBy(boolean value)
-    {
-        this.legacyOrderBy = value;
-        return this;
-    }
-
-    public boolean isLegacyOrderBy()
-    {
-        return legacyOrderBy;
     }
 
     @Config("deprecated.group-by-uses-equal")

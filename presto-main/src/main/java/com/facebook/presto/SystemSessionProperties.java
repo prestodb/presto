@@ -74,7 +74,6 @@ public final class SystemSessionProperties
     public static final String SPILL_ENABLED = "spill_enabled";
     public static final String AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT = "aggregation_operator_unspill_memory_limit";
     public static final String OPTIMIZE_DISTINCT_AGGREGATIONS = "optimize_mixed_distinct_aggregations";
-    public static final String LEGACY_ORDER_BY = "legacy_order_by";
     public static final String LEGACY_ROUND_N_BIGINT = "legacy_round_n_bigint";
     public static final String LEGACY_JOIN_USING = "legacy_join_using";
     public static final String LEGACY_ROW_FIELD_ORDINAL_ACCESS = "legacy_row_field_ordinal_access";
@@ -321,11 +320,6 @@ public final class SystemSessionProperties
                         OPTIMIZE_DISTINCT_AGGREGATIONS,
                         "Optimize mixed non-distinct and distinct aggregations",
                         featuresConfig.isOptimizeMixedDistinctAggregations(),
-                        false),
-                booleanSessionProperty(
-                        LEGACY_ORDER_BY,
-                        "Use legacy rules for column resolution in ORDER BY clause",
-                        featuresConfig.isLegacyOrderBy(),
                         false),
                 booleanSessionProperty(
                         LEGACY_ROUND_N_BIGINT,
@@ -606,11 +600,6 @@ public final class SystemSessionProperties
     public static boolean isOptimizeDistinctAggregationEnabled(Session session)
     {
         return session.getSystemProperty(OPTIMIZE_DISTINCT_AGGREGATIONS, Boolean.class);
-    }
-
-    public static boolean isLegacyOrderByEnabled(Session session)
-    {
-        return session.getSystemProperty(LEGACY_ORDER_BY, Boolean.class);
     }
 
     @Deprecated
