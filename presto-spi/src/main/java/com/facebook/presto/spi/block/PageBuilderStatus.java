@@ -19,7 +19,7 @@ public class PageBuilderStatus
 
     private final int maxPageSizeInBytes;
 
-    private int currentSize;
+    private long currentSize;
 
     public PageBuilderStatus()
     {
@@ -53,10 +53,13 @@ public class PageBuilderStatus
 
     void addBytes(int bytes)
     {
+        if (bytes < 0) {
+            throw new IllegalArgumentException("bytes cannot be negative");
+        }
         currentSize += bytes;
     }
 
-    public int getSizeInBytes()
+    public long getSizeInBytes()
     {
         return currentSize;
     }
