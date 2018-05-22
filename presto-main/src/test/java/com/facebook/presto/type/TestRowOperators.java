@@ -466,6 +466,7 @@ public class TestRowOperators
         assertFunction("row(1, 2.0E0, TRUE, 'cat', CAST(NULL AS INTEGER)) IS DISTINCT FROM row(1, 2.0E0, TRUE, 'cat', CAST(NULL AS INTEGER))", BOOLEAN, false);
         assertFunction("row(1, 2.0E0, TRUE, 'cat') IS DISTINCT FROM row(1, 2.0E0, TRUE, CAST(NULL AS VARCHAR(3)))", BOOLEAN, true);
         assertFunction("row(1, 2.0E0, TRUE, CAST(NULL AS VARCHAR(3))) IS DISTINCT FROM row(1, 2.0E0, TRUE, CAST(NULL AS VARCHAR(3)))", BOOLEAN, false);
+        assertFunction("ARRAY[ROW(1)] IS DISTINCT FROM ARRAY[ROW(1)]", BOOLEAN, false);
     }
 
     @Test
