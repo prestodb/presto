@@ -144,20 +144,15 @@ public abstract class AbstractTestHiveClientS3
         }
     }
 
-    protected void setupHive(String databaseName)
+    protected void setup(String host, int port, String databaseName, String awsAccessKey, String awsSecretKey, String writableBucket)
     {
+        this.writableBucket = writableBucket;
+
         database = databaseName;
         tableS3 = new SchemaTableName(database, "presto_test_s3");
 
         String random = UUID.randomUUID().toString().toLowerCase(ENGLISH).replace("-", "");
         temporaryCreateTable = new SchemaTableName(database, "tmp_presto_test_create_s3_" + random);
-    }
-
-    protected void setup(String host, int port, String databaseName, String awsAccessKey, String awsSecretKey, String writableBucket)
-    {
-        this.writableBucket = writableBucket;
-
-        setupHive(databaseName);
 
         S3ConfigurationUpdater s3Config = new PrestoS3ConfigurationUpdater(new HiveS3Config()
                 .setS3AwsAccessKey(awsAccessKey)
@@ -169,7 +164,6 @@ public abstract class AbstractTestHiveClientS3
             config.setMetastoreSocksProxy(HostAndPort.fromString(proxy));
         }
 
-        HiveConnectorId connectorId = new HiveConnectorId("hive-test");
         HiveCluster hiveCluster = new TestingHiveCluster(config, host, port);
         ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("hive-s3-%s"));
         HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationUpdater(config, s3Config));
@@ -356,16 +350,12 @@ public abstract class AbstractTestHiveClientS3
             throws Exception
     {
         for (HiveStorageFormat storageFormat : HiveStorageFormat.values()) {
-            try {
-                doCreateTable(temporaryCreateTable, storageFormat);
-            }
-            finally {
-                dropTable(temporaryCreateTable);
-            }
+            createTable(temporaryCreateTable, storageFormat);
+            dropTable(temporaryCreateTable);
         }
     }
 
-    private void doCreateTable(SchemaTableName tableName, HiveStorageFormat storageFormat)
+    private void createTable(SchemaTableName tableName, HiveStorageFormat storageFormat)
             throws Exception
     {
         List<ColumnMetadata> columns = ImmutableList.<ColumnMetadata>builder()
@@ -438,9 +428,6 @@ public abstract class AbstractTestHiveClientS3
         try (Transaction transaction = newTransaction()) {
             transaction.getMetastore(table.getSchemaName()).dropTable(newSession(), table.getSchemaName(), table.getTableName());
             transaction.commit();
-        }
-        catch (RuntimeException e) {
-            // this usually occurs because the table was not created
         }
     }
 
