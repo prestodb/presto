@@ -28,7 +28,7 @@ import java.util.List;
 
 import static com.facebook.presto.metadata.Signature.comparableWithVariadicBound;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_BOXED_TYPE;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_NULL_FLAG;
 import static com.facebook.presto.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
@@ -40,7 +40,7 @@ public class RowDistinctFromOperator
         extends SqlOperator
 {
     public static final RowDistinctFromOperator ROW_DISTINCT_FROM = new RowDistinctFromOperator();
-    private static final MethodHandle METHOD_HANDLE = methodHandle(RowDistinctFromOperator.class, "isDistinctFrom", Type.class, List.class, Block.class, Block.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(RowDistinctFromOperator.class, "isDistinctFrom", Type.class, List.class, Block.class, boolean.class, Block.class, boolean.class);
 
     private RowDistinctFromOperator()
     {
@@ -63,16 +63,14 @@ public class RowDistinctFromOperator
         return new ScalarFunctionImplementation(
                 false,
                 ImmutableList.of(
-                        valueTypeArgumentProperty(USE_BOXED_TYPE),
-                        valueTypeArgumentProperty(USE_BOXED_TYPE)),
+                        valueTypeArgumentProperty(USE_NULL_FLAG),
+                        valueTypeArgumentProperty(USE_NULL_FLAG)),
                 METHOD_HANDLE.bindTo(type).bindTo(argumentMethods.build()),
                 isDeterministic());
     }
 
-    public static boolean isDistinctFrom(Type rowType, List<MethodHandle> argumentMethods, Block leftRow, Block rightRow)
+    public static boolean isDistinctFrom(Type rowType, List<MethodHandle> argumentMethods, Block leftRow, boolean leftNull, Block rightRow, boolean rightNull)
     {
-        boolean leftNull = leftRow == null;
-        boolean rightNull = rightRow == null;
         if (leftNull != rightNull) {
             return true;
         }
