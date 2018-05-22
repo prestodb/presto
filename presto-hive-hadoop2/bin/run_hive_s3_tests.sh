@@ -22,7 +22,9 @@ exec_in_hadoop_master_container sed -i \
  /etc/hadoop/conf/core-site.xml
 
 # create test table
-exec_in_hadoop_master_container /usr/bin/hive -e "CREATE EXTERNAL TABLE presto_test_s3(t_bigint bigint) LOCATION 's3a://${S3_BUCKET}/presto_test_s3/'"
+exec_in_hadoop_master_container hadoop fs -mkdir -p "s3a://${S3_BUCKET}/presto_test_external_fs/"
+exec_in_hadoop_master_container hadoop fs -copyFromLocal -f /tmp/test1.csv "s3a://${S3_BUCKET}/presto_test_external_fs/test1.csv"
+exec_in_hadoop_master_container /usr/bin/hive -e "CREATE EXTERNAL TABLE presto_test_external_fs(t_bigint bigint) LOCATION 's3a://${S3_BUCKET}/presto_test_external_fs/'"
 
 stop_unnecessary_hadoop_services
 
