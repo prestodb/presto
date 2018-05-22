@@ -30,7 +30,9 @@ function hadoop_master_ip() {
 }
 
 function check_hadoop() {
-  docker exec $(hadoop_master_container) supervisorctl status hive-server2 | grep -i running
+  HADOOP_MASTER_CONTAINER=$(hadoop_master_container)
+  docker exec ${HADOOP_MASTER_CONTAINER} supervisorctl status hive-server2 | grep -iq running && \
+    docker exec ${HADOOP_MASTER_CONTAINER} netstat -lpn | grep -iq 0.0.0.0:10000
 }
 
 function exec_in_hadoop_master_container() {
