@@ -237,6 +237,8 @@ class ColumnInfo
                 return Types.DATE;
             case "decimal":
                 return Types.DECIMAL;
+            case "unknown":
+                return Types.NULL;
             default:
                 return Types.JAVA_OBJECT;
         }

@@ -225,7 +225,7 @@ public class PrestoStatement
         return internalExecute(sql);
     }
 
-    boolean internalExecute(String sql)
+    final boolean internalExecute(String sql)
             throws SQLException
     {
         clearCurrentResults();
@@ -600,13 +600,13 @@ public class PrestoStatement
         }
     }
 
-    private void checkOpen()
+    protected final void checkOpen()
             throws SQLException
     {
         connection();
     }
 
-    private PrestoConnection connection()
+    protected final PrestoConnection connection()
             throws SQLException
     {
         PrestoConnection connection = this.connection.get();
