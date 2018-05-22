@@ -20,9 +20,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.google.common.collect.ArrayListMultimap;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ListMultimap;
 
 import java.lang.reflect.Modifier;
@@ -35,7 +33,6 @@ import java.util.stream.Stream;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Multimaps.toMultimap;
-import static java.util.Objects.requireNonNull;
 
 public class ComposableStatsCalculator
         implements StatsCalculator
@@ -69,8 +66,15 @@ public class ComposableStatsCalculator
     @Override
     public PlanNodeStatsEstimate calculateStats(PlanNode node, StatsProvider sourceStats, Lookup lookup, Session session, Map<Symbol, Type> types)
     {
-        Visitor visitor = new Visitor(sourceStats, lookup, session, types);
-        return node.accept(visitor, null);
+        Iterator<Rule> ruleIterator = getCandidates(node).iterator();
+        while (ruleIterator.hasNext()) {
+            Rule rule = ruleIterator.next();
+            Optional<PlanNodeStatsEstimate> calculatedStats = rule.calculate(node, sourceStats, lookup, session, types);
+            if (calculatedStats.isPresent()) {
+                return calculatedStats.get();
+            }
+        }
+        return PlanNodeStatsEstimate.UNKNOWN_STATS;
     }
 
     public interface Rule
@@ -78,36 +82,5 @@ public class ComposableStatsCalculator
         Pattern<? extends PlanNode> getPattern();
 
         Optional<PlanNodeStatsEstimate> calculate(PlanNode node, StatsProvider sourceStats, Lookup lookup, Session session, Map<Symbol, Type> types);
-    }
-
-    private class Visitor
-            extends PlanVisitor<PlanNodeStatsEstimate, Void>
-    {
-        private final StatsProvider sourceStats;
-        private final Lookup lookup;
-        private final Session session;
-        private final Map<Symbol, Type> types;
-
-        public Visitor(StatsProvider sourceStats, Lookup lookup, Session session, Map<Symbol, Type> types)
-        {
-            this.sourceStats = requireNonNull(sourceStats, "sourceStats is null");
-            this.lookup = requireNonNull(lookup, "lookup is null");
-            this.session = requireNonNull(session, "session is null");
-            this.types = ImmutableMap.copyOf(types);
-        }
-
-        @Override
-        protected PlanNodeStatsEstimate visitPlan(PlanNode node, Void context)
-        {
-            Iterator<Rule> ruleIterator = getCandidates(node).iterator();
-            while (ruleIterator.hasNext()) {
-                Rule rule = ruleIterator.next();
-                Optional<PlanNodeStatsEstimate> calculatedStats = rule.calculate(node, sourceStats, lookup, session, types);
-                if (calculatedStats.isPresent()) {
-                    return calculatedStats.get();
-                }
-            }
-            return PlanNodeStatsEstimate.UNKNOWN_STATS;
-        }
     }
 }
