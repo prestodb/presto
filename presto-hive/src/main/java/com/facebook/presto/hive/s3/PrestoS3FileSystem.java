@@ -384,7 +384,7 @@ public class PrestoS3FileSystem
         try {
             if (!directory(dst)) {
                 // cannot copy a file to an existing file
-                return keysEqual(src, dst);
+                return false;
             }
             // move source under destination directory
             dst = new Path(dst, src.getName());
