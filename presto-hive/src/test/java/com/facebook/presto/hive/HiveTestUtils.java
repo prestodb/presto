@@ -23,7 +23,6 @@ import com.facebook.presto.hive.parquet.ParquetRecordCursorProvider;
 import com.facebook.presto.hive.rcfile.RcFilePageSourceFactory;
 import com.facebook.presto.hive.s3.HiveS3Config;
 import com.facebook.presto.hive.s3.PrestoS3ConfigurationUpdater;
-import com.facebook.presto.hive.s3.S3ConfigurationUpdater;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.spi.ColumnHandle;
@@ -114,13 +113,8 @@ public final class HiveTestUtils
 
     public static HdfsEnvironment createTestHdfsEnvironment(HiveClientConfig config)
     {
-        return createTestHdfsEnvironment(config, new PrestoS3ConfigurationUpdater(new HiveS3Config()));
-    }
-
-    public static HdfsEnvironment createTestHdfsEnvironment(HiveClientConfig hiveConfig, S3ConfigurationUpdater s3Config)
-    {
-        HdfsConfiguration hdfsConfig = new HiveHdfsConfiguration(new HdfsConfigurationUpdater(hiveConfig, s3Config));
-        return new HdfsEnvironment(hdfsConfig, hiveConfig, new NoHdfsAuthentication());
+        HdfsConfiguration hdfsConfig = new HiveHdfsConfiguration(new HdfsConfigurationUpdater(config, new PrestoS3ConfigurationUpdater(new HiveS3Config())));
+        return new HdfsEnvironment(hdfsConfig, config, new NoHdfsAuthentication());
     }
 
     public static MapType mapType(Type keyType, Type valueType)
