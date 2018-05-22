@@ -21,6 +21,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.type.MapType;
@@ -47,6 +48,7 @@ public final class MapFromEntriesFunction
     @TypeParameter("K")
     @TypeParameter("V")
     @SqlType("map(K,V)")
+    @SqlNullable
     public Block mapFromEntries(
             @TypeParameter("map(K,V)") MapType mapType,
             ConnectorSession session,
@@ -67,15 +69,22 @@ public final class MapFromEntriesFunction
         TypedSet uniqueKeys = new TypedSet(keyType, entryCount, "map_from_entries");
 
         for (int i = 0; i < entryCount; i++) {
+            if (block.isNull(i)) {
+                mapBlockBuilder.closeEntry();
+                pageBuilder.declarePosition();
+                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "map entry cannot be null");
+            }
             Block rowBlock = rowType.getObject(block, i);
 
             if (rowBlock.isNull(0)) {
                 mapBlockBuilder.closeEntry();
+                pageBuilder.declarePosition();
                 throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "map key cannot be null");
             }
 
             if (uniqueKeys.contains(rowBlock, 0)) {
                 mapBlockBuilder.closeEntry();
+                pageBuilder.declarePosition();
                 throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Duplicate keys (%s) are not allowed", keyType.getObjectValue(session, rowBlock, 0)));
             }
             uniqueKeys.add(rowBlock, 0);
