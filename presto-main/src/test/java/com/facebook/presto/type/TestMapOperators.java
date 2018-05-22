@@ -857,6 +857,8 @@ public class TestMapOperators
         assertInvalidFunction("map_from_entries(ARRAY[(ARRAY[1, 2], 1), (ARRAY[1, 2], 2)])", "Duplicate keys ([1, 2]) are not allowed");
         assertInvalidFunction("map_from_entries(ARRAY[(MAP(ARRAY[1], ARRAY[2]), 1), (MAP(ARRAY[1], ARRAY[2]), 2)])", "Duplicate keys ({1=2}) are not allowed");
         assertInvalidFunction("map_from_entries(ARRAY[(null, 1), (null, 2)])", "map key cannot be null");
+        assertInvalidFunction("map_from_entries(ARRAY[null])", "map entry cannot be null");
+        assertInvalidFunction("map_from_entries(ARRAY[(1, 2), null])", "map entry cannot be null");
 
         assertCachedInstanceHasBoundedRetainedSize("map_from_entries(ARRAY[('a', 1.0), ('b', 2.0), ('c', 3.0), ('d', 4.0), ('e', 5.0), ('f', 6.0)])");
     }
