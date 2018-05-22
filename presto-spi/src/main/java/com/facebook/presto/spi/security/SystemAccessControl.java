@@ -214,7 +214,8 @@ public interface SystemAccessControl
     }
 
     /**
-     * Check if identity is allowed to select from the specified columns in a relation.
+     * Check if identity is allowed to select from the specified columns in a relation.  The column set can be empty.
+     * If this is implemented, checkCanSelectFromTable and checkCanSelectFromView can be pass-through.
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
