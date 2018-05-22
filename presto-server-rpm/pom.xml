@@ -97,6 +97,9 @@
                                 <dependency>
                                     <name>/usr/sbin/groupadd</name>
                                 </dependency>
+                                <dependency>
+                                    <name>/usr/bin/uuidgen</name>
+                                </dependency>
                             </dependencies>
 
                             <links>
