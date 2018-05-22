@@ -246,7 +246,6 @@ import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
-@Test(groups = "hive")
 public abstract class AbstractTestHiveClient
 {
     protected static final String TEMPORARY_TABLE_PREFIX = "tmp_presto_test_";

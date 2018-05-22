@@ -27,9 +27,6 @@ import com.facebook.presto.hive.metastore.thrift.BridgingHiveMetastore;
 import com.facebook.presto.hive.metastore.thrift.HiveCluster;
 import com.facebook.presto.hive.metastore.thrift.TestingHiveCluster;
 import com.facebook.presto.hive.metastore.thrift.ThriftHiveMetastore;
-import com.facebook.presto.hive.s3.HiveS3Config;
-import com.facebook.presto.hive.s3.PrestoS3ConfigurationUpdater;
-import com.facebook.presto.hive.s3.S3ConfigurationUpdater;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -57,6 +54,7 @@ import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.facebook.presto.testing.TestingNodeManager;
+import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
@@ -100,22 +98,18 @@ import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorS
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-@Test(groups = "hive-s3")
-public abstract class AbstractTestHiveClientS3
+public abstract class AbstractTestHiveFileSystem
 {
     private static final HdfsContext TESTING_CONTEXT = new HdfsContext(new Identity("test", Optional.empty()));
 
-    protected String writableBucket;
-
     protected String database;
-    protected SchemaTableName tableS3;
+    protected SchemaTableName table;
     protected SchemaTableName temporaryCreateTable;
 
     protected HdfsEnvironment hdfsEnvironment;
@@ -144,19 +138,15 @@ public abstract class AbstractTestHiveClientS3
         }
     }
 
-    protected void setup(String host, int port, String databaseName, String awsAccessKey, String awsSecretKey, String writableBucket)
-    {
-        this.writableBucket = writableBucket;
+    protected abstract Path getBasePath();
 
+    protected void setup(String host, int port, String databaseName, Function<HiveClientConfig, HdfsConfiguration> hdfsConfigurationProvider)
+    {
         database = databaseName;
-        tableS3 = new SchemaTableName(database, "presto_test_s3");
+        table = new SchemaTableName(database, "presto_test_external_fs");
 
         String random = UUID.randomUUID().toString().toLowerCase(ENGLISH).replace("-", "");
-        temporaryCreateTable = new SchemaTableName(database, "tmp_presto_test_create_s3_" + random);
-
-        S3ConfigurationUpdater s3Config = new PrestoS3ConfigurationUpdater(new HiveS3Config()
-                .setS3AwsAccessKey(awsAccessKey)
-                .setS3AwsSecretKey(awsSecretKey));
+        temporaryCreateTable = new SchemaTableName(database, "tmp_presto_test_create_" + random);
 
         HiveClientConfig config = new HiveClientConfig();
         String proxy = System.getProperty("hive.metastore.thrift.client.socks-proxy");
@@ -165,16 +155,17 @@ public abstract class AbstractTestHiveClientS3
         }
 
         HiveCluster hiveCluster = new TestingHiveCluster(config, host, port);
-        ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("hive-s3-%s"));
-        HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationUpdater(config, s3Config));
+        ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("hive-%s"));
         HivePartitionManager hivePartitionManager = new HivePartitionManager(TYPE_MANAGER, config);
+
+        HdfsConfiguration hdfsConfiguration = hdfsConfigurationProvider.apply(config);
 
         hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, config, new NoHdfsAuthentication());
         metastoreClient = new TestingHiveMetastore(
                 new BridgingHiveMetastore(new ThriftHiveMetastore(hiveCluster)),
                 executor,
                 config,
-                writableBucket,
+                getBasePath(),
                 hdfsEnvironment);
         locationService = new HiveLocationService(hdfsEnvironment);
         JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
@@ -234,14 +225,14 @@ public abstract class AbstractTestHiveClientS3
     }
 
     @Test
-    public void testGetRecordsS3()
+    public void testGetRecords()
             throws Exception
     {
         try (Transaction transaction = newTransaction()) {
             ConnectorMetadata metadata = transaction.getMetadata();
             ConnectorSession session = newSession();
 
-            ConnectorTableHandle table = getTableHandle(metadata, tableS3);
+            ConnectorTableHandle table = getTableHandle(metadata, this.table);
             List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(session, table).values());
             Map<String, Integer> columnIndex = indexColumns(columnHandles);
 
@@ -269,8 +260,8 @@ public abstract class AbstractTestHiveClientS3
     public void testGetFileStatus()
             throws Exception
     {
-        Path basePath = new Path(format("s3://%s/", writableBucket));
-        Path tablePath = new Path(basePath, "presto_test_s3");
+        Path basePath = getBasePath();
+        Path tablePath = new Path(basePath, "presto_test_external_fs");
         Path filePath = new Path(tablePath, "test1.csv");
         FileSystem fs = hdfsEnvironment.getFileSystem(TESTING_CONTEXT, basePath);
 
@@ -284,7 +275,7 @@ public abstract class AbstractTestHiveClientS3
     public void testRename()
             throws Exception
     {
-        Path basePath = new Path(format("s3://%s/rename/%s/", writableBucket, UUID.randomUUID()));
+        Path basePath = new Path(getBasePath(), UUID.randomUUID().toString());
         FileSystem fs = hdfsEnvironment.getFileSystem(TESTING_CONTEXT, basePath);
         assertFalse(fs.exists(basePath));
 
@@ -385,11 +376,11 @@ public abstract class AbstractTestHiveClientS3
 
             transaction.commit();
 
-            // Hack to work around the metastore not being configured for S3.
+            // Hack to work around the metastore not being configured for S3 or other FS.
             // The metastore tries to validate the location when creating the
-            // table, which fails without explicit configuration for S3.
+            // table, which fails without explicit configuration for file system.
             // We work around that by using a dummy location when creating the
-            // table and update it here to the correct S3 location.
+            // table and update it here to the correct location.
             metastoreClient.updateTableLocation(
                     database,
                     tableName.getTableName(),
@@ -452,13 +443,13 @@ public abstract class AbstractTestHiveClientS3
     private static class TestingHiveMetastore
             extends CachingHiveMetastore
     {
-        private final String writableBucket;
+        private final Path basePath;
         private final HdfsEnvironment hdfsEnvironment;
 
-        public TestingHiveMetastore(ExtendedHiveMetastore delegate, ExecutorService executor, HiveClientConfig hiveClientConfig, String writableBucket, HdfsEnvironment hdfsEnvironment)
+        public TestingHiveMetastore(ExtendedHiveMetastore delegate, ExecutorService executor, HiveClientConfig hiveClientConfig, Path basePath, HdfsEnvironment hdfsEnvironment)
         {
             super(delegate, executor, hiveClientConfig);
-            this.writableBucket = writableBucket;
+            this.basePath = basePath;
             this.hdfsEnvironment = hdfsEnvironment;
         }
 
@@ -467,14 +458,14 @@ public abstract class AbstractTestHiveClientS3
         {
             return super.getDatabase(databaseName)
                     .map(database -> Database.builder(database)
-                            .setLocation(Optional.of("s3://" + writableBucket + "/"))
+                            .setLocation(Optional.of(basePath.toString()))
                             .build());
         }
 
         @Override
         public void createTable(Table table, PrincipalPrivileges privileges)
         {
-            // hack to work around the metastore not being configured for S3
+            // hack to work around the metastore not being configured for S3 or other FS
             Table.Builder tableBuilder = Table.builder(table);
             tableBuilder.getStorageBuilder().setLocation("/");
             super.createTable(tableBuilder.build(), privileges);
@@ -489,7 +480,7 @@ public abstract class AbstractTestHiveClientS3
                     throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
                 }
 
-                // hack to work around the metastore not being configured for S3
+                // hack to work around the metastore not being configured for S3 or other FS
                 List<String> locations = listAllDataPaths(databaseName, tableName);
 
                 Table.Builder tableBuilder = Table.builder(table.get());
