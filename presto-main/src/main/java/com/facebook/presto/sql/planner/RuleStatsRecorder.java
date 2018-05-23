@@ -27,7 +27,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static java.lang.String.format;
 
-public class StatsRecorder
+public class RuleStatsRecorder
 {
     private final Map<Class<?>, RuleStats> stats = new HashMap<>();
 
