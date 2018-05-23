@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.Session;
 import com.facebook.presto.memory.QueryContextVisitor;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
@@ -332,36 +331,6 @@ public class OperatorContext
         memoryFuture.get().set(null);
     }
 
-    /**
-     * This method is <b>not</b> thread safe. If multiple threads work on the same
-     * <code>transferredBytesMemoryContext</code> instance it's possible that one of the writes
-     * is lost by the last <code>transferredBytesMemoryContext.setBytes()</code> call.
-     *
-     * @param taskBytes The number of bytes to transfer from the OperatorContext to TaskContext.
-     * @param transferredBytesMemoryContext This context should be created with {@link com.facebook.presto.operator.TaskContext#createNewTransferredBytesMemoryContext()}.
-     */
-    public void transferMemoryToTaskContext(long taskBytes, LocalMemoryContext transferredBytesMemoryContext)
-    {
-        checkArgument(taskBytes >= 0, "taskBytes is negative");
-        long bytes = operatorMemoryContext.getUserMemory();
-        long bytesBeforeTransfer = transferredBytesMemoryContext.getBytes();
-        operatorMemoryContext.localUserMemoryContext().transferMemory(transferredBytesMemoryContext);
-        try {
-            transferredBytesMemoryContext.setBytes(transferredBytesMemoryContext.getBytes() + taskBytes - bytes);
-        }
-        catch (ExceededMemoryLimitException e) {
-            // Since we can reserve an extra amount of memory above (when taskBytes > bytes),
-            // ExceededMemoryLimitException can be thrown when reserving this extra amount.
-            // This will happen after "bytes" is moved from the operator context to the task context.
-            // At this point "bytes" isn't tracked by the operator context.
-            // When drivers get destroyed, only memory tracked in its operators are freed.
-            // Therefore, we have to cleanup the memory here by resetting the
-            // state of the transferredBytesMemoryContext.
-            transferredBytesMemoryContext.setBytes(bytesBeforeTransfer);
-            throw e;
-        }
-    }
-
     public synchronized boolean isMemoryRevokingRequested()
     {
         return memoryRevokingRequested;
@@ -629,12 +598,6 @@ public class OperatorContext
         public boolean trySetBytes(long bytes)
         {
             return delegate.trySetBytes(bytes);
-        }
-
-        @Override
-        public void transferMemory(LocalMemoryContext to)
-        {
-            throw new UnsupportedOperationException();
         }
 
         @Override

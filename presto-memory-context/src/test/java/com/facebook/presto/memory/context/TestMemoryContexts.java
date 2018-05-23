@@ -148,34 +148,6 @@ public class TestMemoryContexts
         assertEquals(reservationHandler.getReservation(), maxMemory);
     }
 
-    @Test
-    public void testTransferMemory()
-    {
-        TestMemoryReservationHandler reservationHandler = new TestMemoryReservationHandler(1_000);
-        AggregatedMemoryContext taskContext = newRootAggregatedMemoryContext(reservationHandler, GUARANTEED_MEMORY);
-        LocalMemoryContext taskLocalMemoryContext = taskContext.newLocalMemoryContext();
-        AggregatedMemoryContext pipelineContext = taskContext.newAggregatedMemoryContext();
-        AggregatedMemoryContext driverContext = pipelineContext.newAggregatedMemoryContext();
-        AggregatedMemoryContext operatorContext = driverContext.newAggregatedMemoryContext();
-        LocalMemoryContext operatorLocalMemoryContext = operatorContext.newLocalMemoryContext();
-
-        operatorLocalMemoryContext.setBytes(10);
-        assertEquals(taskContext.getBytes(), 10);
-        assertEquals(pipelineContext.getBytes(), 10);
-        assertEquals(driverContext.getBytes(), 10);
-        assertEquals(operatorContext.getBytes(), 10);
-        assertEquals(taskLocalMemoryContext.getBytes(), 0);
-        assertEquals(reservationHandler.getReservation(), 10);
-
-        operatorLocalMemoryContext.transferMemory(taskLocalMemoryContext);
-        assertEquals(operatorLocalMemoryContext.getBytes(), 0);
-        assertEquals(operatorContext.getBytes(), 0);
-        assertEquals(pipelineContext.getBytes(), 0);
-        assertEquals(driverContext.getBytes(), 0);
-        assertEquals(taskContext.getBytes(), 10);
-        assertEquals(reservationHandler.getReservation(), 10);
-    }
-
     private static class TestMemoryReservationHandler
             implements MemoryReservationHandler
     {
