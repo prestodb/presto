@@ -44,7 +44,6 @@ import java.util.regex.Pattern;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static java.lang.String.format;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -325,63 +324,6 @@ public class TestMemoryTracking
                 100_000_000,
                 0,
                 0);
-    }
-
-    @Test
-    public void testTransferMemoryToTaskContext()
-    {
-        LocalMemoryContext userMemory = operatorContext.localUserMemoryContext();
-        userMemory.setBytes(300_000_000);
-        assertEquals(operatorContext.getOperatorMemoryContext().getUserMemory(), 300_000_000);
-        assertEquals(driverContext.getDriverMemoryContext().getUserMemory(), 300_000_000);
-        assertEquals(pipelineContext.getPipelineMemoryContext().getUserMemory(), 300_000_000);
-        assertEquals(taskContext.getTaskMemoryContext().getUserMemory(), 300_000_000);
-
-        LocalMemoryContext transferredBytesMemoryContext = taskContext.createNewTransferredBytesMemoryContext();
-        operatorContext.transferMemoryToTaskContext(500_000_000, transferredBytesMemoryContext);
-        assertEquals(operatorContext.getOperatorMemoryContext().getUserMemory(), 0);
-        assertEquals(driverContext.getDriverMemoryContext().getUserMemory(), 0);
-        assertEquals(pipelineContext.getPipelineMemoryContext().getUserMemory(), 0);
-        assertEquals(taskContext.getTaskMemoryContext().getUserMemory(), 500_000_000);
-        assertLocalMemoryAllocations(taskContext.getTaskMemoryContext(), 500_000_000, 500_000_000, 0);
-        transferredBytesMemoryContext.close();
-        assertLocalMemoryAllocations(taskContext.getTaskMemoryContext(), 0, 0, 0);
-
-        // do another set of allocations where transferMemoryToTaskContext() will be called
-        // with exactly the same number of bytes as in the operator user memory context
-        userMemory.setBytes(1000);
-        assertEquals(operatorContext.getOperatorMemoryContext().getUserMemory(), 1000);
-        assertEquals(driverContext.getDriverMemoryContext().getUserMemory(), 1000);
-        assertEquals(pipelineContext.getPipelineMemoryContext().getUserMemory(), 1000);
-        assertEquals(taskContext.getTaskMemoryContext().getUserMemory(), 1000);
-
-        transferredBytesMemoryContext = taskContext.createNewTransferredBytesMemoryContext();
-        operatorContext.transferMemoryToTaskContext(1000, transferredBytesMemoryContext);
-
-        assertEquals(operatorContext.getOperatorMemoryContext().getUserMemory(), 0);
-        assertEquals(driverContext.getDriverMemoryContext().getUserMemory(), 0);
-        assertEquals(pipelineContext.getPipelineMemoryContext().getUserMemory(), 0);
-        assertEquals(taskContext.getTaskMemoryContext().getUserMemory(), 1000);
-        assertLocalMemoryAllocations(taskContext.getTaskMemoryContext(), 1000, 1000, 0);
-        transferredBytesMemoryContext.close();
-        assertLocalMemoryAllocations(taskContext.getTaskMemoryContext(), 0, 0, 0);
-
-        // exhaust the pool
-        userMemory.setBytes(memoryPoolSize.toBytes());
-        assertEquals(operatorContext.getOperatorMemoryContext().getUserMemory(), memoryPoolSize.toBytes());
-        assertEquals(driverContext.getDriverMemoryContext().getUserMemory(), memoryPoolSize.toBytes());
-        assertEquals(pipelineContext.getPipelineMemoryContext().getUserMemory(), memoryPoolSize.toBytes());
-        assertEquals(taskContext.getTaskMemoryContext().getUserMemory(), memoryPoolSize.toBytes());
-
-        transferredBytesMemoryContext = taskContext.createNewTransferredBytesMemoryContext();
-
-        try {
-            operatorContext.transferMemoryToTaskContext(memoryPoolSize.toBytes() + 1000, transferredBytesMemoryContext);
-        }
-        catch (Throwable t) {
-            assertInstanceOf(t, ExceededMemoryLimitException.class);
-            assertEquals(transferredBytesMemoryContext.getBytes(), 0);
-        }
     }
 
     @Test

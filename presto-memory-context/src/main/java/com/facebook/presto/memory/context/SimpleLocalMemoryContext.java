@@ -19,7 +19,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
-import static com.facebook.presto.memory.context.AbstractAggregatedMemoryContext.addExact;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -77,50 +76,6 @@ public final class SimpleLocalMemoryContext
             return true;
         }
         return false;
-    }
-
-    /**
-     * This method transfers the allocations from this memory context to the "to" memory context,
-     * where parent of this is a descendant of to.parent (there can be multiple AggregatedMemoryContexts between them).
-     * <p>
-     * During the transfer the implementation of this method must not reflect any state changes outside of the contexts
-     * (e.g., by calling the reservation handlers).
-     * <p>
-     * This method currently has a single use ({@code NestedLoopJoinPages}) and any change should be tested carefully due to
-     * its somewhat complex semantics.
-     */
-    @Deprecated
-    @Override
-    public synchronized void transferMemory(LocalMemoryContext to)
-    {
-        checkArgument(to instanceof SimpleLocalMemoryContext, "to must be an instance of SimpleLocalMemoryContext");
-        checkState(!closed, "already closed");
-
-        SimpleLocalMemoryContext target = (SimpleLocalMemoryContext) to;
-        checkMemoryContextState(target);
-
-        AbstractAggregatedMemoryContext parent = parentMemoryContext;
-        while (parent != null && parent != target.parentMemoryContext) {
-            parent.addBytes(-usedBytes);
-            parent = parent.getParent();
-        }
-        target.addBytes(usedBytes);
-        usedBytes = 0;
-    }
-
-    private void checkMemoryContextState(SimpleLocalMemoryContext target)
-    {
-        AbstractAggregatedMemoryContext parent = parentMemoryContext;
-        while (parent != null && parent != target.parentMemoryContext) {
-            parent = parent.getParent();
-        }
-        // if parent is null at this point, we fail as the memory context state is probably corrupt.
-        checkState(parent != null, "memory context state is corrupt");
-    }
-
-    private synchronized void addBytes(long bytes)
-    {
-        usedBytes = addExact(usedBytes, bytes);
     }
 
     @Override

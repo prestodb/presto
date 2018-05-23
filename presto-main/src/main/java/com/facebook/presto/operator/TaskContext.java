@@ -267,18 +267,6 @@ public class TaskContext
         return taskMemoryContext.localSystemMemoryContext();
     }
 
-    /**
-     * This method is used to create a new LocalMemoryContext that will be used to keep track of the bytes transferred from
-     * the OperatorContext with the OperatorContext::transferMemoryToTaskContext() method.
-     * Creating a new memory context for this purpose simplifies tracking those bytes.
-     * The caller must close this LocalMemoryContext when done.
-     * @return a new LocalMemoryContext to track the bytes transferred from the OperatorContext to TaskContext
-     */
-    public synchronized LocalMemoryContext createNewTransferredBytesMemoryContext()
-    {
-        return taskMemoryContext.newUserMemoryContext();
-    }
-
     public void moreMemoryAvailable()
     {
         pipelineContexts.forEach(PipelineContext::moreMemoryAvailable);
