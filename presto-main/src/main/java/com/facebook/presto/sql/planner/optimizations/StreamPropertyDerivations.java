@@ -77,6 +77,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_FIRST;
 import static com.facebook.presto.spi.predicate.TupleDomain.extractFixedValues;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.FIXED;
@@ -88,6 +89,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
@@ -433,7 +435,15 @@ public final class StreamPropertyDerivations
         @Override
         public StreamProperties visitAssignUniqueId(AssignUniqueId node, List<StreamProperties> inputProperties)
         {
-            return Iterables.getOnlyElement(inputProperties);
+            StreamProperties sourceProperties = Iterables.getOnlyElement(inputProperties);
+            return new StreamProperties(
+                    sourceProperties.getDistribution(),
+                    Optional.of(node.getOutputSymbols()),
+                    Optional.of(new OrderingScheme(
+                            node.getOutputSymbols(),
+                            node.getOutputSymbols().stream()
+                                    .collect(toImmutableMap(symbol -> symbol, symbol -> ASC_NULLS_FIRST))
+                    )));
         }
 
         //
