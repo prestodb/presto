@@ -229,7 +229,11 @@ public class RaptorMetadata
                 .collect(toCollection(ArrayList::new));
 
         columns.add(hiddenColumn(SHARD_UUID_COLUMN_NAME, SHARD_UUID_COLUMN_TYPE));
-        columns.add(hiddenColumn(BUCKET_NUMBER_COLUMN_NAME, INTEGER));
+
+        if (handle.isBucketed()) {
+            columns.add(hiddenColumn(BUCKET_NUMBER_COLUMN_NAME, INTEGER));
+        }
+
         return new ConnectorTableMetadata(tableName, columns, properties.build());
     }
 
@@ -251,8 +255,10 @@ public class RaptorMetadata
         RaptorColumnHandle uuidColumn = shardUuidColumnHandle(connectorId);
         builder.put(uuidColumn.getColumnName(), uuidColumn);
 
-        RaptorColumnHandle bucketNumberColumn = bucketNumberColumnHandle(connectorId);
-        builder.put(bucketNumberColumn.getColumnName(), bucketNumberColumn);
+        if (raptorTableHandle.isBucketed()) {
+            RaptorColumnHandle bucketNumberColumn = bucketNumberColumnHandle(connectorId);
+            builder.put(bucketNumberColumn.getColumnName(), bucketNumberColumn);
+        }
 
         return builder.build();
     }

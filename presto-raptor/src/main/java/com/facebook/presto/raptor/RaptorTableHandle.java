@@ -70,6 +70,11 @@ public final class RaptorTableHandle
         this.delete = delete;
     }
 
+    public boolean isBucketed()
+    {
+        return this.distributionId.isPresent();
+    }
+
     @JsonProperty
     public String getConnectorId()
     {
