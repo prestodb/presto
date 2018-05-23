@@ -2390,7 +2390,7 @@ public abstract class AbstractTestHiveClient
     }
 
     @Test
-    public void testCompareAndSetTableParameters()
+    public void testUpdateTableParameters()
             throws Exception
     {
         SchemaTableName tableName = temporaryTable("compare_and_set_table_parameters");
@@ -2414,7 +2414,7 @@ public abstract class AbstractTestHiveClient
     }
 
     @Test
-    public void testCompareAndSetPartitionParameters()
+    public void testUpdatePartitionParameters()
             throws Exception
     {
         SchemaTableName tableName = temporaryTable("compare_and_set_partition_parameters");
@@ -3088,7 +3088,9 @@ public abstract class AbstractTestHiveClient
 
             for (String partitionName : partitionNames) {
                 HiveBasicStatistics statistics = getBasicStatisticsForPartition(transaction, tableName, dsColumn, partitionName);
-                assertStatisticsAreNotPresent(statistics);
+                assertThat(statistics.getRowCount()).isNotPresent();
+                assertThat(statistics.getInMemoryDataSizeInBytes()).isNotPresent();
+                // fileCount and rawSize statistics are computed on the fly by the metastore, thus cannot be erased
             }
         }
     }
@@ -3096,14 +3098,6 @@ public abstract class AbstractTestHiveClient
     private static String getPartitionValue(ColumnHandle columnHandle, String partitionName)
     {
         return partitionName.replaceFirst(((HiveColumnHandle) columnHandle).getName() + "=", "");
-    }
-
-    private static Constraint<ColumnHandle> createConstraintForPartition(ColumnHandle columnHandle, String partitionName)
-    {
-        String partitionValue = getPartitionValue(columnHandle, partitionName);
-        Domain domain = Domain.singleValue(createUnboundedVarcharType(), utf8Slice(partitionValue));
-        TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(columnHandle, domain));
-        return new Constraint<>(tupleDomain, bindings -> true);
     }
 
     private static HiveBasicStatistics getBasicStatisticsForPartition(Transaction transaction, SchemaTableName table, ColumnHandle handle, String partitionName)
@@ -3148,14 +3142,6 @@ public abstract class AbstractTestHiveClient
                 .stream()
                 .filter(entry -> !STATISTICS_PARAMETERS.contains(entry.getKey()))
                 .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
-    }
-
-    private static void assertStatisticsAreNotPresent(HiveBasicStatistics statistics)
-    {
-        assertThat(statistics.getRowCount()).isNotPresent();
-        assertThat(statistics.getFileCount()).isNotPresent();
-        assertThat(statistics.getOnDiskDataSizeInBytes()).isNotPresent();
-        assertThat(statistics.getInMemoryDataSizeInBytes()).isNotPresent();
     }
 
     /**
