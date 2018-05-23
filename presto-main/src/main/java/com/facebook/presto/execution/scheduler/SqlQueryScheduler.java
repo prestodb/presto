@@ -19,7 +19,6 @@ import com.facebook.presto.Session;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.NodeTaskMap;
-import com.facebook.presto.execution.QueryExecution.QueryOutputInfo;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.QueryStateMachine;
 import com.facebook.presto.execution.RemoteTask;
@@ -45,7 +44,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.primitives.Ints;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.concurrent.SetThreadName;
@@ -114,14 +112,12 @@ public class SqlQueryScheduler
     private final ExecutionPolicy executionPolicy;
     private final Map<StageId, SqlStageExecution> stages;
     private final ExecutorService executor;
-    private final FailureDetector failureDetector;
     private final StageId rootStageId;
     private final Map<StageId, StageScheduler> stageSchedulers;
     private final Map<StageId, StageLinkage> stageLinkages;
     private final SplitSchedulerStats schedulerStats;
     private final boolean summarizeTaskInfo;
     private final AtomicBoolean started = new AtomicBoolean();
-    private final SettableFuture<QueryOutputInfo> rootStageOutputBufferLocations = SettableFuture.create();
 
     public SqlQueryScheduler(QueryStateMachine queryStateMachine,
             LocationFactory locationFactory,
@@ -182,7 +178,6 @@ public class SqlQueryScheduler
         this.stageLinkages = stageLinkages.build();
 
         this.executor = queryExecutor;
-        this.failureDetector = failureDetector;
 
         rootStage.addStateChangeListener(state -> {
             if (state == FINISHED) {
@@ -383,11 +378,6 @@ public class SqlQueryScheduler
         return stages.build();
     }
 
-    public ListenableFuture<QueryOutputInfo> getRootStageOutputBufferLocations()
-    {
-        return Futures.nonCancellationPropagating(rootStageOutputBufferLocations);
-    }
-
     public StageInfo getStageInfo()
     {
         Map<StageId, StageInfo> stageInfos = stages.values().stream()
@@ -555,8 +545,7 @@ public class SqlQueryScheduler
     public void abort()
     {
         try (SetThreadName ignored = new SetThreadName("Query-%s", queryStateMachine.getQueryId())) {
-            stages.values().stream()
-                    .forEach(SqlStageExecution::abort);
+            stages.values().forEach(SqlStageExecution::abort);
         }
     }
 
