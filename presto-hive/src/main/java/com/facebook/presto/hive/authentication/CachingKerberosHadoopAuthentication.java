@@ -47,8 +47,8 @@ public class CachingKerberosHadoopAuthentication
             if (refreshIsNeeded()) {
                 refreshUgi();
             }
+            return userGroupInformation;
         }
-        return userGroupInformation;
     }
 
     private void refreshUgi()
