@@ -155,6 +155,13 @@ public class TestRaptorIntegrationSmokeTest
         assertEquals(actual, IntStream.range(0, 50).boxed().collect(toSet()));
     }
 
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Column '\\$bucket_number' cannot be resolved")
+    public void testNoBucketNumberHiddenColumn()
+    {
+        assertUpdate("CREATE TABLE test_no_bucket_number (test bigint)");
+        computeActual("SELECT DISTINCT \"$bucket_number\" FROM test_no_bucket_number");
+    }
+
     @Test
     public void testShardingByTemporalDateColumn()
     {
