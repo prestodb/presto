@@ -15,6 +15,7 @@ package com.facebook.presto.hive.parquet.predicate;
 
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HiveType;
+import com.facebook.presto.hive.parquet.RichColumnDescriptor;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.ArrayType;
@@ -32,10 +33,13 @@ import parquet.schema.GroupType;
 import parquet.schema.MessageType;
 import parquet.schema.PrimitiveType;
 
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static com.facebook.presto.hive.parquet.ParquetTypeUtils.getDescriptors;
 import static com.facebook.presto.hive.parquet.predicate.ParquetPredicateUtils.getParquetTupleDomain;
 import static com.facebook.presto.hive.parquet.predicate.ParquetPredicateUtils.isOnlyDictionaryEncodingPages;
 import static com.facebook.presto.spi.block.MethodHandleUtil.methodHandle;
@@ -92,7 +96,8 @@ public class TestParquetPredicateUtils
                 new GroupType(OPTIONAL, "my_array",
                         new GroupType(REPEATED, "bag", new PrimitiveType(OPTIONAL, INT32, "array_element"))));
 
-        TupleDomain<ColumnDescriptor> tupleDomain = getParquetTupleDomain(fileSchema, fileSchema, domain);
+        Map<List<String>, RichColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, fileSchema);
+        TupleDomain<ColumnDescriptor> tupleDomain = getParquetTupleDomain(descriptorsByPath, domain);
         assertTrue(tupleDomain.getDomains().get().isEmpty());
     }
 
@@ -109,7 +114,8 @@ public class TestParquetPredicateUtils
                         new GroupType(REPEATED, "bag",
                                 new GroupType(OPTIONAL, "array_element", new PrimitiveType(OPTIONAL, INT32, "a")))));
 
-        TupleDomain<ColumnDescriptor> tupleDomain = getParquetTupleDomain(fileSchema, fileSchema, domain);
+        Map<List<String>, RichColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, fileSchema);
+        TupleDomain<ColumnDescriptor> tupleDomain = getParquetTupleDomain(descriptorsByPath, domain);
         assertTrue(tupleDomain.getDomains().get().isEmpty());
     }
 
@@ -122,7 +128,8 @@ public class TestParquetPredicateUtils
 
         MessageType fileSchema = new MessageType("hive_schema", new PrimitiveType(OPTIONAL, INT64, "my_primitive"));
 
-        TupleDomain<ColumnDescriptor> tupleDomain = getParquetTupleDomain(fileSchema, fileSchema, domain);
+        Map<List<String>, RichColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, fileSchema);
+        TupleDomain<ColumnDescriptor> tupleDomain = getParquetTupleDomain(descriptorsByPath, domain);
 
         assertEquals(tupleDomain.getDomains().get().size(), 1);
         ColumnDescriptor descriptor = tupleDomain.getDomains().get().keySet().iterator().next();
@@ -145,8 +152,8 @@ public class TestParquetPredicateUtils
                 new GroupType(OPTIONAL, "my_struct",
                         new PrimitiveType(OPTIONAL, INT32, "a"),
                         new PrimitiveType(OPTIONAL, INT32, "b")));
-
-        TupleDomain<ColumnDescriptor> tupleDomain = getParquetTupleDomain(fileSchema, fileSchema, domain);
+        Map<List<String>, RichColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, fileSchema);
+        TupleDomain<ColumnDescriptor> tupleDomain = getParquetTupleDomain(descriptorsByPath, domain);
         assertTrue(tupleDomain.getDomains().get().isEmpty());
     }
 
@@ -171,7 +178,8 @@ public class TestParquetPredicateUtils
                             new PrimitiveType(REQUIRED, INT32, "key"),
                             new PrimitiveType(OPTIONAL, INT32, "value"))));
 
-        TupleDomain<ColumnDescriptor> tupleDomain = getParquetTupleDomain(fileSchema, fileSchema, domain);
+        Map<List<String>, RichColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, fileSchema);
+        TupleDomain<ColumnDescriptor> tupleDomain = getParquetTupleDomain(descriptorsByPath, domain);
         assertTrue(tupleDomain.getDomains().get().isEmpty());
     }
 

@@ -119,7 +119,9 @@ public final class ParquetMetadataReader
                                     || (filePath != null && filePath.equals(columnChunk.getFile_path())),
                             "all column chunks of the same row group must be in the same file");
                     ColumnMetaData metaData = columnChunk.meta_data;
-                    String[] path = metaData.path_in_schema.toArray(new String[metaData.path_in_schema.size()]);
+                    String[] path = metaData.path_in_schema.stream()
+                            .map(String::toLowerCase)
+                            .toArray(String[]::new);
                     ColumnPath columnPath = ColumnPath.get(path);
                     PrimitiveTypeName primitiveTypeName = messageType.getType(columnPath.toArray()).asPrimitiveType().getPrimitiveTypeName();
                     ColumnChunkMetaData column = ColumnChunkMetaData.get(
@@ -188,7 +190,7 @@ public final class ParquetMetadataReader
             if (element.isSetField_id()) {
                 typeBuilder.id(element.field_id);
             }
-            typeBuilder.named(element.name);
+            typeBuilder.named(element.name.toLowerCase());
         }
     }
 

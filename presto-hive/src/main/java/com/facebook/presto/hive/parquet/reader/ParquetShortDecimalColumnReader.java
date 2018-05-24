@@ -13,18 +13,18 @@
  */
 package com.facebook.presto.hive.parquet.reader;
 
+import com.facebook.presto.hive.parquet.RichColumnDescriptor;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
-import parquet.column.ColumnDescriptor;
 
 import static com.facebook.presto.hive.util.DecimalUtils.getShortDecimalValue;
 import static parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
 import static parquet.schema.PrimitiveType.PrimitiveTypeName.INT64;
 
 public class ParquetShortDecimalColumnReader
-        extends ParquetColumnReader
+        extends ParquetPrimitiveColumnReader
 {
-    ParquetShortDecimalColumnReader(ColumnDescriptor descriptor)
+    ParquetShortDecimalColumnReader(RichColumnDescriptor descriptor)
     {
         super(descriptor);
     }
@@ -46,7 +46,7 @@ public class ParquetShortDecimalColumnReader
             }
             type.writeLong(blockBuilder, decimalValue);
         }
-        else {
+        else if (isValueNull()) {
             blockBuilder.appendNull();
         }
     }
