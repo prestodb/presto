@@ -24,6 +24,7 @@ import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GroupingOperation;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 import java.util.List;
@@ -70,6 +71,14 @@ public class Analyzer
         Analysis analysis = new Analysis(rewrittenStatement, parameters, isDescribe);
         StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session);
         analyzer.analyze(rewrittenStatement, Optional.empty());
+
+        // check column access permissions for each table
+        analysis.getTableColumnReferences(session.getIdentity())
+                .forEach((tableName, columns) ->
+                        accessControl.checkCanSelectFromColumns(session.getRequiredTransactionId(),
+                                session.getIdentity(),
+                                tableName,
+                                ImmutableSet.copyOf(columns)));
         return analysis;
     }
 
