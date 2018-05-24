@@ -279,6 +279,11 @@ public class PlanOptimizers
                         stats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
+                        columnPruningRules),
+                new IterativeOptimizer(
+                        stats,
+                        statsCalculator,
+                        estimatedExchangesCostCalculator,
                         ImmutableSet.of(new TransformExistsApplyToLateralNode(metadata.getFunctionRegistry()))),
                 new TransformQuantifiedComparisonApplyToLateralJoin(metadata),
                 new IterativeOptimizer(
