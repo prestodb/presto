@@ -98,6 +98,7 @@ import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
+import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 
 public final class ExpressionFormatter
@@ -110,6 +111,18 @@ public final class ExpressionFormatter
     public static String formatExpression(Expression expression, Optional<List<Expression>> parameters)
     {
         return new Formatter(parameters).process(expression, null);
+    }
+
+    public static String formatQualifiedName(QualifiedName name)
+    {
+        return name.getParts().stream()
+                .map(ExpressionFormatter::formatIdentifier)
+                .collect(joining("."));
+    }
+
+    public static String formatIdentifier(String s)
+    {
+        return '"' + s.replace("\"", "\"\"") + '"';
     }
 
     public static class Formatter
@@ -328,15 +341,6 @@ public final class ExpressionFormatter
         {
             String baseString = process(node.getBase(), context);
             return baseString + "." + process(node.getField());
-        }
-
-        private static String formatQualifiedName(QualifiedName name)
-        {
-            List<String> parts = new ArrayList<>();
-            for (String part : name.getParts()) {
-                parts.add(formatIdentifier(part));
-            }
-            return Joiner.on('.').join(parts);
         }
 
         @Override
@@ -682,12 +686,6 @@ public final class ExpressionFormatter
             return Joiner.on(", ").join(expressions.stream()
                     .map((e) -> process(e, null))
                     .iterator());
-        }
-
-        private static String formatIdentifier(String s)
-        {
-            // TODO: handle escaping properly
-            return '"' + s + '"';
         }
     }
 
