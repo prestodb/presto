@@ -688,14 +688,6 @@ class StatementAnalyzer
                     .withRelationType(RelationId.of(node), queryBodyScope.getRelationType())
                     .build();
 
-            // check column access permissions for each table
-            analysis.getTableColumnReferences(session.getIdentity())
-                    .forEach((tableName, columns) ->
-                            accessControl.checkCanSelectFromColumns(session.getRequiredTransactionId(),
-                                    session.getIdentity(),
-                                    tableName,
-                                    ImmutableSet.copyOf(columns)));
-
             analysis.setScope(node, queryScope);
             return queryScope;
         }
