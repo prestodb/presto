@@ -82,6 +82,11 @@ public class TestSubqueries
         assertions.assertFails(
                 "select (select count(*) from (values 1, 1, 3) t(a) where t.a=t2.b limit 1) from (values 1) t2(b)",
                 UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+        assertions.assertQuery(
+                "SELECT t.cid, t.rid " +
+                        "FROM (values (1, 101)) t(cid, rid) " +
+                        "WHERE EXISTS(SELECT 1 FROM (values ('x', 1, 101)) u(x, cid, rid) WHERE x = 'x' AND t.cid = cid AND t.rid = rid LIMIT 1)",
+                "VALUES (1, 101)");
     }
 
     @Test
