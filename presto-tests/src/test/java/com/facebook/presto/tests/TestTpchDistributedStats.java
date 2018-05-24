@@ -27,6 +27,7 @@ import static com.facebook.presto.tests.statistics.MetricComparisonStrategies.de
 import static com.facebook.presto.tests.statistics.MetricComparisonStrategies.noError;
 import static com.facebook.presto.tests.statistics.MetricComparisonStrategies.relativeError;
 import static com.facebook.presto.tests.statistics.Metrics.OUTPUT_ROW_COUNT;
+import static com.facebook.presto.tests.statistics.Metrics.distinctValuesCount;
 import static com.facebook.presto.tpch.TpchConnectorFactory.TPCH_COLUMN_NAMING_PROPERTY;
 
 public class TestTpchDistributedStats
@@ -124,9 +125,13 @@ public class TestTpchDistributedStats
     @Test
     public void testEnforceSingleRow()
     {
-        statisticsAssertion.check("SELECT (SELECT n_regionkey FROM nation WHERE n_name = 'Germany') AS sub",
+        statisticsAssertion.check("SELECT (SELECT n_regionkey FROM nation WHERE n_name = 'nosuchvalue') AS sub",
                 checks -> checks
-                        // TODO change 'Germany' to (correct) 'GERMANY' and check: .estimate(distinctValuesCount("sub"), defaultTolerance())
+                        .estimate(OUTPUT_ROW_COUNT, noError()));
+
+        statisticsAssertion.check("SELECT (SELECT n_regionkey FROM nation WHERE n_name = 'GERMANY') AS sub",
+                checks -> checks
+                        .estimate(distinctValuesCount("sub"), noError())
                         .estimate(OUTPUT_ROW_COUNT, noError()));
     }
 
