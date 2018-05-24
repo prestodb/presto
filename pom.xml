@@ -30,7 +30,6 @@
     <scm>
         <connection>scm:git:git://github.com/facebook/presto.git</connection>
         <url>https://github.com/facebook/presto</url>
-        <tag>0.187</tag>
     </scm>
 
     <properties>
