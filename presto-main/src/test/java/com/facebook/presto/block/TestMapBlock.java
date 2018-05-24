@@ -16,6 +16,7 @@ package com.facebook.presto.block;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.MapBlockBuilder;
 import com.facebook.presto.spi.block.SingleMapBlock;
 import com.facebook.presto.spi.type.MapType;
 import org.testng.annotations.Test;
@@ -198,5 +199,30 @@ public class TestMapBlock
             assertTrue(map.containsKey(actualKey));
             assertEquals(actualValue, map.get(actualKey));
         }
+    }
+
+    @Test
+    public void testCloseEntryStrict()
+            throws Exception
+    {
+        MapType mapType = mapType(BIGINT, BIGINT);
+        MapBlockBuilder mapBlockBuilder = (MapBlockBuilder) mapType.createBlockBuilder(null, 1);
+
+        // Add 100 maps with only one entry but the same key
+        for (int i = 0; i < 100; i++) {
+            BlockBuilder entryBuilder = mapBlockBuilder.beginBlockEntry();
+            BIGINT.writeLong(entryBuilder, 1);
+            BIGINT.writeLong(entryBuilder, -1);
+            mapBlockBuilder.closeEntry();
+        }
+
+        BlockBuilder entryBuilder = mapBlockBuilder.beginBlockEntry();
+        // Add 50 keys so we get some chance to get hash conflict
+        // The purpose of this test is to make sure offset is calculated correctly in MapBlockBuilder.closeEntryStrict()
+        for (int i = 0; i < 50; i++) {
+            BIGINT.writeLong(entryBuilder, i);
+            BIGINT.writeLong(entryBuilder, -1);
+        }
+        mapBlockBuilder.closeEntryStrict();
     }
 }

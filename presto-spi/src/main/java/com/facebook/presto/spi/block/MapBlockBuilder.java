@@ -223,7 +223,8 @@ public class MapBlockBuilder
         int entryCount = aggregatedEntryCount - previousAggregatedEntryCount;
         buildHashTableStrict(
                 keyBlockBuilder,
-                previousAggregatedEntryCount, entryCount,
+                previousAggregatedEntryCount,
+                entryCount,
                 keyBlockEquals,
                 keyBlockHashCode,
                 hashTables,
@@ -457,7 +458,7 @@ public class MapBlockBuilder
 
                 boolean isDuplicateKey;
                 try {
-                    isDuplicateKey = (boolean) keyBlockEquals.invokeExact(keyBlock, i, keyBlock, outputHashTable[hashTableOffset + hash]);
+                    isDuplicateKey = (boolean) keyBlockEquals.invokeExact(keyBlock, keyOffset + i, keyBlock, keyOffset + outputHashTable[hashTableOffset + hash]);
                 }
                 catch (RuntimeException e) {
                     throw e;
@@ -467,7 +468,7 @@ public class MapBlockBuilder
                 }
 
                 if (isDuplicateKey) {
-                    throw new DuplicateMapKeyException(keyBlock, i);
+                    throw new DuplicateMapKeyException(keyBlock, keyOffset + i);
                 }
 
                 hash++;
