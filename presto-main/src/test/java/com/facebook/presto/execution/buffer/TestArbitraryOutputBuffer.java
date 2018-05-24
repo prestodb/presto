@@ -933,14 +933,16 @@ public class TestArbitraryOutputBuffer
 
     private static ListenableFuture<?> enqueuePage(OutputBuffer buffer, Page page)
     {
-        ListenableFuture<?> future = buffer.enqueue(ImmutableList.of(PAGES_SERDE.serialize(page)));
+        buffer.enqueue(ImmutableList.of(PAGES_SERDE.serialize(page)));
+        ListenableFuture<?> future = buffer.isFull();
         assertFalse(future.isDone());
         return future;
     }
 
     private static void addPage(OutputBuffer buffer, Page page)
     {
-        assertTrue(buffer.enqueue(ImmutableList.of(PAGES_SERDE.serialize(page))).isDone(), "Expected add page to not block");
+        buffer.enqueue(ImmutableList.of(PAGES_SERDE.serialize(page)));
+        assertTrue(buffer.isFull().isDone(), "Expected add page to not block");
     }
 
     private static void assertQueueState(

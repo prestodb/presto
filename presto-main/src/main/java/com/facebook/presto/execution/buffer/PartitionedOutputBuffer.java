@@ -37,7 +37,6 @@ import static com.facebook.presto.execution.buffer.BufferState.OPEN;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Objects.requireNonNull;
 
 public class PartitionedOutputBuffer
@@ -156,21 +155,27 @@ public class PartitionedOutputBuffer
     }
 
     @Override
-    public ListenableFuture<?> enqueue(List<SerializedPage> pages)
+    public ListenableFuture<?> isFull()
     {
-        checkState(partitions.size() == 1, "Expected exactly one partition");
-        return enqueue(0, pages);
+        return memoryManager.getBufferBlockedFuture();
     }
 
     @Override
-    public ListenableFuture<?> enqueue(int partitionNumber, List<SerializedPage> pages)
+    public void enqueue(List<SerializedPage> pages)
+    {
+        checkState(partitions.size() == 1, "Expected exactly one partition");
+        enqueue(0, pages);
+    }
+
+    @Override
+    public void enqueue(int partitionNumber, List<SerializedPage> pages)
     {
         requireNonNull(pages, "pages is null");
 
         // ignore pages after "no more pages" is set
         // this can happen with a limit query
         if (!state.get().canAddPages()) {
-            return immediateFuture(true);
+            return;
         }
 
         // reserve memory
@@ -192,8 +197,6 @@ public class PartitionedOutputBuffer
 
         // drop the initial reference
         serializedPageReferences.forEach(SerializedPageReference::dereferencePage);
-
-        return memoryManager.getBufferBlockedFuture();
     }
 
     @Override

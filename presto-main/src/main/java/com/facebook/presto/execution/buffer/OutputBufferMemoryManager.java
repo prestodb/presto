@@ -16,6 +16,7 @@ package com.facebook.presto.execution.buffer;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 
@@ -44,7 +45,7 @@ class OutputBufferMemoryManager
     @GuardedBy("this")
     private SettableFuture<?> bufferBlockedFuture;
     @GuardedBy("this")
-    private ListenableFuture<?> blockedOnMemory;
+    private ListenableFuture<?> blockedOnMemory = Futures.immediateFuture(null);
 
     private final AtomicBoolean blockOnFull = new AtomicBoolean(true);
 
