@@ -71,6 +71,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.primitives.Primitives;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -87,6 +88,7 @@ import static com.facebook.presto.metadata.MetadataUtil.createCatalogSchemaName;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedName;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
+import static com.facebook.presto.sql.ExpressionFormatter.formatQualifiedName;
 import static com.facebook.presto.sql.ParsingUtil.createParsingOptions;
 import static com.facebook.presto.sql.QueryUtil.aliased;
 import static com.facebook.presto.sql.QueryUtil.aliasedName;
@@ -355,13 +357,11 @@ final class ShowQueriesRewrite
         @Override
         protected Node visitShowPartitions(ShowPartitions showPartitions, Void context)
         {
-            QualifiedObjectName table = createQualifiedObjectName(session, showPartitions, showPartitions.getTable());
-            if (!metadata.getTableHandle(session, table).isPresent()) {
-                throw new SemanticException(MISSING_TABLE, showPartitions, "Table '%s' does not exist", table);
-            }
-
-            QualifiedObjectName partitionsTable = new QualifiedObjectName(table.getCatalogName(), table.getSchemaName(), table.getObjectName() + "$partitions");
-            throw new SemanticException(NOT_SUPPORTED, showPartitions, "SHOW PARTITIONS no longer exists. Use this instead: SELECT * FROM \"%s\"", partitionsTable);
+            List<String> parts = new ArrayList<>(showPartitions.getTable().getParts());
+            int last = parts.size() - 1;
+            parts.set(last, parts.get(last) + "$partitions");
+            QualifiedName table = QualifiedName.of(parts);
+            throw new SemanticException(NOT_SUPPORTED, showPartitions, "SHOW PARTITIONS no longer exists. Use this instead: SELECT * FROM %s", formatQualifiedName(table));
         }
 
         @Override
