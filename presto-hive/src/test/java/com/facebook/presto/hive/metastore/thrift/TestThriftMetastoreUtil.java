@@ -161,7 +161,7 @@ public class TestThriftMetastoreUtil
         assertEquals(actual.getTrueCount(), OptionalLong.of(100));
         assertEquals(actual.getFalseCount(), OptionalLong.of(10));
         assertEquals(actual.getNullsCount(), OptionalLong.of(0));
-        assertEquals(actual.getDistinctValuesCount(), OptionalLong.of(2));
+        assertEquals(actual.getDistinctValuesCount(), OptionalLong.empty());
     }
 
     @Test

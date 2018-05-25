@@ -261,6 +261,12 @@ public class MetastoreHiveStatisticsProvider
                     if (columnStatistics.getDistinctValuesCount().isPresent()) {
                         return OptionalDouble.of(columnStatistics.getDistinctValuesCount().getAsLong());
                     }
+                    else if (columnStatistics.getFalseCount().isPresent() && columnStatistics.getTrueCount().isPresent() && columnStatistics.getNullsCount().isPresent()) {
+                        long falseCount = columnStatistics.getFalseCount().getAsLong();
+                        long trueCount = columnStatistics.getTrueCount().getAsLong();
+                        long nullCount = columnStatistics.getNullsCount().getAsLong();
+                        return OptionalDouble.of((falseCount > 0 ? 1 : 0) + (trueCount > 0 ? 1 : 0) + (nullCount > 0 ? 1 : 0));
+                    }
                     else {
                         return OptionalDouble.empty();
                     }
