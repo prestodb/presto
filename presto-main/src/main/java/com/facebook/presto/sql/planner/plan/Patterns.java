@@ -30,6 +30,11 @@ public class Patterns
 {
     private Patterns() {}
 
+    public static Pattern<AssignUniqueId> assignUniqueId()
+    {
+        return typeOf(AssignUniqueId.class);
+    }
+
     public static Pattern<AggregationNode> aggregation()
     {
         return typeOf(AggregationNode.class);

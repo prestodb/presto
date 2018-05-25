@@ -23,6 +23,7 @@ import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.system.SystemConnectorModule;
 import com.facebook.presto.cost.AggregationStatsRule;
+import com.facebook.presto.cost.AssignUniqueIdStatsRule;
 import com.facebook.presto.cost.CoefficientBasedStatsCalculator;
 import com.facebook.presto.cost.ComposableStatsCalculator;
 import com.facebook.presto.cost.ComposableStatsCalculator.Rule;
@@ -533,6 +534,7 @@ public class ServerMainModule
         rules.add(new JoinStatsRule(filterStatsCalculator, normalizer));
         rules.add(new AggregationStatsRule(normalizer));
         rules.add(new UnionStatsRule(normalizer));
+        rules.add(new AssignUniqueIdStatsRule());
         rules.add(new SemiJoinStatsRule());
 
         return new ComposableStatsCalculator(rules.build());
