@@ -145,7 +145,8 @@ public class HiveTableProperties
     @SuppressWarnings("unchecked")
     public static List<String> getPartitionedBy(Map<String, Object> tableProperties)
     {
-        return (List<String>) tableProperties.get(PARTITIONED_BY_PROPERTY);
+        List<String> partitionedBy = (List<String>) tableProperties.get(PARTITIONED_BY_PROPERTY);
+        return partitionedBy == null ? ImmutableList.of() : ImmutableList.copyOf(partitionedBy);
     }
 
     public static Optional<HiveBucketProperty> getBucketProperty(Map<String, Object> tableProperties)
