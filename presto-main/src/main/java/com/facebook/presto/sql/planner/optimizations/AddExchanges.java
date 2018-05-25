@@ -712,20 +712,33 @@ public class AddExchanges
                     .collect(toImmutableList());
 
             JoinNode.DistributionType distributionType = node.getDistributionType().orElseThrow(() -> new IllegalArgumentException("distributionType not yet set"));
-            if (distributionType == JoinNode.DistributionType.PARTITIONED) {
-                return planPartitionedJoin(node, leftSymbols, rightSymbols);
+
+            if (distributionType == JoinNode.DistributionType.REPLICATED) {
+                PlanWithProperties left = node.getLeft().accept(this, PreferredProperties.any());
+
+                // use partitioned join if probe side is naturally partitioned on join symbols (e.g: because of aggregation)
+                if (!node.getCriteria().isEmpty()
+                        && left.getProperties().isNodePartitionedOn(leftSymbols) && !left.getProperties().isSingleNode()) {
+                    return planPartitionedJoin(node, leftSymbols, rightSymbols, left);
+                }
+
+                return planReplicatedJoin(node, left);
             }
             else {
-                return planReplicatedJoin(node);
+                return planPartitionedJoin(node, leftSymbols, rightSymbols);
             }
         }
 
         private PlanWithProperties planPartitionedJoin(JoinNode node, List<Symbol> leftSymbols, List<Symbol> rightSymbols)
         {
+            return planPartitionedJoin(node, leftSymbols, rightSymbols, node.getLeft().accept(this, PreferredProperties.partitioned(ImmutableSet.copyOf(leftSymbols))));
+        }
+
+        private PlanWithProperties planPartitionedJoin(JoinNode node, List<Symbol> leftSymbols, List<Symbol> rightSymbols, PlanWithProperties left)
+        {
             SetMultimap<Symbol, Symbol> rightToLeft = createMapping(rightSymbols, leftSymbols);
             SetMultimap<Symbol, Symbol> leftToRight = createMapping(leftSymbols, rightSymbols);
 
-            PlanWithProperties left = node.getLeft().accept(this, PreferredProperties.partitioned(ImmutableSet.copyOf(leftSymbols)));
             PlanWithProperties right;
 
             if (left.getProperties().isNodePartitionedOn(leftSymbols) && !left.getProperties().isSingleNode()) {
@@ -769,10 +782,9 @@ public class AddExchanges
             return buildJoin(node, left, right, JoinNode.DistributionType.PARTITIONED);
         }
 
-        private PlanWithProperties planReplicatedJoin(JoinNode node)
+        private PlanWithProperties planReplicatedJoin(JoinNode node, PlanWithProperties left)
         {
             // Broadcast Join
-            PlanWithProperties left = node.getLeft().accept(this, PreferredProperties.any());
             PlanWithProperties right = node.getRight().accept(this, PreferredProperties.any());
 
             if (left.getProperties().isSingleNode()) {
