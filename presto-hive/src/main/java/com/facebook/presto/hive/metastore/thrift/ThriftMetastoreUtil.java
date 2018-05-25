@@ -237,7 +237,7 @@ public final class ThriftMetastoreUtil
     {
         if (columnStatistics.getStatsData().isSetLongStats()) {
             LongColumnStatsData longStatsData = columnStatistics.getStatsData().getLongStats();
-            return new HiveColumnStatistics<>(
+            return new HiveColumnStatistics(
                     longStatsData.isSetLowValue() ? Optional.of(longStatsData.getLowValue()) : Optional.empty(),
                     longStatsData.isSetHighValue() ? Optional.of(longStatsData.getHighValue()) : Optional.empty(),
                     OptionalLong.empty(),
@@ -249,7 +249,7 @@ public final class ThriftMetastoreUtil
         }
         else if (columnStatistics.getStatsData().isSetDoubleStats()) {
             DoubleColumnStatsData doubleStatsData = columnStatistics.getStatsData().getDoubleStats();
-            return new HiveColumnStatistics<>(
+            return new HiveColumnStatistics(
                     doubleStatsData.isSetLowValue() ? Optional.of(doubleStatsData.getLowValue()) : Optional.empty(),
                     doubleStatsData.isSetHighValue() ? Optional.of(doubleStatsData.getHighValue()) : Optional.empty(),
                     OptionalLong.empty(),
@@ -261,7 +261,7 @@ public final class ThriftMetastoreUtil
         }
         else if (columnStatistics.getStatsData().isSetDecimalStats()) {
             DecimalColumnStatsData decimalStatsData = columnStatistics.getStatsData().getDecimalStats();
-            return new HiveColumnStatistics<>(
+            return new HiveColumnStatistics(
                     decimalStatsData.isSetLowValue() ? fromMetastoreDecimal(decimalStatsData.getLowValue()) : Optional.empty(),
                     decimalStatsData.isSetHighValue() ? fromMetastoreDecimal(decimalStatsData.getHighValue()) : Optional.empty(),
                     OptionalLong.empty(),
@@ -273,7 +273,7 @@ public final class ThriftMetastoreUtil
         }
         else if (columnStatistics.getStatsData().isSetBooleanStats()) {
             BooleanColumnStatsData booleanStatsData = columnStatistics.getStatsData().getBooleanStats();
-            return new HiveColumnStatistics<>(
+            return new HiveColumnStatistics(
                     Optional.empty(),
                     Optional.empty(),
                     OptionalLong.empty(),
@@ -286,7 +286,7 @@ public final class ThriftMetastoreUtil
         }
         else if (columnStatistics.getStatsData().isSetDateStats()) {
             DateColumnStatsData dateStatsData = columnStatistics.getStatsData().getDateStats();
-            return new HiveColumnStatistics<>(
+            return new HiveColumnStatistics(
                     dateStatsData.isSetLowValue() ? fromMetastoreDate(dateStatsData.getLowValue()) : Optional.empty(),
                     dateStatsData.isSetHighValue() ? fromMetastoreDate(dateStatsData.getHighValue()) : Optional.empty(),
                     OptionalLong.empty(),
@@ -298,7 +298,7 @@ public final class ThriftMetastoreUtil
         }
         else if (columnStatistics.getStatsData().isSetStringStats()) {
             StringColumnStatsData stringStatsData = columnStatistics.getStatsData().getStringStats();
-            return new HiveColumnStatistics<>(
+            return new HiveColumnStatistics(
                     Optional.empty(),
                     Optional.empty(),
                     stringStatsData.isSetMaxColLen() ? OptionalLong.of(stringStatsData.getMaxColLen()) : OptionalLong.empty(),
@@ -310,7 +310,7 @@ public final class ThriftMetastoreUtil
         }
         else if (columnStatistics.getStatsData().isSetBinaryStats()) {
             BinaryColumnStatsData binaryStatsData = columnStatistics.getStatsData().getBinaryStats();
-            return new HiveColumnStatistics<>(
+            return new HiveColumnStatistics(
                     Optional.empty(),
                     Optional.empty(),
                     binaryStatsData.isSetMaxColLen() ? OptionalLong.of(binaryStatsData.getMaxColLen()) : OptionalLong.empty(),
