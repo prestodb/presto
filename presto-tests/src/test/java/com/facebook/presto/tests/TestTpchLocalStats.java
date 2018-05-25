@@ -232,6 +232,16 @@ public class TestTpchLocalStats
                         .verifyExactColumnStatistics("ps_suppkey")
                         .verifyColumnStatistics("l_suppkey", absoluteError(6.0))
                         .verifyColumnStatistics("l_orderkey", absoluteError(6.0)));
+
+        // simple non-equi join
+        statisticsAssertion.check("SELECT * FROM partsupp LEFT JOIN lineitem ON ps_partkey = l_partkey AND ps_suppkey < l_suppkey",
+                checks -> checks
+                        .estimate(OUTPUT_ROW_COUNT, relativeError(4.0))
+                        .verifyExactColumnStatistics("ps_partkey")
+                        .verifyColumnStatistics("l_partkey", relativeError(0.10))
+                        .verifyExactColumnStatistics("ps_suppkey")
+                        .verifyColumnStatistics("l_suppkey", relativeError(1.0))
+                        .verifyColumnStatistics("l_orderkey", relativeError(0.10)));
     }
 
     @Test
@@ -277,6 +287,16 @@ public class TestTpchLocalStats
                         .verifyExactColumnStatistics("ps_suppkey")
                         .verifyColumnStatistics("l_suppkey", absoluteError(6.0))
                         .verifyColumnStatistics("l_orderkey", absoluteError(6.0)));
+
+        // simple non-equi join
+        statisticsAssertion.check("SELECT * FROM lineitem RIGHT JOIN partsupp ON ps_partkey = l_partkey AND ps_suppkey < l_suppkey",
+                checks -> checks
+                        .estimate(OUTPUT_ROW_COUNT, relativeError(4.0))
+                        .verifyExactColumnStatistics("ps_partkey")
+                        .verifyColumnStatistics("l_partkey", relativeError(0.10))
+                        .verifyExactColumnStatistics("ps_suppkey")
+                        .verifyColumnStatistics("l_suppkey", relativeError(1.0))
+                        .verifyColumnStatistics("l_orderkey", relativeError(0.10)));
     }
 
     @Test
@@ -317,6 +337,16 @@ public class TestTpchLocalStats
                         .verifyColumnStatistics("ps_suppkey", absoluteError(6.0))
                         .verifyColumnStatistics("l_suppkey", absoluteError(6.0))
                         .verifyColumnStatistics("l_orderkey", absoluteError(6.0)));
+
+        // simple non-equi join
+        statisticsAssertion.check("SELECT * FROM lineitem FULL JOIN partsupp ON ps_partkey = l_partkey AND ps_suppkey < l_suppkey",
+                checks -> checks
+                        .estimate(OUTPUT_ROW_COUNT, relativeError(4.0))
+                        .verifyColumnStatistics("ps_partkey", relativeError(0.10))
+                        .verifyColumnStatistics("l_partkey", relativeError(0.10))
+                        .verifyColumnStatistics("ps_suppkey", relativeError(0.10))
+                        .verifyColumnStatistics("l_suppkey", relativeError(1.0))
+                        .verifyColumnStatistics("l_orderkey", relativeError(0.10)));
     }
 
     @Test

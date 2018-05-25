@@ -16,6 +16,7 @@ package com.facebook.presto.cost;
 import com.facebook.presto.Session;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -240,24 +241,24 @@ public class JoinStatsRule
             PlanNodeStatsEstimate leftStats,
             PlanNodeStatsEstimate rightStats)
     {
-        // TODO: add support for non-equality conditions (e.g: <=, !=, >)
-        if (filter.isPresent()) {
-            // non-equi filters are not supported
-            return UNKNOWN_STATS;
+        if (rightStats.getOutputRowCount() == 0) {
+            // no left side rows are matched
+            return leftStats;
         }
 
         if (criteria.isEmpty()) {
-            if (rightStats.getOutputRowCount() > 0) {
-                // all left side rows are matched
-                return leftStats.mapOutputRowCount(rowCount -> 0.0);
+            // TODO: account for non-equi conditions
+            if (filter.isPresent()) {
+                return UNKNOWN_STATS;
             }
-            if (rightStats.getOutputRowCount() == 0) {
-                // no left side rows are matched
-                return leftStats;
-            }
-            // right stats row count is NaN
-            return UNKNOWN_STATS;
+
+            return leftStats.mapOutputRowCount(rowCount -> 0.0);
         }
+
+        // TODO: add support for non-equality conditions (e.g: <=, !=, >)
+        int numberOfFilterClauses = filter.map(
+                exression -> ExpressionUtils.extractConjuncts(exression).size())
+                .orElse(0);
 
         // Heuristics: select the most selective criteria for join complement clause.
         // Principals behind this heuristics is the same as in computeInnerJoinStats:
@@ -265,8 +266,7 @@ public class JoinStatsRule
         return IntStream.range(0, criteria.size())
                 .mapToObj(drivingClauseId -> {
                     EquiJoinClause drivingClause = criteria.get(drivingClauseId);
-                    List<EquiJoinClause> remainingClauses = copyWithout(criteria, drivingClauseId);
-                    return calculateJoinComplementStats(leftStats, rightStats, drivingClause, remainingClauses);
+                    return calculateJoinComplementStats(leftStats, rightStats, drivingClause, criteria.size() - 1 + numberOfFilterClauses);
                 })
                 .max(comparingDouble(PlanNodeStatsEstimate::getOutputRowCount))
                 .get();
@@ -276,7 +276,7 @@ public class JoinStatsRule
             PlanNodeStatsEstimate leftStats,
             PlanNodeStatsEstimate rightStats,
             EquiJoinClause drivingClause,
-            List<EquiJoinClause> remainingClauses)
+            int numberOfRemainingClauses)
     {
         PlanNodeStatsEstimate result = leftStats;
 
@@ -317,10 +317,8 @@ public class JoinStatsRule
             return UNKNOWN_STATS;
         }
 
-        // account for remaining clauses
-        for (int i = 0; i < remainingClauses.size(); ++i) {
-            result = result.mapOutputRowCount(rowCount -> min(leftStats.getOutputRowCount(), rowCount / UNKNOWN_FILTER_COEFFICIENT));
-        }
+        // limit the number of complement rows (to left row count) and account for remaining clauses
+        result = result.mapOutputRowCount(rowCount -> min(leftStats.getOutputRowCount(), rowCount / Math.pow(UNKNOWN_FILTER_COEFFICIENT, numberOfRemainingClauses)));
 
         return result;
     }
