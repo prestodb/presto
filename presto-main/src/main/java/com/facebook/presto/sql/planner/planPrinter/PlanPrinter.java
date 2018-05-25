@@ -614,7 +614,8 @@ public class PlanPrinter
             node.getFilter().ifPresent(expression -> joinExpressions.add(expression));
 
             if (node.isSpatialJoin()) {
-                print(indent, "- SpatialJoin[%s] => [%s]",
+                print(indent, "- Spatial%s[%s] => [%s]",
+                        node.getType().getJoinLabel(),
                         Joiner.on(" AND ").join(joinExpressions),
                         formatOutputs(node.getOutputSymbols()));
             }
