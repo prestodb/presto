@@ -16,6 +16,7 @@ package com.facebook.presto.hive.metastore.thrift;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.HiveUtil;
 import com.facebook.presto.hive.PartitionNotFoundException;
+import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.HiveColumnStatistics;
@@ -47,6 +48,8 @@ import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.toMe
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiPrivilegeGrantInfo;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiTable;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.UnaryOperator.identity;
 
@@ -80,29 +83,35 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public Optional<Map<String, HiveColumnStatistics>> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames)
+    public Map<String, HiveColumnStatistics> getTableColumnStatistics(String databaseName, String tableName)
     {
-        return delegate.getTableColumnStatistics(databaseName, tableName, columnNames).map(this::groupStatisticsByColumn);
+        Table table = getTable(databaseName, tableName)
+                .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
+        Set<String> dataColumns = table.getDataColumns().stream()
+                .map(Column::getName)
+                .collect(toImmutableSet());
+        return groupStatisticsByColumn(delegate.getTableColumnStatistics(databaseName, tableName, dataColumns));
     }
 
     @Override
-    public Optional<Map<String, Map<String, HiveColumnStatistics>>> getPartitionColumnStatistics(String databaseName, String tableName, Set<String> partitionNames, Set<String> columnNames)
+    public Map<String, Map<String, HiveColumnStatistics>> getPartitionColumnStatistics(String databaseName, String tableName, Set<String> partitionNames)
     {
-        return delegate.getPartitionColumnStatistics(databaseName, tableName, partitionNames, columnNames).map(
-                statistics -> ImmutableMap.copyOf(
-                        statistics.entrySet().stream()
-                                .collect(Collectors.toMap(
-                                        Map.Entry::getKey,
-                                        entry -> groupStatisticsByColumn(entry.getValue())))));
+        Table table = getTable(databaseName, tableName)
+                .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
+        Set<String> dataColumns = table.getDataColumns().stream()
+                .map(Column::getName)
+                .collect(toImmutableSet());
+        Map<String, Set<ColumnStatisticsObj>> statistics = delegate.getPartitionColumnStatistics(databaseName, tableName, partitionNames, dataColumns);
+        return statistics.entrySet()
+                .stream()
+                .filter(entry -> !entry.getValue().isEmpty())
+                .collect(toImmutableMap(Map.Entry::getKey, entry -> groupStatisticsByColumn(entry.getValue())));
     }
 
     private Map<String, HiveColumnStatistics> groupStatisticsByColumn(Set<ColumnStatisticsObj> statistics)
     {
-        return ImmutableMap.copyOf(
-                statistics.stream()
-                        .collect(Collectors.toMap(
-                                ColumnStatisticsObj::getColName,
-                                ThriftMetastoreUtil::fromMetastoreApiColumnStatistics)));
+        return statistics.stream()
+                .collect(toImmutableMap(ColumnStatisticsObj::getColName, ThriftMetastoreUtil::fromMetastoreApiColumnStatistics));
     }
 
     @Override

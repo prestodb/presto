@@ -441,18 +441,18 @@ public class InMemoryHiveMetastore
     }
 
     @Override
-    public synchronized Optional<Set<ColumnStatisticsObj>> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames)
+    public synchronized Set<ColumnStatisticsObj> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames)
     {
         SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
         if (!columnStatistics.containsKey(schemaTableName)) {
-            return Optional.empty();
+            return ImmutableSet.of();
         }
 
         Map<String, ColumnStatisticsObj> columnStatisticsMap = columnStatistics.get(schemaTableName);
-        return Optional.of(columnNames.stream()
+        return columnNames.stream()
                 .filter(columnStatisticsMap::containsKey)
                 .map(columnStatisticsMap::get)
-                .collect(toImmutableSet()));
+                .collect(toImmutableSet());
     }
 
     public synchronized void setColumnStatistics(String databaseName, String tableName, String columnName, ColumnStatisticsObj columnStatisticsObj)
@@ -463,7 +463,7 @@ public class InMemoryHiveMetastore
     }
 
     @Override
-    public synchronized Optional<Map<String, Set<ColumnStatisticsObj>>> getPartitionColumnStatistics(String databaseName, String tableName, Set<String> partitionNames, Set<String> columnNames)
+    public synchronized Map<String, Set<ColumnStatisticsObj>> getPartitionColumnStatistics(String databaseName, String tableName, Set<String> partitionNames, Set<String> columnNames)
     {
         ImmutableMap.Builder<String, Set<ColumnStatisticsObj>> result = ImmutableMap.builder();
         for (String partitionName : partitionNames) {
@@ -480,7 +480,7 @@ public class InMemoryHiveMetastore
                             .map(columnStatistics::get)
                             .collect(toImmutableSet()));
         }
-        return Optional.of(result.build());
+        return result.build();
     }
 
     public synchronized void setPartitionColumnStatistics(String databaseName, String tableName, String partitionName, String columnName, ColumnStatisticsObj columnStatisticsObj)
