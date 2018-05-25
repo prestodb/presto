@@ -34,6 +34,7 @@ import static com.facebook.presto.hive.metastore.glue.TestingMetastoreObjects.ge
 import static com.facebook.presto.hive.metastore.glue.TestingMetastoreObjects.getGlueTestPartition;
 import static com.facebook.presto.hive.metastore.glue.TestingMetastoreObjects.getGlueTestTable;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
@@ -108,6 +109,30 @@ public class TestGlueToPrestoConverter
         assertEquals(prestoPartition.getValues(), testPartition.getValues());
         assertStorage(prestoPartition.getStorage(), testPartition.getStorageDescriptor());
         assertEquals(prestoPartition.getParameters(), testPartition.getParameters());
+    }
+
+    @Test
+    public void testDatabaseNullParameters()
+    {
+        testDb.setParameters(null);
+        assertNotNull(GlueToPrestoConverter.convertDatabase(testDb).getParameters());
+    }
+
+    @Test
+    public void testTableNullParameters()
+    {
+        testTbl.setParameters(null);
+        testTbl.getStorageDescriptor().getSerdeInfo().setParameters(null);
+        com.facebook.presto.hive.metastore.Table prestoTable = GlueToPrestoConverter.convertTable(testTbl, testDb.getName());
+        assertNotNull(prestoTable.getParameters());
+        assertNotNull(prestoTable.getStorage().getSerdeParameters());
+    }
+
+    @Test
+    public void testPartitionNullParameters()
+    {
+        testPartition.setParameters(null);
+        assertNotNull(GlueToPrestoConverter.convertPartition(testPartition).getParameters());
     }
 
     private static void assertColumnList(List<Column> actual, List<com.amazonaws.services.glue.model.Column> expected)
