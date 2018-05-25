@@ -48,6 +48,7 @@ import java.util.function.Predicate;
 
 import static com.facebook.presto.SystemSessionProperties.DISTRIBUTED_JOIN;
 import static com.facebook.presto.SystemSessionProperties.FORCE_SINGLE_NODE_OUTPUT;
+import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
 import static com.facebook.presto.spi.predicate.Domain.singleValue;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
@@ -74,6 +75,11 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableS
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPLICATE;
+import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
+import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
 import static com.facebook.presto.tests.QueryTemplate.queryTemplate;
@@ -520,5 +526,64 @@ public class TestLogicalPlanner
                 false,
                 joinBuildSideWithRemoteExchange,
                 validateSingleRemoteExchange);
+    }
+
+    @Test
+    public void testUsesDistributedJoinIfNaturallyPartitionedOnProbeSymbols()
+    {
+        Session broadcastJoin = Session.builder(this.getQueryRunner().getDefaultSession())
+                .setSystemProperty(DISTRIBUTED_JOIN, Boolean.toString(false))
+                .setSystemProperty(FORCE_SINGLE_NODE_OUTPUT, Boolean.toString(false))
+                .setSystemProperty(OPTIMIZE_HASH_GENERATION, Boolean.toString(false))
+                .build();
+
+        // replicated join with naturally partitioned and distributed probe side is rewritten to partitioned join
+        assertPlanWithSession(
+                "SELECT r1.regionkey FROM (SELECT regionkey FROM region GROUP BY regionkey) r1, region r2 WHERE r2.regionkey = r1.regionkey",
+                broadcastJoin,
+                false,
+                anyTree(
+                        join(INNER, ImmutableList.of(equiJoinClause("LEFT_REGIONKEY", "RIGHT_REGIONKEY")), Optional.empty(), Optional.of(PARTITIONED),
+                                // the only remote exchange in probe side should be below aggregation
+                                aggregation(ImmutableMap.of(),
+                                        anyTree(
+                                                exchange(REMOTE, REPARTITION,
+                                                        anyTree(
+                                                                tableScan("region", ImmutableMap.of("LEFT_REGIONKEY", "regionkey")))))),
+                                anyTree(
+                                        exchange(REMOTE, REPARTITION,
+                                                tableScan("region", ImmutableMap.of("RIGHT_REGIONKEY", "regionkey")))))),
+                plan -> // make sure there are only two remote exchanges (one in probe and one in build side)
+                        assertEquals(
+                                countOfMatchingNodes(
+                                        plan,
+                                        node -> node instanceof ExchangeNode && ((ExchangeNode) node).getScope() == REMOTE),
+                                2));
+
+        // replicated join is preserved if probe side is single node
+        assertPlanWithSession(
+                "SELECT * FROM (SELECT * FROM (VALUES 1) t(a)) t, region r WHERE r.regionkey = t.a",
+                broadcastJoin,
+                false,
+                anyTree(
+                        node(JoinNode.class,
+                                anyTree(
+                                        node(ValuesNode.class)),
+                                anyTree(
+                                        exchange(REMOTE, GATHER,
+                                                node(TableScanNode.class))))));
+
+        // replicated join is preserved if there are no equality criteria
+        assertPlanWithSession(
+                "SELECT * FROM (SELECT regionkey FROM region GROUP BY regionkey) r1, region r2 WHERE r2.regionkey > r1.regionkey",
+                broadcastJoin,
+                false,
+                anyTree(
+                        join(INNER, ImmutableList.of(), Optional.empty(), Optional.of(REPLICATED),
+                                anyTree(
+                                        node(TableScanNode.class)),
+                                anyTree(
+                                        exchange(REMOTE, REPLICATE,
+                                                node(TableScanNode.class))))));
     }
 }
