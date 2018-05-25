@@ -749,7 +749,7 @@ public class TestHiveIntegrationSmokeTest
             fail();
         }
         catch (Exception e) {
-            assertEquals(e.getMessage(), "INSERT must write all distribution columns: [custkey, custkey3]");
+            assertEquals(e.getMessage(), "Bucketing columns [custkey3] not present in schema");
         }
 
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
