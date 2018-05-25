@@ -299,21 +299,22 @@ public abstract class AbstractTestHiveClientS3
         assertTrue(fs.createNewFile(path));
         assertTrue(fs.exists(path));
 
-        // rename foo.txt to bar.txt
+        // rename foo.txt to bar.txt when bar does not exist
         Path newPath = new Path(basePath, "bar.txt");
         assertFalse(fs.exists(newPath));
         assertTrue(fs.rename(path, newPath));
         assertFalse(fs.exists(path));
         assertTrue(fs.exists(newPath));
 
-        // create file foo.txt and rename to bar.txt
+        // rename foo.txt to foo.txt when foo.txt does not exist
+        assertFalse(fs.rename(path, path));
+
+        // create file foo.txt and rename to existing bar.txt
         assertTrue(fs.createNewFile(path));
         assertFalse(fs.rename(path, newPath));
-        assertTrue(fs.exists(path));
 
-        // rename foo.txt to foo.txt
-        assertTrue(!fs.rename(path, path));
-        assertTrue(fs.exists(path));
+        // rename foo.txt to foo.txt when foo.txt exists
+        assertFalse(fs.rename(path, path));
 
         // delete foo.txt
         assertTrue(fs.delete(path, false));
