@@ -125,11 +125,6 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <groups>hive</groups>
-                            <systemProperties>
-                                <hive.hadoop2.metastoreHost>localhost</hive.hadoop2.metastoreHost>
-                                <hive.hadoop2.metastorePort>9083</hive.hadoop2.metastorePort>
-                                <hive.hadoop2.databaseName>default</hive.hadoop2.databaseName>
-                            </systemProperties>
                         </configuration>
                     </plugin>
                 </plugins>
@@ -144,11 +139,6 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <groups>hive-s3</groups>
-                            <systemProperties>
-                                <hive.hadoop2.metastoreHost>localhost</hive.hadoop2.metastoreHost>
-                                <hive.hadoop2.metastorePort>9083</hive.hadoop2.metastorePort>
-                                <hive.hadoop2.databaseName>default</hive.hadoop2.databaseName>
-                            </systemProperties>
                         </configuration>
                     </plugin>
                 </plugins>
