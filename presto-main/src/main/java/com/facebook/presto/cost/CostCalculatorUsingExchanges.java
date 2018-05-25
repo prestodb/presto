@@ -23,6 +23,7 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.AssignUniqueId;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
@@ -35,6 +36,7 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
@@ -117,6 +119,12 @@ public class CostCalculatorUsingExchanges
         public PlanNodeCostEstimate visitGroupReference(GroupReference node, Void context)
         {
             throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public PlanNodeCostEstimate visitAssignUniqueId(AssignUniqueId node, Void context)
+        {
+            return cpuCost(getStats(node).getOutputSizeInBytes(ImmutableList.of(node.getIdColumn())));
         }
 
         @Override
