@@ -234,10 +234,29 @@ public class TestDistinctAggregations
                 "VALUES (BIGINT '2', BIGINT '4')");
 
         assertions.assertQuery(
+                "SELECT count(DISTINCT x) FILTER (where y = 1)" +
+                        "FROM (VALUES (2, 1), (1, 2), (1,1)) t(x, y)",
+                "VALUES (BIGINT '2')");
+
+        assertions.assertQuery(
                 "SELECT " +
                         "     count(DISTINCT x), " +
                         "     sum(x) FILTER (WHERE x > 0) " +
                         "FROM (VALUES 0, 1, 1, 2) t(x)",
                 "VALUES (BIGINT '3', BIGINT '4')");
+
+        assertions.assertQuery(
+                "SELECT" +
+                        "     sum(DISTINCT x) FILTER (WHERE y > 3)," +
+                        "     sum(DISTINCT y) FILTER (WHERE x > 1)" +
+                        "FROM (VALUES (1, 3), (2, 4), (2, 4), (4, 5)) t (x, y)",
+                "VALUES (BIGINT '6', BIGINT '9')");
+
+        assertions.assertQuery(
+                "SELECT" +
+                        "     sum(x) FILTER (WHERE x > 1) AS x," +
+                        "     sum(DISTINCT x)" +
+                        "FROM (VALUES (1), (2), (2), (4)) t (x)",
+                "VALUES (BIGINT '6', BIGINT '7')");
     }
 }
