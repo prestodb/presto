@@ -581,7 +581,7 @@ public abstract class AbstractTestHiveClient
 
     protected final void setup(String host, int port, String databaseName, String timeZone)
     {
-        HiveClientConfig hiveClientConfig = new HiveClientConfig();
+        HiveClientConfig hiveClientConfig = getHiveClientConfig();
         hiveClientConfig.setTimeZone(timeZone);
         String proxy = System.getProperty("hive.metastore.thrift.client.socks-proxy");
         if (proxy != null) {
@@ -621,7 +621,7 @@ public abstract class AbstractTestHiveClient
                 false,
                 true,
                 1000,
-                new HiveClientConfig().getMaxPartitionsPerScan(),
+                getHiveClientConfig().getMaxPartitionsPerScan(),
                 TYPE_MANAGER,
                 locationService,
                 new TableParameterCodec(),
@@ -652,7 +652,7 @@ public abstract class AbstractTestHiveClient
                 metastoreClient,
                 new GroupByHashPageIndexerFactory(JOIN_COMPILER),
                 TYPE_MANAGER,
-                new HiveClientConfig(),
+                getHiveClientConfig(),
                 locationService,
                 partitionUpdateCodec,
                 new TestingNodeManager("fake-environment"),
@@ -662,9 +662,17 @@ public abstract class AbstractTestHiveClient
         pageSourceProvider = new HivePageSourceProvider(hiveClientConfig, hdfsEnvironment, getDefaultHiveRecordCursorProvider(hiveClientConfig), getDefaultHiveDataStreamFactories(hiveClientConfig), TYPE_MANAGER);
     }
 
+    /**
+     * Allow subclass to change default configuration.
+     */
+    protected HiveClientConfig getHiveClientConfig()
+    {
+        return new HiveClientConfig();
+    }
+
     protected ConnectorSession newSession()
     {
-        return new TestingConnectorSession(new HiveSessionProperties(new HiveClientConfig(), new OrcFileWriterConfig()).getSessionProperties());
+        return new TestingConnectorSession(new HiveSessionProperties(getHiveClientConfig(), new OrcFileWriterConfig()).getSessionProperties());
     }
 
     protected Transaction newTransaction()
@@ -2133,7 +2141,7 @@ public abstract class AbstractTestHiveClient
         int bucketCount = 3;
 
         try (Transaction transaction = newTransaction()) {
-            HiveClientConfig hiveConfig = new HiveClientConfig()
+            HiveClientConfig hiveConfig = getHiveClientConfig()
                     .setSortedWritingEnabled(true)
                     .setWriterSortBufferSize(new DataSize(1, MEGABYTE));
             ConnectorSession session = new TestingConnectorSession(new HiveSessionProperties(hiveConfig, new OrcFileWriterConfig()).getSessionProperties());
