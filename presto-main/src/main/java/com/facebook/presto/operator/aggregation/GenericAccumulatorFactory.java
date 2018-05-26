@@ -271,6 +271,10 @@ public class GenericAccumulatorFactory
                     .map(channel -> filter(page, page.getBlock(channel)))
                     .orElse(page);
 
+            if (filtered.getPositionCount() == 0) {
+                return;
+            }
+
             // 2. compute a distinct mask
             Work<Block> work = hash.markDistinctRows(filtered);
             checkState(work.process());

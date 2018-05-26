@@ -257,6 +257,18 @@ public class TestDistinctAggregations
                         "     sum(x) FILTER (WHERE x > 1) AS x," +
                         "     sum(DISTINCT x)" +
                         "FROM (VALUES (1), (2), (2), (4)) t (x)",
-                "VALUES (BIGINT '6', BIGINT '7')");
+                "VALUES (BIGINT '8', BIGINT '7')");
+
+        // filter out all rows
+        assertions.assertQuery(
+                "SELECT sum(DISTINCT x) FILTER (WHERE y > 5)" +
+                        "FROM (VALUES (1, 3), (2, 4), (2, 4), (4, 5)) t (x, y)",
+                "VALUES (CAST(NULL AS BIGINT))");
+        assertions.assertQuery(
+                "SELECT" +
+                        "     count(DISTINCT y) FILTER (WHERE x > 4)," +
+                        "     sum(DISTINCT x) FILTER (WHERE y > 5)" +
+                        "FROM (VALUES (1, 3), (2, 4), (2, 4), (4, 5)) t (x, y)",
+                "VALUES (BIGINT '0', CAST(NULL AS BIGINT))");
     }
 }

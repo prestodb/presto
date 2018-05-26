@@ -298,6 +298,10 @@ public abstract class AbstractTestAggregations
                 "SELECT 1");
 
         assertQuery("SELECT count(1) FILTER (WHERE orderstatus = 'O') FROM orders", "SELECT count(*) FROM orders WHERE orderstatus = 'O'");
+
+        // filter out all rows
+        assertQuery("SELECT sum(x) FILTER (WHERE y > 5) FROM (VALUES (1, 3), (2, 4), (2, 4), (4, 5)) t (x, y)", "SELECT null");
+        assertQuery("SELECT count(*) FILTER (WHERE x > 4), sum(x) FILTER (WHERE y > 5) FROM (VALUES (1, 3), (2, 4), (2, 4), (4, 5)) t (x, y)", "SELECT 0, null");
     }
 
     @Test
