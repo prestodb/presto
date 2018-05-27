@@ -17,6 +17,7 @@ services:
       - ../../presto-hive/src/test/sql:/files/sql:ro
       - ./files/words:/usr/share/dict/words:ro
       - ./files/core-site.xml.s3-template:/etc/hadoop/conf/core-site.xml.s3-template:ro
+      - ./files/test1.csv:/tmp/test1.csv:ro
   dnsmasq:
     hostname: dnsmasq
     image: 'prestodb/dns:5'
