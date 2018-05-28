@@ -13,9 +13,30 @@
  */
 package com.facebook.presto.sql.query;
 
+import com.facebook.presto.sql.planner.Plan;
+import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
+import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.ValuesNode;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
+
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.exchange;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.functionCall;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
+import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
+import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.FINAL;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
+import static org.testng.Assert.assertEquals;
 
 public class TestSubqueries
 {
@@ -38,12 +59,14 @@ public class TestSubqueries
     @Test
     public void testCorrelatedExistsSubqueriesWithOrPredicateAndNull()
     {
-        assertions.assertQuery(
+        assertExistsRewrittenToAggregationAboveJoin(
                 "SELECT EXISTS(SELECT 1 FROM (VALUES null, 10) t(x) WHERE y > x OR y + 10 > x) FROM (values (11)) t2(y)",
-                "VALUES true");
-        assertions.assertQuery(
+                "VALUES true",
+                false);
+        assertExistsRewrittenToAggregationAboveJoin(
                 "SELECT EXISTS(SELECT 1 FROM (VALUES null) t(x) WHERE y > x OR y + 10 > x) FROM (values (11)) t2(y)",
-                "VALUES false");
+                "VALUES false",
+                false);
     }
 
     @Test
@@ -75,18 +98,19 @@ public class TestSubqueries
         assertions.assertQuery(
                 "select (select count(*) from (select t.a from (values 1, 1, null, 3) t(a) limit 1) t where t.a=t2.b) from (values 1, 2) t2(b)",
                 "VALUES BIGINT '1', BIGINT '0'");
-        assertions.assertQuery(
+        assertExistsRewrittenToAggregationBelowJoin(
                 "select EXISTS(select 1 from (values 1, 1, 3) t(a) where t.a=t2.b limit 1) from (values 1, 2) t2(b)",
-                "VALUES true, false");
+                "VALUES true, false",
+                false);
         // TransformCorrelatedScalarAggregationToJoin does not fire since limit is above aggregation node
         assertions.assertFails(
                 "select (select count(*) from (values 1, 1, 3) t(a) where t.a=t2.b limit 1) from (values 1) t2(b)",
                 UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
-        assertions.assertQuery(
-                "SELECT t.cid, t.rid " +
-                        "FROM (values (1, 101)) t(cid, rid) " +
-                        "WHERE EXISTS(SELECT 1 FROM (values ('x', 1, 101)) u(x, cid, rid) WHERE x = 'x' AND t.cid = cid AND t.rid = rid LIMIT 1)",
-                "VALUES (1, 101)");
+        assertExistsRewrittenToAggregationBelowJoin(
+                "SELECT EXISTS(SELECT 1 FROM (values ('x', 1)) u(x, cid) WHERE x = 'x' AND t.cid = cid LIMIT 1) " +
+                        "FROM (values 1) t(cid)",
+                "VALUES true",
+                false);
     }
 
     @Test
@@ -96,35 +120,42 @@ public class TestSubqueries
         assertions.assertFails(
                 "select (select count(*) from (values 1, 2, 3, null) t(a) where t.a<t2.b GROUP BY t.a) from (values 1, 2, 3) t2(b)",
                 UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
-        assertions.assertQuery(
+        assertExistsRewrittenToAggregationBelowJoin(
                 "select EXISTS(select 1 from (values 1, 1, 3) t(a) where t.a=t2.b GROUP BY t.a) from (values 1, 2) t2(b)",
-                "VALUES true, false");
-        assertions.assertQuery(
+                "VALUES true, false",
+                false);
+        assertExistsRewrittenToAggregationBelowJoin(
                 "select EXISTS(select 1 from (values (1, 2), (1, 2), (null, null), (3, 3)) t(a, b) where t.a=t2.b GROUP BY t.a, t.b) from (values 1, 2) t2(b)",
-                "VALUES true, false");
-        assertions.assertQuery(
+                "VALUES true, false",
+                true);
+        assertExistsRewrittenToAggregationAboveJoin(
                 "select EXISTS(select 1 from (values (1, 2), (1, 2), (null, null), (3, 3)) t(a, b) where t.a<t2.b GROUP BY t.a, t.b) from (values 1, 2) t2(b)",
-                "VALUES false, true");
+                "VALUES false, true",
+                true);
         // t.b is not a "constant" column, cannot be pushed above aggregation
         assertions.assertFails(
                 "select EXISTS(select 1 from (values (1, 1), (1, 1), (null, null), (3, 3)) t(a, b) where t.a+t.b<t2.b GROUP BY t.a) from (values 1, 2) t2(b)",
                 UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
-        assertions.assertQuery(
+        assertExistsRewrittenToAggregationAboveJoin(
                 "select EXISTS(select 1 from (values (1, 1), (1, 1), (null, null), (3, 3)) t(a, b) where t.a+t.b<t2.b GROUP BY t.a, t.b) from (values 1, 4) t2(b)",
-                "VALUES false, true");
-        assertions.assertQuery(
+                "VALUES false, true",
+                true);
+        assertExistsRewrittenToAggregationBelowJoin(
                 "select EXISTS(select 1 from (values (1, 2), (1, 2), (null, null), (3, 3)) t(a, b) where t.a=t2.b GROUP BY t.b) from (values 1, 2) t2(b)",
-                "VALUES true, false");
-        assertions.assertQuery(
+                "VALUES true, false",
+                true);
+        assertExistsRewrittenToAggregationBelowJoin(
                 "select EXISTS(select * from (values 1, 1, 2, 3) t(a) where t.a=t2.b GROUP BY t.a HAVING count(*) > 1) from (values 1, 2) t2(b)",
-                "VALUES true, false");
+                "VALUES true, false",
+                false);
         assertions.assertQuery(
                 "select EXISTS(select * from (select t.a from (values (1, 1), (1, 1), (1, 2), (1, 2), (3, 3)) t(a, b) where t.b=t2.b GROUP BY t.a HAVING count(*) > 1) t where t.a=t2.b)" +
                         " from (values 1, 2) t2(b)",
                 "VALUES true, false");
-        assertions.assertQuery(
+        assertExistsRewrittenToAggregationBelowJoin(
                 "select EXISTS(select * from (values 1, 1, 2, 3) t(a) where t.a=t2.b GROUP BY (t.a) HAVING count(*) > 1) from (values 1, 2) t2(b)",
-                "VALUES true, false");
+                "VALUES true, false",
+                false);
     }
 
     @Test
@@ -140,5 +171,58 @@ public class TestSubqueries
         assertions.assertFails(
                 "select * from (values 1, 2) t2(b), LATERAL (select t.a, t.b, count(*) from (values (1, 1), (1, 2), (2, 2), (3, 3)) t(a, b) where t.a=t2.b GROUP BY GROUPING SETS ((t.a, t.b), (t.a)))",
                 UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+    }
+
+    private void assertExistsRewrittenToAggregationBelowJoin(@Language("SQL") String actual, @Language("SQL") String expected, boolean extraAggregation)
+    {
+        PlanMatchPattern source = node(ValuesNode.class);
+        if (extraAggregation) {
+            source = aggregation(ImmutableMap.of(),
+                    exchange(LOCAL, REPARTITION,
+                            aggregation(ImmutableMap.of(),
+                                    anyTree(
+                                            node(ValuesNode.class)))));
+        }
+        assertions.assertQueryAndPlan(actual, expected,
+                anyTree(
+                        node(JoinNode.class,
+                                anyTree(
+                                        node(ValuesNode.class)),
+                                anyTree(
+                                        // FINAL
+                                        aggregation(ImmutableMap.of(),
+                                                exchange(LOCAL, REPARTITION,
+                                                        // PARTIAL
+                                                        aggregation(ImmutableMap.of(),
+                                                                anyTree(source))))))),
+                plan -> assertEquals(countFinalAggregationNodes(plan), extraAggregation ? 2 : 1));
+    }
+
+    private void assertExistsRewrittenToAggregationAboveJoin(@Language("SQL") String actual, @Language("SQL") String expected, boolean extraAggregation)
+    {
+        assertions.assertQueryAndPlan(actual, expected,
+                anyTree(
+                        // FINAL
+                        aggregation(ImmutableMap.of("COUNT", functionCall("count", ImmutableList.of("COUNT_PARTIAL"))),
+                                exchange(LOCAL, REPARTITION,
+                                        // PARTIAL
+                                        aggregation(ImmutableMap.of("COUNT_PARTIAL", functionCall("count", ImmutableList.of("NON_NULL"))),
+                                                anyTree(
+                                                        node(JoinNode.class,
+                                                                anyTree(
+                                                                        node(ValuesNode.class)),
+                                                                anyTree(
+                                                                        node(ProjectNode.class,
+                                                                                anyTree(
+                                                                                        node(ValuesNode.class)))
+                                                                                .withAlias("NON_NULL", expression("true"))))))))),
+                plan -> assertEquals(countFinalAggregationNodes(plan), extraAggregation ? 2 : 1));
+    }
+
+    private static int countFinalAggregationNodes(Plan plan)
+    {
+        return searchFrom(plan.getRoot())
+                .where(node -> node instanceof AggregationNode && ((AggregationNode) node).getStep() == FINAL)
+                .count();
     }
 }
