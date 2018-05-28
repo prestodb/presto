@@ -14,6 +14,9 @@
 package com.facebook.presto.sql.query;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.sql.planner.Plan;
+import com.facebook.presto.sql.planner.assertions.PlanAssert;
+import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
@@ -22,6 +25,7 @@ import org.intellij.lang.annotations.Language;
 
 import java.io.Closeable;
 import java.util.List;
+import java.util.function.Consumer;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.base.Strings.nullToEmpty;
@@ -59,6 +63,18 @@ class QueryAssertions
                 fail(format("Expected exception message '%s' to match '%s' for query: %s", exception.getMessage(), expectedMessageRegExp, sql), exception);
             }
         }
+    }
+
+    public void assertQueryAndPlan(
+            @Language("SQL") String actual,
+            @Language("SQL") String expected,
+            PlanMatchPattern pattern,
+            Consumer<Plan> planValidator)
+    {
+        assertQuery(actual, expected);
+        Plan plan = runner.createPlan(runner.getDefaultSession(), actual);
+        PlanAssert.assertPlan(runner.getDefaultSession(), runner.getMetadata(), runner.getStatsCalculator(), plan, pattern);
+        planValidator.accept(plan);
     }
 
     public void assertQuery(@Language("SQL") String actual, @Language("SQL") String expected)
