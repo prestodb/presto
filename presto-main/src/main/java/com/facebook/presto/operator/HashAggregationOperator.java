@@ -506,7 +506,9 @@ public class HashAggregationOperator
                 .map(AccumulatorFactory::createAccumulator)
                 .collect(Collectors.toList());
 
-        PageBuilder output = new PageBuilder(types);
+        // global aggregation output page will only be constructed once,
+        // so a new PageBuilder is constructed (instead of using PageBuilder.reset)
+        PageBuilder output = new PageBuilder(globalAggregationGroupIds.size(), types);
 
         for (int groupId : globalAggregationGroupIds) {
             output.declarePosition();

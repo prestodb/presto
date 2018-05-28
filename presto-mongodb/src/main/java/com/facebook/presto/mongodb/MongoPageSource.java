@@ -48,6 +48,7 @@ import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.util.stream.Collectors.toList;
@@ -65,6 +66,8 @@ public class MongoPageSource
     private long count;
     private boolean finished;
 
+    private PageBuilder pageBuilder;
+
     public MongoPageSource(
             MongoSession mongoSession,
             MongoSplit split,
@@ -74,6 +77,8 @@ public class MongoPageSource
         this.columnTypes = columns.stream().map(MongoColumnHandle::getType).collect(toList());
         this.cursor = mongoSession.execute(split, columns);
         currentDoc = null;
+
+        pageBuilder = new PageBuilder(columnTypes);
     }
 
     @Override
@@ -103,8 +108,7 @@ public class MongoPageSource
     @Override
     public Page getNextPage()
     {
-        PageBuilder pageBuilder = new PageBuilder(columnTypes);
-
+        verify(pageBuilder.isEmpty());
         count = 0;
         for (int i = 0; i < ROWS_PER_REQUEST; i++) {
             if (!cursor.hasNext()) {
@@ -121,7 +125,9 @@ public class MongoPageSource
             }
         }
 
-        return pageBuilder.build();
+        Page page = pageBuilder.build();
+        pageBuilder.reset();
+        return page;
     }
 
     private void appendTo(Type type, Object value, BlockBuilder output)

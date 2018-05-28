@@ -35,6 +35,16 @@ public class PageBuilder
     private PageBuilderStatus pageBuilderStatus;
     private int declaredPositions;
 
+    /**
+     * Create a PageBuilder with given types.
+     * <p>
+     * A PageBuilder instance created with this constructor has no estimation about bytes per entry,
+     * therefore it can resize frequently while appending new rows.
+     * <p>
+     * This constructor should only be used to get the initial PageBuilder.
+     * Once the PageBuilder is full use reset() or createPageBuilderLike() to create a new
+     * PageBuilder instance with its size estimated based on previous data.
+     */
     public PageBuilder(List<? extends Type> types)
     {
         this(DEFAULT_INITIAL_EXPECTED_ENTRIES, types);

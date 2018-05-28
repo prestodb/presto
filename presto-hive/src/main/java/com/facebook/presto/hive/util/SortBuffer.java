@@ -30,6 +30,7 @@ import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static java.lang.Math.addExact;
 import static java.util.Objects.requireNonNull;
 
@@ -43,6 +44,7 @@ public class SortBuffer
     private final List<SortOrder> sortOrders;
     private final PageSorter pageSorter;
     private final List<Page> pages = new ArrayList<>();
+    private final PageBuilder pageBuilder;
 
     private long usedMemoryBytes;
     private int rowCount;
@@ -60,6 +62,7 @@ public class SortBuffer
         this.sortFields = ImmutableList.copyOf(requireNonNull(sortFields, "sortFields is null"));
         this.sortOrders = ImmutableList.copyOf(requireNonNull(sortOrders, "sortOrders is null"));
         this.pageSorter = requireNonNull(pageSorter, "pageSorter is null");
+        this.pageBuilder = new PageBuilder(types);
     }
 
     public long getRetainedBytes()
@@ -110,7 +113,7 @@ public class SortBuffer
             positionIndex[i] = pageSorter.decodePositionIndex(addresses[i]);
         }
 
-        PageBuilder pageBuilder = new PageBuilder(types);
+        verify(pageBuilder.isEmpty());
 
         for (int i = 0; i < pageIndex.length; i++) {
             Page page = pages.get(pageIndex[i]);

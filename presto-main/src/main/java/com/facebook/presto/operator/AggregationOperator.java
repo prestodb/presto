@@ -164,7 +164,9 @@ public class AggregationOperator
         // project results into output blocks
         List<Type> types = aggregates.stream().map(Aggregator::getType).collect(toImmutableList());
 
-        PageBuilder pageBuilder = new PageBuilder(types);
+        // output page will only be constructed once,
+        // so a new PageBuilder is constructed (instead of using PageBuilder.reset)
+        PageBuilder pageBuilder = new PageBuilder(1, types);
 
         pageBuilder.declarePosition();
         for (int i = 0; i < aggregates.size(); i++) {

@@ -219,7 +219,9 @@ public class TableWriterOperator
         committed = true;
         updateWrittenBytes();
 
-        PageBuilder page = new PageBuilder(TYPES);
+        // output page will only be constructed once,
+        // so a new PageBuilder is constructed (instead of using PageBuilder.reset)
+        PageBuilder page = new PageBuilder(fragments.size() + 1, TYPES);
         BlockBuilder rowsBuilder = page.getBlockBuilder(0);
         BlockBuilder fragmentBuilder = page.getBlockBuilder(1);
 

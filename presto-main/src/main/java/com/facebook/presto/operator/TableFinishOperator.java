@@ -148,7 +148,9 @@ public class TableFinishOperator
 
         outputMetadata = tableFinisher.finishTable(fragmentBuilder.build());
 
-        PageBuilder page = new PageBuilder(TYPES);
+        // output page will only be constructed once,
+        // so a new PageBuilder is constructed (instead of using PageBuilder.reset)
+        PageBuilder page = new PageBuilder(1, TYPES);
         page.declarePosition();
         BIGINT.writeLong(page.getBlockBuilder(0), rowCount);
         return page.build();
