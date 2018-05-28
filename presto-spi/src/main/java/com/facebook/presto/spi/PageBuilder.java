@@ -28,7 +28,11 @@ import static java.util.Objects.requireNonNull;
 
 public class PageBuilder
 {
-    private static final int DEFAULT_INITIAL_EXPECTED_ENTRIES = 1024;
+    // We choose default initial size to be 8 for PageBuilder and BlockBuilder
+    // so the underlying data is larger than the object overhead, and the size is power of 2.
+    //
+    // This could be any other small number.
+    private static final int DEFAULT_INITIAL_EXPECTED_ENTRIES = 8;
 
     private final BlockBuilder[] blockBuilders;
     private final List<Type> types;
