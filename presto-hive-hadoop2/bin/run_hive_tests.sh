@@ -2,13 +2,7 @@
 
 set -euo pipefail -x
 
-# http://stackoverflow.com/questions/3572030/bash-script-absolute-path-with-osx
-function absolutepath() {
-    [[ $1 = /* ]] && echo "$1" || echo "$PWD/${1#./}"
-}
-
-SCRIPT_DIR=$(dirname $(absolutepath "$0"))
-. ${SCRIPT_DIR}/common.sh
+. ${BASH_SOURCE%/*}/common.sh
 
 cleanup_docker_containers
 start_docker_containers
