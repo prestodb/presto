@@ -76,12 +76,6 @@ public class DisjointSet<T>
         map = new HashMap<>();
     }
 
-    public DisjointSet(DisjointSet<T> disjointSet)
-    {
-        map = new HashMap<>(disjointSet.map);
-        map.replaceAll((k, v) -> new Entry<>(v));
-    }
-
     /**
      * @return <tt>true</tt> if the specified equivalence is new
      */
