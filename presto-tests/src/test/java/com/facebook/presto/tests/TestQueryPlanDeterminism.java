@@ -54,7 +54,7 @@ public class TestQueryPlanDeterminism
         determinismChecker = null;
     }
 
-    public static LocalQueryRunner createLocalQueryRunner()
+    private static LocalQueryRunner createLocalQueryRunner()
     {
         Session defaultSession = testSessionBuilder()
                 .setCatalog("local")
@@ -68,7 +68,7 @@ public class TestQueryPlanDeterminism
         localQueryRunner.createCatalog(
                 defaultSession.getCatalog().get(),
                 new TpchConnectorFactory(1),
-                ImmutableMap.<String, String>of());
+                ImmutableMap.of());
 
         localQueryRunner.getMetadata().addFunctions(CUSTOM_FUNCTIONS);
 
