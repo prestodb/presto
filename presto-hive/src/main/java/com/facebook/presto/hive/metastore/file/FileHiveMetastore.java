@@ -270,15 +270,15 @@ public class FileHiveMetastore
     }
 
     @Override
-    public Optional<Map<String, HiveColumnStatistics>> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames)
+    public Map<String, HiveColumnStatistics> getTableColumnStatistics(String databaseName, String tableName)
     {
-        return Optional.of(ImmutableMap.of());
+        return ImmutableMap.of();
     }
 
     @Override
-    public Optional<Map<String, Map<String, HiveColumnStatistics>>> getPartitionColumnStatistics(String databaseName, String tableName, Set<String> partitionNames, Set<String> columnNames)
+    public Map<String, Map<String, HiveColumnStatistics>> getPartitionColumnStatistics(String databaseName, String tableName, Set<String> partitionNames)
     {
-        return Optional.of(ImmutableMap.of());
+        return ImmutableMap.of();
     }
 
     private Table getRequiredTable(String databaseName, String tableName)

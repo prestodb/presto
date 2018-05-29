@@ -396,7 +396,7 @@ public class TestHiveTableStatistics
                 row("c_string", null, 1.0, 1.0, null, null, null),
                 row("c_varchar", null, 1.0, 1.0, null, null, null),
                 row("c_char", null, 1.0, 1.0, null, null, null),
-                row("c_boolean", null, 0.0, 1.0, null, null, null),
+                row("c_boolean", null, 1.0, 1.0, null, null, null),
                 row("c_binary", null, null, 1.0, null, null, null),
                 row(null, null, null, null, 1.0, null, null));
     }

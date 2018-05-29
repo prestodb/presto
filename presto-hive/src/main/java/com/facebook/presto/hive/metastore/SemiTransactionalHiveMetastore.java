@@ -150,30 +150,30 @@ public class SemiTransactionalHiveMetastore
         }
     }
 
-    public synchronized Optional<Map<String, HiveColumnStatistics>> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames)
+    public synchronized Map<String, HiveColumnStatistics> getTableColumnStatistics(String databaseName, String tableName)
     {
         checkReadable();
         Action<TableAndMore> tableAction = tableActions.get(new SchemaTableName(databaseName, tableName));
         if (tableAction == null) {
-            return delegate.getTableColumnStatistics(databaseName, tableName, columnNames);
+            return delegate.getTableColumnStatistics(databaseName, tableName);
         }
         switch (tableAction.getType()) {
             case ADD:
             case ALTER:
             case INSERT_EXISTING:
             case DROP:
-                return Optional.empty();
+                return ImmutableMap.of();
             default:
                 throw new IllegalStateException("Unknown action type");
         }
     }
 
-    public synchronized Optional<Map<String, Map<String, HiveColumnStatistics>>> getPartitionColumnStatistics(String databaseName, String tableName, Set<String> partitionNames, Set<String> columnNames)
+    public synchronized Map<String, Map<String, HiveColumnStatistics>> getPartitionColumnStatistics(String databaseName, String tableName, Set<String> partitionNames)
     {
         checkReadable();
         Optional<Table> table = getTable(databaseName, tableName);
         if (!table.isPresent()) {
-            return Optional.empty();
+            return ImmutableMap.of();
         }
         TableSource tableSource = getTableSource(databaseName, tableName);
         Map<List<String>, Action<PartitionAndMore>> partitionActionsOfTable = partitionActions.computeIfAbsent(new SchemaTableName(databaseName, tableName), k -> new HashMap<>());
@@ -199,14 +199,14 @@ public class SemiTransactionalHiveMetastore
             }
         }
 
-        Optional<Map<String, Map<String, HiveColumnStatistics>>> delegateResult = delegate.getPartitionColumnStatistics(databaseName, tableName, partitionNamesToQuery.build(), columnNames);
-        if (delegateResult.isPresent()) {
-            resultBuilder.putAll(delegateResult.get());
+        Map<String, Map<String, HiveColumnStatistics>> delegateResult = delegate.getPartitionColumnStatistics(databaseName, tableName, partitionNamesToQuery.build());
+        if (!delegateResult.isEmpty()) {
+            resultBuilder.putAll(delegateResult);
         }
         else {
             partitionNamesToQuery.build().forEach(partionName -> resultBuilder.put(partionName, ImmutableMap.of()));
         }
-        return Optional.of(resultBuilder.build());
+        return resultBuilder.build();
     }
 
     /**
