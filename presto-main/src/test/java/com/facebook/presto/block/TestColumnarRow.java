@@ -18,6 +18,7 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.ColumnarRow;
 import com.facebook.presto.spi.block.DictionaryBlock;
+import com.facebook.presto.spi.block.LazyBlock;
 import com.facebook.presto.spi.block.RowBlockBuilder;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import io.airlift.slice.Slice;
@@ -73,6 +74,7 @@ public class TestColumnarRow
         assertColumnarRow(block, expectedValues);
         assertDictionaryBlock(block, expectedValues);
         assertRunLengthEncodedBlock(block, expectedValues);
+        assertLazyBlock(block, expectedValues);
 
         int offset = 1;
         int length = expectedValues.length - 2;
@@ -84,6 +86,7 @@ public class TestColumnarRow
         assertColumnarRow(blockRegion, expectedValuesRegion);
         assertDictionaryBlock(blockRegion, expectedValuesRegion);
         assertRunLengthEncodedBlock(blockRegion, expectedValuesRegion);
+        assertLazyBlock(blockRegion, expectedValuesRegion);
     }
 
     private static <T> void assertDictionaryBlock(Block block, T[] expectedValues)
@@ -94,6 +97,14 @@ public class TestColumnarRow
         assertBlock(dictionaryBlock, expectedDictionaryValues);
         assertColumnarRow(dictionaryBlock, expectedDictionaryValues);
         assertRunLengthEncodedBlock(dictionaryBlock, expectedDictionaryValues);
+    }
+
+    private static <T> void assertLazyBlock(Block block, T[] expectedValues)
+    {
+        LazyBlock lazyBlock = new LazyBlock(block.getPositionCount(), inputLazyBlock -> inputLazyBlock.setBlock(block));
+
+        assertBlock(lazyBlock, expectedValues);
+        assertColumnarRow(lazyBlock, expectedValues);
     }
 
     private static <T> void assertRunLengthEncodedBlock(Block block, T[] expectedValues)
