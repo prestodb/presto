@@ -155,7 +155,7 @@ script:
     if [[ -v HIVE_TESTS && -v HIVE_TESTS_AWS_ACCESS_KEY_ID ]]; then
       env AWS_ACCESS_KEY_ID=$HIVE_TESTS_AWS_ACCESS_KEY_ID \
         AWS_SECRET_ACCESS_KEY=$HIVE_TESTS_AWS_SECRET_ACCESS_KEY \
-        ./mvnw -pl presto-hive test -P test-hive-glue
+        ./mvnw -pl presto-hive test -B -P test-hive-glue
     fi
 
 before_cache:
