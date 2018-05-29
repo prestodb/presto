@@ -14,8 +14,8 @@
 package com.facebook.presto.util;
 
 import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -73,7 +73,7 @@ public class DisjointSet<T>
 
     public DisjointSet()
     {
-        map = new HashMap<>();
+        map = new LinkedHashMap<>();
     }
 
     /**
@@ -135,11 +135,11 @@ public class DisjointSet<T>
     public Collection<Set<T>> getEquivalentClasses()
     {
         // map from root element to all element in the tree
-        Map<T, Set<T>> rootToTreeElements = new HashMap<>();
+        Map<T, Set<T>> rootToTreeElements = new LinkedHashMap<>();
         for (Map.Entry<T, Entry<T>> entry : map.entrySet()) {
             T node = entry.getKey();
             T root = findInternal(node);
-            rootToTreeElements.computeIfAbsent(root, unused -> new HashSet<>());
+            rootToTreeElements.computeIfAbsent(root, unused -> new LinkedHashSet<>());
             rootToTreeElements.get(root).add(node);
         }
         return rootToTreeElements.values();
