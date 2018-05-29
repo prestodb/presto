@@ -47,6 +47,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
+import com.google.common.collect.Sets;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
@@ -86,6 +87,7 @@ public class NativeCassandraSession
     private static final String PRESTO_COMMENT_METADATA = "Presto Metadata:";
     private static final String SYSTEM = "system";
     private static final String SIZE_ESTIMATES = "size_estimates";
+    private static final VersionNumber PARTITION_FETCH_WITH_IN_PREDICATE_VERSION = VersionNumber.parse("2.2");
 
     private final String connectorId;
     private final JsonCodec<List<ExtraColumnMetadata>> extraColumnMetadataCodec;
@@ -332,15 +334,28 @@ public class NativeCassandraSession
     }
 
     @Override
-    public List<CassandraPartition> getPartitions(CassandraTable table, List<Object> filterPrefix)
+    public List<CassandraPartition> getPartitions(CassandraTable table, List<Set<Object>> filterPrefixes)
     {
-        Iterable<Row> rows = queryPartitionKeys(table, filterPrefix);
+        List<CassandraColumnHandle> partitionKeyColumns = table.getPartitionKeyColumns();
+
+        if (filterPrefixes.size() != partitionKeyColumns.size()) {
+            return ImmutableList.of(CassandraPartition.UNPARTITIONED);
+        }
+
+        Iterable<Row> rows;
+        if (getCassandraVersion().compareTo(PARTITION_FETCH_WITH_IN_PREDICATE_VERSION) > 0) {
+            log.debug("Using IN predicate to fetch partitions.");
+            rows = queryPartitionKeysWithInClauses(table, filterPrefixes);
+        }
+        else {
+            log.debug("Using combination of partition values to fetch partitions.");
+            rows = queryPartitionKeysLegacyWithMultipleQueries(table, filterPrefixes);
+        }
+
         if (rows == null) {
             // just split the whole partition range
             return ImmutableList.of(CassandraPartition.UNPARTITIONED);
         }
-
-        List<CassandraColumnHandle> partitionKeyColumns = table.getPartitionKeyColumns();
 
         ByteBuffer buffer = ByteBuffer.allocate(1000);
         HashMap<ColumnHandle, NullableValue> map = new HashMap<>();
@@ -406,18 +421,49 @@ public class NativeCassandraSession
         return executeWithSession(session -> session.execute(statement));
     }
 
-    private Iterable<Row> queryPartitionKeys(CassandraTable table, List<Object> filterPrefix)
+    private Iterable<Row> queryPartitionKeysWithInClauses(CassandraTable table, List<Set<Object>> filterPrefixes)
     {
         CassandraTableHandle tableHandle = table.getTableHandle();
         List<CassandraColumnHandle> partitionKeyColumns = table.getPartitionKeyColumns();
 
-        if (filterPrefix.size() != partitionKeyColumns.size()) {
-            return null;
+        Select partitionKeys = CassandraCqlUtils.selectDistinctFrom(tableHandle, partitionKeyColumns);
+        addWhereInClauses(partitionKeys.where(), partitionKeyColumns, filterPrefixes);
+
+        return execute(partitionKeys).all();
+    }
+
+    private Iterable<Row> queryPartitionKeysLegacyWithMultipleQueries(CassandraTable table, List<Set<Object>> filterPrefixes)
+    {
+        CassandraTableHandle tableHandle = table.getTableHandle();
+        List<CassandraColumnHandle> partitionKeyColumns = table.getPartitionKeyColumns();
+
+        Set<List<Object>> filterCombinations = Sets.cartesianProduct(filterPrefixes);
+
+        ImmutableList.Builder<Row> rowList = ImmutableList.builder();
+        for (List<Object> combination : filterCombinations) {
+            Select partitionKeys = CassandraCqlUtils.selectDistinctFrom(tableHandle, partitionKeyColumns);
+            addWhereClause(partitionKeys.where(), partitionKeyColumns, combination);
+
+            List<Row> resultRows = execute(partitionKeys).all();
+            if (resultRows != null && !resultRows.isEmpty()) {
+                rowList.addAll(resultRows);
+            }
         }
 
-        Select partitionKeys = CassandraCqlUtils.selectDistinctFrom(tableHandle, partitionKeyColumns);
-        addWhereClause(partitionKeys.where(), partitionKeyColumns, filterPrefix);
-        return execute(partitionKeys).all();
+        return rowList.build();
+    }
+
+    private static void addWhereInClauses(Where where, List<CassandraColumnHandle> partitionKeyColumns, List<Set<Object>> filterPrefixes)
+    {
+        for (int i = 0; i < filterPrefixes.size(); i++) {
+            CassandraColumnHandle column = partitionKeyColumns.get(i);
+            List<Object> values = filterPrefixes.get(i)
+                    .stream()
+                    .map(value -> column.getCassandraType().getJavaValue(value))
+                    .collect(toList());
+            Clause clause = QueryBuilder.in(CassandraCqlUtils.validColumnName(column.getName()), values);
+            where.and(clause);
+        }
     }
 
     private static void addWhereClause(Where where, List<CassandraColumnHandle> partitionKeyColumns, List<Object> filterPrefix)

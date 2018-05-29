@@ -114,22 +114,18 @@ public class CassandraPartitionManager
             return ImmutableList.of();
         }
 
-        Set<List<Object>> partitionKeysSet = getPartitionKeysSet(table, tupleDomain);
+        List<Set<Object>> partitionKeysList = getPartitionKeysList(table, tupleDomain);
 
-        // empty filter means, all partitions
-        if (partitionKeysSet.isEmpty()) {
+        Set<List<Object>> filterList = Sets.cartesianProduct(partitionKeysList);
+        // empty filters means, all partitions
+        if (filterList.isEmpty()) {
             return cassandraSession.getPartitions(table, ImmutableList.of());
         }
 
-        ImmutableList.Builder<CassandraPartition> partitions = ImmutableList.builder();
-        for (List<Object> partitionKeys : partitionKeysSet) {
-            partitions.addAll(cassandraSession.getPartitions(table, partitionKeys));
-        }
-
-        return partitions.build();
+        return cassandraSession.getPartitions(table, partitionKeysList);
     }
 
-    private static Set<List<Object>> getPartitionKeysSet(CassandraTable table, TupleDomain<ColumnHandle> tupleDomain)
+    private static List<Set<Object>> getPartitionKeysList(CassandraTable table, TupleDomain<ColumnHandle> tupleDomain)
     {
         ImmutableList.Builder<Set<Object>> partitionColumnValues = ImmutableList.builder();
         for (CassandraColumnHandle columnHandle : table.getPartitionKeyColumns()) {
@@ -137,12 +133,12 @@ public class CassandraPartitionManager
 
             // if there is no constraint on a partition key, return an empty set
             if (domain == null) {
-                return ImmutableSet.of();
+                return ImmutableList.of();
             }
 
             // todo does cassandra allow null partition keys?
             if (domain.isNullAllowed()) {
-                return ImmutableSet.of();
+                return ImmutableList.of();
             }
 
             Set<Object> values = domain.getValues().getValuesProcessor().transform(
@@ -169,6 +165,6 @@ public class CassandraPartitionManager
                     allOrNone -> ImmutableSet.of());
             partitionColumnValues.add(values);
         }
-        return Sets.cartesianProduct(partitionColumnValues.build());
+        return partitionColumnValues.build();
     }
 }
