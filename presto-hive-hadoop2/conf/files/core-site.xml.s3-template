@@ -19,7 +19,7 @@
 
     <property>
         <name>fs.defaultFS</name>
-        <value>hdfs://hadoop-master:8020</value>
+        <value>hdfs://hadoop-master:9000</value>
     </property>
 
     <property>
