@@ -23,6 +23,10 @@ exec_in_hadoop_master_container /usr/bin/hive -e "CREATE EXTERNAL TABLE presto_t
 
 stop_unnecessary_hadoop_services
 
+# restart hive-metastore to apply S3 changes in core-site.xml
+docker exec $(hadoop_master_container) supervisorctl restart hive-metastore
+retry check_hadoop
+
 # run product tests
 pushd $PROJECT_ROOT
 set +e
