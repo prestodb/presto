@@ -329,6 +329,7 @@ public final class ChunkedSliceOutput
     {
         // add trimmed view of slice to closed slices
         closedSlices.add(slice.slice(0, bufferPosition));
+        closedSlicesRetainedSize += slice.getRetainedSize();
 
         // create a new buffer
         // double size until we hit the max chunk size
