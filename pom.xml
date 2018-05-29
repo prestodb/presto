@@ -130,6 +130,7 @@
         <module>presto-memory-context</module>
         <module>presto-proxy</module>
         <module>presto-kudu</module>
+        <module>presto-elasticsearch</module>
     </modules>
 
     <dependencyManagement>
@@ -347,6 +348,12 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-memory-context</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-elasticsearch</artifactId>
                 <version>${project.version}</version>
             </dependency>
 

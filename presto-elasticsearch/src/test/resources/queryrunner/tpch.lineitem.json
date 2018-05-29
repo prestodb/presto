@@ -1,0 +1,123 @@
+{
+    "tableName": "lineitem",
+    "schemaName": "tpch",
+    "host": "localhost",
+    "port": "9300",
+    "clusterName": "test",
+    "index": "lineitem",
+    "type": "doc",
+    "columns": [
+            {
+                "name": "orderkey",
+                "type": "bigint",
+                "jsonPath": "orderkey",
+                "jsonType": "bigint",
+                "ordinalPosition": "0"
+            },
+            {
+                "name": "partkey",
+                "type": "bigint",
+                "jsonPath": "partkey",
+                "jsonType": "bigint",
+                "ordinalPosition": "1"
+            },
+            {
+                "name": "suppkey",
+                "type": "bigint",
+                "jsonPath": "suppkey",
+                "jsonType": "bigint",
+                "ordinalPosition": "2"
+            },
+            {
+                "name": "linenumber",
+                "type": "bigint",
+                "jsonPath": "linenumber",
+                "jsonType": "bigint",
+                "ordinalPosition": "3"
+            },
+            {
+                "name": "quantity",
+                "type": "double",
+                "jsonPath": "quantity",
+                "jsonType": "double",
+                "ordinalPosition": "4"
+            },
+            {
+                "name": "extendedprice",
+                "type": "double",
+                "jsonPath": "extendedprice",
+                "jsonType": "double",
+                "ordinalPosition": "5"
+            },
+            {
+                "name": "discount",
+                "type": "double",
+                "jsonPath": "discount",
+                "jsonType": "double",
+                "ordinalPosition": "6"
+            },
+            {
+                "name": "tax",
+                "type": "double",
+                "jsonPath": "tax",
+                "jsonType": "double",
+                "ordinalPosition": "7"
+            },
+            {
+                "name": "returnflag",
+                "type": "varchar",
+                "jsonPath": "returnflag",
+                "jsonType": "varchar",
+                "ordinalPosition": "8"
+            },
+            {
+                "name": "linestatus",
+                "type": "varchar",
+                "jsonPath": "linestatus",
+                "jsonType": "varchar",
+                "ordinalPosition": "9"
+            },
+            {
+                "name": "shipdate",
+                "type": "varchar",
+                "jsonPath": "shipdate",
+                "jsonType": "varchar",
+                "ordinalPosition": "10"
+            },
+            {
+                "name": "commitdate",
+                "type": "varchar",
+                "jsonPath": "commitdate",
+                "jsonType": "varchar",
+                "ordinalPosition": "11"
+            },
+            {
+                "name": "receiptdate",
+                "type": "varchar",
+                "jsonPath": "receiptdate",
+                "jsonType": "varchar",
+                "ordinalPosition": "12"
+            },
+            {
+                "name": "shipinstruct",
+                "type": "varchar",
+                "jsonPath": "shipinstruct",
+                "jsonType": "varchar",
+                "ordinalPosition": "13"
+            },
+            {
+                "name": "shipmode",
+                "type": "varchar",
+                "jsonPath": "shipmode",
+                "jsonType": "varchar",
+                "ordinalPosition": "14"
+            },
+            {
+                "name": "comment",
+                "type": "varchar",
+                "jsonPath": "comment",
+                "jsonType": "varchar",
+                "ordinalPosition": "15"
+            }
+        ]
+}
