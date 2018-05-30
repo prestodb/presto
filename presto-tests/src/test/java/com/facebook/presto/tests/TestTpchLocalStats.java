@@ -193,38 +193,38 @@ public class TestTpchLocalStats
     public void testLeftJoinStats()
     {
         // non equi predicates
-        statisticsAssertion.check("SELECT * FROM supplier left join nation on true",
+        statisticsAssertion.check("SELECT * FROM supplier LEFT JOIN nation ON true",
                 checks -> checks
                         .estimate(OUTPUT_ROW_COUNT, defaultTolerance())
                         .verifyExactColumnStatistics("s_nationkey")
                         .verifyExactColumnStatistics("n_nationkey")
                         .verifyExactColumnStatistics("s_suppkey"));
-        statisticsAssertion.check("SELECT * FROM supplier left join nation on false",
+        statisticsAssertion.check("SELECT * FROM supplier LEFT JOIN nation ON false",
                 checks -> checks
                         .estimate(OUTPUT_ROW_COUNT, defaultTolerance())
                         .verifyExactColumnStatistics("s_nationkey")
                         .verifyExactColumnStatistics("s_suppkey"));
         // simple equi join
-        statisticsAssertion.check("SELECT * FROM supplier left join nation on s_nationkey = n_nationkey",
+        statisticsAssertion.check("SELECT * FROM supplier LEFT JOIN nation ON s_nationkey = n_nationkey",
                 checks -> checks
                         .estimate(OUTPUT_ROW_COUNT, relativeError(0.70))
                         .verifyColumnStatistics("s_nationkey", absoluteError(0.40))
                         .verifyColumnStatistics("n_nationkey", absoluteError(0.40))
                         .verifyColumnStatistics("s_suppkey", absoluteError(0.40)));
-        statisticsAssertion.check("SELECT * FROM supplier left join nation on s_nationkey = n_nationkey AND n_nationkey <= 12",
+        statisticsAssertion.check("SELECT * FROM supplier LEFT JOIN nation ON s_nationkey = n_nationkey AND n_nationkey <= 12",
                 checks -> checks
                         .estimate(OUTPUT_ROW_COUNT, relativeError(0.70))
                         .verifyColumnStatistics("s_nationkey", absoluteError(0.40))
                         .verifyColumnStatistics("n_nationkey", relativeError(0.40))
                         .verifyColumnStatistics("s_suppkey", absoluteError(0.40)));
-        statisticsAssertion.check("SELECT * FROM (SELECT * FROM supplier WHERE s_nationkey <= 12) left join nation on s_nationkey = n_nationkey",
+        statisticsAssertion.check("SELECT * FROM (SELECT * FROM supplier WHERE s_nationkey <= 12) LEFT JOIN nation ON s_nationkey = n_nationkey",
                 checks -> checks
                         .estimate(OUTPUT_ROW_COUNT, relativeError(0.70))
                         .verifyColumnStatistics("s_nationkey", absoluteError(2.0))
                         .verifyColumnStatistics("n_nationkey", absoluteError(2.0)));
 
         // join with two keys
-        statisticsAssertion.check("SELECT * FROM partsupp left join lineitem on ps_partkey = l_partkey AND ps_suppkey = l_suppkey",
+        statisticsAssertion.check("SELECT * FROM partsupp LEFT JOIN lineitem ON ps_partkey = l_partkey AND ps_suppkey = l_suppkey",
                 checks -> checks
                         .estimate(OUTPUT_ROW_COUNT, relativeError(4.0))
                         .verifyExactColumnStatistics("ps_partkey")
@@ -248,38 +248,38 @@ public class TestTpchLocalStats
     public void testRightJoinStats()
     {
         // non equi predicates
-        statisticsAssertion.check("SELECT * FROM nation right join supplier on true",
+        statisticsAssertion.check("SELECT * FROM nation RIGHT JOIN supplier ON true",
                 checks -> checks
                         .estimate(OUTPUT_ROW_COUNT, defaultTolerance())
                         .verifyExactColumnStatistics("s_nationkey")
                         .verifyExactColumnStatistics("n_nationkey")
                         .verifyExactColumnStatistics("s_suppkey"));
-        statisticsAssertion.check("SELECT * FROM nation right join supplier on false",
+        statisticsAssertion.check("SELECT * FROM nation RIGHT JOIN supplier ON false",
                 checks -> checks
                         .estimate(OUTPUT_ROW_COUNT, defaultTolerance())
                         .verifyExactColumnStatistics("s_nationkey")
                         .verifyExactColumnStatistics("s_suppkey"));
         // simple equi join
-        statisticsAssertion.check("SELECT * FROM nation right join supplier on s_nationkey = n_nationkey",
+        statisticsAssertion.check("SELECT * FROM nation RIGHT JOIN supplier ON s_nationkey = n_nationkey",
                 checks -> checks
                         .estimate(OUTPUT_ROW_COUNT, relativeError(0.70))
                         .verifyColumnStatistics("s_nationkey", absoluteError(0.40))
                         .verifyColumnStatistics("n_nationkey", absoluteError(0.40))
                         .verifyColumnStatistics("s_suppkey", absoluteError(0.40)));
-        statisticsAssertion.check("SELECT * FROM nation right join supplier on s_nationkey = n_nationkey AND n_nationkey <= 12",
+        statisticsAssertion.check("SELECT * FROM nation RIGHT JOIN supplier ON s_nationkey = n_nationkey AND n_nationkey <= 12",
                 checks -> checks
                         .estimate(OUTPUT_ROW_COUNT, relativeError(0.70))
                         .verifyColumnStatistics("s_nationkey", absoluteError(0.40))
                         .verifyColumnStatistics("n_nationkey", relativeError(0.40))
                         .verifyColumnStatistics("s_suppkey", absoluteError(0.40)));
-        statisticsAssertion.check("SELECT * FROM nation right JOIN (SELECT * FROM supplier WHERE s_nationkey <= 12) on s_nationkey = n_nationkey",
+        statisticsAssertion.check("SELECT * FROM nation RIGHT JOIN (SELECT * FROM supplier WHERE s_nationkey <= 12) ON s_nationkey = n_nationkey",
                 checks -> checks
                         .estimate(OUTPUT_ROW_COUNT, relativeError(0.70))
                         .verifyColumnStatistics("s_nationkey", absoluteError(2.0))
                         .verifyColumnStatistics("n_nationkey", absoluteError(2.0)));
 
         // join with two keys
-        statisticsAssertion.check("SELECT * FROM lineitem right join partsupp on ps_partkey = l_partkey AND ps_suppkey = l_suppkey",
+        statisticsAssertion.check("SELECT * FROM lineitem RIGHT JOIN partsupp ON ps_partkey = l_partkey AND ps_suppkey = l_suppkey",
                 checks -> checks
                         .estimate(OUTPUT_ROW_COUNT, relativeError(4.0))
                         .verifyExactColumnStatistics("ps_partkey")
@@ -303,33 +303,33 @@ public class TestTpchLocalStats
     public void testFullJoinStats()
     {
         // non equi predicates
-        statisticsAssertion.check("SELECT * FROM supplier full join nation on true",
+        statisticsAssertion.check("SELECT * FROM supplier FULL JOIN nation ON true",
                 checks -> checks
                         .estimate(OUTPUT_ROW_COUNT, defaultTolerance())
                         .verifyExactColumnStatistics("s_nationkey")
                         .verifyExactColumnStatistics("n_nationkey")
                         .verifyExactColumnStatistics("s_suppkey"));
         // simple equi join
-        statisticsAssertion.check("SELECT * FROM nation full join supplier on s_nationkey = n_nationkey",
+        statisticsAssertion.check("SELECT * FROM nation FULL JOIN supplier ON s_nationkey = n_nationkey",
                 checks -> checks
                         .estimate(OUTPUT_ROW_COUNT, relativeError(0.70))
                         .verifyColumnStatistics("s_nationkey", absoluteError(0.40))
                         .verifyColumnStatistics("n_nationkey", absoluteError(0.40))
                         .verifyColumnStatistics("s_suppkey", absoluteError(0.40)));
-        statisticsAssertion.check("SELECT * FROM (SELECT * FROM nation WHERE n_nationkey <= 12) full join supplier on s_nationkey = n_nationkey",
+        statisticsAssertion.check("SELECT * FROM (SELECT * FROM nation WHERE n_nationkey <= 12) FULL JOIN supplier ON s_nationkey = n_nationkey",
                 checks -> checks
                         .estimate(OUTPUT_ROW_COUNT, relativeError(0.70))
                         .verifyColumnStatistics("s_nationkey", absoluteError(0.40))
                         .verifyColumnStatistics("n_nationkey", relativeError(0.40))
                         .verifyColumnStatistics("s_suppkey", absoluteError(0.40)));
-        statisticsAssertion.check("SELECT * FROM nation full join (SELECT * FROM supplier WHERE s_nationkey <= 12) on s_nationkey = n_nationkey",
+        statisticsAssertion.check("SELECT * FROM nation FULL JOIN (SELECT * FROM supplier WHERE s_nationkey <= 12) ON s_nationkey = n_nationkey",
                 checks -> checks
                         .estimate(OUTPUT_ROW_COUNT, relativeError(0.70))
                         .verifyColumnStatistics("s_nationkey", relativeError(0.40))
                         .verifyColumnStatistics("n_nationkey", relativeError(0.40)));
 
         // join with two keys
-        statisticsAssertion.check("SELECT * FROM lineitem full join partsupp on ps_partkey = l_partkey AND ps_suppkey = l_suppkey",
+        statisticsAssertion.check("SELECT * FROM lineitem FULL JOIN partsupp ON ps_partkey = l_partkey AND ps_suppkey = l_suppkey",
                 checks -> checks
                         .estimate(OUTPUT_ROW_COUNT, relativeError(4.0))
                         .verifyColumnStatistics("ps_partkey", absoluteError(6.0))
