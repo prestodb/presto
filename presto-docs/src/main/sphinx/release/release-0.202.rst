@@ -5,8 +5,7 @@ Release 0.202
 General Changes
 ---------------
 
-* Fix correctness issue for queries involving aggregations over the result of an outer join
-  (`#10592 <https://github.com/prestodb/presto/issues/10592>`_).
+* Fix correctness issue for queries involving aggregations over the result of an outer join (:issue:`10592`).
 * Fix :func:`map` to raise an error on duplicate keys rather than silently producing a corrupted map.
 * Fix :func:`map_from_entries` to raise an error when input array contains a ``null`` entry.
 * Fix out-of-memory error for bucketed execution by scheduling new splits on the same worker as
@@ -16,8 +15,7 @@ General Changes
   functions to not return values outside of the expected range.
 * Fix failure in :func:`geometry_to_bing_tiles` and :func:`ST_NumPoints` functions when
   processing geometry collections.
-* Fix query failure in aggregation spilling
-  (`#10587 <https://github.com/prestodb/presto/issues/10587>`_).
+* Fix query failure in aggregation spilling (:issue:`10587`).
 * Remove support for ``SHOW PARTITIONS`` statement.
 * Improve support for correlated subqueries containing equality predicates.
 * Improve performance of correlated ``EXISTS`` subqueries.
