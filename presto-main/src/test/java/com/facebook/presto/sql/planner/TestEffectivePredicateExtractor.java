@@ -158,6 +158,7 @@ public class TestEffectivePredicateExtractor
                         C, new Aggregation(fakeFunction(), fakeFunctionHandle("test", AGGREGATE), Optional.empty()),
                         D, new Aggregation(fakeFunction(), fakeFunctionHandle("test", AGGREGATE), Optional.empty())),
                 ImmutableList.of(ImmutableList.of(A, B, C)),
+                ImmutableList.of(),
                 AggregationNode.Step.FINAL,
                 Optional.empty(),
                 Optional.empty());
@@ -181,6 +182,7 @@ public class TestEffectivePredicateExtractor
                 filter(baseTableScan, FALSE_LITERAL),
                 ImmutableMap.of(),
                 ImmutableList.of(ImmutableList.of()),
+                ImmutableList.of(),
                 AggregationNode.Step.FINAL,
                 Optional.empty(),
                 Optional.empty());

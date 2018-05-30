@@ -173,6 +173,7 @@ public class PlanNodeDecorrelator
                     ImmutableList.of(ImmutableList.<Symbol>builder()
                             .addAll(decorrelatedChildNode.getOutputSymbols())
                             .build()),
+                    ImmutableList.of(),
                     AggregationNode.Step.SINGLE,
                     Optional.empty(),
                     Optional.empty());
@@ -232,6 +233,7 @@ public class PlanNodeDecorrelator
                     decorrelatedAggregation.getSource(),
                     decorrelatedAggregation.getAggregations(),
                     newGroupingSets.build(),
+                    ImmutableList.of(),
                     decorrelatedAggregation.getStep(),
                     decorrelatedAggregation.getHashSymbol(),
                     decorrelatedAggregation.getGroupIdSymbol());

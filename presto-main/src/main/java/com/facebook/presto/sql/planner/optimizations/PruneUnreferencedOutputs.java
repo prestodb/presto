@@ -321,6 +321,7 @@ public class PruneUnreferencedOutputs
                     source,
                     aggregations.build(),
                     node.getGroupingSets(),
+                    ImmutableList.of(),
                     node.getStep(),
                     node.getHashSymbol(),
                     node.getGroupIdSymbol());

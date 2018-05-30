@@ -197,6 +197,7 @@ public class ScalarAggregationToJoinRewriter
                 leftOuterJoin,
                 aggregations.build(),
                 ImmutableList.of(groupBySymbols),
+                ImmutableList.of(),
                 scalarAggregation.getStep(),
                 scalarAggregation.getHashSymbol(),
                 Optional.empty()));

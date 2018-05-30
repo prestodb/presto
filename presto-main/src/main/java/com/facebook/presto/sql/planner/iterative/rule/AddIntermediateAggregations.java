@@ -117,6 +117,7 @@ public class AddIntermediateAggregations
                     source,
                     inputsAsOutputs(aggregation.getAggregations()),
                     aggregation.getGroupingSets(),
+                    aggregation.getPreGroupedSymbols(),
                     AggregationNode.Step.INTERMEDIATE,
                     aggregation.getHashSymbol(),
                     aggregation.getGroupIdSymbol());
@@ -159,6 +160,7 @@ public class AddIntermediateAggregations
                 gatheringExchange,
                 outputsAsInputs(aggregation.getAggregations()),
                 aggregation.getGroupingSets(),
+                aggregation.getPreGroupedSymbols(),
                 AggregationNode.Step.INTERMEDIATE,
                 aggregation.getHashSymbol(),
                 aggregation.getGroupIdSymbol());

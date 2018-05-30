@@ -101,6 +101,7 @@ public class SymbolMapper
                 source,
                 aggregations.build(),
                 groupingSets,
+                ImmutableList.of(),
                 node.getStep(),
                 node.getHashSymbol().map(this::map),
                 node.getGroupIdSymbol().map(this::map));
